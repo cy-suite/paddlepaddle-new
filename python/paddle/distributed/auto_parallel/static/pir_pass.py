@@ -1051,11 +1051,20 @@ def complete_chunk_id(dist_program, startup_program, pipeline_strategy):
         if len(seg_parts) == len(seg_struct_names):
             break
         struct_name = _extract_seg_method(op, seg_method)
-        if (
-            "pd_op" in op.name() and last_struct_name != struct_name
-        ):  # When traversing the ops, filter out the ops that need to be skipped. At the same time, according to the struct_name, ensure that the pp_stage of each layer is only recorded once.
+        if op.dist_attr is not None and last_struct_name != struct_name:
+            # When traversing the operations, filter out those without any ops where `has_attr` is `None`. At the same time, ensure that the `pp_stage` of each layer is recorded only once according to the `struct_name`.
+            if (
+                get_pp_stage_by_process_mesh(
+                    op.dist_attr.process_mesh, pp_degree
+                )
+                is not None
+            ):
+                user_layer_to_stage_id.append(
+                    get_pp_stage_by_process_mesh(
+                        op.dist_attr.process_mesh, pp_degree
+                    )
+                )
             last_struct_name = struct_name
-            user_layer_to_stage_id.extend(op.dist_attr.process_mesh.process_ids)
         if struct_name == seg_struct_names[len(seg_parts)]:
             seg_parts.append(idx)
     seg_parts.append(len(ops))
@@ -1064,15 +1073,14 @@ def complete_chunk_id(dist_program, startup_program, pipeline_strategy):
         pp_stage_layer_num[i] = pp_stage_layer_num[i] + 1
     assert all(
         value >= vpp_degree for value in pp_stage_layer_num
-    ), "Make sure each segment is not empty"
+    ), "The number of layers on each pp_stage must not be less than the vpp_degree in the pp_stage to ensure that each chunk contains at least one layer."
     seg_layer_num = [0] * num_chunks
     for pp_stage in range(
         0, pp_degree
     ):  # Each pp_stage is assigned a number of tiers based on user intent.
         pp_stage_layer_nums = pp_stage_layer_num[pp_stage]
-        for i in range(
-            0, pp_stage_layer_nums
-        ):  # The pp_stage uses a Round robin scheduling algorithm to allocate layers one by one.
+        for i in range(0, pp_stage_layer_nums):
+            # The pp_stage uses a Round robin scheduling algorithm to allocate layers one by one.
             v_chunk_id = i % vpp_degree
             r_chunk_id = (v_chunk_id) * pp_degree + pp_stage
             seg_layer_num[r_chunk_id] = seg_layer_num[r_chunk_id] + 1
