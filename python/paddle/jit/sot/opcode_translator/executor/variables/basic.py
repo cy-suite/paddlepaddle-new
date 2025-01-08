@@ -1051,7 +1051,7 @@ class ObjectVariable(VariableBase):
 
     def get_iter(self):
         """
-        To simplify the problem, we only support the case where the __iter__ method returns a list.
+        To simplify the problem, we only support the case where the __iter__ or iter method returns a type which supports SequenceIterVariable.
         """
         from . import (
             BuiltinVariable,

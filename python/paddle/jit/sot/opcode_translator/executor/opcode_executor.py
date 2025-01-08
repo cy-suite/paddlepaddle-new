@@ -77,6 +77,7 @@ from .pycode_generator import (
     ResumeFunctionType,
 )
 from .tracker import (
+    BuiltinTracker,
     CellTracker,
     ConstTracker,
     DanglingTracker,
@@ -860,16 +861,22 @@ class OpcodeExecutorBase:
         if push_null and CALL_METHOD_LAYOUT_NULL_AFTER_VALUE:
             self.stack.push(NullVariable())
 
-    def load_sequence(self, obj):
-        self.stack.push(obj.get_iter())
-        # skip call
-        while self._instructions[self._lasti].opname != "RETURN_VALUE":
-            self._lasti += 1
-
     def load_method(self, method_name):
+        def load_builtin_funcs():
+            if method_name != "__iter__":
+                return False
+            self.stack.push(
+                BuiltinVariable(
+                    iter,
+                    graph=self._graph,
+                    tracker=BuiltinTracker("iter"),
+                )
+            )
+            self.stack.push(obj)
+            return True
+
         obj = self.stack.pop()
-        if isinstance(obj, ContainerVariable) and method_name == "__iter__":
-            self.load_sequence(obj)
+        if load_builtin_funcs():
             return
         method_name_var = ConstantVariable.wrap_literal(
             method_name, self._graph
