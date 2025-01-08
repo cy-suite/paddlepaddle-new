@@ -35,7 +35,7 @@ gather_srcs(
   eliminate_common_factor_of_local_index.cc
   if_fusion_pass.cc
   merge_block_utils.cc
-  eliminate_common_global_memory_read.cc
+  eliminate_common_global_memory_read_pass.cc
   rearrange_load_instruction_pass.cc
   check_tensor_buffer_map.cc
   longlong2int_pass.cc
