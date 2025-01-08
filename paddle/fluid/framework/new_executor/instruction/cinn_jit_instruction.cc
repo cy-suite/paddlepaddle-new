@@ -201,7 +201,8 @@ class CinnJitInstruction::FnPtrImpl {
   }
 
   void CheckDims(const DDim& first, const DDim& second) const {
-    VLOG(3) << "Start Check Dims in jit instruction." PADDLE_ENFORCE_EQ(
+    VLOG(3) << "Start Check Dims in jit instruction.";
+    PADDLE_ENFORCE_EQ(
         first.size(),
         second.size(),
         phi::errors::PreconditionNotMet("The rank of dim MUST be same. "
