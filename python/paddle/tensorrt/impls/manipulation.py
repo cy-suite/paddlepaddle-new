@@ -1023,4 +1023,3 @@ def numel_converter(network, paddle_op, inputs):
         shape_tensor, trt.ReduceOperation.PROD, axes=1, keep_dims=False
     )
     return layer.get_output(0)
-

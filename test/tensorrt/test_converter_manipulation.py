@@ -648,16 +648,6 @@ def wrapper_pad3d(x, paddings, mode, value, data_format):
     return pad3d(x)
 
 
-def wrapper_pad3d_error1(x, paddings, mode, value, data_format):
-    pad3d = paddle.nn.Pad3D(
-        padding=[1, 0, 1, 2, 0, 0],
-        mode="constant",
-        value=1.0,
-        data_format="NCDHW",
-    )
-    return pad3d(x)
-
-
 def wrapper_pad3d_error2(x):
     pad3d = paddle.nn.Pad3D(
         padding=[1, 0, 1, 2, 0, 0],
@@ -751,7 +741,7 @@ class TestPad3dNoPaddingTRTPattern(TensorRTBaseTest):
 
 class TestPad3dErrorModeTRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = wrapper_pad3d_error1
+        self.python_api = paddle._C_ops.pad3d
         self.api_args = {
             "x": np.random.random([1, 1, 1, 2, 3]).astype("float32"),
             "paddings": np.array([1, 0, 1, 2, 0, 0]).astype("int"),
@@ -770,7 +760,7 @@ class TestPad3dErrorModeTRTPattern(TensorRTBaseTest):
 
 class TestPad3dErrorDataformatTRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = wrapper_pad3d_error1
+        self.python_api = paddle._C_ops.pad3d
         self.api_args = {
             "x": np.random.random([1, 1, 1, 2, 3]).astype("float32"),
             "paddings": np.array([1, 0, 1, 2, 0, 0]).astype("int"),
