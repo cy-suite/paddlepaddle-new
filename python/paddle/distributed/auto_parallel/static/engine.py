@@ -361,8 +361,21 @@ class Engine:
             raise TypeError(
                 f"Data should be a dict or list, but received {type(data)}."
             )
-        inputs = auto_utils.to_list(inputs)
+        if not isinstance(inputs, (list, tuple)):
+            inputs = auto_utils.to_list(inputs)
         labels = auto_utils.to_list(labels)
+
+        def flatten_list(nested_list):
+            flat_list = []
+            for item in nested_list:
+                if isinstance(item, (list, tuple)):
+                    flat_list.extend(flatten_list(item))
+                else:
+                    flat_list.append(item)
+            return flat_list
+
+        # flatten [[1,2],3] - > [1,2,3]
+        inputs = flatten_list(inputs)
         if inputs is not None:
             for i, item in enumerate(inputs):
                 assert item is not None, "Receive None input."
