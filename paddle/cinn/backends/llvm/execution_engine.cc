@@ -171,10 +171,46 @@ std::unique_ptr<llvm::MemoryBuffer> NaiveObjectCache::getObject(
 
 template <typename CodeGenT>
 void ExecutionEngine::Link(const ir::Module &module) {
+  if (module.functions().size() == 0) {
+    return;
+  }
   utils::RecordEvent("ExecutionEngine Link", utils::EventType::kOrdinary);
   auto ir_emitter = std::make_unique<CodeGenT>(m.get(), b.get());
   VLOG(3) << "ir_emitter->Compile(module) Begin";
   ir_emitter->Compile(module);
+  VLOG(3) << "ir_emitter->Compile(module) Succeed!";
+  PADDLE_ENFORCE_EQ(
+      !llvm::verifyModule(*m, &llvm::errs()),
+      true,
+      ::common::errors::InvalidArgument("Sorry,Invalid module found"));
+  auto machine = std::move(llvm::cantFail(
+      llvm::cantFail(llvm::orc::JITTargetMachineBuilder::detectHost())
+          .createTargetMachine()));
+  LLVMModuleOptimizer optimize(machine.get(), 3, {}, true);
+  optimize(m.get());
+  PADDLE_ENFORCE_EQ(
+      !llvm::verifyModule(*m, &llvm::errs()),
+      true,
+      ::common::errors::InvalidArgument("Invalid optimized module detected"));
+  for (auto &f : *m) {
+    VLOG(5) << "function: " << DumpToString(f);
+  }
+
+  llvm::raw_svector_ostream rawstream(buffer_);
+  llvm::legacy::PassManager pass_manager;
+  machine->addPassesToEmitFile(
+      pass_manager, rawstream, nullptr, llvm::CGFT_ObjectFile);
+  pass_manager.run(*m);
+
+  if (VLOG_IS_ON(5)) {
+    VLOG(5) << "======= dump jit execution session ======";
+    std::string buffer;
+    llvm::raw_string_ostream os(buffer);
+    decltype(auto) es = jit_->getExecutionSession();
+    es.dump(os);
+    os.flush();
+    VLOG(5) << buffer;
+  }
 }
 
 bool ExecutionEngine::AddModule(std::unique_ptr<llvm::Module> module,
