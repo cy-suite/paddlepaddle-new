@@ -2398,7 +2398,7 @@ void PSGPUWrapper::PullSparse(const phi::Place& place,
                               const std::vector<float*>& values,
                               const std::vector<int64_t>& slot_lengths,
                               const int hidden_size) {
-  VLOG(0) << "Warning:: recommand use pull_gpups_sparse op instead. This "
+  VLOG(0) << "Warning:: recommend use pull_gpups_sparse op instead. This "
              "PullSparse is not used.";
 }
 
