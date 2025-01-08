@@ -526,7 +526,9 @@ def wrapper_temporal_shift(x):
 
 
 def wrapper_temporal_shift_2(x, seg_num, shift_ratio):
-    return paddle.nn.functional.temporal_shift(x=x, seg_num=seg_num, shift_ratio=shift_ratio)
+    return paddle.nn.functional.temporal_shift(
+        x=paddle.randn([4, 9, 7, 7]), seg_num=seg_num, shift_ratio=shift_ratio
+    )
 
 
 class TestTemporalShiftTRTPatternError1(TensorRTBaseTest):
@@ -548,14 +550,14 @@ class TestTemporalShiftTRTPatternError2(TensorRTBaseTest):
     def setUp(self):
         self.python_api = wrapper_temporal_shift_2
         self.api_args = {
-            "x": np.random.random([4, 9, 7, 7, 7]).astype(np.float32),
+            "x": np.random.random([4, 9, 7]).astype(np.float32),
             "seg_num": 2,
             "shift_ratio": 0.2,
         }
         self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {"x": [2, 9, 7, 7, 7]}
-        self.opt_shape = {"x": [2, 9, 7, 7, 7]}
-        self.max_shape = {"x": [10, 9, 7, 7, 7]}
+        self.min_shape = {"x": [2, 9, 7]}
+        self.opt_shape = {"x": [2, 9, 7]}
+        self.max_shape = {"x": [10, 9, 7]}
 
     def test_trt_result(self):
         self.check_marker(expected_result=False)
