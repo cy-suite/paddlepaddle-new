@@ -14,7 +14,8 @@
 
 #pragma once
 
-#include "paddle/cinn/ir/ir.h"
+#include "paddle/cinn/ir/stmt.h"
+#include "paddle/cinn/pass/pass.h"
 
 namespace cinn {
 namespace optim {
@@ -46,7 +47,15 @@ namespace optim {
  * significant speedups in memory-intensive computations.
  *
  */
-void EliminateCommonGlobalMemoryRead(Expr* e);
+class EliminateCommonGlobalMemoryReadPass : public BlockPass {
+ public:
+  EliminateCommonGlobalMemoryReadPass()
+      : BlockPass("eliminate_common_global_memory_read_pass") {}
+
+  LogicalResult Run(ir::stmt::BlockRef block) override;
+};
+
+std::unique_ptr<BlockPass> CreateEliminateCommonGlobalMemoryReadPass();
 
 }  // namespace optim
 }  // namespace cinn

@@ -33,12 +33,14 @@
 #include "paddle/cinn/ir/group_schedule/config/group_tile_config.h"
 #include "paddle/cinn/ir/ir_analyzer/ir_analyzer.h"
 #include "paddle/cinn/ir/schedule/ir_schedule.h"
+#include "paddle/cinn/ir/utils/stmt_converter.h"
 #include "paddle/cinn/lang/placeholder.h"
 #include "paddle/cinn/operator_fusion/fusion_interface.h"
 #include "paddle/cinn/optim/check_tensor_buffer_map.h"
-#include "paddle/cinn/optim/eliminate_common_global_memory_read.h"
+#include "paddle/cinn/optim/eliminate_common_global_memory_read_pass.h"
 #include "paddle/cinn/optim/schedule_block_dce.h"
 #include "paddle/cinn/optim/transform_gpu_forloop.h"
+#include "paddle/cinn/pass/pass_manager.h"
 #include "paddle/common/ddim.h"
 #include "paddle/common/enforce.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_type.h"
@@ -370,18 +372,28 @@ std::vector<ir::LoweredFunc> OpLowererImpl::PostProcess(
     ir::Expr func_body = func_bodies[i];
     optim::EliminateDeadScheduleBlock(&(func_body), group->output_names());
     if (i != func_bodies.size() - 1) {
+      ir::stmt::BlockRef func_body_block =
+          ir::ConvertExprBlockToStmtBlock(func_body);
       cinn::common::DefaultDeviceTarget().arch.Match(
           [&](std::variant<common::UnknownArch,
                            common::X86Arch,
                            common::ARMArch>) {},
           [&](common::NVGPUArch) {
 #ifdef CINN_WITH_CUDA
-            optim::EliminateCommonGlobalMemoryRead(&(func_body));
+            optim::BlockPassManager pass_manager;
+            pass_manager.AddPass(
+                optim::CreateEliminateCommonGlobalMemoryReadPass());
+            pass_manager.Run(func_body_block);
+            func_body = ir::ConvertStmtBlockToExprBlock(func_body_block);
             optim::OptimizeExprGPU(&(func_body));
 #endif
           },
           [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
-            optim::EliminateCommonGlobalMemoryRead(&(func_body));
+            optim::BlockPassManager pass_manager;
+            pass_manager.AddPass(
+                optim::CreateEliminateCommonGlobalMemoryReadPass());
+            pass_manager.Run(func_body_block);
+            func_body = ir::ConvertStmtBlockToExprBlock(func_body_block);
             optim::OptimizeExprGPU(&(func_body));
           });
     }
