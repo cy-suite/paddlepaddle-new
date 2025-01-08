@@ -789,8 +789,8 @@ class OpcodeExecutorBase:
                 return
         else:
             attr_name = self._code.co_names[instr.arg]
-        obj = self.stack.pop()
         attr_name_var = ConstantVariable.wrap_literal(attr_name, self._graph)
+        obj = self.stack.pop()
         self.stack.push(
             BuiltinVariable(
                 getattr, graph=self._graph, tracker=DanglingTracker()
