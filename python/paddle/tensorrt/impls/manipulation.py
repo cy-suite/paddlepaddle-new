@@ -957,6 +957,7 @@ def pad_converter(network, paddle_op, inputs):
     pre_pad = [paddings[pad_size - 4], paddings[pad_size - 2]]
     post_pad = [paddings[pad_size - 3], paddings[pad_size - 1]]
     layer = network.add_padding_nd(input_tensor, pre_pad, post_pad)
+    return layer.get_output(0)
 
 
 @converter_registry.register("pd_op.numel", trt_version="8.x")
