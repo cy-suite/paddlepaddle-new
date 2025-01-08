@@ -614,7 +614,7 @@ class TestMinimumIntTRTPattern(TensorRTBaseTest):
 
 class TestLessEqualTRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = paddle.less_equal
+        self.python_api = paddle._C_ops.less_equal
         self.api_args = {
             "x": np.random.randn(2, 3).astype("float32"),
             "y": np.random.randn(2, 3).astype("float32"),
@@ -632,7 +632,7 @@ class TestLessEqualTRTPattern(TensorRTBaseTest):
 
 class TestLessEqual_TRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = paddle.less_equal_
+        self.python_api = paddle._C_ops.less_equal_
         self.api_args = {
             "x": np.random.randn(2, 3).astype("float32"),
             "y": np.random.randn(2, 3).astype("float32"),
@@ -650,7 +650,7 @@ class TestLessEqual_TRTPattern(TensorRTBaseTest):
 
 class TestLessEqualINTTRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = paddle.less_equal
+        self.python_api = paddle._C_ops.less_equal
         self.api_args = {
             "x": np.random.randn(2, 3).astype("int64"),
             "y": np.random.randn(2, 3).astype("int64"),
@@ -668,7 +668,7 @@ class TestLessEqualINTTRTPattern(TensorRTBaseTest):
 
 class TestLessEqual_INTTRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = paddle.less_equal_
+        self.python_api = paddle._C_ops.less_equal_
         self.api_args = {
             "x": np.random.randn(2, 3).astype("int64"),
             "y": np.random.randn(2, 3).astype("int64"),
@@ -686,7 +686,7 @@ class TestLessEqual_INTTRTPattern(TensorRTBaseTest):
 
 class TestLessEqualErrorTRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = paddle.less_equal
+        self.python_api = paddle._C_ops.less_equal
         self.api_args = {
             "x": np.random.randn(2, 3).astype("bool"),
             "y": np.random.randn(2, 3).astype("bool"),
