@@ -301,7 +301,7 @@ PD_DEFINE_bool(cinn_longlong2int,
                "Whether to cast long long to int for integer.");
 
 PD_DEFINE_bool(cinn_check_jit_instruction_shape,
-               BoolFromEnv("FLAGS_check_jit_instruction_shape", false),
+               BoolFromEnv("FLAGS_cinn_check_jit_instruction_shape", false),
                "Whether to check shape in jit instruction.");
 
 namespace cinn {
