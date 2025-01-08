@@ -96,8 +96,7 @@ struct GlobalTensorInfoCollector : public ir::IRMutator<Expr*>,
       for (size_t i = 0; i < indice1.size(); ++i) {
         ir::Expr lhs = IndiceToExprWithForVar(indice1.at(i), for_var_map);
         ir::Expr rhs = IndiceToExprWithForVar(indice2.at(i), for_var_map);
-        if (optim::ArithSimplify(ir::Sub::Make(lhs, rhs)) !=
-            ir::Expr(0)) {
+        if (optim::ArithSimplify(ir::Sub::Make(lhs, rhs)) != ir::Expr(0)) {
           return false;
         }
       }
@@ -233,8 +232,8 @@ struct GlobalTensorInfoCollector : public ir::IRMutator<Expr*>,
     PADDLE_ENFORCE_EQ(
         iter_values.size(),
         iter_vars.size(),
-        ::common::errors::InvalidArgument(
-            "The size of iter_values should be equal to the size of iter_vars."));
+        ::common::errors::InvalidArgument("The size of iter_values should be "
+                                          "equal to the size of iter_vars."));
 
     for (std::size_t i = 0; i < iter_values.size(); ++i) {
       var_to_sb_expr_[iter_vars[i]] = iter_values[i];
@@ -273,9 +272,7 @@ struct GlobalTensorInfoCollector : public ir::IRMutator<Expr*>,
   }
 
   void VisitStmt(ir::stmt::Let stmt) override {
-    if (stmt->body().defined()){
-      operator()(stmt->body());
-    }
+    if (stmt->body().defined()) operator()(stmt->body());
   }
 
   void VisitStmt(ir::stmt::Evaluate stmt) override {}
