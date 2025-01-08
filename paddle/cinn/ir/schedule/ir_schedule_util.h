@@ -66,6 +66,13 @@ Tensor GetReadTensor(const Expr& block, int index);
 int GetLoopExtent(const Expr& loop);
 
 /**
+ * \brief Given a For node, return its extent as int.
+ * @param loop The given For node
+ * @return The extent of For node
+ */
+int GetLoopExtent(const ir::stmt::For loop);
+
+/**
  * \brief Given a vector of Exprs, return whether they contain a var with
  * specific name.
  * @param exprs The given vector of Exprs
@@ -205,7 +212,7 @@ Expr MakeCacheBlock(const std::vector<IterRange>& buffer_ranges,
                     DeviceAPI device_api);
 
 /**
- * Fidn cache tensor block's insertion point in the whole AST(root).
+ * Find cache tensor block's insertion point in the whole AST(root).
  * @param root The whole AST.
  * @param info The information of cache block.
  * @param is_write Are we inserting a write cache tensor or a read cache tensor.
