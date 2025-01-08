@@ -30,13 +30,13 @@ class TestDtensorFromLocalAPI(test_base.CommunicationTestDistBase):
             "backend": ["gpu"],
         }
 
-    def test_local_view_compute(self):
+    def test_dtensor_from_local_api(self):
         envs_list = test_base.gen_product_envs_list(
             self._default_envs, self._changeable_envs
         )
         for envs in envs_list:
             self.run_test_case(
-                "local_view_compute.py",
+                "dy_local_view_compute.py",
                 user_defined_envs=envs,
             )
 
