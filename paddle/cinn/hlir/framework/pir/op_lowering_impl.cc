@@ -37,10 +37,9 @@
 #include "paddle/cinn/lang/placeholder.h"
 #include "paddle/cinn/operator_fusion/fusion_interface.h"
 #include "paddle/cinn/optim/check_tensor_buffer_map.h"
-#include "paddle/cinn/optim/eliminate_common_global_memory_read_pass.h"
+#include "paddle/cinn/optim/eliminate_common_global_memory_read.h"
 #include "paddle/cinn/optim/schedule_block_dce.h"
 #include "paddle/cinn/optim/transform_gpu_forloop.h"
-#include "paddle/cinn/pass/pass_manager.h"
 #include "paddle/common/ddim.h"
 #include "paddle/common/enforce.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_type.h"
@@ -380,19 +379,13 @@ std::vector<ir::LoweredFunc> OpLowererImpl::PostProcess(
                            common::ARMArch>) {},
           [&](common::NVGPUArch) {
 #ifdef CINN_WITH_CUDA
-            optim::BlockPassManager pass_manager;
-            pass_manager.AddPass(
-                optim::CreateEliminateCommonGlobalMemoryReadPass());
-            pass_manager.Run(func_body_block);
+            optim::EliminateCommonGlobalMemoryRead(func_body_block);
             func_body = ir::ConvertStmtBlockToExprBlock(func_body_block);
             optim::OptimizeExprGPU(&(func_body));
 #endif
           },
           [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
-            optim::BlockPassManager pass_manager;
-            pass_manager.AddPass(
-                optim::CreateEliminateCommonGlobalMemoryReadPass());
-            pass_manager.Run(func_body_block);
+            optim::EliminateCommonGlobalMemoryRead(func_body_block);
             func_body = ir::ConvertStmtBlockToExprBlock(func_body_block);
             optim::OptimizeExprGPU(&(func_body));
           });

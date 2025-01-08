@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/cinn/optim/eliminate_common_global_memory_read_pass.h"
+#include "paddle/cinn/optim/eliminate_common_global_memory_read.h"
 
 #include "paddle/cinn/common/cas.h"
 #include "paddle/cinn/common/integer_set.h"
@@ -46,7 +46,7 @@ std::unordered_map<ir::Var, ir::Var> ConstructForVarReplaceMap(
   for (const auto& [lhs_var, lhs_extent] : lhs_extents) {
     for (std::size_t i = 0; i < rhs_extents.size(); ++i) {
       const auto& [rhs_var, rhs_extent] = rhs_extents[i];
-      if (cinn::common::AutoSimplify(ir::Sub::Make(lhs_extent, rhs_extent)) ==
+      if (optim::ArithSimplify(ir::Sub::Make(lhs_extent, rhs_extent)) ==
               ir::Expr(0) &&
           visited_rhs_index.count(i) == 0) {
         ret[lhs_var] = rhs_var;
@@ -62,8 +62,8 @@ struct GlobalTensorInfoCollector : public ir::IRMutator<Expr*>,
                                    public ir::stmt::StmtMutator<> {
  public:
   void operator()(const ir::Expr& expr) {
-    ir::Expr expr_copy = expr;
-    ir::IRMutator<>::Visit(&expr_copy, &expr_copy);
+    ir::Expr _expr = expr;
+    ir::IRMutator<>::Visit(&_expr, &_expr);
   }
 
   void operator()(ir::stmt::BlockRef block) {
@@ -96,7 +96,7 @@ struct GlobalTensorInfoCollector : public ir::IRMutator<Expr*>,
       for (size_t i = 0; i < indice1.size(); ++i) {
         ir::Expr lhs = IndiceToExprWithForVar(indice1.at(i), for_var_map);
         ir::Expr rhs = IndiceToExprWithForVar(indice2.at(i), for_var_map);
-        if (cinn::common::AutoSimplify(ir::Sub::Make(lhs, rhs)) !=
+        if (optim::ArithSimplify(ir::Sub::Make(lhs, rhs)) !=
             ir::Expr(0)) {
           return false;
         }
@@ -174,7 +174,7 @@ struct GlobalTensorInfoCollector : public ir::IRMutator<Expr*>,
         }
         VLOG(6) << "Iter var name: " << iter_var_name << " with extent: "
                 << iter_var_name_to_extent_.at(iter_var_name);
-        buffer_size = cinn::common::AutoSimplify(ir::Mul::Make(
+        buffer_size = optim::ArithSimplify(ir::Mul::Make(
             buffer_size, iter_var_name_to_extent_.at(iter_var_name)));
       }
       return buffer_size;
@@ -190,7 +190,7 @@ struct GlobalTensorInfoCollector : public ir::IRMutator<Expr*>,
             CalculateBufferSize(indices_and_extent[0].indices);
         VLOG(6) << "Global buffer name: " << name
                 << " with size: " << buffer_size;
-        size = cinn::common::AutoSimplify(ir::Add::Make(size, buffer_size));
+        size = optim::ArithSimplify(ir::Add::Make(size, buffer_size));
       }
       if (BufferSizeContainsSymbolic(size)) {
         VLOG(6) << "Local buffer size contains symbolic: " << size;
@@ -234,11 +234,12 @@ struct GlobalTensorInfoCollector : public ir::IRMutator<Expr*>,
         iter_values.size(),
         iter_vars.size(),
         ::common::errors::InvalidArgument(
-            "The size of iter_values should equal to the size of iter_vars."));
+            "The size of iter_values should be equal to the size of iter_vars."));
 
     for (std::size_t i = 0; i < iter_values.size(); ++i) {
       var_to_sb_expr_[iter_vars[i]] = iter_values[i];
     }
+    operator()(stmt->body());
   }
 
   void VisitStmt(ir::stmt::For stmt) override {
@@ -262,21 +263,19 @@ struct GlobalTensorInfoCollector : public ir::IRMutator<Expr*>,
   void VisitStmt(ir::stmt::IfThenElse stmt) override {
     operator()(stmt->condition());
     operator()(stmt->true_case());
-    if (stmt->false_case().defined()) {
-      operator()(stmt->false_case());
-    }
+    if (stmt->false_case().defined()) operator()(stmt->false_case());
   }
 
   void VisitStmt(ir::stmt::Alloc stmt) override {
-    for (const auto& extent : stmt->extents()) {
-      operator()(extent);
-    }
+    for (const auto& extent : stmt->extents()) operator()(extent);
     if (stmt->condition().defined()) operator()(stmt->condition());
     if (stmt->body().defined()) operator()(stmt->body());
   }
 
   void VisitStmt(ir::stmt::Let stmt) override {
-    if (stmt->body().defined()) operator()(stmt->body());
+    if (stmt->body().defined()){
+      operator()(stmt->body());
+    }
   }
 
   void VisitStmt(ir::stmt::Evaluate stmt) override {}
@@ -325,8 +324,8 @@ struct CommonGlobalMemoryEliminator : public ir::IRMutator<Expr*>,
       : eliminate_buffer_names_(eliminate_buffer_names) {}
 
   void operator()(const ir::Expr& expr) {
-    ir::Expr expr_copy = expr;
-    ir::IRMutator<>::Visit(&expr_copy, &expr_copy);
+    ir::Expr _expr = expr;
+    ir::IRMutator<>::Visit(&_expr, &_expr);
   }
 
   void operator()(ir::stmt::BlockRef block) { VisitBlock(block); }
@@ -357,18 +356,14 @@ struct CommonGlobalMemoryEliminator : public ir::IRMutator<Expr*>,
 
   void VisitStmt(ir::stmt::Schedule stmt) override {
     current_sch_ = stmt;
-    if (current_block_.defined()) {
-      insert_block_ = current_block_;
-    }
+    if (current_block_.defined()) insert_block_ = current_block_;
     operator()(stmt->body());
   }
 
   void VisitStmt(ir::stmt::IfThenElse stmt) override {
     operator()(stmt->condition());
     operator()(stmt->true_case());
-    if (stmt->false_case().defined()) {
-      operator()(stmt->false_case());
-    }
+    if (stmt->false_case().defined()) operator()(stmt->false_case());
   }
 
   void VisitStmt(ir::stmt::Alloc stmt) override {
@@ -395,13 +390,9 @@ struct CommonGlobalMemoryEliminator : public ir::IRMutator<Expr*>,
         node,
         ::common::errors::InvalidArgument("The input expr should be a Load"));
     const auto& buffer_name = node->tensor.as_tensor_ref()->buffer->name;
-    if (eliminate_buffer_names_.count(buffer_name) == 0) {
-      return;
-    }
-
-    if (global_buffer_to_local_buffer_.count(buffer_name) == 0) {
+    if (eliminate_buffer_names_.count(buffer_name) == 0) return;
+    if (global_buffer_to_local_buffer_.count(buffer_name) == 0)
       InsertLocalTensorBlock(node, buffer_name);
-    }
     SubstituteGlobalTensor(node, buffer_name);
   }
 
@@ -473,16 +464,6 @@ void EliminateCommonGlobalMemoryRead(ir::stmt::BlockRef block) {
   CommonGlobalMemoryEliminator eliminator(eliminate_buffer_names);
   eliminator(block);
   VLOG(4) << "After EliminateCommonGlobalMemoryRead: \n" << block;
-}
-
-LogicalResult EliminateCommonGlobalMemoryReadPass::Run(
-    ir::stmt::BlockRef block) {
-  EliminateCommonGlobalMemoryRead(block);
-  return LogicalResult::success();
-}
-
-std::unique_ptr<BlockPass> CreateEliminateCommonGlobalMemoryReadPass() {
-  return std::make_unique<EliminateCommonGlobalMemoryReadPass>();
 }
 
 }  // namespace optim
