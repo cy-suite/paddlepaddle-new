@@ -28,6 +28,7 @@
 PD_DECLARE_bool(cinn_measure_kernel_time);
 PD_DECLARE_string(tile_config_policy);
 PD_DECLARE_string(cinn_kernel_execution_label);
+PD_DECLARE_bool(cinn_check_jit_instruction_shape);
 
 namespace paddle {
 namespace framework {
