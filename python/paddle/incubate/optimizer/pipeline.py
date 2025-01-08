@@ -800,8 +800,8 @@ class PipelineOptimizer:
                     if self.schedule_mode == 'F-then-B':  # F-then-B
                         block._insert_op_without_sync(
                             index=index + extra_index_info['index'],
-                            type='send_v2',
-                            inputs={'X': var},
+                            type='p_send',
+                            inputs={'x': var},
                             attrs={
                                 self._op_device_key: prev_dev,
                                 self._op_role_key: op_role,
@@ -819,14 +819,13 @@ class PipelineOptimizer:
                         )
                         block._insert_op_without_sync(
                             index=index + extra_index_info['index'],
-                            type='recv_v2',
-                            outputs={'Out': [var]},
+                            type='p_recv',
+                            outputs={'out': [var]},
                             attrs={
                                 'out_shape': var_shape,
                                 'dtype': var.dtype,
                                 self._op_device_key: cur_dev,
                                 self._op_role_key: op_role,
-                                # 'use_calc_stream': True,
                                 'peer': 0,
                                 'ring_id': ring_id,
                             },
@@ -892,8 +891,8 @@ class PipelineOptimizer:
                         if not use_mp or is_param:
                             block._insert_op_without_sync(
                                 index=index + extra_index_info['index'],
-                                type='send_v2',
-                                inputs={'X': var},
+                                type='p_send',
+                                inputs={'x': var},
                                 attrs={
                                     self._op_device_key: prev_dev,
                                     self._op_role_key: op_role,
@@ -909,9 +908,9 @@ class PipelineOptimizer:
                                 attrs={
                                     self._op_device_key: prev_dev,
                                     self._op_role_key: op_role,
+                                    'use_calc_stream': False,
                                     'ring_id': ring_id,
                                     'peer': 1,
-                                    'use_calc_stream': False,
                                     'num': self.mp_degree,
                                     'id': self.mp_rank,
                                 },
@@ -943,8 +942,8 @@ class PipelineOptimizer:
                         if not use_mp or is_param:
                             block._insert_op_without_sync(
                                 index=index + extra_index_info['index'],
-                                type='recv_v2',
-                                outputs={'Out': [var]},
+                                type='p_recv',
+                                outputs={'out': [var]},
                                 attrs={
                                     'out_shape': var_shape,
                                     'dtype': var.dtype,
@@ -964,9 +963,9 @@ class PipelineOptimizer:
                                     'dtype': var.dtype,
                                     self._op_device_key: cur_dev,
                                     self._op_role_key: op_role,
+                                    'use_calc_stream': True,
                                     'peer': 0,
                                     'ring_id': ring_id,
-                                    'use_calc_stream': True,
                                     'num': self.mp_degree,
                                     'id': self.mp_rank,
                                 },
@@ -1576,7 +1575,7 @@ class PipelineOptimizer:
                 block = prog.block(0)
                 for op in block.ops:
                     if (
-                        op.type == "recv_v2"
+                        op.type == "p_recv"
                         or op.type == "create_py_reader"
                         or op.type == "read"
                         or op.type == "update_loss_scaling"
@@ -1624,9 +1623,9 @@ class PipelineOptimizer:
 
                 write_block._insert_op(
                     index=0,
-                    type='send_v2',
+                    type='p_send',
                     inputs={
-                        'X': write_block.var(var_name),
+                        'x': write_block.var(var_name),
                     },
                     attrs={
                         self._op_device_key: write_device,
@@ -1640,13 +1639,12 @@ class PipelineOptimizer:
                 )
                 read_block._insert_op(
                     index=0,
-                    type='recv_v2',
-                    outputs={'Out': [read_block.var(var_name)]},
+                    type='p_recv',
+                    outputs={'out': [read_block.var(var_name)]},
                     attrs={
                         'out_shape': read_block.var(var_name).shape,
                         'dtype': read_block.var(var_name).dtype,
                         self._op_device_key: read_device,
-                        # 'use_calc_stream': False,
                         # A trick to make the role LRSched to avoid copy every
                         # microbatch
                         self._op_role_key: self._op_role.LRSched,
@@ -1710,7 +1708,7 @@ class PipelineOptimizer:
 
         block = program.block(0)
 
-        recv_type = 'recv_v2' if self.mp_degree == 1 else 'partial_recv'
+        recv_type = 'p_recv' if self.mp_degree == 1 else 'partial_recv'
         backward_recv_index = None
         for index, op in enumerate(block.ops):
             if op.type == recv_type and self._is_backward_op(op):
@@ -1767,7 +1765,7 @@ class PipelineOptimizer:
                 op.type != "partial_recv"
                 and op.type != "partial_allgather"
                 and op.type != "nop"
-                and op.type != "recv_v2"
+                and op.type != "p_recv"
             ):
                 continue
             if op_role == int(self._op_role.Forward):

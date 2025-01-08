@@ -134,8 +134,6 @@ bool IsCommunicationOp(const OperatorBase* op) {
   const std::set<std::string> special_comm_op_set = {
       "send",
       "recv",
-      "send_v2",
-      "recv_v2",
       "p_send",
       "p_recv",
   };
@@ -164,8 +162,6 @@ bool IsCommunicationOp(const ::pir::Operation* op) {
         op->attributes().at("op_name").dyn_cast<pir::StrAttribute>().AsString();
   }
   const std::set<std::string> special_comm_op_set = {
-      // paddle::dialect::SendV2Op::name(),
-      // paddle::dialect::RecvV2Op::name(),
       paddle::dialect::PSendOp::name(),
       paddle::dialect::PRecvOp::name(),
   };
