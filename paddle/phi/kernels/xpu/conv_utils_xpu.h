@@ -16,76 +16,69 @@
 #include "paddle/phi/kernels/xpu/xpu_api_wrapper.h"
 
 namespace phi {
-// do not used
-template <typename XPUType, XPUFCCalcType calc_type>
-struct XPUConvQuantTypeTrait {};
-
-// Because xpudnn only supports tf32 quant for bf16, we use it for all
-// fc_calc_type.
-template <XPUFCCalcType calc_type>
-struct XPUConvQuantTypeTrait<XPUTypeBF16, calc_type> {
+using XPUTypeFP16 = typename XPUTypeTrait<phi::dtype::float16>::Type;
+using XPUTypeBF16 = typename XPUTypeTrait<phi::dtype::bfloat16>::Type;
+template <typename QuantType>
+struct XPUDefaultQuantType {
   using Type = tfloat32;
 };
 
-// fp16 uses itself as the default quant type.
-template <XPUFCCalcType calc_type>
-struct XPUConvQuantTypeTrait<XPUTypeFP16, calc_type> {
+template <>
+struct XPUDefaultQuantType<XPUTypeFP16> {
   using Type = XPUTypeFP16;
 };
 
-// template <>
-// struct XPUConvQuantTypeTrait<XPUTypeFP16, XPUFCCalcType::FC_FLOAT> {
-//   using Type = float;
-// };
-
-template <>
-struct XPUConvQuantTypeTrait<XPUTypeFP16, XPUFCCalcType::FC_INT16> {
-  using Type = int16_t;
+template <typename XPUType, typename QuantType>
+struct XPUConvQuantTypeTrait {
+  using Type = QuantType;
 };
 
-// float used tf32 as the default quant type.
-template <XPUFCCalcType calc_type>
-struct XPUConvQuantTypeTrait<float, calc_type> {
-  using Type = tfloat32;
-};
+#define DECLARE_XPU_UNSUPPORTED_QUANT_TYPE(TYPE, QUANT_TYPE) \
+  template <>                                                \
+  struct XPUConvQuantTypeTrait<TYPE, QUANT_TYPE> {           \
+    using Type = typename XPUDefaultQuantType<TYPE>::Type;   \
+  };
 
-template <>
-struct XPUConvQuantTypeTrait<float, XPUFCCalcType::FC_FLOAT> {
-  using Type = float;
-};
+#define XPU_CONV_FOR_EACH_UNSUPPORTED_QUANT_TYPE(_) \
+  _(float, XPUTypeFP16)                             \
+  _(XPUTypeFP16, int)                               \
+  _(XPUTypeFP16, int_with_ll_t)                     \
+  _(XPUTypeFP16, tfloat32)                          \
+  _(XPUTypeBF16, int16_t)                           \
+  _(XPUTypeBF16, int)                               \
+  _(XPUTypeBF16, int_with_ll_t)                     \
+  _(XPUTypeBF16, XPUTypeFP16)                       \
+  _(XPUTypeBF16, float)
 
-template <>
-struct XPUConvQuantTypeTrait<float, XPUFCCalcType::FC_INT16> {
-  using Type = int16_t;
-};
+XPU_CONV_FOR_EACH_UNSUPPORTED_QUANT_TYPE(DECLARE_XPU_UNSUPPORTED_QUANT_TYPE)
 
-template <>
-struct XPUConvQuantTypeTrait<float, XPUFCCalcType::FC_INT32> {
-  using Type = int;
-};
+#ifndef PADDLE_WITH_XPU_XRE5
+DECLARE_XPU_UNSUPPORTED_QUANT_TYPE(XPUTypeFP16, float)
+DECLARE_XPU_UNSUPPORTED_QUANT_TYPE(XPUTypeFP16, XPUTypeFP16)
+#endif
 
-template <>
-struct XPUConvQuantTypeTrait<float, XPUFCCalcType::FC_INT32_WITH_LL> {
-  using Type = int_with_ll_t;
-};
-
-#define PD_PRIVATE_XPU_CONV_CASE(TYPE, calc_type, ...)                   \
-  case calc_type: {                                                      \
-    using TGEMM = typename XPUConvQuantTypeTrait<TYPE, calc_type>::Type; \
-    __VA_ARGS__();                                                       \
-    break;                                                               \
+#define PD_PRIVATE_XPU_CONV_CASE(TYPE, calc_type, QUANT_TYPE, ...)        \
+  case calc_type: {                                                       \
+    using TGEMM = typename XPUConvQuantTypeTrait<TYPE, QUANT_TYPE>::Type; \
+    __VA_ARGS__();                                                        \
+    break;                                                                \
   }
 
 #define PD_VISIT_XPU_CONV_TYPES(TYPE, calc_type, func_name, ...)             \
   do {                                                                       \
     switch (calc_type) {                                                     \
-      PD_PRIVATE_XPU_CONV_CASE(TYPE, XPUFCCalcType::FC_FLOAT, __VA_ARGS__)   \
-      PD_PRIVATE_XPU_CONV_CASE(TYPE, XPUFCCalcType::FC_TF32, __VA_ARGS__)    \
-      PD_PRIVATE_XPU_CONV_CASE(TYPE, XPUFCCalcType::FC_FLOAT16, __VA_ARGS__) \
-      PD_PRIVATE_XPU_CONV_CASE(TYPE, XPUFCCalcType::FC_INT16, __VA_ARGS__)   \
-      PD_PRIVATE_XPU_CONV_CASE(TYPE, XPUFCCalcType::FC_INT32, __VA_ARGS__)   \
       PD_PRIVATE_XPU_CONV_CASE(                                              \
-          TYPE, XPUFCCalcType::FC_INT32_WITH_LL, __VA_ARGS__)                \
+          TYPE, XPUFCCalcType::FC_FLOAT, float, __VA_ARGS__)                 \
+      PD_PRIVATE_XPU_CONV_CASE(                                              \
+          TYPE, XPUFCCalcType::FC_TF32, tfloat32, __VA_ARGS__)               \
+      PD_PRIVATE_XPU_CONV_CASE(                                              \
+          TYPE, XPUFCCalcType::FC_FLOAT16, XPUTypeFP16, __VA_ARGS__)         \
+      PD_PRIVATE_XPU_CONV_CASE(                                              \
+          TYPE, XPUFCCalcType::FC_INT16, int16_t, __VA_ARGS__)               \
+      PD_PRIVATE_XPU_CONV_CASE(                                              \
+          TYPE, XPUFCCalcType::FC_INT32, int, __VA_ARGS__)                   \
+      PD_PRIVATE_XPU_CONV_CASE(                                              \
+          TYPE, XPUFCCalcType::FC_INT32_WITH_LL, int_with_ll_t, __VA_ARGS__) \
       default:                                                               \
         PADDLE_THROW(common::errors::InvalidArgument(                        \
             "Function " #func_name " got invalid fc calc type %d",           \

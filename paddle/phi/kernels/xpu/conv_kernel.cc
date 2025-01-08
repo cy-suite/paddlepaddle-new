@@ -96,8 +96,8 @@ void ConvKernel(const Context& dev_ctx,
   }
 
   int fc_calc_type = FCCalcType<XPUType>();
-#ifdef PADDLE_WITH_XPU_XRE5
   PD_VISIT_XPU_CONV_TYPES(XPUType, fc_calc_type, "conv2d", [&] {
+#ifdef PADDLE_WITH_XPU_XRE5
     int ret = xpudnn::conv2d_fusion<XPUType, XPUType, XPUType, TGEMM>(
         dev_ctx.x_context(),
         input_data,
@@ -121,35 +121,8 @@ void ConvKernel(const Context& dev_ctx,
         nullptr,
         xpu::Activation_t::LINEAR);
     PADDLE_ENFORCE_XDNN_SUCCESS(ret, "conv2d_fusion");
-  });
-  // DispatchXPUConvKernel<XPUType>(fc_calc_type, [&] {
-  //   int ret= xpudnn::conv2d_fusion<XPUType, XPUType, XPUType, TGEMM>(
-  //                         dev_ctx.x_context(),
-  //                         input_data,
-  //                         filter_data_ptr,
-  //                         output_data,
-  //                         batch_size,
-  //                         img_c,
-  //                         img_h,
-  //                         img_w,
-  //                         f,
-  //                         ksize,
-  //                         strides,
-  //                         paddings,
-  //                         dilations,
-  //                         groups,
-  //                         nullptr,
-  //                         nullptr,
-  //                         nullptr,
-  //                         is_nchw,
-  //                         nullptr,
-  //                         nullptr,
-  //                         xpu::Activation_t::LINEAR);
-  //   PADDLE_ENFORCE_XDNN_SUCCESS(ret, "conv2d_fusion");
-  // });
 #else
-  if (fc_calc_type == XPUFCCalcType::FC_INT32) {
-    int r = xpu::conv2d<XPUType, XPUType, XPUType, int>(dev_ctx.x_context(),
+  int r = xpu::conv2d<XPUType, XPUType, XPUType, TGEMM>(dev_ctx.x_context(),
                                                         input_data,
                                                         filter_data_ptr,
                                                         output_data,
@@ -167,70 +140,9 @@ void ConvKernel(const Context& dev_ctx,
                                                         nullptr,
                                                         nullptr,
                                                         is_nchw);
-    PADDLE_ENFORCE_XDNN_SUCCESS(r, "conv2d");
-  } else if (fc_calc_type == XPUFCCalcType::FC_FLOAT) {
-    int r = xpu::conv2d<XPUType, XPUType, XPUType, float>(dev_ctx.x_context(),
-                                                          input_data,
-                                                          filter_data_ptr,
-                                                          output_data,
-                                                          batch_size,
-                                                          img_c,
-                                                          img_h,
-                                                          img_w,
-                                                          f,
-                                                          ksize,
-                                                          strides,
-                                                          paddings,
-                                                          dilations,
-                                                          groups,
-                                                          nullptr,
-                                                          nullptr,
-                                                          nullptr,
-                                                          is_nchw);
-    PADDLE_ENFORCE_XDNN_SUCCESS(r, "conv2d");
-  } else if (fc_calc_type == XPUFCCalcType::FC_INT32_WITH_LL) {
-    int r = xpu::conv2d<XPUType, XPUType, XPUType, int_with_ll_t>(
-        dev_ctx.x_context(),
-        input_data,
-        filter_data_ptr,
-        output_data,
-        batch_size,
-        img_c,
-        img_h,
-        img_w,
-        f,
-        ksize,
-        strides,
-        paddings,
-        dilations,
-        groups,
-        nullptr,
-        nullptr,
-        nullptr,
-        is_nchw);
-    PADDLE_ENFORCE_XDNN_SUCCESS(r, "conv2d");
-  } else {
-    int r = xpu::conv2d<XPUType, XPUType, XPUType, int16_t>(dev_ctx.x_context(),
-                                                            input_data,
-                                                            filter_data_ptr,
-                                                            output_data,
-                                                            batch_size,
-                                                            img_c,
-                                                            img_h,
-                                                            img_w,
-                                                            f,
-                                                            ksize,
-                                                            strides,
-                                                            paddings,
-                                                            dilations,
-                                                            groups,
-                                                            nullptr,
-                                                            nullptr,
-                                                            nullptr,
-                                                            is_nchw);
-    PADDLE_ENFORCE_XDNN_SUCCESS(r, "conv2d");
-  }
+  PADDLE_ENFORCE_XDNN_SUCCESS(r, "conv2d");
 #endif
+  });
 }
 
 template <typename T, typename Context>
@@ -322,9 +234,14 @@ void Conv3DKernel(const Context& dev_ctx,
   }
 
   int fc_calc_type = FCCalcType<XPUType>();
-#ifdef PADDLE_WITH_XPU_XRE5
   PD_VISIT_XPU_CONV_TYPES(XPUType, fc_calc_type, "conv3d", [&] {
-    int ret = xpudnn::conv3d_fusion<XPUType, XPUType, XPUType, TGEMM>(
+#ifdef PADDLE_WITH_XPU_XRE5
+    using XPUTypeFP16 = typename XPUTypeTrait<phi::dtype::float16>::Type;
+    using RealTGEMM = std::conditional_t<std::is_same_v<XPUType, XPUTypeFP16> &&
+                                             std::is_same_v<TGEMM, float>,
+                                         XPUTypeFP16,
+                                         TGEMM>;
+    int ret = xpudnn::conv3d_fusion<XPUType, XPUType, XPUType, RealTGEMM>(
         dev_ctx.x_context(),
         input_data,
         filter_data_ptr,
@@ -349,10 +266,8 @@ void Conv3DKernel(const Context& dev_ctx,
         xpu::Activation_t::LINEAR,
         nullptr);
     PADDLE_ENFORCE_XDNN_SUCCESS(ret, "conv3d_fusion");
-  });
 #else
-  if (fc_calc_type == XPUFCCalcType::FC_INT32) {
-    int r = xpu::conv3d<XPUType, XPUType, XPUType, int>(dev_ctx.x_context(),
+  int r = xpu::conv3d<XPUType, XPUType, XPUType, int>(dev_ctx.x_context(),
                                                         input_data,
                                                         filter_data_ptr,
                                                         output_data,
@@ -371,74 +286,9 @@ void Conv3DKernel(const Context& dev_ctx,
                                                         nullptr,
                                                         nullptr,
                                                         is_ncdhw);
-    PADDLE_ENFORCE_XDNN_SUCCESS(r, "conv3d");
-  } else if (fc_calc_type == XPUFCCalcType::FC_FLOAT) {
-    int r = xpu::conv3d<XPUType, XPUType, XPUType, float>(dev_ctx.x_context(),
-                                                          input_data,
-                                                          filter_data_ptr,
-                                                          output_data,
-                                                          batch_size,
-                                                          img_c,
-                                                          img_d,
-                                                          img_h,
-                                                          img_w,
-                                                          f,
-                                                          ksize,
-                                                          strides,
-                                                          paddings,
-                                                          dilations,
-                                                          groups,
-                                                          nullptr,
-                                                          nullptr,
-                                                          nullptr,
-                                                          is_ncdhw);
-    PADDLE_ENFORCE_XDNN_SUCCESS(r, "conv3d");
-
-  } else if (fc_calc_type == XPUFCCalcType::FC_INT32_WITH_LL) {
-    int r = xpu::conv3d<XPUType, XPUType, XPUType, int_with_ll_t>(
-        dev_ctx.x_context(),
-        input_data,
-        filter_data_ptr,
-        output_data,
-        batch_size,
-        img_c,
-        img_d,
-        img_h,
-        img_w,
-        f,
-        ksize,
-        strides,
-        paddings,
-        dilations,
-        groups,
-        nullptr,
-        nullptr,
-        nullptr,
-        is_ncdhw);
-    PADDLE_ENFORCE_XDNN_SUCCESS(r, "conv3d");
-  } else {
-    int r = xpu::conv3d<XPUType, XPUType, XPUType, int16_t>(dev_ctx.x_context(),
-                                                            input_data,
-                                                            filter_data_ptr,
-                                                            output_data,
-                                                            batch_size,
-                                                            img_c,
-                                                            img_d,
-                                                            img_h,
-                                                            img_w,
-                                                            f,
-                                                            ksize,
-                                                            strides,
-                                                            paddings,
-                                                            dilations,
-                                                            groups,
-                                                            nullptr,
-                                                            nullptr,
-                                                            nullptr,
-                                                            is_ncdhw);
-    PADDLE_ENFORCE_XDNN_SUCCESS(r, "conv3d");
-  }
+  PADDLE_ENFORCE_XDNN_SUCCESS(r, "conv3d");
 #endif
+  });
 }
 
 }  // namespace phi
