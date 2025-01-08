@@ -132,9 +132,8 @@ struct SimplifyRampMutator : public ir::IRMutator<Expr*> {
     auto b_ramp = b.As<ir::Ramp>();
 
     if (a_ramp && b_ramp && a_ramp->lanes == b_ramp->lanes) {
-      Expr base_add = cinn::common::AutoSimplify(a_ramp->base + b_ramp->base);
-      Expr stride_add =
-          cinn::common::AutoSimplify(a_ramp->stride + b_ramp->stride);
+      Expr base_add = optim::ArithSimplify(a_ramp->base + b_ramp->base);
+      Expr stride_add = optim::ArithSimplify(a_ramp->stride + b_ramp->stride);
       *expr = ir::Ramp::Make(base_add, stride_add, a_ramp->lanes);
     }
   }
@@ -266,6 +265,7 @@ struct SimplifyLogicalMutator : public ir::ExprMutator<> {
   }
 
   void Visit(const ir::Not* op, Expr* expr) override {
+    VLOG(7) << "Begin Visit Not op: " << *expr;
     auto* node = expr->As<ir::Not>();
     auto v = node->v();
     ir::ExprMutator<>::Visit(&v, &v);
@@ -273,19 +273,27 @@ struct SimplifyLogicalMutator : public ir::ExprMutator<> {
       case ir::IrNodeTy::IntImm:
       case ir::IrNodeTy::UIntImm:
         *expr = common::IsZero(v) ? Expr(true) : Expr(false);
+        return;
       case ir::IrNodeTy::Not:
         *expr = v.As<ir::Not>()->v();
+        return;
       case ir::IrNodeTy::LE:
         *expr = ir::GT::Make(v->operand(0), v->operand(1));
+        return;
       case ir::IrNodeTy::LT:
         *expr = ir::GE::Make(v->operand(0), v->operand(1));
+        return;
       case ir::IrNodeTy::GE:
         *expr = ir::LT::Make(v->operand(0), v->operand(1));
+        return;
       case ir::IrNodeTy::GT:
         *expr = ir::LE::Make(v->operand(0), v->operand(1));
+        return;
       default:
+        VLOG(7) << "End Visit Not op: " << *expr;
         return;
     }
+    VLOG(7) << "End Visit Not op: " << *expr;
   }
 };
 
