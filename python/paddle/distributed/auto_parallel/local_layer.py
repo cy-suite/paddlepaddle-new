@@ -112,8 +112,15 @@ class LocalLayer(Layer):
                 inputs[idx] = dist.auto_parallel.api.dtensor_to_local(
                     inputs[idx]
                 )
+
         outputs = Layer.__call__(self, *inputs, **kwargs)
         list_outs = paddle.utils.flatten(outputs)
+        if len(list_outs) != len(self.out_dist_attrs):
+            raise ValueError(
+                f"The number of outputs ({len(list_outs)}) does not match "
+                f"the number of distribution attributes ({len(self.out_dist_attrs)})."
+            )
+
         for idx in range(len(list_outs)):
             list_outs[idx] = dist.auto_parallel.api.dtensor_from_local(
                 list_outs[idx],
