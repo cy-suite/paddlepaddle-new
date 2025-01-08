@@ -94,9 +94,7 @@ DEFINE_GENERAL_PATTERN(Flip, paddle::dialect::FlipOp)
 DEFINE_GENERAL_PATTERN(Mish, paddle::dialect::MishOp)
 DEFINE_GENERAL_PATTERN(AssignValue, paddle::dialect::AssignValueOp)
 DEFINE_GENERAL_PATTERN(AssignValue_, paddle::dialect::AssignValue_Op)
-<<<<<<< HEAD
 DEFINE_GENERAL_PATTERN(Anchor_Generator, paddle::dialect::AnchorGeneratorOp)
-=======
 DEFINE_GENERAL_PATTERN(Exp, paddle::dialect::ExpOp)
 DEFINE_GENERAL_PATTERN(Abs, paddle::dialect::AbsOp)
 DEFINE_GENERAL_PATTERN(Abs_, paddle::dialect::Abs_Op)
@@ -115,7 +113,6 @@ DEFINE_GENERAL_PATTERN(Sign, paddle::dialect::SignOp)
 DEFINE_GENERAL_PATTERN(Round, paddle::dialect::RoundOp)
 DEFINE_GENERAL_PATTERN(Numel, paddle::dialect::NumelOp)
 
->>>>>>> afcd24b0af4bdafed6f5e946c43e45519334e008
 #undef DEFINE_GENERAL_PATTERN
 
 // Add ReduceCommonOpPattern base class to simplify code

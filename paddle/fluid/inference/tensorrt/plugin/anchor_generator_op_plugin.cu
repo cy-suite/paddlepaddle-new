@@ -909,25 +909,26 @@ nvinfer1::IPluginV2Ext* PIRAnchorGeneratorPluginDynamicCreator::createPlugin(
   std::vector<float> anchor_sizes, aspect_ratios, stride, variances;
   float offset = .5;
   int num_anchors = -1;
+
   for (int i = 0; i < fc->nbFields; ++i) {
-    const std::string field_name(fc->fields[i].name);
-    const auto length = fc->fields[i].length;
-    if (field_name.compare("anchor_sizes")) {
-      const auto* data = static_cast<const float*>(fc->fields[i].data);
-      anchor_sizes.insert(anchor_sizes.end(), data, data + length);
-    } else if (field_name.compare("aspect_ratios")) {
-      const auto* data = static_cast<const float*>(fc->fields[i].data);
-      aspect_ratios.insert(aspect_ratios.end(), data, data + length);
-    } else if (field_name.compare("stride")) {
-      const auto* data = static_cast<const float*>(fc->fields[i].data);
-      stride.insert(stride.end(), data, data + length);
-    } else if (field_name.compare("variances")) {
-      const auto* data = static_cast<const float*>(fc->fields[i].data);
-      variances.insert(variances.end(), data, data + length);
-    } else if (field_name.compare("offset")) {
-      offset = *static_cast<const float*>(fc->fields[i].data);
-    } else if (field_name.compare("num_anchors")) {
-      num_anchors = *static_cast<const int*>(fc->fields[i].data);
+    const nvinfer1::PluginField& f = fc->fields[i];
+    const std::string field_name(f.name);
+    if (field_name.compare("anchor_sizes") == 0) {
+      const float* data = static_cast<const float*>(f.data);
+      anchor_sizes.assign(data, data + f.length);
+    } else if (field_name.compare("aspect_ratios") == 0) {
+      const float* data = static_cast<const float*>(f.data);
+      aspect_ratios.assign(data, data + f.length);
+    } else if (field_name.compare("stride") == 0) {
+      const float* data = static_cast<const float*>(f.data);
+      stride.assign(data, data + f.length);
+    } else if (field_name.compare("variances") == 0) {
+      const float* data = static_cast<const float*>(f.data);
+      variances.assign(data, data + f.length);
+    } else if (field_name.compare("offset") == 0) {
+      offset = *static_cast<const float*>(f.data);
+    } else if (field_name.compare("num_anchors") == 0) {
+      num_anchors = *static_cast<const int*>(f.data);
     } else {
       assert(false && "unknown plugin field name.");
     }

@@ -313,6 +313,7 @@ def anchor_generator_converter(network, paddle_op, inputs):
     variances = paddle_op.attrs().get("variances")
     offset = paddle_op.attrs().get("offset")
     num_anchors = len(aspect_ratios) * len(anchor_sizes)
+
     height = input_dims[1]
     width = input_dims[2]
     box_num = width * height * num_anchors
@@ -329,7 +330,7 @@ def anchor_generator_converter(network, paddle_op, inputs):
             np.array(aspect_ratios, dtype=np.float32),
             trt.PluginFieldType.FLOAT32,
         ),
-        trt.PluginFiled(
+        trt.PluginField(
             "stride",
             np.array(stride, dtype=np.float32),
             trt.PluginFieldType.FLOAT32,
@@ -337,7 +338,7 @@ def anchor_generator_converter(network, paddle_op, inputs):
         trt.PluginField(
             "variances",
             np.array(variances, dtype=np.float32),
-            trt.PluginField.FLOAT32,
+            trt.PluginFieldType.FLOAT32,
         ),
         trt.PluginField(
             "offset",
@@ -356,8 +357,10 @@ def anchor_generator_converter(network, paddle_op, inputs):
     plugin = get_trt_plugin(
         plugin_name, plugin_field_collection, plugin_version
     )
-    anchor_generator_layer = network.add_plugin_v2(inputs, plugin)
-    return anchor_generator_layer.get_output(0)
+    anchor_generator_layer = network.add_plugin_v2([inputs], plugin)
+    out0 = anchor_generator_layer.get_output(0)
+    out1 = anchor_generator_layer.get_output(1)
+    return (out0, out1)
 
 
 @converter_registry.register("pd_op.affine_channel", trt_version="8.x")
