@@ -239,7 +239,7 @@ class PIRAnchorGeneratorPluginDynamic : public DynamicPluginTensorRT {
       const float offset,
       const int num_anchors);
   PIRAnchorGeneratorPluginDynamic(void const* data, size_t length);
-  ~PIRAnchorGeneratorPluginDynamic() TRT_NOEXCEPT override;
+  ~PIRAnchorGeneratorPluginDynamic();
   nvinfer1::IPluginV2DynamicExt* clone() const TRT_NOEXCEPT override;
   nvinfer1::DimsExprs getOutputDimensions(
       int outputIndex,
@@ -288,6 +288,7 @@ class PIRAnchorGeneratorPluginDynamic : public DynamicPluginTensorRT {
                    void* const* outputs,
                    void* workspace,
                    cudaStream_t stream);
+  nvinfer1::DataType data_type_;
   std::vector<float> anchor_sizes_;
   std::vector<float> aspect_ratios_;
   std::vector<float> stride_;

@@ -667,7 +667,75 @@ nvinfer1::IPluginV2Ext* AnchorGeneratorPluginDynamicCreator::deserializePlugin(
 }
 #endif
 
-int PIRAnchorGeneratorPluginDynamic::initialize() TRT_NOEXCEPT { return 0; }
+PIRAnchorGeneratorPluginDynamic::PIRAnchorGeneratorPluginDynamic(
+    const nvinfer1::DataType data_type,
+    const std::vector<float>& anchor_sizes,
+    const std::vector<float>& aspect_ratios,
+    const std::vector<float>& stride,
+    const std::vector<float>& variances,
+    const float offset,
+    const int num_anchors)
+    : data_type_(data_type),
+      anchor_sizes_(anchor_sizes),
+      aspect_ratios_(aspect_ratios),
+      stride_(stride),
+      variances_(variances),
+      offset_(offset),
+      num_anchors_(num_anchors) {
+  // data_type_ is used to determine the output data type
+  // data_type_ can only be float32
+  // height, width, num_anchors are calculated at configurePlugin
+  PADDLE_ENFORCE_EQ(data_type_,
+                    nvinfer1::DataType::kFLOAT,
+                    common::errors::InvalidArgument(
+                        "TRT anchor generator plugin only accepts float32."));
+  PADDLE_ENFORCE_GE(
+      num_anchors_,
+      0,
+      common::errors::InvalidArgument(
+          "TRT anchor generator plugin only accepts number of anchors greater "
+          "than 0, but receive number of anchors = %d.",
+          num_anchors_));
+  PrepareParamsOnDevice();
+}
+
+PIRAnchorGeneratorPluginDynamic::~PIRAnchorGeneratorPluginDynamic() {
+  auto release_device_ptr = [](void* ptr) {
+    if (ptr) {
+      cudaFree(ptr);
+      ptr = nullptr;
+    }
+  };
+  release_device_ptr(anchor_sizes_device_);
+  release_device_ptr(aspect_ratios_device_);
+  release_device_ptr(stride_device_);
+  release_device_ptr(variances_device_);
+}
+
+PIRAnchorGeneratorPluginDynamic::PIRAnchorGeneratorPluginDynamic(
+    void const* data, size_t length) {
+  DeserializeValue(&data, &length, &data_type_);
+  DeserializeValue(&data, &length, &anchor_sizes_);
+  DeserializeValue(&data, &length, &aspect_ratios_);
+  DeserializeValue(&data, &length, &stride_);
+  DeserializeValue(&data, &length, &variances_);
+  DeserializeValue(&data, &length, &offset_);
+  DeserializeValue(&data, &length, &num_anchors_);
+  PrepareParamsOnDevice();
+}
+
+nvinfer1::IPluginV2DynamicExt* PIRAnchorGeneratorPluginDynamic::clone() const
+    TRT_NOEXCEPT {
+  auto plugin = new PIRAnchorGeneratorPluginDynamic(data_type_,
+                                                    anchor_sizes_,
+                                                    aspect_ratios_,
+                                                    stride_,
+                                                    variances_,
+                                                    offset_,
+                                                    num_anchors_);
+  plugin->setPluginNamespace(namespace_.c_str());
+  return plugin;
+}
 
 nvinfer1::DimsExprs PIRAnchorGeneratorPluginDynamic::getOutputDimensions(
     int outputIndex,
@@ -773,18 +841,21 @@ nvinfer1::DataType PIRAnchorGeneratorPluginDynamic::getOutputDataType(
 
 const char* PIRAnchorGeneratorPluginDynamic::getPluginType() const
     TRT_NOEXCEPT {
-  return "anchor_generator_plugin_dynamic";
+  return "pir_anchor_generator_plugin_dynamic";
 }
 
 int PIRAnchorGeneratorPluginDynamic::getNbOutputs() const TRT_NOEXCEPT {
   return 2;
 }
 
+int PIRAnchorGeneratorPluginDynamic::initialize() TRT_NOEXCEPT { return 0; }
+
 void PIRAnchorGeneratorPluginDynamic::terminate() TRT_NOEXCEPT {}
 
 size_t PIRAnchorGeneratorPluginDynamic::getSerializationSize() const
     TRT_NOEXCEPT {
   size_t serialize_size = 0;
+  serialize_size += SerializedSize(data_type_);
   serialize_size += SerializedSize(anchor_sizes_);
   serialize_size += SerializedSize(aspect_ratios_);
   serialize_size += SerializedSize(stride_);
@@ -796,6 +867,7 @@ size_t PIRAnchorGeneratorPluginDynamic::getSerializationSize() const
 
 void PIRAnchorGeneratorPluginDynamic::serialize(void* buffer) const
     TRT_NOEXCEPT {
+  SerializeValue(&buffer, data_type_);
   SerializeValue(&buffer, anchor_sizes_);
   SerializeValue(&buffer, aspect_ratios_);
   SerializeValue(&buffer, stride_);
@@ -818,7 +890,7 @@ const char* PIRAnchorGeneratorPluginDynamicCreator::getPluginNamespace() const
 
 const char* PIRAnchorGeneratorPluginDynamicCreator::getPluginName() const
     TRT_NOEXCEPT {
-  return "anchor_generator_plugin_dynamic";
+  return "pir_anchor_generator_plugin_dynamic";
 }
 
 const char* PIRAnchorGeneratorPluginDynamicCreator::getPluginVersion() const
