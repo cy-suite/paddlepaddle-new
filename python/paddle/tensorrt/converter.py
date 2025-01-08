@@ -19,10 +19,6 @@ import logging
 import numpy as np
 import tensorrt as trt
 
-# init tensorrt plugin
-trt_plugin_lib = ctypes.CDLL('libnvinfer_plugin.so')
-trt_plugin_lib.initLibNvInferPlugins(None, "")
-
 import paddle
 from paddle import pir
 from paddle.base.core import clear_shape_info, get_value_shape_range_info
@@ -80,14 +76,12 @@ class PaddleToTensorRTConverter:
             param_dict.update({name: weight_array})
         self.param_dict = param_dict
 
-        trt_manager = TensorRTConfigManager()
-        if self.trt_config is not None and self.trt_config.ops_run_float:
-            trt_manager.set_force_fp32_ops(self.trt_config.ops_run_float)
-            _logger.info(f"force_fp32_ops: {trt_manager.get_force_fp32_ops()}")
-
         self.input_info = {}
         self.trt_output_value_map = {}
         self.engine_num = 0
+        # init tensorrt plugin
+        trt_plugin_lib = ctypes.CDLL('libnvinfer_plugin.so')
+        trt_plugin_lib.initLibNvInferPlugins(None, "")
 
     def find_graph_inputs_outputs(self, group_op):
         operations = next(iter(group_op.blocks())).ops
@@ -128,6 +122,10 @@ class PaddleToTensorRTConverter:
 
     def convert_subgraph_to_trt(self, program, group_op):
         from .export import PrecisionMode
+
+        trt_manager = TensorRTConfigManager(self.trt_config)
+        if self.trt_config is not None and self.trt_config.ops_run_float:
+            _logger.info(f"force_fp32_ops: {trt_manager.get_force_fp32_ops()}")
 
         _logger.info(f"start process {group_op}")
 
@@ -296,7 +294,6 @@ class PaddleToTensorRTConverter:
                     max_shape = get_value_shape_range_info(
                         value, False, paddle.base.core.ShapeMode.kMAX
                     )
-
                     if trt_input.is_shape_tensor:
                         min_value = get_value_shape_range_info(
                             value, True, paddle.base.core.ShapeMode.kMIN
@@ -390,7 +387,9 @@ class PaddleToTensorRTConverter:
         if version_list[0] > 8 or (
             version_list[0] == 8 and version_list[1] >= 6
         ):  # trt version >= 8.6
-            config.builder_optimization_level = 5
+            config.builder_optimization_level = (
+                self.trt_config.optimization_level
+            )
         config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30)
 
         if self.trt_config is not None:
