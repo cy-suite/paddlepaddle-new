@@ -394,5 +394,27 @@ class TestShareDataTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+def anchor_generator(x):
+    return _C_ops.anchor_generator(x)
+
+
+class TestAnchorGeneratorTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = anchor_generator
+        self.api_args = {
+            "x": np.random.random((2, 100, 3, 3)).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 100, 3, 3]}
+        self.opt_shape = {"x": [2, 100, 3, 3]}
+        self.max_shape = {"x": [3, 100, 3, 3]}
+
+    def test_fp32_trt_result(self):
+        self.check_trt_result()
+
+    def test_fp16_trt_result(self):
+        self.check_trt_result(precision_mode="fp16")
+
+
 if __name__ == '__main__':
     unittest.main()

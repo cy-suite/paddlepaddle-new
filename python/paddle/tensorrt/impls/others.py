@@ -351,7 +351,7 @@ def anchor_generator_converter(network, paddle_op, inputs):
         ),
     ]
     plugin_field_collection = trt.PluginFieldCollection(plugin_fields)
-    plugin_name = "pir_anchor_generator"
+    plugin_name = "pir_anchor_generator_plugin_dynamic"
     plugin_version = "1"
     plugin = get_trt_plugin(
         plugin_name, plugin_field_collection, plugin_version
