@@ -1242,7 +1242,7 @@ void EigvalshInferMeta(const MetaTensor& x,
 void EinsumInferMeta(const std::vector<const MetaTensor*>& inputs,
                      const std::string& equation,
                      MetaTensor* out) {
-  // collect the following informations to prepare einsum.
+  // collect the following information to prepare einsum.
   LabelMap labelshape(0);
   LabelMap labeltype(LabelType::Reduction);
   std::vector<LabelMap> label2perms(inputs.size(), LabelMap(-1));
@@ -3707,12 +3707,13 @@ void ReduceInferMetaBase(const MetaTensor& x,
 void ReduceSumInferMeta(const MetaTensor& x,
                         const std::vector<int64_t>& axis,
                         bool keep_dim,
+                        DataType dtype,
                         MetaTensor* out) {
   bool reduce_all = false;
   if (axis.empty()) {
     reduce_all = true;
   }
-  SumRawInferMeta(x, axis, keep_dim, reduce_all, DataType::UNDEFINED, out);
+  SumRawInferMeta(x, axis, keep_dim, reduce_all, dtype, out);
 }
 
 void ReduceInferMeta(const MetaTensor& x,
