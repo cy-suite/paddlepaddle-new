@@ -113,7 +113,7 @@ class AutoLayoutPass : public pir::Pass {
     //         << " conv_count_: " << conv_count_
     //         << " transpose_count_: " << transpose_count_<<std::endl;
     // return true;
-    return conv_count_ >= transpose_count_;
+    return conv_count_ > transpose_count_;
   }
 
  private:
