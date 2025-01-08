@@ -164,8 +164,9 @@ class ColWiseParallel(PlanBase):
                 f"Will try to shard weight and bias if the layer contains one."
             )
         shard_param_list = set(shard_param_list)
-        shard_param_list.add("weight")
-        shard_param_list.add("bias")
+        if len(shard_param_list) == 0:
+            shard_param_list.add("weight")
+            shard_param_list.add("bias")
 
         def shard_param(param_name):
             if (
@@ -268,8 +269,9 @@ class RowWiseParallel(PlanBase):
                 f"Will try to shard weight if the layer contains one."
             )
         shard_param_list = set(shard_param_list)
-        shard_param_list.add("weight")
         shard_param_list.discard("bias")
+        if len(shard_param_list) == 0:
+            shard_param_list.add("weight")
 
         def shard_param(param_name):
             if (

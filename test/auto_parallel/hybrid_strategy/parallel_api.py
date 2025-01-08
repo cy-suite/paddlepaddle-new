@@ -207,7 +207,7 @@ class TestParallelAPI:
                         dist.Shard(0),
                     ]
                     if self.test_lora:
-                        assert sub_layer.lora_A.placements == [
+                        assert sub_layer.lora_B.placements == [
                             dist.Replicate(),
                             dist.Shard(1),
                         ]
@@ -217,7 +217,7 @@ class TestParallelAPI:
                         dist.Shard(1),
                     ]
                     if self.test_lora:
-                        assert sub_layer.lora_A.placements == [
+                        assert sub_layer.lora_B.placements == [
                             dist.Replicate(),
                             dist.Shard(1),
                         ]
@@ -234,7 +234,7 @@ class TestParallelAPI:
                         dist.Shard(0),
                     ], f'{name} , {sub_layer.weight.name} , {sub_layer.weight}'
                     if self.test_lora:
-                        assert sub_layer.lora_B.placements == [
+                        assert sub_layer.lora_A.placements == [
                             dist.Replicate(),
                             dist.Shard(0),
                         ]
@@ -245,7 +245,7 @@ class TestParallelAPI:
                         dist.Shard(0),
                     ]
                     if self.test_lora:
-                        assert sub_layer.lora_B.placements == [
+                        assert sub_layer.lora_A.placements == [
                             dist.Replicate(),
                             dist.Shard(0),
                         ]
@@ -258,9 +258,11 @@ class TestParallelAPI:
                 if 'q_proj' in name or 'k_proj' in name or 'v_proj' in name:
                     assert sub_layer.weight.stop_gradient
                     assert not sub_layer.lora_A.stop_gradient
+                    assert not sub_layer.lora_B.stop_gradient
                 if 'gate_proj' in name or 'up_proj' in name:
                     assert sub_layer.weight.stop_gradient
                     assert not sub_layer.lora_A.stop_gradient
+                    assert not sub_layer.lora_B.stop_gradient
                 if (
                     'embed_tokens' in name or 'lm_head' in name
                 ) and not self.share_embedding:
@@ -269,10 +271,12 @@ class TestParallelAPI:
                     assert (
                         sub_layer.weight.stop_gradient
                     ), f'{name} , {sub_layer.weight.name} , {sub_layer.weight}'
+                    assert not sub_layer.lora_A.stop_gradient
                     assert not sub_layer.lora_B.stop_gradient
                     # assert sub_layer.bias.stop_gradient is None
                 if 'down_proj' in name:
                     assert sub_layer.weight.stop_gradient
+                    assert not sub_layer.lora_A.stop_gradient
                     assert not sub_layer.lora_B.stop_gradient
 
     def parallel_model(self, layer):
@@ -302,25 +306,25 @@ class TestParallelAPI:
                     f"{prefix}llama.layers.*.self_attn.q_proj": dist.ColWiseParallel(
                         gather_output=True
                     ),
-                    f"{prefix}llama.layers.*.self_attn.q_proj.lora_A": dist.ColWiseParallel(),
+                    f"{prefix}llama.layers.*.self_attn.q_proj.lora_B": dist.ColWiseParallel(),
                     f"{prefix}llama.layers.*.self_attn.k_proj": dist.ColWiseParallel(
                         gather_output=True
                     ),
-                    f"{prefix}llama.layers.*.self_attn.k_proj.lora_A": dist.ColWiseParallel(),
+                    f"{prefix}llama.layers.*.self_attn.k_proj.lora_B": dist.ColWiseParallel(),
                     f"{prefix}llama.layers.*.self_attn.v_proj": dist.ColWiseParallel(
                         gather_output=True
                     ),
-                    f"{prefix}llama.layers.*.self_attn.v_proj.lora_A": dist.ColWiseParallel(),
+                    f"{prefix}llama.layers.*.self_attn.v_proj.lora_B": dist.ColWiseParallel(),
                     f"{prefix}llama.layers.*.self_attn.o_proj": dist.RowWiseParallel(
                         is_input_parallel=False
                     ),
-                    f"{prefix}llama.layers.*.self_attn.o_proj.lora_B": dist.RowWiseParallel(),
+                    f"{prefix}llama.layers.*.self_attn.o_proj.lora_A": dist.RowWiseParallel(),
                     f"{prefix}llama.layers.*.mlp.gate_proj": dist.ColWiseParallel(),
-                    f"{prefix}llama.layers.*.mlp.gate_proj.lora_A": dist.ColWiseParallel(),
+                    f"{prefix}llama.layers.*.mlp.gate_proj.lora_B": dist.ColWiseParallel(),
                     f"{prefix}llama.layers.*.mlp.up_proj": dist.ColWiseParallel(),
-                    f"{prefix}llama.layers.*.mlp.up_proj.lora_A": dist.ColWiseParallel(),
+                    f"{prefix}llama.layers.*.mlp.up_proj.lora_B": dist.ColWiseParallel(),
                     f"{prefix}llama.layers.*.mlp.down_proj": dist.RowWiseParallel(),
-                    f"{prefix}llama.layers.*.mlp.down_proj.lora_B": dist.RowWiseParallel(),
+                    f"{prefix}llama.layers.*.mlp.down_proj.lora_A": dist.RowWiseParallel(),
                     f"{prefix}lm_head.weight": dist.ColWiseParallel(),
                 }
             else:
