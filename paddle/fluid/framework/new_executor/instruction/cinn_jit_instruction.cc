@@ -183,7 +183,7 @@ class CinnJitInstruction::FnPtrImpl {
       DDim dim(output_tensor_shapes[i],
                kernel_tensor_args[input_tensor_size + i]->dims().size());
       if (static_cast<size_t>(i) < ir_dim.size() &&
-          FLAGS_check_jit_instruction_shape) {
+          FLAGS_cinn_check_jit_instruction_shape) {
         CheckDims(ir_dim[i], dim);
       }
       kernel_tensor_args[input_tensor_size + i]->Resize(dim);
