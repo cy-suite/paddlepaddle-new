@@ -863,7 +863,11 @@ class OpcodeExecutorBase:
 
     def load_method(self, method_name):
         def load_builtin_funcs():
-            if method_name != "__iter__":
+            from .variables import PaddleLayerVariable
+
+            if method_name != "__iter__" or isinstance(
+                obj, PaddleLayerVariable
+            ):
                 return False
             self.stack.push(
                 BuiltinVariable(
