@@ -131,8 +131,7 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
     }
 
     // handle comm op
-    if (op_attributes.count("ring_id") != 0 &&
-        FLAGS_dynamic_static_unified_comm) {
+    if (op_attributes.count("ring_id") != 0) {
       int ring_id =
           op_attributes.at("ring_id").dyn_cast<pir::Int32Attribute>().data();
       const auto& comm_context_manager =
