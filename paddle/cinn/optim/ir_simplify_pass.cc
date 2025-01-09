@@ -31,6 +31,7 @@
 #include "paddle/cinn/ir/tensor.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
 #include "paddle/cinn/ir/utils/stmt_converter.h"
+#include "paddle/cinn/pass/pass.h"
 #include "paddle/cinn/pass/pass_manager.h"
 #include "paddle/cinn/utils/string.h"
 
@@ -46,85 +47,11 @@ using utils::Replace;
 namespace {
 
 //! Simplify the expression but Load.
-struct SimplifyNoPureMathMutator : public ir::IRMutator<ir::Expr*>,
-                                   public ir::stmt::StmtMutator<> {
+class SimplifyNoPureMathMutator : public ir::IRMutator<ir::Expr*> {
+ public:
   void operator()(Expr* x) { ir::IRMutator<ir::Expr*>::Visit(x, x); }
-  void operator()(ir::stmt::BlockRef block) {
-    ir::stmt::StmtMutator<>::VisitBlock(block);
-  }
 
-  void VisitStmt(ir::stmt::For stmt) override {
-    Expr min = stmt->min();
-    Expr extent = stmt->extent();
-    operator()(&min);
-    operator()(&extent);
-    stmt->set_min(min);
-    stmt->set_extent(extent);
-    operator()(stmt->body());
-  }
-
-  void VisitStmt(ir::stmt::IfThenElse stmt) override {
-    Expr condition = stmt->condition();
-    operator()(&condition);
-    stmt->set_condition(condition);
-    operator()(stmt->true_case());
-    operator()(stmt->false_case());
-  }
-
-  void VisitStmt(ir::stmt::Schedule stmt) override {
-    std::vector<Expr> iter_values = stmt->iter_values();
-    std::vector<Expr> read_buffers = stmt->read_buffers();
-    std::vector<Expr> write_buffers = stmt->write_buffers();
-
-    for (auto& iter_value : iter_values) {
-      operator()(&iter_value);
-    }
-    for (auto& read_buffer : read_buffers) {
-      operator()(&read_buffer);
-    }
-    for (auto& write_buffer : write_buffers) {
-      operator()(&write_buffer);
-    }
-
-    stmt->set_iter_values(iter_values);
-    stmt->set_read_buffers(read_buffers);
-    stmt->set_write_buffers(write_buffers);
-  }
-
-  void VisitStmt(ir::stmt::Store stmt) override {
-    Expr value = stmt->value();
-    operator()(&value);
-    stmt->set_value(value);
-
-    std::vector<Expr> indices = stmt->indices();
-    for (auto& index : indices) {
-      operator()(&index);
-    }
-    stmt->set_indices(indices);
-  }
-
-  void VisitStmt(ir::stmt::Let stmt) override {
-    Expr body = stmt->body();
-    operator()(&body);
-    stmt->set_body(body);
-  }
-
-  void VisitStmt(ir::stmt::Evaluate stmt) override {
-    Expr value = stmt->value();
-    operator()(&value);
-    stmt->set_value(value);
-  }
-
-  void VisitStmt(ir::stmt::Alloc stmt) override {
-    std::vector<Expr> extents = stmt->extents();
-    for (auto& extent : extents) {
-      operator()(&extent);
-    }
-    stmt->set_extents(extents);
-  }
-
-  void VisitStmt(ir::stmt::Free stmt) override {}
-
+ private:
   using ir::IRMutator<>::Visit;
 
 #define __(op__)                                    \
@@ -141,79 +68,11 @@ struct SimplifyNoPureMathMutator : public ir::IRMutator<ir::Expr*>,
 #undef __
 };
 
-struct SimplifyLoadMutator : public ir::IRMutator<ir::Expr*>,
-                             public ir::stmt::StmtMutator<> {
-  void operator()(Expr* x) { ir::IRMutator<ir::Expr*>::Visit(x, x); }
-  void operator()(ir::stmt::BlockRef block) {
-    ir::stmt::StmtMutator<>::VisitBlock(block);
-  }
+class SimplifyLoadMutator : public ir::IRMutator<ir::Expr*> {
+ public:
+  void operator()(ir::Expr* x) { ir::IRMutator<ir::Expr*>::Visit(x, x); }
 
-  void VisitStmt(ir::stmt::For stmt) override {
-    operator()(stmt->body());
-
-    Expr extent = stmt->extent();
-    operator()(&extent);
-    stmt->set_extent(extent);
-  }
-
-  void VisitStmt(ir::stmt::IfThenElse stmt) override {
-    Expr condition = stmt->condition();
-    operator()(&condition);
-    stmt->set_condition(condition);
-    operator()(stmt->true_case());
-    operator()(stmt->false_case());
-  }
-
-  void VisitStmt(ir::stmt::Schedule stmt) override {
-    std::vector<Expr> iter_values = stmt->iter_values();
-    std::vector<Expr> read_buffers = stmt->read_buffers();
-    std::vector<Expr> write_buffers = stmt->write_buffers();
-
-    for (auto& iter_value : iter_values) {
-      operator()(&iter_value);
-    }
-    for (auto& read_buffer : read_buffers) {
-      operator()(&read_buffer);
-    }
-    for (auto& write_buffer : write_buffers) {
-      operator()(&write_buffer);
-    }
-
-    stmt->set_iter_values(iter_values);
-    stmt->set_read_buffers(read_buffers);
-    stmt->set_write_buffers(write_buffers);
-
-    operator()(stmt->body());
-  }
-
-  void VisitStmt(ir::stmt::Store stmt) override {
-    Expr value = stmt->value();
-    operator()(&value);
-    stmt->set_value(value);
-
-    std::vector<Expr> indices = stmt->indices();
-    for (auto& index : indices) {
-      operator()(&index);
-    }
-    stmt->set_indices(indices);
-  }
-
-  void VisitStmt(ir::stmt::Let stmt) override {
-    Expr body = stmt->body();
-    operator()(&body);
-    stmt->set_body(body);
-  }
-
-  void VisitStmt(ir::stmt::Evaluate stmt) override {
-    Expr value = stmt->value();
-    operator()(&value);
-    stmt->set_value(value);
-  }
-
-  void VisitStmt(ir::stmt::Alloc stmt) override {}
-
-  void VisitStmt(ir::stmt::Free stmt) override {}
-
+ private:
   void Visit(const Load* expr, Expr* op) override {
     auto* node = op->As<Load>();
     for (auto& idx : node->indices) {
@@ -226,15 +85,18 @@ struct SimplifyLoadMutator : public ir::IRMutator<ir::Expr*>,
   }
 };
 
-struct SimplifyStoreMutator : public ir::IRMutator<ir::Expr*>,
-                              public ir::stmt::StmtMutator<> {
-  void operator()(Expr* x) { ir::IRMutator<ir::Expr*>::Visit(x, x); }
-
+class SimplifyStoreMutator {
+ public:
   void operator()(ir::stmt::BlockRef block) {
-    ir::stmt::StmtMutator<>::VisitBlock(block);
+    for (auto& stmt : block->stmts()) {
+      if (stmt->stmt_type() == ir::StmtNodeTy::Store) {
+        VisitStmt(stmt.as<ir::stmt::Store>());
+      }
+    }
   }
 
-  void VisitStmt(ir::stmt::Store stmt) override {
+ private:
+  void VisitStmt(ir::stmt::Store stmt) {
     std::vector<Expr> new_indices = stmt->indices();
     for (ir::Expr& index : new_indices) {
       if (cinn::common::IsPureMath(index)) {
@@ -245,117 +107,13 @@ struct SimplifyStoreMutator : public ir::IRMutator<ir::Expr*>,
     }
     stmt->set_indices(new_indices);
   }
-
-  void VisitStmt(ir::stmt::For stmt) override {
-    operator()(stmt->body());
-
-    Expr extent = stmt->extent();
-    operator()(&extent);
-    stmt->set_extent(extent);
-  }
-
-  void VisitStmt(ir::stmt::IfThenElse stmt) override {
-    operator()(stmt->true_case());
-    if (stmt->false_case().defined()) {
-      operator()(stmt->false_case());
-    }
-  }
-
-  void VisitStmt(ir::stmt::Schedule stmt) override { operator()(stmt->body()); }
-
-  void VisitStmt(ir::stmt::Let stmt) override {}
-
-  void VisitStmt(ir::stmt::Evaluate stmt) override {}
-
-  void VisitStmt(ir::stmt::Alloc stmt) override {}
-
-  void VisitStmt(ir::stmt::Free stmt) override {}
-
-  void Visit(const Store* expr, Expr* op) override {
-    auto* node = op->As<Store>();
-
-    for (auto& idx : node->indices) {
-      if (cinn::common::IsPureMath(idx)) {
-        idx = ArithSimplify(idx);
-      } else {
-        SimplifyNoPureMathMutator()(&idx);
-      }
-    }
-  }
 };
 
-struct SimplifyRampMutator : public ir::IRMutator<Expr*>,
-                             public ir::stmt::StmtMutator<> {
+class SimplifyRampMutator : public ir::IRMutator<Expr*> {
+ public:
   void operator()(Expr* x) { ir::IRMutator<ir::Expr*>::Visit(x, x); }
 
-  void operator()(ir::stmt::BlockRef block) {
-    ir::stmt::StmtMutator<>::VisitBlock(block);
-  }
-
-  void VisitStmt(ir::stmt::For stmt) override {
-    Expr min = stmt->min();
-    Expr extent = stmt->extent();
-    operator()(&min);
-    operator()(&extent);
-    stmt->set_min(min);
-    stmt->set_extent(extent);
-    operator()(stmt->body());
-  }
-
-  void VisitStmt(ir::stmt::IfThenElse stmt) override {
-    Expr condition = stmt->condition();
-    operator()(&condition);
-    stmt->set_condition(condition);
-    operator()(stmt->true_case());
-    operator()(stmt->false_case());
-  }
-
-  void VisitStmt(ir::stmt::Schedule stmt) override {
-    std::vector<Expr> iter_values = stmt->iter_values();
-    std::vector<Expr> read_buffers = stmt->read_buffers();
-    std::vector<Expr> write_buffers = stmt->write_buffers();
-    for (auto& iter_value : iter_values) {
-      operator()(&iter_value);
-    }
-    for (auto& read_buffer : read_buffers) {
-      operator()(&read_buffer);
-    }
-    for (auto& write_buffer : write_buffers) {
-      operator()(&write_buffer);
-    }
-    stmt->set_iter_values(iter_values);
-    stmt->set_read_buffers(read_buffers);
-    stmt->set_write_buffers(write_buffers);
-    operator()(stmt->body());
-  }
-
-  void VisitStmt(ir::stmt::Store stmt) override {
-    Expr value = stmt->value();
-    operator()(&value);
-    stmt->set_value(value);
-    std::vector<Expr> indices = stmt->indices();
-    for (auto& index : indices) {
-      operator()(&index);
-    }
-    stmt->set_indices(indices);
-  }
-
-  void VisitStmt(ir::stmt::Let stmt) override {
-    Expr body = stmt->body();
-    operator()(&body);
-    stmt->set_body(body);
-  }
-
-  void VisitStmt(ir::stmt::Evaluate stmt) override {
-    Expr value = stmt->value();
-    operator()(&value);
-    stmt->set_value(value);
-  }
-
-  void VisitStmt(ir::stmt::Alloc stmt) override {}
-
-  void VisitStmt(ir::stmt::Free stmt) override {}
-
+ private:
   void Visit(const Ramp* op, Expr* expr) override {
     auto* node = expr->As<ir::Ramp>();
 
@@ -387,9 +145,11 @@ struct SimplifyRampMutator : public ir::IRMutator<Expr*>,
   }
 };
 
-struct SimplifyIfThenElseMutator {
+class SimplifyIfThenElseMutator {
+ public:
   void operator()(ir::stmt::BlockRef block) { VisitBlock(block); }
 
+ private:
   void VisitBlock(ir::stmt::BlockRef block) {
     std::unordered_set<int> empty_stmt_id;
     std::vector<ir::stmt::StmtRef> stmts = block->stmts();
@@ -408,7 +168,7 @@ struct SimplifyIfThenElseMutator {
 
   bool IsEmptyIf(ir::stmt::IfThenElse stmt) {
     const Expr& condition = stmt->condition();
-    stmt->set_condition(cinn::common::AutoSimplify(condition));
+    stmt->set_condition(ArithSimplify(condition));
 
     auto* condition_int = stmt->condition().As<ir::IntImm>();
     auto* condition_uint = stmt->condition().As<ir::UIntImm>();
@@ -435,73 +195,11 @@ struct SimplifyIfThenElseMutator {
   }
 };
 
-struct SimplifySelectMutator : public ir::IRMutator<>,
-                               public ir::stmt::StmtMutator<> {
+class SimplifySelectMutator : public ir::IRMutator<> {
+ public:
   void operator()(Expr* x) { ir::IRMutator<>::Visit(x, x); }
 
-  void operator()(ir::stmt::BlockRef block) {
-    ir::stmt::StmtMutator<>::VisitBlock(block);
-  }
-
-  void VisitStmt(ir::stmt::For stmt) override {
-    Expr min = stmt->min();
-    Expr extent = stmt->extent();
-    operator()(&min);
-    operator()(&extent);
-    stmt->set_min(min);
-    stmt->set_extent(extent);
-    operator()(stmt->body());
-  }
-
-  void VisitStmt(ir::stmt::IfThenElse stmt) override {
-    Expr condition = stmt->condition();
-    operator()(&condition);
-    stmt->set_condition(condition);
-    operator()(stmt->true_case());
-    operator()(stmt->false_case());
-  }
-
-  void VisitStmt(ir::stmt::Schedule stmt) override {
-    std::vector<Expr> iter_values = stmt->iter_values();
-    for (auto& iter_value : iter_values) {
-      VLOG(6) << "Schedule.iter_value: " << iter_value;
-      operator()(&iter_value);
-    }
-    stmt->set_iter_values(iter_values);
-    operator()(stmt->body());
-  }
-
-  void VisitStmt(ir::stmt::Store stmt) override {
-    Expr value = stmt->value();
-    operator()(&value);
-    stmt->set_value(value);
-    VLOG(6) << "Store.value: " << value;
-    std::vector<Expr> indices = stmt->indices();
-    for (auto& index : indices) {
-      VLOG(6) << "Store.index: " << index;
-      operator()(&index);
-    }
-    stmt->set_indices(indices);
-  }
-
-  void VisitStmt(ir::stmt::Let stmt) override {
-    Expr body = stmt->body();
-    VLOG(6) << "Let.body: " << body;
-    operator()(&body);
-    stmt->set_body(body);
-  }
-
-  void VisitStmt(ir::stmt::Evaluate stmt) override {
-    Expr value = stmt->value();
-    VLOG(6) << "Evaluate.value: " << value;
-    operator()(&value);
-    stmt->set_value(value);
-  }
-
-  void VisitStmt(ir::stmt::Alloc stmt) override {}
-
-  void VisitStmt(ir::stmt::Free stmt) override {}
-
+ private:
   void Visit(const Select* op, Expr* expr) override {
     auto* node = expr->As<ir::Select>();
 
@@ -526,67 +224,11 @@ struct SimplifySelectMutator : public ir::IRMutator<>,
   }
 };
 
-struct SimplifyLogicalMutator : public ir::ExprMutator<>,
-                                public ir::stmt::StmtMutator<> {
+struct SimplifyLogicalMutator : public ir::ExprMutator<> {
+ public:
   void operator()(Expr* expr) { ir::ExprMutator<>::Visit(expr, expr); }
 
-  void operator()(ir::stmt::BlockRef block) {
-    ir::stmt::StmtMutator<>::VisitBlock(block);
-  }
-
-  void VisitStmt(ir::stmt::For stmt) override {
-    Expr min = stmt->min();
-    Expr extent = stmt->extent();
-    operator()(&min);
-    operator()(&extent);
-    stmt->set_min(min);
-    stmt->set_extent(extent);
-    operator()(stmt->body());
-  }
-
-  void VisitStmt(ir::stmt::IfThenElse stmt) override {
-    Expr condition = stmt->condition();
-    operator()(&condition);
-    stmt->set_condition(condition);
-    operator()(stmt->true_case());
-    operator()(stmt->false_case());
-  }
-
-  void VisitStmt(ir::stmt::Schedule stmt) override {
-    std::vector<Expr> iter_values = stmt->iter_values();
-    for (auto& iter_value : iter_values) {
-      operator()(&iter_value);
-    }
-    operator()(stmt->body());
-  }
-
-  void VisitStmt(ir::stmt::Store stmt) override {
-    Expr value = stmt->value();
-    operator()(&value);
-    stmt->set_value(value);
-    std::vector<Expr> indices = stmt->indices();
-    for (auto& index : indices) {
-      operator()(&index);
-    }
-    stmt->set_indices(indices);
-  }
-
-  void VisitStmt(ir::stmt::Let stmt) override {
-    Expr body = stmt->body();
-    operator()(&body);
-    stmt->set_body(body);
-  }
-
-  void VisitStmt(ir::stmt::Evaluate stmt) override {
-    Expr value = stmt->value();
-    operator()(&value);
-    stmt->set_value(value);
-  }
-
-  void VisitStmt(ir::stmt::Alloc stmt) override {}
-
-  void VisitStmt(ir::stmt::Free stmt) override {}
-
+ private:
 #define DEFINE_VISIT_CMP_OP(OpType, Method)                         \
   void Visit(const ir::OpType* op, Expr* expr) override {           \
     VLOG(7) << "Begin Visit Cmp op: " << *expr;                     \
@@ -671,54 +313,25 @@ struct SimplifyLogicalMutator : public ir::ExprMutator<>,
   }
 };
 
-struct ReplaceFracWithDivMutator : public ir::IRMutator<>,
-                                   public ir::stmt::StmtMutator<> {
+class SimplifyLogicalPass : public ExprPass {
+ public:
+  SimplifyLogicalPass() : ExprPass("simplify_logical_pass") {}
+
+  LogicalResult Run(ir::Expr expr) override {
+    SimplifyLogicalMutator mutator;
+    mutator(&expr);
+    return LogicalResult::success();
+  }
+};
+std::unique_ptr<ExprPass> CreateSimplifyLogicalPass() {
+  return std::make_unique<SimplifyLogicalPass>();
+}
+
+struct ReplaceFracWithDivMutator : public ir::IRMutator<> {
+ public:
   void operator()(Expr* x) { ir::IRMutator<>::Visit(x, x); }
-  void operator()(ir::stmt::BlockRef block) {
-    ir::stmt::StmtMutator<>::VisitBlock(block);
-  }
 
-  void VisitStmt(ir::stmt::For stmt) override {
-    Expr min = stmt->min();
-    Expr extent = stmt->extent();
-    operator()(&min);
-    operator()(&extent);
-    stmt->set_min(min);
-    stmt->set_extent(extent);
-    operator()(stmt->body());
-  }
-
-  void VisitStmt(ir::stmt::IfThenElse stmt) override {
-    Expr condition = stmt->condition();
-    operator()(&condition);
-    stmt->set_condition(condition);
-    operator()(stmt->true_case());
-    operator()(stmt->false_case());
-  }
-
-  void VisitStmt(ir::stmt::Schedule stmt) override {
-    std::vector<Expr> iter_values = stmt->iter_values();
-    for (auto& iter_value : iter_values) {
-      operator()(&iter_value);
-    }
-    stmt->set_iter_values(iter_values);
-    operator()(stmt->body());
-  }
-
-  void VisitStmt(ir::stmt::Store stmt) override {}
-
-  void VisitStmt(ir::stmt::Let stmt) override {
-    Expr body = stmt->body();
-    operator()(&body);
-    stmt->set_body(body);
-  }
-
-  void VisitStmt(ir::stmt::Evaluate stmt) override {}
-
-  void VisitStmt(ir::stmt::Alloc stmt) override {}
-
-  void VisitStmt(ir::stmt::Free stmt) override {}
-
+ private:
   void Visit(const FracOp* op, Expr* expr) override {
     auto* node = expr->As<ir::FracOp>();
 
@@ -729,79 +342,28 @@ struct ReplaceFracWithDivMutator : public ir::IRMutator<>,
   }
 };
 
-// TODO(Albresky): Is this pass necessary in stmt-based new IR? If so,
-// we cannot obtain the father node of the current block, so how to
-// reduce the nested unnecessary block?
-struct SimplifyBlocksMutator : public ir::IRMutator<> {
-  SimplifyBlocksMutator() = default;
+class SimplifyFracWithDivPass : public ExprPass {
+ public:
+  SimplifyFracWithDivPass() : ExprPass("simplify_frac_with_div_pass") {}
 
-  void operator()(Expr* x) { ir::IRMutator<ir::Expr*>::Visit(x, x); }
-
-  using ir::IRMutator<>::Visit;
-
-  void Visit(const Block* op, Expr* expr) override {
-    auto* node = expr->As<ir::Block>();
-
-    if (node->stmts.size() == 1 && node->stmts[0].As<ir::Block>()) {
-      VLOG(6) << "Simplify size-1 ir::Block";
-      *expr = node->stmts[0];
-      Visit(expr, expr);
-    } else {
-      for (auto& s : node->stmts) {
-        Visit(&s, &s);
-      }
-      std::vector<Expr> stmts;
-      for (auto& s : node->stmts) {
-        if (s.As<ir::Block>()) {
-          VLOG(6) << "Simplify ir::Block inside ir::Block";
-          auto inner_block = s.As<ir::Block>();
-          for (const auto& inner_stmt : inner_block->stmts) {
-            stmts.push_back(inner_stmt);
-          }
-        } else {
-          stmts.push_back(s);
-        }
-      }
-      expr->As<ir::Block>()->stmts = stmts;
-    }
-  }
-
-  void Visit(const ScheduleBlock* op, Expr* expr) override {
-    auto* node = expr->As<ScheduleBlock>();
-    PADDLE_ENFORCE_NOT_NULL(node,
-                            ::common::errors::InvalidArgument(
-                                "The node expr->As<ScheduleBlock>() is null"));
-    for (auto& var : node->iter_vars) {
-      if (var->lower_bound.defined()) {
-        Visit(&var->lower_bound, &var->lower_bound);
-      }
-      if (var->upper_bound.defined()) {
-        Visit(&var->upper_bound, &var->upper_bound);
-      }
-    }
-    for (auto& buffer_region : node->read_buffers) {
-      Visit(&buffer_region, &buffer_region);
-    }
-    for (auto& buffer_region : node->write_buffers) {
-      Visit(&buffer_region, &buffer_region);
-    }
-
-    if (node->body.As<Block>()) {
-      if (node->body.As<Block>()->stmts.size() == 1) {
-        node->body = node->body.As<Block>()->stmts[0];
-      }
-    }
-
-    Visit(&(node->body), &(node->body));
+  LogicalResult Run(ir::Expr expr) override {
+    ReplaceFracWithDivMutator mutator;
+    mutator(&expr);
+    return LogicalResult::success();
   }
 };
+std::unique_ptr<ExprPass> CreateSimplifyFracWithDivPass() {
+  return std::make_unique<SimplifyFracWithDivPass>();
+}
 
-struct SimplifyForLoopsMutator : public ir::IRMutator<ir::Expr*>,
-                                 public ir::stmt::StmtMutator<bool, bool> {
+class SimplifyForLoopsMutator : public ir::IRMutator<ir::Expr*>,
+                                public ir::stmt::StmtMutator<bool, bool> {
+ public:
   void operator()(ir::Expr* x) { ir::IRMutator<ir::Expr*>::Visit(x, x); }
 
   void operator()(ir::stmt::BlockRef block) { VisitBlock(block); }
 
+ private:
   bool VisitBlock(ir::stmt::BlockRef block) override {
     std::vector<ir::stmt::StmtRef> stmts = block->stmts();
     for (auto i = stmts.size() - 1; i >= 0; i--) {
@@ -854,25 +416,14 @@ struct SimplifyForLoopsMutator : public ir::IRMutator<ir::Expr*>,
   }
 
   bool VisitStmt(ir::stmt::Schedule stmt) override {
-    std::vector<ir::Var> iter_vars = stmt->iter_vars();
     std::vector<Expr> iter_values = stmt->iter_values();
     std::vector<Expr> read_buffers = stmt->read_buffers();
     std::vector<Expr> write_buffers = stmt->write_buffers();
-
-    for (ir::Var& var : iter_vars) {
-      Expr lower_bound = var->lower_bound;
-      Expr upper_bound = var->upper_bound;
-      operator()(&lower_bound);
-      operator()(&upper_bound);
-      var->lower_bound = lower_bound;
-      var->upper_bound = upper_bound;
-    }
 
     for (Expr& iter_value : iter_values) operator()(&iter_value);
     for (Expr& read_buffer : read_buffers) operator()(&read_buffer);
     for (Expr& write_buffer : write_buffers) operator()(&write_buffer);
 
-    stmt->set_iter_vars(iter_vars);
     stmt->set_iter_values(iter_values);
     stmt->set_read_buffers(read_buffers);
     stmt->set_write_buffers(write_buffers);
@@ -896,8 +447,6 @@ struct SimplifyForLoopsMutator : public ir::IRMutator<ir::Expr*>,
     stmt->set_indices(indices);
   }
 
-  bool VisitStmt(ir::stmt::Evaluate stmt) override {}
-
   bool VisitStmt(ir::stmt::Alloc stmt) override {
     Expr condition = stmt->condition();
     operator()(&condition);
@@ -910,6 +459,8 @@ struct SimplifyForLoopsMutator : public ir::IRMutator<ir::Expr*>,
     stmt->set_destination(destination);
   }
 
+  bool VisitStmt(ir::stmt::Evaluate stmt) override {}
+
   void Visit(const _Var_* op, Expr* expr) override {
     auto* node = expr->As<ir::_Var_>();
 
@@ -918,7 +469,6 @@ struct SimplifyForLoopsMutator : public ir::IRMutator<ir::Expr*>,
     }
   }
 
- private:
   absl::flat_hash_map<std::string, Expr> var_mins;
 };
 
@@ -944,65 +494,11 @@ CastType NormCastValue(T value) {
   return static_cast<CastType>(value);
 }
 
-struct SimplifyCastMutator : public ir::IRMutator<>,
-                             public ir::stmt::StmtMutator<> {
+class SimplifyCastMutator : public ir::IRMutator<> {
+ public:
   void operator()(Expr* x) { ir::IRMutator<>::Visit(x, x); }
-  void operator()(ir::stmt::BlockRef block) {
-    ir::stmt::StmtMutator<>::VisitBlock(block);
-  }
 
-  void VisitStmt(ir::stmt::For stmt) override {
-    Expr min = stmt->min();
-    Expr extent = stmt->extent();
-    operator()(&min);
-    operator()(&extent);
-    stmt->set_min(min);
-    stmt->set_extent(extent);
-    VisitBlock(stmt->body());
-  }
-
-  void VisitStmt(ir::stmt::IfThenElse stmt) override {
-    Expr condition = stmt->condition();
-    operator()(&condition);
-    stmt->set_condition(condition);
-
-    VisitBlock(stmt->true_case());
-    if (stmt->false_case().defined()) {
-      VisitBlock(stmt->false_case());
-    }
-  }
-
-  void VisitStmt(ir::stmt::Schedule stmt) override {
-    std::vector<Expr> iter_values = stmt->iter_values();
-    for (auto& iter_value : iter_values) operator()(&iter_value);
-    stmt->set_iter_values(iter_values);
-    VisitBlock(stmt->body());
-  }
-
-  void VisitStmt(ir::stmt::Store stmt) override {
-    Expr value = stmt->value();
-    operator()(&value);
-    stmt->set_value(value);
-
-    std::vector<Expr> indices = stmt->indices();
-    for (Expr& index : indices) {
-      operator()(&index);
-    }
-    stmt->set_indices(indices);
-  }
-
-  void VisitStmt(ir::stmt::Let stmt) override {
-    Expr value = stmt->body();
-    operator()(&value);
-    stmt->set_body(value);
-  }
-
-  void VisitStmt(ir::stmt::Alloc stmt) override {}
-
-  void VisitStmt(ir::stmt::Free stmt) override {}
-
-  void VisitStmt(ir::stmt::Evaluate stmt) override {}
-
+ private:
   void Visit(const ir::Cast* op, Expr* expr) override {
     auto* node = expr->As<ir::Cast>();
 
@@ -1066,47 +562,118 @@ struct SimplifyCastMutator : public ir::IRMutator<>,
 };
 }  // namespace
 
-void SimplifyCast(ir::stmt::BlockRef block) { SimplifyCastMutator()(block); }
+class SimplifyNoPureMathPass : public ExprPass {
+ public:
+  SimplifyNoPureMathPass() : ExprPass("simplify_no_pure_math_pass") {}
 
-void SimplifyCast(ir::Expr* expr) {
-  if (!expr->As<ir::Block>()) return;
-  ir::stmt::BlockRef block = ir::ConvertExprBlockToStmtBlock(*expr);
-  optim::BlockPassManager pass_manager;
-  pass_manager.AddPass(CreateSimplifyCastPass());
-  pass_manager.Run(block);
-  *expr = ir::ConvertStmtBlockToExprBlock(block);
+  LogicalResult Run(ir::Expr expr) override {
+    SimplifyNoPureMathMutator mutator;
+    mutator(&expr);
+    return LogicalResult::success();
+  }
+};
+std::unique_ptr<ExprPass> CreateSimplifyNoPureMathPass() {
+  return std::make_unique<SimplifyNoPureMathPass>();
 }
 
-std::unique_ptr<BlockPass> CreateSimplifyCastPass() {
-  return std::make_unique<SimplifyCastPass>();
+class SimplifyLoadPass : public ExprPass {
+ public:
+  SimplifyLoadPass() : ExprPass("simplify_load_pass") {}
+
+  LogicalResult Run(ir::Expr expr) override {
+    SimplifyLoadMutator mutator;
+    mutator(&expr);
+    return LogicalResult::success();
+  }
+};
+std::unique_ptr<ExprPass> CreateSimplifyLoadPass() {
+  return std::make_unique<SimplifyLoadPass>();
 }
 
-LogicalResult SimplifyCastPass::Run(ir::stmt::BlockRef block) {
-  SimplifyCast(block);
-  return LogicalResult::success();
+class SimplifyStorePass : public BlockPass {
+ public:
+  SimplifyStorePass() : BlockPass("simplify_store_pass") {}
+
+  LogicalResult Run(ir::stmt::BlockRef block) override {
+    SimplifyStoreMutator mutator;
+    mutator(block);
+    return LogicalResult::success();
+  }
+};
+std::unique_ptr<BlockPass> CreateSimplifyStorePass() {
+  return std::make_unique<SimplifyStorePass>();
 }
 
-void SimplifyForLoops(ir::Expr* expr) {
-  if (!expr->As<ir::Block>()) return;
-  ir::stmt::BlockRef block = ir::ConvertExprBlockToStmtBlock(*expr);
-  optim::BlockPassManager pass_manager;
-  pass_manager.AddPass(CreateSimplifyForLoopsPass());
-  pass_manager.Run(block);
-  *expr = ir::ConvertStmtBlockToExprBlock(block);
+class SimplifySelectPass : public ExprPass {
+ public:
+  SimplifySelectPass() : ExprPass("simplify_select_pass") {}
+
+  LogicalResult Run(ir::Expr expr) override {
+    SimplifySelectMutator mutator;
+    mutator(&expr);
+    return LogicalResult::success();
+  }
+};
+std::unique_ptr<ExprPass> CreateSimplifySelectPass() {
+  return std::make_unique<SimplifySelectPass>();
 }
 
-LogicalResult SimplifyForLoopsPass::Run(ir::stmt::BlockRef block) {
-  SimplifyForLoopsMutator()(block);
-  return LogicalResult::success();
-}
+class SimplifyForLoopsPass : public BlockPass {
+ public:
+  SimplifyForLoopsPass() : BlockPass("simplify_for_loops_pass") {}
+
+  LogicalResult Run(ir::stmt::BlockRef block) override {
+    SimplifyForLoopsMutator()(block);
+    return LogicalResult::success();
+  }
+};
 
 std::unique_ptr<BlockPass> CreateSimplifyForLoopsPass() {
   return std::make_unique<SimplifyForLoopsPass>();
 }
 
-void SimplifyBlocks(Expr* expr) { SimplifyBlocksMutator()(expr); }
+class SimplifyIfThenElsePass : public BlockPass {
+ public:
+  SimplifyIfThenElsePass() : BlockPass("simplify_ifthenelse_loops_pass") {}
 
-void SimplifyLogical(Expr* expr) { SimplifyLogicalMutator()(expr); }
+  LogicalResult Run(ir::stmt::BlockRef block) override {
+    SimplifyIfThenElseMutator()(block);
+    return LogicalResult::success();
+  }
+};
+
+std::unique_ptr<BlockPass> CreateSimplifyIfThenElsePass() {
+  return std::make_unique<SimplifyIfThenElsePass>();
+}
+
+class SimplifyRampPass : public ExprPass {
+ public:
+  SimplifyRampPass() : ExprPass("simplify_ramp_pass") {}
+
+  LogicalResult Run(ir::Expr expr) override {
+    SimplifyRampMutator mutator;
+    mutator(&expr);
+    return LogicalResult::success();
+  }
+};
+std::unique_ptr<ExprPass> CreateSimplifyRampPass() {
+  return std::make_unique<SimplifyRampPass>();
+}
+
+class SimplifyCastPass : public ExprPass {
+ public:
+  SimplifyCastPass() : ExprPass("simplify_cast_pass") {}
+
+  LogicalResult Run(ir::Expr expr) override {
+    SimplifyCastMutator mutator;
+    mutator(&expr);
+    return LogicalResult::success();
+  }
+};
+
+std::unique_ptr<ExprPass> CreateSimplifyCastPass() {
+  return std::make_unique<SimplifyCastPass>();
+}
 
 Expr ArithSimplify(const Expr& u) {
   if (!u.is_index()) return u;
@@ -1114,68 +681,72 @@ Expr ArithSimplify(const Expr& u) {
   return copied.as_index().Normalize();
 }
 
-void Simplify(ir::stmt::BlockRef block) {
-  VLOG(6) << "Begin Simplify: \n " << block;
+void Simplify(ir::Expr* expr, const SimplifyType type) {
+  VLOG(6) << "Begin Simplify: \n " << *expr;
 
-  VLOG(6) << "Start SimplifyNoPureMathMutator: \n" << block;
-  SimplifyNoPureMathMutator()(block);
-  VLOG(6) << "End SimplifyNoPureMathMutator: \n" << block;
+  switch (type) {
+    case SimplifyType::kExpr:
+      SimplifyNoPureMathMutator()(expr);
+      SimplifyCastMutator()(expr);
+      SimplifyRampMutator()(expr);
+      SimplifyLoadMutator()(expr);
+      SimplifyLogicalMutator()(expr);
+      SimplifySelectMutator()(expr);
+      SimplifyNoPureMathMutator()(expr);
+      break;
+    case SimplifyType::kBlock:
+      PADDLE_ENFORCE_EQ(expr->node_type(),
+                        ir::Block::_node_type_,
+                        ::common::errors::InvalidArgument(
+                            "The Expr to simplify must be a block."));
+      ir::stmt::BlockRef _block = ir::ConvertExprBlockToStmtBlock(*expr);
+      optim::ExprPassManager expr_pass_manager;
+      expr_pass_manager.AddPass(CreateSimplifyNoPureMathPass());
+      expr_pass_manager.AddPass(CreateSimplifyCastPass());
+      expr_pass_manager.AddPass(CreateSimplifyRampPass());
+      expr_pass_manager.AddPass(CreateSimplifyLoadPass());
+      expr_pass_manager.AddPass(CreateSimplifyLogicalPass());
+      expr_pass_manager.AddPass(CreateSimplifySelectPass());
+      expr_pass_manager.Run(_block);
 
-  VLOG(6) << "Begin SimplifyCastMutator: \n" << block;
-  SimplifyCastMutator()(block);
-  VLOG(6) << "End SimplifyCastMutator: \n" << block;
+      optim::BlockPassManager block_pass_manager;
+      block_pass_manager.AddPass(CreateSimplifyStorePass());
+      block_pass_manager.AddPass(CreateSimplifyIfThenElsePass());
+      block_pass_manager.Run(_block);
 
-  VLOG(6) << "Begin SimplifyRampMutator: \n" << block;
-  SimplifyRampMutator()(block);
-  VLOG(6) << "End SimplifyRampMutator: \n" << block;
+      optim::ExprPassManager expr_pass_manager1;
+      expr_pass_manager1.AddPass(CreateSimplifyNoPureMathPass());
+      expr_pass_manager1.AddPass(CreateSimplifyFracWithDivPass());
+      expr_pass_manager1.Run(_block);
 
-  VLOG(6) << "Begin SimplifyLoadMutator: \n" << block;
-  SimplifyLoadMutator()(block);
-  VLOG(6) << "End SimplifyLoadMutator: \n" << block;
+      *expr = ir::ConvertStmtBlockToExprBlock(_block);
+      break;
+  }
 
-  VLOG(6) << "Begin SimplifyStoreMutator: \n" << block;
-  SimplifyStoreMutator()(block);
-  VLOG(6) << "End SimplifyStoreMutator: \n" << block;
-
-  VLOG(6) << "Begin SimplifyLogicalMutator: \n" << block;
-  SimplifyLogicalMutator()(block);
-  VLOG(6) << "End SimplifyLogicalMutator: \n" << block;
-
-  VLOG(6) << "Begin SimplifyIfThenElseMutator: \n" << block;
-  SimplifyIfThenElseMutator()(block);
-  VLOG(6) << "End SimplifyIfThenElseMutator: \n" << block;
-
-  VLOG(6) << "Begin SimplifySelectMutator: \n" << block;
-  SimplifySelectMutator()(block);
-  VLOG(6) << "End SimplifySelectMutator: \n" << block;
-
-  VLOG(6) << "Begin SimplifyNoPureMathMutator: \n" << block;
-  SimplifyNoPureMathMutator()(block);
-  VLOG(6) << "End SimplifyNoPureMathMutator: \n" << block;
-
-  VLOG(6) << "Begin ReplaceFracWithDivMutator: \n" << block;
-  ReplaceFracWithDivMutator()(block);
-  VLOG(6) << "End ReplaceFracWithDivMutator: \n" << block;
-
-  VLOG(6) << "End Simplify: \n" << block;
+  VLOG(6) << "End Simplify: \n" << *expr;
 }
 
-void Simplify(ir::Expr* expr) {
-  if (!expr->As<ir::Block>()) return;
+void SimplifyForLoops(ir::Expr* expr) {
+  PADDLE_ENFORCE_EQ(expr->node_type(),
+                    ir::Block::_node_type_,
+                    ::common::errors::InvalidArgument(
+                        "The Expr to simplify must be a block."));
   ir::stmt::BlockRef block = ir::ConvertExprBlockToStmtBlock(*expr);
   optim::BlockPassManager pass_manager;
-  pass_manager.AddPass(CreateSimplifyPass());
+  pass_manager.AddPass(CreateSimplifyForLoopsPass());
   pass_manager.Run(block);
   *expr = ir::ConvertStmtBlockToExprBlock(block);
 }
 
-LogicalResult SimplifyPass::Run(ir::stmt::BlockRef block) {
-  Simplify(block);
-  return LogicalResult::success();
+void SimplifyCast(ir::Expr* expr) {
+  SimplifyCastMutator mutator;
+  mutator(expr);
 }
 
-std::unique_ptr<BlockPass> CreateSimplifyPass() {
-  return std::make_unique<SimplifyPass>();
+void SimplifyCast(ir::stmt::BlockRef block) {
+  optim::ExprPassManager pass_manager;
+  pass_manager.AddPass(CreateSimplifyCastPass());
+  pass_manager.Run(block);
 }
 
 }  // namespace optim

@@ -147,7 +147,6 @@ std::vector<ir::LoweredFunc> LowerTensorGroup::operator()() {
         actual_fn_name, func_args, func_body, temp_buffers);
 
     // 6. Final clean up
-    optim::SimplifyBlocks(&func->body);
     func->body = ir::Block::Make({func->body});
     result.push_back(ir::LoweredFunc(func.get()));
     num_func++;

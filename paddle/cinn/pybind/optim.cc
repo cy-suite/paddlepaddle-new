@@ -37,7 +37,7 @@ void BindSimplify(py::module* m) {
       "simplify",
       [](const Expr& expr) -> Expr {
         auto copied = ir::ir_utils::IRCopy(expr);
-        Simplify(&copied);
+        Simplify(&copied, optim::SimplifyType::kBlock);
         return copied;
       },
       py::arg("expr"));

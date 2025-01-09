@@ -15,10 +15,11 @@
 #pragma once
 #include "paddle/cinn/ir/ir.h"
 #include "paddle/cinn/ir/stmt.h"
-#include "paddle/cinn/pass/pass.h"
 
 namespace cinn {
 namespace optim {
+
+enum class SimplifyType { kExpr, kBlock };
 
 /**
  * Simplify the expression on Cast, Ramp, Load, Store, IfThenElse and Select
@@ -86,15 +87,7 @@ namespace optim {
  *    Output IR:
  *      true_value
  */
-void Simplify(ir::Expr *expr);
-
-class SimplifyPass : public BlockPass {
- public:
-  SimplifyPass() : BlockPass("simplify_pass") {}
-
-  LogicalResult Run(ir::stmt::BlockRef block) override;
-};
-std::unique_ptr<BlockPass> CreateSimplifyPass();
+void Simplify(ir::Expr *expr, SimplifyType type);
 
 /**
  * Simplify type casting expressions.
@@ -129,15 +122,7 @@ std::unique_ptr<BlockPass> CreateSimplifyPass();
  *      Cast<float>(x)  (Type mismatch, remains unchanged)
  *      5.0             (Constant value will be cast)
  */
-void SimplifyCast(Expr *expr);
-
-class SimplifyCastPass : public BlockPass {
- public:
-  SimplifyCastPass() : BlockPass("simplify_cast_pass") {}
-
-  LogicalResult Run(ir::stmt::BlockRef block) override;
-};
-std::unique_ptr<BlockPass> CreateSimplifyCastPass();
+void SimplifyCast(ir::Expr *expr);
 
 /**
  * Simplify for loop structures in the IR.
@@ -167,49 +152,7 @@ std::unique_ptr<BlockPass> CreateSimplifyCastPass();
  *    Output IR:
  *      for (int i = 0; i < 2; ++i) { doSomething(i); } (remains unchanged)
  */
-void SimplifyForLoops(Expr *expr);
-
-class SimplifyForLoopsPass : public BlockPass {
- public:
-  SimplifyForLoopsPass() : BlockPass("simplify_for_loops_pass") {}
-
-  LogicalResult Run(ir::stmt::BlockRef block) override;
-};
-std::unique_ptr<BlockPass> CreateSimplifyForLoopsPass();
-
-/**
- * Simplify block structures in the IR.
- *
- * This pass is applicable in scenarios where blocks contain redundant or nested
- * blocks that can be flattened. This is useful in optimizing the structure of
- * the IR for better performance.
-
- * When applied, this pass will recursively check and simplify blocks of three
- * kinds: 1) block(s) containing only a single statement or block will be
- * replaced by the inner body; 2) nested block will be flattened by
- * extracting the child or current statements into current block; 3) iterative
- * variables and buffer regions of ScheduleBlock will be replaced by block body
- * when the body is single.
-
- * Performance impact: This pass can improve performance by reducing the
- * overhead of block management and enabling better optimization opportunities.
-
- * Examples:
- * 1. Single statement block:
- *    Input IR:
- *      Block { Block { stmt0 } }
- *    Output IR:
- *      Block { stmt0 }
- *
- * 2. Nested blocks:
- *    Input IR:
- *      Block { Block { stmt1 }, Block { stmt2 }, stmt3 }
- *    Output IR:
- *      Block { stmt1, stmt2, stmt3 }
- */
-void SimplifyBlocks(Expr *expr);
-
-void SimplifyLogical(Expr *expr);
+void SimplifyForLoops(ir::Expr *expr);
 
 Expr ArithSimplify(const Expr &u);
 }  // namespace optim
