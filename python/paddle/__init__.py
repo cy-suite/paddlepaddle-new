@@ -1223,3 +1223,14 @@ __all__ = [
     'pi',
     'e',
 ]
+
+import os
+
+if os.environ.get("FLAGS_trace_api", "False") in [
+    'True',
+    '1',
+    'true',
+]:
+    from .api_tracer import start_api_tracer
+
+    start_api_tracer()
