@@ -319,7 +319,8 @@ bool IsDeniedInCinn(const ::pir::Operation& op) {
   }
   if (HasDynamicRank(op)) {
     VLOG(5) << "Found " << op.name()
-            << " has dynamic rank in operand or result value.";
+            << " has dynamic rank in operand or result value. "
+            << "So mark IsDeniedForCinn: " << true;
     return true;
   }
 
