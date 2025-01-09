@@ -908,11 +908,13 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
         });
         // Infer symbol shape for all ops before fused pass
         fused_op_pm.AddPass(pir::CreateShapeOptimizationPass());
-        const std::vector<std::string> FusedOpPasses{// Operator fusion pass
-                                                     "map_op_to_another_pass",
-                                                     "conv2d_bn_fuse_pass",
-                                                     "conv2d_add_act_fuse_pass",
-                                                     "conv2d_add_fuse_pass"};
+        const std::vector<std::string> FusedOpPasses{
+            // Operator fusion pass
+            "map_op_to_another_pass",
+            "conv2d_bn_fuse_pass",
+            "conv2d_add_act_fuse_pass",
+            "conv2d_add_fuse_pass",
+            "matmul_add_act_fuse_pass"};
 
         for (const auto &fused_op : FusedOpPasses) {
           fused_op_pm.AddPass(pir::PassRegistry::Instance().Get(fused_op));
@@ -3457,9 +3459,9 @@ USE_TRT_CONVERTER(preln_layernorm_shift_partition)
 USE_TRT_CONVERTER(merge_layernorm)
 USE_TRT_CONVERTER(trans_layernorm)
 USE_TRT_CONVERTER(skip_merge_layernorm)
-USE_TRT_CONVERTER(generic_plugin_creater)
-USE_TRT_CONVERTER(custom_plugin_creater)
-USE_TRT_CONVERTER(custom_generic_plugin_creater)
+USE_TRT_CONVERTER(generic_plugin_creator)
+USE_TRT_CONVERTER(custom_plugin_creater)  // typos: disable-line
+USE_TRT_CONVERTER(custom_generic_plugin_creator)
 USE_TRT_CONVERTER(fuse_eleadd_transpose)
 USE_TRT_CONVERTER(tanh_shrink)
 USE_TRT_CONVERTER(logsigmoid)

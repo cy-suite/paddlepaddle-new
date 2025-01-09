@@ -1476,7 +1476,7 @@ function collect_failed_tests() {
     done
 }
 
-# getting qucik disable ut list
+# getting quick disable ut list
 function get_quickly_disable_ut() {
     python -m pip install httpx
     if disable_ut_quickly=$(python ${PADDLE_ROOT}/tools/get_quick_disable_lt.py); then
@@ -3674,7 +3674,7 @@ function distribute_test() {
     parallel_fa_unit
     echo "End FA tests"
 
-    echo "Dowloading ...."
+    echo "Downloading ...."
     cd ${work_dir}
     wget https://paddlenlp.bj.bcebos.com/wheels/PaddleNLP_stable_paddle.tar.gz --no-proxy
     tar -zvxf PaddleNLP_stable_paddle.tar.gz
