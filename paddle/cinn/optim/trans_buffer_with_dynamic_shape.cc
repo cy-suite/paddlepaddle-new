@@ -157,7 +157,7 @@ void CudaTransBufferWithDynamicShape(ir::Expr* e) {
                 ->get_device_property(
                     BackendAPI::DeviceProperty::MaxSharedMemoryPerBlock);
         PADDLE_ENFORCE_LE(
-            mutator.shared_mem_size_used_,
+            mutator.shared_mem_size_used(),
             max_shm_per_block,
             ::common::errors::InvalidArgument(
                 "The shared memory size used by current kernel is greater "
