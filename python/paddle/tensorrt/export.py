@@ -123,13 +123,13 @@ class Input:
             low, high = self.input_range
             self.input_min_data = np.random.randint(
                 low, high, size=self.min_input_shape
-            )
+            ).astype(self.input_data_type)
             self.input_optim_data = np.random.randint(
                 low, high, size=self.optim_input_shape
-            )
+            ).astype(self.input_data_type)
             self.input_max_data = np.random.randint(
                 low, high, size=self.max_input_shape
-            )
+            ).astype(self.input_data_type)
         else:
             low, high = self.input_range if self.input_range else (0, 1)
             self.input_min_data = np.random.uniform(
@@ -171,6 +171,7 @@ class TensorRTConfig:
         disable_ops: str | list | None = None,
         precision_mode: PrecisionMode = PrecisionMode.FP32,
         ops_run_float: str | list | None = None,
+        optimization_level: int | None = 3,
     ) -> None:
         """
         A class for configuring TensorRT optimizations.
@@ -192,7 +193,9 @@ class TensorRTConfig:
                 - PrecisionMode.BFP16: 16-bit Brain Floating Point precision. Only supported in TensorRT versions greater than 9.0.
             ops_run_float (str|list, optional):
                 A set of operation names that should be executed using FP32 precision regardless of the `tensorrt_precision_mode` setting.
-                 The directory where the optimized model will be saved (default is None).
+                The directory where the optimized model will be saved (default is None).
+            optimization_level (int, optional):
+                Set TensorRT optimization level (default is 3). Only supported in TensorRT versions greater than 8.6.
         Returns:
             None
 
@@ -223,6 +226,7 @@ class TensorRTConfig:
         self.precision_mode = precision_mode
         self.ops_run_float = ops_run_float
         self.disable_ops = disable_ops
+        self.optimization_level = optimization_level
         paddle.framework.set_flags(
             {'FLAGS_trt_min_group_size': min_subgraph_size}
         )
@@ -244,17 +248,20 @@ def convert_to_trt(program, trt_config, scope):
     with paddle.pir_utils.IrGuard():
         min_shape_feed = {}
         max_shape_feed = {}
+        opt_shape_feed = {}
         for i, input_instance in enumerate(trt_config.inputs):
             # get fake inputs
-            min_data, _, max_data = input_instance.generate_input_data()
+            min_data, opt_data, max_data = input_instance.generate_input_data()
             program_with_output = program.list_vars()[-1]
             min_shape_feed[feed_name[i]] = min_data
+            opt_shape_feed[feed_name[i]] = opt_data
             max_shape_feed[feed_name[i]] = max_data
 
             # run warmup for collecting shape
         program = warmup_shape_infer(
             program,
             min_shape_feed=min_shape_feed,
+            opt_shape_feed=opt_shape_feed,
             max_shape_feed=max_shape_feed,
             scope=scope,
         )

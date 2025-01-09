@@ -1856,14 +1856,14 @@ All parameter, weight, gradient are variables in Paddle.
         return operators::ExtraInfoUtils::Instance().GetExtraAttrsMap(op_type);
       });
   m.def(
-      "get_attrtibute_type",
+      "get_attribute_type",
       [](const std::string &op_type,
          const std::string &attr_name) -> paddle::framework::proto::AttrType {
-        const auto &defalut_val =
+        const auto &default_val =
             operators::ExtraInfoUtils::Instance().GetExtraAttrsMap(op_type).at(
                 attr_name);
         return static_cast<paddle::framework::proto::AttrType>(
-            defalut_val.index() - 1);
+            default_val.index() - 1);
       });
   m.def("_add_skip_comp_ops", &paddle::prim::PrimCommonUtils::AddSkipCompOps);
   m.def("_set_bwd_prim_blacklist",
@@ -2793,6 +2793,7 @@ All parameter, weight, gradient are variables in Paddle.
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
   m.def("get_cuda_device_count", platform::GetGPUDeviceCount);
   m.def("get_cuda_current_device_id", &platform::GetCurrentDeviceId);
+  m.def("set_cuda_current_device_id", &platform::SetDeviceId, py::arg("i"));
   m.def("cuda_empty_cache", [] {
     for (int dev_id : platform::GetSelectedDevices()) {
       auto *dev_ctx =

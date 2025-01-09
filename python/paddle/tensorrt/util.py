@@ -94,7 +94,9 @@ def predict_program(program, feed_data, fetch_var_list, scope=None):
             return output
 
 
-def warmup_shape_infer(program, min_shape_feed, max_shape_feed, scope=None):
+def warmup_shape_infer(
+    program, min_shape_feed, opt_shape_feed, max_shape_feed, scope=None
+):
     paddle.framework.set_flags({"FLAGS_enable_collect_shape": True})
     with paddle.pir_utils.IrGuard():
         with paddle.static.program_guard(program):
@@ -102,6 +104,9 @@ def warmup_shape_infer(program, min_shape_feed, max_shape_feed, scope=None):
             # Run the program with input_data
             for _ in range(1):
                 executor.run(program, feed=min_shape_feed, scope=scope)
+
+            for _ in range(1):
+                executor.run(program, feed=opt_shape_feed, scope=scope)
 
             # Run the program with input_data_max_shape (fake max_shape input)
             for _ in range(1):
@@ -120,6 +125,7 @@ def warmup_shape_infer(program, min_shape_feed, max_shape_feed, scope=None):
                 )
             )
     paddle.framework.set_flags({"FLAGS_enable_collect_shape": False})
+
     return exe_program
 
 
@@ -152,32 +158,29 @@ def mark_builtin_op(program):
 class TensorRTConfigManager:
     _instance = None
 
-    def __new__(cls, *args, **kwargs):
+    def __new__(cls, trt_config=None):
         if not cls._instance:
-            cls._instance = super().__new__(cls, *args, **kwargs)
-            cls._instance._init()
+            cls._instance = super().__new__(cls)
+            cls._instance.trt_config = trt_config
         return cls._instance
 
-    def _init(self):
-        self.force_fp32_ops = []
+    def _init(self, trt_config=None):
+        self.trt_config = trt_config
 
-    def set_force_fp32_ops(self, ops):
-        if ops is None:
-            self.force_fp32_ops = []
-        elif isinstance(ops, str):
-            self.force_fp32_ops = [ops]
-        elif isinstance(ops, list):
-            self.force_fp32_ops = ops
-        else:
-            raise ValueError("Ops should be a string, list, or None.")
+    def get_precision_mode(self):
+        if self.trt_config and self.trt_config.precision_mode:
+            return self.trt_config.precision_mode
+        return None
 
     def get_force_fp32_ops(self):
-        return self.force_fp32_ops
+        if self.trt_config and self.trt_config.ops_run_float:
+            return self.trt_config.ops_run_float
+        return []
 
 
 # In TensorRT FP16 inference, this function sets the precision of specific
 # operators to FP32, ensuring numerical accuracy for these operations.
-def support_fp32_mix_precision(op_type, layer):
+def support_fp32_mix_precision(op_type, layer, trt_config=None):
     trt_manager = TensorRTConfigManager()
     force_fp32_ops = trt_manager.get_force_fp32_ops()
     if op_type in force_fp32_ops:
@@ -195,6 +198,7 @@ def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name):
         "pd_op.batch_norm_",
         "pd_op.layer_norm",
         "pd_op.depthwise_conv2d_transpose",
+        "pd_op.affine_channel",
     ]
     if use_op_name in forbid_cast_op:
         return trt_tensor

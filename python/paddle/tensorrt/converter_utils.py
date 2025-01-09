@@ -19,6 +19,8 @@ import sys
 import numpy as np
 import tensorrt as trt
 
+from paddle.tensorrt.util import TensorRTConfigManager
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, os.pardir))
 if parent_dir not in sys.path:
@@ -679,3 +681,81 @@ def squeeze_trt(network, input_tensor, axes):
     reshape_layer = network.add_shuffle(input_tensor)
     reshape_layer.set_input(1, new_shape_tensor)
     return reshape_layer.get_output(0)
+
+
+def unary_op_converter(network, paddle_op, inputs):
+    from paddle.tensorrt import PrecisionMode
+
+    ops_type_map = {
+        "pd_op.sqrt": [trt.UnaryOperation.SQRT],
+        "pd_op.sqrt_": [trt.UnaryOperation.SQRT],
+        "pd_op.floor": [trt.UnaryOperation.FLOOR],
+        "pd_op.exp": [trt.UnaryOperation.EXP],
+        "pd_op.abs": [trt.UnaryOperation.ABS],
+        "pd_op.abs_": [trt.UnaryOperation.ABS],
+        "pd_op.sin": [trt.UnaryOperation.SIN],
+        "pd_op.cos": [trt.UnaryOperation.COS],
+        "pd_op.sinh": [trt.UnaryOperation.SINH],
+        "pd_op.cosh": [trt.UnaryOperation.COSH],
+        "pd_op.asinh": [trt.UnaryOperation.ASINH],
+        "pd_op.acosh": [trt.UnaryOperation.ACOSH],
+        "pd_op.atanh": [trt.UnaryOperation.ATANH],
+        "pd_op.ceil": [trt.UnaryOperation.CEIL],
+        "pd_op.reciprocal": [trt.UnaryOperation.RECIP],
+        "pd_op.erf": [trt.UnaryOperation.ERF],
+        "pd_op.sign": [trt.UnaryOperation.SIGN],
+        "pd_op.round": [trt.UnaryOperation.ROUND],
+        "pd_op.logical_not": [trt.UnaryOperation.NOT],
+        "pd_op.rsqrt": [trt.UnaryOperation.SQRT, trt.UnaryOperation.RECIP],
+    }
+
+    input_tensor = inputs[0]
+    layer = None
+    org_type = input_tensor.dtype
+
+    trt_type_mapping = {
+        trt.DataType.INT8: trt.int8,
+        trt.DataType.INT32: trt.int32,
+    }
+
+    trt_manager = TensorRTConfigManager()
+    precision_mode = trt_manager.get_precision_mode()
+
+    need_cast = org_type in [trt.DataType.INT8, trt.DataType.INT32]
+    if need_cast:
+        identity_layer = network.add_identity(input_tensor)
+        if precision_mode == PrecisionMode.FP32:
+            identity_layer.set_output_type(0, trt.float32)
+        else:
+            identity_layer.set_output_type(0, trt.float16)
+        input_tensor = identity_layer.get_output(0)
+
+    if paddle_op.name() in ops_type_map:
+        for trt_op in ops_type_map[paddle_op.name()]:
+            layer = network.add_unary(input_tensor, trt_op)
+            input_tensor = layer.get_output(0)
+    else:
+        raise NotImplementedError(
+            f"Unsupported unary operation: {paddle_op.name()}"
+        )
+    if need_cast:
+        restore_layer = network.add_identity(input_tensor)
+        restore_layer.set_output_type(0, trt_type_mapping[org_type])
+        input_tensor = restore_layer.get_output(0)
+
+    return input_tensor
+
+
+# get the length of the specified axis for input_tensor
+def get_axis_length(network, input_tensor, axis, is_scalar=False):
+    input_shape = input_tensor.shape
+    if input_shape[axis] >= 0:
+        output_tensor = add_1D_constant_layer(
+            network, input_shape[axis], is_scalar=is_scalar
+        )
+    else:
+        dynamic_shape = trt_shape(network, input_tensor)
+        output_tensor = get_shape_tensor_element(
+            network, dynamic_shape, axis, is_scalar
+        )
+    return output_tensor

@@ -192,8 +192,8 @@ void ArrayReadInferMeta(const MetaTensor& array,
 }
 
 void Atan2InferMeta(const MetaTensor& x, const MetaTensor& y, MetaTensor* out) {
-  auto x_dims = x.dims();
-  auto y_dims = y.dims();
+  const auto& x_dims = x.dims();
+  const auto& y_dims = y.dims();
 
   PADDLE_ENFORCE_EQ(
       x_dims.size(),
@@ -499,7 +499,6 @@ void CompareRawInferMeta(const MetaTensor& x,
                                   out_dims_array.data(),
                                   max_dim,
                                   axis);
-
     out->set_dims(common::make_ddim(out_dims_array));
     out->share_lod(x);
   }
