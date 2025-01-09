@@ -375,7 +375,7 @@ struct CommonGlobalMemoryEliminator : public ir::IRMutator<Expr*>,
     if (stmt->body().defined()) operator()(stmt->body());
   }
 
-  void VisitStmt(ir::stmt::Store stmt) override {}
+  void VisitStmt(ir::stmt::Store stmt) override { operator()(stmt->value()); }
 
   void VisitStmt(ir::stmt::Evaluate stmt) override {}
 
@@ -406,17 +406,16 @@ struct CommonGlobalMemoryEliminator : public ir::IRMutator<Expr*>,
     new_tensor.as_tensor_ref()->WithBuffer(
         "local", new_tensor.as_tensor_ref()->name + "_buffer");
     ir::stmt::Store new_body =
-        ir::stmt::_Store_::Make(new_tensor,
-                                ir::ir_utils::IRCopy(ir::Expr(load_node)),
-                                ir::ir_utils::IRCopy(load_node->indices));
-    ir::stmt::BlockRef new_block = ir::stmt::_Block_::Make({new_body});
-    ir::stmt::Schedule new_sch =
-        ir::stmt::_Schedule_::Make(sch_node->iter_vars(),
-                                   current_sch_->iter_values(),
-                                   {},
-                                   {},
-                                   sch_node->name() + "_local",
-                                   new_block);
+        ir::stmt::Store(new_tensor,
+                        ir::ir_utils::IRCopy(ir::Expr(load_node)),
+                        ir::ir_utils::IRCopy(load_node->indices));
+    ir::stmt::BlockRef new_block = ir::stmt::BlockRef({new_body});
+    ir::stmt::Schedule new_sch = ir::stmt::Schedule(sch_node->iter_vars(),
+                                                    current_sch_->iter_values(),
+                                                    {},
+                                                    {},
+                                                    sch_node->name() + "_local",
+                                                    new_block);
 
     global_buffer_to_local_buffer_[buffer_name] = new_tensor;
 
