@@ -167,7 +167,9 @@ void CheckInferSymWithInferMeta(
           infer_context->GetShapeOrDataForValue(res).shape();
 
       if (res.type().dyn_cast<pir::DenseTensorType>().dims().size() == -1) {
-        LOG(WARNING) << "Warning: Rank of infer_meta_shape is dynamic. "
+        LOG(WARNING) << "Warning: For" << op->name() << " [id:" << op->id()
+                     << "] 's result(" << i << ")."
+                     << " Rank of infer_meta_shape is dynamic. "
                      << "Received infer_sym_shape is " << infer_sym_shape;
         continue;
       }
