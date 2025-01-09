@@ -865,6 +865,7 @@ class OpcodeExecutorBase:
         def load_builtin_funcs():
             from .variables import PaddleLayerVariable
 
+            # PaddleLayerVariable can deal with __iter__ method right, we don't need to do anything.
             if method_name != "__iter__" or isinstance(
                 obj, PaddleLayerVariable
             ):
