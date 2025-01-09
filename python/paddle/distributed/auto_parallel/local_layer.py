@@ -44,14 +44,14 @@ class LocalLayer(Layer):
             >>> import paddle
             >>> import paddle.distributed as dist
             >>> from paddle import Tensor
-            >>> from paddle.distributed import Placement, ProcessMesh, LocalLayer
+            >>> from paddle.distributed import ProcessMesh, LocalLayer
 
             >>> class CustomLayer(dist.LocalLayer):
             ...     def __init__(
-            ...         self, out_dist_attrs: List[tuple[ProcessMesh, List[Placement]]]
+            ...         self, out_dist_attrs
             ...     ):
             ...         super().__init__(out_dist_attrs)
-            ...         self.local_result: Tensor = paddle.to_tensor(0.0)
+            ...         self.local_result = paddle.to_tensor(0.0)
 
             ...     def forward(self, x):
             ...         mask = paddle.zeros_like(x)
@@ -69,7 +69,7 @@ class LocalLayer(Layer):
             >>> # doctest: +REQUIRES(env:DISTRIBUTED)
             >>> dist.init_parallel_env()
             >>> mesh = ProcessMesh([0, 1], dim_names=["x"])
-            >>> out_dist_attrs: List[tuple[ProcessMesh, List[Placement]]] = [
+            >>> out_dist_attrs = [
             ...     (mesh, [dist.Partial(dist.ReduceType.kRedSum)]),
             ... ]
 
