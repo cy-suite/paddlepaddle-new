@@ -906,8 +906,8 @@ TensorRTEngine::Weight TensorRTEngine::GetTrtWeight(
   return weight;
 }
 
-bool TensorRTEngine::RefitWeights(const std::string &weight_name,
-                                  const phi::DenseTensor &new_weight_tensor) {
+bool TensorRTEngine::setAllRefitWeights(
+    const std::string &weight_name, const phi::DenseTensor &new_weight_tensor) {
   PADDLE_ENFORCE_NOT_NULL(
       infer_refitter_,
       common::errors::InvalidArgument(
@@ -928,27 +928,29 @@ bool TensorRTEngine::RefitWeights(const std::string &weight_name,
             weight_name.c_str()));
     return false;
   }
+  return true;
+}
 
-  // 检查是否有额外需要补充的权重
-  int32_t const missing_count = infer_refitter_->getMissingWeights(0, nullptr);
+bool TensorRTEngine::FinalizeRefit() {
+  PADDLE_ENFORCE_NOT_NULL(
+      infer_refitter_,
+      phi::errors::InvalidArgument(
+          "Refit is not initialize.Make sure you enabled refit."));
+  int missing_count = infer_refitter_->getMissingWeights(0, nullptr);
   if (missing_count > 0) {
-    std::vector<const char *> missing_weight_names(missing_count);
-    infer_refitter_->getMissingWeights(missing_count,
-                                       missing_weight_names.data());
-    for (auto &mn : missing_weight_names) {
-      VLOG(3) << "Additional missing weights required for " << mn;
+    std::vector<const char *> missing_names(missing_count);
+    infer_refitter_->getMissingWeights(missing_count, missing_names.data());
+    for (int i = 0; i < missing_count; ++i) {
+      LOG(ERROR) << "Missing weight: " << missing_names[i];
     }
-  }
-  bool refit_success = infer_refitter_->refitCudaEngine();
-  if (!refit_success) {
-    PADDLE_ENFORCE_EQ(refit_success,
-                      true,
-                      common::errors::InvalidArgument(
-                          "Refitting the CUDA engine failed.Check if all "
-                          "required weights are provided correctly."));
     return false;
   }
-  return true;
+  bool success = infer_refitter_->refitCudaEngine();
+  if (!success) {
+    LOG(ERROR) << "Failed to refit engine.";
+    return false;
+  }
+  return success;
 }
 
 nvinfer1::IPluginV2Layer *TensorRTEngine::AddPlugin(

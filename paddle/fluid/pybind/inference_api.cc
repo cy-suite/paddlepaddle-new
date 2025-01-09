@@ -951,7 +951,8 @@ void BindAnalysisConfig(py::module *m) {
            &AnalysisConfig::EnableTensorRtDLA,
            py::arg("dla_core") = 0)
       .def("tensorrt_refit_params_path",
-           &AnalysisConfig::TensorRTRefitParamsPath)
+           (void(AnalysisConfig::*)(const std::string &)) &
+               AnalysisConfig::TensorRTRefitParamsPath)
       .def("tensorrt_dla_enabled", &AnalysisConfig::tensorrt_dla_enabled)
       .def("enable_tensorrt_inspector",
            &AnalysisConfig::EnableTensorRtInspector,

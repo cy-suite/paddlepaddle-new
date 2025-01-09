@@ -731,8 +731,6 @@ struct PD_INFER_DECL AnalysisConfig {
   ///
   const std::string& shape_range_info_path() const;
 
-  const std::string& refit_params_path() const;
-
   ///
   /// \brief A boolean state telling whether to collect shape info.
   ///
@@ -747,6 +745,8 @@ struct PD_INFER_DECL AnalysisConfig {
   void Exp_DisableTensorRtOPs(const std::vector<std::string>& ops);
 
   void TensorRTRefitParamsPath(const std::string& refit_params_path);
+
+  const std::string& refit_params_path() const { return refit_params_path_; }
 
   ///
   /// \brief Prevent TensorRtSubgraph running in Paddle-TRT
