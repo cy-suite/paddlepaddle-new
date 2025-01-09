@@ -24,7 +24,7 @@ class HookAPIMap:
 
 class ConfigDump:
     def __init__(self):
-        self.file = open(os.path.dirname(__file__) + "/api_config.txt", "a+")
+        self.file = open("/root/api_config.txt", "a+")
 
     def dump_config(self, api, input_args, input_kwargs, outputs):
         self.file.write(api + "(")
