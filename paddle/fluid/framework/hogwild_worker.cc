@@ -1202,7 +1202,6 @@ bool HogwildWorker::CheckBatchNum(int flag) {
     //  g_barrier.wait();
     float *stat_ptr = sync_stat_.data<float>();
     int ring_id = 0;
-    platform::NCCLComm *comm = nullptr;
     const auto &comm_context_manager =
         phi::distributed::CommContextManager::GetInstance();
     phi::distributed::NCCLCommContext *comm_ctx = nullptr;
