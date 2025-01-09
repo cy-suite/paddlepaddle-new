@@ -722,48 +722,34 @@ def moe_sub_mesh_tensors(
 
 
 def dtensor_from_local(local_tensor, mesh, placements):
-    # assume the each rank has the same tensor shape for now, just use the local shape to calculate the global shape
-    global_dims = list(local_tensor.shape)
-    for idx, placement in enumerate(placements):
-        if placement.is_shard():
-            shard_dim = placement.get_dim()
-            local_dim_size = global_dims[shard_dim]
-            global_dims[shard_dim] = local_dim_size * mesh.shape[idx]
-
     if paddle.in_dynamic_mode():
-        place = paddle.framework._current_expected_place()
-        place = paddle.framework._get_paddle_place(place)
+        if local_tensor.is_dist() is True:
+            raise ValueError("The input should be a local tensor.")
 
-        return paddle.Tensor(
-            local_tensor,
-            dims=global_dims,
-            process_mesh=mesh,
-            placements=placements,
-            place=place,
+        return paddle.base.core.dtensor_from_local(
+            local_tensor, mesh, placements
         )
 
     # TODO Adopt Mix2Dist Pass to allow the program could be executed actually.
     elif paddle.framework.in_pir_mode():
-        assert isinstance(
-            local_tensor, (type(None), pir.Value)
-        ), "input tensor is not pir value."
-        assert (
-            local_tensor.is_dense_tensor_type()
-        ), "dtensor_from_local() are only supported dense tensor type right."
-        sharding_specs = get_shard_spec(mesh, placements, local_tensor.ndim)
-        dims_mapping = convert_to_dims_mapping(sharding_specs, mesh)
-        local_shape = local_tensor.shape
-        global_tensor_type = paddle.pir.create_shaped_type(
-            local_tensor.type(), global_dims
-        )
-        dist_dense_tensor_type = paddle.base.libpaddle.pir.create_dist_dense_tensor_type_by_dense_tensor(
-            global_tensor_type, local_shape, mesh, dims_mapping
-        )
-        local_tensor.set_type(dist_dense_tensor_type)
-        return local_tensor
+        return paddle._C_ops.dtensor_from_local(local_tensor, mesh, placements)
     else:
         raise RuntimeError(
             "dtensor_from_local() are only supported in dynamic or pir mode."
+        )
+
+
+def dtensor_to_local(dist_tensor):
+    if paddle.in_dynamic_mode():
+        if dist_tensor.is_dist() is False:
+            raise ValueError("The input should be a distributed tensor.")
+
+        return paddle.base.core.dtensor_to_local(dist_tensor)
+    elif paddle.framework.in_pir_mode():
+        return paddle._C_ops.dtensor_to_local(dist_tensor)
+    else:
+        raise RuntimeError(
+            "dtensor_to_local() are only supported in dynamic or pir mode."
         )
 
 
@@ -1170,6 +1156,10 @@ class _ShardOptimizer(Optimizer):
             accumulator = self._inner_opt._accumulators[key][target_name]
             if accumulator.is_dist() and not isinstance(accumulator, pir.Value):
                 continue
+
+            if paddle.in_dynamic_mode():
+                origin_accumulator_name = accumulator.name
+
             if self._shard_fn is not None:
                 self._inner_opt._accumulators[key][target_name] = (
                     self._shard_fn(key, param, accumulator)
@@ -1193,12 +1183,10 @@ class _ShardOptimizer(Optimizer):
                             placements=placements,
                         )
                     )
-            if not isinstance(
-                self._inner_opt._accumulators[key][target_name], pir.Value
-            ):
-                self._inner_opt._accumulators[key][target_name].name = (
-                    target_name + "_" + key
-                )
+            if paddle.in_dynamic_mode():
+                self._inner_opt._accumulators[key][
+                    target_name
+                ].name = origin_accumulator_name
 
     def _reset_placements(self, param):
         if param.is_dist() and isinstance(
@@ -2330,14 +2318,21 @@ class DistModel:
             )
             dist.fleet.init(is_collective=True)
 
-        if int(os.environ.get('FLAGS_enable_sharding_stage1_tensor_fusion', 0)):
-            if isinstance(optimizer, _ShardOptimizer) and use_pir_api():
-                shard_fn = optimizer._shard_fn
-                inner_opt = optimizer._inner_opt
-                if isinstance(optimizer._shard_fn, ShardingStage1):
-                    optimizer = ShardingOptimizerStage1(
-                        inner_opt, shard_fn, self._inner_strategy
-                    )
+        if (
+            strategy
+            and strategy.sharding.enable_stage1_tensor_fusion
+            and isinstance(optimizer, _ShardOptimizer)
+            and use_pir_api()
+        ):
+            assert isinstance(optimizer._shard_fn, ShardingStage1), (
+                "The shard_fn should be ShardingStage1 "
+                "when stage1 tensor fusion is enabled."
+            )
+            shard_fn = optimizer._shard_fn
+            inner_opt = optimizer._inner_opt
+            optimizer = ShardingOptimizerStage1(
+                inner_opt, shard_fn, self._inner_strategy
+            )
 
         self._engine = Engine(
             layer, loss, optimizer, metrics, strategy=self._inner_strategy
@@ -2724,17 +2719,35 @@ class DistModel:
                                     ] = dist_tensor
                                 dist_state_dict.pop(param)
 
-        # when tensor-fusion is enabled, the optimizer parameters are unbalanced
-        # in their sharding. We need to process the optimizer parameters to make
-        # them evenly balanced
-        if self._engine._optimizer is not None and load_sharded_model:
+        # When tensor fusion is enabled, optimizer parameters can become unbalanced in
+        # sharding. We need to either balance them or rename unbalanced parameters for each
+        # rank and directly load them.
+        enable_stage1_tensor_fusion = (
+            self._inner_strategy.sharding.enable_stage1_tensor_fusion
+            if self._inner_strategy
+            else False
+        )
+        if (
+            self._engine._optimizer is not None
+            and load_sharded_model
+            and enable_stage1_tensor_fusion
+        ):
             optimizer = self._engine._optimizer
             if isinstance(
                 optimizer,
                 paddle.static.amp.decorator.OptimizerWithMixedPrecision,
             ):
                 optimizer = optimizer._optimizer
-            if isinstance(optimizer, ShardingOptimizerStage1):
+
+            assert isinstance(
+                optimizer, ShardingOptimizerStage1
+            ), "The optimizer should be ShardingOptimizerStage1 when stage1 tensor fusion is enabled."
+
+            if self._inner_strategy.sharding.save_unbalanced_param:
+                optimizer.convert_state_dict_with_rank_unique_name(
+                    dist_state_dict
+                )
+            else:
                 optimizer.convert_state_dict_without_tensor_fusion_param(
                     dist_state_dict
                 )
@@ -2815,22 +2828,36 @@ class DistModel:
         # For sharding with tensor-fusion, we need to convert the state_dict
         # to include tensor-fusion parameters before calling set_state_dict,
         # as stored parameters are processed as if tensor-fusion is not applied
-        if self._engine._optimizer is not None:
+        # or we can choose to load the unblanced parameters directly.
+        enable_stage1_tensor_fusion = (
+            self._inner_strategy.sharding.enable_stage1_tensor_fusion
+            if self._inner_strategy
+            else False
+        )
+        if self._engine._optimizer is not None and enable_stage1_tensor_fusion:
             optimizer = self._engine._optimizer
             if isinstance(
                 optimizer,
                 paddle.static.amp.decorator.OptimizerWithMixedPrecision,
             ):
                 optimizer = optimizer._optimizer
-            if isinstance(optimizer, ShardingOptimizerStage1):
+
+            assert isinstance(
+                optimizer, ShardingOptimizerStage1
+            ), "The optimizer should be ShardingOptimizerStage1 when stage1 tensor fusion is enabled."
+
+            if self._inner_strategy.sharding.save_unbalanced_param:
+                optimizer.convert_state_dict_with_origin_name(state_dict)
+            else:
                 optimizer.convert_state_dict_with_tensor_fusion_param(
                     state_dict
                 )
-                # When using the tensor-fusion strategy, model parameters are shared with
-                # slice@ parameters. When setting the state_dict, we must copy the tensor
-                # instead of changing the handle directly, as this could cause errors in
-                # the slice@ parameters and increase memory usage.
-                copy_tensor = True
+
+            # When using the tensor-fusion strategy, model parameters are shared with
+            # slice@ parameters. When setting the state_dict, we must copy the tensor
+            # instead of changing the handle directly, as this could cause errors in
+            # the slice@ parameters and increase memory usage.
+            copy_tensor = True
 
         for k, v in state_dict.items():
             assert v.is_dist(), f"key {k} value:{v} is not a dist tensor."
@@ -2906,9 +2933,14 @@ class DistModel:
                                 for ori_p in ori_params_meta:
                                     local_state_dict.pop(ori_p + suffix)
 
-        dist_main_program.set_state_dict(
-            local_state_dict, paddle.static.global_scope()
-        )
+        if use_pir_api():
+            dist_main_program.set_state_dict(
+                local_state_dict, paddle.static.global_scope(), copy_tensor
+            )
+        else:
+            dist_main_program.set_state_dict(
+                local_state_dict, paddle.static.global_scope()
+            )
 
 
 def to_static(
@@ -3258,7 +3290,7 @@ class ShardDataloader:
                 worker_init_fn=dataloader.worker_init_fn,
                 persistent_workers=dataloader._persistent_workers,
             )
-        # Note(lizhiyu): In dygraph mode, the flag "pin_memory" is defualt "True", but it decrease the speed of `AutoParallel`
+        # Note(lizhiyu): In dygraph mode, the flag "pin_memory" is default "True", but it decrease the speed of `AutoParallel`
         self._dataloader.pin_memory = False
 
     def _process_shard_dims(self, shard_dims):
