@@ -6236,8 +6236,8 @@ def moveaxis(
             >>> print(outshape)
             [3, 2]
     """
-    src = [source] if isinstance(source, int) else source
-    dst = [destination] if isinstance(destination, int) else destination
+    src = [source] if isinstance(source, int) else list(source)
+    dst = [destination] if isinstance(destination, int) else list(destination)
 
     assert len(src) == len(
         dst
