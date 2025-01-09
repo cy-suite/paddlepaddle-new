@@ -868,7 +868,7 @@ bool WhileOp::InferSymbolicShape(
 
   // Set ShapeOrDataDimExpr for results
   const auto &last_op = body().back();
-  for (size_t i = 1; i < last_op.operands_source().size(); ++i) {
+  for (size_t i = 1; i < last_op.num_operands(); ++i) {
     const symbol::ShapeOrDataDimExprs &last_shape_or_data =
         infer_context->GetShapeOrDataForValue(last_op.operand_source(i));
     const symbol::ShapeOrDataDimExprs &input_shape_or_data =
@@ -876,14 +876,20 @@ bool WhileOp::InferSymbolicShape(
     auto last_shape = last_shape_or_data.shape();
     auto input_shape = input_shape_or_data.shape();
     auto output_dims = last_shape;
-    std::cout << last_shape << std::endl;
-    std::cout << input_shape << std::endl;
-    for (size_t j = 0; j < last_shape_or_data.shape().size(); j++) {
-      if (last_shape[j] != input_shape[i]) {
-        output_dims[j] = symbol::DimExpr{infer_context->GetNextSymName()};
+
+    if (last_shape.size() != input_shape.size()) {
+      for (size_t j = 0; j < last_shape.size(); j++) {
+        if (last_shape[j].isa<int64_t>()) {
+          output_dims[j] = symbol::DimExpr{infer_context->GetNextSymName()};
+        }
+      }
+    } else {
+      for (size_t j = 0; j < last_shape.size(); j++) {
+        if ((last_shape[j] != input_shape[j]) && last_shape[j].isa<int64_t>()) {
+          output_dims[j] = symbol::DimExpr{infer_context->GetNextSymName()};
+        }
       }
     }
-
     infer_context->SetShapeOrDataForValue(
         result(i - 1),
         symbol::ShapeOrDataDimExprs(
