@@ -869,9 +869,25 @@ bool WhileOp::InferSymbolicShape(
   // Set ShapeOrDataDimExpr for results
   const auto &last_op = body().back();
   for (size_t i = 1; i < last_op.operands_source().size(); ++i) {
+    const symbol::ShapeOrDataDimExprs &last_shape_or_data =
+        infer_context->GetShapeOrDataForValue(last_op.operand_source(i));
+    const symbol::ShapeOrDataDimExprs &input_shape_or_data =
+        infer_context->GetShapeOrDataForValue(operand_source(i));
+    auto last_shape = last_shape_or_data.shape();
+    auto input_shape = input_shape_or_data.shape();
+    auto output_dims = last_shape;
+    std::cout << last_shape << std::endl;
+    std::cout << input_shape << std::endl;
+    for (size_t j = 0; j < last_shape_or_data.shape().size(); j++) {
+      if (last_shape[j] != input_shape[i]) {
+        output_dims[j] = symbol::DimExpr{infer_context->GetNextSymName()};
+      }
+    }
+
     infer_context->SetShapeOrDataForValue(
         result(i - 1),
-        infer_context->GetShapeOrDataForValue(last_op.operand_source(i)));
+        symbol::ShapeOrDataDimExprs(
+            symbol::TensorShapeOrDataDimExprs(output_dims)));
   }
 
   PADDLE_ENFORCE_EQ(body_args.size(),
