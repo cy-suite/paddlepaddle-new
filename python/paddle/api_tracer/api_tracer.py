@@ -86,7 +86,7 @@ class ConfigDump:
                 + ")"
             )
         else:
-            print("dump_item_str error for api(", api, "), item = ", item)
+            print("[api_tracer error] : dump_item_str ", api, ", item = ", item)
 
 
 config_dump = ConfigDump()
@@ -98,7 +98,14 @@ class APITemplate:
 
     def __call__(self, *args, **kwargs):
         output = getattr(HookAPIMap, self.api_name)(*args, **kwargs)
-        config_dump.dump_config(self.api_name, args, kwargs, output)
+        try:
+            config_dump.dump_config(self.api_name, args, kwargs, output)
+        except Exception as err:
+            print(
+                "[api_tracer error] : config_dump.dump_config ",
+                self.api_name,
+                str(err),
+            )
         return output
 
 
@@ -117,8 +124,7 @@ def start_api_tracer():
     for api in sample_apis:
         parent_package, method_name = api.rsplit(".", maxsplit=1)
         try:
-
             setattr(HookAPIMap, api, getattr(eval(parent_package), method_name))
             setattr(eval(parent_package), method_name, wrapped_api(api))
         except Exception as err:
-            print(api, str(err))
+            print("[api_tracer error] : start_api_tracer ", api, str(err))
