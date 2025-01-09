@@ -222,6 +222,8 @@ class CinnJitInstruction::FnPtrImpl {
     }
   }
 
+  std::string FnName() const { return cinn_kernel_info_.fn_name; }
+
  private:
   CINNKernelInfo cinn_kernel_info_;
 
@@ -333,11 +335,22 @@ void CinnJitInstruction::Run() {
   // 2. exexute kernel
   fn_ptr_impl_->Run(tensor_args_, running_stream, is_gpu);
 
+  // for(size_t i =0; i < tensor_args_.size(); ++i)
+  // {
+  //   std::cerr << "index  " << i << "\t" << *(tensor_args_[i]) << std::endl;
+  // }
+
   // 3. release resource
   fn_ptr_impl_->FreeFuncArgs();
   for (auto& tensor : temp_space_tensors_) {
     tensor.clear();
   }
+
+  // if( fn_ptr_impl_->FnName() ==
+  // "fn_elementwise_mul_yield_store_subtract_subtract_elementwise_mul_generate_shape_broadcast_to_generate_shape_broadcast_to_elementwise_add_subtract_scale_yield_store_divide_subtract_yield_store_subtract_yield_store_elementwise_mul_scale_yield_store_subtract_yield_store_divide_subtract_scale_scale_yield_store_")
+  // {
+  //   throw std::runtime_error("failed");
+  // }
 #else
   VLOG(0) << "Not Supported: cinn jit instruction currently does not "
              "support CUDA/HIP kernel";
