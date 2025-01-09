@@ -48,8 +48,8 @@ class LocalLayer(Layer):
 
             >>> class CustomLayer(dist.LocalLayer):
             ...     def __init__(
-                        self, out_dist_attrs: List[tuple[ProcessMesh, List[Placement]]]
-                    ):
+            ...         self, out_dist_attrs: List[tuple[ProcessMesh, List[Placement]]]
+            ...     ):
             ...         super().__init__(out_dist_attrs)
             ...         self.local_result: Tensor = paddle.to_tensor(0.0)
 
