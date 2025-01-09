@@ -753,7 +753,7 @@ void topk_gating_softmax_kernelLauncher(const T* input,
         // moe_softmax<T, TPB><<<config_topk.block_per_grid, TPB, 0, stream>>>(
         //     input, finished, softmax, num_experts, num_rows);
         moe_top_k<T, TPB>
-            <<<config_topk.block_per_grid, TPB, 0, stream>>>(softmax,
+            <<<config_topk.block_per_grid, TPB, 0, stream>>>(input,
                                                              finished,
                                                              output,
                                                              indices,
@@ -952,14 +952,13 @@ __global__ void finalize_moe_routing_kernel(
           expanded_permuted_rows + expanded_permuted_row * cols;
 
       const int expert_idx = expert_for_source_row[k_offset];
-      const T* bias_ptr = bias ? bias + expert_idx * cols : nullptr;
-      const T bias_value = bias_ptr ? bias_ptr[tid] : T{0.f};
+      const T* bias_ptr = bias + expert_idx * cols;
 
       thread_output =
           static_cast<float>(thread_output) +
           row_scale * static_cast<float>(
                           expanded_permuted_rows_row_ptr[tid] +
-                          bias_value *
+                          bias_ptr[tid] *
                               static_cast<T>(static_cast<float>(compute_bias)));
     }
     thread_output = static_cast<float>(thread_output) /
