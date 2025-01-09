@@ -47,7 +47,6 @@ class TestConverterDummy(unittest.TestCase):
         trt_config.precision_mode = PrecisionMode.FP16
         trt_config.ops_run_float = "pd_op.add"
         trt_config.optimization_level = 5
-        trt_config.disable_passes = ["dead_code_elimination_pass"]
 
         output_var = program.list_vars()[-1]
 

@@ -3427,6 +3427,7 @@ All parameter, weight, gradient are variables in Paddle.
   m.def("register_paddle_plugin",
         []() { paddle::platform::TrtPluginRegistry::Global()->RegistToTrt(); });
 #endif
+
 #if defined(PADDLE_WITH_PSLIB) && !defined(PADDLE_WITH_HETERPS)
   BindHeterWrapper(&m);
   BindMetrics(&m);
