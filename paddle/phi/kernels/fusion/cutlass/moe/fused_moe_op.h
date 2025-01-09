@@ -39,8 +39,8 @@
 #include "paddle/phi/kernels/fusion/cutlass/cutlass_kernels/moe_gemm/fused_moe_gemm_kernels.h"
 
 #include "cutlass/numeric_conversion.h"
-#include "paddle/phi/common/datatype_traits.h"
 #include "paddle/fluid/platform/device/gpu/gpu_launch_config.h"
+#include "paddle/phi/common/datatype_traits.h"
 #include "paddle/phi/kernels/funcs/math_cuda_utils.h"
 #include "paddle/phi/kernels/fusion/cutlass/moe/fused_moe_helper.h"
 // Ignore CUTLASS warnings about type punning

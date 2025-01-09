@@ -75,7 +75,7 @@ class MoeHelper {
 
   // --------      getWorkspaceSize      -------- //
   template <typename KeyT>
-size_t getWorkspaceSize(const int64_t num_rows,
+  size_t getWorkspaceSize(const int64_t num_rows,
                           const int64_t hidden_size,
                           const int64_t inter_size,
                           const int64_t num_experts,
