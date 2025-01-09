@@ -38,7 +38,7 @@ void FormalizeSingleIndex(const ir::Tensor& tensor,
       mul = ir::Mul::Make(tensor->shape[i + 1], mul);
       ir::Expr div_expr = ir::Div::Make(origin_index_expr, mul);
       ir::Expr index_expr = ir::Mod::Make(div_expr, tensor->shape[i]);
-      indices->insert(indices->begin(), common::AutoSimplify(index_expr));
+      indices->insert(indices->begin(), optim::ArithSimplify(index_expr));
     }
   }
 }

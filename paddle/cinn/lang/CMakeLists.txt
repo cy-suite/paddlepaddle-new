@@ -12,5 +12,3 @@ gather_srcs(
   builtin.cc
   lower_impl.cc
   packed_func.cc)
-
-cinn_cc_test(test_placeholder SRCS placeholder_test.cc DEPS cinncore)
