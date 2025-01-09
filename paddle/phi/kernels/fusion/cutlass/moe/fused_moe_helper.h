@@ -75,15 +75,15 @@ class MoeHelper {
 
   // --------      getWorkspaceSize      -------- //
   template <typename KeyT>
-  size_t getWorkspaceSize(const int num_rows,
-                          const int hidden_size,
-                          const int inter_size,
-                          const int num_experts,
-                          const int k) {
-    const int buf_size = AlignTo16(k * num_rows * hidden_size);
-    const int interbuf_size = AlignTo16(k * num_rows * inter_size);
-    const int padded_experts = AlignTo16(num_experts);
-    const int num_moe_inputs = AlignTo16(k * num_rows);
+size_t getWorkspaceSize(const int64_t num_rows,
+                          const int64_t hidden_size,
+                          const int64_t inter_size,
+                          const int64_t num_experts,
+                          const int64_t k) {
+    const size_t buf_size = AlignTo16(k * num_rows * hidden_size);
+    const size_t interbuf_size = AlignTo16(k * num_rows * inter_size);
+    const size_t padded_experts = AlignTo16(num_experts);
+    const size_t num_moe_inputs = AlignTo16(k * num_rows);
     // softmax output, permuted_rows and permuted_experts have moved to outside
     // of moe kernel, allocate them in Encoder or Decoder before invoking
     // FfnLayer forward.
@@ -94,14 +94,14 @@ class MoeHelper {
     total_ws_bytes +=
         padded_experts * sizeof(int64_t);  // Hold total_rows_before_expert_
 
-    const int bytes_for_fc1_result = interbuf_size * sizeof(KeyT);
-    const int sorter_ws_size_bytes =
+    const size_t bytes_for_fc1_result = interbuf_size * sizeof(KeyT);
+    const size_t sorter_ws_size_bytes =
         AlignTo16(sorter_.getWorkspaceSize(num_rows));
     sorter_.update_num_experts(num_experts);
 
-    int bytes_for_intermediate_and_sorting = bytes_for_fc1_result;
+    int64_t bytes_for_intermediate_and_sorting = bytes_for_fc1_result;
     if (sorter_ws_size_bytes > bytes_for_fc1_result) {
-      int remaining_bytes =
+      int64_t remaining_bytes =
           AlignTo16(sorter_ws_size_bytes - bytes_for_fc1_result);
       bytes_for_intermediate_and_sorting += remaining_bytes;
     }
@@ -110,7 +110,7 @@ class MoeHelper {
         bytes_for_intermediate_and_sorting;  // intermediate (fc1) output + cub
                                              // sorting workspace
 
-    int num_softmax_outs = 0;
+    int64_t num_softmax_outs = 0;
     const bool is_pow_2 =
         (num_experts != 0) && ((num_experts & (num_experts - 1)) == 0);
     if (!is_pow_2 || num_experts > 256) {
