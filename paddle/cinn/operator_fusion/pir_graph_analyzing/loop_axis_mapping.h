@@ -39,27 +39,27 @@ using AxisTransform = std::variant<UnsupportedTransformPtr,
                                    ReshapeTransformPtr>;
 using AxisTransformRoute = std::vector<AxisTransform>;
 
-struct UnsupportedTransform
-    : public std::enable_shared_from_this<UnsupportedTransform> {
+struct UnsupportedTransform {
  public:
   static UnsupportedTransformPtr InstancePtr() {
-    static UnsupportedTransform instance;
-    return instance.shared_from_this();
+    static UnsupportedTransformPtr instance(new UnsupportedTransform());
+    return instance;
   }
-  AxisTransform reverse() { return UnsupportedTransform::InstancePtr(); }
+  AxisTransform reverse() { return InstancePtr(); }
+  std::string DebugStr() const { return "Unsupported"; }
 
  private:
   UnsupportedTransform() = default;
 };
 
-struct IdentityTransform
-    : public std::enable_shared_from_this<IdentityTransform> {
+struct IdentityTransform {
  public:
   static IdentityTransformPtr InstancePtr() {
-    static IdentityTransform instance;
-    return instance.shared_from_this();
+    static IdentityTransformPtr instance(new IdentityTransform());
+    return instance;
   }
-  AxisTransform reverse() { return IdentityTransform::InstancePtr(); }
+  AxisTransform reverse() { return InstancePtr(); }
+  std::string DebugStr() const { return "Identity"; }
 
  private:
   IdentityTransform() = default;
@@ -71,6 +71,9 @@ struct TransposeTransform {
   AxisTransform reverse() {
     return std::make_shared<TransposeTransform>(GetReversePerm(perm));
   }
+  std::string DebugStr() const {
+    return "Transpose{perm=(" + cinn::utils::Join(perm, ",") + ")}";
+  }
 };
 
 struct DeleteAxisTransform {
@@ -80,6 +83,10 @@ struct DeleteAxisTransform {
   std::vector<int64_t> axis;
   std::vector<symbol::DimExpr> shape;
   AxisTransform reverse();
+  std::string DebugStr() const {
+    return "DeleteAxis{axis=(" + cinn::utils::Join(axis, ",") + "), shape=(" +
+           cinn::utils::Join(shape, ",") + ")}";
+  }
 };
 
 struct AppendAxisTransform {
@@ -92,6 +99,10 @@ struct AppendAxisTransform {
   std::vector<int64_t> axis;
   std::vector<symbol::DimExpr> shape;
   AxisTransform reverse();
+  std::string DebugStr() const {
+    return "AppendAxis{axis=(" + cinn::utils::Join(axis, ",") + "), shape=(" +
+           cinn::utils::Join(shape, ",") + ")}";
+  }
 };
 
 struct ReshapeTransform {
@@ -103,30 +114,34 @@ struct ReshapeTransform {
   AxisTransform reverse() {
     return std::make_shared<ReshapeTransform>(out_shape, in_shape);
   }
+  std::string DebugStr() const {
+    return "Reshape{in_shape=(" + cinn::utils::Join(in_shape, ",") +
+           "), out_shape=(" + cinn::utils::Join(out_shape, ",") + ")}";
+  }
 };
+
+std::ostream& operator<<(std::ostream& os, const AxisTransform& transform);
 
 AxisTransform ReverseTransform(const AxisTransform& transform);
 AxisTransformRoute ReverseTransformRoute(const AxisTransformRoute& route);
 
 struct LoopAxisMapping {
-  AxisTransformRoute input2loop;
-  AxisTransformRoute loop2output;
-  AxisTransformRoute loop2input;
-  AxisTransformRoute output2loop;
+  std::vector<pir::Value> input_values;
+  std::vector<pir::Value> output_values;
+  std::vector<symbol::DimExpr> loop;
 
-  void SetReverseMapping() {
-    PADDLE_ENFORCE(
-        !input2loop.empty() && !loop2output.empty(),
-        ::common::errors::InvalidArgument(
-            "input2loop and loop2output must not be empty before reverse."));
-    loop2input = ReverseTransformRoute(input2loop);
-    output2loop = ReverseTransformRoute(loop2output);
-  }
+  std::vector<AxisTransformRoute> input2loop;
+  std::vector<AxisTransformRoute> loop2output;
+  std::vector<AxisTransformRoute> loop2input;
+  std::vector<AxisTransformRoute> output2loop;
+
+  void SetReverseMapping();
+  std::string DebugStr() const;
 };
 
-LoopAxisMapping MergeAxisMapping(LoopAxisMapping upstream,
-                                 LoopAxisMapping downstream,
-                                 bool upstream_is_anchor = true);
+// LoopAxisMapping MergeAxisMapping(LoopAxisMapping upstream,
+//                                  LoopAxisMapping downstream,
+//                                  bool upstream_is_anchor = true);
 
 LoopAxisMapping CreateAxisMapping(pir::Operation* op);
 }  // namespace cinn::fusion
