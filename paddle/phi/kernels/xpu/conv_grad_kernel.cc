@@ -380,11 +380,7 @@ PD_REGISTER_KERNEL(depthwise_conv2d_grad,
                    ALL_LAYOUT,
                    phi::DepthwiseConvGradKernel,
                    float,
-#ifdef PADDLE_WITH_XPU_XRE5
-                   phi::dtype::bfloat16,
-#endif
-                   phi::dtype::float16) {
-}
+                   phi::dtype::float16) {}
 PD_REGISTER_KERNEL(conv3d_grad,
                    XPU,
                    ALL_LAYOUT,
