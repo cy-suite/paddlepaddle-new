@@ -14,6 +14,14 @@
 #   extra :
 #     attrs : [bool is_test = false]
 
+# - op: recv_v2
+#   outputs :
+#     out : Out
+
+# - op: send_v2
+#   inputs :
+#     x : X
+
 - op : abs
   backward : abs_grad, abs_double_grad, abs_triple_grad
   inputs :
@@ -4470,7 +4478,7 @@
   outputs :
     out : Out
 
-- op: recv_v2
+- op: recv_v2 (p_recv)
   outputs :
     out : Out
 
@@ -4488,7 +4496,7 @@
   extra:
     outputs: [noise]
 
-- op: send_v2
+- op: send_v2 (p_send)
   inputs :
     x : X
 
