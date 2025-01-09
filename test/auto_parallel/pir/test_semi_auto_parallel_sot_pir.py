@@ -23,7 +23,11 @@ class TestSemiAutoParallelSOTDecorate(test_base.CommunicationTestDistBase):
             num_of_devices=2,
             timeout=300,
         )
-        self._default_envs = {"dtype": "float32", "seed": "2023"}
+        self._default_envs = {
+            "dtype": "float32",
+            "seed": "2023",
+            "MIN_GRAPH_SIZE": "0",
+        }
         self._changeable_envs = {"backend": ["gpu"]}
 
     def test_case(self):
