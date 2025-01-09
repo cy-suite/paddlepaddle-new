@@ -23,7 +23,6 @@ limitations under the License. */
 #include "paddle/phi/core/platform/device_context.h"
 #include "paddle/phi/core/platform/gen_comm_id_helper.h"
 
-COMMON_DECLARE_bool(dynamic_static_unified_comm);
 namespace paddle::operators {
 
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
@@ -69,18 +68,6 @@ class CGenNCCLIdOp : public framework::OperatorBase {
 
     std::vector<ncclUniqueId> nccl_ids;
     nccl_ids.resize(1);
-
-    if (!FLAGS_dynamic_static_unified_comm) {
-      int server_fd = platform::SocketServer::GetInstance(endpoint).socket();
-      if (rank == 0) {
-        GenNCCLID(&nccl_ids);
-        std::vector<std::string> endpoint_list =
-            Attr<std::vector<std::string>>("other_endpoints");
-        platform::SendBroadCastCommID(endpoint_list, &nccl_ids, ring_id);
-      } else {
-        platform::RecvBroadCastCommID(server_fd, endpoint, &nccl_ids, ring_id);
-      }
-    }
 
     CopyNCCLIDToVar(nccl_ids, func, scope);
   }
