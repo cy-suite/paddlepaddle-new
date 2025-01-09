@@ -90,12 +90,9 @@ void GetClassInterval(const gpuStream_t& stream,
     auto task = pg->AllReduce(in_tensor, out_tensor, opts);
     task->Wait();
   } else {
-    const auto& comm_context_manager =
-        phi::distributed::CommContextManager::GetInstance();
-    phi::distributed::NCCLCommContext* comm_ctx = nullptr;
-
-    comm_ctx = static_cast<phi::distributed::NCCLCommContext*>(
-        dev_ctx.GetCommContext());
+    phi::distributed::NCCLCommContext* comm_ctx =
+        static_cast<phi::distributed::NCCLCommContext*>(
+            dev_ctx.GetCommContext());
     PADDLE_ENFORCE_NE(comm_ctx,
                       nullptr,
                       common::errors::Unavailable(
