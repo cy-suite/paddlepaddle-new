@@ -31,7 +31,7 @@
 #include "paddle/cinn/ir/utils/stmt_converter.h"
 #include "paddle/cinn/optim/eliminate_common_factor_of_local_index.h"
 #include "paddle/cinn/optim/ir_simplify.h"
-#include "paddle/cinn/optim/longlong2int.h"
+#include "paddle/cinn/optim/longlong2int_pass.h"
 #include "paddle/cinn/optim/replace_var_with_expr.h"
 #include "paddle/cinn/optim/resize_buffer.h"
 #include "paddle/cinn/optim/update_buffer_axis_pass.h"
@@ -317,7 +317,7 @@ class SharedAxisVisitor : public ir::IRMutator<> {
         for (auto axis : gpu_axis) {
           optim::ReplaceVarWithExpr(&indice, ir::Var(axis), ir::Expr(0));
         }
-        indice = cinn::common::AutoSimplify(indice);
+        indice = cinn::optim::ArithSimplify(indice);
       }
     }
     ir::IRMutator<>::Visit(op, expr);
@@ -338,7 +338,7 @@ class SharedAxisVisitor : public ir::IRMutator<> {
         for (auto axis : gpu_axis) {
           optim::ReplaceVarWithExpr(&indice, ir::Var(axis), ir::Expr(0));
         }
-        indice = cinn::common::AutoSimplify(indice);
+        indice = cinn::optim::ArithSimplify(indice);
       }
     }
     ir::IRMutator<>::Visit(op, expr);
@@ -367,7 +367,7 @@ class LocalAxisVisitor : public ir::IRMutator<> {
         for (auto axis : gpu_axis) {
           optim::ReplaceVarWithExpr(&indice, ir::Var(axis), ir::Expr(0));
         }
-        indice = cinn::common::AutoSimplify(indice);
+        indice = cinn::optim::ArithSimplify(indice);
       }
     }
   }
@@ -388,7 +388,7 @@ class LocalAxisVisitor : public ir::IRMutator<> {
         for (auto axis : gpu_axis) {
           optim::ReplaceVarWithExpr(&indice, ir::Var(axis), ir::Expr(0));
         }
-        indice = cinn::common::AutoSimplify(indice);
+        indice = cinn::optim::ArithSimplify(indice);
       }
     }
     ir::IRMutator<>::Visit(op, expr);
@@ -418,7 +418,7 @@ class ReplaceUnitVarToZero : public ir::IRMutator<> {
       for (auto var_ : loop_var_) {
         optim::ReplaceVarWithExpr(&indice, ir::Var(var_), ir::Expr(0));
       }
-      indice = cinn::common::AutoSimplify(indice);
+      indice = cinn::optim::ArithSimplify(indice);
     }
     ir::IRMutator<>::Visit(op, expr);
   }
@@ -434,7 +434,7 @@ class ReplaceUnitVarToZero : public ir::IRMutator<> {
       for (auto var_ : loop_var_) {
         optim::ReplaceVarWithExpr(&indice, ir::Var(var_), ir::Expr(0));
       }
-      indice = cinn::common::AutoSimplify(indice);
+      indice = cinn::optim::ArithSimplify(indice);
     }
 
     ir::IRMutator<>::Visit(op, expr);
@@ -494,13 +494,20 @@ void OptimizeExprGPU(Expr *expr) {
   // Replace variables that are in range [0, 1) to zero.
   ReplaceUnitVarToZero replace_unit_var_to_zero;
   replace_unit_var_to_zero(expr);
-
-  EliminateCommonFactorOfLocalIndex(expr);
+  VLOG(10) << "After ReplaceUnitVarToZero: \n" << *expr;
+  ir::stmt::BlockRef func_body = ir::ConvertExprBlockToStmtBlock(*expr);
+  EliminateCommonFactorOfLocalIndex(func_body);
+  *expr = ir::ConvertStmtBlockToExprBlock(func_body);
+  VLOG(10) << "After EliminateCommonFactorOfLocalIndex: \n" << *expr;
 
   ResizeBufferToMaxVarRange(expr);
 
   if (FLAGS_cinn_longlong2int) {
-    TryCastLonglong2Int(expr);
+    ir::stmt::BlockRef block = ir::ConvertExprBlockToStmtBlock(*expr);
+    VLOG(10) << "Before CastLonglong2Int: \n" << block;
+    TryCastLonglong2Int(block);
+    VLOG(10) << "After CastLonglong2Int: \n" << block;
+    *expr = ir::ConvertStmtBlockToExprBlock(block);
   }
 
   VLOG(4) << "After Optimize Expr: \n" << *expr;

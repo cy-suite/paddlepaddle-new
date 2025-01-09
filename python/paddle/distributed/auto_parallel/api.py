@@ -722,48 +722,34 @@ def moe_sub_mesh_tensors(
 
 
 def dtensor_from_local(local_tensor, mesh, placements):
-    # assume the each rank has the same tensor shape for now, just use the local shape to calculate the global shape
-    global_dims = list(local_tensor.shape)
-    for idx, placement in enumerate(placements):
-        if placement.is_shard():
-            shard_dim = placement.get_dim()
-            local_dim_size = global_dims[shard_dim]
-            global_dims[shard_dim] = local_dim_size * mesh.shape[idx]
-
     if paddle.in_dynamic_mode():
-        place = paddle.framework._current_expected_place()
-        place = paddle.framework._get_paddle_place(place)
+        if local_tensor.is_dist() is True:
+            raise ValueError("The input should be a local tensor.")
 
-        return paddle.Tensor(
-            local_tensor,
-            dims=global_dims,
-            process_mesh=mesh,
-            placements=placements,
-            place=place,
+        return paddle.base.core.dtensor_from_local(
+            local_tensor, mesh, placements
         )
 
     # TODO Adopt Mix2Dist Pass to allow the program could be executed actually.
     elif paddle.framework.in_pir_mode():
-        assert isinstance(
-            local_tensor, (type(None), pir.Value)
-        ), "input tensor is not pir value."
-        assert (
-            local_tensor.is_dense_tensor_type()
-        ), "dtensor_from_local() are only supported dense tensor type right."
-        sharding_specs = get_shard_spec(mesh, placements, local_tensor.ndim)
-        dims_mapping = convert_to_dims_mapping(sharding_specs, mesh)
-        local_shape = local_tensor.shape
-        global_tensor_type = paddle.pir.create_shaped_type(
-            local_tensor.type(), global_dims
-        )
-        dist_dense_tensor_type = paddle.base.libpaddle.pir.create_dist_dense_tensor_type_by_dense_tensor(
-            global_tensor_type, local_shape, mesh, dims_mapping
-        )
-        local_tensor.set_type(dist_dense_tensor_type)
-        return local_tensor
+        return paddle._C_ops.dtensor_from_local(local_tensor, mesh, placements)
     else:
         raise RuntimeError(
             "dtensor_from_local() are only supported in dynamic or pir mode."
+        )
+
+
+def dtensor_to_local(dist_tensor):
+    if paddle.in_dynamic_mode():
+        if dist_tensor.is_dist() is False:
+            raise ValueError("The input should be a distributed tensor.")
+
+        return paddle.base.core.dtensor_to_local(dist_tensor)
+    elif paddle.framework.in_pir_mode():
+        return paddle._C_ops.dtensor_to_local(dist_tensor)
+    else:
+        raise RuntimeError(
+            "dtensor_to_local() are only supported in dynamic or pir mode."
         )
 
 
@@ -1170,6 +1156,10 @@ class _ShardOptimizer(Optimizer):
             accumulator = self._inner_opt._accumulators[key][target_name]
             if accumulator.is_dist() and not isinstance(accumulator, pir.Value):
                 continue
+
+            if paddle.in_dynamic_mode():
+                origin_accumulator_name = accumulator.name
+
             if self._shard_fn is not None:
                 self._inner_opt._accumulators[key][target_name] = (
                     self._shard_fn(key, param, accumulator)
@@ -1193,12 +1183,10 @@ class _ShardOptimizer(Optimizer):
                             placements=placements,
                         )
                     )
-            if not isinstance(
-                self._inner_opt._accumulators[key][target_name], pir.Value
-            ):
-                self._inner_opt._accumulators[key][target_name].name = (
-                    target_name + "_" + key
-                )
+            if paddle.in_dynamic_mode():
+                self._inner_opt._accumulators[key][
+                    target_name
+                ].name = origin_accumulator_name
 
     def _reset_placements(self, param):
         if param.is_dist() and isinstance(
@@ -3302,7 +3290,7 @@ class ShardDataloader:
                 worker_init_fn=dataloader.worker_init_fn,
                 persistent_workers=dataloader._persistent_workers,
             )
-        # Note(lizhiyu): In dygraph mode, the flag "pin_memory" is defualt "True", but it decrease the speed of `AutoParallel`
+        # Note(lizhiyu): In dygraph mode, the flag "pin_memory" is default "True", but it decrease the speed of `AutoParallel`
         self._dataloader.pin_memory = False
 
     def _process_shard_dims(self, shard_dims):
