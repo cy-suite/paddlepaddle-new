@@ -47,9 +47,11 @@ class LocalLayer(Layer):
             >>> from paddle.distributed import Placement, ProcessMesh, LocalLayer
 
             >>> class CustomLayer(dist.LocalLayer):
-            ...     def __init__(self, out_dist_attrs):
+            ...     def __init__(
+                        self, out_dist_attrs: List[tuple[ProcessMesh, List[Placement]]]
+                    ):
             ...         super().__init__(out_dist_attrs)
-            ...         self.local_result = None
+            ...         self.local_result: Tensor = paddle.to_tensor(0.0)
 
             ...     def forward(self, x):
             ...         mask = paddle.zeros_like(x)
@@ -67,7 +69,7 @@ class LocalLayer(Layer):
             >>> # doctest: +REQUIRES(env:DISTRIBUTED)
             >>> dist.init_parallel_env()
             >>> mesh = ProcessMesh([0, 1], dim_names=["x"])
-            >>> out_dist_attrs = [
+            >>> out_dist_attrs: List[tuple[ProcessMesh, List[Placement]]] = [
             ...     (mesh, [dist.Partial(dist.ReduceType.kRedSum)]),
             ... ]
 
@@ -81,8 +83,8 @@ class LocalLayer(Layer):
             >>> custom_layer = CustomLayer(out_dist_attrs)
             >>> output_dist = custom_layer(input_dist)
 
-            >>> local_value: Tensor = custom_layer.local_result
-            >>> gathered_values: List = []
+            >>> local_value = custom_layer.local_result
+            >>> gathered_values: List[Tensor] = []
             >>> dist.all_gather(gathered_values, local_value)
 
             >>> print(f"[Rank 0] local_loss={gathered_values[0]}")
