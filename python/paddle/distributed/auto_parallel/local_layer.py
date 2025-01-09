@@ -125,10 +125,13 @@ class LocalLayer(Layer):
                 f"the number of distribution attributes ({len(self.out_dist_attrs)})."
             )
 
+        dist_outs = []
         for idx in range(len(list_outs)):
-            list_outs[idx] = dist.auto_parallel.api.dtensor_from_local(
-                list_outs[idx],
-                self.out_dist_attrs[idx][0],
-                self.out_dist_attrs[idx][1],
+            dist_outs.append(
+                dist.auto_parallel.api.dtensor_from_local(
+                    list_outs[idx],
+                    self.out_dist_attrs[idx][0],
+                    self.out_dist_attrs[idx][1],
+                )
             )
-        return paddle.utils.pack_sequence_as(outputs, list_outs)
+        return paddle.utils.pack_sequence_as(outputs, dist_outs)
