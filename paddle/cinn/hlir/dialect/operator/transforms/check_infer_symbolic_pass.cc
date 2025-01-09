@@ -79,7 +79,7 @@ class BlockDimExprsAsserter {
   void AssertOpRegions(const pir::Operation* op) {
     // Inserting too many check op in while block will cause model too slow, so
     // skip the while block checking.
-    if (op->isa<paddle::dialect::WhileOp>()) return;
+    // if (op->isa<paddle::dialect::WhileOp>()) return;
     for (std::size_t i = 0; i < op->num_regions(); ++i) {
       for (auto& block : op->region(i)) {
         BlockDimExprsAsserter asserter(GraphDimExprs4Value, ir_ctx_, &block);

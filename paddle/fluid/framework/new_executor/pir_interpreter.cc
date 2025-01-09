@@ -1729,7 +1729,7 @@ void PirInterpreter::TraceRunInstructionList(
     auto instr_id = trace_execute_order_[idx];
     InstructionBase* instr_node = vec_instruction_base_.at(instr_id).get();
 
-    VLOG(6) << "Run InstructionBase " << instr_node->Name() << "[" << instr_id
+    VLOG(1) << "Run InstructionBase " << instr_node->Name() << "[" << instr_id
             << "], op id: " << instr_node->Operation()->id();
     RunInstructionBase(instr_node);
 
@@ -1929,7 +1929,7 @@ void PirInterpreter::RunInstructionBase(InstructionBase* instr_node) {
 
     RecordLowPrecisionOp(instr_node);
 
-    VLOG(2) << "\nbegin: " << __func__ << " OP id:" << instr_node->Id()
+    VLOG(1) << "\nbegin: " << __func__ << " OP id:" << instr_node->Id()
             << " name:" << instr_node->Name() << " type:"
             << (instr_node->KernelType() == OpFuncType::kCpuSync
                     ? "kCpuSync"
@@ -1969,7 +1969,8 @@ void PirInterpreter::RunInstructionBase(InstructionBase* instr_node) {
       if (FLAGS_check_nan_inf) {
         CheckTensorHasNanOrInf(instr_node, scope_, value_exe_info_.get());
       }
-      VLOG(2) << "\ndone: " << __func__ << " OP id:" << instr_node->Id()
+      VLOG(1) << "\nbegin: " << __func__ << " OP id:" << instr_node->Id()
+              << "idid:" << instr_node->Operation()->id()
               << " name:" << instr_node->Name() << " type:"
               << (instr_node->KernelType() == OpFuncType::kCpuSync
                       ? "kCpuSync"
