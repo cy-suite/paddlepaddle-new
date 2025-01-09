@@ -198,7 +198,7 @@ class TensorRTConfig:
             optimization_level (int, optional):
                 Set TensorRT optimization level (default is 3). Only supported in TensorRT versions greater than 8.6.
             disable_passes : (str|list, optional):
-                A string representing the names of pass that should not be used for origin program (default is None).
+                A list of string representing the names of pass that should not be used for origin program (default is []).
         Returns:
             None
 
