@@ -373,12 +373,10 @@ std::vector<ir::LoweredFunc> OpLowererImpl::PostProcess(
 
     if (func_body.As<ir::Block>()) {
       VLOG(6) << "Before CreateEliminateDeadScheduleBlockPass: \n" << func_body;
-      ir::stmt::BlockRef _block = ir::ConvertExprBlockToStmtBlock(func_body);
-      optim::BlockPassManager pass_manager;
-      pass_manager.AddPass(
-          optim::CreateEliminateDeadScheduleBlockPass(group->output_names()));
-      pass_manager.Run(_block);
-      func_body = ir::ConvertStmtBlockToExprBlock(_block);
+      ir::stmt::BlockRef func_body_block =
+          ir::ConvertExprBlockToStmtBlock(func_body);
+      optim::EliminateDeadScheduleBlock(group->output_names(), func_body_block);
+      func_body = ir::ConvertStmtBlockToExprBlock(func_body_block);
       VLOG(6) << "After CreateEliminateDeadScheduleBlockPass: \n" << func_body;
     }
 
