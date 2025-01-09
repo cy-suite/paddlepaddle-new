@@ -212,6 +212,12 @@ void BaddbmmGradKernel(const Context& dev_ctx,
       auto out_grad_slice = out_grad.Slice(i, i + 1);
       auto y_slice = y.Slice(i, i + 1);
       auto x_grad_slice = x_grad->Slice(i, i + 1);
+      auto x_grad_dims = x_grad_slice.dims();
+
+      x_grad_slice.Resize({x_grad_dims[1], x_grad_dims[2]});
+      y_slice.Resize({y_slice.dims()[1], y_slice.dims()[2]});
+      out_grad_slice.Resize(
+          {out_grad_slice.dims()[1], out_grad_slice.dims()[2]});
       blas.MatMul(out_grad_slice, false, y_slice, true, &x_grad_slice);
     }
     if (!is_float16_or_bfloat16) {
@@ -232,6 +238,10 @@ void BaddbmmGradKernel(const Context& dev_ctx,
       auto out_grad_slice = out_grad.Slice(i, i + 1);
       auto x_slice = x.Slice(i, i + 1);
       auto y_grad_slice = y_grad->Slice(i, i + 1);
+      out_grad_slice.Resize(
+          {out_grad_slice.dims()[1], out_grad_slice.dims()[2]});
+      x_slice.Resize({x_slice.dims()[1], x_slice.dims()[2]});
+      y_grad_slice.Resize({y_grad_slice.dims()[1], y_grad_slice.dims()[2]});
       blas.MatMul(x_slice, true, out_grad_slice, false, &y_grad_slice);
     }
     if (!is_float16_or_bfloat16) {
