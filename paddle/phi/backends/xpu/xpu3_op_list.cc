@@ -1459,6 +1459,8 @@ XPUOpMap& get_kl3_ops() {
                      phi::DataType::INT32,
                      phi::DataType::FLOAT16,
                      phi::DataType::FLOAT32})},
+      {"variable_length_memory_efficient_attention",
+       XPUKernelSet({phi::DataType::FLOAT32, phi::DataType::FLOAT16})},
       {"warpctc_grad", XPUKernelSet({phi::DataType::FLOAT32})},
       {"warpctc", XPUKernelSet({phi::DataType::FLOAT32})},
       {"where_index",
@@ -1495,7 +1497,8 @@ XPUOpMap& get_kl3_ops() {
                      phi::DataType::INT32,
                      phi::DataType::INT64})},
       {"randint", XPUKernelSet({phi::DataType::INT32, phi::DataType::INT64})},
-      {"group_norm", XPUKernelSet({phi::DataType::FLOAT32})},
+      {"group_norm",
+       XPUKernelSet({phi::DataType::FLOAT32, phi::DataType::FLOAT16})},
       {"group_norm_grad", XPUKernelSet({phi::DataType::FLOAT32})},
       {"meshgrid",
        XPUKernelSet({phi::DataType::FLOAT32,
@@ -1546,6 +1549,8 @@ XPUOpMap& get_kl3_ops() {
                      phi::DataType::FLOAT64,
                      phi::DataType::INT32,
                      phi::DataType::INT64})},
+      {"blha_get_max_len",
+       XPUKernelSet({phi::DataType::INT32, phi::DataType::INT64})},
   };
 
   return s_xpu3_kernels;
