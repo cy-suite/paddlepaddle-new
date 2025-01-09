@@ -504,6 +504,35 @@ def dispatch_list_ne(lhs: ListVariable, rhs: ListVariable):
     return Dispatcher.call(operator.eq, lhs, rhs).bool_not()
 
 
+BUILTIN_EQ_DISPATCH_TYPES = [
+    "ListVariable",
+    "TupleVariable",
+    "DictVariable",
+    "ConstantVariable",
+]
+
+for i in range(len(BUILTIN_EQ_DISPATCH_TYPES)):
+    current_type = BUILTIN_EQ_DISPATCH_TYPES[i]
+    other_types = (
+        BUILTIN_EQ_DISPATCH_TYPES[:i] + BUILTIN_EQ_DISPATCH_TYPES[i + 1 :]
+    )
+    Dispatcher.register(
+        operator.eq,
+        (current_type, " | ".join(other_types)),
+        lambda var, other: ConstantVariable(
+            False, var.graph, DummyTracker([var, other])
+        ),
+    )
+
+    Dispatcher.register(
+        operator.ne,
+        (current_type, " | ".join(other_types)),
+        lambda var, other: ConstantVariable(
+            True, var.graph, DummyTracker([var, other])
+        ),
+    )
+
+
 # getattr
 Dispatcher.register(
     getattr,
@@ -1240,6 +1269,32 @@ Dispatcher.register(
     ("ListVariable",),
     lambda var: var.min(),
 )
+
+
+@Dispatcher.register_decorator(max)
+def dispatch_max_star_args(*args: VariableBase):
+    if not args:
+        raise TypeError("max expected at least 1 arguments, got 0")
+    res = args[0]
+    graph = res.graph
+    for arg in args:
+        gt = BuiltinVariable(operator.gt, graph, DanglingTracker())(arg, res)
+        if gt.get_py_value() is True:
+            res = arg
+    return res
+
+
+@Dispatcher.register_decorator(min)
+def dispatch_min_star_args(*args: VariableBase):
+    if not args:
+        raise TypeError("min expected at least 1 arguments, got 0")
+    res = args[0]
+    graph = res.graph
+    for arg in args:
+        lt = BuiltinVariable(operator.lt, graph, DanglingTracker())(arg, res)
+        if lt.get_py_value() is True:
+            res = arg
+    return res
 
 
 # math functions, e.g. math.log, math.sqrt, math.sin, etc.

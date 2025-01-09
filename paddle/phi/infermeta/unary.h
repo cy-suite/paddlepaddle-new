@@ -98,6 +98,8 @@ void AsRealInferMeta(const MetaTensor& input, MetaTensor* output);
 
 void AsComplexInferMeta(const MetaTensor& input, MetaTensor* output);
 
+void BarrierInferMeta(const MetaTensor& x, MetaTensor* out);
+
 void BatchSizeLikeInferMeta(const MetaTensor& x,
                             const std::vector<int>& shape,
                             int x_batch_size_dim,
@@ -587,6 +589,7 @@ void RealAndImagInferMeta(const MetaTensor& x, MetaTensor* out);
 void ReduceSumInferMeta(const MetaTensor& x,
                         const std::vector<int64_t>& axis,
                         bool keep_dim,
+                        DataType dtype,
                         MetaTensor* out);
 
 void ReduceInferMeta(const MetaTensor& x,
@@ -678,6 +681,10 @@ void SetValueInferMeta(const MetaTensor& x, MetaTensor* out);
 void ShareDataInferMeta(const MetaTensor& x, MetaTensor* out);
 
 void ShapeInferMeta(const MetaTensor& input, MetaTensor* out);
+
+void Shape64InferMeta(const MetaTensor& input,
+                      MetaTensor* out,
+                      MetaConfig config = MetaConfig());
 
 void ShardIndexInferMeta(const MetaTensor& in,
                          int index_num,
@@ -809,6 +816,8 @@ void PartialSumInferMeta(const std::vector<const MetaTensor*>& xs,
                          int length,
                          MetaTensor* out,
                          MetaConfig config = MetaConfig());
+
+void SvdvalsInferMeta(const MetaTensor& x, MetaTensor* s);
 
 void SvdInferMeta(const MetaTensor& x,
                   bool full_matrices,

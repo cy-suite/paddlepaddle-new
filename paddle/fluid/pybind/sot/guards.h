@@ -84,6 +84,19 @@ class TypeMatchGuard : public GuardBase {
   PyTypeObject* expected_;
 };
 
+class IdMatchGuard : public GuardBase {
+ public:
+  explicit IdMatchGuard(PyObject* obj_ptr)
+      : expected_(reinterpret_cast<PyObject*>(obj_ptr)) {}
+  explicit IdMatchGuard(const py::object& py_obj)
+      : expected_(reinterpret_cast<PyObject*>(py_obj.ptr())) {}
+
+  bool check(PyObject* value);
+
+ private:
+  PyObject* expected_;
+};
+
 class ValueMatchGuard : public GuardBase {
  public:
   explicit ValueMatchGuard(PyObject* value_ptr)
@@ -102,6 +115,18 @@ class ValueMatchGuard : public GuardBase {
  private:
   PyObject* expected_value_;
   PyTypeObject* expected_type_;
+};
+
+class FloatCloseGuard : public GuardBase {
+ public:
+  explicit FloatCloseGuard(double value, double epsilon)
+      : expected_(value), epsilon_(epsilon) {}
+
+  bool check(PyObject* value);
+
+ private:
+  double expected_;
+  double epsilon_;
 };
 
 class LengthMatchGuard : public GuardBase {
@@ -185,6 +210,21 @@ class RangeMatchGuard : public GuardGroup {
                     std::make_shared<AttributeMatchGuard>(range_obj, "stop"),
                     std::make_shared<AttributeMatchGuard>(range_obj, "step")}) {
   }
+};
+
+class InstanceCheckGuard : public GuardBase {
+ public:
+  explicit InstanceCheckGuard(const py::object& py_type)
+      : expected_(py_type.ptr()) {
+    Py_INCREF(expected_);
+  }
+
+  ~InstanceCheckGuard() override { Py_DECREF(expected_); }
+
+  bool check(PyObject* value) override;
+
+ private:
+  PyObject* expected_;
 };
 
 #endif

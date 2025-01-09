@@ -23,7 +23,7 @@ from typing import Any, NamedTuple
 
 import yaml
 from decomp_interface_gen_op_list import (
-    decomp_interface_declare_gen_op_list,
+    decomp_rule_interface_declare_gen_op_list,
     decomp_vjp_interface_declare_gen_op_list,
 )
 from gen_utils import attr_types_map, to_pascal_case
@@ -80,10 +80,12 @@ need_export_symbol_op_list = [
     'MatmulGradOp',
 ]
 
+cache_grad_op_shape_black_list = {"fused_attention"}
+
 # =====================================
 # String Template for h file code gen
 # =====================================
-NAMESPACE_GARD_TEMPLATE = """namespace {namespace} {{
+NAMESPACE_GUARD_TEMPLATE = """namespace {namespace} {{
 {input}
 }} // namespace {namespace}"""
 
@@ -245,6 +247,12 @@ CC_OP_INFO_FILE_TEMPLATE_WIN_PART1 = """#ifdef GET_OP_LIST1
 #elif defined(GET_OP_LIST2)
 #undef GET_OP_LIST2
 {op_declare_second_part}
+#elif defined(GET_OP_LIST3)
+#undef GET_OP_LIST3
+{op_declare_third_part}
+#elif defined(GET_OP_LIST4)
+#undef GET_OP_LIST4
+{op_declare_fourth_part}
 """
 
 CC_OP_INFO_FILE_TEMPLATE_PART2 = """
@@ -334,7 +342,7 @@ scalar_type_maps = {
     'int': 'pir::Int32Attribute',
     'int64_t': 'pir::Int64Attribute',
     'float': 'pir::FloatAttribute',
-    'dobule': 'pir::DoubleAttribute',
+    'double': 'pir::DoubleAttribute',
     'bool': 'pir::BoolAttribute',
 }
 
@@ -1275,7 +1283,7 @@ def AutoCodeGen(
     ops_name_list = []  # all op class name store in this list
     ops_declare_list = []  # all op class declare store in this list
     ops_defined_list = []  # all op class defined store in this list
-    ops_vjp_defined_list = []  # all op vjp static interface defination
+    ops_vjp_defined_list = []  # all op vjp static interface definition
 
     # (4) parse name of ops which have custom vjp rules
     custom_vjp_op_name_list = []
@@ -1337,6 +1345,7 @@ def AutoCodeGen(
             and op_info.backward_name
             and not op_info.is_sparse_op
             and all_op_info_items[op_info.backward_name].kernel_map is not None
+            and op_info.op_phi_name[0] not in cache_grad_op_shape_black_list
         ):
             op_interfaces += [
                 "paddle::dialect::CacheGradOpSymbolicShapeInterface"
@@ -1401,8 +1410,9 @@ def AutoCodeGen(
 
             for kernel_func_name in func_list:
                 if (
-                    op_name in decomp_interface_declare_gen_op_list
-                    and kernel_func_name in decomp_interface_declare_gen_op_list
+                    op_name in decomp_rule_interface_declare_gen_op_list
+                    and kernel_func_name
+                    in decomp_rule_interface_declare_gen_op_list
                     and dialect_name != "onednn_op"
                 ):
                     if decomp_interface_str not in op_interfaces:
@@ -2333,7 +2343,7 @@ def OpGenerator(
     if dialect_name == "pd_op":
         other_info = OP_TO_MULTI_KERNELS_MAP_H
         for name in reversed(namespaces):
-            other_info = NAMESPACE_GARD_TEMPLATE.format(
+            other_info = NAMESPACE_GUARD_TEMPLATE.format(
                 namespace=name, input=other_info
             )  # Add namespaces
         only_pd_op_header_files_str = """
@@ -2343,7 +2353,7 @@ def OpGenerator(
     elif dialect_name == "onednn_op":
         other_info = ONEDNN_ONLY_OP_SET_H
         for name in reversed(namespaces):
-            other_info = NAMESPACE_GARD_TEMPLATE.format(
+            other_info = NAMESPACE_GUARD_TEMPLATE.format(
                 namespace=name, input=other_info
             )  # Add namespaces
     else:
@@ -2352,7 +2362,7 @@ def OpGenerator(
     head_file_str = "\n".join(head_file_strs)
     declare_type_id_str = "\n".join(declare_type_id_strs)
     for name in reversed(namespaces):
-        head_file_str = NAMESPACE_GARD_TEMPLATE.format(
+        head_file_str = NAMESPACE_GUARD_TEMPLATE.format(
             namespace=name, input=head_file_str
         )  # Add namespaces
     head_file_str = H_FILE_TEMPLATE.format(
@@ -2374,7 +2384,7 @@ def OpGenerator(
         )
         other_info_str += sp_other_info_str
         for name in reversed(namespaces):
-            other_info_str = NAMESPACE_GARD_TEMPLATE.format(
+            other_info_str = NAMESPACE_GUARD_TEMPLATE.format(
                 namespace=name, input=other_info_str
             )  # Add namespaces
     elif dialect_name == "onednn_op":
@@ -2382,7 +2392,7 @@ def OpGenerator(
             maps=", \r".join(onednn_only_op_list)
         )
         for name in reversed(namespaces):
-            other_info_str = NAMESPACE_GARD_TEMPLATE.format(
+            other_info_str = NAMESPACE_GUARD_TEMPLATE.format(
                 namespace=name, input=other_info_str
             )  # Add namespaces
     else:
@@ -2390,9 +2400,11 @@ def OpGenerator(
 
     if op_info_file is not None:
         if sys.platform == "win32":
-            n = len(op_list_strs) // 2
+            n = len(op_list_strs) // 4
             first_part_op_info = op_list_strs[:n]
-            second_part_op_info = op_list_strs[n:]
+            second_part_op_info = op_list_strs[n : 2 * n]
+            third_part_op_info = op_list_strs[2 * n : 3 * n]
+            fourth_part_op_info = op_list_strs[3 * n :]
             CC_OP_INFO_FILE_TEMPLATE = (
                 CC_OP_INFO_FILE_TEMPLATE_WIN_PART1
                 + CC_OP_INFO_FILE_TEMPLATE_PART2
@@ -2402,6 +2414,12 @@ def OpGenerator(
                     "\n", ""
                 ),
                 op_declare_second_part=",".join(second_part_op_info).replace(
+                    "\n", ""
+                ),
+                op_declare_third_part=",".join(third_part_op_info).replace(
+                    "\n", ""
+                ),
+                op_declare_fourth_part=",".join(fourth_part_op_info).replace(
                     "\n", ""
                 ),
                 other_info=other_info_str,
@@ -2424,7 +2442,7 @@ def OpGenerator(
     for id in range(len(new_op_def_cc_file)):
         source_file_str = source_file_strs[id]
         for name in reversed(namespaces):
-            source_file_str = NAMESPACE_GARD_TEMPLATE.format(
+            source_file_str = NAMESPACE_GUARD_TEMPLATE.format(
                 namespace=name, input=source_file_str
             )  # Add namespaces
 

@@ -36,6 +36,26 @@ class TestBasicFasterGuard(unittest.TestCase):
         self.assertTrue(guard_list.check([1]))
         self.assertFalse(guard_list.check(1))
 
+    def test_isinstance_match_guard(self):
+        guard_int = paddle.framework.core.InstanceCheckGuard(int)
+        guard_str = paddle.framework.core.InstanceCheckGuard(str)
+        guard_list = paddle.framework.core.InstanceCheckGuard(list)
+        guard_int_bool = paddle.framework.core.InstanceCheckGuard((int, bool))
+        guard_int_str = paddle.framework.core.InstanceCheckGuard((int, str))
+        self.assertTrue(guard_int.check(1))
+        self.assertFalse(guard_int.check("1"))
+        self.assertTrue(guard_str.check("1"))
+        self.assertFalse(guard_str.check(1))
+        self.assertTrue(guard_list.check([1]))
+        self.assertFalse(guard_list.check(1))
+        self.assertTrue(guard_int_bool.check(1))
+        self.assertTrue(guard_int_bool.check(True))
+        self.assertFalse(guard_int_bool.check("1"))
+        self.assertTrue(guard_int_str.check(1))
+        self.assertTrue(guard_int_str.check("1"))
+        self.assertTrue(guard_int_str.check(True))
+        self.assertFalse(guard_int_str.check([1]))
+
     def test_value_match_guard(self):
         guard_value = paddle.framework.core.ValueMatchGuard(1)
         guard_container_value = paddle.framework.core.ValueMatchGuard([1])
@@ -85,6 +105,14 @@ class TestBasicFasterGuard(unittest.TestCase):
         layer.train()
         self.assertTrue(guard_layer.check(layer))
 
+    def test_id_match_guard(self):
+        layer = paddle.nn.Linear(10, 10)
+        guard_id = paddle.framework.core.IdMatchGuard(layer)
+        self.assertTrue(guard_id.check(layer))
+        layer.eval()
+        self.assertTrue(guard_id.check(layer))
+        self.assertFalse(guard_id.check(paddle.nn.Linear(10, 10)))
+
 
 class TestFasterGuardGroup(unittest.TestCase):
     def test_guard_group(self):
@@ -113,6 +141,14 @@ class TestFasterGuardGroup(unittest.TestCase):
         guard_range = paddle.framework.core.RangeMatchGuard(range(1, 10, 2))
         self.assertTrue(guard_range.check(range(1, 10, 2)))
         self.assertFalse(guard_range.check(range(11)))
+
+    def test_float_close_guard(self):
+        expected = 0.018181818181818184
+        epsilon = 1e-13
+        guard_float = paddle.framework.core.FloatCloseGuard(expected, epsilon)
+        self.assertTrue(guard_float.check(0.018181818181818184))
+        self.assertTrue(guard_float.check(0.018181818181818177))
+        self.assertFalse(guard_float.check(0.018181818191818184))
 
 
 if __name__ == "__main__":

@@ -162,8 +162,8 @@ def transpose(
             if dim >= len(x.shape):
                 raise ValueError(
                     "Each element in Input(perm) should be less than Input(x)'s dimension, "
-                    "but %d-th element in Input(perm) is %d which exceeds Input(x)'s "
-                    "dimension %d." % (idx, perm[idx], len(x.shape))
+                    f"but {idx}-th element in Input(perm) is {perm[idx]} which exceeds Input(x)'s "
+                    f"dimension {len(x.shape)}."
                 )
 
         helper = LayerHelper('transpose', **locals())
@@ -672,10 +672,15 @@ def vector_norm(
     if isinstance(axis, list) and len(axis) == 1:
         axis = axis[0]
 
+    if paddle.is_complex(x):
+        abs_x = paddle.abs(x)
+    else:
+        abs_x = x
+
     # when len(axis) == 1, use the original op to calculate
     if isinstance(axis, int):
         return vector_norm_axis_int(
-            x,
+            abs_x,
             axis=axis,
             porder=p,
             keepdim=keepdim,
@@ -686,12 +691,16 @@ def vector_norm(
     # when len(axis) >= 1, calculate by combining other Python apis
     elif isinstance(axis, list):
         if p == np.inf or p == -np.inf:
-            return inf_norm(x, porder=p, axis=axis, keepdim=keepdim, name=name)
+            return inf_norm(
+                abs_x, porder=p, axis=axis, keepdim=keepdim, name=name
+            )
         elif p == 0:
-            return zero_norm(x, porder=p, axis=axis, keepdim=keepdim, name=name)
+            return zero_norm(
+                abs_x, porder=p, axis=axis, keepdim=keepdim, name=name
+            )
         else:
             return vector_norm_axis_tuple(
-                x, porder=p, axis=axis, keepdim=keepdim, name=name
+                abs_x, porder=p, axis=axis, keepdim=keepdim, name=name
             )
 
 
@@ -1868,6 +1877,42 @@ def dot(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
         return out
 
 
+def vecdot(
+    x: Tensor,
+    y: Tensor,
+    axis: int = -1,
+    name: str | None = None,
+) -> Tensor:
+    """
+    Computes the dot product of two tensors along a specified axis.
+
+    This function multiplies two tensors element-wise and sums them along a specified axis to compute their dot product. It supports tensors of any dimensionality, including 0-D tensors, as long as the shapes of `x` and `y` are broadcastable along the specified axis.
+
+    Args:
+        x (Tensor): The first input tensor. It should be a tensor with dtype of float32, float64, int32, int64, complex64, or complex128.
+        y (Tensor): The second input tensor. Its shape must be broadcastable with `x` along the specified `axis`, and it must have the same dtype as `x`.
+        axis (int, optional): The axis along which to compute the dot product. Default is -1, which indicates the last axis.
+        name (str|None, optional): Name of the output. Default is None. It's used to print debug info for developers. Details: :ref:`api_guide_Name`
+
+    Returns:
+        Tensor: A tensor containing the dot product of `x` and `y` along the specified axis.
+
+    Examples:
+
+        .. code-block:: python
+
+            >>> import paddle
+            >>> x = paddle.to_tensor([[1, 2, 3], [4, 5, 6]], dtype='float32')
+            >>> y = paddle.to_tensor([[1, 2, 3], [4, 5, 6]], dtype='float32')
+            >>> result = paddle.linalg.vecdot(x, y, axis=1)
+            >>> print(result)
+            Tensor(shape=[2], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [14.0, 77.0])
+    """
+    out = (x.conj() * y).sum(axis=axis)
+    return out
+
+
 def cov(
     x: Tensor,
     rowvar: bool = True,
@@ -2483,8 +2528,8 @@ def bmm(x: Tensor, y: Tensor, name: str | None = None) -> Tensor:
 def histogram(
     input: Tensor,
     bins: int = 100,
-    min: int = 0,
-    max: int = 0,
+    min: float = 0.0,
+    max: float = 0.0,
     weight: Tensor | None = None,
     density: bool = False,
     name: str | None = None,
@@ -2497,8 +2542,8 @@ def histogram(
         input (Tensor): A Tensor with shape :math:`[N_1, N_2,..., N_k]` . The data type of the input Tensor
             should be float32, float64, int32, int64.
         bins (int, optional): number of histogram bins. Default: 100.
-        min (int, optional): lower end of the range (inclusive). Default: 0.
-        max (int, optional): upper end of the range (inclusive). Default: 0.
+        min (float, optional): lower end of the range (inclusive). Default: 0.0.
+        max (float, optional): upper end of the range (inclusive). Default: 0.0.
         weight (Tensor, optional): If provided, it must have the same shape as input. Each value in input contributes its associated
             weight towards the bin count (instead of 1). Default: None.
         density (bool, optional): If False, the result will contain the count (or total weight) in each bin. If True, the result is the
@@ -2519,6 +2564,11 @@ def histogram(
             Tensor(shape=[4], dtype=int64, place=Place(cpu), stop_gradient=True,
             [0, 2, 1, 0])
     """
+    if isinstance(min, int):
+        min = float(min)
+    if isinstance(max, int):
+        max = float(max)
+
     if in_dynamic_or_pir_mode():
         return _C_ops.histogram(input, weight, bins, min, max, density)
     else:
@@ -2560,8 +2610,8 @@ def histogram(
 def histogram_bin_edges(
     input: Tensor,
     bins: int = 100,
-    min: int = 0,
-    max: int = 0,
+    min: float = 0.0,
+    max: float = 0.0,
     name: str | None = None,
 ) -> Tensor:
     """
@@ -2571,8 +2621,8 @@ def histogram_bin_edges(
     Args:
         input (Tensor): The data type of the input Tensor should be float32, float64, int32, int64.
         bins (int, optional): number of histogram bins.
-        min (int, optional): lower end of the range (inclusive). Default: 0.
-        max (int, optional): upper end of the range (inclusive). Default: 0.
+        min (float, optional): lower end of the range (inclusive). Default: 0.0.
+        max (float, optional): upper end of the range (inclusive). Default: 0.0.
         name (str|None, optional): For details, please refer to :ref:`api_guide_Name`. Generally, no setting is required. Default: None.
 
     Returns:
@@ -2589,6 +2639,11 @@ def histogram_bin_edges(
             Tensor(shape=[5], dtype=float32, place=Place(cpu), stop_gradient=True,
             [0.        , 0.75000000, 1.50000000, 2.25000000, 3.        ])
     """
+    if isinstance(min, int):
+        min = float(min)
+    if isinstance(max, int):
+        max = float(max)
+
     check_type(input, 'input', (Variable), 'histogram_bin_edges')
     check_dtype(
         input.dtype,
@@ -2597,13 +2652,13 @@ def histogram_bin_edges(
         'histogram_bin_edges',
     )
     check_type(bins, 'bins', int, 'histogram_bin_edges')
-    if max == 0 and min == 0:
+    if max == 0.0 and min == 0.0:
         min = paddle.min(input)
         max = paddle.max(input)
     else:
         if max < min:
             raise ValueError("max must be larger than min in range parameter")
-    if (min - max) == 0:
+    if (min - max) == 0.0:
         max = max + 0.5
         min = min - 0.5
     return paddle.linspace(min, max, bins + 1, name=name)
@@ -2944,6 +2999,42 @@ def svd(
             attrs=attrs,
         )
         return u, s, vh
+
+
+def svdvals(x: Tensor, name: str | None = None) -> Tensor:
+    r"""
+    Computes the singular values of one matrix or a batch of matrices.
+
+    Let :math:`X` be the input matrix or a batch of input matrices,
+    the output singular values :math:`S` are the diagonal elements of the matrix
+    produced by singular value decomposition:
+
+    .. math::
+        X = U * diag(S) * VH
+
+    Args:
+        x (Tensor): The input tensor. Its shape should be `[..., M, N]`, where
+            `...` is zero or more batch dimensions. The data type of x should
+            be float32 or float64.
+        name (str|None, optional): Name for the operation. For more
+            information, please refer to :ref:`api_guide_Name`.
+            Default: None.
+
+    Returns:
+        Tensor: Singular values of x. The shape is `[..., K]`, where `K = min(M, N)`.
+
+    Examples:
+        .. code-block:: python
+
+            >>> import paddle
+
+            >>> x = paddle.to_tensor([[1.0, 2.0], [1.0, 3.0], [4.0, 6.0]])
+            >>> s = paddle.linalg.svdvals(x)
+            >>> print(s)
+            Tensor(shape=[2], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [8.14753819, 0.78589684])
+    """
+    return _C_ops.svdvals(x)
 
 
 def _conjugate(x):
@@ -5478,7 +5569,7 @@ def histogramdd(
         check_type(ranges, 'ranges', (list, tuple), 'histogramdd')
         assert D * 2 == len(
             ranges
-        ), "The length of ranges list must be %d\n" % (D * 2)
+        ), f"The length of ranges list must be {D * 2}\n"
 
     check_type(density, 'density', bool, 'histogramdd')
 
@@ -5492,9 +5583,7 @@ def histogramdd(
     if weights is not None:
         weights = weights.astype(x.dtype)
         reshaped_weights = weights.reshape([N])
-        assert reshaped_weights.shape[0] == N, (
-            "The size of weight must be %d" % N
-        )
+        assert reshaped_weights.shape[0] == N, f"The size of weight must be {N}"
     # ranges
     __check_ranges(D, ranges)
     if ranges is None:
@@ -5517,13 +5606,13 @@ def histogramdd(
     if isinstance(bins, (int, list)):  # int or int[]
         if isinstance(bins, int):
             bins = [bins] * D
-        assert len(bins) == D, (
-            "The length of bins must be %d when bins is a list.\n" % D
-        )
+        assert (
+            len(bins) == D
+        ), f"The length of bins must be {D} when bins is a list.\n"
         for idx, r in enumerate(ranges):
             if not isinstance(bins[idx], int):
                 raise ValueError(
-                    "The type of %d-th element in bins list must be int." % idx
+                    f"The type of {idx}-th element in bins list must be int."
                 )
             e = paddle.linspace(r[0], r[1], bins[idx] + 1, x.dtype)
             edges.append(e)
@@ -5746,3 +5835,131 @@ def cholesky_inverse(
     else:
         A = x @ x.T
     return paddle.linalg.inv(A)
+
+
+def diagonal(
+    x: Tensor,
+    offset: int = 0,
+    axis1: int = 0,
+    axis2: int = 1,
+    name: str | None = None,
+) -> Tensor:
+    """
+    Computes the diagonals of the input tensor x.
+
+    If ``x`` is 2D, returns the diagonal.
+    If ``x`` has larger dimensions, diagonals be taken from the 2D planes specified by axis1 and axis2.
+    By default, the 2D planes formed by the first and second axis of the input tensor x.
+
+    The argument ``offset`` determines where diagonals are taken from input tensor x:
+
+    - If offset = 0, it is the main diagonal.
+    - If offset > 0, it is above the main diagonal.
+    - If offset < 0, it is below the main diagonal.
+
+    Args:
+        x (Tensor): The input tensor x. Must be at least 2-dimensional. The input data type should be bool, int32,
+            int64, bfloat16, float16, float32, float64.
+        offset (int, optional): Which diagonals in input tensor x will be taken. Default: 0 (main diagonals).
+        axis1 (int, optional): The first axis with respect to take diagonal. Default: 0.
+        axis2 (int, optional): The second axis with respect to take diagonal. Default: 1.
+        name (str|None, optional): Name for the operation (optional, default is None). For more information, please refer to :ref:`api_guide_Name`.
+
+    Returns:
+        Tensor: a partial view of input tensor in specify two dimensions, the output data type is the same as input data type.
+
+    Examples:
+        .. code-block:: python
+
+            >>> import paddle
+
+            >>> paddle.seed(2023)
+            >>> x = paddle.rand([2, 2, 3],'float32')
+            >>> print(x)
+            Tensor(shape=[2, 2, 3], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [[[0.86583614, 0.52014720, 0.25960937],
+              [0.90525323, 0.42400089, 0.40641287]],
+             [[0.97020894, 0.74437362, 0.51785129],
+              [0.73292869, 0.97786582, 0.04315904]]])
+
+            >>> out1 = paddle.diagonal(x)
+            >>> print(out1)
+            Tensor(shape=[3, 2], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [[0.86583614, 0.73292869],
+             [0.52014720, 0.97786582],
+             [0.25960937, 0.04315904]])
+
+            >>> out2 = paddle.diagonal(x, offset=0, axis1=2, axis2=1)
+            >>> print(out2)
+            Tensor(shape=[2, 2], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [[0.86583614, 0.42400089],
+             [0.97020894, 0.97786582]])
+
+            >>> out3 = paddle.diagonal(x, offset=1, axis1=0, axis2=1)
+            >>> print(out3)
+            Tensor(shape=[3, 1], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [[0.90525323],
+             [0.42400089],
+             [0.40641287]])
+
+            >>> out4 = paddle.diagonal(x, offset=0, axis1=1, axis2=2)
+            >>> print(out4)
+            Tensor(shape=[2, 2], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [[0.86583614, 0.42400089],
+             [0.97020894, 0.97786582]])
+
+    """
+    if in_dynamic_or_pir_mode():
+        return _C_ops.diagonal(x, offset, axis1, axis2)
+    else:
+
+        def __check_input(x, offset, axis1, axis2):
+            check_dtype(
+                x.dtype,
+                'Input',
+                [
+                    'bool',
+                    'int32',
+                    'int64',
+                    'float16',
+                    'uint16',
+                    'float32',
+                    'float64',
+                ],
+                'diagonal',
+            )
+
+            input_shape = list(x.shape)
+            assert len(input_shape) >= 2, (
+                "The x must be at least 2-dimensional, "
+                f"But received Input x's dimensional: {len(input_shape)}.\n"
+            )
+
+            axis1_ = axis1 if axis1 >= 0 else len(input_shape) + axis1
+            axis2_ = axis2 if axis2 >= 0 else len(input_shape) + axis2
+
+            assert axis1_ < len(
+                input_shape
+            ), f"The argument axis1 is out of range (expected to be in range of [{-(len(input_shape))}, {len(input_shape) - 1}], but got {axis1}).\n"
+
+            assert axis2_ < len(
+                input_shape
+            ), f"The argument axis2 is out of range (expected to be in range of [{-(len(input_shape))}, {len(input_shape) - 1}], but got {axis2}).\n"
+
+            assert axis1_ != axis2_, (
+                "axis1 and axis2 cannot be the same axis."
+                f"But received axis1 = {axis1}, axis2 = {axis2}\n"
+            )
+
+        __check_input(x, offset, axis1, axis2)
+        helper = LayerHelper('diagonal', **locals())
+        out = helper.create_variable_for_type_inference(dtype=x.dtype)
+
+        helper.append_op(
+            type='diagonal',
+            inputs={'Input': [x]},
+            attrs={'offset': offset, 'axis1': axis1, 'axis2': axis2},
+            outputs={'Out': [out]},
+        )
+
+        return out

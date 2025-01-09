@@ -284,7 +284,7 @@ static bool has_dynamic_shape(const std::vector<int64_t>& shape,
 }
 
 template <typename T>
-Tensor ConverToMT(const Tensor& x) {
+Tensor ConvertToMT(const Tensor& x) {
   bool need_cast = x.dtype() == phi::DataType::FLOAT16 ||
                    x.dtype() == phi::DataType::BFLOAT16 ||
                    x.dtype() == phi::DataType::UINT16;
@@ -295,7 +295,7 @@ Tensor ConverToMT(const Tensor& x) {
 }
 
 template <typename T>
-Tensor ConverToOrig(const Tensor& out, phi::DataType input_dtype) {
+Tensor ConvertToOrig(const Tensor& out, phi::DataType input_dtype) {
   bool need_cast = out.dtype() != input_dtype;
   if (need_cast) {
     return cast<T>(out, input_dtype);
@@ -322,22 +322,22 @@ class LayerNormDecompHelper {
     for (int i = begin_norm_axis; i < x_rank_; ++i) {
       if (x_dims[i] < 0) {
         static_norm_shape_ = false;
-        normlized_numel_ = -1;
+        normalized_numel_ = -1;
         break;
       }
 
-      normlized_shape_.push_back(x_dims[i]);
+      normalized_shape_.push_back(x_dims[i]);
 
-      normlized_numel_ *= x_dims[i];
+      normalized_numel_ *= x_dims[i];
     }
 
     if (!static_norm_shape_) {
       // try get static norm numel from sacle for bias
-      normlized_numel_ = -1;
+      normalized_numel_ = -1;
       if (scale.get_ptr()) {
-        normlized_numel_ = scale->dims()[0];
+        normalized_numel_ = scale->dims()[0];
       } else if (bias.get_ptr()) {
-        normlized_numel_ = bias->dims()[0];
+        normalized_numel_ = bias->dims()[0];
       }
     }
   }
@@ -349,19 +349,19 @@ class LayerNormDecompHelper {
     }
 
     if (static_norm_shape_) {
-      return reshape<T>(s, normlized_shape_);
+      return reshape<T>(s, normalized_shape_);
     } else {
       return backend::reshape<T>(
-          s, get_slice_vec<T>(shape<T>(x), begin_norm_axis_, x_rank_));
+          s, get_slice_vec<T>(shape64<T>(x), begin_norm_axis_, x_rank_));
     }
   }
 
   template <typename T>
-  Tensor GetNormlizedNumel(const Tensor& x) {
-    if (normlized_numel_ != -1) {
-      return full_scalar<T>(normlized_numel_, x.dtype());
+  Tensor GetNormalizedNumel(const Tensor& x) {
+    if (normalized_numel_ != -1) {
+      return full_scalar<T>(normalized_numel_, x.dtype());
     } else {
-      auto x_shape = shape<T>(x);
+      auto x_shape = shape64<T>(x);
       auto numel = get_slice<T>(x_shape, begin_norm_axis_);
       for (int64_t i = begin_norm_axis_ + 1; i < x_rank_; ++i) {
         numel = numel * get_slice<T>(x_shape, i);
@@ -372,11 +372,11 @@ class LayerNormDecompHelper {
   }
 
  private:
-  std::vector<int64_t> normlized_shape_;
+  std::vector<int64_t> normalized_shape_;
   bool scale_need_reshape_;
   bool static_norm_shape_;
   int64_t x_rank_;
-  int64_t normlized_numel_{1};
+  int64_t normalized_numel_{1};
   int begin_norm_axis_;
 };
 
@@ -445,7 +445,7 @@ class BatchNormDecompHelper {
     if (static_nhw) {
       return full_scalar<T>(nhw_numel, x.dtype());
     } else {
-      auto x_shape = shape<T>(x);
+      auto x_shape = shape64<T>(x);
       auto nhw = get_slice<T>(x_shape, 0);
       for (int64_t i = 1; i < x_rank_; ++i) {
         if (i == channel_axis_) {
@@ -484,7 +484,7 @@ class InstanceNormDecompHelper {
     auto dims = phi::vectorize(x.dims());
     int64_t rank = dims.size();
     if (has_dynamic_shape(x.shape())) {
-      Tensor x_shape = shape<T>(x);
+      Tensor x_shape = shape64<T>(x);
       auto hw = full_scalar<T>(1.0, x.dtype());
       for (int64_t i = 2; i < rank; ++i) {
         hw = hw * get_slice<T>(x_shape, i);
