@@ -168,8 +168,6 @@ extern ExprSetFinder ScheduleBlockRealizeIsNotInit;
 
 extern ExprSetFinder ScheduleBlockRealizeIsInit;
 
-extern ExprSetFinder ScheduleBlockRealizeIsSplitTransform;
-
 extern ExprSetFinder IsFor;
 
 extern ExprSetFinder ChildScheduleBlocks;
