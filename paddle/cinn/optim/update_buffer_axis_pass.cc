@@ -76,18 +76,22 @@ class AnalyzeBufferAxis : public ir::IRMutator<>,
   // Analyze the buffer access inside store
   void VisitStmt(Store stmt) override {
     const ir::Tensor& tensor = stmt->tensor().as_tensor_ref();
+
     if (!tensor->buffer.defined() ||
         tensor->buffer->memory_type == ir::MemoryType::Heap) {
+      ir::Expr value = stmt->value();
+      ir::IRMutator<>::Visit(&value, &value);
+      stmt->set_value(value);
       return;
     }
-    ir::Expr value = stmt->value();
-    ir::IRMutator<>::Visit(&value, &value);
-    stmt->set_value(value);
 
     std::vector<ir::Expr> indices = stmt->indices();
     FormalizeSingleIndex(tensor, &indices);
     stmt->set_indices(indices);
     AnalyzeTensorAxis(indices, tensor);
+    ir::Expr value = stmt->value();
+    ir::IRMutator<>::Visit(&value, &value);
+    stmt->set_value(value);
   }
 
   void VisitStmt(Schedule stmt) override {
