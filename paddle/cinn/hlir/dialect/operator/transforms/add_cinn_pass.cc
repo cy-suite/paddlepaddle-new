@@ -71,7 +71,6 @@ COMMON_DECLARE_bool(enable_cinn_accuracy_check);
 COMMON_DECLARE_bool(enable_fuse_parallel_matmul_pass);
 COMMON_DECLARE_bool(enable_fusion_fallback);
 COMMON_DECLARE_bool(logging_pir_py_code_dump_symbolic_dims);
-PD_DECLARE_bool(group_schedule_tiling_first);
 
 namespace cinn::dialect::ir {
 
@@ -105,20 +104,18 @@ void ApplyShapeOptimizationPass(
   std::shared_ptr<pir::PassManager> pass_manager = CreatePassManager();
   pir::OriginalAttributesFilter::Instance().SetOriginalAttributesMap(
       paddle::dialect::GetAllOpOriginalAttributes());
-  bool has_dynamic_shape = HasDynamicShape(*program);
-  if (has_dynamic_shape) {
-    if (FLAGS_cinn_specify_input_dynamic_dim) {
-      PADDLE_ENFORCE_NE(
-          FLAGS_cinn_input_dynamic_dim_spec_file,
-          "",
-          ::common::errors::InvalidArgument(
-              "'FLAGS_cinn_input_dynamic_dim_spec_file' should not be empty "
-              "when using FLAGS_cinn_specify_input_dynamic_dim."));
-      SpecifyInputDynamicDimFromFile(program,
-                                     FLAGS_cinn_input_dynamic_dim_spec_file);
-    }
-    pass_manager->AddPass(pir::CreateShapeOptimizationPass());
+
+  if (FLAGS_cinn_specify_input_dynamic_dim) {
+    PADDLE_ENFORCE_NE(
+        FLAGS_cinn_input_dynamic_dim_spec_file,
+        "",
+        ::common::errors::InvalidArgument(
+            "'FLAGS_cinn_input_dynamic_dim_spec_file' should not be empty "
+            "when using FLAGS_cinn_specify_input_dynamic_dim."));
+    SpecifyInputDynamicDimFromFile(program,
+                                   FLAGS_cinn_input_dynamic_dim_spec_file);
   }
+  pass_manager->AddPass(pir::CreateShapeOptimizationPass());
   pass_manager->Run(program);
 }
 
@@ -260,15 +257,20 @@ int64_t GetOpCount(const ::pir::Operation* op) {
   return count;
 }
 
-void ApplyCinnPass(::pir::Program* program,
-                   const std::function<std::shared_ptr<pir::PassManager>()>&
-                       CreatePassManager) {
+void ApplyCinnPass(
+    ::pir::Program* program,
+    const std::function<std::shared_ptr<pir::PassManager>()>& CreatePassManager,
+    bool is_train_mode) {
   const uint32_t origin_num_ops = program->num_ops();
   PirToPyCodeConverter(program)
       .file_name("original_programs.py")
       .dump_symbolic_shape(FLAGS_logging_pir_py_code_dump_symbolic_dims)
       .SaveIfFlagEnabled();
-  ApplyShapeOptimizationPass(program, CreatePassManager);
+  if (is_train_mode) {
+    // Skip infer symbol shape in inference, because we have run this pass in
+    // the previous process
+    ApplyShapeOptimizationPass(program, CreatePassManager);
+  }
   ApplyPdToCinnPass(program, CreatePassManager);
   ApplyCinnPreprocessPass(program, CreatePassManager);
   ApplyBuildGroupOpPass(program, CreatePassManager);

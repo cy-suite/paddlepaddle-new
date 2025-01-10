@@ -135,6 +135,25 @@ def test_log(x: int):
     return math.log(x)
 
 
+@check_no_breakgraph
+def test_builtin_type_check_eq():
+    a = 1
+    b = []
+    c = ()
+    d = {}
+    eq_results = (
+        a == b, a == c, a == d,
+        b == a, b == c, b == d,
+        c == a, c == b, c == d,
+    )  # fmt: skip
+    ne_results = (
+        a != b, a != c, a != d,
+        b != a, b != c, b != d,
+        c != a, c != b, c != d,
+    )  # fmt: skip
+    return eq_results, ne_results
+
+
 class TestBuiltinDispatch(TestCaseBase):
     @test_with_faster_guard
     def test_dispatch_len(self):
@@ -279,6 +298,9 @@ class TestBuiltinDispatch(TestCaseBase):
     def test_dispatch_max(self):
         self.assert_results(test_max)
 
+    def test_dispatch_builtin_type_check_eq(self):
+        self.assert_results(test_builtin_type_check_eq)
+
 
 def run_getattr(x: paddle.Tensor):
     attr = 'dtype'
@@ -364,6 +386,47 @@ class TestBuiltinTypeConversion(TestCaseBase):
         self.assert_results(
             test_builtin_type_conversion_breakgraph, paddle.to_tensor(0)
         )
+
+
+@check_no_breakgraph
+def test_native_code_function():
+    res1 = paddle.base.libpaddle.is_compiled_with_avx()
+    res2 = paddle.base.libpaddle.is_compiled_with_cuda()
+    res3 = paddle.base.libpaddle.is_compiled_with_cudnn_frontend()
+    res4 = paddle.base.libpaddle.is_compiled_with_rocm()
+    res5 = paddle.base.libpaddle.is_compiled_with_custom_device("npu")
+    res6 = paddle.base.libpaddle.is_compiled_with_ipu()
+    res7 = paddle.base.libpaddle.is_compiled_with_xpu()
+    res8 = paddle.base.libpaddle.is_compiled_with_mkldnn()
+    res9 = paddle.base.libpaddle.is_compiled_with_nccl()
+    res10 = paddle.base.libpaddle.is_compiled_with_mpi()
+    res11 = paddle.base.libpaddle.is_compiled_with_mpi_aware()
+    res12 = paddle.base.libpaddle.is_compiled_with_cinn()
+    res13 = paddle.base.libpaddle.is_compiled_with_distribute()
+    res14 = paddle.base.libpaddle.is_compiled_with_brpc()
+    res15 = paddle.base.libpaddle.is_compiled_with_dist()
+    return (
+        res1,
+        res2,
+        res3,
+        res4,
+        res5,
+        res6,
+        res7,
+        res8,
+        res9,
+        res10,
+        res11,
+        res12,
+        res13,
+        res14,
+        res15,
+    )
+
+
+class TestNativeCodeFunction(TestCaseBase):
+    def test_native_code_function(self):
+        self.assert_results(test_native_code_function)
 
 
 if __name__ == "__main__":
