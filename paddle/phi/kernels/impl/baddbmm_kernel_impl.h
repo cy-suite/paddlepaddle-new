@@ -18,10 +18,12 @@ limitations under the License. */
 
 #include "glog/logging.h"
 
+#include "paddle/phi/common/amp_type_traits.h"
 #include "paddle/phi/kernels/baddbmm_kernel.h"
 #include "paddle/phi/kernels/funcs/blas/blas.h"
 #include "paddle/phi/kernels/funcs/eigen/common.h"
 #include "paddle/phi/kernels/funcs/eigen/eigen_function.h"
+
 namespace phi {
 
 template <typename T,
@@ -113,8 +115,12 @@ void BaddbmmKernel(const Context& dev_ctx,
   funcs::EigenBroadcast<std::decay_t<decltype(place)>, T, 3>::Eval(
       place, eigen_out, eigen_input, bcast_dims);
 
-  // special case for float16
-  if constexpr (std::is_same_v<T, phi::dtype::float16>) {
+  using MPType = typename phi::dtype::MPTypeTrait<T>::Type;
+
+  // special case for MPType
+  if constexpr (std::is_same_v<MPType, float>) {
+    VLOG(4) << "Function: baddbmm, Type of T: " << typeid(T).name();
+    VLOG(4) << "Function: baddbmm, Type of MPType: " << typeid(MPType).name();
     float t_alpha = alpha;
     float t_beta = beta;
     if (x_dims[0] == 1) {

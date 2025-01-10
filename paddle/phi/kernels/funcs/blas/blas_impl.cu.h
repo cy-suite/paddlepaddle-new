@@ -1405,6 +1405,75 @@ inline void Blas<phi::GPUContext>::GEMM(CBLAS_TRANSPOSE transA,
                                         int M,
                                         int N,
                                         int K,
+                                        float alpha,
+                                        const phi::dtype::bfloat16 *A,
+                                        const phi::dtype::bfloat16 *B,
+                                        float beta,
+                                        phi::dtype::bfloat16 *C) const {
+#if CUDA_VERSION >= 11000
+  // Note that cublas follows fortran order, so the order is different from
+  // the cblas convention.
+  int lda = (transA == CblasNoTrans) ? K : M;
+  int ldb = (transB == CblasNoTrans) ? N : K;
+  cublasOperation_t cuTransA =
+      (transA == CblasNoTrans) ? CUBLAS_OP_N : CUBLAS_OP_T;
+  cublasOperation_t cuTransB =
+      (transB == CblasNoTrans) ? CUBLAS_OP_N : CUBLAS_OP_T;
+
+  PADDLE_ENFORCE_GE(
+      context_.GetComputeCapability(),
+      80,
+      common::errors::InvalidArgument(
+          "cublas bf16 gemm requires GPU compute capability >= 80,"
+          "but received %d",
+          context_.GetComputeCapability()));
+
+  float h_alpha = alpha;
+  float h_beta = beta;
+
+  cublasGemmAlgo_t algo = CUBLAS_GEMM_DEFAULT;
+  bool use_tensor_op_math = context_.tensor_core_available();
+  if (use_tensor_op_math) {
+    algo = CUBLAS_GEMM_DFALT_TENSOR_OP;
+  }
+  VLOG(5) << "use_tensor_op_math: " << (use_tensor_op_math ? "True" : "False");
+
+  context_.TensorCoreCublasCallIfAvailable([&](cublasHandle_t handle) {
+    PADDLE_ENFORCE_GPU_SUCCESS(phi::dynload::cublasGemmEx(handle,
+                                                          cuTransB,
+                                                          cuTransA,
+                                                          N,
+                                                          M,
+                                                          K,
+                                                          &h_alpha,
+                                                          B,
+                                                          CUDA_R_16BF,
+                                                          ldb,
+                                                          A,
+                                                          CUDA_R_16BF,
+                                                          lda,
+                                                          &h_beta,
+                                                          C,
+                                                          CUDA_R_16BF,
+                                                          N,
+                                                          CUDA_R_32F,
+                                                          algo));
+  });
+#else
+  // raise error
+  PADDLE_THROW(common::errors::Unimplemented(
+      "cublasGemmEx with bfloat16 is not supported on cuda <= 11"));
+
+#endif  // CUDA_VERSION >= 11000
+}
+
+template <>
+template <>
+inline void Blas<phi::GPUContext>::GEMM(CBLAS_TRANSPOSE transA,
+                                        CBLAS_TRANSPOSE transB,
+                                        int M,
+                                        int N,
+                                        int K,
                                         phi::dtype::complex<float> alpha,
                                         const phi::dtype::complex<float> *A,
                                         const phi::dtype::complex<float> *B,
@@ -2075,6 +2144,77 @@ inline void Blas<phi::GPUContext>::BatchedGEMM(CBLAS_TRANSPOSE transA,
 
   float h_alpha = static_cast<float>(alpha);
   float h_beta = static_cast<float>(beta);
+
+  cublasGemmAlgo_t algo = CUBLAS_GEMM_DFALT;
+  bool use_tensor_op_math = context_.tensor_core_available();
+  if (use_tensor_op_math) {
+    algo = CUBLAS_GEMM_DFALT_TENSOR_OP;
+  }
+  VLOG(5) << "use_tensor_op_math: " << (use_tensor_op_math ? "True" : "False");
+
+  context_.TensorCoreCublasCallIfAvailable([&](cublasHandle_t handle) {
+    PADDLE_ENFORCE_GPU_SUCCESS(
+        phi::dynload::cublasGemmStridedBatchedEx(handle,
+                                                 cuTransB,
+                                                 cuTransA,
+                                                 N,
+                                                 M,
+                                                 K,
+                                                 &h_alpha,
+                                                 B,
+                                                 CUDA_R_16BF,
+                                                 ldb,
+                                                 strideB,
+                                                 A,
+                                                 CUDA_R_16BF,
+                                                 lda,
+                                                 strideA,
+                                                 &h_beta,
+                                                 C,
+                                                 CUDA_R_16BF,
+                                                 ldc,
+                                                 strideC,
+                                                 batchCount,
+                                                 CUBLAS_COMPUTE_32F,
+                                                 algo));
+  });
+#else
+  // raise error
+  PADDLE_THROW(common::errors::Unimplemented(
+      "cublasGemmStridedBatchedEx with bfloat16 is not supported on cuda <= "
+      "11"));
+#endif  // CUDA_VERSION >= 11000
+}
+
+template <>
+template <>
+inline void Blas<phi::GPUContext>::BatchedGEMM(CBLAS_TRANSPOSE transA,
+                                               CBLAS_TRANSPOSE transB,
+                                               int M,
+                                               int N,
+                                               int K,
+                                               float alpha,
+                                               const phi::dtype::bfloat16 *A,
+                                               const phi::dtype::bfloat16 *B,
+                                               float beta,
+                                               phi::dtype::bfloat16 *C,
+                                               int batchCount,
+                                               int64_t strideA,
+                                               int64_t strideB) const {
+#if CUDA_VERSION >= 11000
+  // Note that cublas follows fortran order, so the order is different from
+  // the cblas convention.
+  int lda = (transA == CblasNoTrans) ? K : M;
+  int ldb = (transB == CblasNoTrans) ? N : K;
+  int ldc = N;
+  cublasOperation_t cuTransA =
+      (transA == CblasNoTrans) ? CUBLAS_OP_N : CUBLAS_OP_T;
+  cublasOperation_t cuTransB =
+      (transB == CblasNoTrans) ? CUBLAS_OP_N : CUBLAS_OP_T;
+  const int64_t strideC = M * N;
+
+  float h_alpha = alpha;
+  float h_beta = beta;
 
   cublasGemmAlgo_t algo = CUBLAS_GEMM_DFALT;
   bool use_tensor_op_math = context_.tensor_core_available();
