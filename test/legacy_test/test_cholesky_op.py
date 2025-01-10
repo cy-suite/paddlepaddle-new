@@ -217,7 +217,7 @@ class TestCholeskySingularAPI(unittest.TestCase):
     def test_static(self):
         for place in self.places:
             self.check_static_result(place=place, input_shape=[4, 4])
-            self.check_static_result(place=place, input_shape=[2, 0])
+            self.check_static_result(place=place, input_shape=[0, 0])
 
     def test_dygraph(self):
         for place in self.places:
