@@ -992,9 +992,9 @@ const char *PIRPrelnResidualBiasPluginDynamicCreator::getPluginVersion() const
 
 nvinfer1::IPluginV2 *
 PIRPrelnResidualBiasPluginDynamicCreator::deserializePlugin(
-     const char *name,
-     const void *serial_data,
-     size_t serial_length) TRT_NOEXCEPT {
+    const char *name,
+    const void *serial_data,
+    size_t serial_length) TRT_NOEXCEPT {
   return new PIRPrelnResidualBiasPluginDynamic(serial_data, serial_length);
 }
 

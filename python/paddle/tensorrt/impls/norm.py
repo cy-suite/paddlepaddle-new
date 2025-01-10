@@ -156,7 +156,7 @@ def instance_norm_converter(network, paddle_op, inputs):
 
 @converter_registry.register(
     "pd_op.fused_bias_dropout_residual_layer_norm",
-    trt_version="trt_version_ge=8.0"
+    trt_version="trt_version_ge=8.0",
 )
 def fused_bias_dropout_residual_layer_norm_converter(
     network, paddle_op, inputs
@@ -179,11 +179,13 @@ def fused_bias_dropout_residual_layer_norm_converter(
             trt.PluginFieldType.INT32,
         ),
         trt.PluginField(
-            "scale_size", np.array([scale_size], dtype=np.int32),
+            "scale_size",
+            np.array([scale_size], dtype=np.int32),
             trt.PluginFieldType.INT32,
         ),
         trt.PluginField(
-            "ele_bias_size", np.array([ele_bias_size], dtype=np.int32),
+            "ele_bias_size",
+            np.array([ele_bias_size], dtype=np.int32),
             trt.PluginFieldType.INT32,
         ),
         trt.PluginField(

@@ -123,6 +123,7 @@ def fused_bias_dropout_residual_layer_norm(
         ln_epsilon=ln_epsilon,
     )
 
+
 class TestFusedBiasDropoutResidualLayerNormTRTPattern(TensorRTBaseTest):
     def setUp(self):
         paddle.seed(42)
