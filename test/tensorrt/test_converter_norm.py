@@ -95,5 +95,74 @@ class TestInstanceNormWithNoneInputTRTPattern(TensorRTBaseTest):
         self.check_marker(expected_result=False)
 
 
+def fused_bias_dropout_residual_layer_norm(x, residual, bias_shape, ln_scale_shape, ln_bias_shape, dropout_rate, ln_epsilon):
+    bias = paddle.create_parameter(
+        shape=bias_shape, dtype='float32', name="bias"
+    )
+    ln_scale = paddle.create_parameter(
+        shape=ln_scale_shape, dtype='float32', name="ln_scale"
+    )
+    ln_bias = paddle.create_parameter(
+        shape=ln_bias_shape, dtype='float32', name="ln_bias"
+    )
+    return paddle.incubate.nn.functional.fused_bias_dropout_residual_layer_norm(
+            x,
+            residual,
+            bias,
+            ln_scale,
+            ln_bias,
+            dropout_rate=dropout_rate,
+            ln_epsilon=ln_epsilon,
+        )
+
+class TestFusedBiasDropoutResidualLayerNormTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        paddle.seed(42)
+        np.random.seed(42)
+        self.python_api = fused_bias_dropout_residual_layer_norm
+        self.api_args = {
+            "x": np.ones((2, 4, 128)).astype("float32"),
+            "residual": np.ones((2, 4, 128)).astype("float32"),
+            "bias_shape": [128],
+            "ln_scale_shape": [128],
+            "ln_bias_shape": [128],
+            "dropout_rate": 0.0,
+            "ln_epsilon": 1e-5,
+        }
+        self.program_config = {"feed_list": ["x", "residual"]}
+        self.min_shape = {"x": [1, 4, 128], "residual": [1, 4, 128]}
+        self.opt_shape = {"x": [2, 4, 128], "residual": [2, 4, 128]}
+        self.max_shape = {"x": [3, 4, 128], "residual": [3, 4, 128]}
+
+    def test_fp16_trt_result(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_fp32_trt_result(self):
+        self.check_trt_result()
+
+
+class TestFusedBiasDropoutResidualLayerNormErrorTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        paddle.seed(42)
+        np.random.seed(42)
+        self.python_api = fused_bias_dropout_residual_layer_norm
+        self.api_args = {
+            "x": np.ones((2, 4, 128)).astype("float32"),
+            "residual": np.ones((2, 4, 128)).astype("float32"),
+            "bias_shape": [128],
+            "ln_scale_shape": [128],
+            "ln_bias_shape": [128],
+            "dropout_rate": 1.0,
+            "ln_epsilon": 1e-5,
+        }
+        self.program_config = {"feed_list": ["x", "residual"]}
+        self.min_shape = {"x": [1, 4, 128], "residual": [1, 4, 128]}
+        self.opt_shape = {"x": [2, 4, 128], "residual": [2, 4, 128]}
+        self.max_shape = {"x": [3, 4, 128], "residual": [3, 4, 128]}
+
+    def test_trt_result(self):
+        self.check_marker(expected_result=False)
+
+
 if __name__ == '__main__':
     unittest.main()
