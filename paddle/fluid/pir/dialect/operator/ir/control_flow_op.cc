@@ -903,7 +903,11 @@ bool WhileOp::InferSymbolicShape(
   for (size_t i = 0; i < num_results(); ++i) {
     AddCstrForOutputs(
         operand_source(i + 1), result(i), body_args[i], infer_context);
+    infer_context->SetShapeOrDataForValue(
+        body_args[i], infer_context->GetShapeOrDataForValue(result(i)));
   }
+
+  pir::InferSymExprForBlock(body(), infer_context);
 
   return true;
 }
