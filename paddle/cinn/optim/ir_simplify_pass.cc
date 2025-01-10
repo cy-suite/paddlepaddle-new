@@ -326,9 +326,9 @@ class SimplifyLogicalPass : public ExprPass {
  public:
   SimplifyLogicalPass() : ExprPass("simplify_logical_pass") {}
 
-  LogicalResult Run(ir::Expr expr) override {
+  LogicalResult Run(ir::Expr* expr) override {
     SimplifyLogicalMutator mutator;
-    mutator(&expr);
+    mutator(expr);
     return LogicalResult::success();
   }
 };
@@ -355,9 +355,9 @@ class SimplifyFracWithDivPass : public ExprPass {
  public:
   SimplifyFracWithDivPass() : ExprPass("simplify_frac_with_div_pass") {}
 
-  LogicalResult Run(ir::Expr expr) override {
+  LogicalResult Run(ir::Expr* expr) override {
     ReplaceFracWithDivMutator mutator;
-    mutator(&expr);
+    mutator(expr);
     return LogicalResult::success();
   }
 };
@@ -575,9 +575,9 @@ class SimplifyNoPureMathPass : public ExprPass {
  public:
   SimplifyNoPureMathPass() : ExprPass("simplify_no_pure_math_pass") {}
 
-  LogicalResult Run(ir::Expr expr) override {
+  LogicalResult Run(ir::Expr* expr) override {
     SimplifyNoPureMathMutator mutator;
-    mutator(&expr);
+    mutator(expr);
     return LogicalResult::success();
   }
 };
@@ -589,9 +589,9 @@ class SimplifyLoadPass : public ExprPass {
  public:
   SimplifyLoadPass() : ExprPass("simplify_load_pass") {}
 
-  LogicalResult Run(ir::Expr expr) override {
+  LogicalResult Run(ir::Expr* expr) override {
     SimplifyLoadMutator mutator;
-    mutator(&expr);
+    mutator(expr);
     return LogicalResult::success();
   }
 };
@@ -617,9 +617,9 @@ class SimplifySelectPass : public ExprPass {
  public:
   SimplifySelectPass() : ExprPass("simplify_select_pass") {}
 
-  LogicalResult Run(ir::Expr expr) override {
+  LogicalResult Run(ir::Expr* expr) override {
     SimplifySelectMutator mutator;
-    mutator(&expr);
+    mutator(expr);
     return LogicalResult::success();
   }
 };
@@ -659,9 +659,9 @@ class SimplifyRampPass : public ExprPass {
  public:
   SimplifyRampPass() : ExprPass("simplify_ramp_pass") {}
 
-  LogicalResult Run(ir::Expr expr) override {
+  LogicalResult Run(ir::Expr* expr) override {
     SimplifyRampMutator mutator;
-    mutator(&expr);
+    mutator(expr);
     return LogicalResult::success();
   }
 };
@@ -673,9 +673,9 @@ class SimplifyCastPass : public ExprPass {
  public:
   SimplifyCastPass() : ExprPass("simplify_cast_pass") {}
 
-  LogicalResult Run(ir::Expr expr) override {
+  LogicalResult Run(ir::Expr* expr) override {
     SimplifyCastMutator mutator;
-    mutator(&expr);
+    mutator(expr);
     return LogicalResult::success();
   }
 };
