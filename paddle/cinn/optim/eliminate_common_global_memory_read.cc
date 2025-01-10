@@ -405,18 +405,24 @@ struct CommonGlobalMemoryEliminator : public ir::IRMutator<Expr*>,
                            old_tensor->reduce_axis);
     new_tensor.as_tensor_ref()->WithBuffer(
         "local", new_tensor.as_tensor_ref()->name + "_buffer");
-    ir::stmt::Store new_body =
+    ir::stmt::Store new_store =
         ir::stmt::Store(new_tensor,
                         ir::ir_utils::IRCopy(ir::Expr(load_node)),
                         ir::ir_utils::IRCopy(load_node->indices));
-    ir::stmt::BlockRef new_block = ir::stmt::BlockRef({new_body});
+    std::vector<ir::stmt::StmtRef> new_stmts{new_store};
+    ir::stmt::BlockRef new_block = ir::stmt::BlockRef(new_stmts);
     ir::stmt::Schedule new_sch = ir::stmt::Schedule(sch_node->iter_vars(),
-                                                    current_sch_->iter_values(),
+                                                    sch_node->iter_values(),
                                                     {},
                                                     {},
                                                     sch_node->name() + "_local",
                                                     new_block);
-
+    PADDLE_ENFORCE_EQ(
+        global_buffer_to_local_buffer_.count(buffer_name),
+        0,
+        ::common::errors::InvalidArgument(
+            "buffer_name %s should not be in global_buffer_to_local_buffer_",
+            buffer_name));
     global_buffer_to_local_buffer_[buffer_name] = new_tensor;
 
     if (!insert_block_.defined()) {
@@ -455,7 +461,8 @@ void EliminateCommonGlobalMemoryRead(ir::stmt::BlockRef block) {
   GlobalTensorInfoCollector collector;
   collector(block);
 
-  const auto& eliminate_buffer_names = collector.GetEliminateBufferNames();
+  const std::unordered_set<std::string>& eliminate_buffer_names =
+      collector.GetEliminateBufferNames();
 
   CommonGlobalMemoryEliminator eliminator(eliminate_buffer_names);
   eliminator(block);
