@@ -664,7 +664,6 @@ class FusedCommBuffer:
         end = begin + shard_size
         slice_buffer = full_buffer._slice(begin, end)
         if group.nranks == 1:
-            slice_buffer = [full_buffer]
             return
         if sync:
             # default sync_op is False, so we need to wait here.
