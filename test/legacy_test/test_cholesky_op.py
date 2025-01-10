@@ -161,6 +161,11 @@ class TestCholeskyOp2D(TestCholeskyOp):
         self._input_shape = (32, 32)
 
 
+class TestCholeskyOp0Size(TestCholeskyOp):
+    def init_config(self):
+        self._input_shape = (0, 2)
+
+
 class TestDygraph(unittest.TestCase):
     def test_dygraph(self):
         if core.is_compiled_with_rocm():
@@ -187,16 +192,16 @@ class TestCholeskySingularAPI(unittest.TestCase):
         if core.is_compiled_with_cuda() and (not core.is_compiled_with_rocm()):
             self.places.append(base.CUDAPlace(0))
 
-    def check_static_result(self, place, with_out=False):
+    def check_static_result(self, place, input_shape, with_out=False):
         with paddle.static.program_guard(
             paddle.static.Program(), paddle.static.Program()
         ):
             input = paddle.static.data(
-                name="input", shape=[4, 4], dtype="float64"
+                name="input", shape=input_shape, dtype="float64"
             )
             result = paddle.cholesky(input)
 
-            input_np = np.zeros([4, 4]).astype("float64")
+            input_np = np.zeros(input_shape).astype("float64")
 
             exe = base.Executor(place)
             try:
@@ -211,7 +216,8 @@ class TestCholeskySingularAPI(unittest.TestCase):
 
     def test_static(self):
         for place in self.places:
-            self.check_static_result(place=place)
+            self.check_static_result(place=place, input_shape=[4, 4])
+            self.check_static_result(place=place, input_shape=[2, 0])
 
     def test_dygraph(self):
         for place in self.places:
@@ -222,9 +228,12 @@ class TestCholeskySingularAPI(unittest.TestCase):
                         [[10, 11, 12], [13, 14, 15], [16, 17, 18]],
                     ]
                 ).astype("float64")
+                input_np_zero = np.zeros((0, 3, 3), dtype="float64")
                 input = paddle.to_tensor(input_np)
+                input_zero = paddle.to_tensor(input_np_zero)
                 try:
                     result = paddle.cholesky(input)
+                    result_zero = paddle.cholesky(input_zero)
                 except RuntimeError as ex:
                     print("The mat is singular")
                 except ValueError as ex:
