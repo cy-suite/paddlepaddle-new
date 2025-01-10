@@ -656,7 +656,7 @@ def wrapper_pad_error2(x, padding, mode, pad_value):
     )
 
 
-class TestPadCase1TRTPattern(TensorRTBaseTest):
+class TestPadCaseTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.nn.functional.pad
         self.api_args = {
@@ -666,27 +666,6 @@ class TestPadCase1TRTPattern(TensorRTBaseTest):
             "pad_value": np.array([0], dtype="float32"),
         }
         self.program_config = {"feed_list": ["x", "pad_value"]}
-        self.min_shape = {"x": [1, 1, 1, 2, 3]}
-        self.opt_shape = {"x": [1, 1, 1, 2, 3]}
-        self.max_shape = {"x": [5, 1, 1, 2, 3]}
-
-    def test_trt_result_fp16(self):
-        self.check_trt_result(precision_mode="fp16")
-
-    def test_trt_result_fp32(self):
-        self.check_trt_result()
-
-
-class TestPadCase2TRTPattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = paddle.nn.functional.pad
-        self.api_args = {
-            "x": np.random.randn(1, 1, 1, 2, 3).astype("float32"),
-            "paddings": [0, 0, 0, 0, 0, 0, 1, 1, 0, 0],
-            "mode": "constant",
-            "pad_value": 0.0,
-        }
-        self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 1, 1, 2, 3]}
         self.opt_shape = {"x": [1, 1, 1, 2, 3]}
         self.max_shape = {"x": [5, 1, 1, 2, 3]}

@@ -977,18 +977,10 @@ class PadOpPattern : public pir::OpRewritePattern<paddle::dialect::PadOp> {
         op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
-    if (!op->HasAttribute("paddings")) {
-      VLOG(3) << "PadOp must has 'paddings'.";
-      return false;
-    }
     pir::Value pad_value_tensor = op.operand_source(1);
-    if (!op->HasAttribute("pad_value") && !pad_value_tensor) {
-      VLOG(3) << "PadOp must has 'pad_value'.";
+    if (!op->HasAttribute("paddings") || !pad_value_tensor) {
+      VLOG(3) << "PadOp must has 'paddings' and 'pad_value'.";
       return false;
-    }
-    float pad_value = 0.0f;
-    if (op->HasAttribute("pad_value")) {
-      auto pad_value = op->attribute<pir::FloatAttribute>("pad_value").data();
     }
     if (pir::GetDefiningOpForInput(op, 1)->isa<paddle::dialect::FullOp>()) {
       paddle::dialect::FullOp full_op =
@@ -998,10 +990,10 @@ class PadOpPattern : public pir::OpRewritePattern<paddle::dialect::PadOp> {
           full_op->attribute<paddle::dialect::ScalarAttribute>("value")
               .data()
               .to<float>();
-    }
-    if (pad_value != 0.0f) {
-      VLOG(3) << "The pad layer of TRT only support zero.";
-      return false;
+      if (pad_value != 0.0f) {
+        VLOG(3) << "The pad layer of TRT only support zero.";
+        return false;
+      }
     }
     auto paddings_attr = op->attribute<pir::ArrayAttribute>("paddings");
     std::vector<int> paddings;
