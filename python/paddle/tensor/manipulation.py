@@ -6236,9 +6236,12 @@ def moveaxis(
             >>> print(outshape)
             [3, 2]
     """
-    src = [source] if isinstance(source, int) else list(source)
-    dst = [destination] if isinstance(destination, int) else list(destination)
-
+    src = [source] if isinstance(source, int) else source
+    dst = [destination] if isinstance(destination, int) else destination
+    if isinstance(source, tuple):
+        src = list(source)
+    if isinstance(destination, tuple):
+        dst = list(destination)
     assert len(src) == len(
         dst
     ), "'source' must have the same number with 'destination'"
