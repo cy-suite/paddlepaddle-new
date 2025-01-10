@@ -1156,6 +1156,10 @@ class _ShardOptimizer(Optimizer):
             accumulator = self._inner_opt._accumulators[key][target_name]
             if accumulator.is_dist() and not isinstance(accumulator, pir.Value):
                 continue
+
+            if paddle.in_dynamic_mode():
+                origin_accumulator_name = accumulator.name
+
             if self._shard_fn is not None:
                 self._inner_opt._accumulators[key][target_name] = (
                     self._shard_fn(key, param, accumulator)
@@ -1179,12 +1183,10 @@ class _ShardOptimizer(Optimizer):
                             placements=placements,
                         )
                     )
-            if not isinstance(
-                self._inner_opt._accumulators[key][target_name], pir.Value
-            ):
-                self._inner_opt._accumulators[key][target_name].name = (
-                    target_name + "_" + key
-                )
+            if paddle.in_dynamic_mode():
+                self._inner_opt._accumulators[key][
+                    target_name
+                ].name = origin_accumulator_name
 
     def _reset_placements(self, param):
         if param.is_dist() and isinstance(
@@ -2318,7 +2320,7 @@ class DistModel:
 
         if (
             strategy
-            and strategy.sharding.enable_stage1_tensor_fusion
+            and strategy.sharding.enable_tensor_fusion
             and isinstance(optimizer, _ShardOptimizer)
             and use_pir_api()
         ):
@@ -2326,11 +2328,16 @@ class DistModel:
                 "The shard_fn should be ShardingStage1 "
                 "when stage1 tensor fusion is enabled."
             )
-            shard_fn = optimizer._shard_fn
-            inner_opt = optimizer._inner_opt
-            optimizer = ShardingOptimizerStage1(
-                inner_opt, shard_fn, self._inner_strategy
-            )
+            if isinstance(optimizer._shard_fn, ShardingStage1):
+                shard_fn = optimizer._shard_fn
+                inner_opt = optimizer._inner_opt
+                optimizer = ShardingOptimizerStage1(
+                    inner_opt, shard_fn, self._inner_strategy
+                )
+            else:
+                logging.warning(
+                    "Sharding tensor fusion only support ShardingStage1 now."
+                )
 
         self._engine = Engine(
             layer, loss, optimizer, metrics, strategy=self._inner_strategy
@@ -2720,15 +2727,15 @@ class DistModel:
         # When tensor fusion is enabled, optimizer parameters can become unbalanced in
         # sharding. We need to either balance them or rename unbalanced parameters for each
         # rank and directly load them.
-        enable_stage1_tensor_fusion = (
-            self._inner_strategy.sharding.enable_stage1_tensor_fusion
+        enable_tensor_fusion = (
+            self._inner_strategy.sharding.enable_tensor_fusion
             if self._inner_strategy
             else False
         )
         if (
             self._engine._optimizer is not None
             and load_sharded_model
-            and enable_stage1_tensor_fusion
+            and enable_tensor_fusion
         ):
             optimizer = self._engine._optimizer
             if isinstance(
@@ -2827,12 +2834,12 @@ class DistModel:
         # to include tensor-fusion parameters before calling set_state_dict,
         # as stored parameters are processed as if tensor-fusion is not applied
         # or we can choose to load the unblanced parameters directly.
-        enable_stage1_tensor_fusion = (
-            self._inner_strategy.sharding.enable_stage1_tensor_fusion
+        enable_tensor_fusion = (
+            self._inner_strategy.sharding.enable_tensor_fusion
             if self._inner_strategy
             else False
         )
-        if self._engine._optimizer is not None and enable_stage1_tensor_fusion:
+        if self._engine._optimizer is not None and enable_tensor_fusion:
             optimizer = self._engine._optimizer
             if isinstance(
                 optimizer,
@@ -3234,8 +3241,6 @@ class ShardDataloader:
             raise ValueError(
                 f"process_id {process_id} is in more than one mesh, the meshes are {self._meshes}"
             )
-        if input_keys is not None:
-            assert len(input_keys) == 2, "input_keys lengths must be 2"
 
         self._all_inputs_in_one_mesh = len(self._meshes) == 1
         self._input_keys = input_keys
@@ -3424,14 +3429,14 @@ class ShardDataloader:
                     )
             return dist_batch_data
         elif isinstance(batch_data, dict):
-            if self._all_inputs_in_one_mesh is False:
-                assert len(self._input_keys) == len(self._meshes)
-            dist_batch_data = {}
             input_keys = (
                 batch_data.keys()
                 if self._input_keys is None
                 else self._input_keys
             )
+            if self._all_inputs_in_one_mesh is False:
+                assert len(input_keys) == len(self._meshes)
+            dist_batch_data = {}
             for i, key in enumerate(input_keys):
                 input_data = batch_data[key]
                 if isinstance(input_data, (list, tuple)):
