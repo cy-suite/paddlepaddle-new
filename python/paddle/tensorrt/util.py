@@ -207,10 +207,8 @@ class TensorRTConstantManager:
     def __new__(cls, trt_config=None):
         if not cls._instance:
             cls._instance = super().__new__(cls)
+            cls._instance.constant_dict = {}
         return cls._instance
-
-    def _init(self):
-        self.constant_dict = {}
 
     def set_constant_value(self, name, tensor_data, value):
         out_dtype = np.dtype(_PADDLE_PIR_DTYPE_2_NUMPY_DTYPE[value.dtype])
