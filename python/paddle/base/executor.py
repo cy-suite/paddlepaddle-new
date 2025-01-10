@@ -642,25 +642,6 @@ def _to_name_str(var):
         return _to_str(var)
 
 
-def _prepare_fleet_executor():
-    from ..distributed.backup_env import getenv_or_backup
-    from ..distributed.fleet.proto import fleet_executor_desc_pb2
-
-    trainer_endpoints_str = getenv_or_backup("PADDLE_TRAINER_ENDPOINTS", "")
-    trainer_endpoints = trainer_endpoints_str.split(',')
-    fleet_exe_desc = fleet_executor_desc_pb2.FleetExecutorDesc()
-    cur_rank = int(os.getenv("PADDLE_TRAINER_ID", 0))
-    fleet_exe_desc.cur_rank = cur_rank
-    nrank = len(trainer_endpoints)
-    for rank, endpoint in enumerate(trainer_endpoints):
-        rank_info = fleet_executor_desc_pb2.RankInfo()
-        rank_info.rank = rank
-        rank_info.ip_port = endpoint
-        fleet_exe_desc.cluster_info.append(rank_info)
-    fleet_exe = core.FleetExecutor(fleet_exe_desc.SerializeToString())
-    return fleet_exe
-
-
 def _get_strong_program_cache_key_for_new_exe(program, scope, feed, fetch_list):
     if isinstance(program, PirProgram):
         return (
