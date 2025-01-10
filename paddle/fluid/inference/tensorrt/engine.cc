@@ -906,7 +906,7 @@ TensorRTEngine::Weight TensorRTEngine::GetTrtWeight(
   return weight;
 }
 
-bool TensorRTEngine::setAllRefitWeights(
+bool TensorRTEngine::setRefitWeights(
     const std::string &weight_name, const phi::DenseTensor &new_weight_tensor) {
   PADDLE_ENFORCE_NOT_NULL(
       infer_refitter_,

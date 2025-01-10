@@ -488,16 +488,6 @@ bool AnalysisPredictor::Init(
       config_.EnableSaveOptimModel(true);
       config_.UseOptimizedModel(false);
     }
-    if (!config_.refit_params_path_.empty()) {
-      LOG(INFO) << "config_.refit_params_path_" << config_.refit_params_path_;
-      if (!config_.tensorrt_engine_enabled()) {
-        LOG(ERROR) << "RefitWeights requires TensorRT engine to be enabled";
-        return false;
-      }
-      framework::Scope *scope = executor_->GetScope();
-      PADDLE_ENFORCE_NOT_NULL(
-          scope, common::errors::InvalidArgument("Scope should not be null."));
-    }
   }
 
   if (!PrepareScope(parent_scope)) {
@@ -2975,8 +2965,6 @@ bool AnalysisPredictor::LoadParameters() {
                               "The inference program should be loaded first."));
 
   const auto &global_block = inference_program_->MutableBlock(0);
-  LOG(INFO) << "Begin to refit TRT Weights from path:"
-            << config_.refit_params_path();
 
   std::vector<std::string> all_weight_names;
   std::vector<phi::DenseTensor> all_weight_tensors;
@@ -3033,45 +3021,75 @@ bool AnalysisPredictor::LoadParameters() {
     op->SetAttr("refit_params_path", {config_.refit_params_path()});
     op->CheckAttrs();
   }
-  for (auto &op_desc : inference_program_->Block(0).AllOps()) {
-    if (op_desc->Type() == "tensorrt_engine") {
-      std::string engine_key =
-          PADDLE_GET_CONST(std::string, op_desc->GetAttr("engine_key"));
-      int engine_predictor_id =
-          PADDLE_GET_CONST(int, op_desc->GetAttr("predictor_id"));
-      std::string engine_name =
-          engine_key + std::to_string(engine_predictor_id);
-      if (paddle::inference::Singleton<
-              inference::tensorrt::TRTEngineManager>::Global()
-              .Has(engine_name)) {
-        auto *engine = inference::Singleton<
-                           inference::tensorrt::TRTEngineManager>::Global()
-                           .Get(engine_name);
-        for (size_t i = 0; i < all_weight_names.size(); ++i) {
-          const std::string &wname = all_weight_names[i];
-          const phi::DenseTensor &new_weight_tensor = all_weight_tensors[i];
-          bool success = engine->setAllRefitWeights(wname, new_weight_tensor);
-          if (!success) {
-            LOG(ERROR) << "Failed to refit weight";
-            continue;
-          }
-        }
-        bool FinalRefit = engine->FinalizeRefit();
-        if (!FinalRefit) {
-          LOG(ERROR) << "Failed to finalize refit";
-          continue;
-        }
-        LOG(INFO) << "Refit engine [" << engine_name << "] finished.";
-      }
-    }
-  }
-
   // Use NaiveExecutor to Load parameters.
   framework::NaiveExecutor e(place_);
   e.Prepare(scope_.get(), *load_program, 0);
   e.Run();
   VLOG(3) << "get " << scope_->LocalVarNames().size() << " vars after load";
-
+  if (!config_.refit_params_path().empty()) {
+    LOG(INFO) << "Begin to refit TRT Weights from path:"
+              << config_.refit_params_path();
+    for (auto &op_desc : inference_program_->Block(0).AllOps()) {
+      if (op_desc->Type() == "tensorrt_engine") {
+        std::string engine_key =
+            PADDLE_GET_CONST(std::string, op_desc->GetAttr("engine_key"));
+        int engine_predictor_id =
+            PADDLE_GET_CONST(int, op_desc->GetAttr("predictor_id"));
+        std::string engine_name =
+            engine_key + std::to_string(engine_predictor_id);
+        LOG(INFO) << "获取到engine_name了" << engine_name;
+        bool has_engine =
+            inference::Singleton<
+                inference::tensorrt::TRTEngineManager>::Global()
+                .Has(engine_key + std::to_string(engine_predictor_id));
+        LOG(INFO) << "has_engine " << has_engine;
+        if (paddle::inference::Singleton<
+                inference::tensorrt::TRTEngineManager>::Global()
+                .Has(engine_name)) {
+          LOG(INFO) << "没获取到engine_name?";
+          auto *engine = inference::Singleton<
+                             inference::tensorrt::TRTEngineManager>::Global()
+                             .Get(engine_name);
+          std::vector<std::string> param_list;
+          if (op_desc->HasAttr("parameters")) {
+            param_list = PADDLE_GET_CONST(std::vector<std::string>,
+                                          op_desc->GetAttr("parameters"));
+            for (const std::string &param : param_list) {
+              LOG(INFO) << "param name:" << param;
+            }
+          } else {
+            LOG(WARNING) << "No parameters attribute found in " << engine_name
+                         << ", skip refit.";
+            continue;
+          }
+          std::unordered_set<std::string> engine_params(param_list.begin(),
+                                                        param_list.end());
+          bool need_finalize = false;
+          for (size_t i = 0; i < all_weight_names.size(); ++i) {
+            const std::string &wname = all_weight_names[i];
+            if (!engine_params.count(wname)) {
+              continue;
+            }
+            const phi::DenseTensor &new_weight_tensor = all_weight_tensors[i];
+            bool success = engine->setRefitWeights(wname, new_weight_tensor);
+            if (!success) {
+              LOG(ERROR) << "Failed to refit weight";
+              continue;
+            }
+            need_finalize = true;
+          }
+          if (need_finalize) {
+            bool FinalRefit = engine->FinalizeRefit();
+            if (!FinalRefit) {
+              LOG(ERROR) << "Failed to finalize refit";
+              continue;
+            }
+            LOG(INFO) << "Refit engine [" << engine_name << "] finished.";
+          }
+        }
+      }
+    }
+  }
   return true;
 }
 
