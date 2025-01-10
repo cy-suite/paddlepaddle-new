@@ -37,8 +37,6 @@
 #include "paddle/cinn/operator_fusion/fusion_interface.h"
 #include "paddle/cinn/optim/check_tensor_buffer_map.h"
 #include "paddle/cinn/optim/eliminate_common_global_memory_read.h"
-#include "paddle/cinn/optim/if_fusion.h"
-#include "paddle/cinn/optim/rearrange_load_instruction.h"
 #include "paddle/cinn/optim/schedule_block_dce.h"
 #include "paddle/cinn/optim/transform_gpu_forloop.h"
 #include "paddle/common/ddim.h"
@@ -277,7 +275,19 @@ std::vector<ir::LoweredFunc> OpLowererImpl::PostProcess(
       continue;
     }
     auto tensor = tensor_map.at(op_result);
-    if (group->HasShapeOrDataExprs(op_result)) {
+    bool contain_unknown_dim = [&]() {
+      bool check = op_result && op_result.type() &&
+                   op_result.type().isa<paddle::dialect::DenseTensorType>();
+      PADDLE_ENFORCE_EQ(
+          check,
+          true,
+          phi::errors::PreconditionNotMet("cinn only support DenseTensorType"));
+      const auto dims =
+          op_result.type().dyn_cast<paddle::dialect::DenseTensorType>().dims();
+      return ::common::contain_unknown_dim(dims);
+    }();
+
+    if (contain_unknown_dim && group->HasShapeOrDataExprs(op_result)) {
       tensor->shape.clear();
       for (size_t i = 0;
            i < group->GetShapeOrDataExprs(op_result).shape().size();
@@ -370,11 +380,9 @@ std::vector<ir::LoweredFunc> OpLowererImpl::PostProcess(
             optim::OptimizeExprGPU(&(func_body));
 #endif
           },
-          [&](common::HygonDCUArchHIP) {
-#ifdef CINN_WITH_HIP
+          [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
             optim::EliminateCommonGlobalMemoryRead(&(func_body));
             optim::OptimizeExprGPU(&(func_body));
-#endif
           });
     }
 
@@ -531,7 +539,7 @@ std::vector<ir::LoweredFunc> OpLowererImpl::DoOpLower(
           op_func_arg_tensors->push_back(expr.as_tensor_ref());
           expr.as_tensor_ref()->WithBuffer();
         },
-        [&](common::HygonDCUArchHIP) {
+        [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
           if (!expr.as_tensor_ref()->buffer.defined()) {
             op_func_arg_tensors->push_back(expr.as_tensor_ref());
             expr.as_tensor_ref()->WithBuffer();

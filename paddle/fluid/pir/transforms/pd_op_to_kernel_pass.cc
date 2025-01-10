@@ -58,6 +58,10 @@
 #include "paddle/cinn/hlir/framework/pir/utils.h"
 #endif
 
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+#include "paddle/fluid/custom_engine/custom_engine_manager.h"
+#endif
+
 #ifdef PADDLE_WITH_DNNL
 #include "paddle/fluid/pir/dialect/operator/ir/onednn_op.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_onednn_dialect.h"
@@ -174,6 +178,19 @@ const std::unordered_map<std::string, uint32_t> NoBufferRelatedOps = {
     {paddle::dialect::Flatten_Op::name(), /*xshape_idx*/ 1U},
     {paddle::dialect::BatchNormOp::name(), /*reserve_space*/ 5U},
     {paddle::dialect::BatchNorm_Op::name(), /*reserve_space*/ 5U},
+};
+
+// Please keep the consistency with paddle/phi/kernels/memcpy_kernel.cc
+const std::unordered_map<int, phi::Place> MemcpyOpAttr2Place = {
+    {0, phi::CPUPlace()},
+#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
+    {1, phi::GPUPlace()},
+    {2, phi::GPUPinnedPlace()},
+#elif defined(PADDLE_WITH_XPU)
+    {3, phi::XPUPlace()},
+#elif defined(PADDLE_WITH_CUSTOM_DEVICE)
+    {4, phi::CustomPlace()}
+#endif
 };
 
 static bool NeedSkipPlaceTransfer(const pir::Operation* op) {
@@ -2179,8 +2196,6 @@ void HandleForSpecialOp(
   // only deal with single output
   if (op_item->num_results() > 0) {
     for (size_t i = 0; i < op_item->num_results(); ++i) {
-      VLOG(6) << "2816:" << op_item->result(i).type();
-      VLOG(6) << "2817:" << op->result(i).type();
       (*map_value_pair)[op_item->result(i)] = op->result(i);
     }
   }
@@ -2433,6 +2448,35 @@ void HandleForTensorRTOp(
   block->push_back(op);
 }
 
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+void HandleForCustomEngineOp(
+    pir::IrContext* ctx,
+    pir::Operation* op_item,
+    phi::KernelKey* kernel_key,
+    phi::Place place,
+    std::unordered_map<pir::Operation*, pir::Operation*>* map_op_pair,
+    std::unordered_map<pir::Value, pir::Value>* map_value_pair,
+    pir::Block* block,
+    C_CustomEngineInterface* interface) {
+  if (interface->custom_engine_op_lower) {
+    struct C_CustomEngineLowerParams lower_params {
+      reinterpret_cast<C_IrContext>(ctx),
+          reinterpret_cast<C_Operation>(op_item),
+          reinterpret_cast<C_KernelKey>(kernel_key),
+          reinterpret_cast<C_Place>(&place),
+          reinterpret_cast<C_Operation_Map>(map_op_pair),
+          reinterpret_cast<C_Value_Map>(map_value_pair),
+          reinterpret_cast<C_Block>(block)
+    };
+    VLOG(6) << "Handle CustomEngineOp while lowering to kernel pass";
+    interface->custom_engine_op_lower(&lower_params);
+  } else {
+    PADDLE_THROW(common::errors::Unimplemented(
+        "CustomEngineInstruction's "
+        "C_CustomEngineInterface->custom_engine_op_lower not implemented"));
+  }
+}
+#endif
 std::vector<pir::Type> BuildOutputs(
     pir::Operation* op_item,
     const std::string& kernel_fn_str,
@@ -2507,6 +2551,13 @@ std::vector<pir::Type> BuildOutputs(
       if ((!UnchangeOutputOps.count(op_item->name())) &&
           (!IsLegacyOp(op_item->name())) && phi_kernel.IsValid()) {
         out_place = phi::TransToPhiPlace(output_defs[i].backend);
+      }
+      if (op_item->isa<MemcpyOp>()) {
+        // If the op is MemcpyOp, the output type is determined by the
+        // attribute "dst_place_type".
+        out_place = MemcpyOpAttr2Place.at(op_item->attribute("dst_place_type")
+                                              .dyn_cast<pir::Int32Attribute>()
+                                              .data());
       }
       PushBackOutputTypes(ctx,
                           op_item,
@@ -3442,7 +3493,21 @@ void ProcessBlock(
                           new_block);
       continue;
     }
-
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+    if (paddle::dialect::IsCustomEngineOp(op_item)) {
+      auto* interface = paddle::custom_engine::CustomEngineManager::Instance()
+                            ->GetCustomEngineInterface();
+      HandleForCustomEngineOp(ctx,
+                              op_item,
+                              &kernel_key,
+                              place,
+                              map_op_pair,
+                              map_value_pair,
+                              new_block,
+                              interface);
+      continue;
+    }
+#endif
 #ifdef PADDLE_WITH_DNNL
     if (op_item->HasTrait<OneDNNTrait>() &&
         kernel_key.backend() != phi::Backend::ONEDNN) {

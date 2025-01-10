@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import builtins
 import math
 import re
 import warnings
@@ -62,6 +63,8 @@ if TYPE_CHECKING:
     )
 
 __all__ = []
+
+_warned_in_to_tensor = False
 
 
 def _complex_to_real_dtype(dtype: DTypeLike) -> DTypeLike:
@@ -496,7 +499,7 @@ def logspace(
     name: str | None = None,
 ) -> paddle.Tensor:
     r"""
-    Return fixed number of logarithmical-evenly spaced values within the interval \
+    Return fixed number of logarithmically-evenly spaced values within the interval \
     :math:`[base^{start}, base^{stop}]`.
 
     Notes:
@@ -520,7 +523,7 @@ def logspace(
 
     Returns:
         Tensor: The output data type will be float32, float64. The 1-D tensor with \
-        fixed number of logarithmical-evenly spaced values, the data shape of this \
+        fixed number of logarithmically-evenly spaced values, the data shape of this \
         tensor is :math:`[num]`. If the :attr:`num` is set 1, the output tensor \
         just has the value with exponential of :attr:`start` with base :attr:`base`.
 
@@ -940,10 +943,14 @@ def to_tensor(
                 )
             return core.tensor_from_cuda_array_interface(data)
         if is_tensor:
-            warnings.warn(
-                "To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach(), "
-                "rather than paddle.to_tensor(sourceTensor)."
-            )
+            global _warned_in_to_tensor
+            if not _warned_in_to_tensor:
+                warnings.warn(
+                    "To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach(), "
+                    "rather than paddle.to_tensor(sourceTensor).",
+                    stacklevel=2,
+                )
+                _warned_in_to_tensor = True
         return _to_tensor_non_static(data, dtype, place, stop_gradient)
 
     # call assign for static graph
@@ -1063,7 +1070,6 @@ def fill_constant(
             dtype = paddle.pir.core.vartype_to_datatype[dtype]
 
         if in_dynamic_mode():
-            value = float(value)
             if isinstance(shape, (list, tuple)):
                 shape = paddle.utils.convert_shape_to_list(shape)
         else:
@@ -1083,7 +1089,7 @@ def fill_constant(
 
         if out.dtype != dtype:
             raise TypeError(
-                "Required out.dtype == dtype if specifying out, but recevied f{out.dtype} != f{dtype}"
+                "Required out.dtype == dtype if specifying out, but received f{out.dtype} != f{dtype}"
             )
         out = _C_ops.full_(out, shape, value, dtype, place)
         out.stop_gradient = True
@@ -1490,7 +1496,12 @@ def full(
     """
 
     if dtype is None:
-        dtype = paddle.get_default_dtype()
+        if isinstance(fill_value, (bool)):
+            dtype = "bool"
+        elif isinstance(fill_value, (builtins.complex)):
+            dtype = "complex128"
+        else:
+            dtype = paddle.get_default_dtype()
 
     return fill_constant(shape=shape, dtype=dtype, value=fill_value, name=name)
 
@@ -3390,3 +3401,82 @@ def set_(
             shape = source.shape
 
         return _C_ops.set_(x, source, shape, stride, offset)
+
+
+@inplace_apis_in_dygraph_only
+def resize_(
+    x: paddle.Tensor,
+    shape: Sequence[int],
+    fill_zero: bool = False,
+    name: str | None = None,
+) -> paddle.Tensor:
+    """
+    Resize ``x`` with specified ``shape``.
+
+    Args:
+        x (Tensor): An arbitrary Tensor. The data type supports ``bfloat16``, ``float16``, ``float32``, ``float64``,
+            ``bool``, ``int8``, ``int16``, ``int32``, ``int64``, ``uint8``, ``complex64`` or ``complex128``.
+        shape (list|tuple): Define the target shape. Each element of it should be integer.
+        fill_zero (bool, optional): If the size of specified ``shape`` is greater than the original Tensor size, the
+            new Tensor will be filled with zero if ``fill_zero`` is True. Default: False, which means the filled value
+            will be undetermined.
+        name (str|None, optional): Name for the operation (optional, default is None). For more information, please refer to :ref:`api_guide_Name`.
+
+    Returns:
+        Tensor, the resized Tensor.
+
+    Examples:
+        .. code-block:: python
+
+            >>> import paddle
+
+            >>> x = paddle.to_tensor([1., 2., 3.])
+            >>> x.resize_([2, 1])
+            >>> print(x)
+            Tensor(shape=[2, 1], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [[1.],
+             [2.]])
+
+            >>> x = paddle.to_tensor([1., 2., 3.])
+            >>> x.resize_([2, 3], fill_zero=True)
+            >>> print(x)
+            Tensor(shape=[2, 3], dtype=float32, place=Place(cpu), stop_gradient=True,
+            [[1., 2., 3.],
+             [0., 0., 0.]])
+
+    """
+    if in_dynamic_mode():
+        check_dtype(
+            x.dtype,
+            'x',
+            [
+                'bool',
+                'float16',
+                'uint16',
+                'float32',
+                'float64',
+                'int8',
+                'int16',
+                'int32',
+                'int64',
+                'uint8',
+                'complex64',
+                'complex128',
+            ],
+            'resize',
+        )
+        if not isinstance(shape, (list, tuple)):
+            raise ValueError(
+                f"Input (shape) should be list or tuple but received {type(shape)}"
+            )
+        new_size = math.prod(shape)
+        old_size = math.prod(x.shape)
+        if (new_size > old_size) and fill_zero:
+            repeats = -(-new_size // old_size)  # ceil division
+            flatten_x = x.flatten()
+            tmp = paddle.concat(
+                (flatten_x,) + (paddle.zeros_like(flatten_x),) * (repeats - 1)
+            )[:new_size]
+            return x.set_(tmp, shape)
+
+        return x.set_(x, shape)
