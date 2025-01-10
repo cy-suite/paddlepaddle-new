@@ -64,7 +64,7 @@ def scale_converter(network, paddle_op, inputs):
     reshape_layer_bias = network.add_shuffle(bias_tensor)
     reshape_layer_bias.set_input(1, bias_shapes_tensor)
 
-    scale = get_input_constant_value(paddle_op, inputs, 1)
+    scale = get_input_constant_value(paddle_op, inputs, 1)[0]
     if scale is not None:
         has_scale_tensor = False
         if is_int:
