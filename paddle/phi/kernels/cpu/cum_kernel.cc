@@ -215,13 +215,13 @@ struct LogSumExpReducer {
 
   template <typename Packet>
   EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE Packet
-  finalizePacket(const Packet& vacuum) const {
-    return vacuum;
+  finalizePacket(const Packet& vaccum) const {
+    return vaccum;
   }
 
   template <typename Packet>
   EIGEN_DEVICE_FUNC EIGEN_STRONG_INLINE T
-  finalizeBoth(const T saccum, const Packet& vacuum) const {
+  finalizeBoth(const T saccum, const Packet& vaccum) const {
     auto max_reducer = Eigen::internal::MaxReducer<T, Eigen::PropagateNaN>();
     auto sum_reducer = Eigen::internal::SumReducer<T>();
     auto exp = Eigen::internal::scalar_exp_op<T>();
@@ -239,9 +239,9 @@ struct LogSumExpReducer {
     // for normalization even if the other elements are `-infinity`.
     //
     // `logsumexp(x1, ..., xn) = ma + log (exp(x1 - ma) + ... + exp(xn - ma))`
-    auto ma = max_reducer.finalizeBoth(saccum, vacuum);
+    auto ma = max_reducer.finalizeBoth(saccum, vaccum);
     auto logsumexp = add(log(sum_reducer.finalizeBoth(
-                             exp(saccum - ma), pexp(psub(vacuum, pset1(ma))))),
+                             exp(saccum - ma), pexp(psub(vaccum, pset1(ma))))),
                          ma);
     return cmp_lt(ma, Eigen::NumTraits<T>::lowest()) ? initialize() : logsumexp;
   }

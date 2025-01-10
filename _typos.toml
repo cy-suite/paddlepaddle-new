@@ -32,6 +32,7 @@ Halfs = 'Halfs'
 kinf = 'kinf'
 pash = 'pash'
 unpacket = "unpacket"
+vaccum = 'vaccum'
 
 # These words need to be fixed
 Creater = 'Creater'
