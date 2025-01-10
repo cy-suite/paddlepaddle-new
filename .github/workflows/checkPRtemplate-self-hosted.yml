@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: [CPU]
+    runs-on: [test]
 
     steps:
     - uses: actions/checkout@v4
