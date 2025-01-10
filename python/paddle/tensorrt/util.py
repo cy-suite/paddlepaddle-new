@@ -15,6 +15,8 @@
 import logging
 import os
 
+import numpy as np
+
 import paddle
 
 try:
@@ -23,6 +25,7 @@ except Exception as e:
     pass
 from paddle import pir
 from paddle.base.log_helper import get_logger
+from paddle.pir.core import _PADDLE_PIR_DTYPE_2_NUMPY_DTYPE
 
 _logger = get_logger(
     __name__, logging.INFO, fmt='%(asctime)s-%(levelname)s: %(message)s'
@@ -198,6 +201,30 @@ class TensorRTConfigManager:
         return []
 
 
+class TensorRTConstantManager:
+    _instance = None
+
+    def __new__(cls, trt_config=None):
+        if not cls._instance:
+            cls._instance = super().__new__(cls)
+        return cls._instance
+
+    def _init(self):
+        self.constant_dict = {}
+
+    def set_constant_value(self, name, tensor_data, value):
+        out_dtype = np.dtype(_PADDLE_PIR_DTYPE_2_NUMPY_DTYPE[value.dtype])
+        if out_dtype == np.dtype("float64"):
+            out_dtype = np.dtype("float32")
+        if out_dtype == np.dtype("int64"):
+            out_dtype = np.dtype("int32")
+        constant_array = np.array(tensor_data, dtype=out_dtype)
+        self.constant_dict.update({name: constant_array})
+
+    def get_constant_value(self, name):
+        return self.constant_dict[name]
+
+
 # In TensorRT FP16 inference, this function sets the precision of specific
 # operators to FP32, ensuring numerical accuracy for these operations.
 def support_fp32_mix_precision(op_type, layer, trt_config=None):
@@ -222,8 +249,6 @@ def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name):
         "pd_op.affine_channel",
     ]
     if use_op_name in forbid_cast_op:
-        return trt_tensor
-    if paddle_value.get_defining_op().name() == "builtin.constant":
         return trt_tensor
     input_shape = paddle_value.shape
     if type(trt_tensor) == trt.Weights:

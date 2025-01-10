@@ -16,8 +16,6 @@ import ctypes
 import hashlib
 import logging
 
-import numpy as np
-
 import paddle
 
 paddle.base.core.register_paddle_plugin()
@@ -27,7 +25,6 @@ import paddle
 from paddle import pir
 from paddle.base.core import clear_shape_info, get_value_shape_range_info
 from paddle.base.log_helper import get_logger
-from paddle.pir.core import _PADDLE_PIR_DTYPE_2_NUMPY_DTYPE
 
 from .impls.activation import *  # noqa: F403
 from .impls.attribute import *  # noqa: F403
@@ -71,17 +68,14 @@ class PaddleToTensorRTConverter:
         self.scope = scope
         self.program = paddle_program
         self.trt_config = trt_config
+        constant_manager = TensorRTConstantManager()
         params = paddle_program.global_block().all_parameters()
         param_dict = {}
         # save parameters
         for v in params:
             name = v.get_defining_op().attrs()["parameter_name"]
-            if self.scope.find_var(name) is None:
-                weight_array = None
-            else:
-                weight_array = np.array(self.scope.var(name).get_tensor())
-            param_dict.update({name: weight_array})
-        self.param_dict = param_dict
+            weight_tensor = self.scope.var(name).get_tensor()
+            constant_manager.set_constant_value(name, weight_tensor, v)
 
         self.input_info = {}
         self.trt_output_value_map = {}
@@ -154,6 +148,7 @@ class PaddleToTensorRTConverter:
         max_value_map = {}
         input_names = []
         new_input_values = []
+        constant_manager = TensorRTConstantManager()
 
         # Because one of the inputs to pd_op.concat is builtin.combine,
         # during the conversion process using the converter,
@@ -174,26 +169,22 @@ class PaddleToTensorRTConverter:
             defining_op = value.get_defining_op()
             if defining_op.name() == "builtin.parameter":
                 param_name = defining_op.attrs()["parameter_name"]
-                weight = trt.Weights(self.param_dict[param_name])
+                weight = trt.Weights(
+                    constant_manager.get_constant_value(param_name)
+                )
                 value_to_trt_tensor[value.id] = weight
             elif defining_op.name() == "builtin.constant":
                 constant_value_name = defining_op.attrs()["value"]
                 constant_tensor = self.scope.var(
                     constant_value_name
                 ).get_tensor()
-                out_dtype = np.dtype(
-                    _PADDLE_PIR_DTYPE_2_NUMPY_DTYPE[value.dtype]
+                constant_manager.set_constant_value(
+                    constant_value_name, constant_tensor, value
                 )
-                if out_dtype == np.dtype("float64"):
-                    out_dtype = np.dtype("float32")
-                if out_dtype == np.dtype("int64"):
-                    out_dtype = np.dtype("int32")
-                constant_data = np.array(constant_tensor, dtype=out_dtype)
-                if len(constant_data) == 0:
-                    value_to_trt_tensor[value.id] = None
-                else:
-                    constant_tensor = trt.Weights(constant_data)
-                    value_to_trt_tensor[value.id] = constant_tensor
+                constant_tensor = trt.Weights(
+                    constant_manager.get_constant_value(constant_value_name)
+                )
+                value_to_trt_tensor[value.id] = constant_tensor
             else:
                 shape = value.shape
                 dtype = map_dtype(value.dtype.name)
