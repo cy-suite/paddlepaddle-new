@@ -316,7 +316,7 @@ class SharedAxisVisitor : public ir::IRMutator<> {
         for (auto axis : gpu_axis) {
           optim::ReplaceVarWithExpr(&indice, ir::Var(axis), ir::Expr(0));
         }
-        indice = cinn::common::AutoSimplify(indice);
+        indice = cinn::optim::ArithSimplify(indice);
       }
     }
     ir::IRMutator<>::Visit(op, expr);
@@ -337,7 +337,7 @@ class SharedAxisVisitor : public ir::IRMutator<> {
         for (auto axis : gpu_axis) {
           optim::ReplaceVarWithExpr(&indice, ir::Var(axis), ir::Expr(0));
         }
-        indice = cinn::common::AutoSimplify(indice);
+        indice = cinn::optim::ArithSimplify(indice);
       }
     }
     ir::IRMutator<>::Visit(op, expr);
@@ -366,7 +366,7 @@ class LocalAxisVisitor : public ir::IRMutator<> {
         for (auto axis : gpu_axis) {
           optim::ReplaceVarWithExpr(&indice, ir::Var(axis), ir::Expr(0));
         }
-        indice = cinn::common::AutoSimplify(indice);
+        indice = cinn::optim::ArithSimplify(indice);
       }
     }
   }
@@ -387,7 +387,7 @@ class LocalAxisVisitor : public ir::IRMutator<> {
         for (auto axis : gpu_axis) {
           optim::ReplaceVarWithExpr(&indice, ir::Var(axis), ir::Expr(0));
         }
-        indice = cinn::common::AutoSimplify(indice);
+        indice = cinn::optim::ArithSimplify(indice);
       }
     }
     ir::IRMutator<>::Visit(op, expr);
@@ -417,7 +417,7 @@ class ReplaceUnitVarToZero : public ir::IRMutator<> {
       for (auto var_ : loop_var_) {
         optim::ReplaceVarWithExpr(&indice, ir::Var(var_), ir::Expr(0));
       }
-      indice = cinn::common::AutoSimplify(indice);
+      indice = cinn::optim::ArithSimplify(indice);
     }
     ir::IRMutator<>::Visit(op, expr);
   }
@@ -433,7 +433,7 @@ class ReplaceUnitVarToZero : public ir::IRMutator<> {
       for (auto var_ : loop_var_) {
         optim::ReplaceVarWithExpr(&indice, ir::Var(var_), ir::Expr(0));
       }
-      indice = cinn::common::AutoSimplify(indice);
+      indice = cinn::optim::ArithSimplify(indice);
     }
 
     ir::IRMutator<>::Visit(op, expr);
@@ -488,8 +488,11 @@ void OptimizeExprGPU(Expr *expr) {
   // Replace variables that are in range [0, 1) to zero.
   ReplaceUnitVarToZero replace_unit_var_to_zero;
   replace_unit_var_to_zero(expr);
-
-  EliminateCommonFactorOfLocalIndex(expr);
+  VLOG(10) << "After ReplaceUnitVarToZero: \n" << *expr;
+  ir::stmt::BlockRef func_body = ir::ConvertExprBlockToStmtBlock(*expr);
+  EliminateCommonFactorOfLocalIndex(func_body);
+  *expr = ir::ConvertStmtBlockToExprBlock(func_body);
+  VLOG(10) << "After EliminateCommonFactorOfLocalIndex: \n" << *expr;
 
   ResizeBufferToMaxVarRange(expr);
 
