@@ -40,16 +40,15 @@ class LocalLayer(Layer):
     Examples:
         .. code-block:: python
 
-            >>> from typing import List
+            >>> from __future__ import annotations
+
             >>> import paddle
             >>> import paddle.distributed as dist
             >>> from paddle import Tensor
-            >>> from paddle.distributed import ProcessMesh, LocalLayer
+            >>> from paddle.distributed import ProcessMesh
 
             >>> class CustomLayer(dist.LocalLayer):
-            ...     def __init__(
-            ...         self, out_dist_attrs
-            ...     ):
+            ...     def __init__(self, out_dist_attrs):
             ...         super().__init__(out_dist_attrs)
             ...         self.local_result = paddle.to_tensor(0.0)
 
@@ -72,19 +71,16 @@ class LocalLayer(Layer):
             >>> out_dist_attrs = [
             ...     (mesh, [dist.Partial(dist.ReduceType.kRedSum)]),
             ... ]
-
-            >>> local_input = paddle.arange(0, 10, dtype='float32')
+            >>> local_input = paddle.arange(0, 10, dtype="float32")
             >>> local_input = local_input + dist.get_rank()
             >>> input_dist = dist.auto_parallel.api.dtensor_from_local(
-            ...     local_input,
-            ...     mesh,
-            ...     [dist.Shard(0)]
+            ...     local_input, mesh, [dist.Shard(0)]
             ... )
             >>> custom_layer = CustomLayer(out_dist_attrs)
             >>> output_dist = custom_layer(input_dist)
 
             >>> local_value = custom_layer.local_result
-            >>> gathered_values: List[Tensor] = []
+            >>> gathered_values: list[Tensor] = []
             >>> dist.all_gather(gathered_values, local_value)
 
             >>> print(f"[Rank 0] local_loss={gathered_values[0]}")
@@ -93,6 +89,7 @@ class LocalLayer(Layer):
             [Rank 1] local_loss=6.0
             >>> print(f"global_loss (distributed)={output_dist}")
             global_loss (distributed)=7.5
+
             >>> # This case needs to be executed in a multi-card environment
             >>> # export CUDA_VISIBLE_DEVICES=0,1
             >>> # python -m paddle.distributed.launch {test_case}.py
