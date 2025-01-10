@@ -183,7 +183,7 @@ class SimpleDPNet(paddle.nn.Layer):
                 p.color = {'color': "linear1"}
 
             for p in self.linear2.parameters():
-                p.color = {'color': "linear1"}
+                p.color = {'color': "linear2"}
 
             for p in self.linear3.parameters():
                 p.color = {'color': "linear3"}
