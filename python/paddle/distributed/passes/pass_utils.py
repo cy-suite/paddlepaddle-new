@@ -356,7 +356,7 @@ def _set_skip_gc_vars_in_pir(num_micro_batches, job_types, sub_programs, jobs):
             f"Skip gc vars for {job_type}-({micro_batch_id}): {skip_gc_vars}"
         )
 
-        if job_type in ["backward", "backward_w"]:
+        if job_type in ["send_backward", "backward_w"]:
             assert (
                 len(skip_gc_vars) == 0
             ), f"When enabling pipeline parallelism strategy, the skip_gc_vars for {job_type} subprogram must be empty, but it is {skip_gc_vars}."
@@ -1351,15 +1351,15 @@ def _program_for_vpp_split_bwk(
                     type_to_ops[type + str(chunk_id)] = []
         type_to_ops["fetch"] = []
 
-        dealed_op_idx = 0
+        dealt_op_idx = 0
         for ip, op in enumerate(block.ops):
-            if ip < dealed_op_idx:
+            if ip < dealt_op_idx:
                 continue
             if is_forward_op(op):
                 type = oprole_type[0]
             elif is_backward_op(op):
                 types = _get_backward_op_type(block, op, ip)
-                dealed_op_idx = dealed_op_idx + len(types) - 1
+                dealt_op_idx = dealt_op_idx + len(types) - 1
             elif is_optimize_op(op):
                 type = oprole_type[4]
             else:
@@ -1403,7 +1403,7 @@ def _program_for_vpp_split_bwk(
                     )
             else:
                 raise ValueError(f"There is not dist_attr for op[{op.type}].")
-            dealed_op_idx = dealed_op_idx + 1
+            dealt_op_idx = dealt_op_idx + 1
 
         return type_to_ops
 
@@ -1523,9 +1523,9 @@ def _program_for_zero_bubble(program, enable_send_recv_overlap=False):
             type_to_ops[type] = []
         type_to_ops["fetch"] = []
 
-        dealed_op_idx = 0
+        dealt_op_idx = 0
         for idx, op in enumerate(block.ops):
-            if idx < dealed_op_idx:
+            if idx < dealt_op_idx:
                 continue
             if _is_fetch_op(op):
                 type_to_ops["fetch"].append(op)
@@ -1533,7 +1533,7 @@ def _program_for_zero_bubble(program, enable_send_recv_overlap=False):
                 type_to_ops["forward"].append(op)
             elif is_backward_op(op):
                 types = _get_backward_op_type(block, op, idx)
-                dealed_op_idx = dealed_op_idx + len(types) - 1
+                dealt_op_idx = dealt_op_idx + len(types) - 1
                 for i, type in enumerate(types):
                     type_to_ops[type].append(block.ops[idx + i])
                     type_to_ops["backward"].append(block.ops[idx + i])
@@ -1545,7 +1545,7 @@ def _program_for_zero_bubble(program, enable_send_recv_overlap=False):
                     + str(op.attr('op_role'))
                     + " isn't one of Forward, Backward or Optimizer."
                 )
-            dealed_op_idx = dealed_op_idx + 1
+            dealt_op_idx = dealt_op_idx + 1
         return type_to_ops
 
     type_to_program = OrderedDict()
@@ -1661,18 +1661,18 @@ def _program_for_zero_bubble_vpp(
                         type_to_ops["backward_w" + str(chunk_id)] = []
         type_to_ops["fetch"] = []
 
-        dealed_op_idx = 0
-        dealed_types = []
+        dealt_op_idx = 0
+        dealt_types = []
         for idx, op in enumerate(block.ops):
-            if idx < dealed_op_idx:
-                type = dealed_types[len(dealed_types) - dealed_op_idx + idx]
+            if idx < dealt_op_idx:
+                type = dealt_types[len(dealt_types) - dealt_op_idx + idx]
             else:
                 if is_forward_op(op):
                     type = oprole_type[0]
                 elif is_backward_op(op):
                     type = _get_backward_op_type(block, op, idx)
-                    dealed_op_idx = dealed_op_idx + len(type) - 1
-                    dealed_types = type[1:]
+                    dealt_op_idx = dealt_op_idx + len(type) - 1
+                    dealt_types = type[1:]
                     type = type[0]
                 elif is_optimize_op(op):
                     type = oprole_type[3]
@@ -1682,7 +1682,7 @@ def _program_for_zero_bubble_vpp(
                         + str(op.attr('op_role'))
                         + " isn't one of Forward, Backward or Optimizer."
                     )
-                dealed_op_idx += 1
+                dealt_op_idx += 1
 
             dist_op = dist_context.get_dist_op_for_program(op)
             if _is_fetch_op(op):
