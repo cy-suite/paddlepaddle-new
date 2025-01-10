@@ -904,6 +904,9 @@ bool WhileOp::InferSymbolicShape(
     AddCstrForOutputs(
         operand_source(i + 1), result(i), body_args[i], infer_context);
     infer_context->SetShapeOrDataForValue(
+        operand_source(i + 1),
+        infer_context->GetShapeOrDataForValue(result(i)));
+    infer_context->SetShapeOrDataForValue(
         body_args[i], infer_context->GetShapeOrDataForValue(result(i)));
   }
 
