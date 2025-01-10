@@ -76,7 +76,9 @@ class ConfigDump:
                 break
 
         if isinstance(item, paddle.Tensor):
-            return "Tensor(" + str(item.shape) + "," + str(item.dtype)[7:] + ")"
+            return (
+                "Tensor(" + str(item.shape) + ',"' + str(item.dtype)[7:] + '")'
+            )
         elif isinstance(item, paddle.base.core.DataType):
             return "Dtype(" + str(item)[7:] + ")"
         elif isinstance(item, paddle.base.core.VarDesc.VarType):
