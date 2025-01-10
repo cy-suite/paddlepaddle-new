@@ -71,9 +71,9 @@ class CIdentityOpGradMaker : public framework::SingleGradOpMaker<T> {
 
  protected:
   void Apply(GradOpPtr<T> retv) const override {
-    retv->SetType("c_allreduce_sum");
-    retv->SetInput("X", this->OutputGrad("Out"));
-    retv->SetOutput("Out", this->InputGrad("X"));
+    retv->SetType("all_reduce");
+    retv->SetInput("x", this->OutputGrad("Out"));
+    retv->SetOutput("out", this->InputGrad("X"));
     retv->SetAttrMap(this->Attrs());
   }
 };
