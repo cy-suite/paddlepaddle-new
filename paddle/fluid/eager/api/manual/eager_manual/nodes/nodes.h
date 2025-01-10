@@ -548,7 +548,9 @@ class SyncBatchNormGradNode : public egr::GradNodeBase {
   SyncBatchNormGradNode() : egr::GradNodeBase() {}
   SyncBatchNormGradNode(size_t bwd_in_slot_num, size_t bwd_out_slot_num)
       : egr::GradNodeBase(bwd_in_slot_num, bwd_out_slot_num) {}
-  ~SyncBatchNormGradNode() override = default;
+  ~SyncBatchNormGradNode() {
+    egr::Controller::Instance().EraseForceSequentialNodes(this);
+  }
 
   virtual paddle::small_vector<std::vector<paddle::Tensor>,
                                egr::kSlotSmallVectorSize>
