@@ -161,7 +161,7 @@ class TestCholeskyOp2D(TestCholeskyOp):
         self._input_shape = (32, 32)
 
 
-class TestCholeskyOp0Size(TestCholeskyOp):
+class TestCholeskyOpZeroSize(TestCholeskyOp):
     def init_config(self):
         self._input_shape = (0, 2)
 
