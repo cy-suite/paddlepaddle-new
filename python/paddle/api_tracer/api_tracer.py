@@ -32,13 +32,15 @@ class ConfigDump:
             self.file.write(self.dump_item_str(api, value) + ", ")
         for key, value in input_kwargs.items():
             self.file.write(key + "=" + self.dump_item_str(api, value) + ", ")
-        self.file.write(") -> ")
-        if isinstance(outputs, (list, tuple)):
-            for output in outputs:
-                self.file.write(self.dump_item_str(api, output) + ", ")
-        else:
-            self.file.write(self.dump_item_str(api, outputs) + ", ")
+        self.file.write(")")
+        # self.file.write(") -> ")
+        # if isinstance(outputs, (list, tuple)):
+        #     for output in outputs:
+        #         self.file.write(self.dump_item_str(api, output) + ", ")
+        # else:
+        #     self.file.write(self.dump_item_str(api, outputs) + ", ")
 
+        self.file.write("\n")
         self.file.flush()
 
     def dump_item_str(self, api, item):
@@ -121,6 +123,7 @@ def start_api_tracer():
         apis = yaml.safe_load(f)
         sample_apis = apis.get("sample")
         f.close()
+
     for api in sample_apis:
         parent_package, method_name = api.rsplit(".", maxsplit=1)
         try:

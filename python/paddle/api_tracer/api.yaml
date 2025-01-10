@@ -7,7 +7,6 @@ sample:
   -  paddle.all
   -  paddle.amax
   -  paddle.amin
-  -  paddle.amp.auto_cast
   -  paddle.angle
   -  paddle.any
   -  paddle.argmax
@@ -107,9 +106,6 @@ sample:
   -  paddle.histogramdd
   -  paddle.hsplit
   -  paddle.hstack
-  -  paddle.hub.help
-  -  paddle.hub.list
-  -  paddle.hub.load
   -  paddle.hypot
   -  paddle.i0
   -  paddle.i0e
@@ -121,7 +117,6 @@ sample:
   -  paddle.inner
   -  paddle.is_complex
   -  paddle.is_floating_point
-  -  paddle.is_tensor
   -  paddle.isclose
   -  paddle.isfinite
   -  paddle.isin
