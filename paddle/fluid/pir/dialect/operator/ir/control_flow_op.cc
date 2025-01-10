@@ -873,9 +873,28 @@ bool WhileOp::InferSymbolicShape(
         infer_context->GetShapeOrDataForValue(last_op.operand_source(i));
     const symbol::ShapeOrDataDimExprs &input_shape_or_data =
         infer_context->GetShapeOrDataForValue(operand_source(i));
-    auto last_shape = last_shape_or_data.shape();
-    auto input_shape = input_shape_or_data.shape();
-    auto output_dims = last_shape;
+    std::vector<symbol::DimExpr> last_shape;
+    std::vector<symbol::DimExpr> input_shape;
+    std::vector<symbol::DimExpr> output_dims;
+    if (last_shape_or_data.isa<symbol::TensorShapeOrDataDimExprs>()) {
+      last_shape =
+          last_shape_or_data.dyn_cast<symbol::TensorShapeOrDataDimExprs>()
+              .shape();
+      input_shape =
+          input_shape_or_data.dyn_cast<symbol::TensorShapeOrDataDimExprs>()
+              .shape();
+      output_dims = last_shape;
+    } else if (last_shape_or_data
+                   .isa<symbol::RankedTensorArrayShapeOrDataDimExprs>()) {
+      last_shape = last_shape_or_data
+                       .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>()
+                       .GetShapeHint();
+      input_shape =
+          last_shape_or_data
+              .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>()
+              .GetShapeHint();
+      output_dims = last_shape;
+    }
 
     if (last_shape.size() != input_shape.size()) {
       for (size_t j = 0; j < last_shape.size(); j++) {
@@ -890,10 +909,23 @@ bool WhileOp::InferSymbolicShape(
         }
       }
     }
-    infer_context->SetShapeOrDataForValue(
-        result(i - 1),
-        symbol::ShapeOrDataDimExprs(
-            symbol::TensorShapeOrDataDimExprs(output_dims)));
+    if (last_shape_or_data.isa<symbol::TensorShapeOrDataDimExprs>() &&
+        last_shape_or_data.data().has_value()) {
+      infer_context->SetShapeOrDataForValue(
+          result(i - 1),
+          symbol::ShapeOrDataDimExprs(symbol::TensorShapeOrDataDimExprs(
+              output_dims, last_shape_or_data.data().value())));
+    } else if (last_shape_or_data.isa<symbol::TensorShapeOrDataDimExprs>()) {
+      infer_context->SetShapeOrDataForValue(
+          result(i - 1),
+          symbol::ShapeOrDataDimExprs(
+              symbol::TensorShapeOrDataDimExprs(output_dims)));
+    } else {
+      infer_context->SetShapeOrDataForValue(
+          result(i - 1),
+          symbol::ShapeOrDataDimExprs(
+              symbol::RankedTensorArrayShapeOrDataDimExprs(output_dims)));
+    }
   }
 
   PADDLE_ENFORCE_EQ(body_args.size(),
