@@ -101,7 +101,6 @@ sample:
   -  paddle.gammainc
   -  paddle.gammaincc
   -  paddle.gcd
-  -  paddle.grad
   -  paddle.heaviside
   -  paddle.histogramdd
   -  paddle.hsplit

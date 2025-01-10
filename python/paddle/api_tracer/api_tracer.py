@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import os
-
 import numpy as np
 import yaml
 
@@ -24,15 +22,25 @@ class HookAPIMap:
 
 class ConfigDump:
     def __init__(self):
-        self.file = open("/root/api_config.txt", "a+")
+        pass
+
+    def open_file(self, path):
+        self.file = open(path, "a+")
 
     def dump_config(self, api, input_args, input_kwargs, outputs):
-        self.file.write(api + "(")
+        result = api + "("
         for value in input_args:
-            self.file.write(self.dump_item_str(api, value) + ", ")
+            tmp = self.dump_item_str(api, value)
+            if tmp == "":
+                return
+            result = result + tmp + ", "
         for key, value in input_kwargs.items():
-            self.file.write(key + "=" + self.dump_item_str(api, value) + ", ")
-        self.file.write(")")
+            tmp = self.dump_item_str(api, value)
+            if tmp == "":
+                return
+            result = result + key + "=" + tmp + ", "
+
+        result = result + ")"
         # self.file.write(") -> ")
         # if isinstance(outputs, (list, tuple)):
         #     for output in outputs:
@@ -40,6 +48,7 @@ class ConfigDump:
         # else:
         #     self.file.write(self.dump_item_str(api, outputs) + ", ")
 
+        self.file.write(result)
         self.file.write("\n")
         self.file.flush()
 
@@ -47,6 +56,12 @@ class ConfigDump:
         import paddle
 
         type_mapping = {
+            np.int16: int,
+            np.int32: int,
+            np.int64: int,
+            np.float16: float,
+            np.float32: float,
+            np.float64: float,
             np.integer: int,
             np.floating: float,
             np.bool_: bool,
@@ -62,12 +77,28 @@ class ConfigDump:
 
         if isinstance(item, paddle.Tensor):
             return "Tensor(" + str(item.shape) + "," + str(item.dtype)[7:] + ")"
-        elif isinstance(item, paddle.dtype):
+        elif isinstance(item, paddle.base.core.DataType):
             return "Dtype(" + str(item)[7:] + ")"
+        elif isinstance(item, paddle.base.core.VarDesc.VarType):
+            return "VarType(" + str(item)[7:] + ")"
         elif isinstance(item, list):
-            return "list(" + str(item) + ")"
+            result = "list("
+            for sub_item in item:
+                tmp = self.dump_item_str(api, sub_item)
+                if tmp == "":
+                    return ""
+                result = result + tmp + ","
+            result = result + ")"
+            return result
         elif isinstance(item, tuple):
-            return "tuple(" + str(item) + ")"
+            result = "tuple("
+            for sub_item in item:
+                tmp = self.dump_item_str(api, sub_item)
+                if tmp == "":
+                    return ""
+                result = result + tmp + ","
+            result = result + ")"
+            return result
         elif isinstance(item, slice):
             return (
                 "slice("
@@ -78,7 +109,7 @@ class ConfigDump:
                 + str(item.step)
                 + ")"
             )
-        elif isinstance(item, (bool, int, float, str, complex, bytes)):
+        elif isinstance(item, (bool, int, float, str, complex, bytes, type)):
             return (
                 str(type(item))[
                     str(type(item)).index("'") + 1 : str(type(item)).rindex("'")
@@ -87,8 +118,15 @@ class ConfigDump:
                 + str(item)
                 + ")"
             )
+        elif item is None:
+            return "None"
+        elif isinstance(
+            item, (paddle.base.Variable, paddle.base.libpaddle.pir.Value)
+        ):
+            return ""
         else:
             print("[api_tracer error] : dump_item_str ", api, ", item = ", item)
+            return ""
 
 
 config_dump = ConfigDump()
@@ -118,10 +156,13 @@ def wrapped_api(api_name):
     return api_template
 
 
-def start_api_tracer():
-    with open(os.path.dirname(__file__) + "/api.yaml", "r") as f:
+def start_api_tracer(api_path, save_config_path):
+    import paddle
+
+    print(paddle.__version__)
+    with open(api_path, "r") as f:
         apis = yaml.safe_load(f)
-        sample_apis = apis.get("sample")
+        sample_apis = apis.get("apis")
         f.close()
 
     for api in sample_apis:
@@ -131,3 +172,5 @@ def start_api_tracer():
             setattr(eval(parent_package), method_name, wrapped_api(api))
         except Exception as err:
             print("[api_tracer error] : start_api_tracer ", api, str(err))
+
+    config_dump.open_file(save_config_path)

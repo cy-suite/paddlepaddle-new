@@ -823,6 +823,7 @@ packages=['paddle',
           'paddle.decomposition',
           'paddle._typing',
           'paddle._typing.libs',
+          'paddle.api_tracer',
         ]
 
 with open('@PADDLE_SOURCE_DIR@/python/requirements.txt') as f:

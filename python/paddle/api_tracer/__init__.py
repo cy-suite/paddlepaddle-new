@@ -15,5 +15,6 @@
 from .api_tracer import start_api_tracer
 
 __all__ = [
+    'api_tracer',
     'start_api_tracer',
 ]
