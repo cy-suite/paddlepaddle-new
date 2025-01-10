@@ -179,6 +179,7 @@ void IrPrinter::Visit(const FloatImm *x) {
       ss << std::setprecision(std::numeric_limits<float>::max_digits10);
       ss << std::showpoint;
       ss << v;
+      if (IsCloseEqualBoundValue<float>(v)) std::fesetround(FE_TOWARDZERO);
       if (std::isfinite(v)) {
         ss << "f";
       }
