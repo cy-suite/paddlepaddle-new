@@ -638,22 +638,22 @@ nvinfer1::IPluginV2DynamicExt *PIRPrelnResidualBiasPluginDynamic::clone() const
   PIRPrelnResidualBiasPluginDynamic *ptr = nullptr;
   if (with_fp16_) {
     ptr = new PIRPrelnResidualBiasPluginDynamic(bias_.data(),
-                                             scale_.data(),
-                                             fp16_ele_bias_.data(),
-                                             bias_size_,
-                                             scale_size_,
-                                             ele_bias_size_,
-                                             eps_,
-                                             with_fp16_);
+                                                scale_.data(),
+                                                fp16_ele_bias_.data(),
+                                                bias_size_,
+                                                scale_size_,
+                                                ele_bias_size_,
+                                                eps_,
+                                                with_fp16_);
   } else {
     ptr = new PIRPrelnResidualBiasPluginDynamic(bias_.data(),
-                                             scale_.data(),
-                                             fp32_ele_bias_.data(),
-                                             bias_size_,
-                                             scale_size_,
-                                             ele_bias_size_,
-                                             eps_,
-                                             with_fp16_);
+                                                scale_.data(),
+                                                fp32_ele_bias_.data(),
+                                                bias_size_,
+                                                scale_size_,
+                                                ele_bias_size_,
+                                                eps_,
+                                                with_fp16_);
   }
 
   ptr->bias_gpu_ = bias_gpu_;
@@ -664,7 +664,8 @@ nvinfer1::IPluginV2DynamicExt *PIRPrelnResidualBiasPluginDynamic::clone() const
   return ptr;
 }
 
-const char *PIRPrelnResidualBiasPluginDynamic::getPluginType() const TRT_NOEXCEPT {
+const char *PIRPrelnResidualBiasPluginDynamic::getPluginType() const
+    TRT_NOEXCEPT {
   return "preln_residual_bias_plugin_dynamic";
 }
 
@@ -989,18 +990,19 @@ const char *PIRPrelnResidualBiasPluginDynamicCreator::getPluginVersion() const
   return "1";
 }
 
-nvinfer1::IPluginV2 *PIRPrelnResidualBiasPluginDynamicCreator::deserializePlugin(
-    const char *name,
-    const void *serial_data,
-    size_t serial_length) TRT_NOEXCEPT {
+nvinfer1::IPluginV2 *
+PIRPrelnResidualBiasPluginDynamicCreator::deserializePlugin(
+     const char *name,
+     const void *serial_data,
+     size_t serial_length) TRT_NOEXCEPT {
   return new PIRPrelnResidualBiasPluginDynamic(serial_data, serial_length);
 }
 
 nvinfer1::IPluginV2 *PIRPrelnResidualBiasPluginDynamicCreator::createPlugin(
     const char *name, const nvinfer1::PluginFieldCollection *fc) TRT_NOEXCEPT {
-  const float* bias = nullptr;
-  const float* scale = nullptr;
-  const float* ele_bias = nullptr;
+  const float *bias = nullptr;
+  const float *scale = nullptr;
+  const float *ele_bias = nullptr;
   int bias_size = 0;
   int scale_size = 0;
   int ele_bias_size = 0;
@@ -1008,32 +1010,38 @@ nvinfer1::IPluginV2 *PIRPrelnResidualBiasPluginDynamicCreator::createPlugin(
   bool with_fp16 = false;
 
   for (int i = 0; i < fc->nbFields; ++i) {
-    const nvinfer1::PluginField& f = fc->fields[i];
+    const nvinfer1::PluginField &f = fc->fields[i];
     const std::string field_name(f.name);
 
     if (field_name.compare("bias") == 0) {
-      bias = static_cast<const float*>(f.data);
+      bias = static_cast<const float *>(f.data);
     } else if (field_name.compare("scale") == 0) {
-      scale = static_cast<const float*>(f.data);
+      scale = static_cast<const float *>(f.data);
     } else if (field_name.compare("ele_bias") == 0) {
-      ele_bias = static_cast<const float*>(f.data);
+      ele_bias = static_cast<const float *>(f.data);
     } else if (field_name.compare("bias_size") == 0) {
-      bias_size = *static_cast<const int*>(f.data);
+      bias_size = *static_cast<const int *>(f.data);
     } else if (field_name.compare("scale_size") == 0) {
-      scale_size = *static_cast<const int*>(f.data);
+      scale_size = *static_cast<const int *>(f.data);
     } else if (field_name.compare("ele_bias_size") == 0) {
-      ele_bias_size = *static_cast<const int*>(f.data);
+      ele_bias_size = *static_cast<const int *>(f.data);
     } else if (field_name.compare("epsilon") == 0) {
-      epsilon = *static_cast<const float*>(f.data);
+      epsilon = *static_cast<const float *>(f.data);
     } else if (field_name.compare("with_fp16") == 0) {
-      with_fp16 = *static_cast<const bool*>(f.data);
+      with_fp16 = *static_cast<const bool *>(f.data);
     } else {
       assert(false && "unknown plugin field name.");
     }
   }
 
-  return new PIRPrelnResidualBiasPluginDynamic(
-      bias, scale, ele_bias, bias_size, scale_size, ele_bias_size, epsilon, with_fp16);
+  return new PIRPrelnResidualBiasPluginDynamic(bias,
+                                               scale,
+                                               ele_bias,
+                                               bias_size,
+                                               scale_size,
+                                               ele_bias_size,
+                                               epsilon,
+                                               with_fp16);
 }
 
 #endif

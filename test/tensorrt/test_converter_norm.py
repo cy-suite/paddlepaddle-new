@@ -95,7 +95,15 @@ class TestInstanceNormWithNoneInputTRTPattern(TensorRTBaseTest):
         self.check_marker(expected_result=False)
 
 
-def fused_bias_dropout_residual_layer_norm(x, residual, bias_shape, ln_scale_shape, ln_bias_shape, dropout_rate, ln_epsilon):
+def fused_bias_dropout_residual_layer_norm(
+    x,
+    residual,
+    bias_shape,
+    ln_scale_shape,
+    ln_bias_shape,
+    dropout_rate,
+    ln_epsilon,
+):
     bias = paddle.create_parameter(
         shape=bias_shape, dtype='float32', name="bias"
     )
@@ -106,14 +114,14 @@ def fused_bias_dropout_residual_layer_norm(x, residual, bias_shape, ln_scale_sha
         shape=ln_bias_shape, dtype='float32', name="ln_bias"
     )
     return paddle.incubate.nn.functional.fused_bias_dropout_residual_layer_norm(
-            x,
-            residual,
-            bias,
-            ln_scale,
-            ln_bias,
-            dropout_rate=dropout_rate,
-            ln_epsilon=ln_epsilon,
-        )
+        x,
+        residual,
+        bias,
+        ln_scale,
+        ln_bias,
+        dropout_rate=dropout_rate,
+        ln_epsilon=ln_epsilon,
+    )
 
 class TestFusedBiasDropoutResidualLayerNormTRTPattern(TensorRTBaseTest):
     def setUp(self):

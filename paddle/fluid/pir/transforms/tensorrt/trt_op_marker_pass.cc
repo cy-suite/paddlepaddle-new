@@ -2241,7 +2241,8 @@ class AffineChannelOpPattern
 };
 
 class FusedBiasDropoutResidualLayerNormOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::FusedBiasDropoutResidualLayerNormOp> {
+    : public pir::OpRewritePattern<
+          paddle::dialect::FusedBiasDropoutResidualLayerNormOp> {
  public:
   using pir::OpRewritePattern<
       paddle::dialect::FusedBiasDropoutResidualLayerNormOp>::OpRewritePattern;
@@ -2413,7 +2414,8 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<OneHotOpPattern>(context));
     ps.Add(std::make_unique<InstanceNormOpPattern>(context));
     ps.Add(std::make_unique<AffineChannelOpPattern>(context));
-    ps.Add(std::make_unique<FusedBiasDropoutResidualLayerNormOpPattern>(context));
+    ps.Add(
+        std::make_unique<FusedBiasDropoutResidualLayerNormOpPattern>(context));
     return ps;
   }
 };

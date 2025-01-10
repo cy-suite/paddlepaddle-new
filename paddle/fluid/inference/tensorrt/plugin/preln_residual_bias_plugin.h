@@ -182,13 +182,13 @@ class PrelnResidualBiasPluginDynamicCreator : public TensorRTPluginCreator {
 class PIRPrelnResidualBiasPluginDynamic : public DynamicPluginTensorRT {
  public:
   explicit PIRPrelnResidualBiasPluginDynamic(const float* bias,
-                                          const float* scale,
-                                          const half* ele_bias,
-                                          int bias_size,
-                                          int scale_size,
-                                          int ele_bias_size,
-                                          const float eps,
-                                          bool with_fp16)
+                                             const float* scale,
+                                             const half* ele_bias,
+                                             int bias_size,
+                                             int scale_size,
+                                             int ele_bias_size,
+                                             const float eps,
+                                             bool with_fp16)
       : bias_size_(bias_size),
         scale_size_(scale_size),
         ele_bias_size_(ele_bias_size),
@@ -213,13 +213,13 @@ class PIRPrelnResidualBiasPluginDynamic : public DynamicPluginTensorRT {
   }
 
   explicit PIRPrelnResidualBiasPluginDynamic(const float* bias,
-                                          const float* scale,
-                                          const float* ele_bias,
-                                          int bias_size,
-                                          int scale_size,
-                                          int ele_bias_size,
-                                          const float eps,
-                                          bool with_fp16)
+                                             const float* scale,
+                                             const float* ele_bias,
+                                             int bias_size,
+                                             int scale_size,
+                                             int ele_bias_size,
+                                             const float eps,
+                                             bool with_fp16)
       : bias_size_(bias_size),
         scale_size_(scale_size),
         ele_bias_size_(ele_bias_size),
@@ -235,7 +235,7 @@ class PIRPrelnResidualBiasPluginDynamic : public DynamicPluginTensorRT {
   }
 
   PIRPrelnResidualBiasPluginDynamic(void const* serial_data,
-                                 size_t serial_length) {
+                                    size_t serial_length) {
     DeserializeValue(&serial_data, &serial_length, &bias_);
     DeserializeValue(&serial_data, &serial_length, &fp16_bias_);
     DeserializeValue(&serial_data, &serial_length, &scale_);
@@ -330,9 +330,8 @@ class PIRPrelnResidualBiasPluginDynamicCreator : public TensorRTPluginCreator {
                                          size_t serial_length)
       TRT_NOEXCEPT override;
 
-  nvinfer1::IPluginV2* createPlugin(
-      const char* name,
-      const nvinfer1::PluginFieldCollection* fc)
+  nvinfer1::IPluginV2* createPlugin(const char* name,
+                                    const nvinfer1::PluginFieldCollection* fc)
       TRT_NOEXCEPT override;
 };
 REGISTER_TRT_PLUGIN_V2(PrelnResidualBiasPluginDynamicCreator);
