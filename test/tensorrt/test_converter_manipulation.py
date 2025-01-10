@@ -663,12 +663,12 @@ class TestPad3dCase1TRTPattern(TensorRTBaseTest):
         self.python_api = wrapper_pad3d
         self.api_args = {
             "x": np.random.random([1, 1, 1, 2, 3]).astype("float32"),
-            "paddings": [1, 0, 1, 2, 0, 0],
+            "paddings": np.array([1, 0, 1, 2, 0, 0], dtype="int32"),
             "mode": "constant",
             "value": 1.0,
             "data_format": "NCDHW",
         }
-        self.program_config = {"feed_list": ["x"]}
+        self.program_config = {"feed_list": ["x", "paddings"]}
         self.min_shape = {"x": [1, 1, 1, 2, 3]}
         self.opt_shape = {"x": [1, 1, 1, 2, 3]}
         self.max_shape = {"x": [10, 1, 1, 2, 3]}
@@ -685,12 +685,12 @@ class TestPad3dOtherformat1TRTPattern(TensorRTBaseTest):
         self.python_api = wrapper_pad3d
         self.api_args = {
             "x": np.random.random([1, 1, 1, 3, 3]).astype("float32"),
-            "paddings": [1, 0, 1, 2, 0, 0],
+            "paddings": np.array([1, 0, 1, 2, 0, 0], dtype="int32"),
             "mode": "reflect",
             "value": 1.0,
             "data_format": "NCDHW",
         }
-        self.program_config = {"feed_list": ["x"]}
+        self.program_config = {"feed_list": ["x", "paddings"]}
         self.min_shape = {"x": [1, 1, 1, 3, 3]}
         self.opt_shape = {"x": [1, 1, 1, 3, 3]}
         self.max_shape = {"x": [10, 1, 1, 3, 3]}
@@ -707,12 +707,12 @@ class TestPad3dOtherformat2TRTPattern(TensorRTBaseTest):
         self.python_api = wrapper_pad3d
         self.api_args = {
             "x": np.random.random([1, 1, 1, 2, 3]).astype("float32"),
-            "paddings": [1, 0, 1, 2, 0, 0],
+            "paddings": np.array([1, 0, 1, 2, 0, 0], dtype="int32"),
             "mode": "replicate",
             "value": 1.0,
             "data_format": "NCDHW",
         }
-        self.program_config = {"feed_list": ["x"]}
+        self.program_config = {"feed_list": ["x", "paddings"]}
         self.min_shape = {"x": [1, 1, 1, 2, 3]}
         self.opt_shape = {"x": [1, 1, 1, 2, 3]}
         self.max_shape = {"x": [10, 1, 1, 2, 3]}
@@ -744,12 +744,12 @@ class TestPad3dErrorModeTRTPattern(TensorRTBaseTest):
         self.python_api = paddle._C_ops.pad3d
         self.api_args = {
             "x": np.random.random([1, 1, 1, 2, 3]).astype("float32"),
-            "paddings": np.array([1, 0, 1, 2, 0, 0]).astype("int"),
+            "paddings": np.array([1, 0, 1, 2, 0, 0], dtype="int32"),
             "mode": "error",
             "value": 1.0,
             "data_format": "NCDHW",
         }
-        self.program_config = {"feed_list": ["x"]}
+        self.program_config = {"feed_list": ["x", "paddings"]}
         self.min_shape = {"x": [1, 1, 1, 2, 3]}
         self.opt_shape = {"x": [1, 1, 1, 2, 3]}
         self.max_shape = {"x": [10, 1, 1, 2, 3]}
@@ -763,12 +763,12 @@ class TestPad3dErrorDataformatTRTPattern(TensorRTBaseTest):
         self.python_api = paddle._C_ops.pad3d
         self.api_args = {
             "x": np.random.random([1, 1, 1, 2, 3]).astype("float32"),
-            "paddings": np.array([1, 0, 1, 2, 0, 0]).astype("int"),
+            "paddings": np.array([1, 0, 1, 2, 0, 0], dtype="int32"),
             "mode": "constant",
             "value": 1.0,
             "data_format": "error",
         }
-        self.program_config = {"feed_list": ["x"]}
+        self.program_config = {"feed_list": ["x", "paddings"]}
         self.min_shape = {"x": [1, 1, 1, 2, 3]}
         self.opt_shape = {"x": [1, 1, 1, 2, 3]}
         self.max_shape = {"x": [10, 1, 1, 2, 3]}
