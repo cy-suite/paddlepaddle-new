@@ -674,7 +674,9 @@ def is_data_parallel_reduce_op(op):
         "c_allreduce_sum",
         "c_allreduce_avg",
     ]
-    is_reduce_op = op.type == "reduce" and op.desc.attr("reduce_type") in [
+    is_reduce_op = (
+        op.type == "reduce" or op.type == "all_reduce"
+    ) and op.desc.attr("reduce_type") in [
         dist.ReduceOp.SUM,
         dist.ReduceOp.AVG,
     ]
