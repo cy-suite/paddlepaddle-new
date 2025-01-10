@@ -331,7 +331,8 @@ def parse_force_fallback_sir_ids() -> set[int]:
         range_parts = comma_sep_part.split("-")
         if len(range_parts) == 1:
             ids.add(int(comma_sep_part))
-        ids |= set(range(int(range_parts[0]), int(range_parts[1]) + 1))
+        else:
+            ids |= set(range(int(range_parts[0]), int(range_parts[1]) + 1))
     return ids
 
 
