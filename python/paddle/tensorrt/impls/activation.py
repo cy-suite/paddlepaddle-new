@@ -264,6 +264,7 @@ def thresholded_relu_converter(network, paddle_op, inputs):
 
 
 @converter_registry.register("pd_op.leaky_relu", trt_version="8.x")
+@converter_registry.register("pd_op.leaky_relu_", trt_version="8.x")
 def leaky_relu_converter(network, paddle_op, inputs):
     x = inputs[0]
     negative_slope = paddle_op.attrs()["negative_slope"]
