@@ -18,7 +18,8 @@ import numpy as np
 from op_test import OpTest, convert_float_to_uint16
 
 import paddle
-from paddle.base import core
+from paddle import base
+from paddle.base import Program, core, program_guard
 
 
 class TestBaddBmmOp(OpTest):
@@ -30,9 +31,9 @@ class TestBaddBmmOp(OpTest):
         self.public_python_api = paddle.baddbmm
         self.init_dtype_type()
         self.inputs = {
-            'Input': np.random.random((3, 20, 15)).astype(self.dtype),
-            'X': np.random.random((3, 20, 10)).astype(self.dtype),
-            'Y': np.random.random((3, 10, 15)).astype(self.dtype),
+            'Input': np.random.random((2, 20, 5)).astype(self.dtype),
+            'X': np.random.random((2, 20, 10)).astype(self.dtype),
+            'Y': np.random.random((2, 10, 5)).astype(self.dtype),
         }
         self.outputs = {
             'Out': self.inputs['Input']
@@ -100,9 +101,9 @@ class TestBaddBmmBF16Op(OpTest):
         self.python_api = paddle.baddbmm
         self.init_dtype_type()
         self.inputs = {
-            'Input': np.random.random((3, 20, 15)).astype(self.dtype),
-            'X': np.random.random((3, 20, 10)).astype(self.dtype),
-            'Y': np.random.random((3, 10, 15)).astype(self.dtype),
+            'Input': np.random.random((3, 40, 1)).astype(self.dtype),
+            'X': np.random.random((3, 40, 5)).astype(self.dtype),
+            'Y': np.random.random((3, 5, 10)).astype(self.dtype),
         }
         self.outputs = {
             'Out': self.inputs['Input']
@@ -137,6 +138,116 @@ class TestBaddBmmBF16Op(OpTest):
         )
 
 
+class TestBaddBmmOpError(unittest.TestCase):
+    # test error
+    def test_errors(self):
+        with program_guard(Program(), Program()):
+            # The input type of baddbmm_op must be Variable.
+
+            input = base.create_lod_tensor(
+                np.array([[[-1, -1], [-1, -1]], [[-1, -1], [-1, -1]]]),
+                [[2]],
+                base.CPUPlace(),
+            )
+            x1 = base.create_lod_tensor(
+                np.array([[[-1, -1], [-1, -1]], [[-1, -1], [-1, -1]]]),
+                [[2]],
+                base.CPUPlace(),
+            )
+            x2 = base.create_lod_tensor(
+                np.array([[[-1, -1], [-1, -1]], [[-1, -1], [-1, -1]]]),
+                [[2]],
+                base.CPUPlace(),
+            )
+            self.assertRaises(TypeError, paddle.baddbmm, input, x1, x2)
+
+            # The input dtype of baddbmm_op must be float32 or float64.
+            input = paddle.static.data(
+                name='input',
+                shape=[2, 4, 4],
+                dtype="int32",
+            )
+            x3 = paddle.static.data(name='x3', shape=[2, 4, 4], dtype="int32")
+            x4 = paddle.static.data(name='x4', shape=[2, 4, 4], dtype="int32")
+            self.assertRaises(TypeError, paddle.baddbmm, input, x3, x4)
+            # x and y dimension mismatch
+            x5 = paddle.static.data(
+                name='x5',
+                shape=[2, 4, 5],
+                dtype="float32",
+            )
+            x6 = paddle.static.data(
+                name='x6',
+                shape=[2, 4, 4],
+                dtype="float32",
+            )
+            self.assertRaises(ValueError, paddle.baddbmm, input, x5, x6)
+            # input and x are not broadcastable
+            x7 = paddle.static.data(
+                name='x7',
+                shape=[2, 4, 4],
+                dtype="float32",
+            )
+            x8 = paddle.static.data(
+                name='x8',
+                shape=[2, 4, 4],
+                dtype="float32",
+            )
+            input1 = paddle.static.data(
+                name='input1',
+                shape=[2, 2, 4],
+                dtype="float32",
+            )
+            self.assertRaises(ValueError, paddle.baddbmm, input1, x7, x8)
+            # input and x are not broadcastable
+            x9 = paddle.static.data(
+                name='x9',
+                shape=[2, 4, 4],
+                dtype="float32",
+            )
+            x10 = paddle.static.data(
+                name='x10',
+                shape=[2, 4, 4],
+                dtype="float32",
+            )
+            input2 = paddle.static.data(
+                name='input2',
+                shape=[2, 1, 2],
+                dtype="float32",
+            )
+            self.assertRaises(ValueError, paddle.baddbmm, input2, x9, x10)
+            x11 = paddle.static.data(
+                name='x11',
+                shape=[2, 4, 4],
+                dtype="float32",
+            )
+            x12 = paddle.static.data(
+                name='x12', shape=[2, 4, 4], dtype="float32"
+            )
+            input3 = paddle.static.data(
+                name='input3',
+                shape=[2, 4, 2],
+                dtype="float32",
+            )
+            self.assertRaises(ValueError, paddle.baddbmm, input3, x11, x12)
+            x13 = paddle.static.data(
+                name='x13',
+                shape=[2, 4, 4],
+                dtype="float32",
+            )
+            x14 = paddle.static.data(
+                name='x14',
+                shape=[2, 4, 4],
+                dtype="float32",
+            )
+            input4 = paddle.static.data(
+                name='input4',
+                shape=[2, 3, 1],
+                dtype="float32",
+            )
+            self.assertRaises(ValueError, paddle.baddbmm, input4, x13, x14)
+
+
 class TestBaddBmmOp2(TestBaddBmmOp):
     # test alpha and beta
     def setUp(self):
@@ -147,9 +258,9 @@ class TestBaddBmmOp2(TestBaddBmmOp):
         self.dtype = np.float64
         self.init_dtype_type()
         self.inputs = {
-            'Input': np.random.random((3, 20, 15)).astype(self.dtype),
-            'X': np.random.random((3, 20, 10)).astype(self.dtype),
-            'Y': np.random.random((3, 10, 15)).astype(self.dtype),
+            'Input': np.random.random((2, 20, 5)).astype(self.dtype),
+            'X': np.random.random((2, 20, 10)).astype(self.dtype),
+            'Y': np.random.random((2, 10, 5)).astype(self.dtype),
         }
         self.attrs = {
             'Alpha': 0.1,
@@ -171,9 +282,9 @@ class TestBaddBmmOp3(OpTest):
         self.dtype = np.float64
         self.init_dtype_type()
         self.inputs = {
-            'Input': np.random.random((3, 20, 15)).astype(self.dtype),
-            'X': np.random.random((3, 20, 10)).astype(self.dtype),
-            'Y': np.random.random((3, 10, 15)).astype(self.dtype),
+            'Input': np.random.random((2, 20, 5)).astype(self.dtype),
+            'X': np.random.random((2, 20, 10)).astype(self.dtype),
+            'Y': np.random.random((2, 10, 5)).astype(self.dtype),
         }
         self.attrs = {
             'Alpha': 0.5,
