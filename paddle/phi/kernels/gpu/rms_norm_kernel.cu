@@ -46,12 +46,12 @@ limitations under the License.
 namespace cub = hipcub;
 #define GPU(str) hip##str
 #define GPUMultiProcessorCount hipDeviceAttributeMultiprocessorCount
-#define GPUMaxSharedMemoryPerBlockOptin hipDeviceAttributeSharedMemPerBlockOption
+#define GPUMaxSharedMemoryPerBlockOptin hipDeviceAttributeSharedMemPerBlockOptin
 #else
 #include <cub/cub.cuh>
 #define GPU(str) cuda##str
 #define GPUMultiProcessorCount cudaDevAttrMultiProcessorCount
-#define GPUMaxSharedMemoryPerBlockOptin cudaDevAttrMaxSharedMemoryPerBlockOption
+#define GPUMaxSharedMemoryPerBlockOptin cudaDevAttrMaxSharedMemoryPerBlockOptin
 #endif
 
 namespace phi {
