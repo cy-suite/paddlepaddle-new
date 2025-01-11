@@ -564,7 +564,11 @@ class PaddleToTensorRTConverter:
         )
         for op in self.program.global_block().ops:
             if op.name() == "builtin.parameter":
-                if not save_one_parameter:
+                parameter_name = op.attrs()["parameter_name"]
+                if (
+                    not save_one_parameter
+                    and "constant_folding" not in parameter_name
+                ):
                     save_one_parameter = True
                     continue
                 if op.results()[0].use_empty():

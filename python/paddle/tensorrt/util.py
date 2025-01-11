@@ -52,7 +52,18 @@ def map_dtype(pd_dtype):
         raise TypeError(f"Unsupported dtype: {pd_dtype}")
 
 
-def run_pir_pass(program, partition_mode=False, disable_passes=[], scope=None):
+def all_ops_into_trt(program):
+    for op in program.global_block().ops:
+        if op.name() == "pd_op.fetch" or op.name().split('.')[0] == "builtin":
+            continue
+        if op.has_attr("__l_trt__") is False:
+            return False
+        if op.attrs()["__l_trt__"] is False:
+            return False
+    return True
+
+
+def run_pir_pass(program, disable_passes=[], scope=None):
     pm = pir.PassManager(opt_level=4)
     pm.enable_print_statistics()
     paddle.base.libpaddle.pir.infer_symbolic_shape_pass(pm, program)
@@ -60,18 +71,9 @@ def run_pir_pass(program, partition_mode=False, disable_passes=[], scope=None):
         scope = paddle.static.global_scope()
     place = paddle.CUDAPlace(0)
     passes = [
-        {'trt_op_marker_pass': {}},
-        {
-            'constant_folding_pass': {
-                "__place__": place,
-                "__param_scope__": scope,
-            }
-        },
         {'conv2d_add_fuse_pass': {}},
-        {'trt_op_marker_pass': {}},  # for fusion op
+        {'trt_op_marker_pass': {}},
     ]
-    if partition_mode:
-        passes = [{'trt_sub_graph_extract_pass': {}}]
 
     for pass_item in passes:
         for pass_name, pass_attr in pass_item.items():
@@ -80,12 +82,39 @@ def run_pir_pass(program, partition_mode=False, disable_passes=[], scope=None):
             pm.add_pass(pass_name, pass_attr)
     pm.run(program)
 
+    pm.clear()
+    # only run constant_folding_pass when all ops into trt
+    if all_ops_into_trt(program):
+        passes = [
+            {
+                'constant_folding_pass': {
+                    "__place__": place,
+                    "__param_scope__": scope,
+                }
+            },
+        ]
+        for pass_item in passes:
+            for pass_name, pass_attr in pass_item.items():
+                if pass_name in disable_passes:
+                    continue
+                pm.add_pass(pass_name, pass_attr)
+        pm.run(program)
+
     # delete unused op
     for op in program.global_block().ops:
         if op.name() == "builtin.constant" or op.name() == "builtin.parameter":
             if op.results()[0].use_empty():
                 program.global_block().remove_op(op)
 
+    return program
+
+
+def run_trt_partition(program):
+    pm = pir.PassManager(opt_level=4)
+    pm.enable_print_statistics()
+    paddle.base.libpaddle.pir.infer_symbolic_shape_pass(pm, program)
+    pm.add_pass("trt_sub_graph_extract_pass", {})
+    pm.run(program)
     return program
 
 
