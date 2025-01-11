@@ -31,8 +31,8 @@ class TestBaddBmmOp(OpTest):
         self.public_python_api = paddle.baddbmm
         self.init_dtype_type()
         self.inputs = {
-            'Input': np.random.random((2, 20, 5)).astype(self.dtype),
-            'X': np.random.random((2, 20, 10)).astype(self.dtype),
+            'Input': np.random.random((2, 10, 5)).astype(self.dtype),
+            'X': np.random.random((2, 10, 10)).astype(self.dtype),
             'Y': np.random.random((2, 10, 5)).astype(self.dtype),
         }
         self.outputs = {
@@ -101,9 +101,9 @@ class TestBaddBmmBF16Op(OpTest):
         self.python_api = paddle.baddbmm
         self.init_dtype_type()
         self.inputs = {
-            'Input': np.random.random((3, 40, 1)).astype(self.dtype),
-            'X': np.random.random((3, 40, 5)).astype(self.dtype),
-            'Y': np.random.random((3, 5, 10)).astype(self.dtype),
+            'Input': np.random.random((2, 50, 1)).astype(self.dtype),
+            'X': np.random.random((2, 50, 5)).astype(self.dtype),
+            'Y': np.random.random((2, 5, 10)).astype(self.dtype),
         }
         self.outputs = {
             'Out': self.inputs['Input']
@@ -258,8 +258,8 @@ class TestBaddBmmOp2(TestBaddBmmOp):
         self.dtype = np.float64
         self.init_dtype_type()
         self.inputs = {
-            'Input': np.random.random((2, 20, 5)).astype(self.dtype),
-            'X': np.random.random((2, 20, 10)).astype(self.dtype),
+            'Input': np.random.random((2, 10, 5)).astype(self.dtype),
+            'X': np.random.random((2, 10, 10)).astype(self.dtype),
             'Y': np.random.random((2, 10, 5)).astype(self.dtype),
         }
         self.attrs = {
@@ -282,8 +282,8 @@ class TestBaddBmmOp3(OpTest):
         self.dtype = np.float64
         self.init_dtype_type()
         self.inputs = {
-            'Input': np.random.random((2, 20, 5)).astype(self.dtype),
-            'X': np.random.random((2, 20, 10)).astype(self.dtype),
+            'Input': np.random.random((2, 10, 5)).astype(self.dtype),
+            'X': np.random.random((2, 10, 10)).astype(self.dtype),
             'Y': np.random.random((2, 10, 5)).astype(self.dtype),
         }
         self.attrs = {
