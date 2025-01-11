@@ -104,7 +104,7 @@ def run_pir_pass(program, disable_passes=[], scope=None):
             }
         )
 
-    passes.append({'conv2d_add_fuse_pass': {}})
+        passes.append({'conv2d_add_fuse_pass': {}})
     passes.append({'trt_op_marker_pass': {}})  # for op that created by pass
     _add_pass_(pm, passes, disable_passes)
     pm.run(program)
