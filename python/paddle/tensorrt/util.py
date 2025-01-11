@@ -54,51 +54,60 @@ def map_dtype(pd_dtype):
 
 def all_ops_into_trt(program):
     for op in program.global_block().ops:
-        if op.name() == "pd_op.fetch" or op.name().split('.')[0] == "builtin":
+        if (
+            op.name() == "pd_op.fetch"
+            or op.name() == "pd_op.data"
+            or op.name().split('.')[0] == "builtin"
+        ):
             continue
         if op.has_attr("__l_trt__") is False:
             return False
         if op.attrs()["__l_trt__"] is False:
             return False
+    _logger.info("All ops convert to trt.")
     return True
 
 
 def run_pir_pass(program, disable_passes=[], scope=None):
+    def _add_pass_(pm, passes, disable_passes):
+        for pass_item in passes:
+            for pass_name, pass_attr in pass_item.items():
+                if pass_name in disable_passes:
+                    continue
+                pm.add_pass(pass_name, pass_attr)
+
     pm = pir.PassManager(opt_level=4)
     pm.enable_print_statistics()
     paddle.base.libpaddle.pir.infer_symbolic_shape_pass(pm, program)
     if scope is None:
         scope = paddle.static.global_scope()
     place = paddle.CUDAPlace(0)
+
+    # run marker pass
     passes = [
-        {'conv2d_add_fuse_pass': {}},
         {'trt_op_marker_pass': {}},
     ]
-
-    for pass_item in passes:
-        for pass_name, pass_attr in pass_item.items():
-            if pass_name in disable_passes:
-                continue
-            pm.add_pass(pass_name, pass_attr)
+    _add_pass_(pm, passes, disable_passes)
     pm.run(program)
 
+    # run other passes
     pm.clear()
-    # only run constant_folding_pass when all ops into trt
+    passes = []
     if all_ops_into_trt(program):
-        passes = [
+        # only run constant_folding_pass when all ops into trt
+        passes.append(
             {
                 'constant_folding_pass': {
                     "__place__": place,
                     "__param_scope__": scope,
                 }
-            },
-        ]
-        for pass_item in passes:
-            for pass_name, pass_attr in pass_item.items():
-                if pass_name in disable_passes:
-                    continue
-                pm.add_pass(pass_name, pass_attr)
-        pm.run(program)
+            }
+        )
+
+    passes.append({'conv2d_add_fuse_pass': {}})
+    passes.append({'trt_op_marker_pass': {}})  # for op that created by pass
+    _add_pass_(pm, passes, disable_passes)
+    pm.run(program)
 
     # delete unused op
     for op in program.global_block().ops:
