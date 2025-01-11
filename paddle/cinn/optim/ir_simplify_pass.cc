@@ -708,7 +708,17 @@ void Simplify(ir::Expr* expr, const SimplifyType type) {
                         ir::Block::_node_type_,
                         ::common::errors::InvalidArgument(
                             "The Expr to simplify must be a block."));
-      ir::stmt::BlockRef _block = ir::ConvertExprBlockToStmtBlock(*expr);
+      ir::stmt::BlockRef _block;
+
+      try {
+        // In the old IR, the body of a ScheduleBlock Expr may be a constant
+        // (i.e. an integer, '0'), which can not be converted to a statment.
+        _block = ir::ConvertExprBlockToStmtBlock(*expr);
+      } catch (const ::common::enforce::EnforceNotMet& e) {
+        LOG(WARNING) << "ConvertExprBlockToStmtBlock failed! Error:"
+                     << e.what();
+        return;
+      }
       optim::ExprPassManager expr_pass_manager;
       expr_pass_manager.AddPass(CreateSimplifyNoPureMathPass());
       expr_pass_manager.AddPass(CreateSimplifyCastPass());
