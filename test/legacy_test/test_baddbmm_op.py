@@ -30,9 +30,9 @@ class TestBaddBmmOp(OpTest):
         self.public_python_api = paddle.baddbmm
         self.init_dtype_type()
         self.inputs = {
-            'Input': np.random.random((10, 20, 15)).astype(self.dtype),
-            'X': np.random.random((10, 20, 10)).astype(self.dtype),
-            'Y': np.random.random((10, 10, 15)).astype(self.dtype),
+            'Input': np.random.random((3, 20, 15)).astype(self.dtype),
+            'X': np.random.random((3, 20, 10)).astype(self.dtype),
+            'Y': np.random.random((3, 10, 15)).astype(self.dtype),
         }
         self.outputs = {
             'Out': self.inputs['Input']
@@ -100,9 +100,9 @@ class TestBaddBmmBF16Op(OpTest):
         self.python_api = paddle.baddbmm
         self.init_dtype_type()
         self.inputs = {
-            'Input': np.random.random((10, 20, 15)).astype(self.dtype),
-            'X': np.random.random((10, 20, 10)).astype(self.dtype),
-            'Y': np.random.random((10, 10, 15)).astype(self.dtype),
+            'Input': np.random.random((3, 20, 15)).astype(self.dtype),
+            'X': np.random.random((3, 20, 10)).astype(self.dtype),
+            'Y': np.random.random((3, 10, 15)).astype(self.dtype),
         }
         self.outputs = {
             'Out': self.inputs['Input']
@@ -147,9 +147,9 @@ class TestBaddBmmOp2(TestBaddBmmOp):
         self.dtype = np.float64
         self.init_dtype_type()
         self.inputs = {
-            'Input': np.random.random((10, 20, 15)).astype(self.dtype),
-            'X': np.random.random((10, 20, 10)).astype(self.dtype),
-            'Y': np.random.random((10, 10, 15)).astype(self.dtype),
+            'Input': np.random.random((3, 20, 15)).astype(self.dtype),
+            'X': np.random.random((3, 20, 10)).astype(self.dtype),
+            'Y': np.random.random((3, 10, 15)).astype(self.dtype),
         }
         self.attrs = {
             'Alpha': 0.1,
@@ -171,9 +171,9 @@ class TestBaddBmmOp3(OpTest):
         self.dtype = np.float64
         self.init_dtype_type()
         self.inputs = {
-            'Input': np.random.random((10, 20, 15)).astype(self.dtype),
-            'X': np.random.random((10, 20, 10)).astype(self.dtype),
-            'Y': np.random.random((10, 10, 15)).astype(self.dtype),
+            'Input': np.random.random((3, 20, 15)).astype(self.dtype),
+            'X': np.random.random((3, 20, 10)).astype(self.dtype),
+            'Y': np.random.random((3, 10, 15)).astype(self.dtype),
         }
         self.attrs = {
             'Alpha': 0.5,
