@@ -163,7 +163,7 @@ class TestCholeskyOp2D(TestCholeskyOp):
 
 class TestCholeskyOpZeroSize(TestCholeskyOp):
     def init_config(self):
-        self._input_shape = (0, 2)
+        self._input_shape = (0, 0)
 
 
 class TestDygraph(unittest.TestCase):
@@ -218,6 +218,7 @@ class TestCholeskySingularAPI(unittest.TestCase):
         for place in self.places:
             self.check_static_result(place=place, input_shape=[4, 4])
             self.check_static_result(place=place, input_shape=[0, 0])
+            self.check_static_result(place=place, input_shape=[5, 0, 0])
 
     def test_dygraph(self):
         for place in self.places:
