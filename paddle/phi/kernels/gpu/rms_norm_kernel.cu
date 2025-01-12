@@ -572,7 +572,7 @@ inline GPU(Error_t)
     int max_smem_size = 0;
     GPU(Error_t)
     err = GPU(DeviceGetAttribute)(
-        &max_smem_size, GPUMaxSharedMemoryPerBlockOption, dev);
+        &max_smem_size, GPUMaxSharedMemoryPerBlockOptin, dev);
     if (err != GPU(Success)) {
       return false;
     }
