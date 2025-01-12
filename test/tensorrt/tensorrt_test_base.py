@@ -340,7 +340,6 @@ class TensorRTBaseTest(unittest.TestCase):
             )
             main_program = run_pir_pass(
                 main_program,
-                partition_mode=False,
                 disable_passes=self.disable_passes,
             )
             marker_result = False
