@@ -13,6 +13,7 @@ extend-exclude = [
     "paddle/fluid/inference/tensorrt/convert/test_custom_plugin_creater.cc",
     ".clang-tidy",
     "paddle/phi/kernels/gpu/rms_norm_kernel.cu",
+    "paddle/phi/kernels/fusion/cutlass/cutlass_extensions/compute_occupancy.h",
 ]
 
 [default]
