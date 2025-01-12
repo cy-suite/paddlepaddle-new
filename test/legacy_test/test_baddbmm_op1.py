@@ -93,6 +93,7 @@ class TestBaddBmmOpError(unittest.TestCase):
             )
             self.assertRaises(TypeError, paddle.baddbmm, input, x1, x2)
 
+            paddle.enable_static()
             # The input dtype of baddbmm_op must be float32 or float64.
             input = paddle.static.data(
                 name='input',
