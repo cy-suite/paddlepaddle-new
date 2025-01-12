@@ -12,8 +12,6 @@ extend-exclude = [
     "paddle/fluid/inference/tensorrt/convert/generic_and_custom_plugin_creater.cc",
     "paddle/fluid/inference/tensorrt/convert/test_custom_plugin_creater.cc",
     ".clang-tidy",
-    "paddle/phi/kernels/gpu/rms_norm_kernel.cu",
-    "paddle/phi/kernels/fusion/cutlass/cutlass_extensions/compute_occupancy.h",
 ]
 
 [default]
@@ -69,6 +67,7 @@ intall = 'intall'
 instanciate = 'instanciate'
 Operants = 'Operants'
 operants = 'operants'
+Optin = 'Optin'
 outout = 'outout'
 ouput = 'ouput'
 outpout = 'outpout'
