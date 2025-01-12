@@ -691,7 +691,7 @@ void Blas<phi::GPUContext>::GEMM(CBLAS_TRANSPOSE transA,
   rocblas_operation cuTransB = (transB == CblasNoTrans)
                                    ? rocblas_operation_none
                                    : rocblas_operation_transpose;
-  
+
   T t_alpha = static_cast<T>(alpha);
   T t_beta = static_cast<T>(beta);
 
