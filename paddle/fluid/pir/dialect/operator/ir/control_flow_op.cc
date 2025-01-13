@@ -867,6 +867,7 @@ bool WhileOp::InferSymbolicShape(
   }
 
   // Set ShapeOrDataDimExpr for results
+  bool need_infer_block_again = false;
   const auto &last_op = body().back();
   for (size_t i = 1; i < last_op.num_operands(); ++i) {
     const symbol::ShapeOrDataDimExprs &last_shape_or_data =
@@ -895,16 +896,18 @@ bool WhileOp::InferSymbolicShape(
               .GetShapeHint();
       output_dims = last_shape;
     }
-
+    // use block_args or while op's input?
     if (last_shape.size() != input_shape.size()) {
       for (size_t j = 0; j < last_shape.size(); j++) {
         if (last_shape[j].isa<int64_t>()) {
+          need_infer_block_again = true;
           output_dims[j] = symbol::DimExpr{infer_context->GetNextSymName()};
         }
       }
     } else {
       for (size_t j = 0; j < last_shape.size(); j++) {
         if ((last_shape[j] != input_shape[j]) && last_shape[j].isa<int64_t>()) {
+          need_infer_block_again = true;
           output_dims[j] = symbol::DimExpr{infer_context->GetNextSymName()};
         }
       }
@@ -935,14 +938,17 @@ bool WhileOp::InferSymbolicShape(
   for (size_t i = 0; i < num_results(); ++i) {
     AddCstrForOutputs(
         operand_source(i + 1), result(i), body_args[i], infer_context);
-    infer_context->SetShapeOrDataForValue(
-        operand_source(i + 1),
-        infer_context->GetShapeOrDataForValue(result(i)));
-    infer_context->SetShapeOrDataForValue(
-        body_args[i], infer_context->GetShapeOrDataForValue(result(i)));
+    if (need_infer_block_again) {
+      infer_context->SetShapeOrDataForValue(
+          operand_source(i + 1),
+          infer_context->GetShapeOrDataForValue(result(i)));
+      infer_context->SetShapeOrDataForValue(
+          body_args[i], infer_context->GetShapeOrDataForValue(result(i)));
+    }
   }
-
-  pir::InferSymExprForBlock(body(), infer_context);
+  if (need_infer_block_again) {
+    pir::InferSymExprForBlock(body(), infer_context);
+  }
 
   return true;
 }
