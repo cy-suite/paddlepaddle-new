@@ -339,6 +339,7 @@ class TestConv3dTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
+        self.opt_shape = {"x": [1, 3, 8, 8, 8]}
         self.max_shape = {"x": [10, 3, 8, 8, 8]}
 
     def test_trt_result(self):
@@ -355,6 +356,7 @@ class TestConv3dPaddingAlgorithmTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
+        self.opt_shape = {"x": [1, 3, 8, 8, 8]}
         self.max_shape = {"x": [10, 3, 8, 8, 8]}
 
     def test_trt_result(self):
@@ -370,6 +372,7 @@ class TestConv3dPaddingSizeTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
+        self.opt_shape = {"x": [1, 3, 8, 8, 8]}
         self.max_shape = {"x": [10, 3, 8, 8, 8]}
 
     def test_trt_result(self):
@@ -385,6 +388,7 @@ class TestConv3dNegativePaddingTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
+        self.opt_shape = {"x": [1, 3, 8, 8, 8]}
         self.max_shape = {"x": [10, 3, 8, 8, 8]}
 
     def test_trt_result(self):
@@ -400,6 +404,7 @@ class TestConv3dZeroPaddingDimensionTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
+        self.opt_shape = {"x": [1, 3, 8, 8, 8]}
         self.max_shape = {"x": [10, 3, 8, 8, 8]}
 
     def test_trt_result(self):
@@ -460,6 +465,7 @@ class TestDepthwiseConv3dTransposeTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 2, 8, 8, 8]}
+        self.opt_shape = {"x": [1, 2, 8, 8, 8]}
         self.max_shape = {"x": [10, 2, 8, 8, 8]}
 
     def test_trt_result(self):
@@ -475,6 +481,7 @@ class TestDepthwiseConv3dTransposeSameTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
+        self.opt_shape = {"x": [1, 3, 8, 8, 8]}
         self.max_shape = {"x": [10, 3, 8, 8, 8]}
 
     def test_trt_result(self):
@@ -490,6 +497,7 @@ class TestDepthwiseConv3dTransposeOutputPaddingTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
+        self.opt_shape = {"x": [1, 3, 8, 8, 8]}
         self.max_shape = {"x": [10, 3, 8, 8, 8]}
 
     def test_trt_result(self):
@@ -506,6 +514,7 @@ class TestDepthwiseConv3dTransposeOutputPadding2TRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
+        self.opt_shape = {"x": [1, 3, 8, 8, 8]}
         self.max_shape = {"x": [10, 3, 8, 8, 8]}
 
     def test_trt_result(self):
@@ -521,6 +530,7 @@ class TestConv3dTransposePaddingSizeTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
+        self.opt_shape = {"x": [1, 3, 8, 8, 8]}
         self.max_shape = {"x": [10, 3, 8, 8, 8]}
 
     def test_trt_result(self):
@@ -535,6 +545,7 @@ class TestConv3dTransposeNoDilationsTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
+        self.opt_shape = {"x": [1, 3, 8, 8, 8]}
         self.max_shape = {"x": [10, 3, 8, 8, 8]}
 
     def test_trt_result(self):
@@ -550,6 +561,7 @@ class TestConv3dTransposeInvalidDilationsTRTPattern(TensorRTBaseTest):
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3, 8, 8, 8]}
+        self.opt_shape = {"x": [1, 3, 8, 8, 8]}
         self.max_shape = {"x": [10, 3, 8, 8, 8]}
 
     def test_trt_result(self):
