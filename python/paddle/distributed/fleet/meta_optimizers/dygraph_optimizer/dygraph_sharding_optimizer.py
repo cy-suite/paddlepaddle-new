@@ -762,11 +762,17 @@ class DygraphShardingOptimizerV2:
         comm_group = self._hcg.get_sharding_parallel_group()
 
         color_dict = defaultdict(list)
-        default_dict = {'color': -1, 'group': comm_group}
         for param in self._parameter_list:
-            color = getattr(param, 'color', default_dict)
-            color_color = color.get('color', -1)
-            color_group = color.get('group', comm_group)
+            color = getattr(param, 'color', -1)
+            color_color = -1
+            color_group = comm_group
+            if isinstance(color, dict):
+                # 如果 color 是 dict:{'color': "1", 'group': group}
+                color_color = color.get('color', -1)
+                color_group = color.get('group', comm_group)
+            else:
+                # 如果 color 是直接赋值:param.color = 1
+                color_color = color
             color_dict[(color_color, color_group)].append(param)
 
         # NOTE(shenliang03): If comm_overlap is not used, the parameter list is sorted by data type to
