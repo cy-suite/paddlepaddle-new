@@ -330,17 +330,17 @@ std::vector<Tensor> WarpReduce(const ir::Tensor& A,
   tmp_shape.push_back(Expr(32));
   auto tmp_out = Compute(
       tmp_shape,
-      [=](const std::vector<Expr>& indexs) -> Expr {
-        std::vector<Expr> tmp_indexs(indexs.begin(),
-                                     indexs.begin() + indexs.size() - 1);
+      [=](const std::vector<Expr>& indexes) -> Expr {
+        std::vector<Expr> tmp_indexes(indexes.begin(),
+                                      indexes.begin() + indexes.size() - 1);
         for (int idx = 0; idx < last_reduce_dim_num; ++idx) {
-          tmp_indexs.push_back(Expr(0));
+          tmp_indexes.push_back(Expr(0));
         }
         PADDLE_ENFORCE_EQ(A->shape.size(),
-                          tmp_indexs.size(),
+                          tmp_indexes.size(),
                           ::common::errors::InvalidArgument(
-                              "Indexs size is not equal to Input shape!"));
-        Expr offset = cinn::common::IndiceToAbsOffset(A->shape, tmp_indexs);
+                              "indexes size is not equal to Input shape!"));
+        Expr offset = cinn::common::IndiceToAbsOffset(A->shape, tmp_indexes);
         return lang::CallExtern(reduce_type, {A, offset, reduce_width});
       },
       UniqName(output_name + "_" + reduce_type));
@@ -357,11 +357,11 @@ std::vector<Tensor> WarpReduce(const ir::Tensor& A,
   }
   auto out = Compute(
       out_shape,
-      [=](const std::vector<Expr>& indexs) -> Expr {
-        std::vector<Expr> tmp_indexs(
-            indexs.begin(), indexs.begin() + shape_size_without_reduce_dim);
-        tmp_indexs.push_back(Expr(0));
-        return tmp_out(tmp_indexs);
+      [=](const std::vector<Expr>& indexes) -> Expr {
+        std::vector<Expr> tmp_indexes(
+            indexes.begin(), indexes.begin() + shape_size_without_reduce_dim);
+        tmp_indexes.push_back(Expr(0));
+        return tmp_out(tmp_indexes);
       },
       output_name);
 
@@ -431,22 +431,22 @@ std::vector<ir::Tensor> BlockReduceInternal(const ir::Tensor& A,
 
   auto tmp_out = Compute(
       tmp_shape,
-      [=](const std::vector<Expr>& indexs) -> Expr {
+      [=](const std::vector<Expr>& indexes) -> Expr {
         // compute index map from output to input.
-        auto last_index = indexs.back();
-        std::vector<Expr> input_indexs(indexs.begin(),
-                                       indexs.begin() + indexs.size() - 1);
+        auto last_index = indexes.back();
+        std::vector<Expr> input_indexes(indexes.begin(),
+                                        indexes.begin() + indexes.size() - 1);
         for (int idx = 0; idx < A->shape.size() - axes.front(); ++idx) {
-          input_indexs.push_back(last_index / last_reduce_stride[idx]);
+          input_indexes.push_back(last_index / last_reduce_stride[idx]);
           last_index = last_index % last_reduce_stride[idx];
         }
 
-        // checkout input_indexs size equals input shape
-        PADDLE_ENFORCE_EQ(input_indexs.size(),
+        // checkout input_indexes size equals input shape
+        PADDLE_ENFORCE_EQ(input_indexes.size(),
                           A->shape.size(),
                           ::common::errors::InvalidArgument(
-                              "Indexs size is not equal to Input shape!"));
-        return lang::CallExtern(reduce_type, {A(input_indexs)});
+                              "indexes size is not equal to Input shape!"));
+        return lang::CallExtern(reduce_type, {A(input_indexes)});
       },
       UniqName(output_name + "_tmp"));
 
@@ -464,11 +464,11 @@ std::vector<ir::Tensor> BlockReduceInternal(const ir::Tensor& A,
   }
   auto out = Compute(
       out_shape,
-      [=](const std::vector<Expr>& indexs) -> Expr {
-        std::vector<Expr> tmp_indexs(indexs.begin(),
-                                     indexs.begin() + axes.front());
-        tmp_indexs.push_back(Expr(0));
-        return tmp_out(tmp_indexs);
+      [=](const std::vector<Expr>& indexes) -> Expr {
+        std::vector<Expr> tmp_indexes(indexes.begin(),
+                                      indexes.begin() + axes.front());
+        tmp_indexes.push_back(Expr(0));
+        return tmp_out(tmp_indexes);
       },
       output_name);
   return {out, tmp_out};
@@ -566,19 +566,19 @@ std::vector<ir::Tensor> BlockReduce(const ir::Tensor& A,
   tmp_shape.push_back(Expr(block_size));
   auto tmp_out = Compute(
       tmp_shape,
-      [=](const std::vector<Expr>& indexs) -> Expr {
-        std::vector<Expr> tmp_indexs(indexs.begin(),
-                                     indexs.begin() + axes.front());
+      [=](const std::vector<Expr>& indexes) -> Expr {
+        std::vector<Expr> tmp_indexes(indexes.begin(),
+                                      indexes.begin() + axes.front());
         for (int idx = 0; idx < A->shape.size() - axes.front(); ++idx) {
-          tmp_indexs.push_back(Expr(0));
+          tmp_indexes.push_back(Expr(0));
         }
-        // checkout input shape size equals tmp indexs size.
+        // checkout input shape size equals tmp indexes size.
         PADDLE_ENFORCE_EQ(A->shape.size(),
-                          tmp_indexs.size(),
+                          tmp_indexes.size(),
                           ::common::errors::InvalidArgument(
-                              "Indexs size is not equal to Input shape!"));
+                              "indexes size is not equal to Input shape!"));
         // compute offset.
-        Expr offset = cinn::common::IndiceToAbsOffset(A->shape, tmp_indexs);
+        Expr offset = cinn::common::IndiceToAbsOffset(A->shape, tmp_indexes);
         // call block reduce sum
         return lang::CallExtern(reduce_type, {A, offset, reduce_width});
       },
@@ -598,12 +598,12 @@ std::vector<ir::Tensor> BlockReduce(const ir::Tensor& A,
   }
   auto out = Compute(
       out_shape,
-      [=](const std::vector<Expr>& indexs) -> Expr {
+      [=](const std::vector<Expr>& indexes) -> Expr {
         // compute input index
-        std::vector<Expr> tmp_indexs(indexs.begin(),
-                                     indexs.begin() + axes.front());
-        tmp_indexs.push_back(Expr(0));
-        return tmp_out(tmp_indexs);
+        std::vector<Expr> tmp_indexes(indexes.begin(),
+                                      indexes.begin() + axes.front());
+        tmp_indexes.push_back(Expr(0));
+        return tmp_out(tmp_indexes);
       },
       output_name);
 
@@ -756,32 +756,33 @@ std::vector<ir::Tensor> ReduceInternal(const ir::Tensor& A,
                    [](int val) { return ir::Expr(val); });
     return Compute(
         reshape_output_shape,
-        [=](const std::vector<Expr>& indexs) -> Expr {
+        [=](const std::vector<Expr>& indexes) -> Expr {
           // index is last axis in axes and index is last axis >= tail.
           auto selected = ir::And::Make(
-              ir::EQ::Make(indexs[axis], ir::Expr(reduce_shape[axis] - 1)),
-              ir::GE::Make(indexs[axis + 1], ir::Expr(tail)));
-          auto index = indexs[axis] * ir::Expr(reshape_output_shape[axis + 1]) +
-                       indexs[axis + 1];
+              ir::EQ::Make(indexes[axis], ir::Expr(reduce_shape[axis] - 1)),
+              ir::GE::Make(indexes[axis + 1], ir::Expr(tail)));
+          auto index =
+              indexes[axis] * ir::Expr(reshape_output_shape[axis + 1]) +
+              indexes[axis + 1];
 
           // first part index
-          std::vector<ir::Expr> tmp_indexs(indexs.begin(),
-                                           indexs.begin() + axes[axis_index]);
+          std::vector<ir::Expr> tmp_indexes(indexes.begin(),
+                                            indexes.begin() + axes[axis_index]);
           // second part index
           for (int idx = 0; idx < strides.size(); ++idx) {
-            tmp_indexs.push_back(index / strides[idx]);
+            tmp_indexes.push_back(index / strides[idx]);
             index = index % strides[idx];
           }
           // third part index
-          for (int idx = axis + 2; idx < indexs.size(); ++idx) {
-            tmp_indexs.push_back(indexs[idx]);
+          for (int idx = axis + 2; idx < indexes.size(); ++idx) {
+            tmp_indexes.push_back(indexes[idx]);
           }
 
-          PADDLE_ENFORCE_EQ(tmp_indexs.size(),
+          PADDLE_ENFORCE_EQ(tmp_indexes.size(),
                             A->shape.size(),
                             ::common::errors::InvalidArgument(
-                                "Indexs size is not equal to Input shape!"));
-          return ir::Select::Make(selected, A(tmp_indexs), initial);
+                                "indexes size is not equal to Input shape!"));
+          return ir::Select::Make(selected, A(tmp_indexes), initial);
         },
         UniqName(output_name + "_reshape"));
   };
@@ -1001,27 +1002,27 @@ std::vector<ir::Tensor> TwoStepBlockReduceInternal(
     }
     auto out = Compute(
         out_shape,
-        [=](const std::vector<Expr>& indexs) -> Expr {
+        [=](const std::vector<Expr>& indexes) -> Expr {
           Expr index =
-              indexs[size_without_tail - 1] +
-              indexs[size_without_tail - 2] * out_shape[size_without_tail - 1];
-          std::vector<Expr> tmp_indexs(indexs.begin(),
-                                       indexs.begin() + size_without_tail - 2);
+              indexes[size_without_tail - 1] +
+              indexes[size_without_tail - 2] * out_shape[size_without_tail - 1];
+          std::vector<Expr> tmp_indexes(
+              indexes.begin(), indexes.begin() + size_without_tail - 2);
           // last and the second of last.
           auto selected = ir::LT::Make(index, Expr(lane));
           for (auto tail_stride : tail_strides) {
-            tmp_indexs.push_back(index / Expr(tail_stride));
+            tmp_indexes.push_back(index / Expr(tail_stride));
             index = index % Expr(tail_stride);
           }
 
-          PADDLE_ENFORCE_EQ(tmp_indexs.size(),
+          PADDLE_ENFORCE_EQ(tmp_indexes.size(),
                             A->shape.size(),
                             ::common::errors::InvalidArgument(
-                                "Indexs size is not equal to Input shape!"));
+                                "indexes size is not equal to Input shape!"));
           if (check_bound) {
-            return ir::Select::Make(selected, A(tmp_indexs), initial);
+            return ir::Select::Make(selected, A(tmp_indexes), initial);
           } else {
-            return A(tmp_indexs);
+            return A(tmp_indexes);
           }
         },
         UniqName(output_name + "_reshape"));

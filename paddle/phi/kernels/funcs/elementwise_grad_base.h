@@ -417,19 +417,19 @@ static inline bool CheckContiguousDims(const std::vector<int> &broadcast_pos) {
   return true;
 }
 
-inline void ComputeBroadcastTranspositionArray(const int *x_one_indexs,
-                                               int *x_trans_indexs,
+inline void ComputeBroadcastTranspositionArray(const int *x_one_indexes,
+                                               int *x_trans_indexes,
                                                const int max_dim,
                                                const int x_one_size) {
   int diff = max_dim - x_one_size;
-  std::copy_n(x_one_indexs, x_one_size, x_trans_indexs + diff);
+  std::copy_n(x_one_indexes, x_one_size, x_trans_indexes + diff);
   int p = 0;
   int q = diff;
   for (int i = 0; i < max_dim; ++i) {
-    if (q < max_dim && i == x_trans_indexs[q]) {
+    if (q < max_dim && i == x_trans_indexes[q]) {
       ++q;
     } else {
-      x_trans_indexs[p++] = i;
+      x_trans_indexes[p++] = i;
     }
   }
 }
@@ -1090,25 +1090,29 @@ void CommonGradBroadcastCUDA(const DenseTensor &x,
   T *dx_data = dx == nullptr ? nullptr : ctx.Alloc<T>(dx);
   T *dy_data = dy == nullptr ? nullptr : ctx.Alloc<T>(dy);
 
-  std::vector<int> x_one_indexs;
-  std::vector<int> y_one_indexs;
+  std::vector<int> x_one_indexes;
+  std::vector<int> y_one_indexes;
   for (int i = 0; i < max_dim; i++) {
     if (x_dims_array[i] != y_dims_array[i]) {
       if (x_dims_array[i] == 1) {
-        x_one_indexs.push_back(i);
+        x_one_indexes.push_back(i);
       }
       if (y_dims_array[i] == 1) {
-        y_one_indexs.push_back(i);
+        y_one_indexes.push_back(i);
       }
     }
   }
 
-  std::vector<int> x_trans_indexs(max_dim);
-  std::vector<int> y_trans_indexs(max_dim);
-  ComputeBroadcastTranspositionArray(
-      x_one_indexs.data(), x_trans_indexs.data(), max_dim, x_one_indexs.size());
-  ComputeBroadcastTranspositionArray(
-      y_one_indexs.data(), y_trans_indexs.data(), max_dim, y_one_indexs.size());
+  std::vector<int> x_trans_indexes(max_dim);
+  std::vector<int> y_trans_indexes(max_dim);
+  ComputeBroadcastTranspositionArray(x_one_indexes.data(),
+                                     x_trans_indexes.data(),
+                                     max_dim,
+                                     x_one_indexes.size());
+  ComputeBroadcastTranspositionArray(y_one_indexes.data(),
+                                     y_trans_indexes.data(),
+                                     max_dim,
+                                     y_one_indexes.size());
 
   // compute array stride for cuda kernel;
   // e.g. x.dims=[2,3,4], x_stride=[12,4,1]
@@ -1132,10 +1136,10 @@ void CommonGradBroadcastCUDA(const DenseTensor &x,
   std::vector<int> x_dims_order(max_dim);
   std::vector<int> y_dims_order(max_dim);
   for (int i = 0; i < max_dim; ++i) {
-    x_strides_order[i] = out_strides_array[x_trans_indexs[i]];
-    y_strides_order[i] = out_strides_array[y_trans_indexs[i]];
-    x_dims_order[i] = out_dims_array[x_trans_indexs[i]];
-    y_dims_order[i] = out_dims_array[y_trans_indexs[i]];
+    x_strides_order[i] = out_strides_array[x_trans_indexes[i]];
+    y_strides_order[i] = out_strides_array[y_trans_indexes[i]];
+    x_dims_order[i] = out_dims_array[x_trans_indexes[i]];
+    y_dims_order[i] = out_dims_array[y_trans_indexes[i]];
   }
   std::vector<int> x_broadcast_pos;
   std::vector<int> y_broadcast_pos;

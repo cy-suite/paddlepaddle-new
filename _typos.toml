@@ -45,7 +45,6 @@ pash = 'pash'
 unpacket = "unpacket"
 
 # These words need to be fixed
-Indexs = 'Indexs'
 indexs = 'indexs'
 Infered = 'Infered'
 infered = 'infered'

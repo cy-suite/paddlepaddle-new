@@ -37,13 +37,13 @@ __global__ void FlattenIndicesKernel(const IntT* indices,
 }
 
 template <typename IntT>
-__global__ void IndexToCoordinateKernel(const IntT* indexs,
+__global__ void IndexToCoordinateKernel(const IntT* indexes,
                                         const Dim<DDim::kMaxRank> dims,
                                         const int64_t non_zero_num,
                                         const int64_t sparse_dim,
                                         IntT* indices) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  IndexToCoordinate(indexs,
+  IndexToCoordinate(indexes,
                     dims,
                     non_zero_num,
                     sparse_dim,
