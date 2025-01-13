@@ -71,6 +71,17 @@ class TestBaddBmmAPI(unittest.TestCase):
 
         self.assertRaises(ValueError, test_error4)
 
+        def test_error5():
+            data_input_wrong = np.ones((1, 2, 1)).astype(np.float32)
+            x = paddle.to_tensor(data_x)
+            y = paddle.to_tensor(data_y)
+            input = paddle.to_tensor(data_input_wrong)
+            out = paddle.tensor.baddbmm(
+                input=input, x=x, y=y, beta=0.5, alpha=5.0
+            )
+
+        self.assertRaises(ValueError, test_error5)
+
         paddle.enable_static()
 
     def test_api_normal_1(self):
