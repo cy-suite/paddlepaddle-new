@@ -155,6 +155,12 @@ inline ExprVec GetSliceDims(const ExprVec &in_dims,
     } else {
       slice_dims[axis] = out_dim;
     }
+    // output dim is int64_t, but input dim is symbol.
+    if (out_dim.isa<int64_t>() && !in_dims[axis].isa<int64_t>()) {
+      symbol::List<symbol::DimExpr> min_lists{out_dim, in_dims[axis]};
+      slice_dims[axis] =
+          symbol::DimExpr({symbol::Min<symbol::DimExpr>({min_lists})});
+    }
   }
 
   return slice_dims;

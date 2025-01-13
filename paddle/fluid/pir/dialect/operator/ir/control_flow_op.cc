@@ -868,57 +868,61 @@ bool WhileOp::InferSymbolicShape(
 
   // Set ShapeOrDataDimExpr for results
   bool need_infer_block_again = false;
+  PADDLE_ENFORCE_EQ(body_args.size(),
+                    num_results(),
+                    common::errors::InvalidArgument(
+                        "The body_args.size and num_results is not equal"));
   const auto &last_op = body().back();
   for (size_t i = 1; i < last_op.num_operands(); ++i) {
-    const symbol::ShapeOrDataDimExprs &last_shape_or_data =
+    const symbol::ShapeOrDataDimExprs &last_op_input_shape_or_data =
         infer_context->GetShapeOrDataForValue(last_op.operand_source(i));
-    const symbol::ShapeOrDataDimExprs &input_shape_or_data =
-        infer_context->GetShapeOrDataForValue(operand_source(i));
-    std::vector<symbol::DimExpr> last_shape;
-    std::vector<symbol::DimExpr> input_shape;
+    const symbol::ShapeOrDataDimExprs &block_arg_shape_or_data =
+        infer_context->GetShapeOrDataForValue(body_args[i - 1]);
+    std::vector<symbol::DimExpr> last_op_input_shape;
+    std::vector<symbol::DimExpr> block_arg_shape;
     std::vector<symbol::DimExpr> output_dims;
-    if (last_shape_or_data.isa<symbol::TensorShapeOrDataDimExprs>()) {
-      last_shape =
-          last_shape_or_data.dyn_cast<symbol::TensorShapeOrDataDimExprs>()
+    if (last_op_input_shape_or_data.isa<symbol::TensorShapeOrDataDimExprs>()) {
+      last_op_input_shape = last_op_input_shape_or_data
+                                .dyn_cast<symbol::TensorShapeOrDataDimExprs>()
+                                .shape();
+      block_arg_shape =
+          block_arg_shape_or_data.dyn_cast<symbol::TensorShapeOrDataDimExprs>()
               .shape();
-      input_shape =
-          input_shape_or_data.dyn_cast<symbol::TensorShapeOrDataDimExprs>()
-              .shape();
-      output_dims = last_shape;
-    } else if (last_shape_or_data
+      output_dims = last_op_input_shape;
+    } else if (last_op_input_shape_or_data
                    .isa<symbol::RankedTensorArrayShapeOrDataDimExprs>()) {
-      last_shape = last_shape_or_data
-                       .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>()
-                       .GetShapeHint();
-      input_shape =
-          last_shape_or_data
+      last_op_input_shape =
+          last_op_input_shape_or_data
               .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>()
               .GetShapeHint();
-      output_dims = last_shape;
-    }
-    // use block_args or while op's input?
-    if (last_shape.size() != input_shape.size()) {
-      for (size_t j = 0; j < last_shape.size(); j++) {
-        if (last_shape[j].isa<int64_t>()) {
-          need_infer_block_again = true;
-          output_dims[j] = symbol::DimExpr{infer_context->GetNextSymName()};
-        }
-      }
+      block_arg_shape =
+          block_arg_shape_or_data
+              .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>()
+              .GetShapeHint();
+      output_dims = last_op_input_shape;
     } else {
-      for (size_t j = 0; j < last_shape.size(); j++) {
-        if ((last_shape[j] != input_shape[j]) && last_shape[j].isa<int64_t>()) {
-          need_infer_block_again = true;
-          output_dims[j] = symbol::DimExpr{infer_context->GetNextSymName()};
-        }
+      PADDLE_THROW(
+          common::errors::Fatal("Only TensorShapeOrDataDimExprs and "
+                                "RankedTensorArrayShapeOrDataDimExprs can "
+                                "handled in while args and outputs."));
+    }
+    for (size_t j = 0; j < last_op_input_shape.size(); j++) {
+      if (last_op_input_shape[j].isa<int64_t>() &&
+          block_arg_shape[j].isa<int64_t>() &&
+          (last_op_input_shape[j] != block_arg_shape[j])) {
+        need_infer_block_again = true;
+        output_dims[j] = symbol::DimExpr{infer_context->GetNextSymName()};
       }
     }
-    if (last_shape_or_data.isa<symbol::TensorShapeOrDataDimExprs>() &&
-        last_shape_or_data.data().has_value()) {
+
+    if (last_op_input_shape_or_data.isa<symbol::TensorShapeOrDataDimExprs>() &&
+        last_op_input_shape_or_data.data().has_value()) {
       infer_context->SetShapeOrDataForValue(
           result(i - 1),
           symbol::ShapeOrDataDimExprs(symbol::TensorShapeOrDataDimExprs(
-              output_dims, last_shape_or_data.data().value())));
-    } else if (last_shape_or_data.isa<symbol::TensorShapeOrDataDimExprs>()) {
+              output_dims, last_op_input_shape_or_data.data().value())));
+    } else if (last_op_input_shape_or_data
+                   .isa<symbol::TensorShapeOrDataDimExprs>()) {
       infer_context->SetShapeOrDataForValue(
           result(i - 1),
           symbol::ShapeOrDataDimExprs(
@@ -931,22 +935,16 @@ bool WhileOp::InferSymbolicShape(
     }
   }
 
-  PADDLE_ENFORCE_EQ(body_args.size(),
-                    num_results(),
-                    common::errors::InvalidArgument(
-                        "The body_args.size and num_results is not equal"));
   for (size_t i = 0; i < num_results(); ++i) {
     AddCstrForOutputs(
         operand_source(i + 1), result(i), body_args[i], infer_context);
-    if (need_infer_block_again) {
-      infer_context->SetShapeOrDataForValue(
-          operand_source(i + 1),
-          infer_context->GetShapeOrDataForValue(result(i)));
+  }
+
+  if (need_infer_block_again) {
+    for (size_t i = 0; i < num_results(); ++i) {
       infer_context->SetShapeOrDataForValue(
           body_args[i], infer_context->GetShapeOrDataForValue(result(i)));
     }
-  }
-  if (need_infer_block_again) {
     pir::InferSymExprForBlock(body(), infer_context);
   }
 
