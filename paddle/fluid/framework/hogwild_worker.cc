@@ -399,7 +399,7 @@ void HogwildWorker::BuildShardingDepends(const ProgramDesc &program) {
   std::multiset<std::string> out2refs;
   for (auto &op_desc : all_desc) {
     bool find = false;
-    if (op_desc->Type() == "c_sync_calc_stream") {  // remove error sync
+    if (op_desc->Type() == "sync_calc_stream") {  // remove error sync
       auto &inputs = op_desc->Input("X");
       std::vector<std::string> removenames;
       for (auto &name : inputs) {
@@ -536,7 +536,7 @@ void HogwildWorker::BuildShardingDepends(const ProgramDesc &program) {
           << ", offload var name count=" << offload_names_.size()
           << ", total_broadcast=" << total_broadcast
           << ", remove_broadcast=" << remove_broadcast
-          << ", remove c_sync_calc_stream=" << remove_sync_stream
+          << ", remove sync_calc_stream=" << remove_sync_stream
           << ", remove cast_op=" << remove_cast_op;
 }
 size_t HogwildWorker::AdjustOffloadOps(const ProgramDesc &program) {

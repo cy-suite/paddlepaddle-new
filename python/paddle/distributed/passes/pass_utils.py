@@ -557,12 +557,12 @@ def _insert_sync_for_fthenb_1f1b(program, dist_context=None):
                 op._set_attr("use_calc_stream", False)
                 op_role = op.attr('op_role')
                 ring_id = op.attr('ring_id')
-                # step2: insert 'c_sync_calc_stream' op before 'send_v2' op
+                # step2: insert 'sync_calc_stream' op before 'send_v2' op
                 var_name = op.input_arg_names[0]
                 var = block.var(var_name)
                 sync_calc_op = block._insert_op_without_sync(
                     index=index + offset,
-                    type="c_sync_calc_stream",
+                    type="sync_calc_stream",
                     inputs={'X': [var]},
                     outputs={'Out': [var]},
                     attrs={'op_role': op_role},

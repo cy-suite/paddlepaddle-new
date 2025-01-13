@@ -235,7 +235,7 @@ class TensorParallelOptimizer(MetaOptimizerBase):
                         offset += 1
                         block._insert_op(
                             offset,
-                            type='c_sync_calc_stream',
+                            type='sync_calc_stream',
                             inputs={'X': grad},
                             outputs={'Out': grad},
                             attrs={OP_ROLE_KEY: OpRole.Backward},

@@ -345,7 +345,7 @@ class GradAllReduce(Collective):
                         offset += 1
                         block._insert_op(
                             offset,
-                            type='c_sync_calc_stream',
+                            type='sync_calc_stream',
                             inputs={'X': grad},
                             outputs={'Out': grad},
                             attrs={self.op_role_key: OpRole.Backward},
@@ -447,7 +447,7 @@ class LocalSGD(Collective):
                 )
                 block._insert_op(
                     idx + 2,
-                    type='c_sync_calc_stream',
+                    type='sync_calc_stream',
                     inputs={'X': param},
                     outputs={'Out': param},
                     attrs={self.op_role_key: OpRole.Optimize},
@@ -642,7 +642,7 @@ class SingleProcessMultiThread(GradAllReduce):
             # grads aggregation of multi-gpus
             block._insert_op(
                 global_offset,
-                type='c_sync_calc_stream',
+                type='sync_calc_stream',
                 inputs={'X': input_grads[0]},
                 outputs={'Out': input_grads[0]},
                 attrs={self.op_role_key: OpRole.Backward},
@@ -694,7 +694,7 @@ class SingleProcessMultiThread(GradAllReduce):
             # grads aggregation of multi-gpus
             block._insert_op(
                 global_offset,
-                type='c_sync_calc_stream',
+                type='sync_calc_stream',
                 inputs={'X': fused_output},
                 outputs={'Out': fused_output},
                 attrs={self.op_role_key: OpRole.Backward},
@@ -833,7 +833,7 @@ class MultiThread(GradAllReduce):
                         offset += 1
                         block._insert_op(
                             offset,
-                            type='c_sync_calc_stream',
+                            type='sync_calc_stream',
                             inputs={'X': grad},
                             outputs={'Out': grad},
                             attrs={self.op_role_key: OpRole.Backward},
@@ -1036,7 +1036,7 @@ class MultiThread(GradAllReduce):
                     )
                     block._insert_op(
                         idx,
-                        type='c_sync_calc_stream',
+                        type='sync_calc_stream',
                         inputs={'X': fused_var},
                         outputs={'Out': fused_var},
                         attrs={self.op_role_key: OpRole.Backward},

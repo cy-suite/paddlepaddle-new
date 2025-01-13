@@ -31,7 +31,7 @@ from paddle.distributed.fleet import auto
 
 def dy_broadcast_helper(tensor):
     tensor = paddle._C_ops.broadcast(tensor, 0, 1)
-    _legacy_C_ops.c_sync_calc_stream(tensor, tensor)
+    _legacy_C_ops.sync_calc_stream(tensor)
     return tensor
 
 

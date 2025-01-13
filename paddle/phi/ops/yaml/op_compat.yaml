@@ -4596,7 +4596,7 @@
   outputs:
     out : Out
 
-- op: sync_calc_stream(c_sync_calc_stream)
+- op: sync_calc_stream
   inputs :
     x : X
   outputs :
