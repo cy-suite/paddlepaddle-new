@@ -229,7 +229,9 @@ def trt_expand(network, paddle_op, input, rank, shape_tensor, shape_rank):
     slice_layer.set_input(2, sizes_tensor)
     slice_layer.set_input(3, strides_tensor)
 
-    replenish_layer_and_output(slice_layer, paddle_op.name(), paddle_op.get_output_names())
+    replenish_layer_and_output(
+        slice_layer, paddle_op.name(), paddle_op.get_output_names()
+    )
     return slice_layer.get_output(0)
 
 
