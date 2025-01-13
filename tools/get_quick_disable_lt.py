@@ -77,7 +77,7 @@ def download_file():
             with open(file_path, 'r') as file:
                 data = file.read()
             local_list = data.strip().split('\n')
-            local_list = '^' + '$|^'.join(external_xpu) + '$'
+            local_list = '^' + '$|^'.join(local_list) + '$'
             external_xpu = external_xpu + "|" + local_list
         disabled_ut_list = disabled_ut_list + "|" + external_xpu
 
