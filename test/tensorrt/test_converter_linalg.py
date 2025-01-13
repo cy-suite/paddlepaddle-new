@@ -126,6 +126,28 @@ class TestFlipIntNegAxisTRTPattern(TensorRTBaseTest):
     def test_trt_result(self):
         self.check_trt_result()
 
+def einsum_wrapper(x, equation):
+    out = paddle.einsum(
+        x,
+        equation,
+    )
+    return out[0]
+
+class TestEinsumCase1TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = einsum_wrapper
+        self.api_args = {
+            "equation": "ijk->ij",
+            "x": np.random.randn(2, 3, 4).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x"]}
+
+        self.min_shape = {"x": [1, 3, 4]}
+        self.opt_shape = {"x": [2, 3, 4]}
+        self.max_shape = {"x": [4, 3, 4]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
 
 if __name__ == '__main__':
     unittest.main()

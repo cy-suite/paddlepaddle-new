@@ -116,3 +116,11 @@ def flip_converter(network, paddle_op, inputs):
 
     identity_layer = network.add_identity(input_tensor)
     return identity_layer.get_output(0)
+
+@converter_registry.register("pd_op.einsum", trt_version="8.x")
+def convert_einsum(network, paddle_op, inputs):
+    equation = paddle_op.attrs().get("equation", "")
+
+    layer = network.add_einsum(inputs[0], equation)
+    output_tensor = layer.get_output(0)
+    return output_tensor
