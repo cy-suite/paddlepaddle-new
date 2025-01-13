@@ -138,6 +138,16 @@ class TestQrOpcomplexCase2(TestQrOpcomplex):
         return (3, 16, 15)
 
 
+class TestQrOpcomplexCase3(TestQrOpcomplex):
+    def get_shape(self):
+        return (10, 12)
+
+
+class TestQrOpcomplexCase4(TestQrOpcomplex):
+    def get_shape(self):
+        return (3, 10, 12)
+
+
 class TestQrAPI(unittest.TestCase):
     def test_dygraph(self):
         def run_qr_dygraph(shape, mode, dtype):

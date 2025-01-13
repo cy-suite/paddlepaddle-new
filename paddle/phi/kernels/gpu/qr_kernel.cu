@@ -726,7 +726,6 @@ void BatchedOrgqr<GPUContext, double>(const GPUContext& dev_ctx,
             "For batch [%d]: CUSolver QR is not zero. [%d]", i, info_h));
   }
 }
-#endif
 
 template <>
 void BatchedOrgqr<GPUContext, phi::dtype::complex<float>>(
