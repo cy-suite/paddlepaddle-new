@@ -240,6 +240,7 @@ limitations under the License. */
 
 COMMON_DECLARE_bool(use_mkldnn);
 COMMON_DECLARE_string(prim_backward_blacklist);
+COMMON_DECLARE_bool(prim_backward);
 
 // disable auto conversion to list in Python
 PYBIND11_MAKE_OPAQUE(phi::TensorArray);

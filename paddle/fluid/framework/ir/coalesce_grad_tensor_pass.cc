@@ -25,24 +25,8 @@ class ProgramDesc;
 class VarDesc;
 }  // namespace paddle::framework
 
-PHI_DEFINE_EXPORTED_double(
-    fuse_parameter_memory_size,
-    -1.0,  // MBytes
-    "fuse_parameter_memory_size is up limited memory size(MB)"
-    "of one group parameters' gradient which is the input "
-    "of communication calling(e.g NCCLAllReduce). "
-    "The default value is 0, it means that "
-    "not set group according to memory_size.");
-PHI_DEFINE_EXPORTED_int32(
-    fuse_parameter_groups_size,
-    1,
-    "fuse_parameter_groups_size is the up limited size of one group "
-    "parameters' gradient. "
-    "The default value is a experimental result. If the "
-    "fuse_parameter_groups_size is 1, it means that the groups size is "
-    "the number of parameters' gradient. If the fuse_parameter_groups_size is "
-    "-1, it means that there are only one group. The default value is 3, it is "
-    "an experimental value.");
+COMMON_DECLARE_double(fuse_parameter_memory_size);
+COMMON_DECLARE_int32(fuse_parameter_groups_size);
 
 namespace paddle::framework::ir {
 // unit of the FLAGS_fuse_parameter_memory_size.

@@ -15,6 +15,7 @@
 #pragma once
 
 #include <array>
+#include <climits>
 #include <cstdint>
 #include <map>
 #include <string>

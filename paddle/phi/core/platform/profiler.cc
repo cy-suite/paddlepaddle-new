@@ -36,6 +36,7 @@
 #include "paddle/phi/core/os_info.h"
 
 COMMON_DECLARE_bool(enable_record_memory);
+COMMON_DECLARE_bool(enable_host_event_recorder_hook);
 
 #if defined(_WIN32) && defined(PHI_SHARED)
 phi::ProfilerState phi::ProfilerHelper::g_state = phi::ProfilerState::kDisabled;

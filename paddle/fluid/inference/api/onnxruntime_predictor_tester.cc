@@ -29,7 +29,7 @@
 #include "paddle/phi/backends/cpu/cpu_info.h"
 #include "test/cpp/inference/api/tester_helper.h"
 
-PD_DEFINE_string(dirname, "", "dirname to tests.");
+COMMON_DECLARE_string(dirname);
 
 namespace paddle {
 

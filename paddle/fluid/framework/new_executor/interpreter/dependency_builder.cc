@@ -24,27 +24,11 @@
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
 #include "paddle/phi/common/reduce_type.h"
 
-PHI_DEFINE_EXPORTED_bool(
-    add_dependency_for_communication_op,
-    true,
-    "Whether to add dependency for communication Ops. It is just a temporary "
-    "FLAGS especially for auto parallel to avoid the concurrency damage by the "
-    "communication dependency added in standalone executor.");
+COMMON_DECLARE_bool(add_dependency_for_communication_op);
+COMMON_DECLARE_bool(new_executor_sequential_run);
+COMMON_DECLARE_bool(enable_dependency_builder_debug_info);
 
-// The difference between "sequential_run" and "serial_run":
-// "sequential_run" dispatches OPs one by one according to the sequence in the
-// Program, while "serial_run" ensures that all Ops are scheduled in a signal
-// thread. In standalone executor, "sequential_run" is also "serial_run", while
-// "serial_run" is not necessarily "sequential_run".
-PHI_DEFINE_EXPORTED_bool(new_executor_sequential_run,
-                         false,
-                         "Enable sequential execution for standalone "
-                         "executor, only applied to GPU OPs.");
 COMMON_DECLARE_int32(enable_adjust_op_order);
-// add debug info
-PHI_DEFINE_EXPORTED_bool(enable_dependency_builder_debug_info,
-                         false,
-                         "Enable dependency builder debug info");
 
 namespace paddle::framework::interpreter {
 

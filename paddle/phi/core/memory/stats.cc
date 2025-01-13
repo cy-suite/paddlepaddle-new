@@ -18,10 +18,7 @@ limitations under the License. */
 #include "paddle/common/macros.h"
 #include "paddle/phi/core/memory/allocation/spin_lock.h"
 
-PHI_DEFINE_EXPORTED_bool(
-    log_memory_stats,
-    false,
-    "Log memory stats after each op runs, just used for debug.");
+COMMON_DECLARE_bool(log_memory_stats);
 namespace paddle::memory {
 
 class StatRegistry {

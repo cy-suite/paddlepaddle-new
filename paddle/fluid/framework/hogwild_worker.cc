@@ -49,28 +49,15 @@ limitations under the License. */
 
 COMMON_DECLARE_bool(enable_exit_when_partial_worker);
 COMMON_DECLARE_int32(enable_adjust_op_order);
-PHI_DEFINE_EXPORTED_bool(gpugraph_force_device_batch_num_equal,
-                         false,
-                         "enable force_device_batch_num_equal, default false");
+
 COMMON_DECLARE_bool(enable_dump_main_program);
-PHI_DEFINE_EXPORTED_int32(gpugraph_offload_param_stat,
-                          0,
-                          "enable offload param stat, default 0");
-PHI_DEFINE_EXPORTED_string(gpugraph_offload_param_extends,
-                           ".w_0_moment,.b_0_moment",
-                           "offload param extends list");
-PHI_DEFINE_EXPORTED_int32(gpugraph_offload_gather_copy_maxsize,
-                          16,
-                          "offload gather copy max size , default 16M");
-PHI_DEFINE_EXPORTED_int32(gpugraph_parallel_copyer_split_maxsize,
-                          64,
-                          "offload gather copy max size , default 64M");
-PHI_DEFINE_EXPORTED_int32(gpugraph_parallel_stream_num,
-                          8,
-                          "offload parallel copy stream num");
-PHI_DEFINE_EXPORTED_bool(gpugraph_enable_print_op_debug,
-                         false,
-                         "enable print op debug ,default false");
+COMMON_DECLARE_bool(gpugraph_force_device_batch_num_equal);
+COMMON_DECLARE_int32(gpugraph_offload_param_stat);
+COMMON_DECLARE_string(gpugraph_offload_param_extends);
+COMMON_DECLARE_int32(gpugraph_offload_gather_copy_maxsize);
+COMMON_DECLARE_int32(gpugraph_parallel_copyer_split_maxsize);
+COMMON_DECLARE_int32(gpugraph_parallel_stream_num);
+COMMON_DECLARE_bool(gpugraph_enable_print_op_debug);
 
 namespace paddle::framework {
 

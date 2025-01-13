@@ -2044,3 +2044,459 @@ PHI_DEFINE_EXPORTED_int32(
     "Version 2 requires Ampere architecture or higher, "
     "while version 3 requires Hopper architecture.");
 #endif
+
+PHI_DEFINE_EXPORTED_bool(
+    new_executor_serial_run,
+    false,
+    "Enable serial execution for standalone executor, used for debug.");
+PHI_DEFINE_EXPORTED_bool(
+    new_executor_static_build,
+    false,
+    "Build the interpreterCore statically without running kernels.");
+PHI_DEFINE_EXPORTED_bool(new_executor_use_inplace,
+                         false,
+                         "Use inplace in new executor");
+PHI_DEFINE_EXPORTED_bool(new_executor_use_local_scope,
+                         true,
+                         "Use local_scope in new executor(especially used "
+                         "in UT), can turn off for better performance");
+
+PHI_DEFINE_EXPORTED_bool(gpugraph_force_device_batch_num_equal,
+                         false,
+                         "enable force_device_batch_num_equal, default false");
+PHI_DEFINE_EXPORTED_int32(gpugraph_offload_param_stat,
+                          0,
+                          "enable offload param stat, default 0");
+PHI_DEFINE_EXPORTED_string(gpugraph_offload_param_extends,
+                           ".w_0_moment,.b_0_moment",
+                           "offload param extends list");
+PHI_DEFINE_EXPORTED_int32(gpugraph_offload_gather_copy_maxsize,
+                          16,
+                          "offload gather copy max size , default 16M");
+PHI_DEFINE_EXPORTED_int32(gpugraph_parallel_copyer_split_maxsize,
+                          64,
+                          "offload gather copy max size , default 64M");
+PHI_DEFINE_EXPORTED_int32(gpugraph_parallel_stream_num,
+                          8,
+                          "offload parallel copy stream num");
+PHI_DEFINE_EXPORTED_bool(gpugraph_enable_print_op_debug,
+                         false,
+                         "enable print op debug ,default false");
+
+PHI_DEFINE_EXPORTED_bool(enable_dump_main_program,
+                         false,
+                         "enable dump main program, default false");
+PHI_DEFINE_EXPORTED_bool(
+    enable_unused_var_check,
+    false,
+    "Checking whether operator contains unused inputs, "
+    "especially for grad operator. It should be in unittest.");
+
+PHI_DEFINE_EXPORTED_double(
+    fuse_parameter_memory_size,
+    -1.0,  // MBytes
+    "fuse_parameter_memory_size is up limited memory size(MB)"
+    "of one group parameters' gradient which is the input "
+    "of communication calling(e.g NCCLAllReduce). "
+    "The default value is 0, it means that "
+    "not set group according to memory_size.");
+PHI_DEFINE_EXPORTED_int32(
+    fuse_parameter_groups_size,
+    1,
+    "fuse_parameter_groups_size is the up limited size of one group "
+    "parameters' gradient. "
+    "The default value is a experimental result. If the "
+    "fuse_parameter_groups_size is 1, it means that the groups size is "
+    "the number of parameters' gradient. If the fuse_parameter_groups_size is "
+    "-1, it means that there are only one group. The default value is 3, it is "
+    "an experimental value.");
+
+PHI_DEFINE_EXPORTED_string(print_sub_graph_dir,
+                           "",
+                           "FLAGS_print_sub_graph_dir is used "
+                           "to print the nodes of sub_graphs.");
+
+PHI_DEFINE_EXPORTED_bool(convert_all_blocks,
+                         true,
+                         "Convert all blocks in program into SSAgraphs");
+
+PHI_DEFINE_EXPORTED_bool(all_blocks_convert_trt,
+                         false,
+                         "Convert all blocks'Ops into TensorRT Ops");
+
+PHI_DEFINE_EXPORTED_string(static_executor_perfstat_filepath,
+                           "",
+                           "FLAGS_static_executor_perfstat_filepath "
+                           "enables performance statistics for the static "
+                           "graph executor.");
+
+PHI_DEFINE_EXPORTED_bool(print_kernel_run_info,
+                         false,
+                         "Whether print kernel run info.");
+
+PHI_DEFINE_EXPORTED_bool(
+    add_dependency_for_communication_op,
+    true,
+    "Whether to add dependency for communication Ops. It is just a temporary "
+    "FLAGS especially for auto parallel to avoid the concurrency damage by the "
+    "communication dependency added in standalone executor.");
+
+// The difference between "sequential_run" and "serial_run":
+// "sequential_run" dispatches OPs one by one according to the sequence in the
+// Program, while "serial_run" ensures that all Ops are scheduled in a signal
+// thread. In standalone executor, "sequential_run" is also "serial_run", while
+// "serial_run" is not necessarily "sequential_run".
+PHI_DEFINE_EXPORTED_bool(new_executor_sequential_run,
+                         false,
+                         "Enable sequential execution for standalone "
+                         "executor, only applied to GPU OPs.");
+
+// add debug info
+PHI_DEFINE_EXPORTED_bool(enable_dependency_builder_debug_info,
+                         false,
+                         "Enable dependency builder debug info");
+
+// FLAGS_force_sync_ops is used to finer control the op-sync in executor.
+// The format is: "micro_batch_id, job_name, op_id, op_name | micro_batch_id,
+// job_name, op_id, op_name | ...". Keep spaces to syncs all name/id. Example:
+// 1. sync the recv_v2 op in the second backward-job of 1F1B scheduling:
+// FLAGS_force_sync_ops="1, backward, , recv_v2"
+// 2. sync the full op with op_id=5: FLAGS_force_sync_ops=" , , 5, full"
+// 3. sync all ops in the first default-job: FLAGS_force_sync_ops="0,default,,
+// 4. sync all ops in the forward-job and backward-job: FLAGS_force_sync_ops=" ,
+// forward, , | , backward, , , "
+PHI_DEFINE_EXPORTED_string(force_sync_ops,
+                           "",
+                           "Pattern to force sync ops in executor.");
+
+PHI_DEFINE_EXPORTED_bool(
+    fleet_executor_with_standalone,
+    false,
+    "Use standalone executor to run ops. Temporary FLAGS, will be removed "
+    "after all fleet executor cases are modified to run ops with standalone "
+    "executor.");
+
+PHI_DEFINE_EXPORTED_bool(graph_edges_split_only_by_src_id,
+                         false,
+                         "multi-node split edges only by src id");
+PHI_DEFINE_EXPORTED_string(
+    graph_edges_split_mode,
+    "hard",
+    "graph split split, optional: [dbh,hard,fennel,none], default:hard");
+PHI_DEFINE_EXPORTED_bool(graph_edges_split_debug,
+                         false,
+                         "graph split by debug");
+PHI_DEFINE_EXPORTED_int32(graph_edges_debug_node_id, 0, "graph debug node id");
+PHI_DEFINE_EXPORTED_int32(graph_edges_debug_node_num,
+                          2,
+                          "graph debug node num");
+
+PHI_DEFINE_EXPORTED_string(rocksdb_path,
+                           "database",
+                           "path of sparse table rocksdb file");
+
+PHI_DEFINE_EXPORTED_uint64(dygraph_debug,
+                           0,
+                           "Debug level of dygraph. This flag is not "
+                           "open to users");
+
+PHI_DEFINE_EXPORTED_string(
+    tracer_profile_fname,
+    "xxgperf",
+    "Profiler filename for imperative tracer, which generated by gperftools."
+    "Only valid when compiled `WITH_PROFILER=ON`. Empty if disable.");
+
+PHI_DEFINE_EXPORTED_int32(rpc_send_thread_num,
+                          12,
+                          "number of threads for rpc send");
+
+PHI_DEFINE_EXPORTED_bool(prim_enabled, false, "enable_prim or not");
+PHI_DEFINE_EXPORTED_bool(prim_all, false, "enable prim_all or not");
+PHI_DEFINE_EXPORTED_bool(prim_forward, false, "enable prim_forward or not");
+PHI_DEFINE_EXPORTED_bool(prim_backward, false, "enable prim_backward not");
+
+PD_DEFINE_int32(pserver_push_dense_merge_limit,
+                12,
+                "limit max push_dense local merge requests");
+
+PD_DEFINE_int32(pserver_push_sparse_merge_limit,
+                12,
+                "limit max push_sparse local merge requests");
+
+PD_DEFINE_int32(pserver_pull_dense_limit,
+                12,
+                "limit max push_sparse local merge requests");
+
+PD_DEFINE_int32(pserver_async_push_dense_interval_ms,
+                10,
+                "async push_dense to server interval");
+
+PD_DEFINE_int32(pserver_async_push_sparse_interval_ms,
+                10,
+                "async push_sparse to server interval");
+
+PD_DEFINE_bool(pserver_scale_gradient_by_merge,
+               false,
+               "scale dense gradient when merged");
+
+PD_DEFINE_int32(pserver_communicate_compress_type,
+                0,
+                "none:0 snappy:1 gzip:2 zlib:3 lz4:4");
+
+PD_DEFINE_int32(pserver_max_async_call_num,
+                13,
+                "max task num in async_call_server");
+
+PD_DEFINE_int32(pserver_timeout_ms,
+                500000,
+                "pserver request server timeout_ms");
+
+PD_DEFINE_int32(pserver_connect_timeout_ms,
+                10000,
+                "pserver connect server timeout_ms");
+
+PD_DEFINE_int32(pserver_sparse_merge_thread,
+                1,
+                "pserver sparse merge thread num");
+
+PD_DEFINE_int32(pserver_sparse_table_shard_num,
+                1000,
+                "sparse table shard for save & load");
+
+PD_DEFINE_int32(pserver_timeout_ms_s2s,
+                10000,
+                "pserver request server timeout_ms");
+PD_DEFINE_int32(pserver_connect_timeout_ms_s2s,
+                10000,
+                "pserver connect server timeout_ms");
+PD_DEFINE_string(pserver_connection_type_s2s,
+                 "pooled",
+                 "pserver connection_type[pooled:single]");
+
+PD_DEFINE_uint64(total_fl_client_size, 100, "supported total fl client size");
+PD_DEFINE_uint32(coordinator_wait_all_clients_max_time, 60, "uint32: s");
+
+PD_DEFINE_int32(heter_world_size, 100, "group size");  // group max size
+PD_DEFINE_int32(switch_send_recv_timeout_s, 600, "switch_send_recv_timeout_s");
+
+PD_DEFINE_bool(pserver_print_missed_key_num_every_push,
+               false,
+               "pserver_print_missed_key_num_every_push");
+PD_DEFINE_bool(pserver_create_value_when_push,
+               true,
+               "pserver create value when push");
+PD_DEFINE_bool(pserver_enable_create_feasign_randomly,
+               false,
+               "pserver_enable_create_feasign_randomly");
+PD_DEFINE_int32(pserver_table_save_max_retry,
+                3,
+                "pserver_table_save_max_retry");
+
+PD_DEFINE_bool(enable_show_scale_gradient, true, "enable show scale gradient");
+
+PD_DEFINE_bool(pserver_open_strict_check, false, "pserver_open_strict_check");
+PD_DEFINE_int32(pserver_load_batch_size, 5000, "load batch size for ssd");
+
+PD_DEFINE_string(devices,  // NOLINT
+                 "",
+                 "The devices to be used which is joined by comma.");
+PD_DEFINE_int32(math_num_threads,
+                1,
+                "Number of threads used to run math functions.");
+
+PD_DEFINE_string(inference_model_dir, "", "inference test model dir");
+
+PD_DEFINE_bool(  // NOLINT
+    custom_model_save_cpu,
+    false,
+    "Keep old mode for developers, the model is saved on cpu not device.");
+
+PD_DEFINE_bool(profile, false, "Turn on profiler for fluid");  // NOLINT
+
+PD_DEFINE_string(dirname, "", "dirname to tests.");
+
+PHI_DEFINE_EXPORTED_bool(enable_gpu_memory_usage_log,
+                         false,
+                         "Whether to print the message of gpu memory usage "
+                         "at exit, mainly used for UT and CI.");
+
+PHI_DEFINE_EXPORTED_bool(enable_gpu_memory_usage_log_mb,
+                         true,
+                         "Whether to print the message of gpu memory usage "
+                         "MB as a unit of measurement.");
+PHI_DEFINE_EXPORTED_uint64(cuda_memory_async_pool_realease_threshold,
+                           ULLONG_MAX,
+                           "Amount of reserved memory in bytes to hold onto "
+                           "before trying to release memory back to the OS");
+
+// If use_pinned_memory is true, CPUAllocator calls mlock, which
+// returns pinned and locked memory as staging areas for data exchange
+// between host and device.  Allocates too much would reduce the amount
+// of memory available to the system for paging.  So, by default, we
+// should set false to use_pinned_memory.
+PHI_DEFINE_EXPORTED_bool(use_pinned_memory,  // NOLINT
+                         true,
+                         "If set, allocate cpu pinned memory.");
+
+PHI_DEFINE_EXPORTED_string(
+    selected_xpus,
+    "",
+    "A list of device ids separated by comma, like: 0,1,2,3. "
+    "This option is useful when doing multi process training and "
+    "each process have only one device (XPU). If you want to use "
+    "all visible devices, set this to empty string. NOTE: the "
+    "reason of doing this is that we want to use P2P communication"
+    "between XPU devices, use XPU_VISIBLE_DEVICES can only use"
+    "share-memory only.");
+
+#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
+#include "paddle/phi/backends/gpu/cuda/cudnn_workspace_helper.h"
+/**
+ * CUDNN related FLAG
+ * Name: FLAGS_conv_workspace_size_limit
+ * Since Version: 0.13.0
+ * Value Range: uint64, default=512 (MB)
+ * Example:
+ * Note: The internal function of cuDNN obtains the fastest matching algorithm
+ *       within this memory limit. Usually, faster algorithms can be chosen in
+ *       larger workspaces, but memory space can also be significantly
+ * increased.
+ *       Users need to balance memory and speed.
+ */
+PHI_DEFINE_EXPORTED_int64(conv_workspace_size_limit,
+                          phi::backends::gpu::kDefaultConvWorkspaceSizeLimitMB,
+                          "cuDNN convolution workspace limit in MB unit.");
+#endif
+
+PHI_DEFINE_EXPORTED_bool(use_stride_kernel,
+                         true,
+                         "Whether to use stride kernel if op support stride.");
+
+PHI_DEFINE_EXPORTED_bool(
+    log_memory_stats,
+    false,
+    "Log memory stats after each op runs, just used for debug.");
+
+PHI_DEFINE_EXPORTED_int64(
+    gpu_allocator_retry_time,
+    10000,
+    "The retry time (milliseconds) when allocator fails "
+    "to allocate memory. No retry if this value is not greater than 0");
+
+PHI_DEFINE_EXPORTED_bool(
+    use_system_allocator,
+    false,
+    "Whether to use system allocator to allocate CPU and GPU memory. "
+    "Only used for unittests.");
+
+PHI_DEFINE_EXPORTED_bool(use_virtual_memory_auto_growth,
+                         false,
+                         "Use VirtualMemoryAutoGrowthBestFitAllocator.");
+
+// NOTE(Ruibiao): This FLAGS is just to be compatible with
+// the old single-stream CUDA allocator. It will be removed
+// after StreamSafeCudaAllocator has been fully tested.
+PHI_DEFINE_EXPORTED_bool(use_stream_safe_cuda_allocator,
+                         true,
+                         "Enable StreamSafeCUDAAllocator");
+
+PHI_DEFINE_EXPORTED_bool(use_cuda_managed_memory,
+                         false,
+                         "Whether to use CUDAManagedAllocator to allocate "
+                         "managed memory, only available for auto_growth "
+                         "strategy");
+
+PHI_DEFINE_EXPORTED_bool(
+    use_auto_growth_v2,
+    false,
+    "Whether to use AutoGrowthBestFitAllocatorV2 for auto_growth "
+    "strategy");
+
+PHI_DEFINE_EXPORTED_READONLY_bool(
+    free_idle_chunk,
+    false,
+    "Whether to free idle chunk when each allocation is freed. "
+    "If false, all freed allocation would be cached to speed up next "
+    "allocation request. If true, no allocation would be cached. This "
+    "flag only works when FLAGS_allocator_strategy=auto_growth.");
+
+PHI_DEFINE_EXPORTED_READONLY_bool(
+    free_when_no_cache_hit,
+    false,
+    "Whether to free idle chunks when no cache hit. If true, idle "
+    "chunk would be freed when no cache hit; if false, idle "
+    "chunk would be freed when out of memory occurs. This flag "
+    "only works when FLAGS_allocator_strategy=auto_growth.");
+
+PHI_DEFINE_EXPORTED_READONLY_bool(print_allocator_trace_info,
+                                  false,
+                                  "print trace memory info");
+
+PHI_DEFINE_EXPORTED_READONLY_bool(dump_chunk_info, false, "dump chunk info");
+
+PHI_DEFINE_EXPORTED_bool(
+    init_allocated_mem,
+    false,
+    "It is a mistake that the values of the memory allocated by "
+    "BuddyAllocator are always zeroed in some op's implementation. "
+    "To find this error in time, we use init_allocated_mem to indicate "
+    "that initializing the allocated memory with a small value "
+    "during unit testing.");
+
+PHI_DEFINE_EXPORTED_bool(xpu_top_p_sampling_use_fp16,
+                         false,
+                         "use fp16 to improve the inference performance of "
+                         "top_p_sampling xpu kernel");
+PHI_DEFINE_EXPORTED_bool(
+    xpu_top_p_sampling_heuristic_threshold,
+    20,
+    "threshold of heuristic method used for xpu_top_p_sampling, default 20; if "
+    "heuristic_threshold = -1, xpu_top_p_sampling don't use heuristic method, "
+    "and will fallback to normal top_p_sampling; if heuristic_threshold > 0, "
+    "xpu_top_p_sampling will enable heuristic method");
+
+#ifdef PADDLE_WITH_HIP
+
+PHI_DEFINE_string(miopen_dir,
+                  "",
+                  "Specify path for loading libMIOpen.so. For instance, "
+                  "/opt/rocm/miopen/lib. If empty [default], dlopen "
+                  "will search miopen from LD_LIBRARY_PATH");
+
+PHI_DEFINE_string(rocm_dir,
+                  "",
+                  "Specify path for loading rocm library, such as librocblas, "
+                  "libmiopen, libhipsparse. For instance, /opt/rocm/lib. "
+                  "If default, dlopen will search rocm from LD_LIBRARY_PATH");
+
+PHI_DEFINE_string(rccl_dir,
+                  "",
+                  "Specify path for loading rccl library, such as librccl.so. "
+                  "For instance, /opt/rocm/rccl/lib. If default, "
+                  "dlopen will search rccl from LD_LIBRARY_PATH");
+#endif
+
+#ifdef PADDLE_WITH_XPU
+PD_DEFINE_string(xpti_dir, "", "Specify path for loading libxpti.so.");
+#endif
+
+PD_DEFINE_int32(io_threadpool_size,
+                100,
+                "number of threads used for doing IO, default 100");
+
+PD_DEFINE_int32(burning, 10, "Burning times.");
+PD_DEFINE_int32(repeat, 3000, "Repeat times.");
+PD_DEFINE_int32(max_size, 1000, "The Max size would be tested.");
+PD_DEFINE_string(filter, "", "The Benchmark name would be run.");  // NOLINT
+
+PD_DEFINE_double(acc, 1e-5, "Test accuracy threshold.");
+
+PHI_DEFINE_bool(enable_host_event_recorder_hook,
+                false,
+                "enable HostEventRecorder, hook Profiler");
+
+PHI_DEFINE_bool(enable_record_op_info,
+                false,
+                "enable operator supplement info recorder");
+
+PHI_DEFINE_bool(dump_jitcode, false, "Whether to dump the jitcode to file");

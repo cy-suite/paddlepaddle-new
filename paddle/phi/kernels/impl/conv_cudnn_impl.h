@@ -31,7 +31,7 @@
 #include "paddle/phi/kernels/funcs/padding.h"
 
 COMMON_DECLARE_bool(cudnn_deterministic);
-PD_DECLARE_int64(conv_workspace_size_limit);
+COMMON_DECLARE_int64(conv_workspace_size_limit);
 COMMON_DECLARE_bool(cudnn_exhaustive_search);
 
 namespace phi {

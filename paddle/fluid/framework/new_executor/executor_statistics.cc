@@ -28,12 +28,8 @@
 #include "paddle/phi/core/os_info.h"
 #include "paddle/phi/core/platform/profiler/utils.h"
 
-PD_DECLARE_bool(use_stream_safe_cuda_allocator);
-PHI_DEFINE_EXPORTED_string(static_executor_perfstat_filepath,
-                           "",
-                           "FLAGS_static_executor_perfstat_filepath "
-                           "enables performance statistics for the static "
-                           "graph executor.");
+COMMON_DECLARE_bool(use_stream_safe_cuda_allocator);
+COMMON_DECLARE_string(static_executor_perfstat_filepath);
 
 namespace paddle::framework {
 

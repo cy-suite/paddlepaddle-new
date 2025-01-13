@@ -26,7 +26,7 @@ limitations under the License. */
 #include "paddle/phi/core/platform/cpu_helper.h"
 #include "paddle/phi/core/platform/profiler.h"
 
-PD_DEFINE_bool(profile, false, "Turn on profiler for fluid");  // NOLINT
+COMMON_DECLARE_bool(profile);
 
 namespace paddle {
 namespace {

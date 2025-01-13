@@ -43,20 +43,11 @@ COMMON_DECLARE_uint64(gpugraph_slot_feasign_max_num);
 COMMON_DECLARE_bool(graph_metapath_split_opt);
 COMMON_DECLARE_double(graph_neighbor_size_percent);
 
-PHI_DEFINE_EXPORTED_bool(graph_edges_split_only_by_src_id,
-                         false,
-                         "multi-node split edges only by src id");
-PHI_DEFINE_EXPORTED_string(
-    graph_edges_split_mode,
-    "hard",
-    "graph split split, optional: [dbh,hard,fennel,none], default:hard");
-PHI_DEFINE_EXPORTED_bool(graph_edges_split_debug,
-                         false,
-                         "graph split by debug");
-PHI_DEFINE_EXPORTED_int32(graph_edges_debug_node_id, 0, "graph debug node id");
-PHI_DEFINE_EXPORTED_int32(graph_edges_debug_node_num,
-                          2,
-                          "graph debug node num");
+COMMON_DECLARE_bool(graph_edges_split_only_by_src_id);
+COMMON_DECLARE_string(graph_edges_split_mode);
+COMMON_DECLARE_bool(graph_edges_split_debug);
+COMMON_DECLARE_int32(graph_edges_debug_node_id);
+COMMON_DECLARE_int32(graph_edges_debug_node_num);
 
 namespace paddle::distributed {
 

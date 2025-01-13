@@ -34,6 +34,8 @@
 #include "paddle/phi/kernels/impl/conv_cudnn_impl.h"
 #include "paddle/utils/optional.h"
 
+COMMON_DECLARE_int64(conv_workspace_size_limit);
+
 namespace phi {
 namespace fusion {
 

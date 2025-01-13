@@ -20,6 +20,9 @@ limitations under the License. */
 #include "paddle/fluid/framework/op_proto_maker.h"
 #include "paddle/fluid/framework/program_utils.h"
 
+COMMON_DECLARE_bool(convert_all_blocks);
+COMMON_DECLARE_bool(all_blocks_convert_trt);
+
 namespace paddle::framework {
 class Scope;
 }  // namespace paddle::framework

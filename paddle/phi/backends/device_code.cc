@@ -25,7 +25,7 @@ limitations under the License. */
 #include "paddle/phi/backends/context_pool.h"
 #include "paddle/phi/backends/gpu/gpu_context.h"
 
-PHI_DECLARE_string(cuda_dir);
+COMMON_DECLARE_string(cuda_dir);
 
 namespace phi {
 

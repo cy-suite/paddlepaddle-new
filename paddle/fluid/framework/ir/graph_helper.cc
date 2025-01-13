@@ -29,12 +29,9 @@ limitations under the License. */
 #include "paddle/phi/core/platform/collective_helper.h"
 #endif
 #include "paddle/common/flags.h"
-PD_DECLARE_bool(convert_all_blocks);
-PD_DECLARE_bool(all_blocks_convert_trt);
-PHI_DEFINE_EXPORTED_string(print_sub_graph_dir,
-                           "",
-                           "FLAGS_print_sub_graph_dir is used "
-                           "to print the nodes of sub_graphs.");
+COMMON_DECLARE_bool(convert_all_blocks);
+COMMON_DECLARE_bool(all_blocks_convert_trt);
+COMMON_DECLARE_string(print_sub_graph_dir);
 
 namespace paddle::framework::ir {
 namespace {

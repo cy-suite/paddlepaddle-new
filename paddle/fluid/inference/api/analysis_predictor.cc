@@ -135,6 +135,7 @@
 
 COMMON_DECLARE_bool(pir_apply_inplace_pass);
 COMMON_DECLARE_bool(enable_auto_layout_pass);
+COMMON_DECLARE_int64(conv_workspace_size_limit);
 namespace paddle {
 namespace {
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)

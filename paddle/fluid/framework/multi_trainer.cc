@@ -24,10 +24,6 @@ limitations under the License. */
 #include "paddle/common/flags.h"
 #include "paddle/fluid/framework/program_utils.h"
 
-PHI_DEFINE_EXPORTED_bool(enable_dump_main_program,
-                         false,
-                         "enable dump main program, default false");
-
 namespace paddle::framework {
 
 extern Barrier g_barrier;

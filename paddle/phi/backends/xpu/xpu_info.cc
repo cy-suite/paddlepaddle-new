@@ -27,16 +27,7 @@ limitations under the License. */
 // flags.
 #include "paddle/common/flags.h"
 
-PHI_DEFINE_EXPORTED_string(
-    selected_xpus,
-    "",
-    "A list of device ids separated by comma, like: 0,1,2,3. "
-    "This option is useful when doing multi process training and "
-    "each process have only one device (XPU). If you want to use "
-    "all visible devices, set this to empty string. NOTE: the "
-    "reason of doing this is that we want to use P2P communication"
-    "between XPU devices, use XPU_VISIBLE_DEVICES can only use"
-    "share-memory only.");
+COMMON_DECLARE_string(selected_xpus);
 
 namespace phi {
 class XPUContext;

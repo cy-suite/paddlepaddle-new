@@ -26,7 +26,7 @@
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
 COMMON_DECLARE_double(fraction_of_gpu_memory_to_use);
 COMMON_DECLARE_double(fraction_of_cuda_pinned_memory_to_use);
-PD_DECLARE_int64(gpu_allocator_retry_time);
+COMMON_DECLARE_int64(gpu_allocator_retry_time);
 #endif
 
 COMMON_DECLARE_string(allocator_strategy);

@@ -20,6 +20,8 @@ limitations under the License. */
 #include "paddle/fluid/framework/operator.h"
 #include "paddle/fluid/framework/program_desc.h"
 
+COMMON_DECLARE_bool(convert_all_blocks);
+
 namespace paddle::framework {
 
 class NOP : public OperatorBase {

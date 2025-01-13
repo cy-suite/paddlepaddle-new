@@ -24,7 +24,7 @@
 #include "paddle/phi/common/place.h"
 #include "paddle/phi/core/platform/device_context.h"
 
-PD_DECLARE_bool(use_system_allocator);
+COMMON_DECLARE_bool(use_system_allocator);
 
 namespace paddle {
 namespace framework {

@@ -31,7 +31,7 @@
 #include "paddle/pir/include/dialect/shape/utils/shape_analysis.h"
 
 COMMON_DECLARE_bool(check_infer_symbolic);
-PD_DECLARE_bool(prim_all);
+COMMON_DECLARE_bool(prim_all);
 
 namespace cinn {
 namespace dialect {

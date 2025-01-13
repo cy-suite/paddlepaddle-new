@@ -90,6 +90,8 @@ COMMON_DECLARE_bool(enable_pir_in_executor_trace_run);
 COMMON_DECLARE_bool(enable_collect_shape);
 COMMON_DECLARE_int32(low_precision_op_list);
 COMMON_DECLARE_bool(pir_interpreter_record_stream_for_gc_cache);
+COMMON_DECLARE_bool(new_executor_serial_run);
+COMMON_DECLARE_bool(new_executor_use_local_scope);
 
 #define CREATE_INSTR(instr_name)                                   \
   vec_instruction_base_.emplace_back(std::make_unique<instr_name>( \

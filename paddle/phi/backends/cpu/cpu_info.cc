@@ -39,15 +39,6 @@ COMMON_DECLARE_double(fraction_of_cpu_memory_to_use);
 COMMON_DECLARE_uint64(initial_cpu_memory_in_mb);
 COMMON_DECLARE_double(fraction_of_cuda_pinned_memory_to_use);
 
-// If use_pinned_memory is true, CPUAllocator calls mlock, which
-// returns pinned and locked memory as staging areas for data exchange
-// between host and device.  Allocates too much would reduce the amount
-// of memory available to the system for paging.  So, by default, we
-// should set false to use_pinned_memory.
-PHI_DEFINE_EXPORTED_bool(use_pinned_memory,  // NOLINT
-                         true,
-                         "If set, allocate cpu pinned memory.");
-
 namespace phi::backends::cpu {
 
 size_t CpuTotalPhysicalMemory() {

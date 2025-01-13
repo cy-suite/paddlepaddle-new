@@ -34,9 +34,7 @@
 
 #include "paddle/fluid/framework/new_executor/instruction/instruction_util.h"
 
-PHI_DEFINE_EXPORTED_bool(print_kernel_run_info,
-                         false,
-                         "Whether print kernel run info.");
+COMMON_DECLARE_bool(print_kernel_run_info);
 
 namespace paddle::framework {
 

@@ -40,9 +40,9 @@ class Scope;
 }  // namespace framework
 }  // namespace paddle
 
+COMMON_DECLARE_int32(pserver_timeout_ms);
 namespace paddle {
 namespace distributed {
-PD_DECLARE_int32(pserver_timeout_ms);
 using MultiVarMsg = ::paddle::distributed::MultiVariableMessage;
 using VarMsg = ::paddle::distributed::VariableMessage;
 

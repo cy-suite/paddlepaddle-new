@@ -28,7 +28,7 @@
 #include "paddle/phi/core/enforce.h"
 #include "paddle/phi/core/kernel_registry.h"
 
-PD_DECLARE_bool(prim_enabled);
+COMMON_DECLARE_bool(prim_enabled);
 COMMON_DECLARE_string(tensor_operants_mode);
 
 namespace paddle::prim {

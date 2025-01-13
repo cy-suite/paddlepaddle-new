@@ -32,7 +32,6 @@
 #include "test/cpp/inference/api/tester_helper.h"
 
 PD_DEFINE_string(dirname, "", "dirname to tests.");
-
 namespace paddle {
 
 TEST(AnalysisPredictor, analysis_off) {

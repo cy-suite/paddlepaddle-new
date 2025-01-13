@@ -40,8 +40,8 @@ PADDLE_FORCE_LINK_FLAG(free_when_no_cache_hit);
 
 // NOTE: where are these 2 flags from?
 #ifdef PADDLE_WITH_DISTRIBUTE
-PD_DECLARE_int32(rpc_get_thread_num);
-PD_DECLARE_int32(rpc_prefetch_thread_num);
+COMMON_DECLARE_int32(rpc_get_thread_num);
+COMMON_DECLARE_int32(rpc_prefetch_thread_num);
 #endif
 
 namespace paddle::pybind {
