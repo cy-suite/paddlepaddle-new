@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
+
 import numpy as np
 import yaml
 
@@ -84,13 +86,13 @@ class ConfigDump:
         elif isinstance(item, paddle.base.core.VarDesc.VarType):
             return "VarType(" + str(item)[7:] + ")"
         elif isinstance(item, list):
-            result = "list("
+            result = "list["
             for sub_item in item:
                 tmp = self.dump_item_str(api, sub_item)
                 if tmp == "":
                     return ""
                 result = result + tmp + ","
-            result = result + ")"
+            result = result + "]"
             return result
         elif isinstance(item, tuple):
             result = "tuple("
@@ -111,13 +113,30 @@ class ConfigDump:
                 + str(item.step)
                 + ")"
             )
-        elif isinstance(item, (bool, int, float, str, complex, bytes, type)):
+        elif isinstance(item, complex):
             return (
-                str(type(item))[
-                    str(type(item)).index("'") + 1 : str(type(item)).rindex("'")
-                ]
-                + "("
-                + str(item)
+                "complex("
+                + self.dump_item_str(api, item.real)
+                + ","
+                + self.dump_item_str(api, item.imag)
+                + ")"
+            )
+        elif item == math.inf:
+            return "math.inf"
+        elif item == -math.inf:
+            return "-math.inf"
+        elif item == math.nan:
+            return "math.nan"
+        elif item == -math.nan:
+            return "-math.nan"
+        elif isinstance(item, (bool, int, float)):
+            return str(item)
+        elif isinstance(item, str):
+            return '"' + item + '"'
+        elif isinstance(item, type):
+            return (
+                "type("
+                + str(item)[str(item).index("'") + 1 : str(item).rindex("'")]
                 + ")"
             )
         elif item is None:
