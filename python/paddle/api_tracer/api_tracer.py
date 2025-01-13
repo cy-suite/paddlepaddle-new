@@ -121,6 +121,12 @@ class ConfigDump:
                 + self.dump_item_str(api, item.imag)
                 + ")"
             )
+        elif item is None:
+            return "None"
+        elif isinstance(
+            item, (paddle.base.Variable, paddle.base.libpaddle.pir.Value)
+        ):
+            return ""
         elif item == math.inf:
             return "math.inf"
         elif item == -math.inf:
@@ -139,12 +145,6 @@ class ConfigDump:
                 + str(item)[str(item).index("'") + 1 : str(item).rindex("'")]
                 + ")"
             )
-        elif item is None:
-            return "None"
-        elif isinstance(
-            item, (paddle.base.Variable, paddle.base.libpaddle.pir.Value)
-        ):
-            return ""
         else:
             print("[api_tracer error] : dump_item_str ", api, ", item = ", item)
             return ""
