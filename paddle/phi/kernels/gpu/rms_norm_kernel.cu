@@ -46,12 +46,14 @@ limitations under the License.
 namespace cub = hipcub;
 #define GPU(str) hip##str
 #define GPUMultiProcessorCount hipDeviceAttributeMultiprocessorCount
-#define GPUMaxSharedMemoryPerBlockOptin hipDeviceAttributeSharedMemPerBlockOptin
+#define GPUMaxSharedMemoryPerBlockOptin \
+  hipDeviceAttributeSharedMemPerBlockOptin  // Undo:Optin
 #else
 #include <cub/cub.cuh>
 #define GPU(str) cuda##str
 #define GPUMultiProcessorCount cudaDevAttrMultiProcessorCount
-#define GPUMaxSharedMemoryPerBlockOptin cudaDevAttrMaxSharedMemoryPerBlockOptin
+#define GPUMaxSharedMemoryPerBlockOptin \
+  cudaDevAttrMaxSharedMemoryPerBlockOptin  // Undo:Optin
 #endif
 
 namespace phi {
@@ -572,7 +574,7 @@ inline GPU(Error_t)
     int max_smem_size = 0;
     GPU(Error_t)
     err = GPU(DeviceGetAttribute)(
-        &max_smem_size, GPUMaxSharedMemoryPerBlockOptin, dev);
+        &max_smem_size, GPUMaxSharedMemoryPerBlockOptin, dev);  // Undo:Optin
     if (err != GPU(Success)) {
       return false;
     }

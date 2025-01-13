@@ -48,6 +48,7 @@ inline int compute_occupancy_for_kernel() {
     if (status == cudaError::cudaErrorInvalidValue) {
       // Clear the error bit since we can ignore this.
       // This should mean that smem_size >
+      // Undo Optin
       // cudaDevAttrMaxSharedMemoryPerBlockOptin. In that case, we return an
       // occupancy of 0. This will cause the heuristic to ignore this
       // configuration.
@@ -79,6 +80,7 @@ inline int compute_occupancy_for_kernel2() {
     if (status == cudaError::cudaErrorInvalidValue) {
       // Clear the error bit since we can ignore this.
       // This should mean that smem_size >
+      // Undo Optin
       // cudaDevAttrMaxSharedMemoryPerBlockOptin. In that case, we return an
       // occupancy of 0. This will cause the heuristic to ignore this
       // configuration.
