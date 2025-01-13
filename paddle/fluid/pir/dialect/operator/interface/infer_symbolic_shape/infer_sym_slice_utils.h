@@ -93,10 +93,6 @@ inline ExprVec GetSliceDims(const ExprVec &in_dims,
             (starts.at(i).Get<int64_t>() > in_dims.at(axis).Get<int64_t>())
                 ? in_dims.at(axis)
                 : starts.at(i);
-        starts.at(i) =
-            (starts.at(i).Get<int64_t>() < -(in_dims.at(axis).Get<int64_t>()))
-                ? 0
-                : starts.at(i);
       }
       start_i = starts.at(i).Get<int64_t>();
     }
@@ -155,16 +151,11 @@ inline ExprVec GetSliceDims(const ExprVec &in_dims,
     } else {
       slice_dims[axis] = out_dim;
     }
-    // output dim is int64_t, but input dim is symbol.
-    if (out_dim.isa<int64_t>() && !in_dims[axis].isa<int64_t>()) {
-      symbol::List<symbol::DimExpr> min_lists{out_dim, in_dims[axis]};
-      slice_dims[axis] =
-          symbol::DimExpr({symbol::Min<symbol::DimExpr>({min_lists})});
-    }
   }
 
   return slice_dims;
 }
+
 inline ExprVec GetDecreasedDims(const ExprVec &slice_dims,
                                 const std::vector<int64_t> &decrease_axes) {
   ExprVec decreased_dims(slice_dims);
