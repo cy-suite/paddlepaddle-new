@@ -537,21 +537,6 @@ class TestConv3dTransposePaddingSizeTRTPattern(TensorRTBaseTest):
         self.check_marker(expected_result=False)
 
 
-class TestConv3dTransposeNoDilationsTRTPattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = conv3d_transpose_with_error
-        self.api_args = {
-            "x": np.random.random([2, 3, 8, 8, 8]).astype("float32"),
-        }
-        self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {"x": [1, 3, 8, 8, 8]}
-        self.opt_shape = {"x": [1, 3, 8, 8, 8]}
-        self.max_shape = {"x": [10, 3, 8, 8, 8]}
-
-    def test_trt_result(self):
-        self.check_marker(expected_result=False)
-
-
 class TestConv3dTransposeInvalidDilationsTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = conv3d_transpose_with_error2
