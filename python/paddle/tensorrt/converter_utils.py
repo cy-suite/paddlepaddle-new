@@ -202,7 +202,7 @@ def fill_constant_layer(network, shape_tensor, tensor_rank, data, trt_dtype):
     return fill_layer.get_output(0)
 
 
-def trt_expand(network, input, rank, shape_tensor, shape_rank):
+def trt_expand(network, paddle_op, input, rank, shape_tensor, shape_rank):
     if rank < shape_rank:
         one_rank_tensor = add_1D_constant_layer(
             network, [1] * (shape_rank - rank)
@@ -229,6 +229,7 @@ def trt_expand(network, input, rank, shape_tensor, shape_rank):
     slice_layer.set_input(2, sizes_tensor)
     slice_layer.set_input(3, strides_tensor)
 
+    replenish_layer_and_output(slice_layer, paddle_op.name(), paddle_op.get_output_names())
     return slice_layer.get_output(0)
 
 
@@ -777,3 +778,17 @@ def get_axis_length(network, input_tensor, axis, is_scalar=False):
             network, dynamic_shape, axis, is_scalar
         )
     return output_tensor
+
+
+def replenish_layer_and_output(layer, layer_type, output_tensor_names):
+    if layer is None:
+        return
+    num_out = len(output_tensor_names)
+    layer_name = f"{layer_type} (Output: "
+    for i in range(num_out):
+        output_tensor = layer.get_output(i)
+        output_tensor.name = output_tensor_names[i]
+        layer_name += output_tensor_names[i]
+        if i != num_out - 1:
+            layer_name += ", "
+    layer.name = layer_name + ")"
