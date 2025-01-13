@@ -13,7 +13,7 @@
 # limitations under the License.
 
 # repo: PaddleDetection
-# model: configs^tood^tood_r50_fpn_1x_coco_single_dy2st_train  # typos: disable-line
+# model: configs^tood^tood_r50_fpn_1x_coco_single_dy2st_train
 # api:paddle.nn.functional.conv._conv_nd||api:paddle.nn.functional.conv._conv_nd||api:paddle.nn.functional.conv._conv_nd||api:paddle.nn.functional.common.interpolate||method:__add__||api:paddle.nn.functional.common.interpolate||method:__add__||api:paddle.nn.functional.conv._conv_nd||api:paddle.nn.functional.conv._conv_nd||api:paddle.nn.functional.conv._conv_nd||api:paddle.nn.functional.conv._conv_nd||api:paddle.nn.functional.activation.relu||api:paddle.nn.functional.conv._conv_nd
 from base import *  # noqa: F403
 
