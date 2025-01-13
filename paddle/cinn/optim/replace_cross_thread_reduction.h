@@ -76,6 +76,7 @@ namespace optim {
  *       total_sum[blockIdx.x] = shared_sum[0];
  *     }
  *   }
+ *
  * Output IR:
  *   buffer shm32_float_reduce[32];
  *   sum = __cinn_cuda_reduce_sum(data, shm32_float_reduce, false);
