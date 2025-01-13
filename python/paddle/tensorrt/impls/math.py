@@ -407,7 +407,7 @@ def isnan_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
     version_list = get_trt_version_list()
     if version_list >= [10, 1, 0]:
-        layer = network.add_unary(equal_tensor, trt.UnaryOperation.ISNAN)
+        layer = network.add_unary(input_tensor, trt.UnaryOperation.ISNAN)
         return layer.get_output(0)
 
     equal_tensor = trt_equal(network, input_tensor, input_tensor)
