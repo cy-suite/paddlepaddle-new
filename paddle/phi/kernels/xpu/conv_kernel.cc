@@ -95,7 +95,7 @@ void ConvKernel(const Context& dev_ctx,
     filter_data_ptr = reinterpret_cast<const XPUType*>(filter_data_tmp);
   }
 
-  int fc_calc_type = FCCalcType<XPUType>();
+  int fc_calc_type = GetConvCalcType<XPUType>();
   PD_VISIT_XPU_CONV_TYPES(XPUType, fc_calc_type, "conv2d", [&] {
 #ifdef PADDLE_WITH_XPU_XRE5
     int ret = xpudnn::conv2d_fusion<XPUType, XPUType, XPUType, TGEMM>(
@@ -233,7 +233,7 @@ void Conv3DKernel(const Context& dev_ctx,
     filter_data_ptr = reinterpret_cast<const XPUType*>(filter_data_tmp);
   }
 
-  int fc_calc_type = FCCalcType<XPUType>();
+  int fc_calc_type = GetConvCalcType<XPUType>();
   PD_VISIT_XPU_CONV_TYPES(XPUType, fc_calc_type, "conv3d", [&] {
 #ifdef PADDLE_WITH_XPU_XRE5
     using XPUTypeFP16 = typename XPUTypeTrait<phi::dtype::float16>::Type;

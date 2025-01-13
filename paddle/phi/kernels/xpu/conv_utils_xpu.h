@@ -13,9 +13,29 @@
 // limitations under the License.
 
 #pragma once
+#include <unordered_map>
 #include "paddle/phi/kernels/xpu/xpu_api_wrapper.h"
 
 namespace phi {
+template <typename T>
+inline XPUFCCalcType GetConvCalcType() {
+  std::unordered_map<const char*, XPUFCCalcType> calc_type_map = {
+      {"XPU_PADDLE_CONV_FLOAT16", XPUFCCalcType::FC_FLOAT16},
+      {"XPU_PADDLE_CONV_TF32", XPUFCCalcType::FC_TF32},
+      {"XPU_PADDLE_CONV_FLOAT", XPUFCCalcType::FC_FLOAT},
+      {"XPU_PADDLE_CONV_INT16", XPUFCCalcType::FC_INT16},
+      {"XPU_PADDLE_CONV_INT32", XPUFCCalcType::FC_INT32},
+      {"XPU_PADDLE_CONV_INT32_WITH_LL", XPUFCCalcType::FC_INT32_WITH_LL},
+  };
+
+  for (auto [env_str, calc_type] : calc_type_map) {
+    if (std::getenv(env_str)) {
+      return calc_type;
+    }
+  }
+
+  return FCCalcType<T>();
+}
 using XPUTypeFP16 = typename XPUTypeTrait<phi::dtype::float16>::Type;
 using XPUTypeBF16 = typename XPUTypeTrait<phi::dtype::bfloat16>::Type;
 template <typename QuantType>

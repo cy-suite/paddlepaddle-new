@@ -113,7 +113,7 @@ void ConvGradKernel(const Context& dev_ctx,
       filter_grad_data_ptr = filter_grad_data_tmp;
     }
   }
-  int fc_calc_type = FCCalcType<XPUType>();
+  int fc_calc_type = GetConvCalcType<XPUType>();
   PD_VISIT_XPU_CONV_TYPES(XPUType, fc_calc_type, "conv2d_grad", [&] {
 #ifdef PADDLE_WITH_XPU_XRE5
     int ret = xpudnn::conv2d_grad<XPUType, XPUType, XPUType, TGEMM>(
@@ -291,7 +291,7 @@ void Conv3DGradKernel(const Context& dev_ctx,
       filter_grad_data_ptr = filter_grad_data_tmp;
     }
   }
-  int fc_calc_type = FCCalcType<XPUType>();
+  int fc_calc_type = GetConvCalcType<XPUType>();
   PD_VISIT_XPU_CONV_TYPES(XPUType, fc_calc_type, "conv3d_grad", [&] {
     int ret = xpudnn::conv3d_grad<XPUType, XPUType, XPUType, TGEMM>(
 #ifdef PADDLE_WITH_XPU_XRE5
