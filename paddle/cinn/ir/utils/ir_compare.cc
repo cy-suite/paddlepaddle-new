@@ -43,7 +43,6 @@ bool IrEqualVisitor::Compare(const Expr& lhs, const Expr& rhs) {
   else
     equal =
         equal && IRVisitorRequireReImpl<bool, const Expr*>::Visit(&lhs, &rhs);
-
   if (!equal) {
     VLOG(7) << "Not equal on Expr, lhs:[type:"
             << kIrNodeTyReprs[static_cast<int>(lhs->node_type())] << "]\n"
