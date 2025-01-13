@@ -89,7 +89,7 @@ TEST(enforce, xpu_status) {
   EXPECT_TRUE(
       CheckXPUStatusFailure(static_cast<int>(XPUERR_OVERHEAT), "Overheat"));
   EXPECT_TRUE(
-      CheckXPUStatusFailure(static_cast<int>(XPUERR_UNEXPECT),
+      CheckXPUStatusFailure(static_cast<int>(XPUERR_UNEXPECTED),
                             "Execution error, reach unexpected control flow"));
   EXPECT_TRUE(CheckXPUStatusFailure(static_cast<int>(XPUERR_DEVRESET),
                                     "Device is being reset, try again later"));

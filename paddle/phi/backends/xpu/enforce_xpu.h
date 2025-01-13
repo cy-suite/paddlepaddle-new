@@ -60,7 +60,7 @@ inline const char* xpuGetErrorString(int stat) {
       return "Uncorrectable ECC";
     case XPUERR_OVERHEAT:
       return "Overheat";
-    case XPUERR_UNEXPECT:
+    case XPUERR_UNEXPECTED:
       return "Execution error, reach unexpected control flow";
     case XPUERR_DEVRESET:
       return "Device is being reset, try again later";
