@@ -1476,7 +1476,7 @@ function collect_failed_tests() {
     done
 }
 
-# getting qucik disable ut list
+# getting quick disable ut list
 function get_quickly_disable_ut() {
     python -m pip install httpx
     if disable_ut_quickly=$(python ${PADDLE_ROOT}/tools/get_quick_disable_lt.py); then
@@ -3694,9 +3694,6 @@ function distribute_test() {
     mkdir paddlenlp && mv Bos/* ./paddlenlp/
     rm -rf ./paddlenlp/upload/*
     rm -rf ./paddlenlp/models/bigscience/*
-
-    # Already disable unittests of llama2 model in current CI pipeline
-    export FLAGS_dynamic_static_unified_comm=True
 
     echo "Start LLM Test"
     cd ${work_dir}/PaddleNLP
