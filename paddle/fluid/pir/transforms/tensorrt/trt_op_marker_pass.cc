@@ -2224,7 +2224,8 @@ class EinsumOpPattern
         op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
-    std::string equation = op->attribute<pir::StrAttribute>("equation").AsString();
+    std::string equation =
+        op->attribute<pir::StrAttribute>("equation").AsString();
     if (equation.empty()) {
       VLOG(3) << "Einsum equation is empty";
       return false;
