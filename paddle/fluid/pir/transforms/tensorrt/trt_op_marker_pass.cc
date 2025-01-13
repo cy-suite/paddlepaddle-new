@@ -108,6 +108,7 @@ DEFINE_GENERAL_PATTERN(Ceil, paddle::dialect::CeilOp)
 DEFINE_GENERAL_PATTERN(Rsqrt, paddle::dialect::RsqrtOp)
 DEFINE_GENERAL_PATTERN(Reciprocal, paddle::dialect::ReciprocalOp)
 DEFINE_GENERAL_PATTERN(Erf, paddle::dialect::ErfOp)
+DEFINE_GENERAL_PATTERN(Isnan, paddle::dialect::IsnanOp)
 DEFINE_GENERAL_PATTERN(Sign, paddle::dialect::SignOp)
 DEFINE_GENERAL_PATTERN(Round, paddle::dialect::RoundOp)
 DEFINE_GENERAL_PATTERN(Numel, paddle::dialect::NumelOp)
@@ -1909,6 +1910,42 @@ class FullWithTensorPattern
   }
 };
 
+class TakeAlongAxisOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::TakeAlongAxisOp> {
+ public:
+  using pir::OpRewritePattern<
+      paddle::dialect::TakeAlongAxisOp>::OpRewritePattern;
+
+  bool MatchAndRewrite(paddle::dialect::TakeAlongAxisOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+#if !IS_TRT_VERSION_GE(8200)
+    VLOG(3) << "TakeAlongAxis is only supported by trt8.2 and above.";
+    return false;
+#else
+    pir::Value index_var_name = op.operand_source(1);
+    auto index_var_name_type =
+        index_var_name.type().dyn_cast<paddle::dialect::DenseTensorType>();
+    auto index_shape = index_var_name_type.dims();
+    pir::Value x_var_name = op.operand_source(0);
+    auto x_var_name_type =
+        x_var_name.type().dyn_cast<paddle::dialect::DenseTensorType>();
+    auto x_shape = x_var_name_type.dims();
+    if (x_shape.size() != index_shape.size()) {
+      VLOG(3) << "TakeAlongAxis op Index input dims size ["
+              << index_shape.size() << "] is not equal to input dims size ["
+              << x_shape.size() << "].";
+      return false;
+    }
+#endif
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class StridedSliceOpPattern
     : public pir::OpRewritePattern<paddle::dialect::StridedSliceOp> {
  public:
@@ -2309,6 +2346,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Rsqrt)
     ADD_PATTERN(Reciprocal)
     ADD_PATTERN(Erf)
+    ADD_PATTERN(Isnan)
     ADD_PATTERN(Sign)
     ADD_PATTERN(Round)
     ADD_PATTERN(Numel)
@@ -2373,6 +2411,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<WherePattern>(context));
     ps.Add(std::make_unique<FullLikeOpPattern>(context));
     ps.Add(std::make_unique<FullWithTensorPattern>(context));
+    ps.Add(std::make_unique<TakeAlongAxisOpPattern>(context));
     ps.Add(std::make_unique<StridedSliceOpPattern>(context));
     ps.Add(std::make_unique<TopkOpPattern>(context));
     ps.Add(std::make_unique<CumsumOpPattern>(context));
