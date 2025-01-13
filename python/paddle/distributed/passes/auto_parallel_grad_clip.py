@@ -254,8 +254,7 @@ class ClipHelper:
 
         for op in self.block.ops:
             if (
-                op.type == "c_allreduce_sum"
-                or (
+                (
                     op.type == "reduce"
                     and op.desc.attr("reduce_type") == dist.ReduceOp.SUM
                 )

@@ -14,6 +14,7 @@
 
 import numpy as np
 
+import paddle
 from paddle.framework import core
 from paddle.utils import unique_name
 
@@ -122,6 +123,7 @@ def insert_fuse_all_reduce_ops(
         insert_idx += 1
 
     # all_reduce sum should insert
+    attrs["reduce_type"] = paddle.distributed.ReduceOp.SUM
     block._insert_op_without_sync(
         insert_idx,
         type="all_reduce",
