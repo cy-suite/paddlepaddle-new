@@ -881,7 +881,7 @@ int ProductRuleBook(const Context& dev_ctx,
 
     const int threads = 256;
     const int blocks = (index_flags.numel() + threads - 1) / threads;
-    GetOutIndexesCounter<<<blocks, threads, 0, dev_ctx.stream()>>>(
+    GetOutIndexsCounter<<<blocks, threads, 0, dev_ctx.stream()>>>(
         index_flags_ptr, index_flags.numel(), out_index_table_ptr);
 #ifdef PADDLE_WITH_HIP
     thrust::exclusive_scan(thrust::hip::par.on(dev_ctx.stream()),
@@ -891,7 +891,7 @@ int ProductRuleBook(const Context& dev_ctx,
                            out_index_table_ptr,
                            out_index_table_ptr + blocks,
                            out_index_table_ptr);
-    GetOutIndexes<threads>
+    GetOutIndexs<threads>
         <<<blocks, threads, 0, dev_ctx.stream()>>>(index_flags_ptr,
                                                    index_flags.numel(),
                                                    out_index_table_ptr,
@@ -921,15 +921,15 @@ int ProductRuleBook(const Context& dev_ctx,
     unique_value->ResizeAndAllocate({static_cast<int>(out_nnz * kernel_size)});
     int* unique_value_ptr = unique_value->data<int>();
 
-    GroupIndexes<<<config.block_per_grid,
-                   config.thread_per_block,
-                   0,
-                   dev_ctx.stream()>>>(out_index_table_ptr,
-                                       rulebook_len,
-                                       kernel_size,
-                                       rulebook_ptr + rulebook_len,
-                                       out_index_ptr,
-                                       unique_value_ptr);
+    GroupIndexs<<<config.block_per_grid,
+                  config.thread_per_block,
+                  0,
+                  dev_ctx.stream()>>>(out_index_table_ptr,
+                                      rulebook_len,
+                                      kernel_size,
+                                      rulebook_ptr + rulebook_len,
+                                      out_index_ptr,
+                                      unique_value_ptr);
 
     return rulebook_len;
   }
