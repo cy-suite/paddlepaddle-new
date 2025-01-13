@@ -175,7 +175,7 @@ void FusionInfo::ParseOpInfos(const OpLoweringGroup& group) {
 void FusionInfo::ParseInputDimExprs(const OpLoweringGroup& group) {
   // NOTE(Aurelius84): [Why try get DimExpr from Group firstly? ]
   // In case of BroadcastTree, we will clone many Groups containing same ops.
-  // But its input valus is defining outside and will have same DimExprs in
+  // But its input values is defining outside and will have same DimExprs in
   // global ShapeAnalysis, which leading hash conflict unexpected.
   const auto TryGetDimExprsFromGroup = [&](const ::pir::Value& value) -> bool {
     if (!group.HasShapeOrDataExprs(value)) return false;
@@ -236,7 +236,7 @@ std::ostream& operator<<(std::ostream& os, const FusionInfo& fusion_info) {
 
 std::vector<const ::pir::Operation*> TopologySort(
     const OpLoweringGroup& group) {
-  // NOTE(Aurelius84): Use simplest one-by-one order temporaly.
+  // NOTE(Aurelius84): Use simplest one-by-one order temporarily.
   auto* block = group.GetParentBlock();
   std::vector<const ::pir::Operation*> ops;
   ops.reserve(block->size());

@@ -83,15 +83,19 @@ Expr Cast::Make(Type t, Expr v) {
   }
 #undef __CAST_TO_TYPE
 
-  if (v.node_type() != ir::IrNodeTy::Load && v.is_index() && t == Int(64)) {
+  // Cast indexExpr without `cast` and `load`
+  if (common::VerifyIndex(v) == common::IndexType::kValid && t == Int(64)) {
     v->convert_int32_to_int64();
     return v;
   }
+  if (common::VerifyIndex(v) == common::IndexType::kValid && t == Int(32)) {
+    v->convert_int64_to_int32();
+    return v;
+  }
+
   auto node = make_shared<Cast>();
   node->v() = v;
   node->set_type(t);
-
-  if (v.is_index()) node->set_index(true);
   return Expr(node);
 }
 
@@ -115,8 +119,6 @@ IndexExpr Add::Make(IndexExpr a, IndexExpr b) {
   node->set_index(true);
   return IndexExpr(node);
 }
-
-Add::Add(Expr a, Expr b) : BinaryOpNode<Add>(a.type(), a, b) {}
 
 void BinaryNodeVerify(const Expr &a, const Expr &b, absl::string_view ir_name) {
   PADDLE_ENFORCE_EQ(
@@ -146,6 +148,12 @@ Expr Sub::Make(Expr a, Expr b) {
   auto node = make_shared<Sub>(a, b);
   if (a.is_index() && b.is_index()) node->set_index(true);
   return Expr(node);
+}
+
+IndexExpr Sub::Make(IndexExpr a, IndexExpr b) {
+  auto node = make_shared<Sub>(a, b);
+  node->set_index(true);
+  return IndexExpr(node);
 }
 
 void Sub::Verify() const { BinaryNodeVerify(a(), b(), "Sub"); }
@@ -338,9 +346,6 @@ Expr Let::Make(Expr symbol, Expr body) {
   }
   n->symbol = symbol;
   n->body = body;
-
-  if (n->body.is_index()) n->symbol->set_index(true);
-
   n->set_type(n->symbol->type());
   return Expr(n);
 }
@@ -528,10 +533,6 @@ Expr For::Make(Var loop_var,
   node->set_vectorize_info(vector_info);
   node->set_bind_info(bind_info);
 
-  node->extent = node->extent.set_index(true).as_index().Normalize();
-  node->min = node->min.set_index(true).as_index().Normalize();
-  node->loop_var.set_index(true);
-
   if (node->is_vectorized()) {
     PADDLE_ENFORCE_EQ(node->vectorize_info().valid(),
                       true,
@@ -584,9 +585,6 @@ Expr ScheduleBlock::Make(const std::vector<Var> &iter_vars,
   node->write_buffers = write_buffers;
   node->name = name;
   node->body = body;
-  std::for_each(node->iter_vars.begin(), node->iter_vars.end(), [](Var &v) {
-    v.set_index(true);
-  });
   return Expr(node);
 }
 void ScheduleBlock::Verify() const {
@@ -620,12 +618,6 @@ Expr ScheduleBlockRealize::Make(const std::vector<Expr> &iter_values,
   auto node = make_shared<ScheduleBlockRealize>();
   node->iter_values = iter_values;
   node->schedule_block = schedule_block;
-
-  std::for_each(
-      node->iter_values.begin(), node->iter_values.end(), [](Expr &indice) {
-        indice = indice.set_index(true).as_index().Normalize();
-      });
-
   return Expr(node);
 }
 void ScheduleBlockRealize::Verify() const {
@@ -672,16 +664,6 @@ Expr IfThenElse::Make(Expr condition, Expr true_case, Expr false_case) {
   if (false_case.defined() && (!false_case.As<Block>()))
     false_case = ir::Block::Make({false_case});
   auto node = make_shared<IfThenElse>(condition, true_case, false_case);
-
-  if (node->condition.is_cmp() &&
-      common::VerifyIndex(node->condition->operand(0)) &&
-      common::VerifyIndex(node->condition->operand(1))) {
-    node->condition->operands[0] =
-        node->condition->operand(0).set_index(true).as_index().Normalize();
-    node->condition->operands[1] =
-        node->condition->operand(1).set_index(true).as_index().Normalize();
-  }
-
   return Expr(node);
 }
 
@@ -711,37 +693,6 @@ std::vector<const Expr *> IfThenElse::expr_fields() const {
   return {&condition, &true_case, &false_case};
 }
 
-Select::Select(Expr condition, Expr true_value, Expr false_value)
-    : ExprNode<Select>(true_value.type()),
-      condition(condition),
-      true_value(true_value),
-      false_value(false_value) {
-  PADDLE_ENFORCE_EQ(
-      true_value.type(),
-      false_value.type(),
-      ::common::errors::InvalidArgument(
-          "The type of true_value and false_value should be the same."));
-  PADDLE_ENFORCE_EQ(condition.type().is_bool(),
-                    true,
-                    ::common::errors::PreconditionNotMet(
-                        "The condition must be of boolean type."));
-  type_ = true_value.type();
-}
-
-Expr Select::Make(Expr condition, Expr true_value, Expr false_value) {
-  auto node = make_shared<Select>(condition, true_value, false_value);
-  if (node->condition.is_cmp() &&
-      common::VerifyIndex(node->condition->operand(0)) &&
-      common::VerifyIndex(node->condition->operand(1))) {
-    node->condition->operands[0] =
-        node->condition->operand(0).set_index(true).as_index().Normalize();
-    node->condition->operands[1] =
-        node->condition->operand(1).set_index(true).as_index().Normalize();
-  }
-
-  return Expr(node);
-}
-
 Expr Store::Make(Expr tensor, Expr value, const std::vector<Expr> &indices) {
   PADDLE_ENFORCE_NOT_NULL(tensor.As<_Tensor_>(),
                           ::common::errors::InvalidArgument(
@@ -757,11 +708,6 @@ Expr Store::Make(Expr tensor, Expr value, const std::vector<Expr> &indices) {
     node->set_type(
         tensor->type().ElementOf().with_lanes(node->index().type().lanes()));
   }
-
-  std::for_each(node->indices.begin(), node->indices.end(), [](Expr &indice) {
-    indice = indice.set_index(true).as_index().Normalize();
-  });
-
   return Expr(node);
 }
 
@@ -787,7 +733,7 @@ void Store::replace(Expr old_op, Expr new_op) {
   }
   for (int i = 0; i < indices.size(); i++) {
     if (indices[i] == old_op) {
-      indices[i] = new_op.set_index(true).as_index().Normalize();
+      indices[i] = new_op;
     }
   }
 }
@@ -858,11 +804,6 @@ Expr Alloc::Make(Expr dest,
   node->condition = condition;
   node->body = body;
   node->set_type(type);
-
-  std::for_each(node->extents.begin(), node->extents.end(), [](Expr &indice) {
-    indice = indice.set_index(true).as_index().Normalize();
-  });
-
   return Expr(node);
 }
 
@@ -1084,11 +1025,6 @@ Expr Load::Make(Expr tensor, const std::vector<Expr> &origin_indices) {
   node->tensor = tensor;
   node->indices = indices;
   node->set_type(node->type());
-
-  std::for_each(node->indices.begin(), node->indices.end(), [](Expr &indice) {
-    indice = indice.set_index(true).as_index().Normalize();
-  });
-
   return Expr(node);
 }
 
@@ -1363,10 +1299,6 @@ Expr Reduce::Make(Reduce::ReduceType reduce_type,
   n->reduce_type = reduce_type;
   n->reduce_axis.append(reduce_axis.begin(), reduce_axis.end());
 
-  std::for_each(n->reduce_axis.begin(), n->reduce_axis.end(), [](Var &axis) {
-    axis.set_index(true);
-  });
-
   PADDLE_ENFORCE_EQ(body.type().valid(),
                     true,
                     ::common::errors::InvalidArgument(
@@ -1454,6 +1386,26 @@ void Reduce::Verify() const {
                         "Received init type: %s, body type: %s",
                         init.type().to_string().c_str(),
                         body.type().to_string().c_str()));
+}
+
+Select::Select(Expr condition, Expr true_value, Expr false_value)
+    : ExprNode<Select>(true_value.type()),
+      condition(condition),
+      true_value(true_value),
+      false_value(false_value) {
+  TryElevateInt32ToInt64({true_value, false_value});
+  PADDLE_ENFORCE_EQ(true_value.type(),
+                    false_value.type(),
+                    ::common::errors::InvalidArgument(
+                        "The type of true_value and false_value should be the "
+                        "same. T: %s, F: %s",
+                        true_value,
+                        false_value));
+  PADDLE_ENFORCE_EQ(condition.type().is_bool(),
+                    true,
+                    ::common::errors::PreconditionNotMet(
+                        "The condition must be of boolean type."));
+  type_ = true_value.type();
 }
 
 Type Select::type() const {

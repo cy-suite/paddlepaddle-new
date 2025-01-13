@@ -28,7 +28,6 @@
 #include "paddle/cinn/ir/schedule/ir_schedule_util.h"
 #include "paddle/cinn/lang/placeholder.h"
 #include "paddle/cinn/operator_fusion/pattern_graph.h"
-#include "paddle/cinn/optim/schedule_block_dce.h"
 #include "paddle/cinn/optim/transform_gpu_forloop.h"
 #include "paddle/common/ddim.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_type.h"
@@ -128,8 +127,6 @@ DownStreamOp TrivalxOther_Fusion(TrivialOp upstream, DownStreamOp downstream) {
   VLOG(4) << "TTFusion end:\n" << modified_body;
   return DownStreamOp(modified_body);
 }
-
-std::pair<TrivialOp, ReduceOp> SplitReduceOp(const ReduceOp& reduce_op);
 
 std::vector<FusibleOp> TransformReduceLoopRange(
     const ReduceOp& upstream,
