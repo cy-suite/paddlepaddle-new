@@ -21,6 +21,7 @@ from paddle.base.log_helper import get_logger
 from paddle.tensorrt.converter_utils import (
     add_1D_constant_layer,
     fill_constant_layer,
+    get_input_constant_value,
     get_shape_tensor_element,
     get_trt_plugin,
     trt_concat,
@@ -164,43 +165,13 @@ def set_value_converter(network, paddle_op, inputs):
         paddle_op.name() == "pd_op.set_value"
         or paddle_op.name() == "pd_op.set_value_"
     ):
-        starts = (
-            paddle_op.operands()[1]
-            .source()
-            .get_defining_op()
-            .attrs()["value"][0]
-        )
-        ends = (
-            paddle_op.operands()[2]
-            .source()
-            .get_defining_op()
-            .attrs()["value"][0]
-        )
-        steps = (
-            paddle_op.operands()[3]
-            .source()
-            .get_defining_op()
-            .attrs()["value"][0]
-        )
+        starts = get_input_constant_value(paddle_op, inputs, 1)[0]
+        ends = get_input_constant_value(paddle_op, inputs, 2)[0]
+        steps = get_input_constant_value(paddle_op, inputs, 3)[0]
     else:
-        starts = (
-            paddle_op.operands()[2]
-            .source()
-            .get_defining_op()
-            .attrs()["value"][0]
-        )
-        ends = (
-            paddle_op.operands()[3]
-            .source()
-            .get_defining_op()
-            .attrs()["value"][0]
-        )
-        steps = (
-            paddle_op.operands()[4]
-            .source()
-            .get_defining_op()
-            .attrs()["value"][0]
-        )
+        starts = get_input_constant_value(paddle_op, inputs, 2)[0]
+        ends = get_input_constant_value(paddle_op, inputs, 3)[0]
+        steps = get_input_constant_value(paddle_op, inputs, 4)[0]
     axes = paddle_op.attrs()["axes"][0]
 
     input_dims = x.shape
@@ -301,6 +272,66 @@ def share_data_converter(network, paddle_op, inputs):
     identity_layer = network.add_identity(x)
 
     return identity_layer.get_output(0)
+
+
+@converter_registry.register("pd_op.anchor_generator", trt_version="8.x")
+def anchor_generator_converter(network, paddle_op, inputs):
+    inputs = inputs[0]
+    input_dims = inputs.shape
+    anchor_sizes = paddle_op.attrs().get("anchor_sizes")
+    aspect_ratios = paddle_op.attrs().get("aspect_ratios")
+    stride = paddle_op.attrs().get("stride")
+    variances = paddle_op.attrs().get("variances")
+    offset = paddle_op.attrs().get("offset")
+    num_anchors = len(aspect_ratios) * len(anchor_sizes)
+
+    height = input_dims[1]
+    width = input_dims[2]
+    box_num = width * height * num_anchors
+    data_type = trt.float32
+
+    plugin_fields = [
+        trt.PluginField(
+            "anchor_sizes",
+            np.array(anchor_sizes, dtype=np.float32),
+            trt.PluginFieldType.FLOAT32,
+        ),
+        trt.PluginField(
+            "aspect_ratios",
+            np.array(aspect_ratios, dtype=np.float32),
+            trt.PluginFieldType.FLOAT32,
+        ),
+        trt.PluginField(
+            "stride",
+            np.array(stride, dtype=np.float32),
+            trt.PluginFieldType.FLOAT32,
+        ),
+        trt.PluginField(
+            "variances",
+            np.array(variances, dtype=np.float32),
+            trt.PluginFieldType.FLOAT32,
+        ),
+        trt.PluginField(
+            "offset",
+            np.array(offset, dtype=np.float32),
+            trt.PluginFieldType.FLOAT32,
+        ),
+        trt.PluginField(
+            "num_anchors",
+            np.array(num_anchors, dtype=np.int32),
+            trt.PluginFieldType.INT32,
+        ),
+    ]
+    plugin_field_collection = trt.PluginFieldCollection(plugin_fields)
+    plugin_name = "pir_anchor_generator_plugin_dynamic"
+    plugin_version = "1"
+    plugin = get_trt_plugin(
+        plugin_name, plugin_field_collection, plugin_version
+    )
+    anchor_generator_layer = network.add_plugin_v2([inputs], plugin)
+    out0 = anchor_generator_layer.get_output(0)
+    out1 = anchor_generator_layer.get_output(1)
+    return (out0, out1)
 
 
 @converter_registry.register("pd_op.affine_channel", trt_version="8.x")
