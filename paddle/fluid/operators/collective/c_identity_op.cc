@@ -15,8 +15,8 @@ limitations under the License. */
 #include "paddle/fluid/framework/infershape_utils.h"
 #include "paddle/fluid/framework/op_registry.h"
 
+#include "paddle/phi/common/reduce_type.h"
 #include "paddle/phi/infermeta/unary.h"
-
 namespace paddle::operators {
 
 class CIdentityOp : public framework::OperatorWithKernel {
@@ -75,6 +75,7 @@ class CIdentityOpGradMaker : public framework::SingleGradOpMaker<T> {
     retv->SetInput("x", this->OutputGrad("Out"));
     retv->SetOutput("out", this->InputGrad("X"));
     retv->SetAttrMap(this->Attrs());
+    retv->SetAttr("reduce_type", static_cast<int>(phi::ReduceType::kRedSum));
   }
 };
 }  // namespace paddle::operators
