@@ -643,7 +643,10 @@ class TestSqueezeCase1TRTPattern(TensorRTBaseTest):
 
 def wrapper_pad3d(x, paddings, mode, value, data_format):
     pad3d = paddle.nn.Pad3D(
-        padding=paddings, mode=mode, value=value, data_format=data_format
+        padding=[1, 0, 1, 2, 0, 0],
+        mode=mode,
+        value=value,
+        data_format=data_format,
     )
     return pad3d(x)
 
