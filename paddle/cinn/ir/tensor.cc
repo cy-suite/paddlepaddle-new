@@ -382,7 +382,7 @@ void _Tensor_::Bind(lang::Buffer &buffer) {
   PADDLE_ENFORCE_EQ(buffer->binded_tensor_names().empty(),
                     false,
                     ::common::errors::PreconditionNotMet(
-                        "Reqiured binded_tensor_names shall not be empty."));
+                        "Required binded_tensor_names shall not be empty."));
   this->buffer = buffer.buffer();
   PADDLE_ENFORCE_EQ(this->buffer.defined(),
                     true,
@@ -443,8 +443,8 @@ bool _Tensor_::HasSameShapeWith(const Tensor &other) const {
   if (shape.size() != other->shape.size()) return false;
 
   for (int i = 0; i < shape.size(); i++) {
-    Expr dim0 = cinn::common::AutoSimplify(shape[i]);
-    Expr dim1 = cinn::common::AutoSimplify(other->shape[i]);
+    Expr dim0 = optim::ArithSimplify(shape[i]);
+    Expr dim1 = optim::ArithSimplify(other->shape[i]);
 
     if (dim0 != dim1) return false;
   }
