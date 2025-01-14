@@ -216,7 +216,11 @@ def swish_silu_converter(network, paddle_op, inputs):
     layer_output = network.add_activation(
         inputs[0], activation_type_map[paddle_op.name()]
     ).get_output(0)
-    return trt_prod(network, paddle_op, inputs[0], layer_output)
+    prod_layer = network.add_elementwise(inputs[0], layer_output, trt.ElementWiseOperation.PROD)
+    replenish_layer_and_output(
+        prod_layer, paddle_op.name(), paddle_op.get_output_names()
+    )
+    return prod_layer.get_output(0)
 
 
 @converter_registry.register("pd_op.tanh_shrink", trt_version="8.x")
