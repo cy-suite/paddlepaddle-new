@@ -866,6 +866,8 @@ class OpcodeExecutorBase:
             from .variables import PaddleLayerVariable
 
             # PaddleLayerVariable can deal with __iter__ method right, we don't need to do anything.
+            # As for other classes that support get_iter, Dict,Range,Tuple,List and Tensor Variables, we
+            # are supposed to convert "__iter__()" to "iter", so that we can call iter() correctly.
             if method_name != "__iter__" or isinstance(
                 obj, PaddleLayerVariable
             ):
