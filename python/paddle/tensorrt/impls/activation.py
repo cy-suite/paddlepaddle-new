@@ -17,6 +17,7 @@ import tensorrt as trt
 
 from paddle.tensorrt.converter_utils import (
     add_constant_layer,
+    replenish_layer_and_output,
     trt_div,
     trt_min,
     trt_pow,
@@ -25,6 +26,7 @@ from paddle.tensorrt.converter_utils import (
     trt_sum,
 )
 from paddle.tensorrt.register import converter_registry
+
 
 activation_type_map = {
     "pd_op.tanh": trt.ActivationType.TANH,
@@ -42,6 +44,9 @@ def activation_converter(network, paddle_op, inputs):
     layer = network.add_activation(
         inputs[0], activation_type_map[paddle_op.name()]
     )
+    replenish_layer_and_output(
+        layer, paddle_op.name(), paddle_op.get_output_names()
+    )
     return layer.get_output(0)
 
 
@@ -50,6 +55,9 @@ def relu6_converter(network, paddle_op, inputs):
     layer = network.add_activation(inputs[0], trt.ActivationType.CLIP)
     layer.alpha = 0.0
     layer.beta = 6.0
+    replenish_layer_and_output(
+        layer, paddle_op.name(), paddle_op.get_output_names()
+    )
     return layer.get_output(0)
 
 
@@ -61,6 +69,9 @@ def softmax_converter(network, paddle_op, inputs):
 
     softmax_layer = network.add_softmax(inputs[0])
     softmax_layer.axes = 1 << axis
+    replenish_layer_and_output(
+        softmax_layer, paddle_op.name(), paddle_op.get_output_names()
+    )
     return softmax_layer.get_output(0)
 
 
@@ -97,7 +108,7 @@ def gelu_converter(network, paddle_op, inputs):
         ).get_output(0)
         layer_one = trt_sum(network, layer_tanh, constant_layer_one)
         layer_cdf = trt_prod(network, layer_one, constant_layer_half)
-        y = trt_prod(network, layer_cdf, input_val)
+        y = trt_prod(network, paddle_op, layer_cdf, input_val)
 
         return y
     else:
@@ -113,7 +124,7 @@ def gelu_converter(network, paddle_op, inputs):
         ).get_output(0)
         layer_add = trt_sum(network, layer_erf, constant_layer_one)
         layer_cdf = trt_prod(network, layer_add, constant_layer_half)
-        y = trt_prod(network, layer_cdf, input_val)
+        y = trt_prod(network, paddle_op, layer_cdf, input_val)
 
         return y
 
@@ -130,6 +141,9 @@ def hardsigmoid_converter(network, paddle_op, inputs):
     )
     hardsigmoid_layer.alpha = slope
     hardsigmoid_layer.beta = offset
+    replenish_layer_and_output(
+        hardsigmoid_layer, paddle_op.name(), paddle_op.get_output_names()
+    )
     return hardsigmoid_layer.get_output(0)
 
 
@@ -149,6 +163,9 @@ def hardswish_converter(network, paddle_op, inputs):
     hardswish_layer = network.add_elementwise(
         x, hardsigmoid_layer.get_output(0), trt.ElementWiseOperation.PROD
     )
+    replenish_layer_and_output(
+        hardswish_layer, paddle_op.name(), paddle_op.get_output_names()
+    )
     return hardswish_layer.get_output(0)
 
 
@@ -159,6 +176,9 @@ def elu_converter(network, paddle_op, inputs):
     alpha = paddle_op.attrs()["alpha"]
     elu_layer = network.add_activation(x, trt.ActivationType.ELU)
     elu_layer.alpha = alpha
+    replenish_layer_and_output(
+        elu_layer, paddle_op.name(), paddle_op.get_output_names()
+    )
     return elu_layer.get_output(0)
 
 
@@ -176,6 +196,9 @@ def softplus_converter(network, paddle_op, inputs):
     )
     softplus_layer.alpha = 1.0 / beta
     softplus_layer.beta = beta
+    replenish_layer_and_output(
+        softplus_layer, paddle_op.name(), paddle_op.get_output_names()
+    )
     return softplus_layer.get_output(0)
 
 
@@ -195,6 +218,9 @@ def tanh_shrink_converter(network, paddle_op, inputs):
     subtract_layer = network.add_elementwise(
         x, tanh_layer.get_output(0), trt.ElementWiseOperation.SUB
     )
+    replenish_layer_and_output(
+        subtract_layer, paddle_op.name(), paddle_op.get_output_names()
+    )
     return subtract_layer.get_output(0)
 
 
@@ -206,6 +232,9 @@ def stanh_converter(network, paddle_op, inputs):
     stanh_layer = network.add_activation(x, trt.ActivationType.SCALED_TANH)
     stanh_layer.alpha = scale_b
     stanh_layer.beta = scale_a
+    replenish_layer_and_output(
+        stanh_layer, paddle_op.name(), paddle_op.get_output_names()
+    )
     return stanh_layer.get_output(0)
 
 
@@ -248,7 +277,7 @@ def celu_converter(network, paddle_op, inputs):
     input_prod_with_alpha = trt_prod(network, input_sub_with_one, alpha_data)
     min_input = trt_min(network, input_prod_with_alpha, constant_zero_data)
     relu_layer = network.add_activation(input_tensor, trt.ActivationType.RELU)
-    output_tensor = trt_sum(network, relu_layer.get_output(0), min_input)
+    output_tensor = trt_sum(network, paddle_op, relu_layer.get_output(0), min_input)
     return output_tensor
 
 
@@ -260,6 +289,9 @@ def thresholded_relu_converter(network, paddle_op, inputs):
         x, trt.ActivationType.THRESHOLDED_RELU
     )
     thresholded_relu_layer.alpha = threshold
+    replenish_layer_and_output(
+        thresholded_relu_layer, paddle_op.name(), paddle_op.get_output_names()
+    )
     return thresholded_relu_layer.get_output(0)
 
 
@@ -271,4 +303,7 @@ def selu_converter(network, paddle_op, inputs):
     selu_layer = network.add_activation(x, trt.ActivationType.SELU)
     selu_layer.alpha = alpha
     selu_layer.beta = scale
+    replenish_layer_and_output(
+        selu_layer, paddle_op.name(), paddle_op.get_output_names()
+    )
     return selu_layer.get_output(0)
