@@ -439,7 +439,7 @@ class OperatorIndexPreservePass:
             ):
                 break
             new_index += 1
-        # remove forward_backward_seperator
+        # remove forward_backward_separator
         if new_index >= len(program.global_block().ops):
             raise RuntimeError(
                 f"Can't find index preserve label {self.name}, don't remove it in pass."
@@ -619,7 +619,6 @@ class PartialProgramLayer:
         self._hookers = []
         self._backend = kwargs.get('backend', None)
         self._grad_var_names = {}
-        self._debug_name = None
 
     def __call__(self, inputs):
         """
