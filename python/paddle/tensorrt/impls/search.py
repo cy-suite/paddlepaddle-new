@@ -101,7 +101,7 @@ def argmin_converter(network, paddle_op, inputs):
 
     if keepdims:
         replenish_layer_and_output(
-            topk_layer, paddle_op.name(), paddle_op.get_output_names()[1]
+            topk_layer, paddle_op.name(), paddle_op.get_output_names()
         )
         return topk_layer.get_output(1)
     else:
@@ -112,6 +112,9 @@ def argmin_converter(network, paddle_op, inputs):
                 continue
             output_dims.append(input_dims[i])
         squeeze_layer.reshape_dims = tuple(output_dims)
+        replenish_layer_and_output(
+            squeeze_layer, paddle_op.name(), paddle_op.get_output_names()
+        )
         return squeeze_layer.get_output(0)
 
 
