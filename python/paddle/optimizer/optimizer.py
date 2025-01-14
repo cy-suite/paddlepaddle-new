@@ -732,7 +732,7 @@ class Optimizer:
 
         if not isinstance(scheduler, LRScheduler):
             raise TypeError(
-                f"The type of 'scheduler' in optimizer.set_lr_schduler must be LRScheduler, but received {type(scheduler)}."
+                f"The type of 'scheduler' in optimizer.set_lr_scheduler must be LRScheduler, but received {type(scheduler)}."
             )
         self._learning_rate = scheduler
 
@@ -1760,15 +1760,15 @@ class Optimizer:
                 )
                 params_and_grads.append((param, new_grad))
         else:
-            repeate_regularizer = False
+            repeat_regularizer = False
             with framework.name_scope('regularization'):
                 for param, grad in parameters_and_grads:
                     if (
-                        not repeate_regularizer
+                        not repeat_regularizer
                         and param.regularizer is not None
                         and regularization is not None
                     ):
-                        repeate_regularizer = True
+                        repeat_regularizer = True
                         logging.info(
                             "If regularizer of a Parameter has been set by 'base.ParamAttr' or 'base.WeightNormParamAttr' already. "
                             f"The Regularization[{regularization}] in Optimizer will not take effect, and it will only be applied to other Parameters!"
