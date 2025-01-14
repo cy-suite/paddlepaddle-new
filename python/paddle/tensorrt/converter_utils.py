@@ -164,6 +164,9 @@ def add_elementwise_layer(network, paddle_op, inputs, op_type):
     )
     layer = network.add_elementwise(lhs_val, rhs_val, op_type)
     support_fp32_mix_precision(paddle_op.name(), layer)
+    replenish_layer_and_output(
+        layer, paddle_op.name(), paddle_op.get_output_names()
+    )
     return layer.get_output(0)
 
 
@@ -247,7 +250,7 @@ def trt_cast(network, input, dtype):
     return identity_layer.get_output(0)
 
 
-def trt_shape(network: INetworkDefinition, input: ITensor) -> ITensor:
+def trt_shape(network: INetworkDefinition, paddle_op, input: ITensor) -> ITensor:
     """
     Add a IShapeLayer to get the shape of `input` ITensor.
     This includes a workaround that casting the shape result(int64) from TRT10 back to int32.
@@ -259,6 +262,9 @@ def trt_shape(network: INetworkDefinition, input: ITensor) -> ITensor:
     if version_list[0] >= 10:  # trt_version >=10
         # workaround
         return trt_cast(network, shape_layer.get_output(0), trt.int32)
+    replenish_layer_and_output(
+        shape_layer, paddle_op.name(), paddle_op.get_output_names()
+    )
     return shape_layer.get_output(0)
 
 
@@ -304,8 +310,11 @@ def trt_less(network, a, b):
     return layer.get_output(0)
 
 
-def trt_sum(network, a, b):
+def trt_sum(network, paddle_op, a, b):
     layer = network.add_elementwise(a, b, trt.ElementWiseOperation.SUM)
+    replenish_layer_and_output(
+        layer, paddle_op.name(), paddle_op.get_output_names()
+    )
     return layer.get_output(0)
 
 
@@ -345,8 +354,11 @@ def trt_gather(network, input, indices, axis=0):
     return result
 
 
-def trt_prod(network, a, b):
+def trt_prod(network, paddle_op, a, b):
     layer = network.add_elementwise(a, b, trt.ElementWiseOperation.PROD)
+    replenish_layer_and_output(
+        layer, paddle_op.name(), paddle_op.get_output_names()
+    )
     return layer.get_output(0)
 
 
@@ -564,6 +576,9 @@ def convert_conv2d(network, paddle_op, inputs):
     layer.dilation_nd = nv_dilations
     support_fp32_mix_precision(paddle_op.name(), layer)
 
+    replenish_layer_and_output(
+        layer, paddle_op.name(), paddle_op.get_output_names()
+    )
     return layer.get_output(0)
 
 
@@ -604,6 +619,9 @@ def add_reduce_layer(network, paddle_op, inputs, op_type):
         keep_dims=keepdim,
     )
     layer.get_output(0).dtype = layer.get_input(0).dtype
+    replenish_layer_and_output(
+        layer, paddle_op.name(), paddle_op.get_output_names()
+    )
     return layer.get_output(0)
 
 
@@ -634,6 +652,9 @@ def add_cast_reduce_layer(network, paddle_op, inputs, op_type):
     )
     layer.set_output_type(0, trt.bool)
     layer.get_output(0).dtype = cast_layer.get_output(0).dtype
+    replenish_layer_and_output(
+        layer, paddle_op.name(), paddle_op.get_output_names()
+    )
     return layer.get_output(0)
 
 
@@ -752,6 +773,9 @@ def unary_op_converter(network, paddle_op, inputs):
         for trt_op in ops_type_map[paddle_op.name()]:
             layer = network.add_unary(input_tensor, trt_op)
             input_tensor = layer.get_output(0)
+            replenish_layer_and_output(
+                layer, paddle_op.name(), paddle_op.get_output_names()
+            )
     else:
         raise NotImplementedError(
             f"Unsupported unary operation: {paddle_op.name()}"
@@ -760,6 +784,9 @@ def unary_op_converter(network, paddle_op, inputs):
         restore_layer = network.add_identity(input_tensor)
         restore_layer.set_output_type(0, trt_type_mapping[org_type])
         input_tensor = restore_layer.get_output(0)
+        replenish_layer_and_output(
+            restore_layer, paddle_op.name(), paddle_op.get_output_names()
+        )
 
     return input_tensor
 
