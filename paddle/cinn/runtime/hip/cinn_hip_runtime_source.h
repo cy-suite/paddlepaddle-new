@@ -589,18 +589,18 @@ EXPAND_REDUCE_FP16_MACRO(CINN_DISCRETE_REDUCE_INTERNAL_SHM_MACRO)
 #define CINN_PARTIAL_BLOCK_REDUCE_INTERNAL_SHM_IMPL(         \
     TYPE, value, init_value, cinn_warp_shuffle_internal)     \
   int tid = threadIdx.y * blockDim.x + threadIdx.x;          \
-  int warp_id = tid >> 5;                                    \
-  int row_dim = (blockDim.x + 31) >> 5;                      \
+  int warp_id = tid / WARP_SIZE;                             \
+  int row_dim = (blockDim.x + WARP_SIZE - 1) / WARP_SIZE;    \
   TYPE tmp_val = cinn_warp_shuffle_internal(value);          \
-  if (blockDim.x <= 32) {                                    \
+  if (blockDim.x <= WARP_SIZE) {                             \
     return tmp_val;                                          \
   }                                                          \
   __syncthreads();                                           \
-  if ((tid & 31) == 0) {                                     \
+  if ((tid & (WARP_SIZE - 1)) == 0) {                        \
     shm[warp_id] = tmp_val;                                  \
   }                                                          \
   __syncthreads();                                           \
-  if (threadIdx.x < 32) {                                    \
+  if (threadIdx.x < WARP_SIZE) {                             \
     tmp_val = (threadIdx.x < row_dim)                        \
                   ? shm[threadIdx.y * row_dim + threadIdx.x] \
                   : init_value;                              \

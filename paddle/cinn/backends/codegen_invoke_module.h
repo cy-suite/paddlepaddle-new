@@ -83,8 +83,12 @@ class CodeGenSwitchHost : public CodeGenInvokeModule {
             return LowerInnerCaseCall(op);
           }
         },
-        [&](std::variant<common::UnknownArch, common::X86Arch, common::ARMArch>)
-            -> llvm::Value * { CINN_NOT_IMPLEMENTED; });
+        [&](std::variant<common::UnknownArch,
+                         common::X86Arch,
+                         common::ARMArch,
+                         common::HygonDCUArchSYCL>) -> llvm::Value * {
+          CINN_NOT_IMPLEMENTED;
+        });
   }
 
  private:
