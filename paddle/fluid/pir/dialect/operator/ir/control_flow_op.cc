@@ -908,7 +908,6 @@ bool WhileOp::InferSymbolicShape(
     }
     for (size_t j = 0; j < last_op_input_shape.size(); j++) {
       if (last_op_input_shape[j].isa<int64_t>() &&
-          block_arg_shape[j].isa<int64_t>() &&
           (last_op_input_shape[j] != block_arg_shape[j])) {
         need_infer_block_again = true;
         output_dims[j] = symbol::DimExpr{infer_context->GetNextSymName()};
