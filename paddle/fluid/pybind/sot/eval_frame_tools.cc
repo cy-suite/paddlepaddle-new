@@ -23,6 +23,7 @@
 #include "paddle/phi/core/platform/profiler/event_tracing.h"
 
 #if SOT_IS_SUPPORTED
+#define END_OF_STRING '\0'
 
 /*============================ Dict Tree ================================*/
 
@@ -32,10 +33,10 @@ class TreeNode {
   ~TreeNode() { clear(); }
   void clear();
   void add_prefix(const char* filename);
-  int check_filename(const char* filename);
+  bool check_filename(const char* filename);
 
  private:
-  int is_prefix;
+  bool is_end;
   TreeNode* children[256];  // NOLINT
 };
 
@@ -46,9 +47,9 @@ void TreeNode::clear() {
 }
 
 void TreeNode::add_prefix(const char* filepath) {
-  if (is_prefix) return;
-  if (filepath[0] == '\0') {
-    is_prefix = 1;
+  if (is_end) return;
+  if (filepath[0] == END_OF_STRING) {
+    is_end = true;
     return;
   }
 
@@ -63,18 +64,18 @@ void TreeNode::add_prefix(const char* filepath) {
   return;
 }
 
-int TreeNode::check_filename(const char* filename) {
-  int cur_idx = 0;
+bool TreeNode::check_filename(const char* filename) {
+  size_t cur_idx = 0;
   TreeNode* cur_node = this;
 
-  while (filename[cur_idx] != '\0') {
+  while (filename[cur_idx] != END_OF_STRING) {
     cur_node = cur_node->children[(int)filename[cur_idx]];  // NOLINT
-    if (cur_node == nullptr) return 0;
-    if (cur_node->is_prefix) return 1;
+    if (cur_node == nullptr) return false;
+    if (cur_node->is_end) return true;
     cur_idx += 1;
   }
 
-  return 0;
+  return false;
 }
 
 /*========================== utils  ==========================*/
