@@ -61,7 +61,6 @@ def YoloBoxOpConverter(network, paddle_op, inputs):
     iou_aware = paddle_op.attrs().get("iou_aware")
     iou_aware_factor = paddle_op.attrs().get("iou_aware_factor")
     type_id = int(WithFp16())
-    print("type_id", type_id)
     input_dim = x.shape
     data_type = trt.float32
     input_h = input_dim[2]

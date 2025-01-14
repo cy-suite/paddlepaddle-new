@@ -613,10 +613,8 @@ nvinfer1::Dims PIRYoloBoxPlugin::getOutputDimensions(
 
 bool PIRYoloBoxPlugin::supportsFormat(
     nvinfer1::DataType type, nvinfer1::TensorFormat format) const TRT_NOEXCEPT {
-  bool type_supported = (type == nvinfer1::DataType::kFLOAT) ||
-                        (type == nvinfer1::DataType::kHALF) ||
-                        (type == nvinfer1::DataType::kINT32);
-  return (type_supported && format == nvinfer1::TensorFormat::kLINEAR);
+  return ((type == data_type_ || type == nvinfer1::DataType::kINT32) &&
+          format == nvinfer1::TensorFormat::kLINEAR);
 }
 
 size_t PIRYoloBoxPlugin::getWorkspaceSize(int max_batch_size) const
@@ -816,7 +814,6 @@ nvinfer1::IPluginV2Ext* PIRYoloBoxPluginCreator::createPlugin(
     const std::string field_name(fc->fields[i].name);
     if (field_name.compare("type_id") == 0) {
       type_id = *static_cast<const int*>(fc->fields[i].data);
-      LOG(INFO) << "type_id" << type_id;
     } else if (field_name.compare("anchors") == 0) {
       const int length = fc->fields[i].length;
       const int* data = static_cast<const int*>(fc->fields[i].data);
