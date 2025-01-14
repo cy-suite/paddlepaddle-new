@@ -389,7 +389,7 @@ void CodeGenC::VisitStmt(const ir::stmt::IfThenElse &stmt) {
 
   VisitBlock(stmt->true_case());
 
-  if (stmt->false_case().defined() && !stmt->false_case()->stmts().empty()) {
+  if (!stmt->false_case()->stmts().empty()) {
     str_ += " else ";
     VisitBlock(stmt->false_case());
   }

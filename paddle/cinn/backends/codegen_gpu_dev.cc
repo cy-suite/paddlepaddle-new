@@ -82,10 +82,11 @@ std::vector<ir::stmt::StmtRef> CodeGenGpuDev::GenerateBufferAliasStmts(
                                        temp_buffers.end());
   // prepare temp buffer alias
   std::vector<ir::stmt::StmtRef> buffer_alias;
-  auto tensors = ir::ir_utils::CollectIRNodes(op->body, [&](const Expr *x) {
-    return x->as_tensor() && x->as_tensor()->buffer.defined() &&
-           temp_buffer_set.count(x->as_tensor()->buffer);
-  });
+  auto tensors =
+      ir::ir_utils::CollectIRNodes(op->body_block, [&](const Expr *x) {
+        return x->as_tensor() && x->as_tensor()->buffer.defined() &&
+               temp_buffer_set.count(x->as_tensor()->buffer);
+      });
 
   // unique tensors
   std::set<ir::Tensor> unique_tensors;
@@ -199,7 +200,7 @@ void CodeGenGpuDev::Visit(const ir::_Var_ *op) {
 void CodeGenGpuDev::VisitStmt(const ir::stmt::Alloc &stmt) {
   PADDLE_ENFORCE_NE(stmt->destination().as_buffer(),
                     nullptr,
-                    ::common::errors::PreconditionNotMet(
+                    ::common::errors::InvalidArgument(
                         "Buffer shouldn't be null in Alloc instruction."));
   PrintTempBufferCreation(stmt->destination().as_buffer_ref());
 }
