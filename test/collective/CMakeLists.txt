@@ -13,6 +13,13 @@ if((WITH_GPU OR WITH_ROCM) AND (LINUX))
 endif()
 if((WITH_GPU OR WITH_ROCM) AND (LINUX))
   py_test_modules(
+    test_c_split MODULES test_c_split ENVS
+    "http_proxy=;https_proxy=;PYTHONPATH=..:${PADDLE_BINARY_DIR}/python")
+  set_tests_properties(test_c_split PROPERTIES TIMEOUT "120" LABELS
+                                               "RUN_TYPE=DIST")
+endif()
+if((WITH_GPU OR WITH_ROCM) AND (LINUX))
+  py_test_modules(
     test_collective_allgather_api MODULES test_collective_allgather_api ENVS
     "http_proxy=;https_proxy=;PYTHONPATH=..:${PADDLE_BINARY_DIR}/python")
   set_tests_properties(test_collective_allgather_api
