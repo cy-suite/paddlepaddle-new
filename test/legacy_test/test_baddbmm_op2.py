@@ -20,54 +20,48 @@ from op_test import OpTest
 import paddle
 
 
-class TestBaddBmmOp(OpTest):
-    # test basic
+class TestBaddBmmOp3(OpTest):
     def setUp(self):
         self.op_type = "baddbmm"
         self.prim_op_type = "comp"
         self.python_api = paddle.baddbmm
         self.public_python_api = paddle.baddbmm
+        self.dtype = np.float64
         self.init_dtype_type()
         self.inputs = {
             'Input': np.random.random((2, 10, 5)).astype(self.dtype),
             'X': np.random.random((2, 10, 10)).astype(self.dtype),
             'Y': np.random.random((2, 10, 5)).astype(self.dtype),
         }
+        self.attrs = {
+            'Alpha': 0.5,
+            'Beta': 2.0,
+        }
         self.outputs = {
-            'Out': self.inputs['Input']
-            + np.matmul(self.inputs['X'], self.inputs['Y'])
+            'Out': self.attrs['Beta'] * self.inputs['Input']
+            + self.attrs['Alpha']
+            * np.matmul(self.inputs['X'], self.inputs['Y'])
         }
 
     def init_dtype_type(self):
-        self.dtype = np.float64
+        pass
 
     def test_check_output(self):
         self.check_output(check_pir=True, check_prim_pir=True)
 
     def test_check_grad_normal(self):
         self.check_grad(
-            ['Input', 'X', 'Y'],
-            'Out',
-            check_pir=True,
-            check_prim_pir=True,
+            ['Input', 'X', 'Y'], 'Out', check_pir=True, check_prim_pir=True
         )
 
     def test_check_grad_x(self):
         self.check_grad(
-            ['X'],
-            'Out',
-            no_grad_set=None,
-            check_pir=True,
-            check_prim_pir=True,
+            ['X'], 'Out', no_grad_set=None, check_pir=True, check_prim_pir=True
         )
 
     def test_check_grad_y(self):
         self.check_grad(
-            ['Y'],
-            'Out',
-            no_grad_set=None,
-            check_pir=True,
-            check_prim_pir=True,
+            ['Y'], 'Out', no_grad_set=None, check_pir=True, check_prim_pir=True
         )
 
     def test_check_grad_input(self):
@@ -78,39 +72,6 @@ class TestBaddBmmOp(OpTest):
             check_pir=True,
             check_prim_pir=True,
         )
-
-
-# class TestBaddBmmFP16Op(TestBaddBmmOp):
-#     def init_dtype_type(self):
-#         self.dtype = np.float16
-
-#     def test_check_output(self):
-#         self.check_output(atol=1e-2)
-
-
-# class TestBaddBmmOp2(TestBaddBmmOp):
-#     # test alpha and beta
-#     def setUp(self):
-#         self.op_type = "baddbmm"
-#         self.prim_op_type = "comp"
-#         self.python_api = paddle.baddbmm
-#         self.public_python_api = paddle.baddbmm
-#         self.dtype = np.float64
-#         self.init_dtype_type()
-#         self.inputs = {
-#             'Input': np.random.random((2, 10, 5)).astype(self.dtype),
-#             'X': np.random.random((2, 10, 10)).astype(self.dtype),
-#             'Y': np.random.random((2, 10, 5)).astype(self.dtype),
-#         }
-#         self.attrs = {
-#             'Alpha': 0.1,
-#             'Beta': 1.0,
-#         }
-#         self.outputs = {
-#             'Out': self.attrs['Beta'] * self.inputs['Input']
-#             + self.attrs['Alpha']
-#             * np.matmul(self.inputs['X'], self.inputs['Y'])
-#         }
 
 
 if __name__ == "__main__":
