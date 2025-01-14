@@ -219,7 +219,6 @@ apis:
   -  paddle.nn.functional.leaky_relu_
   -  paddle.nn.functional.local_response_norm
   -  paddle.nn.functional.log_sigmoid
-  -  paddle.nn.functional.log_softmax
   -  paddle.nn.functional.lp_pool1d
   -  paddle.nn.functional.lp_pool2d
   -  paddle.nn.functional.max_pool1d
@@ -241,8 +240,6 @@ apis:
   -  paddle.nn.functional.selu
   -  paddle.nn.functional.sigmoid
   -  paddle.nn.functional.silu
-  -  paddle.nn.functional.smooth_l1_loss
-  -  paddle.nn.functional.softmax
   -  paddle.nn.functional.softplus
   -  paddle.nn.functional.softshrink
   -  paddle.nn.functional.softsign
@@ -252,8 +249,6 @@ apis:
   -  paddle.nn.functional.thresholded_relu_
   -  paddle.nn.functional.triplet_margin_with_distance_loss
   -  paddle.nn.functional.unfold
-  -  paddle.nn.functional.upsample
-  -  paddle.nonzero
   -  paddle.normal
   -  paddle.ones_like
   -  paddle.outer
@@ -283,10 +278,6 @@ apis:
   -  paddle.sin
   -  paddle.sinc
   -  paddle.sinh
-  -  paddle.sparse.addmm
-  -  paddle.sparse.matmul
-  -  paddle.sparse.sparse_coo_tensor
-  -  paddle.sparse.sparse_csr_tensor
   -  paddle.sqrt
   -  paddle.square
   -  paddle.squeeze
@@ -295,7 +286,6 @@ apis:
   -  paddle.sum
   -  paddle.t
   -  paddle.take
-  -  paddle.take_along_axis
   -  paddle.tan
   -  paddle.tensor_split
   -  paddle.tensordot
