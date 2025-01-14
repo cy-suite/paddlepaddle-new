@@ -952,11 +952,7 @@ def roll_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.pad3d", trt_version="8.x")
 def pad3d_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
-    if len(paddle_op.operands()) > 1:
-        paddings = inputs[1]
-    else:
-        paddings_v = paddle_op.attrs().get("paddings")
-        paddings = add_1D_constant_layer(network, paddings_v)
+    paddings = inputs[1]
 
     value = paddle_op.attrs().get("pad_value", 0.0)
     padding_mode = paddle_op.attrs().get("mode", "constant")
