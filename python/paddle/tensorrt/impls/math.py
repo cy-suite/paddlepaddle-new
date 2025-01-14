@@ -36,8 +36,6 @@ from paddle.tensorrt.converter_utils import (
 )
 from paddle.tensorrt.register import converter_registry
 
-from ..util import get_trt_version_list
-
 
 @converter_registry.register("pd_op.add", trt_version="trt_version_ge=8.0")
 @converter_registry.register("pd_op.add_", trt_version="trt_version_ge=8.0")
@@ -405,16 +403,9 @@ def elementwise_pow_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.isnan", trt_version="8.x")
 def isnan_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
-    version_list = get_trt_version_list()
-    if version_list >= [10, 1, 0]:
-        layer = network.add_unary(input_tensor, trt.UnaryOperation.ISNAN)
-        return layer.get_output(0)
-
     equal_tensor = trt_equal(network, input_tensor, input_tensor)
     layer = network.add_unary(equal_tensor, trt.UnaryOperation.NOT)
-    cast_layer = network.add_identity(layer.get_output(0))
-    cast_layer.set_output_type(0, trt.bool)
-    return cast_layer.get_output(0)
+    return layer.get_output(0)
 
 
 @converter_registry.register("pd_op.minimum", trt_version="8.x")

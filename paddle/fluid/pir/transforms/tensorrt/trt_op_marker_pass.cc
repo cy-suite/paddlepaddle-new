@@ -1922,25 +1922,17 @@ class TakeAlongAxisOpPattern
         op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
-#if !IS_TRT_VERSION_GE(8200)
-    VLOG(3) << "TakeAlongAxis is only supported by trt8.2 and above.";
-    return false;
-#else
-    pir::Value index_var_name = op.operand_source(1);
-    auto index_var_name_type =
-        index_var_name.type().dyn_cast<paddle::dialect::DenseTensorType>();
-    auto index_shape = index_var_name_type.dims();
-    pir::Value x_var_name = op.operand_source(0);
-    auto x_var_name_type =
-        x_var_name.type().dyn_cast<paddle::dialect::DenseTensorType>();
-    auto x_shape = x_var_name_type.dims();
+    pir::Value x_value = op.operand_source(0);
+    auto x_shape = pir::GetShapeFromValue(x_value);
+    pir::Value index_value = op.operand_source(1);
+    auto index_shape = pir::GetShapeFromValue(index_value);
     if (x_shape.size() != index_shape.size()) {
       VLOG(3) << "TakeAlongAxis op Index input dims size ["
               << index_shape.size() << "] is not equal to input dims size ["
               << x_shape.size() << "].";
       return false;
     }
-#endif
+
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }
