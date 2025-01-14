@@ -971,43 +971,11 @@ class TrtLayerAutoScanTest(AutoScanTest):
                                     input_data_type=str(input_data_type),
                                 )
                                 inputs.append(input_config)
-                            # input_config = Input(
-                            #     min_input_shape=tuple(
-                            #         next(
-                            #             iter(
-                            #                 self.dynamic_shape.min_input_shape.values()
-                            #             )
-                            #         )
-                            #     ),
-                            #     optim_input_shape=tuple(
-                            #         next(
-                            #             iter(
-                            #                 self.dynamic_shape.opt_input_shape.values()
-                            #             )
-                            #         )
-                            #     ),
-                            #     max_input_shape=tuple(
-                            #         next(
-                            #             iter(
-                            #                 self.dynamic_shape.max_input_shape.values()
-                            #             )
-                            #         )
-                            #     ),
-                            #     input_data_type=str(input_data_type),
-                            # )
-                            # inputs.append(input_config)
                             trt_config = TensorRTConfig(inputs=inputs)
                             trt_config.input_data_type = input_data_type
                             trt_program = self.transform_to_trt_program(
                                 pir_main_program, trt_config
                             )
-                            if not any(
-                                op.name() == "pd_op.tensorrt_engine"
-                                for op in trt_program.global_block().ops
-                            ):
-                                print("没有tensorrt_engine op")
-                            else:
-                                print("有tensorrt_engine op")
 
                             assert any(
                                 op.name() == "pd_op.tensorrt_engine"

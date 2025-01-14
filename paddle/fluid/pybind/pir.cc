@@ -935,6 +935,19 @@ void BindOperation(py::module *m) {
                                                 phi::IntArray(val));
              self.set_attribute(attr_name, attr);
            })
+      .def("set_str_array_attr",
+           [](Operation &self,
+              std::string &attr_name,
+              const std::vector<std::string> &val) {
+             std::vector<Attribute> val_attr;
+             for (auto &str : val) {
+               val_attr.emplace_back(
+                   StrAttribute::get(pir::IrContext::Instance(), str));
+             }
+             auto attr =
+                 pir::ArrayAttribute::get(pir::IrContext::Instance(), val_attr);
+             self.set_attribute(attr_name, attr);
+           })
       .def("set_str_attr",
            [](Operation &self, std::string &attr_name, std::string &val) {
              self.set_attribute(
@@ -1463,6 +1476,19 @@ void BindValue(py::module *m) {
              py::list op_list;
              for (auto it = self.use_begin(); it != self.use_end(); ++it) {
                op_list.append(it.owner());
+             }
+             return op_list;
+           })
+      .def("all_used_ops_in_same_block",
+           [](Value &self) -> py::list {
+             py::list op_list;
+             for (auto it = self.use_begin(); it != self.use_end(); ++it) {
+               pir::Operation *used_op = it.owner();
+               while (used_op->GetParent() != self.defining_op()->GetParent() &&
+                      used_op->GetParent()->GetParentOp()) {
+                 used_op = used_op->GetParent()->GetParentOp();
+               }
+               op_list.append(used_op);
              }
              return op_list;
            })
@@ -2650,6 +2676,12 @@ void BindPassManager(pybind11::module *m) {
                  pass->Set(attr.first, new int(attr.second.cast<int>()));
                } else if (py::isinstance<py::float_>(attr.second)) {
                  pass->Set(attr.first, new float(attr.second.cast<float>()));
+               } else if (py::isinstance<framework::Scope>(attr.second)) {
+                 pass->SetNotOwned(attr.first,
+                                   attr.second.cast<framework::Scope *>());
+               } else if (py::isinstance<phi::GPUPlace>(attr.second)) {
+                 pass->Set(attr.first,
+                           new phi::Place(attr.second.cast<phi::GPUPlace>()));
                } else {
                  PADDLE_THROW(common::errors::InvalidArgument(
                      "The pass attr is not supported this type."));

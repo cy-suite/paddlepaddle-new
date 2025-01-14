@@ -343,7 +343,6 @@ class ProgramConfig:
 
 
 def convert_to_dynamic_shape(dynamic_shape, name):
-    print(dynamic_shape.min_input_shape)
     if dynamic_shape.min_input_shape == {}:
         return tuple(dynamic_shape.min_input_shape)
     min_shape = tuple(dynamic_shape.min_input_shape[name])
