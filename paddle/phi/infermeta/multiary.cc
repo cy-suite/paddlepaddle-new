@@ -2307,7 +2307,7 @@ void FusedBiasActInferMeta(const MetaTensor& x,
         dim % 2,
         0,
         common::errors::InvalidArgument(
-            "The seconde dimension of x must be even, but receive %d", dim));
+            "The second dimension of x must be even, but receive %d", dim));
     x_shapes[x_last_dim] /= 2;
     out->set_dims(common::make_ddim(x_shapes));
   } else if (act_method == "gelu" || act_method == "relu") {
@@ -6055,7 +6055,7 @@ void MaskedMultiheadAttentionInferMeta(const MetaTensor& x,
       0,
       errors::InvalidArgument(
           "The num_head of query must be divisible by the num_head of key, but "
-          "recived num_head of query is %d, and the num_head of key is %d",
+          "received num_head of query is %d, and the num_head of key is %d",
           num_head,
           k_num_head));
   PADDLE_ENFORCE_EQ(
