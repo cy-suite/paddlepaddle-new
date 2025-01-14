@@ -2248,6 +2248,34 @@ class EinsumOpPattern
   }
 };
 
+class PNormOpPattern : public pir::OpRewritePattern<paddle::dialect::PNormOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::PNormOp>::OpRewritePattern;
+
+  bool MatchAndRewrite(paddle::dialect::PNormOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    if (!op->HasAttribute("asvector") || !op->HasAttribute("axis") ||
+        !op->HasAttribute("porder") || !op->HasAttribute("keepdim")) {
+      VLOG(3) << "p_norm op needs attributes: asvector, porder, axis, keepdim.";
+      return false;
+    }
+    bool asvector = op->attribute<pir::BoolAttribute>("asvector").data();
+    int axis = op->attribute<pir::Int32Attribute>("axis").data();
+    float porder = op->attribute<pir::FloatAttribute>("porder").data();
+
+    if (asvector || porder != 2.0f || axis != -1) {
+      VLOG(3) << "p_norm op only supports asvector=False, porder=2, axis=-1.";
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class AffineChannelOpPattern
     : public pir::OpRewritePattern<paddle::dialect::AffineChannelOp> {
  public:
@@ -2424,6 +2452,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<OneHotOpPattern>(context));
     ps.Add(std::make_unique<InstanceNormOpPattern>(context));
     ps.Add(std::make_unique<EinsumOpPattern>(context));
+    ps.Add(std::make_unique<PNormOpPattern>(context));
     ps.Add(std::make_unique<AffineChannelOpPattern>(context));
     return ps;
   }
