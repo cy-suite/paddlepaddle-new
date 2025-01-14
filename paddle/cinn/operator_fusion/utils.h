@@ -550,6 +550,17 @@ bool AllFirstInSecond(const std::vector<T>& first,
   return true;
 }
 
+template <typename T>
+std::vector<size_t> FindPosInVector(const std::vector<T>& vec, const T& item) {
+  std::vector<size_t> result;
+  for (size_t i = 0; i < vec.size(); ++i) {
+    if (vec[i] == item) {
+      result.emplace_back(i);
+    }
+  }
+  return result;
+}
+
 static std::vector<pir::Operation*> FindDownstreamOps(pir::Operation* op) {
   std::vector<pir::Operation*> result;
   for (int i = 0; i < op->num_results(); i++) {

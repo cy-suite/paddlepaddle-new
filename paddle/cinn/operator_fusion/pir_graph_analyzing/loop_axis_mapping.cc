@@ -20,6 +20,10 @@ std::ostream& operator<<(std::ostream& os, const AxisTransform& transform) {
   os << std::visit([](auto&& t) { return t->DebugStr(); }, transform);
   return os;
 }
+std::ostream& operator<<(std::ostream& os, const AxisTransformRoute& route) {
+  os << cinn::utils::Join(route, " -> ");
+  return os;
+}
 
 AxisTransform DeleteAxisTransform::reverse() {
   return std::make_shared<AppendAxisTransform>(axis, shape);
@@ -43,13 +47,13 @@ AxisTransformRoute ReverseTransformRoute(const AxisTransformRoute& route) {
 void LoopAxisMapping::SetReverseMapping() {
   loop2input.clear();
   output2loop.clear();
-  for (auto& route : input2loop) {
+  for (const auto& route : input2loop) {
     PADDLE_ENFORCE(
         !route.empty(),
         ::common::errors::InvalidArgument("input2loop must not be empty."));
     loop2input.push_back(ReverseTransformRoute(route));
   }
-  for (auto& route : loop2output) {
+  for (const auto& route : loop2output) {
     PADDLE_ENFORCE(
         !route.empty(),
         ::common::errors::InvalidArgument("loop2output must not be empty."));
@@ -59,55 +63,131 @@ void LoopAxisMapping::SetReverseMapping() {
 
 std::string LoopAxisMapping::DebugStr() const {
   std::stringstream ss;
-  auto print_route = [](const AxisTransformRoute& route) {
-    return cinn::utils::Join(route, " -> ");
-  };
   for (size_t i = 0; i < input_values.size(); ++i) {
     ss << "\n input " << i << " :\t["
-       << cinn::utils::Join(GetValueAllDims(input_values[i]), ", ") << "]";
+       << cinn::utils::Join(GetValueAllDims(input_values[i]), ", ") << "]"
+       << ", " << input_values[i].impl();
   }
-  ss << "\n  loop   :\t[" << cinn::utils::Join(loop, ", ") << "]";
+  ss << "\n  loop   :\t[" << cinn::utils::Join(loop, ", ")
+     << "], reduce_axis_num: " << reduce_axis_num;
   for (size_t i = 0; i < output_values.size(); ++i) {
     ss << "\noutput " << i << " :\t["
-       << cinn::utils::Join(GetValueAllDims(output_values[i]), ", ") << "]";
+       << cinn::utils::Join(GetValueAllDims(output_values[i]), ", ") << "]"
+       << ", " << output_values[i].impl()
+       << ", use_count: " << outputs_use_count.at(output_values[i]);
   }
   for (size_t i = 0; i < input2loop.size(); ++i) {
-    ss << "\ninput2loop  " << i << " : " << print_route(input2loop[i]);
-    ss << "\nloop2input  " << i << " : " << print_route(loop2input[i]);
+    ss << "\ninput2loop  " << i << " : " << input2loop[i];
+    ss << "\nloop2input  " << i << " : " << loop2input[i];
   }
   for (size_t i = 0; i < loop2output.size(); ++i) {
-    ss << "\nloop2output " << i << " : " << print_route(loop2output[i]);
-    ss << "\noutput2loop " << i << " : " << print_route(output2loop[i]);
+    ss << "\nloop2output " << i << " : " << loop2output[i];
+    ss << "\noutput2loop " << i << " : " << output2loop[i];
   }
   return ss.str();
 }
 
-// LoopAxisMapping MergeAxisMapping(LoopAxisMapping upstream,
-//                                  LoopAxisMapping downstream,
-//                                  bool upstream_is_anchor) {
-//   LoopAxisMapping result;
-//   if (upstream_is_anchor) {
-//     result.input2loop = upstream.input2loop;
-//     result.loop2input = upstream.loop2input;
-//     result.loop2output = ConcatVector(
-//         upstream.loop2output,
-//         ConcatVector(downstream.input2loop, downstream.loop2output));
-//     result.output2loop = ConcatVector(
-//         ConcatVector(downstream.output2loop, downstream.loop2input),
-//         upstream.output2loop);
-//   } else {
-//     result.input2loop =
-//         ConcatVector(ConcatVector(upstream.input2loop, upstream.loop2output),
-//                      downstream.input2loop);
-//     result.loop2input =
-//         ConcatVector(downstream.loop2input,
-//                      ConcatVector(upstream.output2loop,
-//                      upstream.loop2input));
-//     result.loop2output = downstream.loop2output;
-//     result.output2loop = downstream.output2loop;
-//   }
-//   return result;
-// }
+LoopAxisMapping AxisMappingMergeImpl(const LoopAxisMapping& upstream,
+                                     const LoopAxisMapping& downstream,
+                                     bool upstream_is_anchor) {
+  AxisTransformRoute loop_sink_route;
+  for (size_t i = 0; i < upstream.output_values.size(); ++i) {
+    auto value = upstream.output_values[i];
+    auto indices = FindPosInVector(downstream.input_values, value);
+    for (auto idx : indices) {
+      AxisTransformRoute sink_route =
+          ConcatVector(upstream.loop2output[i], downstream.input2loop[idx]);
+      if (sink_route.size() < loop_sink_route.size() ||
+          loop_sink_route.empty()) {
+        loop_sink_route = sink_route;
+      }
+    }
+  }
+  AxisTransformRoute loop_lift_route = ReverseTransformRoute(loop_sink_route);
+
+  LoopAxisMapping result;
+  result.input_values = upstream.input_values;
+  for (const auto& trans : upstream.input2loop) {
+    result.input2loop.push_back(
+        upstream_is_anchor ? trans : ConcatVector(trans, loop_sink_route));
+  }
+  result.outputs_use_count = upstream.outputs_use_count;
+  for (size_t i = 0; i < downstream.input_values.size(); ++i) {
+    auto value = downstream.input_values[i];
+    if (upstream.outputs_use_count.count(value)) {
+      result.outputs_use_count[value]--;
+      continue;
+    }
+    result.input_values.push_back(value);
+    result.input2loop.push_back(
+        upstream_is_anchor
+            ? ConcatVector(downstream.input2loop[i], loop_lift_route)
+            : downstream.input2loop[i]);
+  }
+  for (size_t i = 0; i < upstream.output_values.size(); ++i) {
+    auto value = upstream.output_values[i];
+    if (result.outputs_use_count[value] > 0) {
+      result.output_values.push_back(value);
+      result.loop2output.push_back(
+          upstream_is_anchor
+              ? upstream.loop2output[i]
+              : ConcatVector(loop_lift_route, upstream.loop2output[i]));
+    } else {
+      result.outputs_use_count.erase(value);
+    }
+  }
+  for (size_t i = 0; i < downstream.output_values.size(); ++i) {
+    auto value = downstream.output_values[i];
+    result.output_values.push_back(value);
+    result.outputs_use_count[value] = downstream.outputs_use_count.at(value);
+    result.loop2output.push_back(
+        upstream_is_anchor
+            ? ConcatVector(loop_sink_route, downstream.loop2output[i])
+            : downstream.loop2output[i]);
+  }
+  result.loop = upstream_is_anchor ? upstream.loop : downstream.loop;
+  result.reduce_axis_num =
+      std::max(upstream.reduce_axis_num, downstream.reduce_axis_num);
+  return result;
+}
+
+LoopAxisMapping AxisMappingMerge(const LoopAxisMapping& upstream,
+                                 const LoopAxisMapping& downstream,
+                                 bool upstream_is_anchor) {
+  auto result = AxisMappingMergeImpl(upstream, downstream, upstream_is_anchor);
+  result.SetReverseMapping();
+  return result;
+}
+
+LoopAxisMapping ReducePlusTrivialAxisMappingMerge(
+    const LoopAxisMapping& upstream, const LoopAxisMapping& downstream) {
+  // Signal downstream reduce plus trivial fusion loop is downstream trivial
+  // loop plus upstream reduce loop.
+  PADDLE_ENFORCE(
+      upstream.reduce_axis_num > 0 && downstream.reduce_axis_num == 0,
+      ::common::errors::InvalidArgument(
+          "Upstream should be reduce pattern and "
+          "downstream should be trivial pattern."));
+  auto result = AxisMappingMergeImpl(upstream, downstream, false);
+  auto reduce_axis_num = upstream.reduce_axis_num;
+  auto reduce_loop = SliceVector(upstream.loop,
+                                 upstream.loop.size() - reduce_axis_num,
+                                 upstream.loop.size());
+  auto reduce_axis = ArangeVector<int64_t>(
+      downstream.loop.size(), downstream.loop.size() + reduce_axis_num);
+  AxisTransform append_reduce_axis =
+      std::make_shared<AppendAxisTransform>(reduce_axis, reduce_loop);
+  AxisTransform delete_reduce_axis = ReverseTransform(append_reduce_axis);
+  result.loop = ConcatVector(downstream.loop, reduce_loop);
+  for (auto& route : result.input2loop) {
+    route.push_back(append_reduce_axis);
+  }
+  for (auto& route : result.loop2output) {
+    route.insert(route.begin(), delete_reduce_axis);
+  }
+  result.SetReverseMapping();
+  return result;
+}
 
 LoopAxisMapping CreateDefaultAxisMapping(pir::Operation* op) {
   LoopAxisMapping result;
@@ -121,7 +201,6 @@ LoopAxisMapping CreateDefaultAxisMapping(pir::Operation* op) {
     result.output_values.push_back(op->result(i));
     result.loop2output[i].push_back(UnsupportedTransform::InstancePtr());
   }
-  result.SetReverseMapping();
   return result;
 }
 
@@ -138,7 +217,6 @@ LoopAxisMapping CreateAxisMappingForElementwise(pir::Operation* op) {
     result.loop2output[i].push_back(IdentityTransform::InstancePtr());
   }
   result.loop = GetValueAllDims(result.output_values[0]);
-  result.SetReverseMapping();
   return result;
 }
 
@@ -157,7 +235,6 @@ LoopAxisMapping CreateAxisMappingForTranspose(pir::Operation* op) {
       GetInt32ArrayAttributeData(op->attributes().at("perm"));
   result.input2loop[0].push_back(std::make_shared<TransposeTransform>(perm));
   result.loop2output[0].push_back(IdentityTransform::InstancePtr());
-  result.SetReverseMapping();
   return result;
 }
 
@@ -198,7 +275,6 @@ LoopAxisMapping CreateAxisMappingForSlice(pir::Operation* op) {
     }
   }
   result.loop2output[0].push_back(IdentityTransform::InstancePtr());
-  result.SetReverseMapping();
   return result;
 }
 
@@ -252,8 +328,8 @@ LoopAxisMapping CreateAxisMappingForReduce(pir::Operation* op) {
   result.loop = GetValueAllDims(result.input_values[0]);
   result.input2loop.resize(1);
   result.loop2output.resize(1);
-
   const auto& reduce_axis = GetReduceAxisIdx(op);
+  result.reduce_axis_num = reduce_axis.size();
   bool keep_dim = GetReduceOpKeepDims(op);
   auto rank = GetCompatibleRank(op->operand_source(0));
   // Input2Loop: Transpose reduce axis to the last dimension if necessary.
@@ -289,7 +365,6 @@ LoopAxisMapping CreateAxisMappingForReduce(pir::Operation* op) {
       ArangeVector<int64_t>(rank - reduce_axis.size(), rank);
   result.loop2output[0].push_back(std::make_shared<DeleteAxisTransform>(
       delete_axis, GetValueDims(op->operand_source(0), reduce_axis)));
-  result.SetReverseMapping();
   return result;
 }
 
@@ -346,27 +421,32 @@ LoopAxisMapping CreateAxisMappingForReshape(pir::Operation* op) {
         std::make_shared<ReshapeTransform>(in_shape, out_shape));
   }
   result.loop2output[0].push_back(IdentityTransform::InstancePtr());
-  result.SetReverseMapping();
   return result;
 }
 
 LoopAxisMapping CreateAxisMapping(pir::Operation* op) {
+  LoopAxisMapping result;
   auto op_kind = GetOpPatternKind(op);
   if (op->name() == "pd_op.transpose") {
-    return CreateAxisMappingForTranspose(op);
+    result = CreateAxisMappingForTranspose(op);
   } else if (op->name() == "cinn_op.reshape" || op->name() == "pd_op.reshape") {
-    return CreateAxisMappingForReshape(op);
+    result = CreateAxisMappingForReshape(op);
   } else if (op->name() == "cinn_op.slice") {
-    return CreateAxisMappingForSlice(op);
+    result = CreateAxisMappingForSlice(op);
   } else if (op_kind == hlir::framework::kBroadcast) {
-    return CreateAxisMappingForBroadcast(op);
+    result = CreateAxisMappingForBroadcast(op);
   } else if (op_kind == hlir::framework::kReduction) {
-    return CreateAxisMappingForReduce(op);
+    result = CreateAxisMappingForReduce(op);
   } else if (op_kind == hlir::framework::kElementWise) {
-    return CreateAxisMappingForElementwise(op);
+    result = CreateAxisMappingForElementwise(op);
   } else {
-    return CreateDefaultAxisMapping(op);
+    result = CreateDefaultAxisMapping(op);
   }
+  result.SetReverseMapping();
+  for (auto value : result.output_values) {
+    result.outputs_use_count[value] = value.use_count();
+  }
+  return result;
 }
 
 }  // namespace cinn::fusion

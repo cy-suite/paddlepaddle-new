@@ -128,7 +128,9 @@ AxisTransformRoute ReverseTransformRoute(const AxisTransformRoute& route);
 struct LoopAxisMapping {
   std::vector<pir::Value> input_values;
   std::vector<pir::Value> output_values;
+  std::unordered_map<pir::Value, int> outputs_use_count;
   std::vector<symbol::DimExpr> loop;
+  size_t reduce_axis_num = 0;
 
   std::vector<AxisTransformRoute> input2loop;
   std::vector<AxisTransformRoute> loop2output;
@@ -139,9 +141,11 @@ struct LoopAxisMapping {
   std::string DebugStr() const;
 };
 
-// LoopAxisMapping MergeAxisMapping(LoopAxisMapping upstream,
-//                                  LoopAxisMapping downstream,
-//                                  bool upstream_is_anchor = true);
+LoopAxisMapping AxisMappingMerge(const LoopAxisMapping upstream,
+                                 const LoopAxisMapping downstream,
+                                 bool upstream_is_anchor = true);
+LoopAxisMapping ReducePlusTrivialAxisMappingMerge(
+    const LoopAxisMapping& upstream, const LoopAxisMapping& downstream);
 
 LoopAxisMapping CreateAxisMapping(pir::Operation* op);
 }  // namespace cinn::fusion
