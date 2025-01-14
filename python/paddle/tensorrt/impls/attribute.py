@@ -12,14 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from paddle.tensorrt.converter_utils import (
-    replenish_layer_and_output,
-    trt_cast,
-    trt_shape,
-)
-from paddle.tensorrt.register import converter_registry
 import tensorrt as trt
 
+from paddle.tensorrt.converter_utils import replenish_layer_and_output
+from paddle.tensorrt.register import converter_registry
 
 @converter_registry.register("pd_op.shape", trt_version="trt_version_ge=8.0")
 def shape_converter(network, paddle_op, inputs):
