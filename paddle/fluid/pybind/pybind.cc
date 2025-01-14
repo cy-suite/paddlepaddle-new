@@ -96,7 +96,6 @@ limitations under the License. */
 #include "paddle/fluid/platform/tensorrt/engine_params.h"
 #include "paddle/fluid/pybind/auto_parallel_py.h"
 #include "paddle/fluid/pybind/bind_cost_model.h"
-#include "paddle/fluid/pybind/bind_fleet_executor.h"
 #include "paddle/fluid/pybind/box_helper_py.h"
 #include "paddle/fluid/pybind/communication.h"
 #include "paddle/fluid/pybind/compatible.h"
@@ -235,6 +234,7 @@ limitations under the License. */
 #include "pybind11/stl.h"
 #ifdef PADDLE_WITH_TENSORRT
 #include "paddle/fluid/inference/tensorrt/pir/declare_plugin.h"
+#include "paddle/fluid/platform/tensorrt/trt_plugin.h"
 #endif
 
 COMMON_DECLARE_bool(use_mkldnn);
@@ -2637,7 +2637,6 @@ All parameter, weight, gradient are variables in Paddle.
   BindCostModel(&m);
   BindConstValue(&m);
   BindGlobalValueGetterSetter(&m);
-  BindFleetExecutor(&m);
   BindTCPStore(&m);
   BindCommContextManager(&m);
   BindAutoParallel(&m);
@@ -3422,6 +3421,10 @@ All parameter, weight, gradient are variables in Paddle.
   m.def("clear_shape_info", []() {
     paddle::framework::CollectShapeManager::Instance().ClearShapeInfo();
   });
+#ifdef PADDLE_WITH_TENSORRT
+  m.def("register_paddle_plugin",
+        []() { paddle::platform::TrtPluginRegistry::Global()->RegistToTrt(); });
+#endif
 
 #if defined(PADDLE_WITH_PSLIB) && !defined(PADDLE_WITH_HETERPS)
   BindHeterWrapper(&m);

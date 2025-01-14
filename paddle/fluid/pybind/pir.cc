@@ -935,6 +935,19 @@ void BindOperation(py::module *m) {
                                                 phi::IntArray(val));
              self.set_attribute(attr_name, attr);
            })
+      .def("set_str_array_attr",
+           [](Operation &self,
+              std::string &attr_name,
+              const std::vector<std::string> &val) {
+             std::vector<Attribute> val_attr;
+             for (auto &str : val) {
+               val_attr.emplace_back(
+                   StrAttribute::get(pir::IrContext::Instance(), str));
+             }
+             auto attr =
+                 pir::ArrayAttribute::get(pir::IrContext::Instance(), val_attr);
+             self.set_attribute(attr_name, attr);
+           })
       .def("set_str_attr",
            [](Operation &self, std::string &attr_name, std::string &val) {
              self.set_attribute(
@@ -2663,6 +2676,12 @@ void BindPassManager(pybind11::module *m) {
                  pass->Set(attr.first, new int(attr.second.cast<int>()));
                } else if (py::isinstance<py::float_>(attr.second)) {
                  pass->Set(attr.first, new float(attr.second.cast<float>()));
+               } else if (py::isinstance<framework::Scope>(attr.second)) {
+                 pass->SetNotOwned(attr.first,
+                                   attr.second.cast<framework::Scope *>());
+               } else if (py::isinstance<phi::GPUPlace>(attr.second)) {
+                 pass->Set(attr.first,
+                           new phi::Place(attr.second.cast<phi::GPUPlace>()));
                } else {
                  PADDLE_THROW(common::errors::InvalidArgument(
                      "The pass attr is not supported this type."));

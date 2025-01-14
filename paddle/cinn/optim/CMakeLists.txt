@@ -31,12 +31,12 @@ gather_srcs(
   resize_buffer.cc
   update_buffer_axis_pass.cc
   trans_buffer_with_dynamic_shape.cc
-  schedule_block_dce.cc
+  schedule_block_dce_pass.cc
   eliminate_common_factor_of_local_index.cc
   if_fusion_pass.cc
   merge_block_utils.cc
   eliminate_common_global_memory_read.cc
-  rearrange_load_instruction.cc
+  rearrange_load_instruction_pass.cc
   check_tensor_buffer_map.cc
   longlong2int_pass.cc
   vectorize_for_trans.cc
