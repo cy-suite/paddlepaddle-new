@@ -5042,6 +5042,9 @@ void TileInferMeta(const MetaTensor& x,
 #define TILE_MAX_RANK_SUPPORTED 6
 
   auto repeat_times_data = repeat_times.GetData();
+  for (auto v : repeat_times_data) {
+    std::cout << "v:" << v << std::endl;
+  }
   auto x_dims = x.dims();
   if (repeat_times_data.empty()) {
     repeat_times_data = std::vector<int64_t>(x_dims.size(), 1);
@@ -5083,6 +5086,8 @@ void TileInferMeta(const MetaTensor& x,
     x_dim_vec.insert(x_dim_vec.begin(), diff, 1);
   }
   for (size_t i = 0; i < repeat_times_data.size(); ++i) {
+    std::cout << "repeat_times_data[i]:" << repeat_times_data[i] << std::endl;
+    std::cout << "x_dim_vec[i]:" << x_dim_vec[i] << std::endl;
     if (x_dim_vec[i] == -1 || repeat_times_data[i] == -1) {
       out_shape[i] = -1;
     } else {

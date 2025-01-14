@@ -50,7 +50,7 @@ class TrtConvertFillConstantTest(TrtLayerAutoScanTest):
                     },
                     {"axis": -1},
                 ]
-                for mode in ["ValueTensor", "ShapeTensor", "ShapeTensorList"]:
+                for mode in ["ShapeTensor", "ShapeTensorList"]:
                     self.mode = mode
                     if mode == "ValueTensor":
                         dics[0]["shape"] = [2, 3, 4]

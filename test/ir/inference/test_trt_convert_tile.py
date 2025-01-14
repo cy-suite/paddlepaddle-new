@@ -75,7 +75,7 @@ class TrtConvertTileTest(TrtLayerAutoScanTest):
         return self.dynamic_shape
 
     def sample_predictor_configs(
-        self, program_config
+        self, program_config, run_pir=False
     ) -> tuple[paddle_infer.Config, list[int], float]:
 
         def clear_dynamic_shape():
@@ -132,6 +132,7 @@ class TrtConvertTileTest2(TrtLayerAutoScanTest):
                 "op_attrs": {
                     "dtype": 2,
                     "str_value": "1",
+                    "value": 1,
                     "shape": [1],
                 },
             },
@@ -163,7 +164,7 @@ class TrtConvertTileTest2(TrtLayerAutoScanTest):
         return self.dynamic_shape
 
     def sample_predictor_configs(
-        self, program_config
+        self, program_config, run_pir=False
     ) -> tuple[paddle_infer.Config, list[int], float]:
 
         def clear_dynamic_shape():
@@ -225,6 +226,7 @@ class TrtConvertTileTest3(TrtLayerAutoScanTest):
                 "op_attrs": {
                     "dtype": 2,
                     "str_value": "10",
+                    "value": 10,
                     "shape": [1],
                 },
             },
@@ -235,6 +237,7 @@ class TrtConvertTileTest3(TrtLayerAutoScanTest):
                 "op_attrs": {
                     "dtype": 2,
                     "str_value": "12",
+                    "value": 12,
                     "shape": [1],
                 },
             },

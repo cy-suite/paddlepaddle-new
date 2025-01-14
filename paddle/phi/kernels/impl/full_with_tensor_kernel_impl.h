@@ -24,6 +24,11 @@ void FullWithTensorKernel(const Context& dev_ctx,
                           const IntArray& shape,
                           DataType dtype,
                           DenseTensor* out) {
+  std::cout << "numel:" << value.numel() << std::endl;
+  for (auto v : shape.GetData()) {
+    std::cout << v << " ";
+  }
+  // std::cout<<"shape:"<<shape.GetData()<<std::endl;
   out->Resize(common::make_ddim(shape.GetData()));
   FullKernel<T, Context>(dev_ctx, shape, Scalar(value), dtype, out);
 }

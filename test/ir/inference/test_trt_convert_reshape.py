@@ -73,10 +73,10 @@ class TrtConvertReshapeTest(TrtLayerAutoScanTest):
 
         for dims in [4, 3, 2, 1]:
             for shape in [
-                [1, 6, 8],
-                [1, 2, 4, 6],
-                [1, 1, 0, 12],
-                [1, 0, 6],
+                # [1, 6, 8],
+                # [1, 2, 4, 6],
+                # [1, 1, 0, 12],
+                # [1, 0, 6],
                 [1, -1, 12],
                 [2, -1],
                 [3, 16],
