@@ -79,7 +79,7 @@ DEFAULT_RECOMPUTABLE_OPS: list[str] = [
     "pd_op.slice",
     "pd_op.squeeze",
     "pd_op.unsqueeze",
-    # "pd_op.transpose",
+    "pd_op.transpose",
     # "pd_op.prod",
     "pd_op.log",
     "pd_op.log1p",
@@ -221,7 +221,7 @@ class JudgeFusionLoop:
                         consumers.add(parent_op)
             return consumers
 
-        def _get_upstream_ops_recursivly(cur):
+        def _get_upstream_ops_recursively(cur):
             upstream_unrecomputable_ops = set()
             for new_op in _get_producer_ops(cur):
                 upstream_unrecomputable_ops |= (
@@ -231,7 +231,7 @@ class JudgeFusionLoop:
                 upstream_unrecomputable_ops.add(cur)
             return upstream_unrecomputable_ops
 
-        def _get_downstream_ops_recursivly(cur):
+        def _get_downstream_ops_recursively(cur):
             downstream_unrecomputable_ops = set()
             for new_op in _get_consumer_ops(cur):
                 downstream_unrecomputable_ops |= (
@@ -244,11 +244,11 @@ class JudgeFusionLoop:
         for op in self.ops:
             self.upstream_unrecomputable_ops_map[
                 op
-            ] |= _get_upstream_ops_recursivly(op)
+            ] |= _get_upstream_ops_recursively(op)
         for op in reversed(self.ops):
             self.downstream_unrecomputable_ops_map[
                 op
-            ] |= _get_downstream_ops_recursivly(op)
+            ] |= _get_downstream_ops_recursively(op)
 
     def _has_unfusible_op_on_any_path(self, op1, op2):
         no_unfusible_op_on_path = (

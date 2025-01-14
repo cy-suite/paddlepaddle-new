@@ -94,6 +94,7 @@ DEFINE_GENERAL_PATTERN(Flip, paddle::dialect::FlipOp)
 DEFINE_GENERAL_PATTERN(Mish, paddle::dialect::MishOp)
 DEFINE_GENERAL_PATTERN(AssignValue, paddle::dialect::AssignValueOp)
 DEFINE_GENERAL_PATTERN(AssignValue_, paddle::dialect::AssignValue_Op)
+DEFINE_GENERAL_PATTERN(Anchor_Generator, paddle::dialect::AnchorGeneratorOp)
 DEFINE_GENERAL_PATTERN(Exp, paddle::dialect::ExpOp)
 DEFINE_GENERAL_PATTERN(Abs, paddle::dialect::AbsOp)
 DEFINE_GENERAL_PATTERN(Abs_, paddle::dialect::Abs_Op)
@@ -2180,6 +2181,27 @@ class OneHotOpPattern
   }
 };
 
+class TemporalShiftOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::TemporalShiftOp> {
+ public:
+  using pir::OpRewritePattern<
+      paddle::dialect::TemporalShiftOp>::OpRewritePattern;
+
+  bool MatchAndRewrite(paddle::dialect::TemporalShiftOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    if (!op->HasAttribute("shift_ratio") || !op->HasAttribute("seg_num")) {
+      VLOG(3) << "temporal shift need attributes : shift_ratio and seg_num";
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class InstanceNormOpPattern
     : public pir::OpRewritePattern<paddle::dialect::InstanceNormOp> {
  public:
@@ -2294,6 +2316,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Mish)
     ADD_PATTERN(AssignValue)
     ADD_PATTERN(AssignValue_)
+    ADD_PATTERN(Anchor_Generator)
     ADD_PATTERN(Exp)
     ADD_PATTERN(Abs)
     ADD_PATTERN(Abs_)
@@ -2386,6 +2409,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<TanhOpPattern>(context));
     ps.Add(std::make_unique<CeluOpPattern>(context));
     ps.Add(std::make_unique<OneHotOpPattern>(context));
+    ps.Add(std::make_unique<TemporalShiftOpPattern>(context));
     ps.Add(std::make_unique<InstanceNormOpPattern>(context));
     ps.Add(std::make_unique<AffineChannelOpPattern>(context));
     return ps;
