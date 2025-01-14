@@ -19,7 +19,6 @@ from get_test_cover_info import XPUOpTestWrapper, create_test_class
 from op_test_xpu import XPUOpTest
 
 import paddle
-from paddle.base import core
 
 
 def conv3d_forward_naive(
@@ -315,26 +314,14 @@ class XPUTestConv3DOp(XPUOpTestWrapper):
             f_c = self.input_size[1] // self.groups
             self.filter_size = [6, f_c, 3, 3, 3]
 
-    @unittest.skipIf(
-        core.get_xpu_device_version(0) == core.XPUVersion.XPU3,
-        "bugs on KL3, disable it temporarily",
-    )
     class TestWithGroup1(TestConv3DOp):
         def init_group(self):
             self.groups = 3
 
-    @unittest.skipIf(
-        core.get_xpu_device_version(0) == core.XPUVersion.XPU3,
-        "bugs on KL3, disable it temporarily",
-    )
     class TestWithGroup2(TestCase1):
         def init_group(self):
             self.groups = 3
 
-    @unittest.skipIf(
-        core.get_xpu_device_version(0) == core.XPUVersion.XPU3,
-        "bugs on KL3, disable it temporarily",
-    )
     class TestWith1x1(TestConv3DOp):
         def init_test_case(self):
             self.pad = [0, 0, 0]
@@ -350,10 +337,6 @@ class XPUTestConv3DOp(XPUOpTestWrapper):
         def init_group(self):
             self.groups = 3
 
-    @unittest.skipIf(
-        core.get_xpu_device_version(0) == core.XPUVersion.XPU3,
-        "bugs on KL3, disable it temporarily",
-    )
     class TestWithInput1x1Filter1x1(TestConv3DOp):
         def init_test_case(self):
             self.pad = [0, 0, 0]
@@ -369,10 +352,6 @@ class XPUTestConv3DOp(XPUOpTestWrapper):
         def init_group(self):
             self.groups = 3
 
-    @unittest.skipIf(
-        core.get_xpu_device_version(0) == core.XPUVersion.XPU3,
-        "bugs on KL3, disable it temporarily",
-    )
     class TestWithDilation(TestConv3DOp):
         def init_test_case(self):
             self.pad = [0, 0, 0]
@@ -501,10 +480,6 @@ class XPUTestConv3DOp_v2(XPUOpTestWrapper):
         def init_data_format(self):
             self.data_format = "NCDHW"
 
-    @unittest.skipIf(
-        core.get_xpu_device_version(0) == core.XPUVersion.XPU3,
-        "bugs on KL3, disable it temporarily",
-    )
     class TestConv3DOp_AsyPadding(TestConv3DOp_2):
         def init_test_case(self):
             self.stride = [1, 1, 2]
@@ -529,10 +504,6 @@ class XPUTestConv3DOp_v2(XPUOpTestWrapper):
             self.pad = [1, 0, 1, 0, 0, 2]
             self.padding_algorithm = "EXPLICIT"
 
-    @unittest.skipIf(
-        core.get_xpu_device_version(0) == core.XPUVersion.XPU3,
-        "bugs on KL3, disable it temporarily",
-    )
     class TestCase1_AsyPadding(TestConv3DOp_2):
         def init_test_case(self):
             self.stride = [1, 1, 1]
@@ -545,10 +516,6 @@ class XPUTestConv3DOp_v2(XPUOpTestWrapper):
             self.pad = [0, 0, 1, 0, 0, 2]
             self.padding_algorithm = "EXPLICIT"
 
-    @unittest.skipIf(
-        core.get_xpu_device_version(0) == core.XPUVersion.XPU3,
-        "bugs on KL3, disable it temporarily",
-    )
     class TestWithGroup1_AsyPadding(TestConv3DOp_2):
         def init_group(self):
             self.groups = 3
@@ -557,10 +524,6 @@ class XPUTestConv3DOp_v2(XPUOpTestWrapper):
             self.pad = [1, 1, 1, 0, 0, 2]
             self.padding_algorithm = "EXPLICIT"
 
-    @unittest.skipIf(
-        core.get_xpu_device_version(0) == core.XPUVersion.XPU3,
-        "bugs on KL3, disable it temporarily",
-    )
     class TestWithGroup2_AsyPadding(TestConv3DOp_2):
         def init_test_case(self):
             self.stride = [1, 1, 1]
@@ -576,10 +539,6 @@ class XPUTestConv3DOp_v2(XPUOpTestWrapper):
             self.pad = [1, 1, 0, 1, 0, 2]
             self.padding_algorithm = "EXPLICIT"
 
-    @unittest.skipIf(
-        core.get_xpu_device_version(0) == core.XPUVersion.XPU3,
-        "bugs on KL3, disable it temporarily",
-    )
     class TestWithDilation_AsyPadding(TestConv3DOp_2):
         def init_test_case(self):
             self.stride = [1, 1, 1]

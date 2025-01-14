@@ -34,10 +34,6 @@ class XPUTestDepthwiseConv2DOp(XPUOpTestWrapper):
         self.op_name = 'depthwise_conv2d'
         self.use_dynamic_create_class = False
 
-    @unittest.skipIf(
-        core.get_xpu_device_version(0) == core.XPUVersion.XPU3,
-        "bugs on kl3, disable it temporarily",
-    )
     class TestDepthwiseConv(XPUTestConv2DOp.TestConv2DOp):
         def init_test_case(self):
             self.use_cuda = False
@@ -122,10 +118,6 @@ class XPUTestDepthwiseConv2DOp_v2(XPUOpTestWrapper):
         self.op_name = 'depthwise_conv2d'
         self.use_dynamic_create_class = False
 
-    @unittest.skipIf(
-        core.get_xpu_device_version(0) == core.XPUVersion.XPU3,
-        "bugs on kl3, disable it temporarily",
-    )
     class TestDepthwiseConv_AsyPadding(XPUTestConv2DOp_v2.TestConv2DOp_v2):
         def init_test_case(self):
             self.use_cuda = False
@@ -141,10 +133,6 @@ class XPUTestDepthwiseConv2DOp_v2(XPUOpTestWrapper):
             self.pad = [1, 1, 0, 1]
             self.padding_algorithm = "EXPLICIT"
 
-    @unittest.skipIf(
-        core.get_xpu_device_version(0) == core.XPUVersion.XPU3,
-        "bugs on kl3, disable it temporarily",
-    )
     class TestDepthwiseConv2_AsyPadding(XPUTestConv2DOp_v2.TestConv2DOp_v2):
         def init_test_case(self):
             self.use_cuda = False
@@ -160,10 +148,6 @@ class XPUTestDepthwiseConv2DOp_v2(XPUOpTestWrapper):
             self.pad = [0, 1, 0, 2]
             self.padding_algorithm = "EXPLICIT"
 
-    @unittest.skipIf(
-        core.get_xpu_device_version(0) == core.XPUVersion.XPU3,
-        "bugs on kl3, disable it temporarily",
-    )
     class TestDepthwiseConv3_AsyPadding(XPUTestConv2DOp_v2.TestConv2DOp_v2):
         def init_test_case(self):
             self.use_cuda = False
@@ -202,10 +186,6 @@ class XPUTestDepthwiseConv2DOp_v2(XPUOpTestWrapper):
             self.pad = [1, 1, 2, 1]
             self.padding_algorithm = "EXPLICIT"
 
-    @unittest.skipIf(
-        core.get_xpu_device_version(0) == core.XPUVersion.XPU3,
-        "bugs on kl3, disable it temporarily",
-    )
     class TestDepthwiseConvWithDilation2_AsyPadding(
         XPUTestConv2DOp_v2.TestConv2DOp_v2
     ):
