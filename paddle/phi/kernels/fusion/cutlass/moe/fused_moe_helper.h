@@ -212,6 +212,10 @@ class MoeHelper {
     fc1_result_ =
         reinterpret_cast<T *>(total_rows_before_expert_ + padded_experts);
 
+
+    auto total_rows_before_expert_tensor = Empty<int64_t>(ctx, {padded_experts});
+    total_rows_before_expert_ = total_rows_before_expert_tensor.data<int64_t>();
+
     const bool is_pow_2 =
         (num_experts != 0) && ((num_experts & (num_experts - 1)) == 0);
     if (!is_pow_2 || num_experts > 256) {
