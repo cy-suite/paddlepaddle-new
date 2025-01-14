@@ -31,7 +31,7 @@ class TreeNode {
   TreeNode() = default;
   ~TreeNode() { clear(); }
   void clear();
-  int add_prefix(const char* filename);
+  void add_prefix(const char* filename);
   int check_filename(const char* filename);
 
  private:
@@ -45,9 +45,12 @@ void TreeNode::clear() {
   }
 }
 
-int TreeNode::add_prefix(const char* filepath) {
-  if (is_prefix) return 0;
-  if (filepath[0] == '\0') return 1;
+void TreeNode::add_prefix(const char* filepath) {
+  if (is_prefix) return;
+  if (filepath[0] == '\0') {
+    is_prefix = 1;
+    return;
+  }
 
   int ch = (int)filepath[0];  // NOLINT
   if (children[ch] == nullptr) {
@@ -55,9 +58,9 @@ int TreeNode::add_prefix(const char* filepath) {
     children[ch] = node;
   }
 
-  if (children[ch]->add_prefix(filepath + 1)) is_prefix = 1;
+  children[ch]->add_prefix(filepath + 1);
 
-  return 0;
+  return;
 }
 
 int TreeNode::check_filename(const char* filename) {
