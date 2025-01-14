@@ -188,7 +188,7 @@ def clip_converter(network, paddle_op, inputs):
             )
         else:
             expanded_tensor = trt_expand(
-                network, constant_inputs, 1, input_shape_tensor, rank
+                network, paddle_op, constant_inputs, 1, input_shape_tensor, rank
             )
             if expanded_tensor.dtype != input_tensor.dtype:
                 expanded_tensor = cast_tensor(

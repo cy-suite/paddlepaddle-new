@@ -253,7 +253,7 @@ def trt_cast(network, input, dtype):
     return identity_layer.get_output(0)
 
 
-def trt_shape(network: INetworkDefinition, paddle_op, input: ITensor) -> ITensor:
+def trt_shape(network: INetworkDefinition, input: ITensor) -> ITensor:
     """
     Add a IShapeLayer to get the shape of `input` ITensor.
     This includes a workaround that casting the shape result(int64) from TRT10 back to int32.
@@ -265,9 +265,6 @@ def trt_shape(network: INetworkDefinition, paddle_op, input: ITensor) -> ITensor
     if version_list[0] >= 10:  # trt_version >=10
         # workaround
         return trt_cast(network, shape_layer.get_output(0), trt.int32)
-    replenish_layer_and_output(
-        shape_layer, paddle_op.name(), paddle_op.get_output_names()
-    )
     return shape_layer.get_output(0)
 
 
@@ -313,11 +310,8 @@ def trt_less(network, a, b):
     return layer.get_output(0)
 
 
-def trt_sum(network, paddle_op, a, b):
+def trt_sum(network, a, b):
     layer = network.add_elementwise(a, b, trt.ElementWiseOperation.SUM)
-    replenish_layer_and_output(
-        layer, paddle_op.name(), paddle_op.get_output_names()
-    )
     return layer.get_output(0)
 
 
@@ -357,11 +351,8 @@ def trt_gather(network, input, indices, axis=0):
     return result
 
 
-def trt_prod(network, paddle_op, a, b):
+def trt_prod(network, a, b):
     layer = network.add_elementwise(a, b, trt.ElementWiseOperation.PROD)
-    replenish_layer_and_output(
-        layer, paddle_op.name(), paddle_op.get_output_names()
-    )
     return layer.get_output(0)
 
 

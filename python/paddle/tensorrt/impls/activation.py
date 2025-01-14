@@ -108,7 +108,11 @@ def gelu_converter(network, paddle_op, inputs):
         ).get_output(0)
         layer_one = trt_sum(network, layer_tanh, constant_layer_one)
         layer_cdf = trt_prod(network, layer_one, constant_layer_half)
-        y = trt_prod(network, paddle_op, layer_cdf, input_val)
+        prod_layer = network.add_elementwise(layer_cdf, input_val, trt.ElementWiseOperation.PROD)
+        y = prod_layer.get_output(0)
+        replenish_layer_and_output(
+            prod_layer, paddle_op.name(), paddle_op.get_output_names()
+        )
 
         return y
     else:
@@ -124,7 +128,11 @@ def gelu_converter(network, paddle_op, inputs):
         ).get_output(0)
         layer_add = trt_sum(network, layer_erf, constant_layer_one)
         layer_cdf = trt_prod(network, layer_add, constant_layer_half)
-        y = trt_prod(network, paddle_op, layer_cdf, input_val)
+        prod_layer = network.add_elementwise(layer_cdf, input_val, trt.ElementWiseOperation.PROD)
+        y = prod_layer.get_output(0)
+        replenish_layer_and_output(
+            prod_layer, paddle_op.name(), paddle_op.get_output_names()
+        )
 
         return y
 
@@ -208,7 +216,7 @@ def swish_silu_converter(network, paddle_op, inputs):
     layer_output = network.add_activation(
         inputs[0], activation_type_map[paddle_op.name()]
     ).get_output(0)
-    return trt_prod(network, inputs[0], layer_output)
+    return trt_prod(network, paddle_op, inputs[0], layer_output)
 
 
 @converter_registry.register("pd_op.tanh_shrink", trt_version="8.x")
@@ -248,8 +256,12 @@ def mish_converter(network, paddle_op, inputs):
         softplus_output, trt.ActivationType.TANH
     )
     tanh_output = tanh_layer.get_output(0)
-
-    return trt_prod(network, x, tanh_output)
+    prod_layer = network.add_elementwise(x, tanh_output, trt.ElementWiseOperation.PROD)
+    y = prod_layer.get_output(0)
+    replenish_layer_and_output(
+        prod_layer, paddle_op.name(), paddle_op.get_output_names()
+    )
+    return y
 
 
 @converter_registry.register("pd_op.celu", trt_version="8.x")
@@ -277,7 +289,11 @@ def celu_converter(network, paddle_op, inputs):
     input_prod_with_alpha = trt_prod(network, input_sub_with_one, alpha_data)
     min_input = trt_min(network, input_prod_with_alpha, constant_zero_data)
     relu_layer = network.add_activation(input_tensor, trt.ActivationType.RELU)
-    output_tensor = trt_sum(network, paddle_op, relu_layer.get_output(0), min_input)
+    output = network.add_elementwise(relu_layer.get_output(0), min_input, trt.ElementWiseOperation.SUM)
+    output_tensor = output.get_output(0)
+    replenish_layer_and_output(
+        output, paddle_op.name(), paddle_op.get_output_names()
+    )
     return output_tensor
 
 
