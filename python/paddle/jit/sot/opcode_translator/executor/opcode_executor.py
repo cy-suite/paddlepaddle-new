@@ -77,6 +77,7 @@ from .pycode_generator import (
     ResumeFunctionType,
 )
 from .tracker import (
+    BuiltinTracker,
     CellTracker,
     ConstTracker,
     DanglingTracker,
@@ -861,32 +862,34 @@ class OpcodeExecutorBase:
             self.stack.push(NullVariable())
 
     def load_method(self, method_name):
+        def load_builtin_funcs():
+            from .variables import PaddleLayerVariable
+
+            # PaddleLayerVariable can deal with __iter__ method right, we don't need to do anything.
+            if method_name != "__iter__" or isinstance(
+                obj, PaddleLayerVariable
+            ):
+                return False
+            self.stack.push(
+                BuiltinVariable(
+                    iter,
+                    graph=self._graph,
+                    tracker=BuiltinTracker("iter"),
+                )
+            )
+            self.stack.push(obj)
+            return True
+
+        obj = self.stack.pop()
+        if load_builtin_funcs():
+            return
         method_name_var = ConstantVariable.wrap_literal(
             method_name, self._graph
         )
-        obj = self.stack.pop()
-        try:
-            method = BuiltinVariable(
-                getattr, graph=self._graph, tracker=DanglingTracker()
-            )(obj, method_name_var)
-        except FallbackError:
-            # The exception block is used to deal with user-defined Iterable Variables:
-            # For example:
-            # The original code inside a user-defined class:
-            # def __iter__():
-            #   return self._list.__iter__()
-            # When we call obj.__iter(), the bytecode inside the iter function call will be:
-            # LOAD_ATTR _list
-            # LOAD_ATTR __iter__
-            # Our implementation for List,Dict,Range and Tuple class doesn't support getting __iter()__ in getattr, which results in a FallbackError
-            # But here We are supposed to return a iter of the corresponding ContainerVariable
-            # So we have the special judge right here. We retry with the method_name as 'iter'
-            # If the original code is :
-            # def __iter__():
-            #   return iter(self._list)
-            # Then the code will run without raising a FallbackError.
-            if method_name == "__iter__":
-                self.load_method("iter")
+
+        method = BuiltinVariable(
+            getattr, graph=self._graph, tracker=DanglingTracker()
+        )(obj, method_name_var)
 
         if isinstance(method, MethodVariable) and "__getattr__" not in dir(
             method.bound_instance.get_py_type()
@@ -1370,7 +1373,7 @@ class OpcodeExecutorBase:
         next_instr = self._instructions[self._lasti]
         assert (
             next_instr.opname in NEED_TO_BOOL
-        ), f"The bytecode is illegal! The opcode following TO_BOOL must be in ['POP_JUMP_IF_TRUE', 'POP_JUMP_IF_FALSE', 'UNARY_NOT'], the next instruction now is {next_instr.opname}"
+        ), f"The bytecode is illegal! The opcode following TO_BOOL must be in ['POP_JUMP_IF_TRUE', 'POP_JUMP_IF_FALSE', 'UNARY_NOT'], the next instuction now is {next_instr.opname}"
 
     @call_break_graph_decorator(push_n=1)
     def IS_OP(self, instr: Instruction):
