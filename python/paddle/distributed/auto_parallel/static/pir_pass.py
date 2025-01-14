@@ -1055,7 +1055,6 @@ def _set_process_mesh_and_chunk_id(
             set_process_mesh(op_output_vars, None, input_var_process_mesh)
         return
 
-    print(op.name())
     op_dist_attr = op.dist_attr
     op_mesh = op_dist_attr.process_mesh
     op_input_attrs = op_dist_attr.operands()
@@ -1179,7 +1178,6 @@ def complete_chunk_id(dist_program, startup_program, pipeline_strategy):
         skip_idx = 0
         for idx in range(start_idx, end_idx):
             if idx < skip_idx:
-                print('skip ', ops[idx].name())
                 continue
 
             is_seg_op = _extract_seg_method(ops[idx], seg_method) is not None
@@ -1189,7 +1187,6 @@ def complete_chunk_id(dist_program, startup_program, pipeline_strategy):
                 reshard_ops.append(ops[idx])
                 continue
             elif ops[idx].name() == "dist_op.dtensor_to_local":
-                print("debug point here")
                 _set_process_mesh_and_chunk_id(
                     ops[idx],
                     process_mesh,
@@ -1314,7 +1311,6 @@ def complete_chunk_id(dist_program, startup_program, pipeline_strategy):
 
 def check_chunk_id(dist_program):
     all_ops = dist_program.global_block().ops
-    print(dist_program)
     for idx, op in enumerate(all_ops):
         if op.op_role in [int(OpRole.Forward), int(OpRole.Backward)]:
             if op.name() in dist_skip_op_list:
