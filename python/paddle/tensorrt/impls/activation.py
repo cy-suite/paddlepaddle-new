@@ -27,7 +27,6 @@ from paddle.tensorrt.converter_utils import (
 )
 from paddle.tensorrt.register import converter_registry
 
-from test.rpc.test_rpc import paddle_add
 
 activation_type_map = {
     "pd_op.tanh": trt.ActivationType.TANH,
