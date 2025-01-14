@@ -194,14 +194,14 @@ void UpdateRulebookAndOutIndex(const Context& dev_ctx,
                                SparseCooTensor* out) {
   const bool is2D = out_dims.size() == 4 ? true : false;
 
-  std::set<IntT> out_indices;
+  std::set<IntT> tmp_indices;
   int n = rulebook->dims()[1];
   IntT* rulebook_ptr = rulebook->data<IntT>();
   for (int i = 0; i < n; i++) {
-    out_indices.insert(rulebook_ptr[i + n * 2]);
+    tmp_indices.insert(rulebook_ptr[i + n * 2]);
   }
 
-  int out_non_zero_num = out_indices.size();
+  int out_non_zero_num = tmp_indices.size();
   const int64_t sparse_dim = is2D ? 3 : 4;
   DenseTensorMeta indices_meta(phi::CppTypeToDataType<IntT>::Type(),
                                {sparse_dim, out_non_zero_num},
@@ -220,7 +220,7 @@ void UpdateRulebookAndOutIndex(const Context& dev_ctx,
   odim3 = is2D ? 1 : out_dims[1];
   const Dims4D c_out_dims(odim0, odim1, odim2, odim3);
 
-  for (auto it = out_indices.begin(); it != out_indices.end(); it++, i++) {
+  for (auto it = tmp_indices.begin(); it != tmp_indices.end(); it++, i++) {
     const IntT index = *it;
     IntT batch, x, y, z;
     phi::funcs::sparse::IndexToPoint<Dims4D>(
@@ -238,7 +238,7 @@ void UpdateRulebookAndOutIndex(const Context& dev_ctx,
   for (i = 0; i < n; i++) {
     IntT out_index = rulebook_ptr[i + n * 2];
     rulebook_ptr[i + n * 2] =
-        std::distance(out_indices.begin(), out_indices.find(out_index));
+        std::distance(tmp_indices.begin(), tmp_indices.find(out_index));
   }
 
   out->SetMember(out_indices, out_values, out_dims, true);
