@@ -280,17 +280,21 @@ void detail::CollectBucketStrategyHostFunctionVisitor::ProcessLoweredFunc(
   call_kernel_stmts.push_back(call_extern_api);
   call_extern_api = ir::Block::Make(call_kernel_stmts);
 
+  // TODO(Dmovic): remove convert when backend update done.
   if (buckets_.empty()) {
-    buckets_.emplace_back(ir::IfThenElse::Make(predicate, call_extern_api));
+    buckets_.emplace_back(ir::stmt::IfThenElse(
+        predicate, ir::ConvertExprBlockToStmtBlock(call_extern_api)));
   } else {
     auto false_expr = buckets_.back();
     buckets_.pop_back();
     buckets_.emplace_back(
-        ir::IfThenElse::Make(predicate, call_extern_api, false_expr));
+        ir::stmt::IfThenElse(predicate,
+                             ir::ConvertExprBlockToStmtBlock(call_extern_api),
+                             ir::stmt::BlockRef{false_expr}));
   }
 
   // create infer shape calls for temp_spaces
-  std::vector<ir::Expr> temp_space_infer_shape_stmts;
+  std::vector<ir::stmt::StmtRef> temp_space_infer_shape_stmts;
   for (int i = 0; i < func_node->temp_spaces.size(); ++i) {
     ir::Var tensor_shape_args(TENSOR_SHAPE_ARGS, type_of<int64_t **>());
     ir::Expr size =
@@ -301,12 +305,12 @@ void detail::CollectBucketStrategyHostFunctionVisitor::ProcessLoweredFunc(
                           ir::Expr(0),
                           size,
                           tensor_shape_args});
-    temp_space_infer_shape_stmts.push_back(call_set_value);
+    temp_space_infer_shape_stmts.push_back(ir::stmt::Evaluate(call_set_value));
   }
   if (!temp_space_infer_shape_stmts.empty()) {
-    ir::Expr if_body = ir::Block::Make(temp_space_infer_shape_stmts);
-    temp_space_infer_shape_body_ =
-        ir::IfThenElse::Make(predicate, if_body, temp_space_infer_shape_body_);
+    ir::stmt::BlockRef if_body =
+        ir::stmt::BlockRef(temp_space_infer_shape_stmts);
+    temp_space_infer_shape_body_ = ir::stmt::IfThenElse(predicate, if_body);
   }
 }
 
@@ -325,7 +329,8 @@ void detail::CollectBucketStrategyHostFunctionVisitor::ProcessArgs(
                          0);
       ir::Expr let_symbol = ir::Expr(args[i].var_arg());
       let_symbol->set_type(type_of<int64_t>());
-      ir::Expr stmt = ir::Let::Make(let_symbol, call_get_value_in_kernel_args);
+      ir::stmt::StmtRef stmt =
+          ir::stmt::Let(let_symbol, call_get_value_in_kernel_args);
       arg_defs_.push_back(stmt);
     }
   }
