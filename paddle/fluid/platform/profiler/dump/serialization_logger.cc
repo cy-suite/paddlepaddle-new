@@ -67,7 +67,7 @@ void SerializationLogger::LogDeviceProperty(
     device_property_proto->set_shared_memory_per_multiprocessor(
         device_property.sharedMemPerMultiprocessor);
     device_property_proto->set_shared_memory_per_block_option(
-        device_property.sharedMemPerBlockOption);
+        device_property.sharedMemPerBlockOptin);
 #endif
   }
 }

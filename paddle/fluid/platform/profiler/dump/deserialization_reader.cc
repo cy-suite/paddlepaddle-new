@@ -180,8 +180,8 @@ gpuDeviceProp DeserializationReader::RestoreDeviceProperty(
       device_property_proto.shared_memory_per_block();
   device_property.sharedMemPerMultiprocessor =
       device_property_proto.shared_memory_per_multiprocessor();
-  device_property.sharedMemPerBlockOption =
-      device_property_proto.shared_memory_per_block_option();
+  device_property.sharedMemPerBlockOptin =
+      device_property_proto.shared_memory_per_block_optin();
 #endif
   return device_property;
 }

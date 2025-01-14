@@ -579,7 +579,7 @@ void ChromeTracingLogger::LogDeviceProperty(
       "maxThreadsPerBlock": %d, "maxThreadsPerMultiprocessor": %d,
       "regsPerBlock": %d, "regsPerMultiprocessor": %d, "warpSize": %d,
       "sharedMemPerBlock": %d, "sharedMemPerMultiprocessor": %d,
-      "smCount": %d, "sharedMemPerBlockOption": %d
+      "smCount": %d, "sharedMemPerBlockOptin": %d
     },
   )JSON"),
           item.first,
@@ -595,7 +595,7 @@ void ChromeTracingLogger::LogDeviceProperty(
           device_property.sharedMemPerBlock,
           device_property.sharedMemPerMultiprocessor,
           device_property.multiProcessorCount,
-          device_property.sharedMemPerBlockOption);
+          device_property.sharedMemPerBlockOptin);
     } else {
       output_file_stream_ << string_format(
           std::string(
@@ -606,7 +606,7 @@ void ChromeTracingLogger::LogDeviceProperty(
         "maxThreadsPerBlock": %d, "maxThreadsPerMultiprocessor": %d,
         "regsPerBlock": %d, "regsPerMultiprocessor": %d, "warpSize": %d,
         "sharedMemPerBlock": %d, "sharedMemPerMultiprocessor": %d,
-        "smCount": %d, "sharedMemPerBlockOption": %d
+        "smCount": %d, "sharedMemPerBlockOptin": %d
       }],
     )JSON"),
           item.first,
@@ -622,7 +622,7 @@ void ChromeTracingLogger::LogDeviceProperty(
           device_property.sharedMemPerBlock,
           device_property.sharedMemPerMultiprocessor,
           device_property.multiProcessorCount,
-          device_property.sharedMemPerBlockOption);
+          device_property.sharedMemPerBlockOptin);
     }
     device_nums -= 1;
   }

@@ -290,7 +290,7 @@ message DevicePropertyProto {
   required uint64 shared_memory_per_block = 11;
   required uint64 shared_memory_per_multiprocessor = 12;
   required uint32 sm_count = 13;
-  required uint64 shared_memory_per_block_option = 14;
+  required uint64 shared_memory_per_block_optin = 14;
 }
 
 message NodeTreesProto {
