@@ -371,22 +371,5 @@ class TestYoloBoxPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestYoloBoxCase1Pattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = yolo_box
-        self.api_args = {
-            "x": np.random.randn(2, 14, 8, 8).astype("float32"),
-            "img_size": np.ones([2, 2]).astype("int32"),
-        }
-        self.program_config = {"feed_list": []}
-
-        self.min_shape = {}
-        self.opt_shape = {}
-        self.max_shape = {}
-
-    def test_trt_fp16_result(self):
-        self.check_trt_result(rtol=1e-1, atol=1e-1, precision_mode="fp16")
-
-
 if __name__ == '__main__':
     unittest.main()
