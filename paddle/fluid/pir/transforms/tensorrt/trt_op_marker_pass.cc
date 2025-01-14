@@ -2211,7 +2211,10 @@ class Pad3dOpPattern : public pir::OpRewritePattern<paddle::dialect::Pad3dOp> {
         return false;
       }
     }
-
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
 
 class TemporalShiftOpPattern
     : public pir::OpRewritePattern<paddle::dialect::TemporalShiftOp> {
