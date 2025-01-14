@@ -62,8 +62,8 @@ void CopyCooValues(const Context& dev_ctx,
   Copy(dev_ctx, x.indices(), dev_ctx.GetPlace(), false, dx->mutable_indices());
 
   const int sparse_dim = x.sparse_dim();
-  std::vector<IntT> sparse_offsets(sparse_dim), dout_indexes(dout.nnz()),
-      x_indexes(x.nnz());
+  std::vector<IntT> sparse_offsets(sparse_dim), dout_indices(dout.nnz()),
+      x_indices(x.nnz());
 
   phi::funcs::sparse::CalcOffsetsPerDim<IntT>(
       dout.dims(), sparse_dim, sparse_offsets.data());
@@ -74,7 +74,7 @@ void CopyCooValues(const Context& dev_ctx,
                                      sparse_dim,
                                      0,
                                      1,
-                                     dout_indexes.data());
+                                     dout_indices.data());
 
   phi::funcs::sparse::FlattenIndices(x.indices().data<IntT>(),
                                      sparse_offsets.data(),
@@ -82,7 +82,7 @@ void CopyCooValues(const Context& dev_ctx,
                                      sparse_dim,
                                      0,
                                      1,
-                                     x_indexes.data());
+                                     x_indices.data());
 
   size_t i = 0, j = 0;
   T* dx_values_ptr = dx->mutable_values()->data<T>();
@@ -93,21 +93,21 @@ void CopyCooValues(const Context& dev_ctx,
     element_size *= x.values().dims()[j];
   }
 
-  while (i < dout_indexes.size() && j < x_indexes.size()) {
-    if (dout_indexes[i] == x_indexes[j]) {
+  while (i < dout_indices.size() && j < x_indices.size()) {
+    if (dout_indices[i] == x_indices[j]) {
       memcpy(dx_values_ptr + j * element_size,
              dout_values_ptr + i * element_size,
              element_size * sizeof(T));
       ++i;
       ++j;
-    } else if (dout_indexes[i] > x_indexes[j]) {
+    } else if (dout_indices[i] > x_indices[j]) {
       memset(dx_values_ptr + j * element_size, 0, element_size * sizeof(T));
       ++j;
     } else {
       ++i;
     }
   }
-  while (j < x_indexes.size()) {
+  while (j < x_indices.size()) {
     memset(dx_values_ptr + j * element_size, 0, element_size * sizeof(T));
     ++j;
   }

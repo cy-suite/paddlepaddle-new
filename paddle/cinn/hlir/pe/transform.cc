@@ -1201,11 +1201,11 @@ ir::Tensor Reverse(const ir::Tensor& input,
   return lang::Compute(
       input->shape,
       [=](const std::vector<Expr>& indice) {
-        std::vector<Expr> indexes(indice.begin(), indice.end());
+        std::vector<Expr> indices(indice.begin(), indice.end());
         for (auto idx : axis) {
-          indexes[idx] = shape[idx] - Expr(1) - indexes[idx];
+          indices[idx] = shape[idx] - Expr(1) - indices[idx];
         }
-        return input(indexes);
+        return input(indices);
       },
       output_name);
 }
@@ -1257,11 +1257,11 @@ ir::Tensor Transpose(const ir::Tensor& input,
   return lang::Compute(
       output_shape,
       [=](const std::vector<Expr>& indice) {
-        std::vector<Expr> indexes;
+        std::vector<Expr> indices;
         for (auto idx : new_axis) {
-          indexes.push_back(indice[idx]);
+          indices.push_back(indice[idx]);
         }
-        return input(indexes);
+        return input(indices);
       },
       output_name);
 }

@@ -30,7 +30,7 @@ void CoalesceCooCPUKernel(const CPUContext& dev_ctx,
   DenseTensor out_values = phi::EmptyLike<T>(dev_ctx, x_values);
 
   const int64_t sparse_dim = x.indices().dims()[0];
-  std::vector<IntT> sparse_offsets(sparse_dim), x_indexes(x.nnz());
+  std::vector<IntT> sparse_offsets(sparse_dim), x_index(x.nnz());
   phi::funcs::sparse::CalcOffsetsPerDim<IntT>(
       x.dims(), sparse_dim, sparse_offsets.data());
 
@@ -40,19 +40,19 @@ void CoalesceCooCPUKernel(const CPUContext& dev_ctx,
                                      sparse_dim,
                                      0,
                                      1,
-                                     x_indexes.data());
+                                     x_index.data());
 
   const T* x_values_ptr = x_values.data<T>();
   const int64_t stride =
       x.dims().size() == sparse_dim ? 1 : x.values().dims()[1];
 
   std::map<IntT, std::vector<int64_t>> indices_to_index;
-  for (uint64_t i = 0; i < x_indexes.size(); i++) {
-    IntT index = x_indexes[i];
+  for (uint64_t i = 0; i < x_index.size(); i++) {
+    IntT index = x_index[i];
     if (indices_to_index.find(index) == indices_to_index.end()) {
-      std::vector<int64_t> indexes;
-      indexes.push_back(static_cast<int>(i));
-      indices_to_index[index] = indexes;
+      std::vector<int64_t> index;
+      index.push_back(static_cast<int>(i));
+      indices_to_index[index] = index;
     } else {
       indices_to_index[index].push_back(i);
     }
