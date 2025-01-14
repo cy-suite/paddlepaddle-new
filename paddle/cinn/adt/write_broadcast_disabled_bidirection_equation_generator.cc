@@ -137,10 +137,10 @@ WriteBroadcastDisabledBidirectionEquationGenerator::GetDirectionEquations()
           const std::shared_ptr<config::NaiveOpEquationContext>& ctx) {
         const auto& in_msg2out_msg_equations =
             naive_bidirection_equation_generator_.equations();
-        const auto& truncated_output_tensor_index =
+        const auto& truncated_output_tensor_indices =
             GenerateWriteBroadcastTensorIndices(ctx, in_msg2out_msg_equations);
         ret->emplace_back(EraseIndexes(in_msg2out_msg_equations->at(idx),
-                                       truncated_output_tensor_index));
+                                       truncated_output_tensor_indices));
       });
   return ret;
 }

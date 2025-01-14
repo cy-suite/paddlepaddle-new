@@ -162,12 +162,12 @@ ir::Tensor Squeeze(const ir::Tensor& A,
 
   auto res = Compute(
       output_shape,
-      [=](const std::vector<Expr>& index) {
-        std::vector<Expr> indices(A->shape.size(), Expr(0));
-        for (int idx = 0; idx < index.size(); ++idx) {
-          indices[position[idx]] = index[idx];
+      [=](const std::vector<Expr>& indices) {
+        std::vector<Expr> out_indices(A->shape.size(), Expr(0));
+        for (int idx = 0; idx < indices.size(); ++idx) {
+          out_indices[position[idx]] = indices[idx];
         }
-        return A(indices);
+        return A(out_indices);
       },
       output_name);
   return res;
