@@ -867,120 +867,42 @@ bool WhileOp::InferSymbolicShape(
   }
 
   // Set ShapeOrDataDimExpr for results
-  bool need_infer_block_again = false;
   PADDLE_ENFORCE_EQ(body_args.size(),
                     num_results(),
                     common::errors::InvalidArgument(
                         "The body_args.size and num_results is not equal"));
   const auto &yield_op = body().back();
+  bool need_infer_block_again = false;
   for (size_t i = 1; i < yield_op.num_operands(); ++i) {
-    bool need_set_block_args_again = false;
     const symbol::ShapeOrDataDimExprs &yield_op_input_shape_or_data =
         infer_context->GetShapeOrDataForValue(yield_op.operand_source(i));
-    const symbol::ShapeOrDataDimExprs &block_arg_shape_or_data =
-        infer_context->GetShapeOrDataForValue(body_args[i - 1]);
+    if (!yield_op_input_shape_or_data
+             .isa<symbol::TensorShapeOrDataDimExprs>()) {
+      continue;
+    }
+    const std::vector<symbol::DimExpr> &yield_op_input_shape =
+        yield_op_input_shape_or_data.shape();
+    const std::vector<symbol::DimExpr> &block_arg_shape =
+        infer_context->GetShapeOrDataForValue(body_args[i - 1]).shape();
+    std::vector<symbol::DimExpr> new_block_arg_dims = block_arg_shape;
 
-    auto GetShape = [&](const symbol::ShapeOrDataDimExprs &shape_or_data) {
-      return shape_or_data.Match(
-          [&](const symbol::TensorShapeOrDataDimExprs &impl) {
-            return impl.shape();
-          },
-          [&](const symbol::RankedTensorArrayShapeOrDataDimExprs &impl) {
-            return impl.GetShapeHint();
-          },
-          [&](auto &impl) {
-            PADDLE_THROW(common::errors::Fatal(
-                "Only TensorShapeOrDataDimExprs and "
-                "RankedTensorArrayShapeOrDataDimExprs can "
-                "handled in while args and outputs."));
-            return std::vector<symbol::DimExpr>{};
-          });
-    };
-
-    const std::vector<symbol::DimExpr> yield_op_input_shape =
-        GetShape(yield_op_input_shape_or_data);
-    const std::vector<symbol::DimExpr> block_arg_shape =
-        GetShape(block_arg_shape_or_data);
-    std::vector<symbol::DimExpr> output_dims = yield_op_input_shape;
-    std::vector<symbol::DimExpr> next_block_arg_dims = block_arg_shape;
+    bool need_set_block_args_again = false;
     for (size_t j = 0; j < yield_op_input_shape.size(); j++) {
-      if (yield_op_input_shape[j].isa<int64_t>() &&
+      if (block_arg_shape[j].isa<int64_t>() &&
           (yield_op_input_shape[j] != block_arg_shape[j])) {
         need_infer_block_again = true;
         need_set_block_args_again = true;
-        symbol::DimExpr new_sym =
+        new_block_arg_dims[j] =
             symbol::DimExpr{infer_context->GetNextSymName()};
-        output_dims[j] = new_sym;
-        next_block_arg_dims[j] = new_sym;
       }
     }
     // Reset block_args.
-    auto ResetBlockArgsShape =
-        [&](const symbol::ShapeOrDataDimExprs &shape_or_data) {
-          shape_or_data.Match(
-              [&](const symbol::TensorShapeOrDataDimExprs &impl) {
-                infer_context->SetShapeOrDataForValue(
-                    body_args[i - 1],
-                    symbol::ShapeOrDataDimExprs(
-                        symbol::TensorShapeOrDataDimExprs(
-                            next_block_arg_dims)));
-              },
-              [&](const symbol::RankedTensorArrayShapeOrDataDimExprs &impl) {
-                infer_context->SetShapeOrDataForValue(
-                    body_args[i - 1],
-                    symbol::ShapeOrDataDimExprs(
-                        symbol::RankedTensorArrayShapeOrDataDimExprs(
-                            next_block_arg_dims)));
-              },
-              [&](auto &impl) {
-                PADDLE_THROW(common::errors::Fatal(
-                    "Only TensorShapeOrDataDimExprs and "
-                    "RankedTensorArrayShapeOrDataDimExprs can "
-                    "handled in while args and outputs."));
-              });
-        };
     if (need_set_block_args_again) {
-      ResetBlockArgsShape(yield_op_input_shape_or_data);
+      infer_context->SetShapeOrDataForValue(
+          body_args[i - 1],
+          symbol::ShapeOrDataDimExprs(
+              symbol::TensorShapeOrDataDimExprs(new_block_arg_dims)));
     }
-    auto UnContainUnknowDimExpr =
-        [](const std::vector<symbol::DimExpr> &shape) {
-          return std::all_of(
-              shape.begin(), shape.end(), [](const symbol::DimExpr &dim) {
-                return dim.isa<int64_t>();
-              });
-        };
-    auto SetResultShapeOrData = [&](const symbol::ShapeOrDataDimExprs
-                                        &shape_or_data) {
-      shape_or_data.Match(
-          [&](const symbol::TensorShapeOrDataDimExprs &impl) {
-            if (impl.data().has_value() &&
-                UnContainUnknowDimExpr(impl.shape())) {
-              infer_context->SetShapeOrDataForValue(
-                  result(i - 1),
-                  symbol::ShapeOrDataDimExprs(symbol::TensorShapeOrDataDimExprs(
-                      output_dims, impl.data().value())));
-            } else {
-              infer_context->SetShapeOrDataForValue(
-                  result(i - 1),
-                  symbol::ShapeOrDataDimExprs(
-                      symbol::TensorShapeOrDataDimExprs(output_dims)));
-            }
-          },
-          [&](const symbol::RankedTensorArrayShapeOrDataDimExprs &impl) {
-            infer_context->SetShapeOrDataForValue(
-                result(i - 1),
-                symbol::ShapeOrDataDimExprs(
-                    symbol::RankedTensorArrayShapeOrDataDimExprs(output_dims)));
-          },
-          [&](auto &impl) {
-            PADDLE_THROW(common::errors::Fatal(
-                "Only TensorShapeOrDataDimExprs and "
-                "RankedTensorArrayShapeOrDataDimExprs can "
-                "handled in while args and outputs."));
-          });
-    };
-    // Set result just for no need to run block twice.
-    SetResultShapeOrData(yield_op_input_shape_or_data);
   }
 
   if (need_infer_block_again) {
@@ -988,10 +910,14 @@ bool WhileOp::InferSymbolicShape(
   }
 
   for (size_t i = 0; i < num_results(); ++i) {
-    AddCstrForOutputs(operand_source(i + 1),
-                      yield_op.operand_source(i + 1),
-                      body_args[i],
-                      infer_context);
+    infer_context->SetShapeOrDataForValue(
+        result(i),
+        infer_context->GetShapeOrDataForValue(yield_op.operand_source(i + 1)));
+  }
+
+  for (size_t i = 0; i < num_results(); ++i) {
+    AddCstrForOutputs(
+        operand_source(i + 1), result(i), body_args[i], infer_context);
   }
 
   return true;
