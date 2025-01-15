@@ -270,6 +270,18 @@ class JudgeFusionLoop:
         )
 
 
+class Op2IdxMap:
+    def __init__(self, program):
+        self.op_to_idx_map = {}
+        for idx, op_iter in enumerate(program.global_block().ops):
+            self.op_to_idx_map[op_iter] = idx
+
+    def get_idx(self, op):
+        if self.op_to_idx_map.get(op, None):
+            return self.op_to_idx_map[op]
+        raise RuntimeError("op not found in program")
+
+
 def auto_recompute(
     program: paddle.static.Program,
     inputs: Sequence[pir.Value],
@@ -805,11 +817,7 @@ def replace_mid_values_with_forward_subgraph(
         }
         return recompute_subgraph
 
-    def getIdx(program, op):
-        for idx, op_iter in enumerate(program.global_block().ops):
-            if op == op_iter:
-                return idx
-        raise RuntimeError("op not found in program")
+    op_2_id_map = Op2IdxMap(program)
 
     forward_ops = set(program.global_block().ops[: fwd_op_end_idx + 1])
     backward_ops = set(program.global_block().ops[backward_op_start_idx:])
@@ -832,6 +840,7 @@ def replace_mid_values_with_forward_subgraph(
         origin_subgraph_inputs,
         first_backward_op,
         backward_ops,
+        op_2_id_map,
     )
 
     for origin_op in origin_ops:
@@ -852,9 +861,9 @@ def replace_mid_values_with_forward_subgraph(
         for op_outputs in op.results():
             for child in op_outputs.all_used_ops_in_same_block():
                 if cloned_op_first_grad_user_map.get(child, 0):
-                    if first_subgraph_grad_user is None or getIdx(
-                        program, cloned_op_first_grad_user_map[child]
-                    ) < getIdx(program, first_subgraph_grad_user):
+                    if first_subgraph_grad_user is None or op_2_id_map.get_idx(
+                        cloned_op_first_grad_user_map[child]
+                    ) < op_2_id_map.get_idx(first_subgraph_grad_user):
                         first_subgraph_grad_user = (
                             cloned_op_first_grad_user_map[child]
                         )
@@ -1087,14 +1096,25 @@ def analyze_mid_hold_values(
     return mid_hold_values
 
 
-def get_first_backward_use_op(fwd_op, backward_ops):
+def get_first_backward_use_op(fwd_op, backward_ops, op_2_id_map):
+    first_backward_use_op = None
     for user_op in fwd_op.results()[0].all_used_ops_in_same_block():
-        if user_op in backward_ops:
-            return user_op
+        if user_op in backward_ops and (
+            first_backward_use_op is None
+            or op_2_id_map.get_idx(user_op)
+            < op_2_id_map.get_idx(first_backward_use_op)
+        ):
+            first_backward_use_op = user_op
+    return first_backward_use_op
 
 
 def clone_graph(
-    program, origin_ops, graph_inputs, clone_insertion_op, backward_ops
+    program,
+    origin_ops,
+    graph_inputs,
+    clone_insertion_op,
+    backward_ops,
+    op_2_id_map,
 ):
     pir.set_insertion_point(clone_insertion_op)
     all_ops = program.global_block().ops
@@ -1109,7 +1129,9 @@ def clone_graph(
             new_op = op.clone(
                 value_map, paddle.pir.CloneOptions(False, True, True)
             )
-            first_backward_use_op = get_first_backward_use_op(op, backward_ops)
+            first_backward_use_op = get_first_backward_use_op(
+                op, backward_ops, op_2_id_map
+            )
             if (
                 first_backward_use_op is not None
                 and first_backward_use_op.has_attr('op_role')
@@ -1118,6 +1140,7 @@ def clone_graph(
                 new_op.set_int_attr("op_role", first_backward_use_op.op_role)
                 new_op.set_int_attr("chunk_id", first_backward_use_op.chunk_id)
             cloned_ops.append(new_op)
-            cloned_op_first_grad_user_map[new_op] = first_backward_use_op
+            if first_backward_use_op is not None:
+                cloned_op_first_grad_user_map[new_op] = first_backward_use_op
     pir.set_insertion_point_to_block_end(program.global_block())
     return cloned_ops, value_map, cloned_op_first_grad_user_map
