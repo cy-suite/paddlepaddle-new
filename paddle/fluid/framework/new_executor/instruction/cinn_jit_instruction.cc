@@ -308,6 +308,21 @@ CinnJitInstruction::CinnJitInstruction(
     tensor_args_.push_back(&tensor);
   }
   output_tensor_size += temp_space_tensors_.size();
+
+  for (int i = 0; i < op->num_results(); ++i) {
+    auto result = op->result(i);
+
+    if (result.use_count() == 1 &&
+        result.first_use().owner()->isa<pir::ShadowOutputOp>()) {
+      auto t1 = result.first_use().owner()->dyn_cast<pir::ShadowOutputOp>();
+
+      // if( t1.attributes().count("no_need_buffers") &&
+      // t1.attribute("no_need_buffers").dyn_cast<pir::BoolAttribute>().data())
+      if (t1.attributes().count("no_need_buffers")) {
+        std::cerr << "index is no need buffer        " << i << std::endl;
+      }
+    }
+  }
 }
 
 void CinnJitInstruction::Run() {

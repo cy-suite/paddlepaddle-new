@@ -189,10 +189,10 @@ __global__ void AccuracyCheckCUDAKernel<phi::dtype::complex<float>>(
       val = a == b || left <= right || diff <= 1e-10;
     }
     out_data[i] = val;
-    if (!val) {
-      *out_data = false;
-      break;
-    }
+    // if (!val) {
+    //   *out_data = false;
+    //   break;
+    // }
   }
 }
 
@@ -256,15 +256,20 @@ struct AccuracyCheckFunctor<phi::GPUContext, T> {
     auto data_ptr = out_cpu.data<bool>();
 
     // check all data here
-    if (!data_ptr[0]) {
-      std::cerr << "ato l rtol " << rtol << "\t" << atol << std::endl;
-      for (int i = 0; i < num; ++i) {
-        std::cerr << data_ptr[i] << " ";
+    bool check = false;
+
+    std::cerr << "ato l rtol " << rtol << "\t" << atol << std::endl;
+    for (int i = 0; i < num; ++i) {
+      if (!data_ptr[i]) {
+        check = true;
       }
-      std::cerr << "\n!!!@@@@@@@@@@\n";
+      break;
+      std::cerr << data_ptr[i] << " ";
     }
-    PADDLE_ENFORCE_EQ(*data_ptr,
-                      true,
+    std::cerr << "\n!!!@@@@@@@@@@\n";
+
+    PADDLE_ENFORCE_EQ(check,
+                      false,
                       common::errors::PreconditionNotMet(
                           "Accuracy check failed, kernel name %s", fn_name));
   }

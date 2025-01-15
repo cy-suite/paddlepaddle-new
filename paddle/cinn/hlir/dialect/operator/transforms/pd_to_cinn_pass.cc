@@ -1015,13 +1015,6 @@ class SqueezeOpPattern
                              .type()
                              .dyn_cast<paddle::dialect::DenseTensorType>()
                              .dims());
-      const std::set<int64_t> axis_set = [&] {
-        std::set<int64_t> axis_set;
-        for (int64_t axis : axis_vec) {
-          axis_set.insert(axis < 0 ? axis + in_shape.size() : axis);
-        }
-        return axis_set;
-      }();
 
       std::vector<int> output_shape;
       const std::set<int64_t> axis_set = [&] {
