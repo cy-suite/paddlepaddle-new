@@ -1028,9 +1028,9 @@ nvinfer1::IPluginV2 *PIRPrelnResidualBiasPluginDynamicCreator::createPlugin(
       scale = static_cast<const float *>(f.data);
     } else if (field_name.compare("ele_bias") == 0) {
       if (with_fp16) {
-        ele_bias_fp16 = static_cast<const half*>(f.data);
+        ele_bias_fp16 = static_cast<const half *>(f.data);
       } else {
-        ele_bias = static_cast<const float*>(f.data);
+        ele_bias = static_cast<const float *>(f.data);
       }
     } else if (field_name.compare("bias_size") == 0) {
       bias_size = *static_cast<const int *>(f.data);
