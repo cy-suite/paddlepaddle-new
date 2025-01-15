@@ -966,16 +966,20 @@ bool WhileOp::InferSymbolicShape(
 
   if (need_infer_block_again) {
     pir::InferSymExprForBlock(body(), infer_context);
-    for (size_t i = 0; i < num_results(); ++i) {
-      infer_context->SetShapeOrDataForValue(
-          result(i),
-          infer_context->GetShapeOrDataForValue(last_op.operand_source(i + 1)));
-    }
+    // To reduce symbol complexity by skipping run follow code.
+    // for (size_t i = 0; i < num_results(); ++i) {
+    //   infer_context->SetShapeOrDataForValue(
+    //       result(i),
+    //       infer_context->GetShapeOrDataForValue(last_op.operand_source(i +
+    //       1)));
+    // }
   }
 
   for (size_t i = 0; i < num_results(); ++i) {
-    AddCstrForOutputs(
-        operand_source(i + 1), result(i), body_args[i], infer_context);
+    AddCstrForOutputs(operand_source(i + 1),
+                      last_op.operand_source(i + 1),
+                      body_args[i],
+                      infer_context);
   }
 
   return true;
