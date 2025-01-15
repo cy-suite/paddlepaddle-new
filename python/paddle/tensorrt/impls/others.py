@@ -21,11 +21,13 @@ from paddle.base.log_helper import get_logger
 from paddle.tensorrt.converter_utils import (
     add_1D_constant_layer,
     fill_constant_layer,
+    get_input_constant_value,
     get_shape_tensor_element,
     get_trt_plugin,
     trt_concat,
     trt_prod,
     trt_shape,
+    trt_sub,
     trt_sum,
 )
 from paddle.tensorrt.register import converter_registry
@@ -164,43 +166,13 @@ def set_value_converter(network, paddle_op, inputs):
         paddle_op.name() == "pd_op.set_value"
         or paddle_op.name() == "pd_op.set_value_"
     ):
-        starts = (
-            paddle_op.operands()[1]
-            .source()
-            .get_defining_op()
-            .attrs()["value"][0]
-        )
-        ends = (
-            paddle_op.operands()[2]
-            .source()
-            .get_defining_op()
-            .attrs()["value"][0]
-        )
-        steps = (
-            paddle_op.operands()[3]
-            .source()
-            .get_defining_op()
-            .attrs()["value"][0]
-        )
+        starts = get_input_constant_value(paddle_op, inputs, 1)[0]
+        ends = get_input_constant_value(paddle_op, inputs, 2)[0]
+        steps = get_input_constant_value(paddle_op, inputs, 3)[0]
     else:
-        starts = (
-            paddle_op.operands()[2]
-            .source()
-            .get_defining_op()
-            .attrs()["value"][0]
-        )
-        ends = (
-            paddle_op.operands()[3]
-            .source()
-            .get_defining_op()
-            .attrs()["value"][0]
-        )
-        steps = (
-            paddle_op.operands()[4]
-            .source()
-            .get_defining_op()
-            .attrs()["value"][0]
-        )
+        starts = get_input_constant_value(paddle_op, inputs, 2)[0]
+        ends = get_input_constant_value(paddle_op, inputs, 3)[0]
+        steps = get_input_constant_value(paddle_op, inputs, 4)[0]
     axes = paddle_op.attrs()["axes"][0]
 
     input_dims = x.shape
@@ -301,6 +273,172 @@ def share_data_converter(network, paddle_op, inputs):
     identity_layer = network.add_identity(x)
 
     return identity_layer.get_output(0)
+
+
+@converter_registry.register("pd_op.temporal_shift", trt_version="8.x")
+def temporal_shift_converter(network, paddle_op, inputs):
+    input_tensor = inputs[0]
+    shift_ratio = paddle_op.attrs()["shift_ratio"]
+    T = paddle_op.attrs()["seg_num"]
+    data_format = paddle_op.attrs().get("data_format", "NCHW")
+
+    if data_format == "NHWC":
+        # Transpose input to [N, C, H, W]
+        transpose_layer = network.add_shuffle(input_tensor)
+        transpose_layer.first_transpose = trt.Permutation([0, 3, 1, 2])
+        input_tensor = transpose_layer.get_output(0)
+
+    input_dims = input_tensor.shape
+    C, H, W = input_dims[1], input_dims[2], input_dims[3]
+
+    # Reshape input to [N, T, C, H, W]
+    reshape_layer = network.add_shuffle(input_tensor)
+    reshape_layer.reshape_dims = trt.Dims([-1, T, C, H, W])
+    input_tensor = reshape_layer.get_output(0)
+
+    # Pad input to [N, T + 2, C, H, W]
+    pre_pad = add_1D_constant_layer(network, [0, 1, 0, 0, 0])
+    post_pad = add_1D_constant_layer(network, [0, 1, 0, 0, 0])
+    dims = 5
+    zeros = add_1D_constant_layer(network, [0] * dims)
+    start = trt_sub(network, zeros, pre_pad)
+    total_padding = trt_sum(network, pre_pad, post_pad)
+    input_shape = trt_shape(network, input_tensor)
+    size = trt_sum(network, input_shape, total_padding)
+    stride = [1] * dims
+    dummy = stride
+
+    slice_layer = network.add_slice(input_tensor, dummy, dummy, stride)
+    slice_layer.set_input(1, start)
+    slice_layer.set_input(2, size)
+
+    trt_version = trt.__version__.split('.')
+    if int(trt_version[0]) > 8 or (
+        int(trt_version[0]) == 8 and int(trt_version[1]) >= 5
+    ):
+        slice_layer.mode = trt.SampleMode.FILL
+    else:
+        slice_layer.mode = trt.SliceMode.FILL
+
+    slice_c = int(C * shift_ratio)
+    slice_c2 = int(C * shift_ratio * 2)
+
+    slice_start1 = zeros
+    slice_start2 = add_1D_constant_layer(network, [0, 2, slice_c, 0, 0])
+    slice_start3 = add_1D_constant_layer(network, [0, 1, slice_c2, 0, 0])
+
+    slice_size_base = trt_shape(network, input_tensor)
+    sub_size1 = add_1D_constant_layer(network, [0, 0, C - slice_c, 0, 0])
+    sub_size2 = add_1D_constant_layer(
+        network, [0, 0, C + slice_c - slice_c2, 0, 0]
+    )
+    sub_size3 = add_1D_constant_layer(network, [0, 0, slice_c2, 0, 0])
+
+    slice_size1 = trt_sub(network, slice_size_base, sub_size1)
+    slice_size2 = trt_sub(network, slice_size_base, sub_size2)
+    slice_size3 = trt_sub(network, slice_size_base, sub_size3)
+
+    slice1_layer = network.add_slice(
+        slice_layer.get_output(0), start=dummy, shape=dummy, stride=stride
+    )
+    slice1_layer.set_input(1, slice_start1)
+    slice1_layer.set_input(2, slice_size1)
+    slice2_layer = network.add_slice(
+        slice_layer.get_output(0), start=dummy, shape=dummy, stride=stride
+    )
+    slice2_layer.set_input(1, slice_start2)
+    slice2_layer.set_input(2, slice_size2)
+    slice3_layer = network.add_slice(
+        slice_layer.get_output(0), start=dummy, shape=dummy, stride=stride
+    )
+    slice3_layer.set_input(1, slice_start3)
+    slice3_layer.set_input(2, slice_size3)
+
+    concat_inputs = [slice2_layer.get_output(0), slice3_layer.get_output(0)]
+    if slice_c == 0:
+        concat_layer = network.add_concatenation(concat_inputs)
+        concat_layer.axis = 2
+    else:
+        concat_inputs = [
+            slice1_layer.get_output(0),
+            slice2_layer.get_output(0),
+            slice3_layer.get_output(0),
+        ]
+        concat_layer = network.add_concatenation(concat_inputs)
+        concat_layer.axis = 2
+
+    # Reshape output to [N*T,C,H,W]
+    reshape_layer3 = network.add_shuffle(concat_layer.get_output(0))
+    reshape_layer3.reshape_dims = trt.Dims([-1, C, H, W])
+
+    if data_format == "NHWC":
+        transpose_layer2 = network.add_shuffle(reshape_layer3.get_output(0))
+        transpose_layer2.first_transpose = trt.Permutation([0, 2, 3, 1])
+        output_tensor = transpose_layer2.get_output(0)
+    else:
+        output_tensor = reshape_layer3.get_output(0)
+
+    return output_tensor
+
+
+@converter_registry.register("pd_op.anchor_generator", trt_version="8.x")
+def anchor_generator_converter(network, paddle_op, inputs):
+    inputs = inputs[0]
+    input_dims = inputs.shape
+    anchor_sizes = paddle_op.attrs().get("anchor_sizes")
+    aspect_ratios = paddle_op.attrs().get("aspect_ratios")
+    stride = paddle_op.attrs().get("stride")
+    variances = paddle_op.attrs().get("variances")
+    offset = paddle_op.attrs().get("offset")
+    num_anchors = len(aspect_ratios) * len(anchor_sizes)
+
+    height = input_dims[1]
+    width = input_dims[2]
+    box_num = width * height * num_anchors
+    data_type = trt.float32
+
+    plugin_fields = [
+        trt.PluginField(
+            "anchor_sizes",
+            np.array(anchor_sizes, dtype=np.float32),
+            trt.PluginFieldType.FLOAT32,
+        ),
+        trt.PluginField(
+            "aspect_ratios",
+            np.array(aspect_ratios, dtype=np.float32),
+            trt.PluginFieldType.FLOAT32,
+        ),
+        trt.PluginField(
+            "stride",
+            np.array(stride, dtype=np.float32),
+            trt.PluginFieldType.FLOAT32,
+        ),
+        trt.PluginField(
+            "variances",
+            np.array(variances, dtype=np.float32),
+            trt.PluginFieldType.FLOAT32,
+        ),
+        trt.PluginField(
+            "offset",
+            np.array(offset, dtype=np.float32),
+            trt.PluginFieldType.FLOAT32,
+        ),
+        trt.PluginField(
+            "num_anchors",
+            np.array(num_anchors, dtype=np.int32),
+            trt.PluginFieldType.INT32,
+        ),
+    ]
+    plugin_field_collection = trt.PluginFieldCollection(plugin_fields)
+    plugin_name = "pir_anchor_generator_plugin_dynamic"
+    plugin_version = "1"
+    plugin = get_trt_plugin(
+        plugin_name, plugin_field_collection, plugin_version
+    )
+    anchor_generator_layer = network.add_plugin_v2([inputs], plugin)
+    out0 = anchor_generator_layer.get_output(0)
+    out1 = anchor_generator_layer.get_output(1)
+    return (out0, out1)
 
 
 @converter_registry.register("pd_op.affine_channel", trt_version="8.x")
