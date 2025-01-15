@@ -16,6 +16,7 @@ import numpy as np
 import tensorrt as trt
 
 from paddle.tensorrt.converter_utils import (
+    WithFp16,
     append_ones,
     get_axes_for_reduce_op,
     get_dynamic_dims,
@@ -167,11 +168,15 @@ def fused_bias_dropout_residual_layer_norm_converter(
     scale_size = scale.size
     ele_bias_size = ele_bias.size if has_bias else 0
     epsilon = paddle_op.attrs().get("ln_epsilon", 1e-5)
+    with_fp16 = int(WithFp16())
+    ele_bias_data = ele_bias.numpy().astype('float16') if with_fp16 else ele_bias.numpy()
     plugin_fields = [
         trt.PluginField("bias", bias.numpy(), trt.PluginFieldType.FLOAT32),
         trt.PluginField("scale", scale.numpy(), trt.PluginFieldType.FLOAT32),
         trt.PluginField(
-            "ele_bias", ele_bias.numpy(), trt.PluginFieldType.FLOAT32
+            "ele_bias",
+            ele_bias_data,
+            trt.PluginFieldType.FLOAT16 if with_fp16 else trt.PluginFieldType.FLOAT32
         ),
         trt.PluginField(
             "bias_size",

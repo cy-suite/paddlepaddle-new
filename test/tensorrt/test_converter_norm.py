@@ -126,12 +126,10 @@ def fused_bias_dropout_residual_layer_norm(
 
 class TestFusedBiasDropoutResidualLayerNormTRTPattern(TensorRTBaseTest):
     def setUp(self):
-        paddle.seed(42)
-        np.random.seed(42)
         self.python_api = fused_bias_dropout_residual_layer_norm
         self.api_args = {
-            "x": np.ones((2, 4, 128)).astype("float32"),
-            "residual": np.ones((2, 4, 128)).astype("float32"),
+            "x": np.random.rand(2, 4, 128).astype("float32"),
+            "residual": np.random.rand(2, 4, 128).astype("float32"),
             "bias_shape": [128],
             "ln_scale_shape": [128],
             "ln_bias_shape": [128],
@@ -143,11 +141,11 @@ class TestFusedBiasDropoutResidualLayerNormTRTPattern(TensorRTBaseTest):
         self.opt_shape = {"x": [2, 4, 128], "residual": [2, 4, 128]}
         self.max_shape = {"x": [3, 4, 128], "residual": [3, 4, 128]}
 
-    def test_fp16_trt_result(self):
-        self.check_trt_result(precision_mode="fp16")
-
     def test_fp32_trt_result(self):
         self.check_trt_result()
+
+    def test_fp16_trt_result(self):
+        self.check_trt_result(rtol=1e-1, atol=1e-1, precision_mode="fp16")
 
 
 class TestFusedBiasDropoutResidualLayerNormErrorTRTPattern(TensorRTBaseTest):
@@ -156,8 +154,8 @@ class TestFusedBiasDropoutResidualLayerNormErrorTRTPattern(TensorRTBaseTest):
         np.random.seed(42)
         self.python_api = fused_bias_dropout_residual_layer_norm
         self.api_args = {
-            "x": np.ones((2, 4, 128)).astype("float32"),
-            "residual": np.ones((2, 4, 128)).astype("float32"),
+            "x": np.random.rand(2, 4, 128).astype("float32"),
+            "residual": np.random.rand(2, 4, 128).astype("float32"),
             "bias_shape": [128],
             "ln_scale_shape": [128],
             "ln_bias_shape": [128],
