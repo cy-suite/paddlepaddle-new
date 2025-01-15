@@ -874,6 +874,8 @@ bool WhileOp::InferSymbolicShape(
                         "The body_args.size and num_results is not equal"));
   const auto &last_op = body().back();
   for (size_t i = 1; i < last_op.num_operands(); ++i) {
+    bool need_set_block_args_again = false;
+    int value_level = 0;  // ShapeOrDataDimExprs type
     const symbol::ShapeOrDataDimExprs &last_op_input_shape_or_data =
         infer_context->GetShapeOrDataForValue(last_op.operand_source(i));
     const symbol::ShapeOrDataDimExprs &block_arg_shape_or_data =
@@ -881,6 +883,7 @@ bool WhileOp::InferSymbolicShape(
     std::vector<symbol::DimExpr> last_op_input_shape;
     std::vector<symbol::DimExpr> block_arg_shape;
     std::vector<symbol::DimExpr> output_dims;
+    std::vector<symbol::DimExpr> next_block_arg_dims;
     if (last_op_input_shape_or_data.isa<symbol::TensorShapeOrDataDimExprs>()) {
       last_op_input_shape = last_op_input_shape_or_data
                                 .dyn_cast<symbol::TensorShapeOrDataDimExprs>()
@@ -889,6 +892,10 @@ bool WhileOp::InferSymbolicShape(
           block_arg_shape_or_data.dyn_cast<symbol::TensorShapeOrDataDimExprs>()
               .shape();
       output_dims = last_op_input_shape;
+      next_block_arg_dims = block_arg_shape;
+      if (last_op_input_shape_or_data.data().has_value()) {
+        value_level = 1;
+      }
     } else if (last_op_input_shape_or_data
                    .isa<symbol::RankedTensorArrayShapeOrDataDimExprs>()) {
       last_op_input_shape =
@@ -900,6 +907,8 @@ bool WhileOp::InferSymbolicShape(
               .dyn_cast<symbol::RankedTensorArrayShapeOrDataDimExprs>()
               .GetShapeHint();
       output_dims = last_op_input_shape;
+      next_block_arg_dims = block_arg_shape;
+      value_level = 2;
     } else {
       PADDLE_THROW(
           common::errors::Fatal("Only TensorShapeOrDataDimExprs and "
@@ -910,41 +919,63 @@ bool WhileOp::InferSymbolicShape(
       if (last_op_input_shape[j].isa<int64_t>() &&
           (last_op_input_shape[j] != block_arg_shape[j])) {
         need_infer_block_again = true;
-        output_dims[j] = symbol::DimExpr{infer_context->GetNextSymName()};
+        need_set_block_args_again = true;
+        symbol::DimExpr new_sym =
+            symbol::DimExpr{infer_context->GetNextSymName()};
+        output_dims[j] = new_sym;
+        next_block_arg_dims[j] = new_sym;
       }
     }
-
-    if (last_op_input_shape_or_data.isa<symbol::TensorShapeOrDataDimExprs>() &&
-        last_op_input_shape_or_data.data().has_value()) {
+    // Reset block_args.
+    if (need_set_block_args_again) {
+      if (value_level == 1 || value_level == 0) {
+        infer_context->SetShapeOrDataForValue(
+            body_args[i - 1],
+            symbol::ShapeOrDataDimExprs(
+                symbol::TensorShapeOrDataDimExprs(next_block_arg_dims)));
+      } else if (value_level == 2) {
+        infer_context->SetShapeOrDataForValue(
+            body_args[i - 1],
+            symbol::ShapeOrDataDimExprs(
+                symbol::RankedTensorArrayShapeOrDataDimExprs(
+                    next_block_arg_dims)));
+      } else {
+        PADDLE_THROW(common::errors::Fatal("Dead code."));
+      }
+    }
+    // Set result just for no need to run block twice.
+    if (value_level == 1) {
       infer_context->SetShapeOrDataForValue(
           result(i - 1),
           symbol::ShapeOrDataDimExprs(symbol::TensorShapeOrDataDimExprs(
               output_dims, last_op_input_shape_or_data.data().value())));
-    } else if (last_op_input_shape_or_data
-                   .isa<symbol::TensorShapeOrDataDimExprs>()) {
+    } else if (value_level == 0) {
       infer_context->SetShapeOrDataForValue(
           result(i - 1),
           symbol::ShapeOrDataDimExprs(
               symbol::TensorShapeOrDataDimExprs(output_dims)));
-    } else {
+    } else if (value_level == 2) {
       infer_context->SetShapeOrDataForValue(
           result(i - 1),
           symbol::ShapeOrDataDimExprs(
               symbol::RankedTensorArrayShapeOrDataDimExprs(output_dims)));
+    } else {
+      PADDLE_THROW(common::errors::Fatal("Dead code."));
+    }
+  }
+
+  if (need_infer_block_again) {
+    pir::InferSymExprForBlock(body(), infer_context);
+    for (size_t i = 0; i < num_results(); ++i) {
+      infer_context->SetShapeOrDataForValue(
+          result(i),
+          infer_context->GetShapeOrDataForValue(last_op.operand_source(i + 1)));
     }
   }
 
   for (size_t i = 0; i < num_results(); ++i) {
     AddCstrForOutputs(
         operand_source(i + 1), result(i), body_args[i], infer_context);
-  }
-
-  if (need_infer_block_again) {
-    for (size_t i = 0; i < num_results(); ++i) {
-      infer_context->SetShapeOrDataForValue(
-          body_args[i], infer_context->GetShapeOrDataForValue(result(i)));
-    }
-    pir::InferSymExprForBlock(body(), infer_context);
   }
 
   return true;
