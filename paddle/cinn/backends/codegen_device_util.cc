@@ -244,6 +244,7 @@ void detail::CollectBucketStrategyHostFunctionVisitor::ProcessLoweredFunc(
       [&](common::HygonDCUArchSYCL) {
         call_kernel = runtime::intrinsic::call_sycl_kernel;
       });
+  // TODO(Dmovic): use new ir when backend update done.
   ir::Expr call_extern_api =
       ir::Call::Make(Void(),
                      call_kernel.value(),
@@ -264,7 +265,7 @@ void detail::CollectBucketStrategyHostFunctionVisitor::ProcessLoweredFunc(
                      0);
 
   // create memset calls for temp_spaces if needed
-  std::vector<ir::Expr> call_kernel_stmts;
+  std::vector<ir::stmt::StmtRef> call_kernel_stmts;
   for (auto &temp_space : func_node->temp_spaces) {
     if (temp_space.need_zero_init()) {
       ir::Expr size = common::cast(temp_space.size(), common::UInt(64));
@@ -274,23 +275,22 @@ void detail::CollectBucketStrategyHostFunctionVisitor::ProcessLoweredFunc(
       ir::Expr call_memset = lang::CallExtern(
           runtime::intrinsic::call_cuda_memset,
           {call_get_arg, ir::Expr(1), ir::Expr(0), size, kernel_stream_});
-      call_kernel_stmts.push_back(call_memset);
+      call_kernel_stmts.push_back(ir::stmt::Evaluate(call_memset));
     }
   }
-  call_kernel_stmts.push_back(call_extern_api);
-  call_extern_api = ir::Block::Make(call_kernel_stmts);
+  call_kernel_stmts.push_back(ir::stmt::Evaluate(call_extern_api));
+  auto call_extern_api_block = ir::stmt::BlockRef(call_kernel_stmts);
 
-  // TODO(Dmovic): remove convert when backend update done.
   if (buckets_.empty()) {
-    buckets_.emplace_back(ir::stmt::IfThenElse(
-        predicate, ir::ConvertExprBlockToStmtBlock(call_extern_api)));
+    buckets_.emplace_back(
+        ir::stmt::IfThenElse(predicate, call_extern_api_block));
   } else {
     auto false_expr = buckets_.back();
     buckets_.pop_back();
-    buckets_.emplace_back(
-        ir::stmt::IfThenElse(predicate,
-                             ir::ConvertExprBlockToStmtBlock(call_extern_api),
-                             ir::stmt::BlockRef{false_expr}));
+    buckets_.emplace_back(ir::stmt::IfThenElse(
+        predicate,
+        call_extern_api_block,
+        ir::stmt::BlockRef(std::vector<ir::stmt::StmtRef>{false_expr})));
   }
 
   // create infer shape calls for temp_spaces
