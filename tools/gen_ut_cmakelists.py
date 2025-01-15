@@ -366,7 +366,7 @@ class DistUTPortManager:
         If the directories are newly created or there is no CMakeLists.txt before, or ignore this error, you
         must specify the directories using the args option --ignore-cmake-dirs/-i.
         If you want to keep the dist ports of old tests unchanged, please ensure the old
-        verson CMakeLists.txt file existing before using the gen_ut_cmakelists tool to
+        version CMakeLists.txt file existing before using the gen_ut_cmakelists tool to
         generate new CmakeLists.txt files.
     ====================================================================================
     """
@@ -565,8 +565,8 @@ class CMakeGenerator:
         for sub in sub_dirs:
             cmds += f"add_subdirectory({sub})\n"
 
-        # check whether the generated file are thge same with the existing file, ignoring the blank chars
-        # if the are same, skip the weiting process
+        # check whether the generated file are the same with the existing file, ignoring the blank chars
+        # if they are same, skip the waiting process
         if os.path.isfile(f"{current_work_dir}/CMakeLists.txt"):
             with open(
                 f"{current_work_dir}/CMakeLists.txt", "r"

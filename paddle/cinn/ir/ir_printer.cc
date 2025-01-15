@@ -14,7 +14,7 @@
 
 #include "paddle/cinn/ir/ir_printer.h"
 #include <algorithm>
-#include <cfenv>
+#include <cmath>
 #include <iomanip>
 #include <limits>
 #include <vector>
@@ -175,8 +175,8 @@ void IrPrinter::Visit(const FloatImm *x) {
       }
     } else {
       float v = TruncateInfinity<float>(x->value);
-      if (IsCloseEqualBoundValue<float>(v))
-        ss << std::setprecision(std::numeric_limits<float>::max_digits10);
+      if (IsCloseEqualBoundValue<float>(v)) v = std::trunc(v);
+      ss << std::setprecision(std::numeric_limits<float>::max_digits10);
       ss << std::showpoint;
       ss << v;
       if (std::isfinite(v)) {
