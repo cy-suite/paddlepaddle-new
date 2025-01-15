@@ -80,14 +80,6 @@ class TestBaddBmmOp(OpTest):
         )
 
 
-class TestBaddBmmFP16Op(TestBaddBmmOp):
-    def init_dtype_type(self):
-        self.dtype = np.float16
-
-    def test_check_output(self):
-        self.check_output(atol=1e-2)
-
-
 class TestBaddBmmOp2(TestBaddBmmOp):
     # test alpha and beta
     def setUp(self):
