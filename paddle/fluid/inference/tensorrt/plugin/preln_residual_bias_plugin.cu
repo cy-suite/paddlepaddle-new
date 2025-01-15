@@ -1047,22 +1047,22 @@ nvinfer1::IPluginV2 *PIRPrelnResidualBiasPluginDynamicCreator::createPlugin(
 
   if (with_fp16) {
     return new PIRPrelnResidualBiasPluginDynamic(bias,
-                                                scale,
-                                                ele_bias_fp16,
-                                                bias_size,
-                                                scale_size,
-                                                ele_bias_size,
-                                                epsilon,
-                                                with_fp16);
+                                                 scale,
+                                                 ele_bias_fp16,
+                                                 bias_size,
+                                                 scale_size,
+                                                 ele_bias_size,
+                                                 epsilon,
+                                                 with_fp16);
   } else {
     return new PIRPrelnResidualBiasPluginDynamic(bias,
-                                                scale,
-                                                ele_bias,
-                                                bias_size,
-                                                scale_size,
-                                                ele_bias_size,
-                                                epsilon,
-                                                with_fp16);
+                                                 scale,
+                                                 ele_bias,
+                                                 bias_size,
+                                                 scale_size,
+                                                 ele_bias_size,
+                                                 epsilon,
+                                                 with_fp16);
   }
 }
 
