@@ -1,4 +1,4 @@
-#   Copyright (c) 2018 PaddlePaddle Authors. All Rights Reserved.
+#   Copyright (c) 2025 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -70,6 +70,17 @@ class TestBaddBmmAPI(unittest.TestCase):
             )
 
         self.assertRaises(ValueError, test_error4)
+
+        def test_error5():
+            data_input_wrong = np.ones((1, 2, 1)).astype(np.float32)
+            x = paddle.to_tensor(data_x)
+            y = paddle.to_tensor(data_y)
+            input = paddle.to_tensor(data_input_wrong)
+            out = paddle.tensor.baddbmm(
+                input=input, x=x, y=y, beta=0.5, alpha=5.0
+            )
+
+        self.assertRaises(ValueError, test_error5)
 
         paddle.enable_static()
 

@@ -20,7 +20,7 @@ from op_test import OpTest
 import paddle
 
 
-class TestBaddBmmOp(OpTest):
+class TestBaddBmm1Op(OpTest):
     # test basic
     def setUp(self):
         self.op_type = "baddbmm"
@@ -29,9 +29,9 @@ class TestBaddBmmOp(OpTest):
         self.public_python_api = paddle.baddbmm
         self.init_dtype_type()
         self.inputs = {
-            'Input': np.random.random((2, 10, 5)).astype(self.dtype),
-            'X': np.random.random((2, 10, 10)).astype(self.dtype),
-            'Y': np.random.random((2, 10, 5)).astype(self.dtype),
+            'Input': np.random.random((1, 10, 10)).astype(self.dtype),
+            'X': np.random.random((1, 10, 10)).astype(self.dtype),
+            'Y': np.random.random((1, 10, 10)).astype(self.dtype),
         }
         self.outputs = {
             'Out': self.inputs['Input']
@@ -80,7 +80,7 @@ class TestBaddBmmOp(OpTest):
         )
 
 
-class TestBaddBmmFP16Op(TestBaddBmmOp):
+class TestBaddBmm1FP16Op(TestBaddBmm1Op):
     def init_dtype_type(self):
         self.dtype = np.float16
 
@@ -88,7 +88,7 @@ class TestBaddBmmFP16Op(TestBaddBmmOp):
         self.check_output(atol=1e-2)
 
 
-class TestBaddBmmOp2(TestBaddBmmOp):
+class TestBaddBmm1Op2(TestBaddBmm1Op):
     # test alpha and beta
     def setUp(self):
         self.op_type = "baddbmm"
@@ -98,9 +98,9 @@ class TestBaddBmmOp2(TestBaddBmmOp):
         self.dtype = np.float64
         self.init_dtype_type()
         self.inputs = {
-            'Input': np.random.random((2, 10, 5)).astype(self.dtype),
-            'X': np.random.random((2, 10, 10)).astype(self.dtype),
-            'Y': np.random.random((2, 10, 5)).astype(self.dtype),
+            'Input': np.random.random((1, 10, 10)).astype(self.dtype),
+            'X': np.random.random((1, 10, 10)).astype(self.dtype),
+            'Y': np.random.random((1, 10, 10)).astype(self.dtype),
         }
         self.attrs = {
             'Alpha': 0.1,
