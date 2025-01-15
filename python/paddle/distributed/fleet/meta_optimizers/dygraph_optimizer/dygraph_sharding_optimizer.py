@@ -771,7 +771,7 @@ class DygraphShardingOptimizerV2:
                 color_color = color.get('color', -1)
                 color_group = color.get('group', comm_group)
             else:
-                # if color is int: param.color = 1
+                # if color is not a dict: param.color = 1
                 color_color = color
             color_dict[(color_color, color_group)].append(param)
 
