@@ -150,8 +150,6 @@ class TestFusedBiasDropoutResidualLayerNormTRTPattern(TensorRTBaseTest):
 
 class TestFusedBiasDropoutResidualLayerNormErrorTRTPattern(TensorRTBaseTest):
     def setUp(self):
-        paddle.seed(42)
-        np.random.seed(42)
         self.python_api = fused_bias_dropout_residual_layer_norm
         self.api_args = {
             "x": np.random.rand(2, 4, 128).astype("float32"),
