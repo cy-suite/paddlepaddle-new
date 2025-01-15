@@ -761,7 +761,7 @@ void CodeGenC::VisitStmt(const ir::stmt::Let &stmt) {
                     ::common::errors::InvalidArgument(
                         "The operation type is invalid. It must be valid."));
   if (stmt->body().defined() && stmt->body().As<ir::Broadcast>()) {
-    // broadcast's type is hard to print, so use c++11 auto instead.
+    // broadcast's type is hard to decide, so use c++11 auto instead.
     str_ += "auto";
     is_vec = true;
   } else {

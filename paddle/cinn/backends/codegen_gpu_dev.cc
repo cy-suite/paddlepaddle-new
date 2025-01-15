@@ -198,10 +198,6 @@ void CodeGenGpuDev::Visit(const ir::_Var_ *op) {
 }
 
 void CodeGenGpuDev::VisitStmt(const ir::stmt::Alloc &stmt) {
-  PADDLE_ENFORCE_NE(stmt->destination().as_buffer(),
-                    nullptr,
-                    ::common::errors::InvalidArgument(
-                        "Buffer shouldn't be null in Alloc instruction."));
   PrintTempBufferCreation(stmt->destination().as_buffer_ref());
 }
 
