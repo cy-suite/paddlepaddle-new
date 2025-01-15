@@ -55,7 +55,7 @@ void MaskCooCPUKernel(const CPUContext& dev_ctx,
   const int cols = static_cast<int>(dims_2d[1]);
   const IntT* indices_ptr = indices.data<IntT>();
 
-  std::vector<IntT> out_indices(non_zero_num), sparse_offsets(sparse_dim);
+  std::vector<IntT> sparse_offsets(sparse_dim);
 
   phi::funcs::sparse::CalcOffsetsPerDim<IntT>(
       dims, sparse_dim, sparse_offsets.data());
