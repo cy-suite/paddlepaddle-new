@@ -34,21 +34,10 @@ class ListIterable:
         return iter(self._list)
 
 
-class ListIterableMagicMethod:
-    def __init__(self):
-        self._list = [1, 2, 3]
-
-    def __iter__(self):
-        return self._list.__iter__()
-
-
 def list_iterable(x: paddle.Tensor):
-    iterable_1 = ListIterable()
-    iterable_2 = ListIterableMagicMethod()
-    for i in iterable_1:
+    iterable = ListIterable()
+    for i in iterable:
         x += i
-    for j in iterable_2:
-        x += j
     return x
 
 
@@ -60,21 +49,10 @@ class TupleIterable:
         return iter(self._tuple)
 
 
-class TupleIterableMagicMethod:
-    def __init__(self):
-        self._tuple = (1, 2, 3)
-
-    def __iter__(self):
-        return self._tuple.__iter__()
-
-
 def tuple_iterable(x: paddle.Tensor):
-    iterable_1 = TupleIterable()
-    iterable_2 = TupleIterableMagicMethod()
-    for i in iterable_1:
+    iterable = TupleIterable()
+    for i in iterable:
         x += i
-    for j in iterable_2:
-        x += j
     return x
 
 
@@ -86,21 +64,10 @@ class DictIterable:
         return iter(self._dict)
 
 
-class DictIterableMagicMethod:
-    def __init__(self):
-        self._dict = {0: 1, 1: 2, 2: 3}
-
-    def __iter__(self):
-        return self._dict.__iter__()
-
-
 def dict_iterable(x: paddle.Tensor):
-    iterable_1 = DictIterable()
-    iterable_2 = DictIterableMagicMethod()
-    for i in iterable_1:
+    iterable = DictIterable()
+    for i in iterable:
         x += i
-    for j in iterable_2:
-        x += j
     return x
 
 
@@ -109,24 +76,13 @@ class RangeIterable:
         pass
 
     def __iter__(self):
-        return range(5).__iter__()
-
-
-class RangeIterableMagicMethod:
-    def __init__(self):
-        pass
-
-    def __iter__(self):
-        return range(5).__iter__()
+        return iter(range(5))
 
 
 def range_iterable(x: paddle.Tensor):
-    iterable_1 = RangeIterable()
-    iterable_2 = RangeIterableMagicMethod()
-    for i in iterable_1:
+    iterable = RangeIterable()
+    for i in iterable:
         x += i
-    for j in iterable_2:
-        x += j
     return x
 
 

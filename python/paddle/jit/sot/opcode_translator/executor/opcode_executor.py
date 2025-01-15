@@ -78,7 +78,6 @@ from .pycode_generator import (
     ResumeFunctionType,
 )
 from .tracker import (
-    BuiltinTracker,
     CellTracker,
     ConstTracker,
     DanglingTracker,
@@ -894,29 +893,7 @@ class OpcodeExecutorBase:
             self.stack.push(NullVariable())
 
     def load_method(self, method_name):
-        def load_builtin_funcs():
-            from .variables import PaddleLayerVariable
-
-            # PaddleLayerVariable can deal with __iter__ method right, we don't need to do anything.
-            # As for other classes that support get_iter, Dict,Range,Tuple,List and Tensor Variables, we
-            # are supposed to convert "__iter__()" to "iter", so that we can call iter() correctly.
-            if method_name != "__iter__" or isinstance(
-                obj, PaddleLayerVariable
-            ):
-                return False
-            self.stack.push(
-                BuiltinVariable(
-                    iter,
-                    graph=self._graph,
-                    tracker=BuiltinTracker("iter"),
-                )
-            )
-            self.stack.push(obj)
-            return True
-
         obj = self.stack.pop()
-        if load_builtin_funcs():
-            return
         method_name_var = ConstantVariable.wrap_literal(
             method_name, self._graph
         )
