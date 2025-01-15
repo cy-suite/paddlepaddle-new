@@ -385,7 +385,7 @@ class TestYoloBoxCase1Pattern(TensorRTBaseTest):
         self.max_shape = {}
 
     def test_trt_fp16_result(self):
-        self.check_trt_result(rtol=1e-1, atol=1e-1, precision_mode="fp16")
+        self.check_trt_result(rtol=1e-3, atol=1e-3, precision_mode="fp16")
 
 
 if __name__ == '__main__':
