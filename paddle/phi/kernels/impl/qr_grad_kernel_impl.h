@@ -95,15 +95,17 @@ void QrGradKernel(const Context& ctx,
                         const DenseTensor& A UNUSED,
                         const DenseTensor& Q,
                         const DenseTensor& R) -> DenseTensor {
-    // Hai-Jun Liao, Jin-Guo Liu, Lei Wang, Tao Xiang (2019). Differentiable
-    // Programming Tensor Networks.
-    // https://arxiv.org/abs/1903.09650 Section 3. QR factorization
+    // Roberts, D., & Roberts, L. (2020). QR and LQ Decomposition Matrix
+    // Backpropagation Algorithms for Square, Wide, and Deep Matrices and Their
+    // Software Implementation. https://arxiv.org/abs/2009.10071v4
 
     // dR^H
     DenseTensor R_term;
     if (dR.initialized()) {
-      R_term =
-          Matmul<T, Context>(ctx, R, TransposeLast2Dim<T, Context>(ctx, dR));
+      R_term = Matmul<T, Context>(
+          ctx,
+          R,
+          TransposeLast2Dim<T, Context>(ctx, Conj<T, Context>(ctx, dR)));
     } else {
       R_term = Fill<T, Context>(ctx, common::vectorize<int>(R.dims()), 0);
     }
@@ -111,8 +113,10 @@ void QrGradKernel(const Context& ctx,
     // dQ^H * Q
     DenseTensor Q_term;
     if (dQ.initialized()) {
-      Q_term =
-          Matmul<T, Context>(ctx, TransposeLast2Dim<T, Context>(ctx, dQ), Q);
+      Q_term = Matmul<T, Context>(
+          ctx,
+          TransposeLast2Dim<T, Context>(ctx, Conj<T, Context>(ctx, dQ)),
+          Q);
     } else {
       Q_term = Fill<T, Context>(ctx, common::vectorize<int>(R.dims()), 0);
     }
@@ -129,9 +133,11 @@ void QrGradKernel(const Context& ctx,
     if (std::is_same<T, phi::dtype::complex<float>>::value ||
         std::is_same<T, phi::dtype::complex<double>>::value) {
       DenseTensor M_tril_tmp = TrilTriu<T, Context>(ctx, M_tmp1, -1, true);
-      DenseTensor M_tril_tmp_conj = Conj<T, Context>(ctx, M_tril_tmp);
-      DenseTensor M_tril = Add<T, Context>(
-          ctx, M_tril_tmp, TransposeLast2Dim<T, Context>(ctx, M_tril_tmp_conj));
+      DenseTensor M_tril =
+          Add<T, Context>(ctx,
+                          M_tril_tmp,
+                          TransposeLast2Dim<T, Context>(
+                              ctx, Conj<T, Context>(ctx, M_tril_tmp)));
 
       size_t rank = M_tmp1.dims().size();
       DenseTensor M_diag_tmp =
@@ -187,23 +193,25 @@ void QrGradKernel(const Context& ctx,
 
     auto Y = Slice<T, Context>(ctx, A, {A.dims().size() - 1}, {m}, {n});
     auto U = Slice<T, Context>(ctx, R, {R.dims().size() - 1}, {0}, {m});
-    DenseTensor dY, dX, dV, dR_tmp, dQ_prime;
+    DenseTensor dY, dX, dV, dU, dQ_prime;
 
     if (dR.initialized()) {
       dV = Slice<T, Context>(ctx, dR, {dR.dims().size() - 1}, {m}, {n});
-      dR_tmp = Slice<T, Context>(ctx, dR, {dR.dims().size() - 1}, {0}, {m});
+      dU = Slice<T, Context>(ctx, dR, {dR.dims().size() - 1}, {0}, {m});
       // Y * dV^H
-      dQ_prime =
-          Matmul<T, Context>(ctx, Y, TransposeLast2Dim<T, Context>(ctx, dV));
+      dQ_prime = Matmul<T, Context>(
+          ctx,
+          Y,
+          TransposeLast2Dim<T, Context>(ctx, Conj<T, Context>(ctx, dV)));
     } else {
       dV = Fill<T, Context>(ctx, common::vectorize<int>(Y.dims()), 0);
       dQ_prime = Fill<T, Context>(ctx, common::vectorize<int>(Q.dims()), 0);
     }
 
     if (dQ.initialized()) {
-      dQ_prime = Add<T, Context>(ctx, dQ_prime, dQ);
+      dQ_prime = Add<T, Context>(ctx, dQ, dQ_prime);
     }
-    dX = m_gt_n_case(ctx, dQ_prime, dR_tmp, A, Q, U);
+    dX = m_gt_n_case(ctx, dQ_prime, dU, A, Q, U);
     dY = Matmul<T, Context>(ctx, Q, dV);
     // Concatenate dX and dY to get dA.
     auto dA_tmp = Concat<T, Context>(ctx, {&dX, &dY}, -1);

@@ -145,6 +145,24 @@ class TestQrOpcomplexCase2(TestQrOpcomplex):
         return (3, 16, 15)
 
 
+@unittest.skipIf(
+    core.is_compiled_with_xpu(),
+    "Skip XPU for complex dtype is not fully supported",
+)
+class TestQrOpcomplexCase3(TestQrOpcomplex):
+    def get_shape(self):
+        return (12, 15)
+
+
+@unittest.skipIf(
+    core.is_compiled_with_xpu(),
+    "Skip XPU for complex dtype is not fully supported",
+)
+class TestQrOpcomplexCase4(TestQrOpcomplex):
+    def get_shape(self):
+        return (3, 12, 15)
+
+
 class TestQrAPI(unittest.TestCase):
     def test_dygraph(self):
         def run_qr_dygraph(shape, mode, dtype):
