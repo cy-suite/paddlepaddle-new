@@ -228,6 +228,77 @@ bool SpecialSpatialWithBroadcastCaseCanApplyVectorize(
   return true;
 }
 
+// Only proceed with vectorization if SM utilization exceeds 100%
+bool CheckSmUtilization(
+    const std::shared_ptr<ScheduleConfig::BaseInfo>& base_info,
+    const common::Target& target,
+    int input_size,
+    int block_size) {
+  const int max_threads_per_sm = target.get_max_threads_per_sm();
+  const int max_blocks_per_sm = target.get_max_blocks_per_sm();
+  const int sm_count = target.get_multi_processor_count();
+  const auto& last_dim = base_info->iter_space_type.back().first;
+
+  if (last_dim != "S" && last_dim != "R") {
+    VLOG(5) << "Invalid last_dim in SmUtilization Check: " << last_dim;
+    return false;
+  }
+
+  int blocks_needed =
+      (last_dim == "S") ? CeilDiv(input_size, block_size) : input_size;
+
+  int max_blocks_per_sm_bythreads = max_threads_per_sm / block_size;
+  int effective_max_blocks_per_sm =
+      std::min(max_blocks_per_sm, max_blocks_per_sm_bythreads);
+  int sms_needed = CeilDiv(blocks_needed, effective_max_blocks_per_sm);
+  float sm_utilization = static_cast<float>(sms_needed) / sm_count;
+
+  if (sm_utilization < 1) {
+    VLOG(5) << "SM utilization is not sufficient for vectorization: "
+            << sm_utilization * 100 << "% (" << sms_needed << "/" << sm_count
+            << " SMs)";
+    return false;
+  }
+  return true;
+}
+
+// By default, warp_nums can be a maximum of 8 (256 threads)
+// The Grid value should be divisible by the SM number as much as possible to
+// avoid Tail Effect.
+int CalculateWarpNums(const common::Target& target, int total_threads_needed) {
+  const int max_threads_per_sm = target.get_max_threads_per_sm();
+  const int max_blocks_per_sm = target.get_max_blocks_per_sm();
+  const int sm_count = target.get_multi_processor_count();
+  int best_warp_nums = 8;
+  int min_diff_to_full_sm = sm_count;
+
+  std::vector<int> thread_configs = {1024, 512, 256};
+  for (int threads_per_block : thread_configs) {
+    int current_warp_count = threads_per_block / kWarpSize;
+    int blocks_needed =
+        std::ceil(static_cast<float>(total_threads_needed) / threads_per_block);
+
+    int max_blocks_per_sm_by_threads = max_threads_per_sm / threads_per_block;
+    int max_effective_blocks_per_sm =
+        std::min(max_blocks_per_sm, max_blocks_per_sm_by_threads);
+
+    int required_sms = CeilDiv(blocks_needed, max_effective_blocks_per_sm);
+    if (required_sms <= sm_count) return best_warp_nums;
+    int remaining_sms = required_sms % sm_count;
+    int remaining_blocks = remaining_sms * max_effective_blocks_per_sm;
+    int diff_to_fill_sm = std::abs(remaining_blocks - sm_count);
+    if (remaining_blocks < sm_count) {
+      if (diff_to_fill_sm < min_diff_to_full_sm ||
+          (diff_to_fill_sm == min_diff_to_full_sm &&
+           threads_per_block > best_warp_nums * kWarpSize)) {
+        min_diff_to_full_sm = diff_to_fill_sm;
+        best_warp_nums = current_warp_count;
+      }
+    }
+  }
+  return best_warp_nums;
+}
+
 TileConfigMap BuildVectorizeConfig(
     const std::shared_ptr<ScheduleConfig::BaseInfo>& base_info,
     const common::Target& target) {
@@ -239,9 +310,6 @@ TileConfigMap BuildVectorizeConfig(
     return {};
   }
   const auto& last_dim = base_info->iter_space_type.back().first;
-  const int sm_count = target.get_multi_processor_count();
-  const int max_threads_per_sm = target.get_max_threads_per_sm();
-  const int max_blocks_per_sm = target.get_max_blocks_per_sm();
   int64_t spatial_numel = base_info->spatial_numel;
   int64_t reduce_numel = base_info->reduce_numel;
   ReduceMethod reduce_method = NoneReduceMethod();
@@ -259,66 +327,6 @@ TileConfigMap BuildVectorizeConfig(
   };
 
   bool is_sm_fully_utilized = true;
-  // Only proceed with vectorization if SM utilization exceeds 100%
-  auto CheckSmUtilization =
-      [&](int input_size, int block_size, std::string last_dim) -> bool {
-    if (last_dim != "S" && last_dim != "R") {
-      VLOG(5) << "Invalid last_dim in SmUtilization Check: " << last_dim;
-      return false;
-    }
-
-    int blocks_needed =
-        (last_dim == "S") ? CeilDiv(input_size, block_size) : input_size;
-
-    int max_blocks_per_sm_bythreads = max_threads_per_sm / block_size;
-    int effective_max_blocks_per_sm =
-        std::min(max_blocks_per_sm, max_blocks_per_sm_bythreads);
-    int sms_needed = CeilDiv(blocks_needed, effective_max_blocks_per_sm);
-    float sm_utilization = static_cast<float>(sms_needed) / sm_count;
-
-    if (sm_utilization < 1) {
-      VLOG(5) << "SM utilization is not sufficient for vectorization: "
-              << sm_utilization * 100 << "% (" << sms_needed << "/" << sm_count
-              << " SMs)";
-      return false;
-    }
-    return true;
-  };
-
-  // By default, warp_nums can be a maximum of 8 (256 threads)
-  // The Grid value should be divisible by the SM number as much as possible to
-  // avoid Tail Effect.
-  auto CalculateWarpNums = [&](int total_threads_needed) {
-    int best_warp_nums = 8;
-    int min_diff_to_full_sm = sm_count;
-
-    std::vector<int> thread_configs = {1024, 512, 256};
-    for (int threads_per_block : thread_configs) {
-      int current_warp_count = threads_per_block / kWarpSize;
-      int blocks_needed = std::ceil(static_cast<float>(total_threads_needed) /
-                                    threads_per_block);
-
-      int max_blocks_per_sm_by_threads = max_threads_per_sm / threads_per_block;
-      int max_effective_blocks_per_sm =
-          std::min(max_blocks_per_sm, max_blocks_per_sm_by_threads);
-
-      int required_sms = CeilDiv(blocks_needed, max_effective_blocks_per_sm);
-      if (required_sms <= sm_count) return best_warp_nums;
-      int remaining_sms = required_sms % sm_count;
-      int remaining_blocks = remaining_sms * max_effective_blocks_per_sm;
-      int diff_to_fill_sm = std::abs(remaining_blocks - sm_count);
-      if (remaining_blocks < sm_count) {
-        if (diff_to_fill_sm < min_diff_to_full_sm ||
-            (diff_to_fill_sm == min_diff_to_full_sm &&
-             threads_per_block > best_warp_nums * kWarpSize)) {
-          min_diff_to_full_sm = diff_to_fill_sm;
-          best_warp_nums = current_warp_count;
-        }
-      }
-    }
-    return best_warp_nums;
-  };
-
   int64_t sp_thread_num = 1;
   int64_t rd_thread_num = 1;
   int64_t warp_nums = 1;
@@ -333,8 +341,11 @@ TileConfigMap BuildVectorizeConfig(
         if (warp_nums < 4 && spatial_numel > 1) break;
         rd_thread_num = warp_nums * kWarpSize;
         if (CheckVectorize(reduce_numel, rd_thread_num, vectorize_factor)) {
-          is_sm_fully_utilized = CheckSmUtilization(
-              spatial_numel * vectorize_factor, rd_thread_num, "R");
+          is_sm_fully_utilized =
+              CheckSmUtilization(base_info,
+                                 target,
+                                 spatial_numel * vectorize_factor,
+                                 rd_thread_num);
           reduce_method = BlockReduceMethod();
           break;
         }
@@ -345,13 +356,14 @@ TileConfigMap BuildVectorizeConfig(
       vectorize_factor = factor;
       const int elements_in_warp = kWarpSize * vectorize_factor;
       warp_nums = CeilDiv(spatial_numel, elements_in_warp);
-      warp_nums = Trim(
-          warp_nums, 1, CalculateWarpNums(spatial_numel / vectorize_factor));
+      int max_warp_nums =
+          CalculateWarpNums(target, spatial_numel / vectorize_factor);
+      warp_nums = Trim(warp_nums, 1, max_warp_nums);
       sp_thread_num = kWarpSize * warp_nums;
       if (base_info->has_select_op) break;
       if (CheckVectorize(spatial_numel, sp_thread_num, vectorize_factor)) {
         is_sm_fully_utilized =
-            CheckSmUtilization(spatial_numel, sp_thread_num, "S");
+            CheckSmUtilization(base_info, target, spatial_numel, sp_thread_num);
         break;
       }
     }
