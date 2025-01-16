@@ -25,7 +25,6 @@
 #include "paddle/phi/core/distributed/comm_context_manager.h"
 #include "paddle/phi/core/distributed/nccl_comm_context.h"
 #include "paddle/phi/core/platform/collective_helper.h"
-COMMON_DECLARE_bool(dynamic_static_unified_comm);
 #endif
 
 namespace paddle::framework::interpreter {
@@ -148,7 +147,7 @@ void StreamAnalyzer::ConstructEvents(std::vector<Instruction>* instructions) {
                 "The program_force_events_to_wait_ had the event "
                 "that belongs to the operator : %s before the operator create "
                 "the event, "
-                "This is is werid.",
+                "This is is weird.",
                 instruction.OpBase()->Type().c_str()));
         std::shared_ptr<DeviceEvent> device_event =
             std::make_shared<DeviceEvent>(place,
@@ -240,18 +239,12 @@ DeviceContext* StreamAnalyzer::ParseDeviceContext(
         op->Attr<bool>("use_calc_stream") == false) {
       int ring_id = op->Attr<int>("ring_id");
 
-      if (FLAGS_dynamic_static_unified_comm) {
-        const auto& comm_context_manager =
-            phi::distributed::CommContextManager::GetInstance();
-        dev_ctx = static_cast<phi::DeviceContext*>(
-            static_cast<phi::distributed::NCCLCommContext*>(
-                comm_context_manager.Get(std::to_string(ring_id)))
-                ->GetDevContext());
-      } else {
-        dev_ctx = platform::NCCLCommContext::Instance()
-                      .Get(ring_id, place_)
-                      ->dev_context();
-      }
+      const auto& comm_context_manager =
+          phi::distributed::CommContextManager::GetInstance();
+      dev_ctx = static_cast<phi::DeviceContext*>(
+          static_cast<phi::distributed::NCCLCommContext*>(
+              comm_context_manager.Get(std::to_string(ring_id)))
+              ->GetDevContext());
       return dev_ctx;
     }
 #endif
@@ -787,7 +780,7 @@ void PirStreamAnalyzer::ConstructEvents(
                 "The program_force_events_to_wait_ had the event "
                 "that belongs to the operator : %s before the operator create "
                 "the event, "
-                "This is is werid.",
+                "This is is weird.",
                 instr->Name()));
         std::shared_ptr<DeviceEvent> device_event =
             std::make_shared<DeviceEvent>(place,

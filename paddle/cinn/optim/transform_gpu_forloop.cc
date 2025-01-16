@@ -470,7 +470,12 @@ void OptimizeExprGPU(Expr *expr) {
   replace_index_to_bind_expr(expr);
 
   // resize buffer axis
-  UpdateBufferAxisPass(expr);
+  BlockPassManager pass_manager;
+  ir::stmt::BlockRef _block = ir::ConvertExprBlockToStmtBlock(*expr);
+  pass_manager.AddPass(optim::CreateUpdateBufferAxisPass());
+  pass_manager.Run(_block);
+  ir::Expr new_expr = ir::ConvertStmtBlockToExprBlock(_block);
+  *expr = new_expr;
 
   // Replace variables bound on block/thread to the actual blockIdx/threadIdx.
   ReplaceLoopVarToGpu replace_loop_var_to_gpu;
@@ -489,8 +494,11 @@ void OptimizeExprGPU(Expr *expr) {
   // Replace variables that are in range [0, 1) to zero.
   ReplaceUnitVarToZero replace_unit_var_to_zero;
   replace_unit_var_to_zero(expr);
-
-  EliminateCommonFactorOfLocalIndex(expr);
+  VLOG(10) << "After ReplaceUnitVarToZero: \n" << *expr;
+  ir::stmt::BlockRef func_body = ir::ConvertExprBlockToStmtBlock(*expr);
+  EliminateCommonFactorOfLocalIndex(func_body);
+  *expr = ir::ConvertStmtBlockToExprBlock(func_body);
+  VLOG(10) << "After EliminateCommonFactorOfLocalIndex: \n" << *expr;
 
   ResizeBufferToMaxVarRange(expr);
 

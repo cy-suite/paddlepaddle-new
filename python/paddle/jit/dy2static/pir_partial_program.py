@@ -107,7 +107,7 @@ class NestSequence:
 
     def restore(self, tensor_result_list):
         """
-        Restores the nested sequence from tenosr list.
+        Restores the nested sequence from tensor list.
         """
         assert len(self._var_list) == len(tensor_result_list)
 
@@ -439,7 +439,7 @@ class OperatorIndexPreservePass:
             ):
                 break
             new_index += 1
-        # remove forward_backward_seperator
+        # remove forward_backward_separator
         if new_index >= len(program.global_block().ops):
             raise RuntimeError(
                 f"Can't find index preserve label {self.name}, don't remove it in pass."
