@@ -109,6 +109,7 @@ DEFINE_GENERAL_PATTERN(Ceil, paddle::dialect::CeilOp)
 DEFINE_GENERAL_PATTERN(Rsqrt, paddle::dialect::RsqrtOp)
 DEFINE_GENERAL_PATTERN(Reciprocal, paddle::dialect::ReciprocalOp)
 DEFINE_GENERAL_PATTERN(Erf, paddle::dialect::ErfOp)
+DEFINE_GENERAL_PATTERN(Isnan, paddle::dialect::IsnanOp)
 DEFINE_GENERAL_PATTERN(Sign, paddle::dialect::SignOp)
 DEFINE_GENERAL_PATTERN(Round, paddle::dialect::RoundOp)
 DEFINE_GENERAL_PATTERN(Numel, paddle::dialect::NumelOp)
@@ -1910,6 +1911,34 @@ class FullWithTensorPattern
   }
 };
 
+class TakeAlongAxisOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::TakeAlongAxisOp> {
+ public:
+  using pir::OpRewritePattern<
+      paddle::dialect::TakeAlongAxisOp>::OpRewritePattern;
+
+  bool MatchAndRewrite(paddle::dialect::TakeAlongAxisOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    pir::Value x_value = op.operand_source(0);
+    auto x_shape = pir::GetShapeFromValue(x_value);
+    pir::Value index_value = op.operand_source(1);
+    auto index_shape = pir::GetShapeFromValue(index_value);
+    if (x_shape.size() != index_shape.size()) {
+      VLOG(3) << "TakeAlongAxis op Index input dims size ["
+              << index_shape.size() << "] is not equal to input dims size ["
+              << x_shape.size() << "].";
+      return false;
+    }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class StridedSliceOpPattern
     : public pir::OpRewritePattern<paddle::dialect::StridedSliceOp> {
  public:
@@ -2235,6 +2264,68 @@ class InstanceNormOpPattern
   }
 };
 
+class EinsumOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::EinsumOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::EinsumOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::EinsumOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    std::string equation =
+        op->attribute<pir::StrAttribute>("equation").AsString();
+    if (equation.empty()) {
+      VLOG(3) << "Einsum equation is empty";
+      return false;
+    }
+
+    auto operands = op->operands();
+    if (operands.size() > 2) {
+      VLOG(3) << "TensorRT currently supports up to 2 input tensors"
+              << "to einsum but operation had" << operands.size()
+              << "input tensors !";
+      return false;
+    }
+
+    if (equation.find("...") != std::string::npos) {
+      VLOG(3) << "TensorRT currently does not support ellipses !";
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class PNormOpPattern : public pir::OpRewritePattern<paddle::dialect::PNormOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::PNormOp>::OpRewritePattern;
+
+  bool MatchAndRewrite(paddle::dialect::PNormOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    if (!op->HasAttribute("asvector") || !op->HasAttribute("axis") ||
+        !op->HasAttribute("porder") || !op->HasAttribute("keepdim")) {
+      VLOG(3) << "p_norm op needs attributes: asvector, porder, axis, keepdim.";
+      return false;
+    }
+    bool asvector = op->attribute<pir::BoolAttribute>("asvector").data();
+    int axis = op->attribute<pir::Int32Attribute>("axis").data();
+    float porder = op->attribute<pir::FloatAttribute>("porder").data();
+
+    if (asvector || porder != 2.0f || axis != -1) {
+      VLOG(3) << "p_norm op only supports asvector=False, porder=2, axis=-1.";
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class AffineChannelOpPattern
     : public pir::OpRewritePattern<paddle::dialect::AffineChannelOp> {
  public:
@@ -2358,6 +2449,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Rsqrt)
     ADD_PATTERN(Reciprocal)
     ADD_PATTERN(Erf)
+    ADD_PATTERN(Isnan)
     ADD_PATTERN(Sign)
     ADD_PATTERN(Round)
     ADD_PATTERN(Numel)
@@ -2422,6 +2514,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<WherePattern>(context));
     ps.Add(std::make_unique<FullLikeOpPattern>(context));
     ps.Add(std::make_unique<FullWithTensorPattern>(context));
+    ps.Add(std::make_unique<TakeAlongAxisOpPattern>(context));
     ps.Add(std::make_unique<StridedSliceOpPattern>(context));
     ps.Add(std::make_unique<TopkOpPattern>(context));
     ps.Add(std::make_unique<CumsumOpPattern>(context));
@@ -2437,6 +2530,8 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<OneHotOpPattern>(context));
     ps.Add(std::make_unique<TemporalShiftOpPattern>(context));
     ps.Add(std::make_unique<InstanceNormOpPattern>(context));
+    ps.Add(std::make_unique<EinsumOpPattern>(context));
+    ps.Add(std::make_unique<PNormOpPattern>(context));
     ps.Add(std::make_unique<AffineChannelOpPattern>(context));
     ps.Add(
         std::make_unique<FusedBiasDropoutResidualLayerNormOpPattern>(context));
