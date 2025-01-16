@@ -235,7 +235,6 @@ def start_translate(
     try:
         simulator.check_code_simulatable()
         InfoCollector().attach(CompileCountInfo, frame.f_code)
-        print(f"Attach info for {frame.f_code.co_filename}")
         with sot_simulation_mode_guard(True):
             new_custom_code, guard_fn = simulator.transform()
         if not simulator._graph.need_cache:

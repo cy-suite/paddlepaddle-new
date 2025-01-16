@@ -973,13 +973,6 @@ class OpcodeExecutorBase:
 
     def store_subscr_operation(self, key, container, value, opname):
         assert isinstance(key, VariableBase)
-        # self._graph.add_global_guarded_variable(key)
-        # if isinstance(key, TensorVariable):
-        #     raise BreakGraphError(
-        #         f"Key is a TensorVariable in {opname}, {container}[{key}] = {value}"
-        #     )
-        # # TODO(xiongkun): support tensor[tensor] = tensor, dy2static is not the same with dygraph.
-        # container[key.get_py_value()] = value
         BuiltinVariable(operator.setitem, self._graph, DanglingTracker())(
             container, key, value
         )
@@ -989,7 +982,6 @@ class OpcodeExecutorBase:
         key = self.stack.pop()
         container = self.stack.pop()
         assert isinstance(key, VariableBase)
-        # self._graph.add_global_guarded_variable(key)
         BuiltinVariable(operator.delitem, self._graph, DanglingTracker())(
             container, key
         )
@@ -2070,10 +2062,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 store_vars.append(_var)
             store_var_info.setdefault(_var.id, [])
             store_var_info[_var.id].append(name)
-        # for store_var in store_vars:
-        #     if store_var.id not in store_var_info:
-        #         store_var_info.setdefault(store_var.id, [])
-        #         store_var_info[store_var.id].append(store_var.id)
 
         compile_graph_result = self._graph.compile_graph(*store_vars)
 

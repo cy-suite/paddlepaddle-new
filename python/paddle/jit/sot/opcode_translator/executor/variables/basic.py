@@ -820,7 +820,7 @@ class SymbolicVariable(VariableBase):
 
         disable_symbolic(self)
         self.graph.need_cache = False
-        print(f"Fallback {self} to ConstantVariable")
+        log(3, f"Fallback {self} to ConstantVariable")
         return ConstantVariable(
             self.get_py_value(), self.graph, DummyTracker([self])
         )
@@ -829,8 +829,10 @@ class SymbolicVariable(VariableBase):
         if ENV_SOT_BREAK_GRAPH_ON_GET_SYMBOLIC_VALUE.get():
             raise BreakGraphError("get_py_value from SymbolicVariable")
         self.need_guard_value = True
-        # if self.id == "object_13653":
-        #     breakpoint()
+        log(
+            3,
+            f"get_py_value from SymbolicVariable {self} caused value need guard",
+        )
         if isinstance(self.value, SymbolicValue):
             assert isinstance(
                 self.tracker, SymbolicOperationTracker
