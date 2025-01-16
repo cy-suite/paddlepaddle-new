@@ -1226,15 +1226,10 @@ __all__ = [
 
 import os
 
-if os.environ.get("FLAGS_trace_api", "False") in [
-    'True',
-    '1',
-    'true',
-]:
+FLAGS_trace_api = os.environ.get("FLAGS_trace_api", None)
+if FLAGS_trace_api is not None and FLAGS_trace_api != "":
     from .api_tracer import start_api_tracer
 
-    api_path = os.environ.get("FLAGS_trace_api_api_path", "api.yaml")
-    save_config_path = os.environ.get(
-        "FLAGS_trace_api_save_config_path", "api_configs.txt"
-    )
+    api_path = FLAGS_trace_api.split()[0]
+    save_config_path = FLAGS_trace_api.split()[1]
     start_api_tracer(api_path, save_config_path)
