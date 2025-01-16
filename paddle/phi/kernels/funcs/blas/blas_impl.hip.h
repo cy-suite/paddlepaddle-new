@@ -1482,6 +1482,10 @@ inline void Blas<phi::GPUContext>::BatchedGEMM(CBLAS_TRANSPOSE transA,
                                    ? rocblas_operation_none
                                    : rocblas_operation_transpose;
   const int64_t strideC = M * N;
+
+  float16 h_alpha = static_cast<float16>(alpha);
+  float16 h_beta = static_cast<float16>(beta);
+
   context_.CublasCall([&](rocblas_handle handle) {
     PADDLE_ENFORCE_GPU_SUCCESS(phi::dynload::rocblas_hgemm_strided_batched(
         handle,
@@ -1490,14 +1494,14 @@ inline void Blas<phi::GPUContext>::BatchedGEMM(CBLAS_TRANSPOSE transA,
         N,
         M,
         K,
-        reinterpret_cast<const rocblas_half *>(&alpha),
+        reinterpret_cast<const rocblas_half *>(&h_alpha),
         reinterpret_cast<const rocblas_half *>(B),
         ldb,
         strideB,
         reinterpret_cast<const rocblas_half *>(A),
         lda,
         strideA,
-        reinterpret_cast<const rocblas_half *>(&beta),
+        reinterpret_cast<const rocblas_half *>(&h_beta),
         reinterpret_cast<rocblas_half *>(C),
         ldc,
         strideC,
