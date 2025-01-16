@@ -619,10 +619,43 @@ class VariableBase:
         output = fn_var(*args, **kwargs)
         return output
 
-    def get_iter(self):
-        from .iter import UserDefinedIterVariable
+    # def get_iter(self):
+    #     from .iter import UserDefinedIterVariable
 
-        return UserDefinedIterVariable(self, self.graph, GetIterTracker(self))
+    #     return UserDefinedIterVariable(self, self.graph, GetIterTracker(self))
+
+    def get_iter(self):
+        from . import (
+            BuiltinVariable,
+            ConstantVariable,
+            SequenceIterVariable,
+            UserDefinedFunctionVariable,
+            UserDefinedIterVariable,
+        )
+
+        if not hasattr(self.value, "__iter__"):
+            return UserDefinedIterVariable(
+                self, self.graph, GetIterTracker(self)
+            )
+        iter_name_var = ConstantVariable.wrap_literal("__iter__", self.graph)
+        iter_method = BuiltinVariable(
+            getattr, graph=self.graph, tracker=DummyTracker([self])
+        )(self, iter_name_var)
+        # If the target object is a builtin object like list_iterator, the iter_method's fn will be a ObjectVariable instead of UserDefinedFunctionVariable.
+        if not isinstance(iter_method.fn, UserDefinedFunctionVariable):
+            return UserDefinedIterVariable(
+                self, self.graph, GetIterTracker(self)
+            )
+        iter_result = iter_method()
+
+        if iter_result is None or not isinstance(
+            iter_result, SequenceIterVariable
+        ):
+            return UserDefinedIterVariable(
+                self, self.graph, GetIterTracker(self)
+            )
+
+        return iter_result
 
     @VariableFactory.register_from_value()
     def from_value(
