@@ -214,7 +214,6 @@ GradNodeAccumulation::operator()(
     VLOG(4) << paddle::string::Sprintf(
         INPUT_PRINT_TEMPLATE, input_str, output_str);
   }
-
   return {{grad_out}};
 }
 
