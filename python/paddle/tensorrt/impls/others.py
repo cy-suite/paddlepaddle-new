@@ -278,7 +278,7 @@ def share_data_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.temporal_shift", trt_version="8.x")
 def temporal_shift_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
-    shift_ratio = paddle_op.attrs()["shift_ratio"]
+    shift_ratio = paddle_op.attrs()["shift_ratio"] + 1e-8
     T = paddle_op.attrs()["seg_num"]
     data_format = paddle_op.attrs().get("data_format", "NCHW")
 
