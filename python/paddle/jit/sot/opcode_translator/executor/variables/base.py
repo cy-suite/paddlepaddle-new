@@ -619,11 +619,6 @@ class VariableBase:
         output = fn_var(*args, **kwargs)
         return output
 
-    # def get_iter(self):
-    #     from .iter import UserDefinedIterVariable
-
-    #     return UserDefinedIterVariable(self, self.graph, GetIterTracker(self))
-
     def get_iter(self):
         from . import (
             BuiltinVariable,
@@ -648,7 +643,7 @@ class VariableBase:
             )
         iter_result = iter_method()
 
-        if isinstance(iter_result, SequenceIterVariable):
+        if not isinstance(iter_result, SequenceIterVariable):
             return UserDefinedIterVariable(
                 self, self.graph, GetIterTracker(self)
             )
