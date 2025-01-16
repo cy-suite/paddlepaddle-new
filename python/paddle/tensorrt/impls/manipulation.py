@@ -749,7 +749,7 @@ def tile_converter(network, paddle_op, inputs):
         repeat_rank = len(repeat_times)
     else:
         repeat_tensor = inputs[1]
-        if isinstance(repeat_tensor, list) or isinstance(repeat_tensor, tuple):
+        if isinstance(repeat_tensor, (list, tuple)):
             repeat_rank = len(repeat_tensor)
             repeat_tensor = trt_concat(network, repeat_tensor)
         else:
