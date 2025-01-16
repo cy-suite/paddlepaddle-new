@@ -16,6 +16,7 @@
 
 #include "paddle/phi/backends/all_context.h"
 #include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/kernels/funcs/tensor_formatter.h"
 #include "paddle/phi/kernels/reduce_kernel_impl.h"
 
 namespace phi {
@@ -26,6 +27,7 @@ void MeanKernel(const Context& dev_ctx,
                 const IntArray& dims,
                 bool keep_dim,
                 DenseTensor* out) {
+  paddle::funcs::TensorFormatter formatter;
   bool reduce_all = recompute_reduce_all(x, dims);
   MeanRawKernel<T>(dev_ctx, x, dims, keep_dim, reduce_all, out);
 }

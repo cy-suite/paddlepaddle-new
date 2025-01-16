@@ -762,7 +762,7 @@
     param : [x, nranks]
   kernel :
     func : c_concat
-  traits : paddle::dialect::ForwardOnlyTrait
+  backward: c_concat_grad
 
 - op : c_identity
   args : (Tensor x, int ring_id, bool use_calc_stream, bool use_model_parallel)
