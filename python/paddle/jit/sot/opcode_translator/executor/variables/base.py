@@ -648,9 +648,7 @@ class VariableBase:
             )
         iter_result = iter_method()
 
-        if iter_result is None or not isinstance(
-            iter_result, SequenceIterVariable
-        ):
+        if isinstance(iter_result, SequenceIterVariable):
             return UserDefinedIterVariable(
                 self, self.graph, GetIterTracker(self)
             )

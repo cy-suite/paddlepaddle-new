@@ -1,4 +1,4 @@
-# Copyright (c) 2023 PaddlePaddle Authors. All Rights Reserved.
+# Copyright (c) 2025 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,11 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# New Supported Instructions:
-# BUILD_LIST (new)
-# BINARY_SUBSCR
-# DELETE_SUBSCR
-
 from __future__ import annotations
 
 import unittest
@@ -24,6 +19,7 @@ import unittest
 from test_case_base import TestCaseBase
 
 import paddle
+from paddle.jit.sot.psdb import check_no_breakgraph
 
 
 class ListIterable:
@@ -34,6 +30,7 @@ class ListIterable:
         return iter(self._list)
 
 
+@check_no_breakgraph
 def list_iterable(x: paddle.Tensor):
     iterable = ListIterable()
     for i in iterable:
@@ -49,6 +46,7 @@ class TupleIterable:
         return iter(self._tuple)
 
 
+@check_no_breakgraph
 def tuple_iterable(x: paddle.Tensor):
     iterable = TupleIterable()
     for i in iterable:
@@ -64,6 +62,7 @@ class DictIterable:
         return iter(self._dict)
 
 
+@check_no_breakgraph
 def dict_iterable(x: paddle.Tensor):
     iterable = DictIterable()
     for i in iterable:
@@ -79,6 +78,7 @@ class RangeIterable:
         return iter(range(5))
 
 
+@check_no_breakgraph
 def range_iterable(x: paddle.Tensor):
     iterable = RangeIterable()
     for i in iterable:
