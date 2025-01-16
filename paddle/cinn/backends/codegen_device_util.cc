@@ -310,7 +310,15 @@ void detail::CollectBucketStrategyHostFunctionVisitor::ProcessLoweredFunc(
   if (!temp_space_infer_shape_stmts.empty()) {
     ir::stmt::BlockRef if_body =
         ir::stmt::BlockRef(temp_space_infer_shape_stmts);
-    temp_space_infer_shape_body_ = ir::stmt::IfThenElse(predicate, if_body);
+    if (temp_space_infer_shape_body_.defined()) {
+      temp_space_infer_shape_body_ = ir::stmt::IfThenElse(
+          predicate,
+          if_body,
+          ir::stmt::BlockRef(
+              std::vector<ir::stmt::StmtRef>{temp_space_infer_shape_body_}));
+    } else {
+      temp_space_infer_shape_body_ = ir::stmt::IfThenElse(predicate, if_body);
+    }
   }
 }
 
