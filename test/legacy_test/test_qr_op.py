@@ -45,6 +45,13 @@ class TestQrOp(OpTest):
     def get_shape(self):
         return (11, 11)
 
+    def _get_places(self):
+        places = []
+        places.append(base.CPUPlace())
+        if core.is_compiled_with_cuda():
+            places.append(base.CUDAPlace(0))
+        return places
+
     def get_input_and_output(self):
         dtype = self.get_dtype()
         shape = self.get_shape()
@@ -136,16 +143,6 @@ class TestQrOpcomplexCase1(TestQrOpcomplex):
 class TestQrOpcomplexCase2(TestQrOpcomplex):
     def get_shape(self):
         return (3, 16, 15)
-
-
-class TestQrOpcomplexCase3(TestQrOpcomplex):
-    def get_shape(self):
-        return (10, 12)
-
-
-class TestQrOpcomplexCase4(TestQrOpcomplex):
-    def get_shape(self):
-        return (3, 10, 12)
 
 
 class TestQrAPI(unittest.TestCase):

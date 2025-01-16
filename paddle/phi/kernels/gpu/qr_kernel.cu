@@ -862,6 +862,9 @@ void BatchedOrgqr<GPUContext, phi::dtype::complex<double>>(
 
 }  // namespace phi
 
+#ifdef PADDLE_WITH_HIP
+PD_REGISTER_KERNEL(qr, GPU, ALL_LAYOUT, phi::QrKernel, float, double) {}
+#else
 PD_REGISTER_KERNEL(qr,
                    GPU,
                    ALL_LAYOUT,
@@ -870,3 +873,4 @@ PD_REGISTER_KERNEL(qr,
                    double,
                    phi::dtype::complex<float>,
                    phi::dtype::complex<double>) {}
+#endif
