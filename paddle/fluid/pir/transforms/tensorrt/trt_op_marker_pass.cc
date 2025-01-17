@@ -1229,6 +1229,8 @@ using LessEqual_OpPattern =
     ComparisonCommonOpPattern<paddle::dialect::LessEqual_Op>;
 using GreaterEqualOpPattern =
     ComparisonCommonOpPattern<paddle::dialect::GreaterEqualOp>;
+using GreaterEqual_OpPattern =
+    ComparisonCommonOpPattern<paddle::dialect::GreaterEqual_Op>;
 
 class MulticlassNms3OpPattern
     : public pir::OpRewritePattern<paddle::dialect::MulticlassNms3Op> {
@@ -2347,6 +2349,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<SplitOpPattern>(context));
     ps.Add(std::make_unique<SplitWithNumOpPattern>(context));
     ps.Add(std::make_unique<GreaterEqualOpPattern>(context));
+    ps.Add(std::make_unique<GreaterEqual_OpPattern>(context));
     ps.Add(std::make_unique<GreaterThanOpPattern>(context));
     ps.Add(std::make_unique<LessEqualOpPattern>(context));
     ps.Add(std::make_unique<LessEqual_OpPattern>(context));
