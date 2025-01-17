@@ -817,8 +817,7 @@ class EmbeddingOpPattern
       return false;
     }
     pir::Value x = op.operand_source(0);
-    auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
-    auto x_shape = x_type.dims();
+    auto x_shape = pir::GetShapeFromValue(x);
 
     bool with_dynamic_shape = false;
     for (int i = 0; i < x_shape.size(); ++i) {
@@ -844,8 +843,7 @@ class UnbindOpPattern
       return false;
     }
     pir::Value input = op.operand_source(0);
-    auto input_type = input.type().dyn_cast<paddle::dialect::DenseTensorType>();
-    auto input_shape = input_type.dims();
+    auto input_shape = pir::GetShapeFromValue(input);
 
     bool with_dynamic_shape = false;
     for (int i = 0; i < input_shape.size(); ++i) {
