@@ -199,6 +199,7 @@ def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name):
         "pd_op.layer_norm",
         "pd_op.depthwise_conv2d_transpose",
         "pd_op.affine_channel",
+        "pd_op.prelu",
     ]
     if use_op_name in forbid_cast_op:
         return trt_tensor

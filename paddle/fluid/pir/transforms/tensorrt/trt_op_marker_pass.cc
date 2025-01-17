@@ -2243,6 +2243,31 @@ class AffineChannelOpPattern
   }
 };
 
+class PreluOpPattern : public pir::OpRewritePattern<paddle::dialect::PreluOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::PreluOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::PreluOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op.attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    pir::Value alpha_var = op.operand_source(1);
+    if (!alpha_var) {
+      VLOG(3) << "Variable Alpha of prelu TRT converter not found.";
+      return false;
+    }
+    auto alpha_shape = pir::GetShapeFromValue(alpha_var);
+    if (alpha_shape.size() == 0) {
+      VLOG(3) << " Prelu op does not support alpha's dim is 0 in tensorrt "
+                   "static shape mode.";
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class TrtOpMarkerPass : public pir::PatternRewritePass {
  public:
   TrtOpMarkerPass() : pir::PatternRewritePass("trt_op_marker_pass", 2) {}
@@ -2394,6 +2419,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<OneHotOpPattern>(context));
     ps.Add(std::make_unique<InstanceNormOpPattern>(context));
     ps.Add(std::make_unique<AffineChannelOpPattern>(context));
+    ps.Add(std::make_unique<PreluOpPattern>(context));
     return ps;
   }
 };
