@@ -227,6 +227,17 @@ class TestSimpleNetShardingTensorFusionSaveLoad:
                 state_dict = dist_model.state_dict()
                 if self.save_unbalanced_param:
                     state_dict = (
+                        dist_model._convert_state_dict_with_rank_unique_name(
+                            state_dict
+                        )
+                    )
+                else:
+                    state_dict = dist_model._convert_state_dict_without_tensor_fusion_param(
+                        state_dict
+                    )
+                dist.load_state_dict(state_dict, self._ckpt_path)
+                if self.save_unbalanced_param:
+                    state_dict = (
                         dist_model._convert_state_dict_with_origin_name(
                             state_dict
                         )
@@ -237,7 +248,6 @@ class TestSimpleNetShardingTensorFusionSaveLoad:
                             state_dict
                         )
                     )
-                dist.load_state_dict(state_dict, self._ckpt_path)
                 dist_model.set_state_dict(state_dict)
             if step > 2:
                 numpy_array = np.array(loss)
