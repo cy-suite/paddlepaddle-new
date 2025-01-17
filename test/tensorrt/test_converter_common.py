@@ -333,6 +333,9 @@ class TestEmbeddingTRTPattern(TensorRTBaseTest):
     def test_trt_result(self):
         self.check_trt_result()
 
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
 
 class TestUnbindTRTPattern(TensorRTBaseTest):
     def setUp(self):
@@ -353,6 +356,9 @@ class TestUnbindTRTPattern(TensorRTBaseTest):
 
     def test_trt_result(self):
         self.check_trt_result()
+
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
 
 
 class TestNearestOutAndScaleTRTPattern(TensorRTBaseTest):
