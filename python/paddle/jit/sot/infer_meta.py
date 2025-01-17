@@ -345,6 +345,14 @@ class VariableCreator(metaclass=Singleton):
                     dtype=convert_dtype(meta.dtype),
                 )
                 var.stop_gradient = meta.stop_gradient
+
+                if meta.dist_info is not None:
+                    mesh = meta.dist_info.mesh
+                    placements = paddle.distributed.auto_parallel.placement_type.to_placements(
+                        meta.dist_info.dims_mapping, mesh
+                    )
+                    var = paddle._pir_ops.shard_tensor(var, mesh, placements)
+                    var.stop_gradient = meta.stop_gradient
         else:
             var = self.main_program.global_block().create_var(
                 shape=shape,
@@ -356,8 +364,10 @@ class VariableCreator(metaclass=Singleton):
         ), "Expect a Variable, but got a Tensor."
         return var
 
-    def get_variable(self, meta):
+    def get_variable(self, meta, without_cache=False):
         var_feature_name = self.gen_name(meta)
+        if without_cache:
+            return self.create_var(meta)
         if var_feature_name not in self.var_cache:
             self.var_cache[var_feature_name] = self.create_var(meta)
         return self.var_cache[var_feature_name]
@@ -366,10 +376,16 @@ class VariableCreator(metaclass=Singleton):
         with paddle.base.framework._dygraph_guard(None), UniqueNameGuard(
             self.var_name_generator
         ):
-            args, kwargs = (
-                convert_meta_to_variable(args),
-                convert_meta_to_variable(kwargs),
-            )
+            if func is paddle.distributed.shard_tensor:
+                args, kwargs = (
+                    convert_meta_to_variable(args, without_cache=True),
+                    convert_meta_to_variable(kwargs, without_cache=True),
+                )
+            else:
+                args, kwargs = (
+                    convert_meta_to_variable(args),
+                    convert_meta_to_variable(kwargs),
+                )
 
             with paddle.static.program_guard(
                 self.main_program, self.startup_program
@@ -383,11 +399,13 @@ class VariableCreator(metaclass=Singleton):
         return convert_variable_to_meta_info(out)
 
 
-def convert_meta_to_variable(args):
+def convert_meta_to_variable(args, without_cache=False):
     return map_if_extend(
         args,
         pred=lambda x: isinstance(x, MetaInfo),
-        true_fn=lambda x: VariableCreator().get_variable(x),
+        true_fn=lambda x: VariableCreator().get_variable(
+            x, without_cache=without_cache
+        ),
         false_fn=lambda x: x,
     )
 
