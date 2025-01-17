@@ -119,10 +119,9 @@ class TensorRTBaseTest(unittest.TestCase):
                                 inconsistent_dims.append(i)
 
                         input_shape = min_shape
-                        if inconsistent_dims:
-                            input_shape_without_dynamic_dim = min_shape.copy()
-                            for dim in inconsistent_dims:
-                                input_shape_without_dynamic_dim[dim] = -1
+                        input_shape_without_dynamic_dim = min_shape.copy()
+                        for dim in inconsistent_dims:
+                            input_shape_without_dynamic_dim[dim] = -1
                         input_shape = input_shape_without_dynamic_dim
                     else:
                         input_shape = self.api_args[feed_name].shape
