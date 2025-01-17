@@ -348,7 +348,7 @@ class VariableCreator(metaclass=Singleton):
 
                 if meta.dist_info is not None:
                     mesh = meta.dist_info.mesh
-                    placements = paddle.distributed.auto_parallel.placement_type.to_placements(
+                    placements = to_placements(
                         meta.dist_info.dims_mapping, mesh
                     )
                     var = paddle._pir_ops.shard_tensor(var, mesh, placements)
