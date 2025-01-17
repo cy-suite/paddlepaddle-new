@@ -220,6 +220,7 @@ def fused_bias_dropout_residual_layer_norm_converter(
     layer = network.add_plugin_v2(plugin_inputs, plugin)
     return layer.get_output(0)
 
+
 @converter_registry.register(
     "pd_op.group_norm", trt_version="trt_version_ge=8.6"
 )
