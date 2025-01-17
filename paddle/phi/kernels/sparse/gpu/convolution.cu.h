@@ -110,7 +110,7 @@ inline IntT* SortedAndUniqueIndex(const Context& dev_ctx,
  * @brief: update the out index and indices
  * unique_keys: save the index of the output feature list
  * unique_values: indicates the index of key before deduplication
- * output_indices: indicates the position of the output index in the rulebook
+ * out_indexes: indicates the position of the output index in the rulebook
  * rulebook_len: indicates the length of rulebook
  * out_dims: indicates the output dims
  * out_indices: the indices of output, out_indices = IndexToPoint(unique_keys)
@@ -119,7 +119,7 @@ inline IntT* SortedAndUniqueIndex(const Context& dev_ctx,
 template <typename T>
 __global__ void UpdateIndexKernel(const T* unique_keys,
                                   const int* unique_values,
-                                  const int* output_indices,
+                                  const int* out_indexes,
                                   const int64_t non_zero_num,
                                   const int rulebook_len,
                                   const Dims4D out_dims,
@@ -142,7 +142,7 @@ __global__ void UpdateIndexKernel(const T* unique_keys,
     int end = i == non_zero_num - 1 ? rulebook_len : unique_values[i + 1];
     // max(end-start) = kernel_size
     for (T j = start; j < end; j++) {
-      rulebook_out_indices[output_indices[j]] = i;
+      rulebook_out_indices[out_indexes[j]] = i;
     }
   }
 }
