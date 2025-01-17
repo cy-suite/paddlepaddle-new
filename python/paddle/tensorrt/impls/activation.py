@@ -304,10 +304,14 @@ def prelu_converter(network, paddle_op, inputs):
         c_tensor = add_1D_constant_layer(network, [c])
         hw_tensor = None
         if len(input_dims) - 2 > 0:
-            hw_tensor = add_1D_constant_layer(network, [1] * (len(input_dims) - 2))
+            hw_tensor = add_1D_constant_layer(
+                network, [1] * (len(input_dims) - 2)
+            )
         if data_format == "NCHW":
             if hw_tensor:
-                shape_tensor = trt_concat(network, [n_tensor, c_tensor, hw_tensor])
+                shape_tensor = trt_concat(
+                    network, [n_tensor, c_tensor, hw_tensor]
+                )
             else:
                 shape_tensor = trt_concat(network, [n_tensor, c_tensor])
         else:
@@ -316,6 +320,6 @@ def prelu_converter(network, paddle_op, inputs):
             else:
                 shape_tensor = trt_concat(network, [n_tensor, c_tensor])
         reshape_layer.set_input(1, shape_tensor)
-        real_alpha_tensor= reshape_layer.get_output(0)
+        real_alpha_tensor = reshape_layer.get_output(0)
     layer = network.add_parametric_relu(input, real_alpha_tensor)
     return layer.get_output(0)

@@ -2260,7 +2260,7 @@ class PreluOpPattern : public pir::OpRewritePattern<paddle::dialect::PreluOp> {
     auto alpha_shape = pir::GetShapeFromValue(alpha_var);
     if (alpha_shape.size() == 0) {
       VLOG(3) << " Prelu op does not support alpha's dim is 0 in tensorrt "
-                   "static shape mode.";
+                 "static shape mode.";
       return false;
     }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
