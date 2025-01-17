@@ -1059,46 +1059,6 @@ PHI_DEFINE_EXPORTED_int64(
     cinn_compile_thread_num,
     -1,
     "It controls how many thread numbers applying compilation cache.");
-/*
- * CINN related FLAG
- * Name: FLAGS_enable_interpretercore_launch_cinn
- * Since Version: 2.4
- * Value Range: bool, default=true
- * Example: FLAGS_enable_interpretercore_launch_cinn=true would execute the CINN
- * compiled instructions of a paddle graph with InterpreterCore, otherwise with
- * the CINN compiled runtime program in sequential order.
- */
-PHI_DEFINE_EXPORTED_bool(enable_interpretercore_launch_cinn,
-                         true,
-                         "It controls whether to execute cinn compiled "
-                         "program with InterpreterCore");
-
-/*
- * CINN related FLAG
- * Name: FLAGS_enable_cinn_auto_tune
- * Since Version: 2.3
- * Value Range: bool, default=false
- * Example: FLAGS_enable_cinn_auto_tune=true would use CINN with its
- * auto-tune feature enabled
- */
-PHI_DEFINE_EXPORTED_bool(enable_cinn_auto_tune,
-                         false,
-                         "It controls whether to use cinn with "
-                         "its auto-tune feature enabled");
-
-/*
- * CINN related FLAG
- * Name: FLAGS_cinn_subgraph_graphviz_dir
- * Since Version: 2.3
- * Value Range: string, default=""
- * Example: FLAGS_cinn_subgraph_graphviz_dir="./cinn_graph/" will save the
- * CINN sub-graph into "./cinn_graph/", and each sub-graph will save into
- * "fusion_groups_*"" directory
- */
-PHI_DEFINE_EXPORTED_string(cinn_subgraph_graphviz_dir,
-                           "",
-                           "Specify the directory path of dot file of "
-                           "graph, which is used for debug.");
 
 /*
  * CINN related FLAG
@@ -1106,11 +1066,11 @@ PHI_DEFINE_EXPORTED_string(cinn_subgraph_graphviz_dir,
  * Since Version: 3.0 Beta
  * Value Range: bool, default=false
  * Example: FLAGS_cinn_specify_input_dynamic_dim=true will use file set by
- * FLAGS_cinn_input_dynamic_dim_spec_file to specify input dynamic dimention.
+ * FLAGS_cinn_input_dynamic_dim_spec_file to specify input dynamic dimension.
  */
 PHI_DEFINE_EXPORTED_bool(cinn_specify_input_dynamic_dim,
                          false,
-                         "Whether to specify input dynamic dimention.");
+                         "Whether to specify input dynamic dimension.");
 
 /*
  * CINN related FLAG
@@ -1118,13 +1078,13 @@ PHI_DEFINE_EXPORTED_bool(cinn_specify_input_dynamic_dim,
  * Since Version: 3.0 Beta
  * Value Range: string, default=""
  * Example: FLAGS_cinn_input_dynamic_dim_spec_file="./config.json",
- * FLAGS_cinn_specify_input_dynamic_dim=true would use input dynamic dimention
- * predefined in ./config.json to specify input dynamic dimention.
+ * FLAGS_cinn_specify_input_dynamic_dim=true would use input dynamic dimension
+ * predefined in ./config.json to specify input dynamic dimension.
  */
 PHI_DEFINE_EXPORTED_string(
     cinn_input_dynamic_dim_spec_file,
     "",
-    "File path of predefined input dynamic dimention specification.");
+    "File path of predefined input dynamic dimension specification.");
 
 #endif
 
@@ -1318,6 +1278,12 @@ PHI_DEFINE_EXPORTED_bool(
 PHI_DEFINE_EXPORTED_bool(eager_communication_connection,
                          false,
                          "enable eager to create nccl comm");
+
+PHI_DEFINE_EXPORTED_int64(
+    tcp_max_syn_backlog,
+    2048,
+    "The maximum length of the queue for completely established sockets "
+    "waiting to be accepted for tcp, default is 2048.");
 
 /**
  * Autotune related FLAG
@@ -1644,18 +1610,6 @@ PHI_DEFINE_EXPORTED_string(
     ir_inplace_kernel_blacklist,
     "",
     "It controls the ir inplace kernel subset do not use.");
-/**
- * Specify the directory of saving PIR subgraph from @to_static
- * Name: pir_subgraph_saving_dir
- * Since Version: 2.6.0
- * Value Range: str, default=""
- * Example:
- * Note: "/workspace/my_path", it will save into my_path dir;
- */
-PHI_DEFINE_EXPORTED_string(
-    pir_subgraph_saving_dir,
-    "",
-    "Specify the directory of saving PIR subgraph from @to_static.");
 
 PHI_DEFINE_EXPORTED_bool(enable_record_memory, false, "Enable memory recorder");
 
@@ -1701,22 +1655,18 @@ PHI_DEFINE_EXPORTED_string(
     "",
     "It controls the forward blacklist ops not to be decomposed.");
 
-#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || \
-    defined(PADDLE_WITH_XPU_BKCL) || defined(PADDLE_WITH_CUSTOM_DEVICE)
 /**
- * Communication library related FLAG
- * Name: FLAGS_dynamic_static_unified_comm
- * Since Version: 2.5
- * Value Range: bool, default=true
- * Example:
- * Note: Whether to use new communication library in auto parallel and static
- * mode. If true, it will use unified CommContextManager for communication.
+ * Remove some redundant information when printing the pir program
+ * Name: disable_logging_op_attr_list
+ * Since Version: 3.0.0
+ * Value Range: string, default=""
+ * Example: FLAGS_disable_logging_op_attr_list="op_dist_attr"
+ * Note: If "dtype", "dtype:float32" will be deleted in Pir program
  */
-PHI_DEFINE_EXPORTED_bool(dynamic_static_unified_comm,
-                         true,
-                         "Whether to use new communication library in auto "
-                         "parallel and static mode.");
-#endif  // FLAGS_dynamic_static_unified_comm
+PHI_DEFINE_EXPORTED_string(
+    disable_logging_op_attr_list,
+    "",
+    "Remove some redundant information when printing the pir program");
 
 /**
  * ProcessGroupNCCL related FLAG
@@ -1890,7 +1840,7 @@ PHI_DEFINE_EXPORTED_string(cublaslt_device_best_config,
                            "offline in cublaslt gemm.");
 
 /**
- * Wether to use xqa optim in block_multihead_attention kernel (GQA)
+ * Whether to use xqa optim in block_multihead_attention kernel (GQA)
  * Name: use_xqa_optim
  * Since Version: 3.0.0
  * Value Range: bool, default=false

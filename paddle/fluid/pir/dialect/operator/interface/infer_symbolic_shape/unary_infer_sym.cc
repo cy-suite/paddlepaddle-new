@@ -2030,7 +2030,7 @@ bool MaxPool2dWithIndexOpInferSymbolicShape(
   PADDLE_ENFORCE_EQ(
       x_shape.size(),
       4,
-      common::errors::InvalidArgument("Pooling intput should be 4-D Tensor"
+      common::errors::InvalidArgument("Pooling input should be 4-D Tensor"
                                       "but received %dD-Tensor",
                                       x_shape.size()));
 
@@ -2064,7 +2064,7 @@ bool MaxPool3dWithIndexOpInferSymbolicShape(
   PADDLE_ENFORCE_EQ(
       x_shape.size(),
       5,
-      common::errors::InvalidArgument("Pooling intput should be 5-D Tensor"
+      common::errors::InvalidArgument("Pooling input should be 5-D Tensor"
                                       "but received %dD-Tensor",
                                       x_shape.size()));
 
@@ -3479,7 +3479,7 @@ bool SplitWithNumOpInferSymbolicShape(
       }
     }
     if (count == 1) {
-      // caculate the axis of split_with_num_op
+      // calculate the axis of split_with_num_op
       symbol::TensorListShapeOrDataDimExprs res_list_s_d(
           num, out_s_d(candidate_axis, num));
       infer_context->SetShapeOrDataForValue(

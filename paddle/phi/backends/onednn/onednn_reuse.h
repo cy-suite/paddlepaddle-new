@@ -186,7 +186,7 @@ class OneDNNHandlerT {
       PADDLE_ENFORCE_NOT_NULL(
           bwd_w_pd_,
           errors::Unavailable("BWD_PD should be set when "
-                              "getting BWD prim witk key: %s .",
+                              "getting BWD prim with key: %s .",
                               key_p));
       backward_p = std::make_shared<TBackward_params>(*bwd_w_pd_);
       dev_ctx_.SetBlob(key_p, backward_p);
@@ -1751,7 +1751,7 @@ class PoolingOneDNNHandler
       const OneDNNContext& dev_ctx, const std::string& unique_name) {
     dnnl::memory::desc workspace_md = this->fwd_pd_->workspace_desc();
     // Pooling Workspace has to be passed to Grad op that
-    // may be executed by diffrent thread, hence
+    // may be executed by different thread, hence
     // for that one we use key that does not contain TID
     std::string workspace_key = CreateKey(dev_ctx,
                                           workspace_md.get_dims(),
