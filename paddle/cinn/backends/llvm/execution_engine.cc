@@ -218,6 +218,7 @@ void ExecutionEngine::Link<CodeGenGpuHost>(const ir::Module &module) {
   if (module.functions().size() == 0) {
     return;
   }
+  VLOG(3) << "CodeGenGpuHost->Compile(module) Begin";
   utils::RecordEvent("ExecutionEngine Link", utils::EventType::kOrdinary);
   auto ir_emitter = std::make_unique<CodeGenGpuHost>(m.get(), b.get());
   ir_emitter->Compile(module);

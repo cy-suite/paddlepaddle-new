@@ -254,7 +254,11 @@ void Compiler::AppendBroadcastSwitchModule(const ir::Module& module) {
 
 void Compiler::EndCompile() {
   RegisterDeviceModuleSymbol();
+  auto AddSelfModule_start = std::chrono::high_resolution_clock::now();
   engine_->AddSelfModule();
+  auto AddSelfModule_duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - AddSelfModule_start);
+  VLOG(1) << "Time of AddSelfModule: ***** [ "
+            << AddSelfModule_duration.count() << " ] ***** ms.";
 }
 
 std::string Compiler::GetSourceCode(const ir::Module& module) {
@@ -331,6 +335,7 @@ void Compiler::RegisterDeviceModuleSymbol() {
 
 void Compiler::RegisterCudaModuleSymbol() {
 #ifdef CINN_WITH_CUDA
+  auto RegisterCudaModuleSymbol_start = std::chrono::high_resolution_clock::now();
   nvrtc::Compiler compiler;
   std::string source_code = CodeGenCudaDev::GetSourceHeader() + device_fn_code_;
   auto ptx = compiler(source_code);
@@ -338,6 +343,10 @@ void Compiler::RegisterCudaModuleSymbol() {
                     true,
                     ::common::errors::InvalidArgument(
                         "Compile PTX failed from source code\n"));
+  auto nvrtc_Compiler_duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - RegisterCudaModuleSymbol_start);
+  VLOG(1) << "Time of nvrtc_Compiler_duration: ***** [ "
+            << nvrtc_Compiler_duration.count() << " ] ***** ms.";
+    
   using runtime::cuda::CUDAModule;
   cuda_module_.reset(new CUDAModule(ptx,
                                     compiler.compile_to_cubin()

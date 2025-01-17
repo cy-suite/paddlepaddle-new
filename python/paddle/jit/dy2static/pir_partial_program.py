@@ -18,6 +18,9 @@ import itertools
 from functools import cached_property
 from typing import TYPE_CHECKING
 
+import logging
+import time
+
 import numpy as np
 
 import paddle
@@ -624,6 +627,7 @@ class PartialProgramLayer:
         """
         Execute static graph by Interpreter and Return dynamic Tensors.
         """
+        print("====> start __call__", flush=1)
         in_vars = self._prepare_inputs(inputs)
         out_vars = self._prepare_outputs()
         attrs = self._prepare_attributes(in_sot_mode=False)
@@ -638,14 +642,24 @@ class PartialProgramLayer:
             *attrs,
         )
         restored_nest_out = self._restore_out(out_vars)
+        print("====> end __call__", flush=1)
         return self._remove_no_value(restored_nest_out)
 
     def sot_call(self, inputs):
         """
         In sot, inputs and outputs of partial program only contain tensors, so we can skip some step to speed up
         """
+        print("====> start sot call", flush=1)
+        logger = logging.getLogger("pir_partial_program")
+        logger.setLevel(logging.INFO)
+        start_time = time.time()
+
         out_vars = self._prepare_outputs()
+
         attrs = self._prepare_attributes(in_sot_mode=True)
+        logger.info(
+            f"Time of _prepare_attributes: ***** [ {time.time() - start_time} ] ***** seconds."
+        )
         _legacy_C_ops.pir_run_program(
             self._valid_vars(inputs),
             self._valid_vars(self._params),
@@ -655,6 +669,10 @@ class PartialProgramLayer:
             ),
             self._cuda_graph_vec,
             *attrs,
+        )
+        print("====> end sot call", flush=1)        
+        logger.info(
+            f"Time of pir_run_program: ***** [ {time.time() - start_time} ] ***** seconds."
         )
         return self._outputs.quick_restore(out_vars)
 

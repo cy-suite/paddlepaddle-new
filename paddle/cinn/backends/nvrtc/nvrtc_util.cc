@@ -125,6 +125,7 @@ std::vector<std::string> Compiler::FindCINNRuntimeIncludePaths() {
 
 std::string Compiler::CompileCudaSource(const std::string& code,
                                         bool include_headers) {
+  auto CompileCudaSource_start = std::chrono::high_resolution_clock::now();
   const auto& header_gen = JitSafeHeaderGenerator::GetInstance();
   std::vector<std::string> compile_options;
   std::vector<const char*> param_cstrings{};
@@ -172,16 +173,52 @@ std::string Compiler::CompileCudaSource(const std::string& code,
     param_cstrings.push_back(option.c_str());
   }
   VLOG(3) << "compile options: " << utils::Join(compile_options, " ");
+  VLOG(1) << "nvrtcCreateProgram source code: \n" << code;
+  for (auto & option : header_gen.headers()) {
+    VLOG(1) << "nvrtcCreateProgram header: " << option;
+  }
+  for (auto & option : header_gen.include_names()) {
+    VLOG(1) << "nvrtcCreateProgram include_name: " << option;
+  }
+
+
+  nvrtcProgram prog_tmp;
+  NVRTC_CALL(nvrtcCreateProgram(&prog_tmp,
+                                code.c_str(),
+                                nullptr,
+                                0,
+                                nullptr,
+                                nullptr));
+  auto nvrtcCompileProgram_tmp_start = std::chrono::high_resolution_clock::now();
+  nvrtcResult compile_res1 =
+      nvrtcCompileProgram(prog_tmp, param_cstrings.size(), param_cstrings.data());
+  auto nvrtcCompileProgram_tmp_duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - nvrtcCompileProgram_tmp_start);
+  VLOG(1) << "Time of nvrtcCompileProgram_tmp_duration: ***** [ "
+            << nvrtcCompileProgram_tmp_duration.count() << " ] ***** ms.";
+  (void)compile_res1;
+
+
+
+  auto nvrtcCreateProgram_start = std::chrono::high_resolution_clock::now();
   NVRTC_CALL(nvrtcCreateProgram(&prog,
                                 code.c_str(),
                                 nullptr,
                                 header_gen.size(),
                                 header_gen.headers().data(),
                                 header_gen.include_names().data()));
+  auto nvrtcCreateProgram_duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - nvrtcCreateProgram_start);
+  VLOG(1) << "Time of nvrtcCreateProgram: ***** [ "
+            << nvrtcCreateProgram_duration.count() << " ] ***** ms.";
+
+  auto nvrtcCompileProgram_start = std::chrono::high_resolution_clock::now();
   nvrtcResult compile_res =
       nvrtcCompileProgram(prog, param_cstrings.size(), param_cstrings.data());
+  auto nvrtcCompileProgram_duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - nvrtcCompileProgram_start);
+  VLOG(1) << "Time of nvrtcCompileProgram: ***** [ "
+            << nvrtcCompileProgram_duration.count() << " ] ***** ms.";
 
   {  // get log
+    auto nvrtcGetProgramLog_start = std::chrono::high_resolution_clock::now();
     size_t log_size;
     NVRTC_CALL(nvrtcGetProgramLogSize(prog, &log_size));
     std::string log;
@@ -192,25 +229,40 @@ std::string Compiler::CompileCudaSource(const std::string& code,
         compile_res,
         NVRTC_SUCCESS,
         ::common::errors::Fatal("NVRTC compilation failed: %s", log));
+    auto nvrtcGetProgramLog_duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - nvrtcGetProgramLog_start);
+    VLOG(1) << "Time of nvrtcGetProgramLog: ***** [ "
+            << nvrtcGetProgramLog_duration.count() << " ] ***** ms.";
   }
 
   size_t size;
   std::string data;
   if (compile_to_cubin_) {
+    auto nvrtcGetCUBIN_start = std::chrono::high_resolution_clock::now();
     NVRTC_CALL(nvrtcGetCUBINSize(prog, &size));
     data.resize(size);
     NVRTC_CALL(nvrtcGetCUBIN(prog, &data[0]));
+    auto nvrtcGetCUBIN_duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - nvrtcGetCUBIN_start);
+    VLOG(1) << "Time of nvrtcGetCUBIN: ***** [ "
+            << nvrtcGetCUBIN_duration.count() << " ] ***** ms.";
   } else {
+    auto nvrtcGetPTX_start = std::chrono::high_resolution_clock::now();
     NVRTC_CALL(nvrtcGetPTXSize(prog, &size));
     data.resize(size);
     NVRTC_CALL(nvrtcGetPTX(prog, &data[0]));
+    auto nvrtcGetPTX_duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - nvrtcGetPTX_start);
+    VLOG(1) << "Time of nvrtcGetPTX: ***** [ "
+            << nvrtcGetPTX_duration.count() << " ] ***** ms.";
   }
 
   NVRTC_CALL(nvrtcDestroyProgram(&prog));
+  auto CompileCudaSource_duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - CompileCudaSource_start);
+  VLOG(1) << "Time of CompileCudaSource: ***** [ "
+            << CompileCudaSource_duration.count() << " ] ***** ms.";
   return data;
 }
 
 std::string Compiler::CompileWithNvcc(const std::string& cuda_c) {
+  auto CompileWithNvcc_start = std::chrono::high_resolution_clock::now();
   // read dir source
   std::string dir = "./source";
   if (access(dir.c_str(), 0) == -1) {
@@ -238,6 +290,10 @@ std::string Compiler::CompileWithNvcc(const std::string& cuda_c) {
 
   CompileToPtx();
   CompileToCubin();
+
+  auto CompileWithNvcc_duration = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::high_resolution_clock::now() - CompileWithNvcc_start);
+  VLOG(1) << "Time of CompileWithNvcc: ***** [ "
+            << CompileWithNvcc_duration.count() << " ] ***** ms.";
 
   return prefix_name_ + ".cubin";
 }
