@@ -99,6 +99,7 @@ DEFINE_GENERAL_PATTERN(Exp, paddle::dialect::ExpOp)
 DEFINE_GENERAL_PATTERN(Abs, paddle::dialect::AbsOp)
 DEFINE_GENERAL_PATTERN(Abs_, paddle::dialect::Abs_Op)
 DEFINE_GENERAL_PATTERN(Sin, paddle::dialect::SinOp)
+DEFINE_GENERAL_PATTERN(Logsigmoid, paddle::dialect::LogsigmoidOp)
 DEFINE_GENERAL_PATTERN(Cos, paddle::dialect::CosOp)
 DEFINE_GENERAL_PATTERN(Sinh, paddle::dialect::SinhOp)
 DEFINE_GENERAL_PATTERN(Cosh, paddle::dialect::CoshOp)
@@ -802,6 +803,58 @@ class Unsqueeze_OpPattern
 
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
+  }
+};
+
+class EmbeddingOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::EmbeddingOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::EmbeddingOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::EmbeddingOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    pir::Value x = op.operand_source(0);
+    auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
+    auto x_shape = x_type.dims();
+
+    bool with_dynamic_shape = false;
+    for (int i = 0; i < x_shape.size(); ++i) {
+      if (x_shape[i] == -1) {
+        with_dynamic_shape = true;
+      }
+    }
+    LOG(INFO) << "[EmbeddingOpPattern] with_dynamic_shape:"
+              << with_dynamic_shape << "\n";
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(with_dynamic_shape));
+    return with_dynamic_shape;
+  }
+};
+
+class UnbindOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::UnbindOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::UnbindOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::UnbindOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    pir::Value input = op.operand_source(0);
+    auto input_type = input.type().dyn_cast<paddle::dialect::DenseTensorType>();
+    auto input_shape = input_type.dims();
+
+    bool with_dynamic_shape = false;
+    for (int i = 0; i < input_shape.size(); ++i) {
+      if (input_shape[i] == -1) {
+        with_dynamic_shape = true;
+      }
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(with_dynamic_shape));
+    return with_dynamic_shape;
   }
 };
 
@@ -2413,6 +2466,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Abs_)
     ADD_PATTERN(Cos)
     ADD_PATTERN(Sin)
+    ADD_PATTERN(Logsigmoid)
     ADD_PATTERN(Cos)
     ADD_PATTERN(Sinh)
     ADD_PATTERN(Cosh)
@@ -2452,6 +2506,8 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<UnsqueezeOpPattern>(context));
     ps.Add(std::make_unique<SqueezeOpPattern>(context));
     ps.Add(std::make_unique<Unsqueeze_OpPattern>(context));
+    ps.Add(std::make_unique<EmbeddingOpPattern>(context));
+    ps.Add(std::make_unique<UnbindOpPattern>(context));
     ps.Add(std::make_unique<SliceOpPattern>(context));
     ps.Add(std::make_unique<IndexSelectOpPattern>(context));
     ps.Add(std::make_unique<FlattenOpPattern>(context));
