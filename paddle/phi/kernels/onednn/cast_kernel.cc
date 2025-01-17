@@ -35,7 +35,7 @@ void CastKernel(const Context& dev_ctx,
                 DataType out_dtype,
                 DenseTensor* out) {
   // Should keep eye on it, since it may hide some issue action like meaningless
-  // cast (intented to transfer but due to some reason appear to be cast between
+  // cast (intended to transfer but due to some reason appear to be cast between
   // same dtype)
   if (x.dtype() == out_dtype) {
     if (!out->IsSharedWith(x)) {

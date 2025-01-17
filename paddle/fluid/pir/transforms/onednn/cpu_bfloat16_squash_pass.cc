@@ -443,7 +443,8 @@ class CastBf16SquashPattern : public pir::OpRewritePattern<OpType> {
       cast_attributes["dtype"] = new_dtype;
     }
     if (with_q) {
-      new_cast = rewriter.Build<OpType>(pre_op->operand_source(0), cast_attributes);
+      new_cast =
+          rewriter.Build<OpType>(pre_op->operand_source(0), cast_attributes);
       if (with_dq) {
         rewriter.ReplaceAllUsesWith(next_op->result(0), new_cast->result(0));
         rewriter.EraseOp(next_op);
