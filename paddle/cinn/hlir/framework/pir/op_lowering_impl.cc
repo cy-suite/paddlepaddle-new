@@ -33,14 +33,12 @@
 #include "paddle/cinn/ir/group_schedule/config/group_tile_config.h"
 #include "paddle/cinn/ir/ir_analyzer/ir_analyzer.h"
 #include "paddle/cinn/ir/schedule/ir_schedule.h"
-#include "paddle/cinn/ir/utils/stmt_converter.h"
 #include "paddle/cinn/lang/placeholder.h"
 #include "paddle/cinn/operator_fusion/fusion_interface.h"
 #include "paddle/cinn/optim/check_tensor_buffer_map.h"
 #include "paddle/cinn/optim/eliminate_common_global_memory_read.h"
-#include "paddle/cinn/optim/schedule_block_dce_pass.h"
+#include "paddle/cinn/optim/schedule_block_dce.h"
 #include "paddle/cinn/optim/transform_gpu_forloop.h"
-#include "paddle/cinn/pass/pass_manager.h"
 #include "paddle/common/ddim.h"
 #include "paddle/common/enforce.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_type.h"
@@ -370,33 +368,20 @@ std::vector<ir::LoweredFunc> OpLowererImpl::PostProcess(
   std::vector<ir::LoweredFunc> lowered_funcs;
   for (int i = 0; i < func_bodies.size(); ++i) {
     ir::Expr func_body = func_bodies[i];
-
-    if (func_body.As<ir::Block>()) {
-      VLOG(6) << "Before CreateEliminateDeadScheduleBlockPass: \n" << func_body;
-      ir::stmt::BlockRef func_body_block =
-          ir::ConvertExprBlockToStmtBlock(func_body);
-      optim::EliminateDeadScheduleBlock(group->output_names(), func_body_block);
-      func_body = ir::ConvertStmtBlockToExprBlock(func_body_block);
-      VLOG(6) << "After CreateEliminateDeadScheduleBlockPass: \n" << func_body;
-    }
-
+    optim::EliminateDeadScheduleBlock(&(func_body), group->output_names());
     if (i != func_bodies.size() - 1) {
-      ir::stmt::BlockRef func_body_block =
-          ir::ConvertExprBlockToStmtBlock(func_body);
       cinn::common::DefaultDeviceTarget().arch.Match(
           [&](std::variant<common::UnknownArch,
                            common::X86Arch,
                            common::ARMArch>) {},
           [&](common::NVGPUArch) {
 #ifdef CINN_WITH_CUDA
-            optim::EliminateCommonGlobalMemoryRead(func_body_block);
-            func_body = ir::ConvertStmtBlockToExprBlock(func_body_block);
+            optim::EliminateCommonGlobalMemoryRead(&(func_body));
             optim::OptimizeExprGPU(&(func_body));
 #endif
           },
           [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
-            optim::EliminateCommonGlobalMemoryRead(func_body_block);
-            func_body = ir::ConvertStmtBlockToExprBlock(func_body_block);
+            optim::EliminateCommonGlobalMemoryRead(&(func_body));
             optim::OptimizeExprGPU(&(func_body));
           });
     }
@@ -418,16 +403,9 @@ std::vector<ir::LoweredFunc> OpLowererImpl::PostProcess(
     lowered_funcs.push_back(std::move(func));
   }
 
-  // collect temp space sizes
-  if (lowered_funcs.size() > 1) {
-    for (auto& temp_space : lowered_funcs[0]->temp_spaces) {
-      int64_t size = -1;
-      if (temp_space.size().is_constant()) {
-        size = temp_space.size().as_int64();
-      }
-      group->mut_temp_space_sizes().push_back(size);
-    }
-  }
+  // 5. Unify temp_space args and set temp_space sizes
+  UnifyTempSpaceArgs(&lowered_funcs);
+  group->mut_temp_space_sizes() = CollectTempSpaceSizes(lowered_funcs);
 
   return lowered_funcs;
 }

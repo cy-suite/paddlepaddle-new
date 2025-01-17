@@ -25,6 +25,7 @@
 #include "paddle/cinn/ir/schedule/ir_schedule.h"
 #include "paddle/cinn/ir/schedule/ir_schedule_util.h"
 #include "paddle/cinn/lang/placeholder.h"
+#include "paddle/cinn/optim/schedule_block_dce.h"
 #include "paddle/cinn/optim/transform_gpu_forloop.h"
 #include "paddle/common/ddim.h"
 #include "paddle/common/enforce.h"
@@ -667,10 +668,10 @@ ExprTransformer RemoveOneTransformer(int one) {
         ExprSetFinderUtils::DirectlyFather(copied).GetSingle(target_for);
     if (target_block.As<ir::ScheduleBlockRealize>() != nullptr) {
       VLOG(4) << "RemoveOneTransformer: father block is root realize";
-      ir::Expr shedule_block =
+      ir::Expr schedule_block =
           target_block.As<ir::ScheduleBlockRealize>()->schedule_block;
       PADDLE_ENFORCE_EQ(
-          shedule_block.As<ir::ScheduleBlock>()->body,
+          schedule_block.As<ir::ScheduleBlock>()->body,
           target_for,
           ::common::errors::InvalidArgument(
               "Root realize body should be equal to target for."));
@@ -678,9 +679,9 @@ ExprTransformer RemoveOneTransformer(int one) {
       const auto for_body_stmts = for_body.As<ir::Block>()->stmts;
       if (for_body_stmts.size() == 1 &&
           for_body_stmts[0].As<ir::For>() != nullptr) {
-        shedule_block.As<ir::ScheduleBlock>()->body = for_body_stmts[0];
+        schedule_block.As<ir::ScheduleBlock>()->body = for_body_stmts[0];
       } else {
-        shedule_block.As<ir::ScheduleBlock>()->body = for_body;
+        schedule_block.As<ir::ScheduleBlock>()->body = for_body;
       }
     } else if (target_block.As<ir::Block>() != nullptr) {
       std::vector<ir::Expr> new_bodies;
