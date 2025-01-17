@@ -316,7 +316,9 @@ def prelu_converter(network, paddle_op, inputs):
                 shape_tensor = trt_concat(network, [n_tensor, c_tensor])
         else:
             if hw_tensor:
-                shape_tensor = trt_concat(network, [n_tensor, hw_tensor, c_tensor])
+                shape_tensor = trt_concat(
+                    network, [n_tensor, hw_tensor, c_tensor]
+                )
             else:
                 shape_tensor = trt_concat(network, [n_tensor, c_tensor])
         reshape_layer.set_input(1, shape_tensor)
