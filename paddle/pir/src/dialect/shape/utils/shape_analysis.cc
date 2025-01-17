@@ -138,21 +138,11 @@ InferSymbolicShapeContext::GetShapeOrDataForValue(Value val) const {
 
   return value_id_to_shape_or_data_.at(val.impl()->id());
 }
-static const size_t GetResultIdx(const pir::Value& v, pir::Operation* op) {
-  size_t i = 0;
-  for (size_t i = 0; i < op->num_results(); i++) {
-    if (op->result(i) == v) {
-      return i;
-    }
-  }
-  PADDLE_THROW(::common::errors::NotFound(
-      "Can not find the value %s as result of op %s", v.impl(), op->name()));
-}
 
 void InferSymbolicShapeContext::SetSymbolForValueByStaticShape(Value val) {
   const auto& value_type = val.type();
   pir::Operation* op = val.defining_op();
-  size_t value_index = GetResultIdx(val, op);
+  auto value_index = val.dyn_cast<OpResult>().index();
   if (!val || !value_type) {
     LOG(WARNING)
         << "Risk on SetSymbolForValueByStaticShape for null value, which is "
