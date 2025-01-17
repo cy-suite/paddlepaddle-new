@@ -64,6 +64,18 @@ class CastBf16Pattern : public pir::OpRewritePattern<OpType> {
 
     pir::IrContext *ctx = rewriter.ir_context();
 
+    auto dtype_attr = attributes["dtype"];
+    phi::DataType dtype =
+        dtype_attr.template dyn_cast<paddle::dialect::DataTypeAttribute>()
+            .data();
+    if (dtype == phi::DataType::FLOAT32) {
+      pir::Attribute new_dtype =
+          paddle::dialect::DataTypeAttribute::get(ctx, phi::DataType::BFLOAT16);
+      attributes["dtype"] = new_dtype;
+    } else {
+      return false;
+    }
+
     std::unordered_map<std::string, pir::Attribute> q_attributes;
     q_attributes["scale"] = rewriter.float_attr(1.0f);
     q_attributes["shift"] = rewriter.float_attr(0.0f);
@@ -80,18 +92,6 @@ class CastBf16Pattern : public pir::OpRewritePattern<OpType> {
         create_type<pir::DenseTensorType, paddle::dialect::DenseTensorType>(
             type, pir::BFloat16Type::get(ctx), ctx);
     q_op->result(0).set_type(new_type);
-
-    auto dtype_attr = attributes["dtype"];
-    phi::DataType dtype =
-        dtype_attr.template dyn_cast<paddle::dialect::DataTypeAttribute>()
-            .data();
-    if (dtype == phi::DataType::FLOAT32) {
-      pir::Attribute new_dtype =
-          paddle::dialect::DataTypeAttribute::get(ctx, phi::DataType::BFLOAT16);
-      attributes["dtype"] = new_dtype;
-    } else {
-      return false;
-    }
 
     OpType new_cast = rewriter.Build<OpType>(q_op.output(), attributes);
 
