@@ -33,12 +33,14 @@
 #include "paddle/cinn/ir/group_schedule/config/group_tile_config.h"
 #include "paddle/cinn/ir/ir_analyzer/ir_analyzer.h"
 #include "paddle/cinn/ir/schedule/ir_schedule.h"
+#include "paddle/cinn/ir/utils/stmt_converter.h"
 #include "paddle/cinn/lang/placeholder.h"
 #include "paddle/cinn/operator_fusion/fusion_interface.h"
 #include "paddle/cinn/optim/check_tensor_buffer_map.h"
 #include "paddle/cinn/optim/eliminate_common_global_memory_read.h"
 #include "paddle/cinn/optim/schedule_block_dce.h"
 #include "paddle/cinn/optim/transform_gpu_forloop.h"
+#include "paddle/cinn/pass/pass_manager.h"
 #include "paddle/common/ddim.h"
 #include "paddle/common/enforce.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_type.h"
@@ -377,12 +379,25 @@ std::vector<ir::LoweredFunc> OpLowererImpl::PostProcess(
           [&](common::NVGPUArch) {
 #ifdef CINN_WITH_CUDA
             optim::EliminateCommonGlobalMemoryRead(&(func_body));
-            optim::OptimizeExprGPU(&(func_body));
+            ir::stmt::BlockRef func_body_block =
+                ir::ConvertExprBlockToStmtBlock(func_body);
+            LOG(INFO) << "Before OptimizeExprGPU in op_lowering_impl: \n"
+                      << func_body_block;
+            optim::OptimizeExprGPU(func_body_block);
+            LOG(INFO) << "After OptimizeExprGPU in op_lowering_impl: \n"
+                      << func_body_block;
+            func_body = ir::ConvertStmtBlockToExprBlock(func_body_block);
 #endif
           },
           [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
-            optim::EliminateCommonGlobalMemoryRead(&(func_body));
-            optim::OptimizeExprGPU(&(func_body));
+            ir::stmt::BlockRef func_body_block =
+                ir::ConvertExprBlockToStmtBlock(func_body);
+            LOG(INFO) << "Before OptimizeExprGPU in op_lowering_impl: \n"
+                      << func_body_block;
+            optim::OptimizeExprGPU(func_body_block);
+            LOG(INFO) << "After OptimizeExprGPU in op_lowering_impl: \n"
+                      << func_body_block;
+            func_body = ir::ConvertStmtBlockToExprBlock(func_body_block);
           });
     }
 
