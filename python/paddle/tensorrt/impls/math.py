@@ -25,9 +25,11 @@ from paddle.tensorrt.converter_utils import (
     fill_constant_layer,
     get_axes_for_reduce_op,
     get_axis_length,
+    get_input_constant_value,
     get_shape_tensor_element,
     trt_cast,
     trt_concat,
+    trt_equal,
     trt_expand,
     trt_max,
     trt_reshape,
@@ -63,9 +65,9 @@ def scale_converter(network, paddle_op, inputs):
     reshape_layer_bias = network.add_shuffle(bias_tensor)
     reshape_layer_bias.set_input(1, bias_shapes_tensor)
 
-    scale_op = paddle_op.operands()[1].source().get_defining_op()
-    if scale_op.name() == "pd_op.full":
-        scale = scale_op.attrs()["value"]
+    scale = get_input_constant_value(paddle_op, inputs, 1)
+    if scale is not None:
+        scale = scale[0]
         has_scale_tensor = False
         if is_int:
             scale_tensor = add_1D_constant_layer(
@@ -125,7 +127,7 @@ def scale_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.max", trt_version="trt_version_ge=8.0")
 def max_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
-    axis = paddle_op.operands()[1].source().get_defining_op().attrs()["value"]
+    axis = get_input_constant_value(paddle_op, inputs, 1)
     input_shape = input_tensor.shape
     keepdim = paddle_op.attrs()["keepdim"]
     if network.has_implicit_batch_dimension:
@@ -171,10 +173,10 @@ def multiply_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.clip", trt_version="8.x")
 def clip_converter(network, paddle_op, inputs):
     def _get_constant_or_expand_tensor(
-        op, constant_inputs, input_shape_tensor, rank
+        value, constant_inputs, input_shape_tensor, rank
     ):
-        if op.name() == "pd_op.full":
-            value = op.attrs()["value"]
+
+        if value is not None:
             return fill_constant_layer(
                 network, input_shape_tensor, rank, value, input_tensor.dtype
             )
@@ -194,15 +196,15 @@ def clip_converter(network, paddle_op, inputs):
     input_shape_tensor = network.add_shape(input_tensor).get_output(0)
 
     # handle min operation
-    min_op = paddle_op.operands()[1].source().get_defining_op()
+    min_value = get_input_constant_value(paddle_op, inputs, 1)
     alpha_t = _get_constant_or_expand_tensor(
-        min_op, inputs[1], input_shape_tensor, rank
+        min_value, inputs[1], input_shape_tensor, rank
     )
 
     # handle max operation
-    max_op = paddle_op.operands()[2].source().get_defining_op()
+    max_value = get_input_constant_value(paddle_op, inputs, 2)
     beta_t = _get_constant_or_expand_tensor(
-        max_op, inputs[2], input_shape_tensor, rank
+        max_value, inputs[2], input_shape_tensor, rank
     )
 
     # run the clip operation
@@ -294,7 +296,7 @@ def all_converter(network, paddle_op, inputs):
 def cumsum_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
     dtype = input_tensor.dtype
-    axis = paddle_op.operands()[1].source().get_defining_op().attrs()["value"]
+    axis = get_input_constant_value(paddle_op, inputs, 1)[0]
     input_shape = input_tensor.shape
     rank = len(input_shape)
 
@@ -397,6 +399,14 @@ def elementwise_pow_converter(network, paddle_op, inputs):
     return add_elementwise_layer(
         network, paddle_op, inputs, trt.ElementWiseOperation.POW
     )
+
+
+@converter_registry.register("pd_op.isnan", trt_version="8.x")
+def isnan_converter(network, paddle_op, inputs):
+    input_tensor = inputs[0]
+    equal_tensor = trt_equal(network, input_tensor, input_tensor)
+    layer = network.add_unary(equal_tensor, trt.UnaryOperation.NOT)
+    return layer.get_output(0)
 
 
 @converter_registry.register("pd_op.minimum", trt_version="8.x")
