@@ -197,36 +197,7 @@ std::shared_ptr<ScheduleConfig::BaseInfo> InitBasicInfo(
   return base_info;
 }
 
-bool SpecialSpatialWithBroadcastCaseCanApplyVectorize(
-    const std::shared_ptr<ScheduleConfig::BaseInfo>& base_info,
-    int grid_dim_x,
-    int wrap_nums_per_block) {
-  if (wrap_nums_per_block == 32) {
-    if (grid_dim_x <= 512 && base_info->continuous_tensor_nums <= 2 &&
-        base_info->fusion_group_arg_nums >= 9) {
-      return false;
-    }
-
-    if (grid_dim_x >= 10240 && base_info->continuous_tensor_nums <= 2 &&
-        base_info->fusion_group_arg_nums >= 10) {
-      return false;
-    }
-  }
-
-  if (wrap_nums_per_block == 16 && grid_dim_x >= 10240) {
-    if (base_info->continuous_tensor_nums <= 2 &&
-        base_info->fusion_group_arg_nums >= 9) {
-      return false;
-    }
-
-    if (base_info->continuous_tensor_nums <= 4 &&
-        base_info->fusion_group_arg_nums >= 11) {
-      return false;
-    }
-  }
-
-  return true;
-}
+namespace {
 
 // Only proceed with vectorization if SM utilization exceeds 100%
 bool CheckSmUtilization(
@@ -299,37 +270,136 @@ int CalculateWarpNums(const common::Target& target, int total_threads_needed) {
   return best_warp_nums;
 }
 
+int UpdateWarpNumsInDifferentCase(
+    const std::shared_ptr<ScheduleConfig::BaseInfo>& base_info, int warp_nums) {
+  const auto& last_dim = base_info->iter_space_type.back().first;
+  if (base_info->has_if_else_op && last_dim == "R") {
+    warp_nums = Trim(warp_nums, 1, 16);
+  } else {
+    warp_nums = Trim(warp_nums, 1, 32);
+  }
+  return warp_nums;
+}
+
+inline bool CheckThreadDimensionCanVectorize(int threads,
+                                             int nums,
+                                             int factor) {
+  const int deal_elements_in_warp = threads * factor;
+  if (nums % deal_elements_in_warp == 0) {
+    return true;
+  }
+  return false;
+}
+
+bool ReduceRegionCanVectorize(
+    const std::shared_ptr<ScheduleConfig::BaseInfo>& base_info,
+    const common::Target& target,
+    const int warp_nums,
+    const int factor) {
+  const int64_t spatial_numel = base_info->spatial_numel;
+  const int64_t reduce_numel = base_info->reduce_numel;
+  if (warp_nums < 4 && spatial_numel > 1) return false;
+
+  int rd_thread_num = warp_nums * kWarpSize;
+  if ((warp_nums > 1 || spatial_numel < warp_nums * 64) &&
+      CheckThreadDimensionCanVectorize(rd_thread_num, reduce_numel, factor) &&
+      CheckSmUtilization(
+          base_info, target, spatial_numel * factor, rd_thread_num)) {
+    return true;
+  }
+  return false;
+}
+
+bool SpatialRegionCanVectorize(
+    const std::shared_ptr<ScheduleConfig::BaseInfo>& base_info,
+    const common::Target& target,
+    const int warp_nums,
+    const int factor) {
+  const int64_t spatial_numel = base_info->spatial_numel;
+  const int64_t reduce_numel = base_info->reduce_numel;
+  const int sp_thread_num = kWarpSize * warp_nums;
+  if (base_info->has_select_op) return false;
+  if (CheckThreadDimensionCanVectorize(sp_thread_num, spatial_numel, factor) &&
+      CheckSmUtilization(base_info, target, spatial_numel, sp_thread_num)) {
+    return true;
+  }
+  return false;
+}
+
+bool SpecialSpatialWithBroadcastCaseCanApplyVectorize(
+    const std::shared_ptr<ScheduleConfig::BaseInfo>& base_info,
+    const int grid_dim_x,
+    const int wrap_nums_per_block) {
+  if (wrap_nums_per_block == 32) {
+    if (grid_dim_x <= 512 && base_info->continuous_tensor_nums <= 2 &&
+        base_info->fusion_group_arg_nums >= 9) {
+      return false;
+    }
+
+    if (grid_dim_x >= 10240 && base_info->continuous_tensor_nums <= 2 &&
+        base_info->fusion_group_arg_nums >= 10) {
+      return false;
+    }
+  }
+
+  if (wrap_nums_per_block == 16 && grid_dim_x >= 10240) {
+    if (base_info->continuous_tensor_nums <= 2 &&
+        base_info->fusion_group_arg_nums >= 9) {
+      return false;
+    }
+
+    if (base_info->continuous_tensor_nums <= 4 &&
+        base_info->fusion_group_arg_nums >= 11) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool SpecialSpatialCaseCanApplyVectorize(
+    const std::shared_ptr<ScheduleConfig::BaseInfo>& base_info,
+    const int vectorize_factor,
+    const int warp_nums) {
+  const int64_t iters_dim = base_info->iter_space_type.size();
+  const auto& last_dim = base_info->iter_space_type.back().first;
+  if (iters_dim != 1 || last_dim == "R") return false;
+
+  int64_t spatial_numel = base_info->spatial_numel;
+  int64_t grid_dim_x = spatial_numel / warp_nums / kWarpSize / vectorize_factor;
+
+  if (SpecialSpatialWithBroadcastCaseCanApplyVectorize(
+          base_info, grid_dim_x, warp_nums)) {
+    return true;
+  }
+
+  return false;
+}
+
+}  // namespace
+
 TileConfigMap BuildVectorizeConfig(
     const std::shared_ptr<ScheduleConfig::BaseInfo>& base_info,
     const common::Target& target) {
   if (!base_info->can_apply_vectorize) return {};
   // current only support [S, R] and [S]
-  const int iters_dim = base_info->iter_space_type.size();
+  const int64_t iters_dim = base_info->iter_space_type.size();
   if (iters_dim > 2) {
     base_info->can_apply_vectorize = false;
     return {};
   }
   const auto& last_dim = base_info->iter_space_type.back().first;
+  const std::vector<int> vectorize_factors{4, 2};
   int64_t spatial_numel = base_info->spatial_numel;
   int64_t reduce_numel = base_info->reduce_numel;
-  ReduceMethod reduce_method = NoneReduceMethod();
+  int sp_thread_num = 1;
+  int rd_thread_num = 1;
+  int warp_nums = 1;
   int vectorize_factor = 1;
-  const std::vector<int> vectorize_factors{4, 2};
   bool can_vectorize = false;
-  auto const CheckVectorize = [&](int nums, int threads, int factor) {
-    const int deal_elements_in_warp = threads * factor;
-    if (nums % deal_elements_in_warp == 0) {
-      vectorize_factor = factor;
-      can_vectorize = true;
-      return true;
-    }
-    return false;
-  };
-
   bool is_sm_fully_utilized = true;
-  int64_t sp_thread_num = 1;
-  int64_t rd_thread_num = 1;
-  int64_t warp_nums = 1;
+  ReduceMethod reduce_method = NoneReduceMethod();
+
   // Reduce Region
   if (last_dim == "R") {
     for (auto factor : vectorize_factors) {
@@ -337,18 +407,12 @@ TileConfigMap BuildVectorizeConfig(
       const int elements_in_warp = kWarpSize * vectorize_factor;
       warp_nums = CeilDiv(reduce_numel, elements_in_warp);
       warp_nums = Trim(warp_nums, 1, 32);
-      if (warp_nums > 1 || spatial_numel < warp_nums * 64) {
-        if (warp_nums < 4 && spatial_numel > 1) break;
-        rd_thread_num = warp_nums * kWarpSize;
-        if (CheckVectorize(reduce_numel, rd_thread_num, vectorize_factor)) {
-          is_sm_fully_utilized =
-              CheckSmUtilization(base_info,
-                                 target,
-                                 spatial_numel * vectorize_factor,
-                                 rd_thread_num);
-          reduce_method = BlockReduceMethod();
-          break;
-        }
+      rd_thread_num = warp_nums * kWarpSize;
+      if (ReduceRegionCanVectorize(
+              base_info, target, warp_nums, vectorize_factor)) {
+        can_vectorize = true;
+        reduce_method = BlockReduceMethod();
+        break;
       }
     }
   } else if (iters_dim == 1 && last_dim == "S") {  // Spatial Region
@@ -360,16 +424,24 @@ TileConfigMap BuildVectorizeConfig(
           CalculateWarpNums(target, spatial_numel / vectorize_factor);
       warp_nums = Trim(warp_nums, 1, max_warp_nums);
       sp_thread_num = kWarpSize * warp_nums;
-      if (base_info->has_select_op) break;
-      if (CheckVectorize(spatial_numel, sp_thread_num, vectorize_factor)) {
-        is_sm_fully_utilized =
-            CheckSmUtilization(base_info, target, spatial_numel, sp_thread_num);
+      if (SpatialRegionCanVectorize(
+              base_info, target, warp_nums, vectorize_factor)) {
+        can_vectorize = true;
         break;
       }
     }
   }
 
-  if (!can_vectorize || !is_sm_fully_utilized) {
+  warp_nums = UpdateWarpNumsInDifferentCase(base_info, warp_nums);
+  // Deal with Special Cases
+  if (can_vectorize) {
+    if (!SpecialSpatialCaseCanApplyVectorize(
+            base_info, vectorize_factor, warp_nums)) {
+      can_vectorize = false;
+    }
+  }
+
+  if (!can_vectorize) {
     base_info->can_apply_vectorize = false;
     return {};
   }
@@ -377,22 +449,6 @@ TileConfigMap BuildVectorizeConfig(
   int64_t sp_upper_bound = base_info->spatial_numel > 1 ? kMaxNumel : 1;
   int64_t rd_upper_bound = base_info->reduce_numel > 1 ? kMaxNumel : 1;
   BucketInfo bucket_info{1, sp_upper_bound, 1, rd_upper_bound};
-  if (base_info->has_if_else_op && last_dim == "R") {
-    warp_nums = Trim(sp_thread_num * rd_thread_num / kWarpSize, 1, 16);
-  } else {
-    warp_nums = Trim(sp_thread_num * rd_thread_num / kWarpSize, 1, 32);
-  }
-
-  // Deal with Special Cases
-  if (last_dim == "S") {
-    int grid_dim_x = spatial_numel / sp_thread_num / vectorize_factor;
-    if (!SpecialSpatialWithBroadcastCaseCanApplyVectorize(
-            base_info, grid_dim_x, warp_nums)) {
-      base_info->can_apply_vectorize = false;
-      return {};
-    }
-  }
-
   TileConfig tile_config{warp_nums,
                          /* tree_reduce_num = */ rd_thread_num,
                          /* grid_reduce_num = */ 1,
