@@ -85,6 +85,7 @@
 #include "paddle/fluid/inference/tensorrt/convert/op_converter.h"
 #include "paddle/fluid/inference/tensorrt/helper.h"
 #include "paddle/fluid/inference/tensorrt/trt_int8_calibrator.h"
+#include "paddle/fluid/operators/tensorrt/tensorrt_engine_op.h"
 #endif
 
 #ifdef PADDLE_WITH_IPU
@@ -2198,6 +2199,14 @@ void AnalysisPredictor::OptimizeInferenceProgram() {
                 PADDLE_GET_CONST(int, op_desc->GetAttr("predictor_id"));
             std::string engine_name =
                 engine_key + std::to_string(engine_predictor_id);
+            auto &manager = paddle::inference::Singleton<
+                inference::tensorrt::TRTEngineManager>::Global();
+            auto all_engine_names = manager.GetAllEngineNames();
+            LOG(INFO) << "all_engine_names.size" << all_engine_names.size();
+            LOG(INFO) << "All engine names in TRTEngineManager:";
+            for (auto &name : all_engine_names) {
+              LOG(INFO) << " " << name;
+            }
             if (paddle::inference::Singleton<
                     inference::tensorrt::TRTEngineManager>::Global()
                     .Has(engine_name)) {
@@ -2936,6 +2945,7 @@ bool AnalysisPredictor::LoadProgramDesc() {
   // Create ProgramDesc
   framework::proto::ProgramDesc proto;
   if (!config_.model_from_memory()) {
+    LOG(INFO) << "filename" << filename;
     std::string pb_content;
     // Read binary
     std::ifstream fin(filename, std::ios::in | std::ios::binary);
@@ -3037,12 +3047,50 @@ bool AnalysisPredictor::LoadParameters() {
             PADDLE_GET_CONST(int, op_desc->GetAttr("predictor_id"));
         std::string engine_name =
             engine_key + std::to_string(engine_predictor_id);
-        LOG(INFO) << "获取到engine_name了" << engine_name;
+
         bool has_engine =
             inference::Singleton<
                 inference::tensorrt::TRTEngineManager>::Global()
                 .Has(engine_key + std::to_string(engine_predictor_id));
-        LOG(INFO) << "has_engine " << has_engine;
+        if (!has_engine) {
+          PrepareArgument();
+          Analyzer().Run(argument_.get());
+          PADDLE_ENFORCE_EQ(argument_->scope_valid(),
+                            true,
+                            common::errors::InvalidArgument(
+                                "The argument scope should be valid."));
+          VLOG(5) << "to prepare executor";
+          ARGUMENT_CHECK_FIELD((argument_.get()), ir_analyzed_program);
+          inference_program_.reset(
+              new framework::ProgramDesc(argument_->ir_analyzed_program()),
+              [](framework::ProgramDesc *prog) {
+// Note, please do NOT use any member variables, because member variables may
+// have been destructed in multiple threads.
+#ifdef PADDLE_WITH_TENSORRT
+                auto &block = prog->Block(0);
+                for (auto &op_desc : block.AllOps()) {
+                  if (op_desc->Type() == "tensorrt_engine") {
+                    std::string engine_key = PADDLE_GET_CONST(
+                        std::string, op_desc->GetAttr("engine_key"));
+                    int engine_predictor_id =
+                        PADDLE_GET_CONST(int, op_desc->GetAttr("predictor_id"));
+                    std::string engine_name =
+                        engine_key + std::to_string(engine_predictor_id);
+                    auto &manager = paddle::inference::Singleton<
+                        inference::tensorrt::TRTEngineManager>::Global();
+                    auto all_engine_names = manager.GetAllEngineNames();
+                    LOG(INFO)
+                        << "all_engine_names.size" << all_engine_names.size();
+                    LOG(INFO) << "All engine names in TRTEngineManager:";
+                    for (auto &name : all_engine_names) {
+                      LOG(INFO) << " " << name;
+                    }
+                  }
+                }
+#endif
+                delete prog;
+              });
+        }
         if (paddle::inference::Singleton<
                 inference::tensorrt::TRTEngineManager>::Global()
                 .Has(engine_name)) {

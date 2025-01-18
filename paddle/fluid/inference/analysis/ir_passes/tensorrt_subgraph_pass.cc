@@ -640,6 +640,7 @@ std::string TensorRtSubgraphPass::CreateTensorRTOp(
       Get<std::string>("tensorrt_transformer_maskid");
   auto use_dla = Get<bool>("trt_use_dla");
   auto refit_params_path = Get<std::string>("refit_params_path");
+  LOG(INFO) << "refit_params_path" << refit_params_path;
   auto dla_core = Get<int>("trt_dla_core");
   auto use_inspector = Get<bool>("use_inspector");
   auto inspector_serialize = Get<bool>("inspector_serialize");

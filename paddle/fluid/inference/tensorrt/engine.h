@@ -727,6 +727,16 @@ class TRTEngineManager {
     return GetAlignedMemory(context_memorys_[predictor_id]->ptr(), alignment);
   }
 
+  std::vector<std::string> GetAllEngineNames() const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    std::vector<std::string> engine_names;
+    engine_names.reserve(engines_.size());
+    for (auto& item : engines_) {
+      engine_names.push_back(item.first);
+    }
+    return engine_names;
+  }
+
   void ReleaseContextMemory(PredictorID predictor_id) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (context_memorys_.count(predictor_id)) {
