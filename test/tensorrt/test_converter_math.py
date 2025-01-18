@@ -557,6 +557,51 @@ class TestPowCase3TRTPattern(TensorRTBaseTest):
         self.check_marker(expected_result=False)
 
 
+class TestIsnanFP32TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.isnan
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3]}
+        self.opt_shape = {"x": [2, 3]}
+        self.max_shape = {"x": [5, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
+class TestIsnanFP16TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.isnan
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("float32"),
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3]}
+        self.opt_shape = {"x": [2, 3]}
+        self.max_shape = {"x": [5, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result(precision_mode="fp16")
+
+
+class TestIsnanIntTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = paddle.isnan
+        self.api_args = {
+            "x": np.random.randn(2, 3).astype("int64"),
+        }
+        self.program_config = {"feed_list": ["x"]}
+        self.min_shape = {"x": [1, 3]}
+        self.opt_shape = {"x": [2, 3]}
+        self.max_shape = {"x": [5, 3]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+
 class TestMaximumTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = paddle.maximum
