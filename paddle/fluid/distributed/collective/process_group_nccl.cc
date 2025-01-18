@@ -247,9 +247,11 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::AllGather(
                 << "sendbuff: " << in_tensor_maybe_partial.data()
                 << ", recvbuff: " << out_tensor->data()
                 << ", count: " << in_tensor_maybe_partial.numel()
-                << ", datatype: "
+                << ", nccl datatype: "
                 << NCCLDTypeToString(
                        phi::ToNCCLDataType(in_tensor_maybe_partial.dtype()))
+                << ", datatype: "
+                << phi::DataTypeToString(in_tensor_maybe_partial.dtype())
                 << ", ncclcomm: " << comm_context->GetNcclComm()
                 << ", stream: " << stream << ", rank_in_group: " << rank_
                 << ", nranks: " << size_ << ", offset: " << offset
@@ -273,13 +275,21 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::AllReduce(
   CheckTensorContiguous(in_tensor);
   CheckTensorContiguous(*out_tensor);
 
+  PADDLE_ENFORCE_EQ(
+      in_tensor.dtype() != phi::DataType::FLOAT8_E4M3FN &&
+          in_tensor.dtype() != phi::DataType::FLOAT8_E5M2,
+      true,
+      common::errors::InvalidArgument(
+          "float8 dtypes are not currenlty supported for NCCL reductions"));
+
   return Collective(
       [&](phi::distributed::NCCLCommContext* comm_context, gpuStream_t stream) {
         VLOG(3) << "[ncclAllReduce] "
                 << "sendbuff: " << in_tensor.data()
                 << ", recvbuff: " << out_tensor->data()
-                << ", count: " << in_tensor.numel() << ", datatype: "
+                << ", count: " << in_tensor.numel() << ", nccl datatype: "
                 << NCCLDTypeToString(phi::ToNCCLDataType(in_tensor.dtype()))
+                << ", datatype: " << phi::DataTypeToString(in_tensor.dtype())
                 << ", redop: "
                 << NCCLRedTypeToString(ToNCCLRedType(opts.reduce_op))
                 << ", ncclcomm: " << comm_context->GetNcclComm()
@@ -345,8 +355,9 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::AllToAll(
         VLOG(3) << "[AllToAll] "
                 << "sendbuff: " << in_tensor.data()
                 << ", recvbuff: " << out_tensor->data()
-                << ", count: " << in_tensor.numel() << ", datatype: "
+                << ", count: " << in_tensor.numel() << ", nccl datatype: "
                 << NCCLDTypeToString(phi::ToNCCLDataType(in_tensor.dtype()))
+                << ", datatype: " << phi::DataTypeToString(in_tensor.dtype())
                 << ", ncclcomm: " << comm_context->GetNcclComm()
                 << ", stream: " << stream << ", rank_in_group: " << rank_
                 << ", nranks: " << size_ << ", out_split_sizes: "
@@ -499,8 +510,9 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::Broadcast(
         VLOG(3) << "[ncclBroadcast] "
                 << "sendbuff: " << in_tensor.data()
                 << ", recvbuff: " << out_tensor->data()
-                << ", count: " << in_tensor.numel() << ", datatype: "
+                << ", count: " << in_tensor.numel() << ", nccl datatype: "
                 << NCCLDTypeToString(phi::ToNCCLDataType(in_tensor.dtype()))
+                << ", datatype: " << phi::DataTypeToString(in_tensor.dtype())
                 << ", root: " << root
                 << ", ncclcomm: " << comm_context->GetNcclComm()
                 << ", stream: " << stream << ", rank_in_group: " << rank_
@@ -524,13 +536,21 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::Reduce(
   CheckTensorContiguous(in_tensor);
   CheckTensorContiguous(*out_tensor);
 
+  PADDLE_ENFORCE_EQ(
+      in_tensor.dtype() != phi::DataType::FLOAT8_E4M3FN &&
+          in_tensor.dtype() != phi::DataType::FLOAT8_E5M2,
+      true,
+      common::errors::InvalidArgument(
+          "float8 dtypes are not currenlty supported for NCCL reductions"));
+
   return Collective(
       [&](phi::distributed::NCCLCommContext* comm_context, gpuStream_t stream) {
         VLOG(3) << "[ncclReduce] "
                 << "sendbuff: " << in_tensor.data()
                 << ", recvbuff: " << out_tensor->data()
-                << ", count: " << in_tensor.numel() << ", datatype: "
+                << ", count: " << in_tensor.numel() << ", nccl datatype: "
                 << NCCLDTypeToString(phi::ToNCCLDataType(in_tensor.dtype()))
+                << ", datatype: " << phi::DataTypeToString(in_tensor.dtype())
                 << ", redop: "
                 << NCCLRedTypeToString(ToNCCLRedType(opts.reduce_op))
                 << ", root: " << opts.root_rank
@@ -560,13 +580,21 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::ReduceScatter(
   CheckTensorContiguous(in_tensor);
   CheckTensorContiguous(*out_tensor);
 
+  PADDLE_ENFORCE_EQ(
+      in_tensor.dtype() != phi::DataType::FLOAT8_E4M3FN &&
+          in_tensor.dtype() != phi::DataType::FLOAT8_E5M2,
+      true,
+      common::errors::InvalidArgument(
+          "float8 dtypes are not currenlty supported for NCCL reductions"));
+
   return Collective(
       [&](phi::distributed::NCCLCommContext* comm_context, gpuStream_t stream) {
         VLOG(3) << "[ncclReduceScatter] "
                 << "sendbuff: " << in_tensor.data()
                 << ", recvbuff: " << out_tensor->data()
-                << ", count: " << in_tensor.numel() << ", datatype: "
+                << ", count: " << in_tensor.numel() << ", nccl datatype: "
                 << NCCLDTypeToString(phi::ToNCCLDataType(in_tensor.dtype()))
+                << ", datatype: " << phi::DataTypeToString(in_tensor.dtype())
                 << ", redop: "
                 << NCCLRedTypeToString(ToNCCLRedType(opts.reduce_op))
                 << ", ncclcomm: " << comm_context->GetNcclComm()
@@ -611,8 +639,9 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::Scatter(
         VLOG(3) << "[Scatter] "
                 << "sendbuff: " << in_tensor.data()
                 << ", recvbuff: " << out_tensor->data()
-                << ", count: " << in_tensor.numel() << ", datatype: "
+                << ", count: " << in_tensor.numel() << ", nccl datatype: "
                 << NCCLDTypeToString(phi::ToNCCLDataType(in_tensor.dtype()))
+                << ", datatype: " << phi::DataTypeToString(in_tensor.dtype())
                 << ", root: " << opts.root_rank
                 << ", ncclcomm: " << comm_context->GetNcclComm()
                 << ", stream: " << stream << ", rank_in_group: " << rank_
@@ -697,8 +726,9 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::Gather(
 
     VLOG(3) << "[Gather] "
             << "sendbuff: " << in_tensor.data()
-            << ", count: " << in_tensor.numel() << ", datatype: "
+            << ", count: " << in_tensor.numel() << ", nccl datatype: "
             << NCCLDTypeToString(phi::ToNCCLDataType(in_tensor.dtype()))
+            << ", datatype: " << phi::DataTypeToString(in_tensor.dtype())
             << ", root: " << opts.root_rank
             << ", ncclcomm: " << comm_context->GetNcclComm()
             << ", stream: " << stream << ", rank_in_group: " << rank_
@@ -743,8 +773,9 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::Recv(
           int rank_in_group) {
         VLOG(3) << "[ncclRecv] "
                 << "recvbuff: " << tensor->data()
-                << ", count: " << tensor->numel() << ", datatype: "
+                << ", count: " << tensor->numel() << ", nccl datatype: "
                 << NCCLDTypeToString(phi::ToNCCLDataType(tensor->dtype()))
+                << ", datatype: " << phi::DataTypeToString(tensor->dtype())
                 << ", src_in_group: " << src_rank
                 << ", ncclcomm: " << comm_context->GetNcclComm()
                 << ", stream: " << stream
@@ -780,9 +811,12 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::Send(
           int rank_in_group) {
         VLOG(3) << "[ncclSend] "
                 << "sendbuff: " << tensor_maybe_partial.data()
-                << ", count: " << tensor_maybe_partial.numel() << ", datatype: "
+                << ", count: " << tensor_maybe_partial.numel()
+                << ", nccl datatype: "
                 << NCCLDTypeToString(
                        phi::ToNCCLDataType(tensor_maybe_partial.dtype()))
+                << ", datatype: "
+                << phi::DataTypeToString(tensor_maybe_partial.dtype())
                 << ", dst_in_group: " << dst_rank
                 << ", ncclcomm: " << comm_context->GetNcclComm()
                 << ", stream: " << stream
