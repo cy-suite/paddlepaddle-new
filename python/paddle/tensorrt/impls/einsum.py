@@ -1,4 +1,4 @@
-# Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
+# Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
 
-import paddle
+from paddle.tensorrt.register import converter_registry
 
-paddle.enable_static()
 
-if __name__ == "__main__":
-    unittest.main()
+@converter_registry.register("pd_op.einsum", trt_version="8.x")
+def convert_einsum(network, paddle_op, inputs):
+    equation = paddle_op.attrs().get("equation", "")
+
+    layer = network.add_einsum(inputs[0], equation)
+    output_tensor = layer.get_output(0)
+    return output_tensor
