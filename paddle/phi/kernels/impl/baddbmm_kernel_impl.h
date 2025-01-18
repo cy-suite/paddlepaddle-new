@@ -50,7 +50,7 @@ void BaddbmmKernel(const Context& dev_ctx,
 
   DenseTensor input_3d(input);
   if (input.dims().size() == 2) {
-    input_dims = {1, input.dims()[0], input.dims()[1]};
+    input_dims = {input.dims()[0], 1, input.dims()[1]};
     input_3d.Resize(input_dims);
   }
 
@@ -62,15 +62,45 @@ void BaddbmmKernel(const Context& dev_ctx,
                           "When x_dims[0] is not equal with input_dims[0], "
                           "input_dims[0] must be 1 but got %s",
                           input_dims[0]));
-    PADDLE_ENFORCE_EQ(y_dims[2] == input_dims[2] || input_dims[2] == 1,
-                      true,
-                      errors::InvalidArgument(
-                          "The input tensor shape mismatch, input shape=[%s], "
-                          "x shape=[%s], y shape=[%s]",
-                          input_dims,
-                          x_dims,
-                          y_dims));
+    PADDLE_ENFORCE_EQ(
+        (x_dims[1] == input_dims[1] || input_dims[1] == 1) &&
+            (y_dims[2] == input_dims[2] || input_dims[2] == 1),
+        true,
+        errors::InvalidArgument(
+            "When x_dims[0] is not equal with input_dims[0], "
+            "x_dims[1] and y_dims[2] must be equal with input_dims[1] and "
+            "input_dims[2] respectively, or input_dims[1] and input_dims[2] "
+            "must be 1. But got x_dims[1] = %s, input_dims[1] = %s, y_dims[2] "
+            "= %s, input_dims[2] = %s",
+            x_dims[1],
+            input_dims[1],
+            y_dims[2],
+            input_dims[2]));
   }
+
+  if (x_dims[1] != input_dims[1]) {
+    PADDLE_ENFORCE_EQ(input_dims[1],
+                      1,
+                      errors::InvalidArgument(
+                          "When x_dims[1] is not equal with input_dims[1], "
+                          "input_dims[1] must be 1 but got %s",
+                          input_dims[1]));
+    PADDLE_ENFORCE_EQ(
+        (x_dims[0] == input_dims[0] || input_dims[0] == 1) &&
+            (y_dims[2] == input_dims[2] || input_dims[2] == 1),
+        true,
+        errors::InvalidArgument(
+            "When x_dims[1] is not equal with input_dims[1], "
+            "x_dims[0] and y_dims[2] must be equal with input_dims[0] and "
+            "input_dims[2] respectively, or input_dims[0] and input_dims[2] "
+            "must be 1. But got x_dims[0] = %s, input_dims[0] = %s, y_dims[2] "
+            "= %s, input_dims[2] = %s",
+            x_dims[0],
+            input_dims[0],
+            y_dims[2],
+            input_dims[2]));
+  }
+
   if (y_dims[2] != input_dims[2]) {
     PADDLE_ENFORCE_EQ(input_dims[2],
                       1,
@@ -78,14 +108,20 @@ void BaddbmmKernel(const Context& dev_ctx,
                           "When y_dims[2] is not equal with input_dims[2], "
                           "input_dims[2] must be 1 but got %s",
                           input_dims[2]));
-    PADDLE_ENFORCE_EQ(x_dims[0] == input_dims[0] || input_dims[0] == 1,
-                      true,
-                      errors::InvalidArgument(
-                          "The input tensor shape mismatch, input shape=[%s], "
-                          "x shape=[%s], y shape=[%s]",
-                          input_dims,
-                          x_dims,
-                          y_dims));
+    PADDLE_ENFORCE_EQ(
+        (x_dims[0] == input_dims[0] || input_dims[0] == 1) &&
+            (x_dims[1] == input_dims[1] || input_dims[1] == 1),
+        true,
+        errors::InvalidArgument(
+            "When y_dims[2] is not equal with input_dims[2], "
+            "x_dims[0] and x_dims[1] must be equal with input_dims[0] and "
+            "input_dims[1] respectively, or input_dims[0] and input_dims[1] "
+            "must be 1. But got x_dims[0] = %s, input_dims[0] = %s, x_dims[1] "
+            "= %s, input_dims[1] = %s",
+            x_dims[0],
+            input_dims[0],
+            x_dims[1],
+            input_dims[1]));
   }
   PADDLE_ENFORCE_EQ(
       x_dims[2],

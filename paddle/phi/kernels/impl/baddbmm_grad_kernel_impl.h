@@ -74,6 +74,10 @@ void BaddbmmGradKernel(const Context& dev_ctx,
   }
 
   auto in_dims = input.dims();
+  if (input.dims().size() == 2) {
+    in_dims = {input.dims()[0], 1, input.dims()[1]};
+    input_grad->Resize(in_dims);
+  }
   int total_elems = 0;
 
   VLOG(3) << "alpha: " << alpha << " beta: " << beta;

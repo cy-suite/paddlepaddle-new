@@ -242,10 +242,10 @@ bool BaddbmmOpInferSymbolicShape(
   auto ndim_x = x_shape.shape().size();
   auto ndim_y = y_shape.shape().size();
 
-  PADDLE_ENFORCE_EQ(ndim_input,
-                    3,
+  PADDLE_ENFORCE_EQ(ndim_input == 3 || ndim_input == 2,
+                    true,
                     common::errors::InvalidArgument(
-                        "The input tensor input's dimension must be 3. "
+                        "The input tensor input's dimension must be 3 or 2. "
                         "But received input's dimension = [%d].",
                         ndim_input));
   PADDLE_ENFORCE_EQ(ndim_x,
@@ -275,12 +275,19 @@ bool BaddbmmOpInferSymbolicShape(
                               y_shape.shape()[0]);  // batch size
   infer_context->AddEqualCstr(x_shape.shape()[2], y_shape.shape()[1]);
 
-  infer_context->AddBroadcastableCstr(input_shape.shape()[0],
-                                      x_shape.shape()[0]);  // batch size
-  infer_context->AddBroadcastableCstr(input_shape.shape()[1],
-                                      x_shape.shape()[1]);
-  infer_context->AddBroadcastableCstr(input_shape.shape()[2],
-                                      y_shape.shape()[2]);
+  if (ndim_input == 3) {
+    infer_context->AddBroadcastableCstr(input_shape.shape()[0],
+                                        x_shape.shape()[0]);  // batch size
+    infer_context->AddBroadcastableCstr(input_shape.shape()[1],
+                                        x_shape.shape()[1]);
+    infer_context->AddBroadcastableCstr(input_shape.shape()[2],
+                                        y_shape.shape()[2]);
+  } else if (ndim_input == 2) {
+    infer_context->AddBroadcastableCstr(input_shape.shape()[0],
+                                        x_shape.shape()[0]);
+    infer_context->AddBroadcastableCstr(input_shape.shape()[1],
+                                        y_shape.shape()[2]);
+  }
 
   return true;
 }

@@ -193,12 +193,12 @@ void BaddbmmInferMeta(const MetaTensor& input,
                                  "if you put exe.run(startup_program) "
                                  "after optimizer.minimize function."));
   // dim check
-  PADDLE_ENFORCE_EQ(
-      ndim_input,
-      3,
-      errors::InvalidArgument("The input tensor input's dimension must be 3. "
-                              "But received input's dimension = [%d].",
-                              ndim_input));
+  PADDLE_ENFORCE_EQ(ndim_input == 3 || ndim_input == 2,
+                    true,
+                    errors::InvalidArgument(
+                        "The input tensor input's dimension must be 3 or 2. "
+                        "But received input's dimension = [%d].",
+                        ndim_input));
   PADDLE_ENFORCE_EQ(
       ndim_x,
       3,

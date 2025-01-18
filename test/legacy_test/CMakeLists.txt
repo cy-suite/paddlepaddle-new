@@ -896,6 +896,7 @@ set_tests_properties(test_baddbmm_op2 PROPERTIES TIMEOUT 120)
 set_tests_properties(test_baddbmm_op3 PROPERTIES TIMEOUT 120)
 set_tests_properties(test_baddbmm_op4 PROPERTIES TIMEOUT 120)
 set_tests_properties(test_baddbmm_op5 PROPERTIES TIMEOUT 120)
+set_tests_properties(test_baddbmm_op6 PROPERTIES TIMEOUT 120)
 
 if(WITH_COVERAGE)
   set_tests_properties(test_hapi_hub PROPERTIES TIMEOUT 300)
