@@ -213,14 +213,6 @@ void BaddbmmInferMeta(const MetaTensor& input,
                               ndim_y));
 
   PADDLE_ENFORCE_EQ(
-      input_dims[0],
-      x_dims[0],
-      errors::InvalidArgument(
-          "The batch size of input and x must be the same. "
-          "But received input batch size = [%d], x batch size = [%d].",
-          input_dims[0],
-          x_dims[0]));
-  PADDLE_ENFORCE_EQ(
       x_dims[2],
       y_dims[1],
       errors::InvalidArgument("The second dimension of x must be equal to the "

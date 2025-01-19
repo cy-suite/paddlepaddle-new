@@ -72,7 +72,7 @@ class TestBaddBmmAPI(unittest.TestCase):
         self.assertRaises(ValueError, test_error4)
 
         def test_error5():
-            data_input_wrong = np.ones((1, 2, 1)).astype(np.float32)
+            data_input_wrong = np.ones((3, 2)).astype(np.float32)
             x = paddle.to_tensor(data_x)
             y = paddle.to_tensor(data_y)
             input = paddle.to_tensor(data_input_wrong)
@@ -81,6 +81,61 @@ class TestBaddBmmAPI(unittest.TestCase):
             )
 
         self.assertRaises(ValueError, test_error5)
+
+        def test_error6():
+            data_input_wrong = np.ones((3, 2, 1)).astype(np.float32)
+            x = paddle.to_tensor(data_x)
+            y = paddle.to_tensor(data_y)
+            input = paddle.to_tensor(data_input_wrong)
+            out = paddle.tensor.baddbmm(
+                input=input, x=x, y=y, beta=0.5, alpha=5.0
+            )
+
+        self.assertRaises(ValueError, test_error6)
+
+        def test_error7():
+            data_input_wrong = np.ones((1, 2, 3)).astype(np.float32)
+            x = paddle.to_tensor(data_x)
+            y = paddle.to_tensor(data_y)
+            input = paddle.to_tensor(data_input_wrong)
+            out = paddle.tensor.baddbmm(
+                input=input, x=x, y=y, beta=0.5, alpha=5.0
+            )
+
+        self.assertRaises(ValueError, test_error7)
+
+        def test_error_y1():
+            data_y_wrong = np.ones((2, 2, 3)).astype(np.float32)
+            x = paddle.to_tensor(data_x)
+            y = paddle.to_tensor(data_y_wrong)
+            input = paddle.to_tensor(data_input)
+            out = paddle.tensor.baddbmm(
+                input=input, x=x, y=y, beta=0.5, alpha=5.0
+            )
+
+        self.assertRaises(ValueError, test_error_y1)
+
+        def test_error_y2():
+            data_y_wrong = np.ones((2, 2)).astype(np.float32)
+            x = paddle.to_tensor(data_x)
+            y = paddle.to_tensor(data_y_wrong)
+            input = paddle.to_tensor(data_input)
+            out = paddle.tensor.baddbmm(
+                input=input, x=x, y=y, beta=0.5, alpha=5.0
+            )
+
+        self.assertRaises(ValueError, test_error_y2)
+
+        def test_error_y3():
+            data_y_wrong = np.ones((1, 2, 3)).astype(np.float32)
+            x = paddle.to_tensor(data_x)
+            y = paddle.to_tensor(data_y_wrong)
+            input = paddle.to_tensor(data_input)
+            out = paddle.tensor.baddbmm(
+                input=input, x=x, y=y, beta=0.5, alpha=5.0
+            )
+
+        self.assertRaises(ValueError, test_error_y3)
 
         paddle.enable_static()
 
