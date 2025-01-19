@@ -2636,13 +2636,14 @@ def baddbmm(
                 raise ValueError(
                     f"If input's dimension[2] is not equal to y's dimension[2], input's dimension[2] must be 1. But received input's dimension[2] = {input_shape[2]}, y's dimension[2] = {y_shape[2]}"
                 )
-            else:
-                if not (
-                    input_shape[0] == x_shape[0] or input_shape[0] == 1
-                ) or not (input_shape[1] == x_shape[1] or input_shape[1] == 1):
-                    raise ValueError(
-                        f"If input's dimension[2] is 1, input's dimension[0] and dimension[1] must be equal to x's dimension[0] and x's dimension[1] respectively, or they must be 1. But received input's shape = {input_shape}, x's shape = {x_shape}, y's shape = {y_shape}"
-                    )
+            # 上面的判断已经包含了这种情况
+            # else:
+            #     if not (
+            #         input_shape[0] == x_shape[0] or input_shape[0] == 1
+            #     ) or not (input_shape[1] == x_shape[1] or input_shape[1] == 1):
+            #         raise ValueError(
+            #             f"If input's dimension[2] is 1, input's dimension[0] and dimension[1] must be equal to x's dimension[0] and x's dimension[1] respectively, or they must be 1. But received input's shape = {input_shape}, x's shape = {x_shape}, y's shape = {y_shape}"
+            #         )
     elif len(input_shape) == 2:
         if input_shape[0] != x_shape[0]:
             raise ValueError(
@@ -2711,22 +2712,56 @@ def baddbmm_(
 
     if len(input_shape) == 3:
         if input_shape[0] != x_shape[0]:
-            raise ValueError(
-                f"The batch size of input must be equal to the batch size of x. But received input's batch size = {input_shape[0]}, x's batch size = {x_shape[0]}"
-            )
+            if input_shape[0] != 1:
+                raise ValueError(
+                    f"If input's dimension[0] is not equal to x's dimension[0], input's dimension[0] must be 1. But received input's dimension[0] = {input_shape[0]}, x's dimension[0] = {x_shape[0]}"
+                )
+            else:
+                if not (
+                    input_shape[1] == x_shape[1] or input_shape[1] == 1
+                ) or not (input_shape[2] == y_shape[2] or input_shape[2] == 1):
+                    raise ValueError(
+                        f"If input's dimension[0] is 1, input's dimension[1] and dimension[2] must be equal to x's dimension[1] and y's dimension[2] respectively, or they must be 1. But received input's shape = {input_shape}, x's shape = {x_shape}, y's shape = {y_shape}"
+                    )
+
         if input_shape[1] != x_shape[1]:
             if input_shape[1] != 1:
                 raise ValueError(
-                    f"When x's dimension[1] is not equal with input's dimension[1], input's dimension[1] must be 1 but got {input_shape[1]}"
+                    f"If input's dimension[1] is not equal to x's dimension[1], input's dimension[1] must be 1. But received input's dimension[1] = {input_shape[1]}, x's dimension[1] = {x_shape[1]}"
                 )
+            else:
+                if not (
+                    input_shape[0] == x_shape[0] or input_shape[0] == 1
+                ) or not (input_shape[2] == y_shape[2] or input_shape[2] == 1):
+                    raise ValueError(
+                        f"If input's dimension[1] is 1, input's dimension[0] and dimension[2] must be equal to x's dimension[0] and y's dimension[2] respectively, or they must be 1. But received input's shape = {input_shape}, x's shape = {x_shape}, y's shape = {y_shape}"
+                    )
+
         if input_shape[2] != y_shape[2]:
             if input_shape[2] != 1:
                 raise ValueError(
-                    f"When y's dimension[2] is not equal with input's dimension[2], input's dimension[2] must be 1 but got {input_shape[2]}"
+                    f"If input's dimension[2] is not equal to y's dimension[2], input's dimension[2] must be 1. But received input's dimension[2] = {input_shape[2]}, y's dimension[2] = {y_shape[2]}"
                 )
+            # 上面的判断已经包含了这种情况
+            # else:
+            #     if not (
+            #         input_shape[0] == x_shape[0] or input_shape[0] == 1
+            #     ) or not (input_shape[1] == x_shape[1] or input_shape[1] == 1):
+            #         raise ValueError(
+            #             f"If input's dimension[2] is 1, input's dimension[0] and dimension[1] must be equal to x's dimension[0] and x's dimension[1] respectively, or they must be 1. But received input's shape = {input_shape}, x's shape = {x_shape}, y's shape = {y_shape}"
+            #         )
+    elif len(input_shape) == 2:
+        if input_shape[0] != x_shape[0]:
+            raise ValueError(
+                f"The batch size of input must be equal to the batch size of x. But received input's batch size = {input_shape[0]}, x's batch size = {x_shape[0]}"
+            )
+        if input_shape[1] not in (y_shape[2], 1):
+            raise ValueError(
+                f"The input's shape: {input_shape} is not broadcastable with [x.shape[0], x.shape[1], y.shape[2]]: [{x_shape[0]},{x_shape[1]},{y_shape[2]}]"
+            )
     else:
         raise ValueError(
-            f"The dimension of input should be 3 but received input's shape: {input_shape}"
+            f"The dimension of input should be 3 or 2 but received input's shape: {input_shape}"
         )
 
     if in_dynamic_mode():
