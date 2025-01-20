@@ -1058,58 +1058,18 @@ class TensorRTEngineOp : public framework::OperatorBase {
       trt_engine_ =
           inference::Singleton<inference::tensorrt::TRTEngineManager>::Global()
               .Create(engine_key_ + std::to_string(predictor_id_), params);
-
+      bool has_engine =
+        inference::Singleton<inference::tensorrt::TRTEngineManager>::Global()
+            .Has(engine_key_ + std::to_string(predictor_id_));
+      if (!has_engine) {
+        LOG(ERROR) << "Create TRT Engine failed.";
+      }
       if (use_static_engine_) {
         LOG(INFO) << "Load TRT Optimized Info from "
                   << inference::analysis::GetTrtEngineSerializedPath(
                          model_opt_cache_dir_, engine_key_);
-        std::vector<std::string> all_weight_names;
-        std::vector<phi::DenseTensor> all_weight_tensors;
-        std::string trt_engine_serialized_data =
-            inference::analysis::GetTrtEngineSerializedData(
-                model_opt_cache_dir_, engine_key_);
-        trt_engine_->Deserialize(trt_engine_serialized_data);
-        if (!params.refit_params_path.empty()) {
-          LOG(INFO) << "Begin to refit TRT Weights from path:"
-                    << params.refit_params_path;
-          // // paddle::AnalysisConfig config;
-          // // LOG(INFO)<<"prog_file()"<<config.prog_file();
-          // std::ifstream fin(params.refit_params_path, std::ios::in |
-          // std::ios::binary); PADDLE_ENFORCE_EQ(
-          //     static_cast<bool>(fin.is_open()),
-          //     true,
-          //     common::errors::NotFound("Cannot open refit_params_path file:
-          //     %s", params.refit_params_path));
-          // LOG(INFO)<<"读取完了";
-          // std::string pb_content;
-          // fin.seekg(0,std::ios::end);
-          // pb_content.resize(fin.tellg());
-          // fin.seekg(0,std::ios::beg);
-          // fin.read(&(pb_content.at(0)),pb_content.size());
-          // fin.close();
-          // framework::proto::ProgramDesc proto;
-          // LOG(INFO)<<"读取的文件大小"<<pb_content.size();
-          // PADDLE_ENFORCE(proto.ParseFromString(pb_content),
-          //                      common::errors::InvalidArgument(
-          //                          "Failed to parse ProgramDesc from
-          //                          refit_params_path"));
-          // std::shared_ptr<framework::ProgramDesc> inference_program_ =
-          //           std::make_unique<framework::ProgramDesc>(proto);
-          // LOG(INFO) << "成功解析 ProgramDesc";
-
-          // const auto &global_block = inference_program_->MutableBlock(0);
-          // LOG(INFO) << "开始遍历全局块中的变量";
-          // std::vector<std::string> all_weight_names;
-          // std::vector<phi::DenseTensor> all_weight_tensors;
-          // for(auto *var:global_block->AllVars())
-          // {
-          //   if(IsPersistable(var))
-          //   {
-          //     LOG(INFO)<<"var.name"<<var->Name();
-          //   }
-          // }
-        }
-
+       
+        auto params = Attr<std::vector<std::string>>("parameters");
       } else {
         // This branch mainly used to ut.
         PrepareTRTEngine(scope, trt_engine_);
