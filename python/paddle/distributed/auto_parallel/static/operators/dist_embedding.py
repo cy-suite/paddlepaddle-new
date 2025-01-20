@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License
-
+import paddle.distributed as dist
 from paddle.common_ops_import import check_variable_and_dtype
 from paddle.distributed.auto_parallel.static.cost.comm_op_cost import (
     AllreduceSumOpCost,
@@ -249,7 +249,7 @@ class DistributedEmbeddingImpl(DistributedOperatorImpl):
         attrs = {"use_calc_stream": True, "use_model_parallel": True}
         var_names = serial_op.output("Out")
         c_allreduce_sum_desc_mapping = build_comm_desc_from_dist_op(
-            "c_allreduce_sum",
+            "all_reduce",
             dist_op,
             ctx,
             var_names,
@@ -511,12 +511,12 @@ class DistributedEmbeddingImpl(DistributedOperatorImpl):
 
         # use_model_parallel
         c_allreduce_sum_op = main_block.append_op(
-            type='c_allreduce_sum',
-            inputs={'X': [Out_var]},
-            outputs={'Out': [Out_var]},
+            type='all_reduce',
+            inputs={'x': [Out_var]},
+            outputs={'out': [Out_var]},
             attrs={
                 'ring_id': group.id,
-                'use_calc_stream': True,
+                'reduce_type': dist.ReduceOp.SUM,
                 'use_model_parallel': True,
                 OP_ROLE_KEY: src_op.attr('op_role'),
             },

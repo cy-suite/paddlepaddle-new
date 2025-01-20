@@ -18,6 +18,7 @@ from legacy_test.test_collective_base import (
 )
 
 import paddle
+import paddle.distributed as dist
 from paddle import base
 from paddle.base import core
 

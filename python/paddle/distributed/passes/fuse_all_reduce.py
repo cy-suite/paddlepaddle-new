@@ -14,6 +14,7 @@
 
 import numpy as np
 
+import paddle.distributed as dist
 from paddle.framework import core
 from paddle.utils import unique_name
 
@@ -122,11 +123,12 @@ def insert_fuse_all_reduce_ops(
         insert_idx += 1
 
     # c_allreduce_sum should insert
+    attrs.append("reduce_type", dist.ReduceType.Sum)
     block._insert_op_without_sync(
         insert_idx,
-        type="c_allreduce_sum",
-        inputs={"X": fused_var},
-        outputs={"Out": fused_var},
+        type="all_reduce",
+        inputs={"x": fused_var},
+        outputs={"out": fused_var},
         attrs=attrs,
     )
 
@@ -169,7 +171,7 @@ def find_all_fuse_all_reduce_groups(block):
     collective_ops = [block.ops[i] for i in collective_op_indices]
 
     def is_valid_allreduce_op(op):
-        if op.type != "c_allreduce_sum" or op.attr("use_model_parallel"):
+        if op.type != "all_reduce" or op.attr("use_model_parallel"):
             return False
         in_var_name = op.input("X")[0]
         out_var_name = op.output("Out")[0]

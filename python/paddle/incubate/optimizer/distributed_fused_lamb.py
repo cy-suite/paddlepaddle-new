@@ -15,6 +15,7 @@
 import os
 
 import paddle
+import paddle.distributed as dist
 from paddle.base import core, unique_name
 from paddle.base.executor import global_scope
 from paddle.base.framework import Variable, name_scope

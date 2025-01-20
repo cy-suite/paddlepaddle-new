@@ -1256,7 +1256,7 @@ void DependencyBuilderSimplify::SetSameStream() {
   // for unsharing
   for (size_t i = start_index_; i < op_num_; i++) {
     std::string op_name = _ops_ptr->at(i)->Type();
-    if (op_name == "c_allreduce_sum") {
+    if (op_name == "all_reduce") {
       _ops_ptr->at(i)->SetAttr(use_calc_stream, true);
     }
   }

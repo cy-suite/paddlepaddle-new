@@ -35,13 +35,15 @@ def is_collective_comm_op(op):
         "all_reduce",
         "broadcast",
     ]
-    reduce_tyep = [
+    reduce_type = [
         dist.ReduceOp.SUM,
         dist.ReduceOp.MIN,
         dist.ReduceOp.MAX,
         dist.ReduceOp.PROD,
     ]
-    if op.type == "reduce" and op.attr("reduce_tyep") in reduce_tyep:
+    if (op.type == "reduce" or op.type == "all_reduce") and op.attr(
+        "reduce_type"
+    ) in reduce_type:
         return True
     if op.type in comm_list:
         return True
@@ -104,7 +106,8 @@ def get_comm_volume(comm_op, src_rank, tgt_rank):
             new_tensor_shape.append(val)
     tensor_size = functools.reduce(operator.mul, new_tensor_shape, 1)
     tensor_bytes = tensor_size * get_dtype_bytes(tensor.dtype)
-    if "c_allreduce" in comm_op_type:
+    print("lzx debug comm_op_type:", comm_op_type)
+    if "all_reduce" in comm_op_type:
         comm_volume = 2 * tensor_bytes
     elif "all_gather" in comm_op_type:
         comm_volume = tensor_bytes
