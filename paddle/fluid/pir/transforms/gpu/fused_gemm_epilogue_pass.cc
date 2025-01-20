@@ -35,27 +35,37 @@ class FusedLinearPattern
 
   bool MatchAndRewrite(paddle::dialect::MatmulOp matmul,
                        pir::PatternRewriter &rewriter) const override {
-    auto tmp = matmul->result(0);
-
-    if (pir::GetShapeFromValue(matmul->operand_source(1)).size() != 2) {
-      return false;
-    }
+    auto matmul_out = matmul->result(0);
 
     paddle::dialect::AddOp add;
     bool can_fuse = false;
-    for (auto user_it = tmp.use_begin(); user_it != tmp.use_end(); ++user_it) {
+    for (auto user_it = matmul_out.use_begin(); user_it != matmul_out.use_end();
+         ++user_it) {
       if (!user_it->owner()) {
         continue;
       }
       if (add = user_it->owner()->dyn_cast<paddle::dialect::AddOp>()) {
-        if (add->operand_source(0) != tmp) {
+        if (add->operand_source(0) != matmul_out) {
           continue;
         }
-        can_fuse = true;
-        break;
+        if (can_fuse == false) {
+          can_fuse = true;
+        } else {
+          // The result of matmul can only be uniquely used by an add OP.
+          return false;
+        }
       }
     }
     if (!can_fuse) {
+      return false;
+    }
+
+    // The data rank of matmul should be >= 2.
+    // The weight rank of matmul should be = 2.
+    // The bias rank of add should be = 1.
+    if (pir::GetShapeFromValue(matmul->operand_source(0)).size() < 2 ||
+        pir::GetShapeFromValue(matmul->operand_source(1)).size() != 2 ||
+        pir::GetShapeFromValue(add->operand_source(1)).size() != 1) {
       return false;
     }
 
@@ -80,7 +90,7 @@ class FusedLinearPattern
     }
 
     rewriter.ReplaceAllUsesWith(add->result(0), fuse_gemm.result(0));
-    rewriter.ReplaceAllUsesWith(tmp, fuse_gemm.result(0));
+    rewriter.ReplaceAllUsesWith(matmul_out, fuse_gemm.result(0));
 
     rewriter.EraseOp(add);
     rewriter.EraseOp(matmul);
@@ -99,18 +109,29 @@ class FusedLinearGradPattern
 
   bool MatchAndRewrite(paddle::dialect::MatmulGradOp matmul_grad,
                        pir::PatternRewriter &rewriter) const override {
-    auto dout = matmul_grad->operand_source(2);
-
-    if (pir::GetShapeFromValue(matmul_grad->operand_source(1)).size() != 2) {
-      return false;
-    }
+    auto matmul_grad_out = matmul_grad->operand_source(2);
 
     paddle::dialect::AddGradOp add_grad;
-    if (add_grad = dout.defining_op()->dyn_cast<paddle::dialect::AddGradOp>()) {
-      if (dout != add_grad->result(0)) {
+    if (add_grad = matmul_grad_out.defining_op()
+                       ->dyn_cast<paddle::dialect::AddGradOp>()) {
+      if (matmul_grad_out != add_grad->result(0)) {
         return false;
       }
     } else {
+      return false;
+    }
+    // The data gradient of add_grad can only be uniquely used by a matmul_grad
+    // OP.
+    if (add_grad.result(0).use_count() != 1) {
+      return false;
+    }
+
+    // The data rank of matmul_grad should be >= 2.
+    // The weight rank of matmul_grad should be = 2.
+    // The bias rank of add_grad should be = 1.
+    if (pir::GetShapeFromValue(matmul_grad->operand_source(0)).size() < 2 ||
+        pir::GetShapeFromValue(matmul_grad->operand_source(1)).size() != 2 ||
+        pir::GetShapeFromValue(add_grad->operand_source(1)).size() != 1) {
       return false;
     }
 
