@@ -2073,7 +2073,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
             return self._graph._build_compile_fn_with_name_store(
                 compile_graph_result, store_vars, store_var_info
             )
-
     @fallback_when_occur_error
     def _break_graph_when_if(self, result: TensorVariable, instr: Instruction):
         """

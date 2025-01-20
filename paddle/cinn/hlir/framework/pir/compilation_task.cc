@@ -170,6 +170,7 @@ std::shared_ptr<pir::CompilationResult> CompilationTask::operator()() {
 }
 
 void CompilationTask::Lowering() {
+  auto Lowering_start = std::chrono::high_resolution_clock::now();
   VLOG(5) << "Begin to lowering group: " << *context_->group_;
   auto op_lowerer = CreateOpLowerer<pir::OpLoweringGroupPtr>(context_->target_);
   context_->SetLoweredFuncs(op_lowerer.BucketLower(context_->group_));
@@ -216,6 +217,10 @@ void CompilationTask::Lowering() {
     context_->broadcast_condition_ = ChangeBroadcastConditionToExpr();
   }
   VLOG(5) << "End to lowering: " << context_->PrintPredicate2Funcs();
+  auto Lowering_end = std::chrono::high_resolution_clock::now();
+  auto Lowering_duration = std::chrono::duration_cast<std::chrono::milliseconds>(Lowering_end - Lowering_start);
+  VLOG(1) << "Time of Lowering program: ***** [ "
+            << Lowering_duration.count() << " ] ***** ms.";
 }
 
 std::shared_ptr<pir::CompilationResult> CompilationTask::CodegenAndJit() {
@@ -240,9 +245,27 @@ std::shared_ptr<pir::CompilationResult> CompilationTask::BuildPirCINNKernelInfo(
       context_->group_->symbol_args_map(),
       context_->group_->temp_space_sizes());
   VLOG(5) << "Start to compile module into cuda kernel...";
+  auto Compile_gpu_start = std::chrono::high_resolution_clock::now();
   backend_resource->GetBackendCompiler()->Build(module, "");
+  auto Compile_gpu_end = std::chrono::high_resolution_clock::now();
+  auto Compile_gpu_duration = std::chrono::duration_cast<std::chrono::milliseconds>(Compile_gpu_end - Compile_gpu_start);
+  VLOG(1) << "Time of Compile_gpu program: ***** [ "
+            << Compile_gpu_duration.count() << " ] ***** ms.";
+  
+  auto Compile_x86_start = std::chrono::high_resolution_clock::now();
   backend_resource->GetBackendCompiler()->AppendCX86(CX86module);
+  auto Compile_x86_end = std::chrono::high_resolution_clock::now();
+  auto Compile_x86_duration = std::chrono::duration_cast<std::chrono::milliseconds>(Compile_x86_end - Compile_x86_start);
+  VLOG(1) << "Time of Compile_x86 program: ***** [ "
+            << Compile_x86_duration.count() << " ] ***** ms.";
+
+  auto EndCompile_start = std::chrono::high_resolution_clock::now();
   backend_resource->GetBackendCompiler()->EndCompile();
+  auto EndCompile_end = std::chrono::high_resolution_clock::now();
+  auto EndCompile_duration = std::chrono::duration_cast<std::chrono::milliseconds>(EndCompile_end - EndCompile_start);
+  VLOG(1) << "Time of EndCompile program: ***** [ "
+            << EndCompile_duration.count() << " ] ***** ms.";
+
   compilation_result->SetBackendResource(backend_resource);
 
   VLOG(5) << "End to compile module into cuda kernel.";

@@ -90,6 +90,8 @@ void DynamicShapeGroupScheduler::Schedule() {
 void DynamicShapeGroupScheduler::ApplyTactics(BucketContext* bucket_context) {
   bucket_context->schedule_block_graph->Update(*(bucket_context->ir_sch));
   for (const auto& tactic : tactics_) {
+    auto ApplyTactics_start = std::chrono::high_resolution_clock::now();
+
     VLOG(5) << "[Start " << tactic->TacticName() << "] func body:\n"
             << bucket_context->ir_sch->GetModule().GetExprs().front();
     auto ApplyTacticFunc = [&](ir::ScheduleBlockNode* node) {
@@ -107,6 +109,11 @@ void DynamicShapeGroupScheduler::ApplyTactics(BucketContext* bucket_context) {
     bucket_context->schedule_block_graph->Update(*(bucket_context->ir_sch));
     VLOG(5) << "[End " << tactic->TacticName() << "] func body: "
             << bucket_context->ir_sch->GetModule().GetExprs().front();
+    
+    auto ApplyTactics_end = std::chrono::high_resolution_clock::now();
+    auto ApplyTactics_duration = std::chrono::duration_cast<std::chrono::milliseconds>(ApplyTactics_end - ApplyTactics_start);
+    VLOG(1) << "Time of ApplyTactics: *****" << tactic->TacticName() << " [ "
+              << ApplyTactics_duration.count() << " ] ***** ms.";
   }
 }
 

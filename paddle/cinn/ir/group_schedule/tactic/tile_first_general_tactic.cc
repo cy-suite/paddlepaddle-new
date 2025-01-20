@@ -129,34 +129,75 @@ void TileFirstGeneralTactic::Apply(ir::IRSchedule* sch,
 
   if (UseContinuousDataTile(context_->config)) {
     VLOG(4) << "Using ApplyContinuousDataTile";
+    auto ApplyContinuousDataTile_start = std::chrono::high_resolution_clock::now();
     ApplyContinuousDataTile(sch, block_id);
+    auto ApplyContinuousDataTile_end = std::chrono::high_resolution_clock::now();
+    auto ApplyContinuousDataTiles_duration = std::chrono::duration_cast<std::chrono::milliseconds>(ApplyContinuousDataTile_end - ApplyContinuousDataTile_start);
+    VLOG(1) << "Time of ApplyContinuousDataTile: *****" << ApplyContinuousDataTiles_duration.count() << " ] ***** ms.";
     return;
   }
 
+  auto MergeReduceAxis_start = std::chrono::high_resolution_clock::now();
   MergeReduceAxis(sch, block_id);
+  auto MergeReduceAxis_end = std::chrono::high_resolution_clock::now();
+  auto MergeReduceAxis_duration = std::chrono::duration_cast<std::chrono::milliseconds>(MergeReduceAxis_end - MergeReduceAxis_start);
+  VLOG(1) << "Time of MergeReduceAxis: *****" << MergeReduceAxis_duration.count() << " ] ***** ms.";
+
+
   VLOG(6) << "After MergeReduceAxis on block: [" << block_id
           << "], loop nest:\n"
           << sch->GetLoops(block_id)[0];
+  auto MergeDiscreteFlattenAxis_start = std::chrono::high_resolution_clock::now();
   MergeDiscreteFlattenAxis(sch, block_id);
+  auto MergeDiscreteFlattenAxis_end = std::chrono::high_resolution_clock::now();
+  auto MergeDiscreteFlattenAxis_duration = std::chrono::duration_cast<std::chrono::milliseconds>(MergeDiscreteFlattenAxis_end - MergeDiscreteFlattenAxis_start);
+  VLOG(1) << "Time of MergeDiscreteFlattenAxis: *****" << MergeDiscreteFlattenAxis_duration.count() << " ] ***** ms.";
+
   VLOG(6) << "After MergeDiscreteFlattenAxis on block: [" << block_id
           << "], loop nest:\n"
           << sch->GetLoops(block_id)[0];
+  auto SplitSptialInner_start = std::chrono::high_resolution_clock::now();
   SplitSptialInner(sch, block_id);
+  auto SplitSptialInner_end = std::chrono::high_resolution_clock::now();
+  auto SplitSptialInner_duration = std::chrono::duration_cast<std::chrono::milliseconds>(SplitSptialInner_end - SplitSptialInner_start);
+  VLOG(1) << "Time of SplitSptialInner: *****" << SplitSptialInner_duration.count() << " ] ***** ms.";
+
   VLOG(6) << "After SplitSptialInner on block: [" << block_id
           << "], loop nest:\n"
           << sch->GetLoops(block_id)[0];
+  auto SplitReduceInner_start = std::chrono::high_resolution_clock::now();
   SplitReduceInner(sch, block_id);
+  auto SplitReduceInner_end = std::chrono::high_resolution_clock::now();
+  auto SplitReduceInner_duration = std::chrono::duration_cast<std::chrono::milliseconds>(SplitReduceInner_end - SplitReduceInner_start);
+  VLOG(1) << "Time of SplitReduceInner: *****" << SplitReduceInner_duration.count() << " ] ***** ms.";
+
   VLOG(6) << "After SplitReduceInner on block: [" << block_id
           << "], loop nest:\n"
           << sch->GetLoops(block_id)[0];
+  auto BindCudaInfo_start = std::chrono::high_resolution_clock::now();
   BindCudaInfo(sch, block_id);
+  auto BindCudaInfo_end = std::chrono::high_resolution_clock::now();
+  auto BindCudaInfo_duration = std::chrono::duration_cast<std::chrono::milliseconds>(BindCudaInfo_end - BindCudaInfo_start);
+  VLOG(1) << "Time of BindCudaInfo: *****" << BindCudaInfo_duration.count() << " ] ***** ms.";
+
   VLOG(6) << "After BindCudaInfo on block: [" << block_id << "], loop nest:\n"
           << sch->GetLoops(block_id)[0];
+  auto VariableTypeAssignment_start = std::chrono::high_resolution_clock::now();
   VariableTypeAssignment(sch, block_id);
+  auto VariableTypeAssignment_end = std::chrono::high_resolution_clock::now();
+  auto VariableTypeAssignment_duration = std::chrono::duration_cast<std::chrono::milliseconds>(VariableTypeAssignment_end - VariableTypeAssignment_start);
+  VLOG(1) << "Time of VariableTypeAssignment: *****" << VariableTypeAssignment_duration.count() << " ] ***** ms.";
+
+
   VLOG(6) << "After VariableTypeAssignment on block: [" << block_id
           << "], loop nest:\n"
           << sch->GetLoops(block_id)[0];
+  auto SetDiscreteReduceType_start = std::chrono::high_resolution_clock::now();
   SetDiscreteReduceType(sch, block_id);
+  auto SetDiscreteReduceType_end = std::chrono::high_resolution_clock::now();
+  auto SetDiscreteReduceType_duration = std::chrono::duration_cast<std::chrono::milliseconds>(SetDiscreteReduceType_end - SetDiscreteReduceType_start);
+  VLOG(1) << "Time of SetDiscreteReduceType: *****" << SetDiscreteReduceType_duration.count() << " ] ***** ms.";
+
 }
 
 void TileFirstGeneralTactic::ApplyContinuousDataTile(
