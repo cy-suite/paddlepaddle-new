@@ -29,22 +29,28 @@ namespace phi {
 
 template <class T, class Context>
 static DenseTensor Fill(const Context& ctx,
-                        std::vector<int> shape,
-                        float fill_value) {
+                        std::vector<int64_t> shape,
+                        T fill_value) {
   DenseTensor ret;
   ret.Resize(common::make_ddim(shape));
   ctx.template Alloc<T>(&ret);
-  funcs::SetConstant<Context, T>()(ctx, &ret, T(fill_value));
+  funcs::SetConstant<Context, T>()(ctx, &ret, fill_value);
   return ret;
 }
 
 template <class T, class Context>
 static DenseTensor identity_matrix(const Context& ctx, common::DDim shape) {
-  DenseTensor M = Fill<T, Context>(ctx, common::vectorize<int>(shape), 0);
+  DenseTensor M =
+      Fill<T, Context>(ctx, common::vectorize<int64_t>(shape), T(0));
   size_t rank = M.dims().size();
-  DenseTensor M_diag_tmp = Diagonal<T, Context>(ctx, M, 0, rank - 2, rank - 1);
-  DenseTensor M_diag =
-      Fill<T, Context>(ctx, common::vectorize<int>(M_diag_tmp.dims()), 1);
+  int64_t M_diag_len = std::min(M.dims()[rank - 1], M.dims()[rank - 2]);
+  std::vector<int64_t> M_diag_shape;
+  for (size_t i = 0; i < rank - 2; ++i) {
+    M_diag_shape.push_back(M.dims()[i]);
+  }
+  M_diag_shape.push_back(M_diag_len);
+  DenseTensor M_diag = Fill<T, Context>(
+      ctx, common::vectorize<int64_t>(make_ddim(M_diag_shape)), T(1));
   M = FillDiagonalTensor<T, Context>(ctx, M, M_diag, 0, rank - 2, rank - 1);
   return M;
 }
@@ -63,7 +69,7 @@ struct QrFunctor {
     int n = static_cast<int>(x_dims[x_rank - 1]);
     int min_mn = std::min(m, n);
     int k = reduced_mode ? min_mn : m;
-    int batch_size = static_cast<int>(x.numel() / (m * n));
+    int64_t batch_size = static_cast<int64_t>(x.numel() / (m * n));
     int x_stride = m * n;
     int q_stride = m * k;
     int r_stride = k * n;
@@ -202,14 +208,14 @@ void QrKernel(const Context& ctx,
   bool reduced_mode = false;
   std::tie(compute_q, reduced_mode) = phi::funcs::ParseQrMode(mode);
   if (x.numel() == 0) {
-    ctx.template Alloc<T>(q);
-    ctx.template Alloc<T>(r);
     if (q->numel() == 0) {
       q->Resize(q->dims());
     } else {
       *q = identity_matrix<T, Context>(ctx, q->dims());
     }
     r->Resize(r->dims());
+    ctx.template Alloc<T>(q);
+    ctx.template Alloc<T>(r);
     return;
   }
   QrFunctor<T, Context>()(ctx, x, compute_q, reduced_mode, q, r);
