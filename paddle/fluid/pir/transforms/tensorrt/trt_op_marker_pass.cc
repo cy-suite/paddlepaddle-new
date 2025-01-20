@@ -100,6 +100,8 @@ DEFINE_GENERAL_PATTERN(Abs, paddle::dialect::AbsOp)
 DEFINE_GENERAL_PATTERN(Abs_, paddle::dialect::Abs_Op)
 DEFINE_GENERAL_PATTERN(Sin, paddle::dialect::SinOp)
 DEFINE_GENERAL_PATTERN(Logsigmoid, paddle::dialect::LogsigmoidOp)
+DEFINE_GENERAL_PATTERN(Embedding, paddle::dialect::EmbeddingOp)
+DEFINE_GENERAL_PATTERN(Unbind, paddle::dialect::UnbindOp)
 DEFINE_GENERAL_PATTERN(Cos, paddle::dialect::CosOp)
 DEFINE_GENERAL_PATTERN(Sinh, paddle::dialect::SinhOp)
 DEFINE_GENERAL_PATTERN(Cosh, paddle::dialect::CoshOp)
@@ -803,56 +805,6 @@ class Unsqueeze_OpPattern
 
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
-  }
-};
-
-class EmbeddingOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::EmbeddingOp> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::EmbeddingOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::EmbeddingOp op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-    pir::Value x = op.operand_source(0);
-    auto x_shape = pir::GetShapeFromValue(x);
-
-    bool with_dynamic_shape = false;
-    for (int i = 0; i < x_shape.size(); ++i) {
-      if (x_shape[i] == -1) {
-        with_dynamic_shape = true;
-      }
-    }
-    LOG(INFO) << "[EmbeddingOpPattern] with_dynamic_shape:"
-              << with_dynamic_shape << "\n";
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(with_dynamic_shape));
-    return with_dynamic_shape;
-  }
-};
-
-class UnbindOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::UnbindOp> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::UnbindOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::UnbindOp op,
-                       pir::PatternRewriter &rewriter) const override {
-    if (op->HasAttribute(kCanRunTrtAttr) &&
-        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
-      return false;
-    }
-    pir::Value input = op.operand_source(0);
-    auto input_shape = pir::GetShapeFromValue(input);
-
-    bool with_dynamic_shape = false;
-    for (int i = 0; i < input_shape.size(); ++i) {
-      if (input_shape[i] == -1) {
-        with_dynamic_shape = true;
-      }
-    }
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(with_dynamic_shape));
-    return with_dynamic_shape;
   }
 };
 
@@ -2465,6 +2417,8 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Cos)
     ADD_PATTERN(Sin)
     ADD_PATTERN(Logsigmoid)
+    ADD_PATTERN(Embedding)
+    ADD_PATTERN(Unbind)
     ADD_PATTERN(Cos)
     ADD_PATTERN(Sinh)
     ADD_PATTERN(Cosh)

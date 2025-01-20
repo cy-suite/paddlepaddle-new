@@ -222,10 +222,11 @@ def unbind_converter(network, paddle_op, inputs):
     if axis < 0:
         axis += rank
     axis = int(axis)
-
-    size_tensors = []
-    newDims_tensors = []
+    # Input for the add_slice layer
     start_tensors = []
+    size_tensors = []
+    # Input for the add_shuffle layer
+    new_shape_tensors = []
     for i in range(rank):
         if axis == i:
             size_tensors.append(add_1D_constant_layer(network, 1))
@@ -233,12 +234,12 @@ def unbind_converter(network, paddle_op, inputs):
             size_tensors.append(
                 get_shape_tensor_element(network, trt_shape(network, x), i)
             )
-            newDims_tensors.append(
+            new_shape_tensors.append(
                 get_shape_tensor_element(network, trt_shape(network, x), i)
             )
         start_tensors.append(add_1D_constant_layer(network, 0))
 
-    newDims_tensor = trt_concat(network, newDims_tensors)
+    new_shape_tensor = trt_concat(network, new_shape_tensors)
     stride = trt.Dims([1] * rank)
     outputs = []
     output_size = len(paddle_op.results()[0].type().as_vec_type().as_list())
@@ -256,7 +257,7 @@ def unbind_converter(network, paddle_op, inputs):
         shuffle_layer = trt_reshape(
             network,
             slice_layer.get_output(0),
-            newDims_tensor,
+            new_shape_tensor,
             is_shape_tensor=True,
         )
         outputs.append(shuffle_layer)
