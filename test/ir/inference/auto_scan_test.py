@@ -763,7 +763,9 @@ class TrtLayerAutoScanTest(AutoScanTest):
                     raise
 
                 try:
-                    np.testing.assert_allclose(value_t, value_b, rtol=rtol, atol=atol)
+                    np.testing.assert_allclose(
+                        value_t, value_b, rtol=rtol, atol=atol
+                    )
                 except AssertionError as e:
                     print(f"Input tensor at index {i}: {tensor}")
                     print(f"Input baseline at index {i}: {baseline}")

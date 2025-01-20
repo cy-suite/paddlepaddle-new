@@ -73,15 +73,9 @@ class TrtConvertTemporalShiftTest(TrtLayerAutoScanTest):
 
     def generate_dynamic_shape(self, attrs):
         t = attrs[0]['seg_num']
-        self.dynamic_shape.min_input_shape = {
-            "input_data": [2 * t, 10, 64, 64]
-        }
-        self.dynamic_shape.max_input_shape = {
-            "input_data": [5 * t, 10, 64, 64]
-        }
-        self.dynamic_shape.opt_input_shape = {
-            "input_data": [3 * t, 10, 64, 64]
-        }
+        self.dynamic_shape.min_input_shape = {"input_data": [2 * t, 10, 64, 64]}
+        self.dynamic_shape.max_input_shape = {"input_data": [5 * t, 10, 64, 64]}
+        self.dynamic_shape.opt_input_shape = {"input_data": [3 * t, 10, 64, 64]}
         return self.dynamic_shape
 
     def sample_predictor_configs(
