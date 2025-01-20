@@ -73,6 +73,11 @@ class TestFusedGemm_epilogueAdd(unittest.TestCase):
                 res4_ = paddle.assign(res4)
                 res5_ = paddle.assign(res5)
                 res6_ = paddle.assign(res6)
+
+                for op in main_program.global_block().ops:
+                    op.set_int_attr("op_role", 1)
+                    op.set_int_attr("chunk_id", -1)
+
                 op_names = [op.name() for op in main_program.global_block().ops]
                 self.assertTrue(
                     'pd_op.matmul' in op_names and 'pd_op.add' in op_names
@@ -101,6 +106,14 @@ class TestFusedGemm_epilogueAdd(unittest.TestCase):
                     'pd_op.fused_gemm_epilogue' in op_names
                     and 'pd_op.fused_gemm_epilogue_grad' in op_names
                 )
+
+                for op in main_program.global_block().ops:
+                    self.assertTrue(
+                        op.has_attr("op_role") and op.attrs()["op_role"] == 1
+                    )
+                    self.assertTrue(
+                        op.has_attr("chunk_id") and op.attrs()["chunk_id"] == -1
+                    )
 
                 with paddle.static.scope_guard(paddle.static.Scope()):
                     exe = paddle.base.Executor(paddle.base.CUDAPlace(0))
