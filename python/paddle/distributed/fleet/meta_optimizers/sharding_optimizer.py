@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import os
+
 import paddle.distributed as dist
 from paddle.base import core
 from paddle.incubate.optimizer import PipelineOptimizer

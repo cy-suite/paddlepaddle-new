@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import paddle
+import paddle.distributed as dist
 from paddle.distributed.fleet.meta_optimizers.common import OP_ROLE_KEY, OpRole
 
 __all__ = []

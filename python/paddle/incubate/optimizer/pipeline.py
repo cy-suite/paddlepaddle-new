@@ -20,7 +20,6 @@ from functools import cmp_to_key, reduce
 import numpy as np
 
 import paddle
-import paddle.distributed as dist
 from paddle.base import core, unique_name
 from paddle.base.framework import (
     Parameter,
