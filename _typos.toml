@@ -11,6 +11,8 @@ extend-exclude = [
     "paddle/fluid/inference/tensorrt/convert/CMakeLists.txt",
     "paddle/fluid/inference/tensorrt/convert/generic_and_custom_plugin_creater.cc",
     "paddle/fluid/inference/tensorrt/convert/test_custom_plugin_creater.cc",
+    # temporary file, use to resolve conflict, next step will delete it.
+    "test/legacy_test/test_imperative_partitial_backward.py"
 ]
 
 [default]
