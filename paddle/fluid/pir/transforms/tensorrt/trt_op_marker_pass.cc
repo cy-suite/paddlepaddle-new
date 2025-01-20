@@ -2257,12 +2257,6 @@ class PreluOpPattern : public pir::OpRewritePattern<paddle::dialect::PreluOp> {
       VLOG(3) << "Variable Alpha of prelu TRT converter not found.";
       return false;
     }
-    auto alpha_shape = pir::GetShapeFromValue(alpha_var);
-    if (alpha_shape.size() == 0) {
-      VLOG(3) << " Prelu op does not support alpha's dim is 0 in tensorrt "
-                 "static shape mode.";
-      return false;
-    }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }
