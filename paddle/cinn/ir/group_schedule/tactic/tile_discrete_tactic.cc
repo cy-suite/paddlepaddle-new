@@ -26,7 +26,7 @@ namespace ir {
 using cinn::ir::analyzer::IsReductionSBlock;
 
 bool UseDiscreteDataTile(const ScheduleConfig& config) {
-  // use disrete data tile for [RS]
+  // use discrete data tile for [..RS]
   for (const auto& iter_space : config.base_info->iter_space_type) {
     if (iter_space.first == "R") {
       if (config.base_info->iter_space_type.back().first == "S") {
@@ -37,13 +37,15 @@ bool UseDiscreteDataTile(const ScheduleConfig& config) {
   return false;
 }
 
-class TileDiscreteTactic final : public ScheduleTactic {
+class TileDiscreteReductionTactic final : public ScheduleTactic {
  public:
   void Init(ScheduleContext* context, ir::IRSchedule* sch) override;
 
   void Apply(ir::IRSchedule* sch, const std::string& block_id) override;
-  
-  std::string TacticName() const override { return "TileDiscreteTactic"; }
+
+  std::string TacticName() const override {
+    return "TileDiscreteReductionTactic";
+  }
 
  private:
   void MergeDiscreteFlattenAxis(ir::IRSchedule* sch,
@@ -52,7 +54,6 @@ class TileDiscreteTactic final : public ScheduleTactic {
   void SplitSptialInner(ir::IRSchedule* sch, const std::string& block_id);
   void SplitReduceInner(ir::IRSchedule* sch, const std::string& block_id);
   void VariableTypeAssignment(ir::IRSchedule* sch, const std::string& block_id);
-  void SetReduceType(ir::IRSchedule* sch, const std::string& block_id);
   void SetDiscreteReduceType(ir::IRSchedule* sch, const std::string& block_id);
   void BindCudaInfo(ir::IRSchedule* sch, const std::string& block_id);
 
@@ -67,8 +68,8 @@ class TileDiscreteTactic final : public ScheduleTactic {
   std::unordered_map<std::string, std::string> map_global_rf_block_;
 };
 
-void TileDiscreteTactic::Init(ScheduleContext* context,
-                                  ir::IRSchedule* sch) {
+void TileDiscreteReductionTactic::Init(ScheduleContext* context,
+                                       ir::IRSchedule* sch) {
   context_ = context;
   can_apply_ = false;
 
@@ -122,12 +123,11 @@ void TileDiscreteTactic::Init(ScheduleContext* context,
   map_rf_block_.clear();
 }
 
-void TileDiscreteTactic::Apply(ir::IRSchedule* sch,
-                                   const std::string& block_id) {
+void TileDiscreteReductionTactic::Apply(ir::IRSchedule* sch,
+                                        const std::string& block_id) {
   if (!can_apply_) return;
   if (ir::IsReduceInitTensorName(block_id)) return;
 
-  
   MergeReduceAxis(sch, block_id);
   VLOG(4) << "After MergeReduceAxis on block: [" << block_id
           << "], loop nest:\n"
@@ -154,9 +154,7 @@ void TileDiscreteTactic::Apply(ir::IRSchedule* sch,
   SetDiscreteReduceType(sch, block_id);
 }
 
-
-
-void TileDiscreteTactic::MergeDiscreteFlattenAxis(
+void TileDiscreteReductionTactic::MergeDiscreteFlattenAxis(
     ir::IRSchedule* sch, const std::string& block_id) {
   // Note: We need to fuse loops from bottom to top,
   // because the loop index will be changed when the upper loops fused.
@@ -168,8 +166,8 @@ void TileDiscreteTactic::MergeDiscreteFlattenAxis(
   }
 }
 
-void TileDiscreteTactic::MergeReduceAxis(ir::IRSchedule* sch,
-                                         const std::string& block_id) {
+void TileDiscreteReductionTactic::MergeReduceAxis(ir::IRSchedule* sch,
+                                                  const std::string& block_id) {
   std::vector<ir::Expr> loops = sch->GetLoops(block_id);
   int32_t max_loop_idx = 0;
   for (int32_t idx : vec_reduce_axis_) {
@@ -188,8 +186,8 @@ void TileDiscreteTactic::MergeReduceAxis(ir::IRSchedule* sch,
   }
 }
 
-void TileDiscreteTactic::SplitSptialInner(ir::IRSchedule* sch,
-                                          const std::string& block_id) {
+void TileDiscreteReductionTactic::SplitSptialInner(
+    ir::IRSchedule* sch, const std::string& block_id) {
   auto loops = sch->GetLoops(block_id);
   if (loops.size() == 3) {
     // [S, S', R] => [S, S'(-1), S'(32), R]
@@ -202,8 +200,8 @@ void TileDiscreteTactic::SplitSptialInner(ir::IRSchedule* sch,
   }
 }
 
-void TileDiscreteTactic::SplitReduceInner(ir::IRSchedule* sch,
-                                          const std::string& block_id) {
+void TileDiscreteReductionTactic::SplitReduceInner(
+    ir::IRSchedule* sch, const std::string& block_id) {
   const int64_t rd_block = context_->config.tile_config.grid_reduce_num;
   const int64_t rd_thread = 16;
   const int cur_reduce_axis = 2;
@@ -246,7 +244,7 @@ void TileDiscreteTactic::SplitReduceInner(ir::IRSchedule* sch,
   }
 }
 
-void TileDiscreteTactic::VariableTypeAssignment(
+void TileDiscreteReductionTactic::VariableTypeAssignment(
     ir::IRSchedule* sch, const std::string& block_id) {
   const auto IsOutputTensor = [&](const std::string& tensor_name) -> bool {
     return context_->output_names.count(tensor_name) > 0;
@@ -267,17 +265,7 @@ void TileDiscreteTactic::VariableTypeAssignment(
   }
 }
 
-void TileDiscreteTactic::SetReduceType(ir::IRSchedule* sch,
-                                        const std::string& block_id) {
-  if (IsReductionSBlock(sch->GetBlock(block_id))) {
-    auto block = sch->GetBlock(block_id)
-                     .As<ir::ScheduleBlockRealize>()
-                     ->schedule_block.As<ir::ScheduleBlock>();
-    block->reduce_method = context_->config.tile_config.reduce_method;
-  }
-}
-
-void TileDiscreteTactic::SetDiscreteReduceType(
+void TileDiscreteReductionTactic::SetDiscreteReduceType(
     ir::IRSchedule* sch, const std::string& block_id) {
   if (IsReductionSBlock(sch->GetBlock(block_id))) {
     auto block = sch->GetBlock(block_id)
@@ -293,8 +281,8 @@ void TileDiscreteTactic::SetDiscreteReduceType(
   }
 }
 
-void TileDiscreteTactic::BindCudaInfo(ir::IRSchedule* sch,
-                                       const std::string& block_id) {
+void TileDiscreteReductionTactic::BindCudaInfo(ir::IRSchedule* sch,
+                                               const std::string& block_id) {
   auto loops = sch->GetLoops(block_id);
 
   // [S(-1), S(32), R(16), R(-1)] =>
@@ -323,7 +311,7 @@ void TileDiscreteTactic::BindCudaInfo(ir::IRSchedule* sch,
 }
 
 std::unique_ptr<ScheduleTactic> CreateTileDiscreteTactic() {
-  return std::make_unique<TileDiscreteTactic>();
+  return std::make_unique<TileDiscreteReductionTactic>();
 }
 
 }  // namespace ir
