@@ -90,6 +90,24 @@ class TestBaddBmmUnderlineAPI(unittest.TestCase):
 
         self.assertRaises(ValueError, test_error7)
 
+        def test_error8():
+            data_input_wrong = np.ones((2, 3, 3)).astype(np.float32)
+            x = paddle.to_tensor(data_x)
+            y = paddle.to_tensor(data_y)
+            input = paddle.to_tensor(data_input_wrong)
+            out = paddle.baddbmm_(input=input, x=x, y=y, beta=0.5, alpha=5.0)
+
+        self.assertRaises(ValueError, test_error8)
+
+        def test_error9():
+            data_input_wrong = np.ones((2, 1, 3)).astype(np.float32)
+            x = paddle.to_tensor(data_x)
+            y = paddle.to_tensor(data_y)
+            input = paddle.to_tensor(data_input_wrong)
+            out = paddle.baddbmm_(input=input, x=x, y=y, beta=0.5, alpha=5.0)
+
+        self.assertRaises(ValueError, test_error9)
+
         def test_error_y1():
             data_y_wrong = np.ones((2, 2, 3)).astype(np.float32)
             x = paddle.to_tensor(data_x)
