@@ -106,12 +106,23 @@ class TensorRTBaseTest(unittest.TestCase):
                         and feed_name in self.opt_shape.keys()
                         and feed_name in self.max_shape.keys()
                     ):
-                        # dynamic shape condition
-                        input_shape_without_dynamic_dim = self.api_args[
-                            feed_name
-                        ].shape[1:]
-                        input_shape = [-1]
-                        input_shape.extend(input_shape_without_dynamic_dim)
+                        inconsistent_dims = []
+                        min_shape = self.min_shape[feed_name]
+                        opt_shape = self.opt_shape[feed_name]
+                        max_shape = self.max_shape[feed_name]
+                        for i in range(len(min_shape)):
+                            if (
+                                min_shape[i] != opt_shape[i]
+                                or min_shape[i] != max_shape[i]
+                                or opt_shape[i] != max_shape[i]
+                            ):
+                                inconsistent_dims.append(i)
+
+                        input_shape = min_shape
+                        input_shape_without_dynamic_dim = min_shape.copy()
+                        for dim in inconsistent_dims:
+                            input_shape_without_dynamic_dim[dim] = -1
+                        input_shape = input_shape_without_dynamic_dim
                     else:
                         input_shape = self.api_args[feed_name].shape
 

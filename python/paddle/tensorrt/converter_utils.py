@@ -132,6 +132,25 @@ def get_trt_plugin(plugin_name, field_collection, version, plugin_namespace=""):
     assert plugin is not None, f"Plugin:{plugin_name} could not be fetched"
     return plugin
 
+# def get_trt_weight(name,tensor)
+#     global weight_map,name_suffix_counter
+#     name_suffix=str(name_suffix_counter)
+#     name_suffix_counter+=1
+#     name_with_suffix=f"{name}_{name_suffix}"
+#     if name_with_suffix in weight_map:
+#         raise ValueError(f"Weight {name_with_suffix} has already been added to the weight map.")
+
+#     if tensor.dtype ==np.float16:
+#         weight=tensor.astype(np.float32)
+#     elif tensor.dtype ==np.int64:
+#         weight=tensor.astype(np.int32)
+#     elif tensor.dtype in[np.float32,np.int32]:
+#         weight=tensor
+#     else:
+#         raise ValueError(f"Unsupported dtype {tensor.dtype}")
+    
+#     weight
+
 
 def get_positive_dim(dim, dim_size):
     if dim < 0:
@@ -233,11 +252,17 @@ def trt_expand(network, input, rank, shape_tensor, shape_rank):
 
 
 # Concat not make rank changed
-def trt_concat(network, inputs, axis=0):
+def trt_concat(network, inputs, axis=0, name=""):
+    # 打印每个输入张量的维度和数据类型
+    for idx, tensor in enumerate(inputs):
+        dims = tensor.shape
+        dtype = tensor.dtype
+        print(f"Concat Input {idx}: shape={dims}, dtype={dtype},name={name}")
     concat_layer = network.add_concatenation(inputs=inputs)
     if axis != 0:
         concat_layer.axis = axis
     return concat_layer.get_output(0)
+
 
 
 def trt_cast(network, input, dtype):
@@ -273,10 +298,12 @@ def trt_reshape(network, input, new_shape, name="", is_shape_tensor=False):
     return reshape_layer.get_output(0)
 
 
+
 # resize shape tensor's shape to 1dim
 def resize_to_1d(network, shape_tensor):
     if shape_tensor is None:
         return shape_tensor
+    print("shape_tensor",len(shape_tensor.shape))
     if len(shape_tensor.shape) > 1:
         # shape_tensor need 1-dim in trt
         shape_tensor_layer = network.add_shuffle(shape_tensor)
@@ -289,15 +316,19 @@ def resize_to_1d(network, shape_tensor):
 
 
 # Get element tensor of 1D shape tensor
-def get_shape_tensor_element(network, x, index, is_scalar=False):
+def get_shape_tensor_element(network, x, index,name="", is_scalar=False):
     assert (
         index >= 0
     ), f"The index should be greater or equal than 0, but got {index}"
+    print(f"x shape: {x.shape}")
+    print("name",name)
     index_tensor = add_1D_constant_layer(network, index, is_scalar=is_scalar)
     gather_layer = network.add_gather(input=x, indices=index_tensor, axis=0)
+    if is_scalar:
+        print("is_scalar",is_scalar)
+        return gather_layer.get_output(0)
     shape_tensor = resize_to_1d(network, gather_layer.get_output(0))
     return shape_tensor
-
 
 def trt_less(network, a, b):
     layer = network.add_elementwise(a, b, trt.ElementWiseOperation.LESS)

@@ -2353,6 +2353,62 @@ class AffineChannelOpPattern
   }
 };
 
+class RnnOpPattern : public pir::OpRewritePattern<paddle::dialect::RnnOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::RnnOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::RnnOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    if (op->HasAttribute("mode")) {
+      auto mode = op->attribute<pir::StrAttribute>("mode").AsString();
+      if (mode != "LSTM") {
+        VLOG(3) << "pd_op.rnn only support LSTM mode in tensorrt.";
+        return false;
+      }
+    }
+    if (op->HasAttribute("dropout_prob")) {
+      auto dropout_prob =
+          op.attribute<pir::FloatAttribute>("dropout_prob").data();
+      if (dropout_prob > 1e-5) {
+        VLOG(3) << "pd_op.rnn dropout_prob must be >1e-5 in tensorrt.";
+        return false;
+      }
+    }
+    pir::Value sequence_length = op.operand_source(3);
+    if (!sequence_length) {
+      VLOG(3) << "pd_op.rnn can not find sequence_length input";
+      return false;
+    }
+    pir::Value x = op.operand_source(0);
+    auto x_shape = pir::GetShapeFromValue(x);
+    if (x_shape.size() != 3) {
+      VLOG(3) << "pd_op.rnn x shape must be 3 in tensorrt.";
+      return false;
+    }
+    pir::Value pre_state = op.operand_source(1);
+    auto pre_state_type = pre_state.type().dyn_cast<pir::VectorType>();
+    if (pre_state && pre_state_type.size() == 2) {
+      for (size_t i = 0; i < pre_state_type.size(); ++i) {
+        auto tensor_type =
+            pre_state_type[i].dyn_cast<paddle::dialect::DenseTensorType>();
+        auto shape = tensor_type.dims();
+        if (shape.size() != 3) {
+          VLOG(3) << "pd_op.rnn pre_state[" << i
+                  << "] shape must be 3 in tensorrt,but got " << shape.size()
+                  << "dimensions.";
+          return false;
+        }
+      }
+    }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class TrtOpMarkerPass : public pir::PatternRewritePass {
  public:
   TrtOpMarkerPass() : pir::PatternRewritePass("trt_op_marker_pass", 2) {}
@@ -2507,6 +2563,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<EinsumOpPattern>(context));
     ps.Add(std::make_unique<PNormOpPattern>(context));
     ps.Add(std::make_unique<AffineChannelOpPattern>(context));
+    ps.Add(std::make_unique<RnnOpPattern>(context));
     return ps;
   }
 };

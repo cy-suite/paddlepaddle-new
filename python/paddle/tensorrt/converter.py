@@ -41,6 +41,7 @@ from .impls.norm import *  # noqa: F403
 from .impls.ops import *  # noqa: F403
 from .impls.others import *  # noqa: F403
 from .impls.pooling import *  # noqa: F403
+from .impls.rnn import *  # noqa: F403
 from .impls.search import *  # noqa: F403
 from .impls.stat import *  # noqa: F403
 from .impls.vision import *  # noqa: F403
@@ -542,6 +543,7 @@ class PaddleToTensorRTConverter:
                 raise NotImplementedError(
                     f"Converter for {op_name} not implemented."
                 )
+
             outs = converter_func(network, paddle_op, inputs)
         if isinstance(outs, trt.ITensor):
             return (outs,)

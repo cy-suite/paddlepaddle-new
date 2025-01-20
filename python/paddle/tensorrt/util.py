@@ -283,6 +283,7 @@ def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name):
         "pd_op.depthwise_conv2d_transpose",
         "pd_op.fused_conv2d_add_act",
         "pd_op.affine_channel",
+        "pd_op.rnn",
     ]
     if use_op_name in forbid_cast_op:
         return trt_tensor
@@ -343,3 +344,7 @@ def remove_duplicate_value(value_list):
 
 def get_trt_version():
     return trt.__version__
+
+
+def get_positive_shape(shape):
+    return [dim if dim>0 else 1 for dim in shape]
