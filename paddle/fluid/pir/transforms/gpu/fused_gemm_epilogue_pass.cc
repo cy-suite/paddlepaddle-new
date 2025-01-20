@@ -37,7 +37,7 @@ class FusedLinearPattern
                        pir::PatternRewriter &rewriter) const override {
     auto tmp = matmul->result(0);
 
-    if (pir::GetShapeFromValue(matmul->operand_source(0)).size() != 2) {
+    if (pir::GetShapeFromValue(matmul->operand_source(1)).size() != 2) {
       return false;
     }
 
