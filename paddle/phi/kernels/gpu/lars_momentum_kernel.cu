@@ -522,8 +522,8 @@ void LarsMomentumKernel(
       2. Update param and velocity with usage of L2 norm statistic result.
     Step1 and step2 can be merged with api provided by nvidia
       cudaLaunchCooperativeKernel:
-      - The thread quantity shall less than pyhsical SM limited threads
-      - Launch as thread-block can synchronizlly execute. */
+      - The thread quantity shall less than physical SM limited threads
+      - Launches as thread-block can synchronizlly execute. */
     cudaOccupancyMaxActiveBlocksPerMultiprocessor(
         &num_blocks_per_sm,
         MergedMomentumLarsKernel<T, MT>,
