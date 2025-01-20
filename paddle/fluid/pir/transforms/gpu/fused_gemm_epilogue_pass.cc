@@ -76,6 +76,8 @@ class FusedLinearPattern
         "activation",
         pir::StrAttribute::get(pir::IrContext::Instance(), "none"));
 
+    rewriter.SetInsertionPointAfter(matmul);
+
     auto fuse_gemm = rewriter.Build<paddle::dialect::FusedGemmEpilogueOp>(
         matmul->operand_source(0),
         matmul->operand_source(1),
@@ -142,6 +144,7 @@ class FusedLinearGradPattern
         "activation_grad",
         pir::StrAttribute::get(pir::IrContext::Instance(), "none"));
 
+    rewriter.SetInsertionPointAfter(add_grad);
     auto fuse_gemm_grad =
         rewriter.Build<paddle::dialect::FusedGemmEpilogueGradOp>(
             matmul_grad->operand_source(0),
