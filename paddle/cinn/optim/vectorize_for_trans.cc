@@ -56,6 +56,91 @@ std::unordered_map<std::string, ir::Var> CollectExprSymbols(Expr *x) {
   return std::move(mutator.GetSymbols());
 }
 
+Expr CalculateTensorOffsetWithIndexs(Expr *tensor,
+                                     const std::vector<ir::Expr> &indices) {
+  auto *tensor_ptr = tensor->As<ir::_Tensor_>();
+  PADDLE_ENFORCE_NOT_NULL(
+      tensor_ptr,
+      ::common::errors::InvalidArgument(
+          "Expected _Tensor_ node in Store, but received nullptr."));
+
+  Expr offset = indices[0];
+  for (int i = 1; i < tensor_ptr->shape.size(); ++i) {
+    Expr size = tensor_ptr->shape[i];
+    Expr index = indices[i];
+    offset = ir::Add::Make(ir::Mul::Make(offset, size), index);
+  }
+  return offset;
+}
+
+Expr UpdateOffsetOnlyContainsVectorizeAxis(Expr offset, Var vectorize_axis) {
+  PADDLE_ENFORCE_NOT_NULL(
+      &offset,
+      ::common::errors::InvalidArgument(
+          "Expected offset expr ptr, but received nullptr."));
+  auto var_symbols = CollectExprSymbols(&offset);
+  auto update_offset = ir::ir_utils::IRCopy(offset);
+  for (const auto &[key, value] : var_symbols) {
+    if (key == vectorize_axis->name) continue;
+    cinn::ir::ir_utils::IrReplaceVarBroadcast(
+        &update_offset, Expr(value), Expr(int32_t(0)));
+  }
+  cinn::optim::Simplify(&update_offset);
+  return update_offset;
+}
+
+bool IsSelectOpWithSpecialOffset(Expr offset) {
+  PADDLE_ENFORCE_NOT_NULL(
+      &offset,
+      ::common::errors::InvalidArgument(
+          "Expected offset expr ptr, but received nullptr."));
+  auto var_symbols = CollectExprSymbols(&offset);
+  auto selectOp_offset = cinn::ir::ir_utils::IRCopy(offset);
+  for (const auto &[key, value] : var_symbols) {
+    cinn::ir::ir_utils::IrReplaceVarBroadcast(
+        &selectOp_offset, Expr(value), Expr(int32_t(0)));
+  }
+  cinn::optim::Simplify(&selectOp_offset);
+  auto const_val = selectOp_offset.As<ir::IntImm>();
+  if (const_val && const_val->value < 0) {
+    return true;
+  }
+  return false;
+}
+
+Expr CalculateOffsetWithVectorizeAxis(Expr offset,
+                                      Expr origin_offset,
+                                      Var var_iter,
+                                      const int value) {
+  PADDLE_ENFORCE_NOT_NULL(
+      &offset,
+      ::common::errors::InvalidArgument(
+          "Expected offset expr ptr, but received nullptr."));
+  PADDLE_ENFORCE_NOT_NULL(
+      &origin_offset,
+      ::common::errors::InvalidArgument(
+          "Expected offset expr ptr, but received nullptr."));
+  Expr next = cinn::ir::ir_utils::IRCopy(offset);
+  cinn::ir::ir_utils::IrReplaceVarBroadcast(
+      &next, Expr(var_iter), Expr(int32_t(value)));
+  cinn::optim::Simplify(&next);
+  auto compare = ir::Sub::Make(next, origin_offset);
+  cinn::optim::Simplify(&compare);
+  return compare;
+}
+
+Expr GetOriginOffsetWithVectorizeAxis(Expr offset, Var var_iter) {
+  PADDLE_ENFORCE_NOT_NULL(
+      &offset,
+      ::common::errors::InvalidArgument(
+          "Expected offset expr ptr, but received nullptr."));
+  Expr origin_offset = cinn::ir::ir_utils::IRCopy(offset);
+  cinn::ir::ir_utils::IrReplaceVarBroadcast(
+      &origin_offset, Expr(var_iter), Expr(int32_t(0)));
+  cinn::optim::Simplify(&origin_offset);
+  return origin_offset;
+}
+
 class ForOpWithMultiScheduleBlockSupportVectorize
     : public ir::IRMutator<ir::Expr *> {
  public:
@@ -256,69 +341,42 @@ class ScheduleBlockTensorVectorizeTeller : public ir::IRMutator<Expr *> {
     }
 
     // eg 2 : Address access of tensor contains vectorize axis.
-    Expr offset = indices[0];
-    for (int i = 1; i < tensor->shape.size(); ++i) {
-      Expr size = tensor->shape[i];
-      Expr index = indices[i];
-      offset = ir::Add::Make(ir::Mul::Make(offset, size), index);
-    }
-
+    Expr offset = CalculateTensorOffsetWithIndexs(&node->tensor, indices);
     // situation 2. don't deal with select situation
-    auto var_symbols = CollectExprSymbols(&offset);
-    auto selectOp_offset = ir::ir_utils::IRCopy(offset);
-    for (const auto &[key, value] : var_symbols) {
-      cinn::ir::ir_utils::IrReplaceVarBroadcast(
-          &selectOp_offset, Expr(value), Expr(int32_t(0)));
-    }
-    cinn::optim::Simplify(&selectOp_offset);
-    auto const_val = selectOp_offset.As<ir::IntImm>();
-    if (const_val && const_val->value < 0) {
+    if (IsSelectOpWithSpecialOffset(offset)) {
       vectorize_tensors_.clear();
       schedule_block_can_vectorize_ = false;
       return false;
     }
 
-    // only with vectorize axis offset
-    auto only_vectorize_axis_offset = ir::ir_utils::IRCopy(offset);
-    for (const auto &[key, value] : var_symbols) {
-      if (key == iter_var_->name) continue;
-      cinn::ir::ir_utils::IrReplaceVarBroadcast(
-          &only_vectorize_axis_offset, Expr(value), Expr(int32_t(0)));
-    }
+    Expr only_vectorize_axis_offset =
+        UpdateOffsetOnlyContainsVectorizeAxis(offset, iter_var_);
 
-    cinn::optim::Simplify(&only_vectorize_axis_offset);
-    Expr origin_offset = ir::ir_utils::IRCopy(only_vectorize_axis_offset);
-    cinn::ir::ir_utils::IrReplaceVarBroadcast(
-        &origin_offset, Expr(iter_var_), Expr(int32_t(0)));
-    cinn::optim::Simplify(&origin_offset);
-    bool is_zero = true;
-    bool is_continuous = true;
+    Expr origin_offset =
+        GetOriginOffsetWithVectorizeAxis(only_vectorize_axis_offset, iter_var_);
+    bool offset_is_zero = true;
+    bool tensor_is_continuous = true;
     for (int i = 1; i < factor_; i++) {
-      Expr next = ir::ir_utils::IRCopy(only_vectorize_axis_offset);
-      cinn::ir::ir_utils::IrReplaceVarBroadcast(
-          &next, Expr(iter_var_), Expr(int32_t(i)));
-      cinn::optim::Simplify(&next);
-      auto compare = ir::Sub::Make(next, origin_offset);
-      cinn::optim::Simplify(&compare);
-      const_val = compare.As<ir::IntImm>();
+      Expr compare = CalculateOffsetWithVectorizeAxis(
+          only_vectorize_axis_offset, origin_offset, iter_var_, i);
+      auto const_val = compare.As<ir::IntImm>();
       if (!const_val) return false;
       if (const_val->value != 0) {
-        is_zero = false;
+        offset_is_zero = false;
       }
 
       if (const_val->value != i) {
-        is_continuous = false;
+        tensor_is_continuous = false;
         break;
       }
     }
 
-    // check Tensor is scalar tensor
-    if (is_zero) {
+    // Tensor is scalar tensor
+    if (offset_is_zero) {
       return false;
     }
 
-    // check Tensor is continuous
-    if (!is_continuous) {
+    if (!tensor_is_continuous) {
       vectorize_tensors_.clear();
       schedule_block_can_vectorize_ = false;
       return false;
