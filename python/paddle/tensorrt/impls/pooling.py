@@ -345,27 +345,61 @@ def pool3d_converter(network, paddle_op, inputs):
 
     layer = None
     if not adaptive and not global_pooling and not ceil_mode:
-        pool_layer = network.add_pooling_nd(input_tensor, nv_pool_type, nv_ksize)
+        pool_layer = network.add_pooling_nd(
+            input_tensor, nv_pool_type, nv_ksize
+        )
         pool_layer.stride_nd = nv_strides
         pool_layer.padding_nd = nv_paddings
         pool_layer.average_count_excludes_padding = exclusive
         layer = pool_layer
     elif global_pooling:
-        reduce_layer = network.add_reduce(input_tensor, reduce_operation, 28, True)
+        reduce_layer = network.add_reduce(
+            input_tensor, reduce_operation, 28, True
+        )
         layer = reduce_layer
     else:
         plugin_fields = [
-            trt.PluginField("ceil_mode", np.array([ceil_mode], dtype=np.bool_), trt.PluginFieldType.INT32),
-            trt.PluginField("pool3d_type", np.array(list(pooling_type), dtype=np.string_), trt.PluginFieldType.CHAR),
-            trt.PluginField("adaptive", np.array([adaptive], dtype=np.bool_), trt.PluginFieldType.INT32),
-            trt.PluginField("ksize", np.array(ksize, dtype=np.int32), trt.PluginFieldType.INT32),
-            trt.PluginField("strides", np.array(strides, dtype=np.int32), trt.PluginFieldType.INT32),
-            trt.PluginField("paddings", np.array(paddings, dtype=np.int32), trt.PluginFieldType.INT32),
-            trt.PluginField("is_global", np.array([global_pooling], dtype=np.bool_), trt.PluginFieldType.INT32),
+            trt.PluginField(
+                "ceil_mode",
+                np.array([ceil_mode], dtype=np.bool_),
+                trt.PluginFieldType.INT32,
+            ),
+            trt.PluginField(
+                "pool3d_type",
+                np.array(list(pooling_type), dtype=np.string_),
+                trt.PluginFieldType.CHAR,
+            ),
+            trt.PluginField(
+                "adaptive",
+                np.array([adaptive], dtype=np.bool_),
+                trt.PluginFieldType.INT32,
+            ),
+            trt.PluginField(
+                "ksize",
+                np.array(ksize, dtype=np.int32),
+                trt.PluginFieldType.INT32,
+            ),
+            trt.PluginField(
+                "strides",
+                np.array(strides, dtype=np.int32),
+                trt.PluginFieldType.INT32,
+            ),
+            trt.PluginField(
+                "paddings",
+                np.array(paddings, dtype=np.int32),
+                trt.PluginFieldType.INT32,
+            ),
+            trt.PluginField(
+                "is_global",
+                np.array([global_pooling], dtype=np.bool_),
+                trt.PluginFieldType.INT32,
+            ),
         ]
         plugin_field_collection = trt.PluginFieldCollection(plugin_fields)
         plugin_name = "pir_pool3d_plugin_dynamic"
         plugin_version = "1"
-        plugin = get_trt_plugin(plugin_name, plugin_field_collection, plugin_version)
+        plugin = get_trt_plugin(
+            plugin_name, plugin_field_collection, plugin_version
+        )
         layer = network.add_plugin_v2([input_tensor], plugin)
     return layer.get_output(0)

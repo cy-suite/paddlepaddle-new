@@ -268,12 +268,12 @@ class PIRPool3DPluginDynamic : public DynamicPluginTensorRT {
  public:
   PIRPool3DPluginDynamic() {}
   PIRPool3DPluginDynamic(const bool& ceil_mode,
-                      const std::string& pool3d_type,
-                      const bool& adaptive,
-                      const std::vector<int>& ksize,
-                      const std::vector<int>& strides,
-                      const std::vector<int>& paddings,
-                      const bool& is_global)
+                         const std::string& pool3d_type,
+                         const bool& adaptive,
+                         const std::vector<int>& ksize,
+                         const std::vector<int>& strides,
+                         const std::vector<int>& paddings,
+                         const bool& is_global)
       : ceil_mode_(ceil_mode),
         pool3d_type_(pool3d_type),
         adaptive_(adaptive),
@@ -350,7 +350,9 @@ class PIRPool3DPluginDynamicCreator : public TensorRTPluginCreator {
     return new PIRPool3DPluginDynamic(serial_data, serial_length);
   }
 
-  nvinfer1::IPluginV2* createPlugin(const char* name, const nvinfer1::PluginFieldCollection* fc) TRT_NOEXCEPT override {
+  nvinfer1::IPluginV2* createPlugin(const char* name,
+                                    const nvinfer1::PluginFieldCollection* fc)
+      TRT_NOEXCEPT override {
     bool ceil_mode = false;
     std::string pool3d_type;
     bool adaptive = false;
@@ -360,35 +362,37 @@ class PIRPool3DPluginDynamicCreator : public TensorRTPluginCreator {
     bool is_global = false;
 
     for (int i = 0; i < fc->nbFields; ++i) {
-        const nvinfer1::PluginField& field = fc->fields[i];
-        const std::string field_name(field.name);
+      const nvinfer1::PluginField& field = fc->fields[i];
+      const std::string field_name(field.name);
 
-        if (field_name.compare("ceil_mode") == 0) {
-            ceil_mode = *static_cast<const bool*>(field.data);
-        } else if (field_name.compare("pool3d_type") == 0) {
-            pool3d_type = std::string(static_cast<const char*>(fc->fields[i].data), fc->fields[i].length);
-        } else if (field_name.compare("adaptive") == 0) {
-            adaptive = *static_cast<const bool*>(field.data);
-        } else if (field_name.compare("ksize") == 0) {
-            const int length = fc->fields[i].length;
-            const int* data = static_cast<const int*>(fc->fields[i].data);
-            ksize.insert(ksize.end(), data, data + length);
-        } else if (field_name.compare("strides") == 0) {
-            const int length = fc->fields[i].length;
-            const int* data = static_cast<const int*>(fc->fields[i].data);
-            strides.insert(strides.end(), data, data + length);
-        } else if (field_name.compare("paddings") == 0) {
-            const int length = fc->fields[i].length;
-            const int* data = static_cast<const int*>(fc->fields[i].data);
-            paddings.insert(paddings.end(), data, data + length);
-        } else if (field_name.compare("is_global") == 0) {
-            is_global = *static_cast<const bool*>(field.data);
-        } else {
-            assert(false && "Unknown plugin field name.");
-        }
+      if (field_name.compare("ceil_mode") == 0) {
+        ceil_mode = *static_cast<const bool*>(field.data);
+      } else if (field_name.compare("pool3d_type") == 0) {
+        pool3d_type = std::string(static_cast<const char*>(fc->fields[i].data),
+                                  fc->fields[i].length);
+      } else if (field_name.compare("adaptive") == 0) {
+        adaptive = *static_cast<const bool*>(field.data);
+      } else if (field_name.compare("ksize") == 0) {
+        const int length = fc->fields[i].length;
+        const int* data = static_cast<const int*>(fc->fields[i].data);
+        ksize.insert(ksize.end(), data, data + length);
+      } else if (field_name.compare("strides") == 0) {
+        const int length = fc->fields[i].length;
+        const int* data = static_cast<const int*>(fc->fields[i].data);
+        strides.insert(strides.end(), data, data + length);
+      } else if (field_name.compare("paddings") == 0) {
+        const int length = fc->fields[i].length;
+        const int* data = static_cast<const int*>(fc->fields[i].data);
+        paddings.insert(paddings.end(), data, data + length);
+      } else if (field_name.compare("is_global") == 0) {
+        is_global = *static_cast<const bool*>(field.data);
+      } else {
+        assert(false && "Unknown plugin field name.");
+      }
     }
-    return new Pool3DPluginDynamic(ceil_mode, pool3d_type, adaptive, ksize, strides, paddings, is_global);
-    }
+    return new Pool3DPluginDynamic(
+        ceil_mode, pool3d_type, adaptive, ksize, strides, paddings, is_global);
+  }
 };
 REGISTER_TRT_PLUGIN_V2(Pool3DPluginDynamicCreator);
 REGISTER_TRT_PLUGIN_V2(PIRPool3DPluginDynamicCreator);

@@ -438,7 +438,7 @@ int Pool3DPluginDynamic::enqueue(const nvinfer1::PluginTensorDesc *input_desc,
 }
 
 PIRPool3DPluginDynamic::PIRPool3DPluginDynamic(void const *serialData,
-                                         size_t serialLength) {
+                                               size_t serialLength) {
   DeserializeValue(&serialData, &serialLength, &ceil_mode_);
   const char *pool3d_type;
   DeserializeValue(&serialData, &serialLength, &pool3d_type);
@@ -450,14 +450,15 @@ PIRPool3DPluginDynamic::PIRPool3DPluginDynamic(void const *serialData,
   DeserializeValue(&serialData, &serialLength, &is_global_);
 }
 
-nvinfer1::IPluginV2DynamicExt *PIRPool3DPluginDynamic::clone() const TRT_NOEXCEPT {
+nvinfer1::IPluginV2DynamicExt *PIRPool3DPluginDynamic::clone() const
+    TRT_NOEXCEPT {
   return new PIRPool3DPluginDynamic(ceil_mode_,
-                                 pool3d_type_,
-                                 adaptive_,
-                                 ksize_,
-                                 strides_,
-                                 paddings_,
-                                 is_global_);
+                                    pool3d_type_,
+                                    adaptive_,
+                                    ksize_,
+                                    strides_,
+                                    paddings_,
+                                    is_global_);
 }
 
 const char *PIRPool3DPluginDynamic::getPluginType() const TRT_NOEXCEPT {
@@ -641,12 +642,13 @@ nvinfer1::DataType PIRPool3DPluginDynamic::getOutputDataType(
   return input_types[0];
 }
 
-int PIRPool3DPluginDynamic::enqueue(const nvinfer1::PluginTensorDesc *input_desc,
-                                 const nvinfer1::PluginTensorDesc *output_desc,
-                                 const void *const *inputs,
-                                 void *const *outputs,
-                                 void *workspace,
-                                 cudaStream_t stream) TRT_NOEXCEPT {
+int PIRPool3DPluginDynamic::enqueue(
+    const nvinfer1::PluginTensorDesc *input_desc,
+    const nvinfer1::PluginTensorDesc *output_desc,
+    const void *const *inputs,
+    void *const *outputs,
+    void *workspace,
+    cudaStream_t stream) TRT_NOEXCEPT {
   auto input_dims = input_desc[0].dims;
   int n = input_dims.d[0];
   int c = input_dims.d[1];
