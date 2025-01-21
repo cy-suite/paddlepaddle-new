@@ -109,6 +109,7 @@ DEFINE_GENERAL_PATTERN(Ceil, paddle::dialect::CeilOp)
 DEFINE_GENERAL_PATTERN(Rsqrt, paddle::dialect::RsqrtOp)
 DEFINE_GENERAL_PATTERN(Reciprocal, paddle::dialect::ReciprocalOp)
 DEFINE_GENERAL_PATTERN(Erf, paddle::dialect::ErfOp)
+DEFINE_GENERAL_PATTERN(Isnan, paddle::dialect::IsnanOp)
 DEFINE_GENERAL_PATTERN(Sign, paddle::dialect::SignOp)
 DEFINE_GENERAL_PATTERN(Round, paddle::dialect::RoundOp)
 DEFINE_GENERAL_PATTERN(Numel, paddle::dialect::NumelOp)
@@ -1910,6 +1911,34 @@ class FullWithTensorPattern
   }
 };
 
+class TakeAlongAxisOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::TakeAlongAxisOp> {
+ public:
+  using pir::OpRewritePattern<
+      paddle::dialect::TakeAlongAxisOp>::OpRewritePattern;
+
+  bool MatchAndRewrite(paddle::dialect::TakeAlongAxisOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    pir::Value x_value = op.operand_source(0);
+    auto x_shape = pir::GetShapeFromValue(x_value);
+    pir::Value index_value = op.operand_source(1);
+    auto index_shape = pir::GetShapeFromValue(index_value);
+    if (x_shape.size() != index_shape.size()) {
+      VLOG(3) << "TakeAlongAxis op Index input dims size ["
+              << index_shape.size() << "] is not equal to input dims size ["
+              << x_shape.size() << "].";
+      return false;
+    }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class StridedSliceOpPattern
     : public pir::OpRewritePattern<paddle::dialect::StridedSliceOp> {
  public:
@@ -2324,6 +2353,27 @@ class AffineChannelOpPattern
   }
 };
 
+class YoloBoxOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::YoloBoxOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::YoloBoxOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::YoloBoxOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    if (!op->HasAttribute("iou_aware") &&
+        !op->HasAttribute("iou_aware_factor")) {
+      VLOG(3)
+          << "pd_op.yolo_box must has iou_aware and iou_aware_factor attribute";
+      return false;
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class TrtOpMarkerPass : public pir::PatternRewritePass {
  public:
   TrtOpMarkerPass() : pir::PatternRewritePass("trt_op_marker_pass", 2) {}
@@ -2394,6 +2444,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Rsqrt)
     ADD_PATTERN(Reciprocal)
     ADD_PATTERN(Erf)
+    ADD_PATTERN(Isnan)
     ADD_PATTERN(Sign)
     ADD_PATTERN(Round)
     ADD_PATTERN(Numel)
@@ -2458,6 +2509,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<WherePattern>(context));
     ps.Add(std::make_unique<FullLikeOpPattern>(context));
     ps.Add(std::make_unique<FullWithTensorPattern>(context));
+    ps.Add(std::make_unique<TakeAlongAxisOpPattern>(context));
     ps.Add(std::make_unique<StridedSliceOpPattern>(context));
     ps.Add(std::make_unique<TopkOpPattern>(context));
     ps.Add(std::make_unique<CumsumOpPattern>(context));
@@ -2476,6 +2528,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<EinsumOpPattern>(context));
     ps.Add(std::make_unique<PNormOpPattern>(context));
     ps.Add(std::make_unique<AffineChannelOpPattern>(context));
+    ps.Add(std::make_unique<YoloBoxOpPattern>(context));
     return ps;
   }
 };
