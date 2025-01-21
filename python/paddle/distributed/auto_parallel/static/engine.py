@@ -938,6 +938,9 @@ class Engine:
             pm = pir.PassManager()
             pm.add_pass("fused_gemm_epilogue_pass", {})
             pm.run(dense_program)
+            self._strategy.fused_passes.fused_passes_list.remove(
+                "fused_gemm_epilogue_pass"
+            )
 
         if self._strategy.pipeline.enable:
             self._job_plan = pipeline_pass(
