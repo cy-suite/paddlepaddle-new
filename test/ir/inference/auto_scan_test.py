@@ -703,7 +703,6 @@ class TrtLayerAutoScanTest(AutoScanTest):
 
     def create_inference_config(self, use_trt=True) -> paddle_infer.Config:
         config = paddle_infer.Config()
-        # config.disable_glog_info()
         config.enable_use_gpu(100, 0)
         config.set_optim_cache_dir(self.cache_dir)
         if use_trt:
@@ -779,7 +778,6 @@ class TrtLayerAutoScanTest(AutoScanTest):
             main_block.op(i).type() == "tensorrt_engine" for i in range(op_size)
         ]
         trt_engine_size = sum(op_types)
-        print("trt_engine_size:", trt_engine_size)
         paddle_op_size = op_size - trt_engine_size
         self.assertEqual(
             trt_engine_num,
