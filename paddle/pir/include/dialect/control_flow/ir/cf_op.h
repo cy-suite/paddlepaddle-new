@@ -16,10 +16,12 @@
 
 #include <functional>
 
+#include "paddle/fluid/pir/dialect/operator/utils/shape_analysis_utils.h"
 #include "paddle/pir/include/core/builder.h"
 #include "paddle/pir/include/core/op_base.h"
 #include "paddle/pir/include/core/op_trait.h"
 #include "paddle/pir/include/dialect/control_flow/ir/cf_interface.h"
+#include "paddle/pir/include/dialect/shape/interface/infer_symbolic_shape/cache_grad_op_symbolic_shape.h"
 #include "paddle/pir/include/dialect/shape/interface/infer_symbolic_shape/infer_symbolic_shape.h"
 
 namespace pir {
@@ -73,7 +75,7 @@ class IR_API TuplePushOp : public Op<TuplePushOp,
   }
   TuplePopOp tuple_pop_op();
 
-  CacheGradOpSymbolicShape(pir::InferSymbolicShapeContext *infer_context);
+  void CacheGradOpSymbolicShape(pir::InferSymbolicShapeContext *infer_context);
 };
 
 class IR_API TuplePopOp : public Op<TuplePopOp, SideEffectTrait> {
