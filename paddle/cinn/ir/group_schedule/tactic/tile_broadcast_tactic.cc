@@ -82,6 +82,7 @@ class TileBroadcastTactic final : public ScheduleTactic {
   void Init(ScheduleContext* context, ir::IRSchedule* sch) override;
 
   void Apply(ir::IRSchedule* sch, const std::string& block_id) override;
+  void ApplyVectorize(ir::IRSchedule* sch, const std::string& block_id);
 
   std::string TacticName() const override { return "TileBroadcastTactic"; }
 
@@ -264,16 +265,30 @@ std::vector<int> GetCommonBroadcastAxis(ir::IRSchedule* sch) {
   return common_broadcast_axis;
 }
 
+bool UseContinuousDataTile(const ScheduleConfig& config) {
+  // use continuous data tile for [S] and [...R]
+  if (config.base_info->iter_space_type.size() == 1 &&
+      config.base_info->iter_space_type.back().first == "S") {
+    return true;
+  }
+  if (config.base_info->iter_space_type.back().first == "R") {
+    return true;
+  }
+  return false;
+}
+
+bool ScheduleBlockEnableVectorize(const ScheduleConfig& config,
+                                  const std::string& block_id) {
+  if (!config.base_info->can_apply_vectorize) return false;
+
+  if (!UseContinuousDataTile(config)) return false;
+  return true;
+}
+
 void TileBroadcastTactic::Init(ScheduleContext* context, ir::IRSchedule* sch) {
   context_ = context;
   can_apply_ = false;
   if (!FLAGS_cinn_enable_tile_broadcast) {
-    return;
-  }
-
-  // TODO(XZhang): vectorize tiling config should consider
-  // broadcast situation with TileBroadcastTactic
-  if (context_->config.base_info->can_apply_vectorize) {
     return;
   }
 
@@ -366,6 +381,11 @@ void TileBroadcastTactic::InitBroadcastSizeInfo() {
 
 void TileBroadcastTactic::Apply(ir::IRSchedule* sch,
                                 const std::string& block_id) {
+  if (ScheduleBlockEnableVectorize(context_->config, block_id)) {
+    ApplyVectorize(sch, block_id);
+    return;
+  }
+
   if (!can_apply_) return;
 
   // Cluster and fuse axis of the same type to get exactly 3 loops.
@@ -441,6 +461,67 @@ void TileBroadcastTactic::FuseAxisGroups(ir::IRSchedule* sch,
   FuseRange(high_axis_num + mid_axis_num, low_axis_num);
   FuseRange(high_axis_num, mid_axis_num);
   FuseRange(0, high_axis_num);
+}
+
+void TileBroadcastTactic::ApplyVectorize(ir::IRSchedule* sch,
+                                         const std::string& block_id) {
+  if (!can_apply_) return;
+  const auto vectorize_factor =
+      static_cast<int>(context_->config.tile_config.vectorize_factor);
+
+  FuseAxisGroups(sch, block_id);
+
+  const auto ApplyVectorization = [&](const std::string& block_id, int factor) {
+    auto loops = sch->GetLoops(block_id);
+    auto vectorize_axis = loops.size() - 1;
+    sch->Vectorize(loops[vectorize_axis], factor);
+  };
+
+  // Do tiling with vectorize.
+  // 1. For small size:
+  //        [B, P, B<=256]
+  //     => [(blockY, loop), blockX, threadX, vectorize].
+  // 2. For medium size:
+  //        [B, P, 256<B<=2048],
+  //     => [blockY, blockX, (loop, threadX, vectorize)].
+  // 3. For large size:
+  //        [B, P, B>2048]
+  //     => [blockX', blockY, (blockX, loop, threadX, vectorize)].
+  std::vector<std::string> axis_bind;
+  if (low_broadcast_size_ <= 256) {
+    sch->Split(block_id, 0, {-1, 4});
+    sch->Split(block_id, 3, {-1, vectorize_factor});
+    axis_bind = {"blockIdx.y", "", "blockIdx.x", "threadIdx.x", ""};
+  } else if (low_broadcast_size_ <= 2048) {
+    sch->Split(block_id, 2, {-1, 256, vectorize_factor});
+    axis_bind = {"blockIdx.y", "blockIdx.x", "", "threadIdx.x", ""};
+  } else {
+    sch->Reorder(block_id, {1, 0});
+    sch->Fuse(block_id, {1, 2});
+    sch->Split(block_id, 1, {-1, 256, vectorize_factor});
+    axis_bind = {"blockIdx.y", "blockIdx.x", "threadIdx.x", ""};
+  }
+
+  // set vectorize schedule primitives
+  ApplyVectorization(block_id, vectorize_factor);
+
+  // Do binding.
+  auto loops = sch->GetLoops(block_id);
+  for (int i = 0; i < axis_bind.size(); ++i) {
+    if (!axis_bind[i].empty()) {
+      sch->Bind(loops[i], axis_bind[i]);
+    }
+  }
+
+  // Set to use local buffer if this schedule block is not output.
+  if (context_->output_names.count(block_id) == 0) {
+    auto block = sch->GetBlock(block_id);
+    sch->SetBuffer(block, "local");
+  }
+
+  VLOG(4) << "After TileBroadcast with Vectorize on block: [" << block_id
+          << "]:\n"
+          << sch->GetLoops(block_id)[0];
 }
 
 }  // namespace
