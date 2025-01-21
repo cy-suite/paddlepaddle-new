@@ -72,6 +72,8 @@ void CollectShapeManager::CollectShapeInfo(
     // This is a simple method to identify all shape tensors with some
     // mistakes, but it doesn't matter.
     auto is_shape_tensor = tensor.numel() <= 8 && tensor.numel() >= 1;
+    is_shape_tensor = is_shape_tensor && tensor.initialized() &&
+                      (!instr->NoNeedBuffer().count(input.first));
     if ((tensor.dtype() == phi::DataType::INT32 ||
          tensor.dtype() == phi::DataType::INT64) &&
         is_shape_tensor) {
