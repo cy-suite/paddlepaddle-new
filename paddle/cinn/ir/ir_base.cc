@@ -536,7 +536,9 @@ IndexExpr Simplify(const IndexExpr &expr, IndexExpr::OptLevel level) {
 }
 
 IndexExpr IndexExpr::Normalize(OptLevel level) const {
-  return Simplify(*this, level);
+  auto res = Simplify(*this, level);
+  res = ChangeSeqOfDivMod(res);
+  return Simplify(res, level);
 }
 
 int32_t IndexExpr::as_int32() const {
