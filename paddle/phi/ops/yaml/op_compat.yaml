@@ -164,6 +164,10 @@
   manual_signature : [all]
   extra :
     attrs : [bool use_mkldnn = false]
+  int_array:
+      axis :
+        data_type : int
+        support_tensor : true
 
 - op : allclose
   inputs :
@@ -191,6 +195,10 @@
   get_expected_kernel_type :
     amax_grad : GetReduceGradExpectedKernelType
   manual_signature : [amax]
+  int_array:
+      axis :
+        data_type : int
+        support_tensor : true
 
 - op : amin (reduce_amin)
   backward : amin_grad (reduce_amin_grad)
@@ -205,6 +213,10 @@
   get_expected_kernel_type :
     amin_grad : GetReduceGradExpectedKernelType
   manual_signature : [amin]
+  int_array:
+      axis :
+        data_type : int
+        support_tensor : true
 
 - op : anchor_generator
   inputs:
@@ -233,6 +245,10 @@
   get_expected_kernel_type :
     any : GetReduceOpUseInputPlaceExpectedKernelType
   manual_signature : [any]
+  int_array:
+      axis :
+        data_type : int
+        support_tensor : true
 
 - op : arange(range)
   inputs :
@@ -2536,6 +2552,10 @@
     {axis : dim, keepdim : keep_dim}
   extra :
     attrs : [bool use_mkldnn = false]
+  int_array:
+      axis :
+        data_type : int
+        support_tensor : true
 
 - op : mean_all (mean)
   backward : mean_all_grad (mean_grad)
