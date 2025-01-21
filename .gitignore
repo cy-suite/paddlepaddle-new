@@ -45,6 +45,7 @@ build_doc/
 *.tmp
 *.pyc
 *.log
+.pre-commit-config.yaml
 
 .vscode
 .idea
