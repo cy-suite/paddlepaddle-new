@@ -105,7 +105,7 @@ static __global__ void FP16FastGeluBwdCUDAKernel(const __half* x,
 #pragma unroll
     for (int i = 0; i < VecSize; ++i) {
       __half2 tmp_fp16_2;
-#ifdef PADDLE_WITH_HIP 
+#ifdef PADDLE_WITH_HIP
 #if HIP_VERSION >= 60000000
       tmp_fp16_2.x = x_in_arr[i];
       tmp_fp16_2.y = y_g_in_arr[i];
