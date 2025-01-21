@@ -195,10 +195,6 @@
   get_expected_kernel_type :
     amax_grad : GetReduceGradExpectedKernelType
   manual_signature : [amax]
-  int_array:
-      axis :
-        data_type : int
-        support_tensor : true
 
 - op : amin (reduce_amin)
   backward : amin_grad (reduce_amin_grad)
@@ -213,10 +209,6 @@
   get_expected_kernel_type :
     amin_grad : GetReduceGradExpectedKernelType
   manual_signature : [amin]
-  int_array:
-      axis :
-        data_type : int
-        support_tensor : true
 
 - op : anchor_generator
   inputs:
