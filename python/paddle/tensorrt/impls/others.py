@@ -25,6 +25,7 @@ from paddle.tensorrt.converter_utils import (
     get_shape_tensor_element,
     get_trt_plugin,
     trt_concat,
+    trt_gather,
     trt_prod,
     trt_shape,
     trt_sub,
@@ -490,3 +491,46 @@ def affine_channel_converter(network, paddle_op, inputs):
         out_tensor = shuffle_layer2.get_output(0)
 
     return out_tensor
+
+
+@converter_registry.register("pd_op.full_batch_size_like", trt_version="8.x")
+def full_batch_size_like_converter(network, paddle_op, inputs):
+    input = inputs[0]
+    input_dim_idx = paddle_op.attrs().get("input_dim_idx")
+    output_dim_idx = paddle_op.attrs().get("output_dim_idx")
+    value = paddle_op.attrs().get("value")
+    shape = paddle_op.attrs().get("shape")
+    value = float(value)
+
+    input_shape_tensor = trt_shape(network, input)
+    batch_tensor = get_shape_tensor_element(
+        network, input_shape_tensor, input_dim_idx
+    )
+
+    shape_attr_tensor = add_1D_constant_layer(network, shape)
+
+    gather_output_shape_indices = []
+    for i in range(len(shape)):
+        if i == output_dim_idx:
+            gather_output_shape_indices.append(len(shape))
+            continue
+        gather_output_shape_indices.append(i)
+
+    concat_inputs = [shape_attr_tensor, batch_tensor]
+    concat_tensor = trt_concat(network, concat_inputs)
+    out_shape_tensor = trt_gather(
+        network, concat_tensor, gather_output_shape_indices
+    )
+
+    layer = network.add_fill(shape=(), op=trt.FillOperation.LINSPACE)
+
+    value_tensor = add_1D_constant_layer(network, [value], is_scalar=True)
+
+    beta_vec = [0.0] * len(shape)
+    beta_tensor = add_1D_constant_layer(network, beta_vec, is_scalar=False)
+
+    layer.set_input(0, out_shape_tensor)
+    layer.set_input(1, value_tensor)
+    layer.set_input(2, beta_tensor)
+
+    return layer.get_output(0)
