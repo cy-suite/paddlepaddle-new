@@ -16,9 +16,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from paddle.jit.sot.opcode_translator.executor.variables.base import (
+    VariableBase,
+)
+
 from ....utils import BreakGraphError, FallbackError
 from ..tracker import ConstTracker, DummyTracker
-from .base import VariableBase, VariableFactory
+from .base import VariableFactory
 from .basic import ConstantVariable
 from .container import ContainerVariable, TupleVariable
 
@@ -50,10 +54,21 @@ class IterVariable(VariableBase):
     def get_iter(self):
         return self
 
-    def get_items(self):
+    def get_inner_vars(self):
         if isinstance(self.hold, (ContainerVariable, IterVariable)):
-            return self.hold.get_items()
+            return self.hold.get_inner_vars()
         return [self.hold]
+
+    def flatten_inner_vars(self) -> list[VariableBase]:
+        """
+        Recursively flatten the items in this container variable to a list of Variable objects.
+        Returns:
+            list[VariableBase]: Flattened items of a container variable.
+        """
+        flattened_inner_vars = []
+        for inner_var in self.get_inner_vars():
+            flattened_inner_vars.extend(inner_var.flatten_inner_vars())
+        return flattened_inner_vars
 
 
 class SequenceIterVariable(IterVariable):
@@ -162,11 +177,11 @@ class ZipVariable(SequenceIterVariable):
     def __init__(self, iters, graph, tracker):
         super().__init__(iters, graph, tracker)
 
-    def get_items(self):
+    def get_inner_vars(self):
         items = []
         for hold in self.hold:
             if isinstance(hold, (ContainerVariable, IterVariable)):
-                items.extend(hold.get_items())
+                items.extend(hold.get_inner_vars())
             else:
                 items.append(hold)
         return items

@@ -87,10 +87,10 @@ class ContainerVariable(VariableBase):
         Returns:
             list[VariableBase]: Flattened items of a container variable.
         """
-        flattened_items = []
-        for item in self.get_inner_vars():
-            flattened_items.extend(item.flatten_inner_vars())
-        return flattened_items
+        flattened_inner_vars = []
+        for inner_var in self.get_inner_vars():
+            flattened_inner_vars.extend(inner_var.flatten_inner_vars())
+        return flattened_inner_vars
 
     @check_guard
     def make_stringified_guard(self) -> list[StringifiedExpression]:
