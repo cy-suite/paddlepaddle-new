@@ -1099,12 +1099,11 @@ struct SimplifyDiv {
                                      ? rhs.Get<Mul<DimExpr>>().operands
                                      : List<DimExpr>{rhs};
 
-    std::unordered_multiset<DimExpr> rhs_set(rhs_operands->begin(),
-                                             rhs_operands->end());
+    std::vector<DimExpr> rhs_set(rhs_operands->begin(), rhs_operands->end());
 
     List<DimExpr> new_lhs_operands{};
     for (const auto& lhs_operand : *lhs_operands) {
-      auto it = rhs_set.find(lhs_operand);
+      auto it = std::find(rhs_set.begin(), rhs_set.end(), lhs_operand);
       if (it != rhs_set.end()) {
         rhs_set.erase(it);
       } else {
