@@ -679,22 +679,7 @@ class TestPadCaseTRTPattern(TensorRTBaseTest):
 
 class TestPadError1TRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = wrapper_pad_error1
-        self.api_args = {
-            "x": np.random.randn(1, 1, 1, 2, 3).astype("float32"),
-        }
-        self.program_config = {"feed_list": ["x"]}
-        self.min_shape = {"x": [1, 1, 1, 2, 3]}
-        self.opt_shape = {"x": [1, 1, 1, 2, 3]}
-        self.max_shape = {"x": [5, 1, 1, 2, 3]}
-
-    def test_trt_result(self):
-        self.check_marker(expected_result=False)
-
-
-class TestPadError2TRTPattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = wrapper_pad_error2
+        self.python_api = paddle.nn.functional.pad
         self.api_args = {
             "x": np.random.randn(1, 1, 1, 2, 3).astype("float32"),
             "paddings": [0, 0, 0, 0, 0, 0, 1, 1, 0, 0],
@@ -710,7 +695,7 @@ class TestPadError2TRTPattern(TensorRTBaseTest):
         self.check_marker(expected_result=False)
 
 
-class TestPadError3TRTPattern(TensorRTBaseTest):
+class TestPadError2TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = wrapper_pad_error2
         self.api_args = {
@@ -728,7 +713,7 @@ class TestPadError3TRTPattern(TensorRTBaseTest):
         self.check_marker(expected_result=False)
 
 
-class TestPadError4TRTPattern(TensorRTBaseTest):
+class TestPadError3TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = wrapper_pad_error2
         self.api_args = {
