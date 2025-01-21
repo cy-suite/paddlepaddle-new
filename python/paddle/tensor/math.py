@@ -3742,20 +3742,20 @@ def log10_(x: Tensor, name: str | None = None) -> Tensor:
         return _C_ops.log10_(x)
 
 
-def is_clip_tensor(value):
-    if paddle.is_tensor(value):
-        if (len(value.shape) == 1 and value.shape[-1] == 1) or len(
-            value.shape
-        ) == 0:
-            return False
-        return True
-    else:
-        return False
+# def is_clip_tensor(value):
+#     if paddle.is_tensor(value):
+#         if (len(value.shape) == 1 and value.shape[-1] == 1) or len(
+#             value.shape
+#         ) == 0:
+#             return False
+#         return True
+#     else:
+#         return False
 
 
-def get_clip_tensor_shape(value1, value2, value3):
-    tem_shape = broadcast_shape(value1.shape, value2.shape)
-    return broadcast_shape(tem_shape, value3.shape)
+# def get_clip_tensor_shape(value1, value2, value3):
+#     tem_shape = broadcast_shape(value1.shape, value2.shape)
+#     return broadcast_shape(tem_shape, value3.shape)
 
 
 def clip(
@@ -3817,7 +3817,7 @@ def clip(
     min = min_ if min is None else min
     max = max_ if max is None else max
 
-    if is_clip_tensor(min) or is_clip_tensor(max):
+    if paddle.is_tensor(min) and paddle.is_tensor(max):
         min = (
             min
             if paddle.is_tensor(min)
@@ -3828,44 +3828,47 @@ def clip(
             if paddle.is_tensor(max)
             else paddle.full_like(x, float(max), x.dtype)
         )
-        out_shape = get_clip_tensor_shape(x, min, max)
-        x = paddle.broadcast_to(x, out_shape) if x.shape != out_shape else x
-        min = (
-            paddle.broadcast_to(min, out_shape)
-            if min.shape != out_shape
-            else min
-        )
-        min.stop_gradient = True
-        max = (
-            paddle.broadcast_to(max, out_shape)
-            if max.shape != out_shape
-            else max
-        )
-        max.stop_gradient = True
+        x_bcast, min_bcast, max_bcast = paddle.broadcast_tensors([x, min, max])
+        min_bcast.stop_gradient = True
+        max_bcast.stop_gradient = True
+        # out_shape = get_clip_tensor_shape(x, min, max)
+        # x = paddle.broadcast_to(x, out_shape) if x.shape != out_shape else x
+        # min = (
+        #     paddle.broadcast_to(min, out_shape)
+        #     if min.shape != out_shape
+        #     else min
+        # )
+        # min.stop_gradient = True
+        # max = (
+        #     paddle.broadcast_to(max, out_shape)
+        #     if max.shape != out_shape
+        #     else max
+        # )
+        # max.stop_gradient = True
         if in_dynamic_or_pir_mode():
-            return _C_ops.clip_tensor(x, min, max)
+            return _C_ops.clip_tensor(x_bcast, min_bcast, max_bcast)
         else:
             check_dtype(
-                x,
+                x_bcast,
                 'x',
                 ['float16', 'float32', 'float64', 'int32', 'int64', 'uint16'],
                 'clip',
             )
             check_dtype(
-                min.dtype,
+                min_bcast.dtype,
                 'min',
                 ['float16', 'float32', 'float64', 'int32', 'int64', 'uint16'],
                 'clip_tensor',
                 '(When the type of min in clip is Variable.)',
             )
             check_dtype(
-                max.dtype,
+                max_bcast.dtype,
                 'max',
                 ['float16', 'float32', 'float64', 'int32', 'int64', 'uint16'],
                 'clip_tensor',
                 '(When the type of max in clip is Variable.)',
             )
-            inputs = {'x': x, 'min': min, 'max': max}
+            inputs = {'x': x_bcast, 'min': min_bcast, 'max': max_bcast}
             helper = LayerHelper('clip_tensor', **locals())
             output = helper.create_variable_for_type_inference(
                 dtype=helper.input_dtype('x')
@@ -3877,12 +3880,12 @@ def clip(
             )
             return output
     if in_dynamic_or_pir_mode():
-        if isinstance(min, Variable):
+        if paddle.is_tensor(min):
             min = min.item(0)
-        if isinstance(max, Variable):
+        if paddle.is_tensor(max):
             max = max.item(0)
-        min = min_ if min is None else min
-        max = max_ if max is None else max
+        # min = min_ if min is None else min
+        # max = max_ if max is None else max
         return _C_ops.clip(x, min, max)
     else:
         if min is not None:
@@ -3955,39 +3958,44 @@ def clip_(
     min = fmin if min is None else min
     max = fmax if max is None else max
 
-    if in_dynamic_mode():
-        if is_clip_tensor(min) or is_clip_tensor(max):
-            min = (
-                min
-                if paddle.is_tensor(min)
-                else paddle.full_like(x, float(min), x.dtype)
+    # if in_dynamic_mode():
+    if paddle.is_tensor(min) and paddle.is_tensor(max):
+        min = (
+            min
+            if paddle.is_tensor(min)
+            else paddle.full_like(x, float(min), x.dtype)
+        )
+        max = (
+            max
+            if paddle.is_tensor(max)
+            else paddle.full_like(x, float(max), x.dtype)
+        )
+        tem_shape = broadcast_shape(x.shape, min.shape)
+        out_shape = broadcast_shape(tem_shape, max.shape)
+        if out_shape != x.shape:
+            raise ValueError(
+                f"The shape of broadcast output {out_shape} is different from that of inplace tensor {x.shape} in the Inplace operation."
             )
-            max = (
-                max
-                if paddle.is_tensor(max)
-                else paddle.full_like(x, float(max), x.dtype)
-            )
-            out_shape = get_clip_tensor_shape(x, min, max)
-            if out_shape != x.shape:
-                raise ValueError(
-                    f"The shape of broadcast output {out_shape} is different from that of inplace tensor {x.shape} in the Inplace operation."
-                )
 
-            min = (
-                paddle.broadcast_to(min, out_shape)
-                if min.shape != out_shape
-                else min
-            )
-            min.stop_gradient = True
-            max = (
-                paddle.broadcast_to(max, out_shape)
-                if max.shape != out_shape
-                else max
-            )
-            max.stop_gradient = True
-            return _C_ops.clip_tensor_(x, min, max)
-        else:
-            return _C_ops.clip_(x, min, max)
+        min = (
+            paddle.broadcast_to(min, out_shape)
+            if min.shape != out_shape
+            else min
+        )
+        min.stop_gradient = True
+        max = (
+            paddle.broadcast_to(max, out_shape)
+            if max.shape != out_shape
+            else max
+        )
+        max.stop_gradient = True
+        return _C_ops.clip_tensor_(x, min, max)
+    else:
+        if paddle.is_tensor(min):
+            min = min.item()
+        if paddle.is_tensor(max):
+            max = max.item()
+        return _C_ops.clip_(x, min, max)
 
 
 def trace(
