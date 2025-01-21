@@ -199,15 +199,42 @@ std::shared_ptr<ScheduleConfig::BaseInfo> InitBasicInfo(
 
 namespace {
 
+int CalculateSMsNeeded(int blocks_needed, int max_effective_blocks_per_sm) {
+  return CeilDiv(blocks_needed, max_effective_blocks_per_sm);
+}
+
+int CalculateMaxEffectiveBlocksPerSM(const SMConfig& sm_config,
+                                     int threads_per_block) {
+  int max_blocks_per_sm_by_threads =
+      sm_config.max_threads_per_sm / threads_per_block;
+  return std::min(sm_config.max_blocks_per_sm, max_blocks_per_sm_by_threads);
+}
+
+std::pair<int, int> CalculateBlocksAndSMsNeeded(const SMConfig& sm_config,
+                                                int block_size,
+                                                int blocks_needed) {
+  int max_effective_blocks_per_sm =
+      CalculateMaxEffectiveBlocksPerSM(sm_config, block_size);
+  int sms_needed =
+      CalculateSMsNeeded(blocks_needed, max_effective_blocks_per_sm);
+  return {max_effective_blocks_per_sm, sms_needed};
+}
+
+bool ShouldUpdateWarpNums(int diff_to_fill_sm,
+                          int min_diff_to_full_sm,
+                          int threads_per_block,
+                          int best_warp_nums) {
+  return (diff_to_fill_sm < min_diff_to_full_sm) ||
+         (diff_to_fill_sm == min_diff_to_full_sm &&
+          threads_per_block > best_warp_nums * kWarpSize);
+}
+
 // Only proceed with vectorization if SM utilization exceeds 100%
 bool CheckSmUtilization(
     const std::shared_ptr<ScheduleConfig::BaseInfo>& base_info,
-    const common::Target& target,
+    const SMConfig& sm_config,
     int input_size,
     int block_size) {
-  const int max_threads_per_sm = target.get_max_threads_per_sm();
-  const int max_blocks_per_sm = target.get_max_blocks_per_sm();
-  const int sm_count = target.get_multi_processor_count();
   const auto& last_dim = base_info->iter_space_type.back().first;
 
   if (last_dim != "S" && last_dim != "R") {
@@ -217,17 +244,14 @@ bool CheckSmUtilization(
 
   int blocks_needed =
       (last_dim == "S") ? CeilDiv(input_size, block_size) : input_size;
-
-  int max_blocks_per_sm_bythreads = max_threads_per_sm / block_size;
-  int effective_max_blocks_per_sm =
-      std::min(max_blocks_per_sm, max_blocks_per_sm_bythreads);
-  int sms_needed = CeilDiv(blocks_needed, effective_max_blocks_per_sm);
-  float sm_utilization = static_cast<float>(sms_needed) / sm_count;
+  auto [max_effective_blocks_per_sm, sms_needed] =
+      CalculateBlocksAndSMsNeeded(sm_config, block_size, blocks_needed);
+  float sm_utilization = static_cast<float>(sms_needed) / sm_config.sm_count;
 
   if (sm_utilization < 1) {
     VLOG(5) << "SM utilization is not sufficient for vectorization: "
-            << sm_utilization * 100 << "% (" << sms_needed << "/" << sm_count
-            << " SMs)";
+            << sm_utilization * 100 << "% (" << sms_needed << "/"
+            << sm_config.sm_count << " SMs)";
     return false;
   }
   return true;
@@ -236,32 +260,29 @@ bool CheckSmUtilization(
 // By default, warp_nums can be a maximum of 8 (256 threads)
 // The Grid value should be divisible by the SM number as much as possible to
 // avoid Tail Effect.
-int CalculateWarpNums(const common::Target& target, int total_threads_needed) {
-  const int max_threads_per_sm = target.get_max_threads_per_sm();
-  const int max_blocks_per_sm = target.get_max_blocks_per_sm();
-  const int sm_count = target.get_multi_processor_count();
+int CalculateWarpNums(const SMConfig& sm_config, int total_threads_needed) {
   int best_warp_nums = 8;
-  int min_diff_to_full_sm = sm_count;
+  int min_diff_to_full_sm = sm_config.sm_count;
 
   std::vector<int> thread_configs = {1024, 512, 256};
   for (int threads_per_block : thread_configs) {
     int current_warp_count = threads_per_block / kWarpSize;
     int blocks_needed =
         std::ceil(static_cast<float>(total_threads_needed) / threads_per_block);
+    auto [max_effective_blocks_per_sm, sms_needed] =
+        CalculateBlocksAndSMsNeeded(
+            sm_config, threads_per_block, blocks_needed);
 
-    int max_blocks_per_sm_by_threads = max_threads_per_sm / threads_per_block;
-    int max_effective_blocks_per_sm =
-        std::min(max_blocks_per_sm, max_blocks_per_sm_by_threads);
-
-    int required_sms = CeilDiv(blocks_needed, max_effective_blocks_per_sm);
-    if (required_sms <= sm_count) return best_warp_nums;
-    int remaining_sms = required_sms % sm_count;
+    if (sms_needed <= sm_config.sm_count) return best_warp_nums;
+    int remaining_sms = sms_needed % sm_config.sm_count;
     int remaining_blocks = remaining_sms * max_effective_blocks_per_sm;
-    int diff_to_fill_sm = std::abs(remaining_blocks - sm_count);
-    if (remaining_blocks < sm_count) {
-      if (diff_to_fill_sm < min_diff_to_full_sm ||
-          (diff_to_fill_sm == min_diff_to_full_sm &&
-           threads_per_block > best_warp_nums * kWarpSize)) {
+    int diff_to_fill_sm = std::abs(remaining_blocks - sm_config.sm_count);
+
+    if (remaining_blocks < sm_config.sm_count) {
+      if (ShouldUpdateWarpNums(diff_to_fill_sm,
+                               min_diff_to_full_sm,
+                               threads_per_block,
+                               best_warp_nums)) {
         min_diff_to_full_sm = diff_to_fill_sm;
         best_warp_nums = current_warp_count;
       }
@@ -293,7 +314,7 @@ inline bool CheckThreadDimensionCanVectorize(int threads,
 
 bool ReduceRegionCanVectorize(
     const std::shared_ptr<ScheduleConfig::BaseInfo>& base_info,
-    const common::Target& target,
+    const SMConfig& sm_config,
     const int warp_nums,
     const int factor) {
   const int64_t spatial_numel = base_info->spatial_numel;
@@ -304,7 +325,7 @@ bool ReduceRegionCanVectorize(
   if ((warp_nums > 1 || spatial_numel < warp_nums * 64) &&
       CheckThreadDimensionCanVectorize(rd_thread_num, reduce_numel, factor) &&
       CheckSmUtilization(
-          base_info, target, spatial_numel * factor, rd_thread_num)) {
+          base_info, sm_config, spatial_numel * factor, rd_thread_num)) {
     return true;
   }
   return false;
@@ -312,7 +333,7 @@ bool ReduceRegionCanVectorize(
 
 bool SpatialRegionCanVectorize(
     const std::shared_ptr<ScheduleConfig::BaseInfo>& base_info,
-    const common::Target& target,
+    const SMConfig& sm_config,
     const int warp_nums,
     const int factor) {
   const int64_t spatial_numel = base_info->spatial_numel;
@@ -320,7 +341,7 @@ bool SpatialRegionCanVectorize(
   const int sp_thread_num = kWarpSize * warp_nums;
   if (base_info->has_select_op) return false;
   if (CheckThreadDimensionCanVectorize(sp_thread_num, spatial_numel, factor) &&
-      CheckSmUtilization(base_info, target, spatial_numel, sp_thread_num)) {
+      CheckSmUtilization(base_info, sm_config, spatial_numel, sp_thread_num)) {
     return true;
   }
   return false;
@@ -399,6 +420,9 @@ TileConfigMap BuildVectorizeConfig(
   bool can_vectorize = false;
   bool is_sm_fully_utilized = true;
   ReduceMethod reduce_method = NoneReduceMethod();
+  SMConfig sm_config(target.get_max_threads_per_sm(),
+                     target.get_max_blocks_per_sm(),
+                     target.get_multi_processor_count());
 
   // Reduce Region
   if (last_dim == "R") {
@@ -409,7 +433,7 @@ TileConfigMap BuildVectorizeConfig(
       warp_nums = Trim(warp_nums, 1, 32);
       rd_thread_num = warp_nums * kWarpSize;
       if (ReduceRegionCanVectorize(
-              base_info, target, warp_nums, vectorize_factor)) {
+              base_info, sm_config, warp_nums, vectorize_factor)) {
         can_vectorize = true;
         reduce_method = BlockReduceMethod();
         break;
@@ -421,11 +445,11 @@ TileConfigMap BuildVectorizeConfig(
       const int elements_in_warp = kWarpSize * vectorize_factor;
       warp_nums = CeilDiv(spatial_numel, elements_in_warp);
       int max_warp_nums =
-          CalculateWarpNums(target, spatial_numel / vectorize_factor);
+          CalculateWarpNums(sm_config, spatial_numel / vectorize_factor);
       warp_nums = Trim(warp_nums, 1, max_warp_nums);
       sp_thread_num = kWarpSize * warp_nums;
       if (SpatialRegionCanVectorize(
-              base_info, target, warp_nums, vectorize_factor)) {
+              base_info, sm_config, warp_nums, vectorize_factor)) {
         can_vectorize = true;
         break;
       }

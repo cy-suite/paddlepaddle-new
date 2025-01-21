@@ -61,6 +61,17 @@ struct ScheduleConfig {
   TileConfig tile_config;
 };
 
+struct SMConfig {
+  const int max_threads_per_sm;
+  const int max_blocks_per_sm;
+  const int sm_count;
+
+  SMConfig(int max_threads, int max_blocks, int sm_count)
+      : max_threads_per_sm(max_threads),
+        max_blocks_per_sm(max_blocks),
+        sm_count(sm_count) {}
+};
+
 struct BucketInfo {
   static constexpr int kMaxNumel = INT32_MAX;
 
