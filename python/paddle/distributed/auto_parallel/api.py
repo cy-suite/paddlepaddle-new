@@ -2072,6 +2072,8 @@ class Strategy(auto_strategy.BaseConfig):
         )
         self._sp_optimization = auto_strategy.SPOptimizationConfig(config_dict)
 
+        self._full_graph = self._config_dict.get("full_graph", True)
+
     def _from_legacy_strategy(self, legacy_strategy):
         """
         NOTE(lizhiyu): This is a template function to get `dist.Strategy` from `fleet.auto.Strategy`.
@@ -2105,6 +2107,13 @@ class Strategy(auto_strategy.BaseConfig):
         self._mp_optimization = copy.deepcopy(legacy_strategy.mp_optimization)
         self._dp_optimization = copy.deepcopy(legacy_strategy.dp_optimization)
         self._sp_optimization = copy.deepcopy(legacy_strategy.sp_optimization)
+
+    @property
+    def full_graph(self) -> bool:
+        """
+        Whether to use AST mode.
+        """
+        return self._full_graph
 
     @property
     def sharding(self) -> auto_strategy.ShardingConfig:
@@ -2305,7 +2314,6 @@ class DistModel:
         metrics: list[Metric] | None = None,
         input_spec: list[list[DistributedInputSpec]] | None = None,
     ) -> None:
-        self._feed_name_list = []
         self._inner_strategy = self.__convert_strategy(strategy)
         self._structured_to_parameter_name = {
             k: v.name for k, v in layer.state_dict().items()
@@ -3113,11 +3121,14 @@ def to_static(
                 raise NotImplementedError(
                     "Only sharding stage 1, 2 and 3 can to_static for now. User-defined shard_fn will be supported later."
                 )
-
-    dist_model = DistModel(
-        layer, loader, loss, optimizer, strategy, input_spec=input_spec
-    )
-    return dist_model
+    if strategy.full_graph:
+        dist_model = DistModel(
+            layer, loader, loss, optimizer, strategy, input_spec=input_spec
+        )
+        return dist_model
+    else:
+        layer = paddle.jit.to_static(layer, full_graph=False)
+        return layer
 
 
 def unshard_dtensor(dist_tensor: Tensor) -> Tensor:
