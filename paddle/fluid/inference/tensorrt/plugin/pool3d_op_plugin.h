@@ -207,7 +207,7 @@ class Pool3DPluginDynamic : public DynamicPluginTensorRT {
   nvinfer1::DimsExprs getOutputDimensions(int output_index,
                                           const nvinfer1::DimsExprs* inputs,
                                           int nb_inputs,
-                                          nvinfer1::IExprBuilder& expr_builder)
+                                          nvinfer1::IExprBuilder &expr_builder)
       TRT_NOEXCEPT override;
 
   bool supportsFormatCombination(int pos,
@@ -294,7 +294,7 @@ class PIRPool3DPluginDynamic : public DynamicPluginTensorRT {
   nvinfer1::DimsExprs getOutputDimensions(int output_index,
                                           const nvinfer1::DimsExprs* inputs,
                                           int nb_inputs,
-                                          nvinfer1::IExprBuilder& expr_builder)
+                                          nvinfer1::IExprBuilder &expr_builder)
       TRT_NOEXCEPT override;
 
   bool supportsFormatCombination(int pos,
