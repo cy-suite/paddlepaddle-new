@@ -19,7 +19,6 @@
 from __future__ import annotations
 
 import inspect
-import opcode
 import random
 import sys
 import types
@@ -49,6 +48,8 @@ from ..instruction_utils import (
     modify_vars,
 )
 from ..instruction_utils.opcode_info import (
+    ALL_JUMP,
+    RETURN,
     UNCONDITIONAL_JUMP,
     JumpDirection,
     PopJumpCond,
@@ -393,12 +394,12 @@ def stacksize(instructions: list[Instruction]) -> float:
         opname = instr.opname
         if (
             idx + 1 < len(instructions)
-            and instr.opname not in UNCONDITIONAL_JUMP
+            and opname not in UNCONDITIONAL_JUMP | RETURN
         ):
             stack_effect = calc_stack_effect(instr, jump=False)
             update_stacksize(idx, idx + 1, stack_effect)
 
-        if instr.opcode in opcode.hasjabs or instr.opcode in opcode.hasjrel:
+        if opname in ALL_JUMP:
             stack_effect = calc_stack_effect(instr, jump=True)
             target_idx = instructions.index(instr.jump_to)
             update_stacksize(idx, target_idx, stack_effect)
