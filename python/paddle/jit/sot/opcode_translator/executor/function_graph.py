@@ -52,7 +52,7 @@ from ...utils import (
     map_if,
     switch_symbol_registry,
 )
-from ...utils.exceptions import BreakGraphError
+from ...utils.exceptions import BreakGraphError, SotExtraInfo
 from ..instruction_utils import get_instructions
 from .guard import Guard, StringifiedExpression, make_guard
 from .mutable_data import MutationDel, MutationNew, MutationSet
@@ -369,8 +369,9 @@ class FunctionGraph:
         # here is not update changed values, it just give names to stack vars
         # and want keep same interface as _build_compile_fn_with_name_store
         for var in stack_vars[::-1]:
-            if not store_var_info[var.id]:
+            if not store_var_info.get(var.id, []):
                 name = name_gen.next()
+                store_var_info.setdefault(var.id, [])
                 store_var_info[var.id].append(name)
                 self.pycode_gen.gen_store_fast(name)
             else:
@@ -398,8 +399,9 @@ class FunctionGraph:
         name_gen = NameGenerator("___graph_fn_saved_")
 
         for var in to_store_vars[::-1]:
-            if not store_var_info[var.id]:
+            if not store_var_info.get(var.id, []):
                 name = name_gen.next()
+                store_var_info.setdefault(var.id, [])
                 store_var_info[var.id].append(name)
                 self.pycode_gen.gen_store_fast(name)
             else:
@@ -704,6 +706,13 @@ class FunctionGraph:
                 metas = convert_to_meta(args)
                 kwmetas = convert_to_meta(kwargs)
                 return args, kwargs, infer_meta_fn(func, *metas, **kwmetas)
+
+            except Exception as e:
+                if SotExtraInfo.from_exception(e).need_breakgraph:
+                    raise BreakGraphError(
+                        f"API {func} encountered a need break graph error {e}"
+                    )
+                raise e
 
         if ENV_SOT_ALLOW_DYNAMIC_SHAPE.get():
             args, kwargs, out_metas = try_infer_meta_fn(args, kwargs)
