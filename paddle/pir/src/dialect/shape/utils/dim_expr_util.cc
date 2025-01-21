@@ -692,86 +692,23 @@ struct FoldOperandTrait<Min> {
     return false;
   }
 };
-using ConstRational = std::pair<std::int64_t, std::int64_t>;
-
-template <typename T>
-std::optional<ConstRational> GetConstRationalImpl(const T& expr) {
-  PADDLE_THROW(common::errors::Fatal("not supported."));
-  return std::nullopt;
-}
-
-std::optional<ConstRational> GetConstRationalImpl(std::int64_t value) {
-  return ConstRational{value, 1};
-}
-
-std::optional<ConstRational> GetConstRationalImpl(const Div<DimExpr>& value) {
-  const auto& lhs = value->lhs;
-  const auto& rhs = value->rhs;
-  return ConstRational{lhs.Get<std::int64_t>(), rhs.Get<std::int64_t>()};
-}
-
-ConstRational GetConstRational(const DimExpr& expr) {
-  return std::visit(
-      [&](const auto& impl) {
-        std::optional<ConstRational> opt_ret = GetConstRationalImpl(impl);
-        PADDLE_ENFORCE_EQ(
-            opt_ret.has_value(),
-            true,
-            common::errors::InvalidArgument("Input is empty, please check"));
-        return opt_ret.value();
-      },
-      expr.variant());
-}
-
-int64_t ComputeConstRational(const ConstRational& value) {
-  const auto [num, dem] = value;
-  return num / dem;
-}
-
-ConstRational SimplifiedConstRational(int64_t num, int64_t dem) {
-  std::int64_t gcd = std::gcd(num, dem);
-  return ConstRational{num / gcd, dem / gcd};
-}
-
-ConstRational MulConstRational(const ConstRational& lhs,
-                               const ConstRational& rhs) {
-  const auto [lhs_num, lhs_dem] = lhs;
-  const auto [rhs_num, rhs_dem] = rhs;
-  // Crossing is correct.
-  const auto [simplified_lhs_num, simplified_rhs_dem] =
-      SimplifiedConstRational(lhs_num, rhs_dem);
-  const auto [simplified_rhs_num, simplified_lhs_dem] =
-      SimplifiedConstRational(rhs_num, lhs_dem);
-  return ConstRational{simplified_lhs_num * simplified_rhs_num,
-                       simplified_lhs_dem * simplified_rhs_dem};
-}
 
 template <>
 struct FoldOperandTrait<Mul> {
-  using const_value_type = ConstRational;
+  using const_value_type = int64_t;
 
   static bool IsConstPattern(const DimExpr& dim_expr) {
     if (dim_expr.Has<std::int64_t>()) {
       return true;
     }
-    // if (dim_expr.Has<Div<DimExpr>>()) {
-    //   // 这种情况在简化操作数的时候就应该得到。
-    //   // Div(1,2)是否会出现
-    //   const auto& lhs = dim_expr.Get<Div<DimExpr>>()->lhs;
-    //   const auto& rhs = dim_expr.Get<Div<DimExpr>>()->rhs;
-    //   return lhs.Has<std::int64_t>() && rhs.Has<std::int64_t>();
-    // }
     return false;
   }
 
-  static const_value_type MakeUnit() { return ConstRational{1, 1}; }
+  static const_value_type MakeUnit() { return 1; }
   static void Accumulate(const_value_type* value, const DimExpr& expr) {
-    *value = MulConstRational(
-        *value, GetConstRational(ComputeConstRational(GetConstRational(expr))));
+    *value = *value * GetInteger(expr);
   }
-  static bool IsUnit(const const_value_type& value) {
-    return value.first == 1 && value.second == 1;
-  }
+  static bool IsUnit(const const_value_type& value) { return value == 1; }
   static bool IsUnitDimExpr(const DimExpr& dim_expr) {
     if (!dim_expr.Has<std::int64_t>()) {
       return false;
@@ -781,85 +718,34 @@ struct FoldOperandTrait<Mul> {
 
   static void MakeAndAppendDimExpr(const const_value_type& value,
                                    List<DimExpr>* ret) {
-    const auto& [num, dem] = value;
-    (*ret)->emplace_back(num);
-    PADDLE_ENFORCE_NE(dem,
-                      0,
-                      common::errors::InvalidArgument(
-                          "The denominator of rational can not be zero."));
+    (*ret)->emplace_back(value);
   }
   static bool IsInversedPair(const DimExpr& lhs, const DimExpr& rhs) {
-    // if (lhs.Has<Div<DimExpr>>()) {
-    //   auto div_expr = lhs.Get<Div<DimExpr>>();
-    //   if (!div_expr->lhs.Has<std::int64_t>()) {
-    //     return false;
-    //   }
-    //   const auto& [lhs_num, lhs_dem] = GetConstRational(div_expr->lhs);
-    //   if (lhs_dem != 1) {
-    //     return false;
-    //   }
-    //   if (div_expr->rhs == rhs) {
-    //     return true;
-    //   }
-    // }
-    // if (rhs.Has<Div<DimExpr>>()) {
-    //   auto div_expr = rhs.Get<Div<DimExpr>>();
-    //   if (!div_expr->lhs.Has<std::int64_t>()) {
-    //     return false;
-    //   }
-    //   const auto& [rhs_num, rhs_dem] = GetConstRational(div_expr->lhs);
-    //   if (rhs_dem != 1) {
-    //     return false;
-    //   }
-    //   if (div_expr->rhs == lhs) {
-    //     return true;
-    //   }
-    // }
+    // Note(ooooo) : The assumption, though not mathematically rigorous, aids in
+    // simplifying processes. Mul(Div(1, S0), S0) -> 1 , Mul(S0, Div(1, S0) -> 1
+    if (lhs.Has<Div<DimExpr>>()) {
+      auto div_expr = lhs.Get<Div<DimExpr>>();
+      if (!(div_expr->lhs.Has<std::int64_t>() &&
+            div_expr->lhs.Get<std::int64_t>() == 1)) {
+        return false;
+      }
+      if (div_expr->rhs == rhs) {
+        return true;
+      }
+    }
+    if (rhs.Has<Div<DimExpr>>()) {
+      auto div_expr = rhs.Get<Div<DimExpr>>();
+      if (!(div_expr->rhs.Has<std::int64_t>() &&
+            div_expr->rhs.Get<std::int64_t>() == 1)) {
+        return false;
+      }
+      if (div_expr->lhs == lhs) {
+        return true;
+      }
+    }
     return false;
   }
 };
-
-// template <>
-// struct FoldOperandTrait<Div> {
-//   using const_value_type = ConstRational;
-
-//   static bool IsConstPattern(const DimExpr& dim_expr) {
-//     if (dim_expr.Has<std::int64_t>()) {
-//       return true;
-//     }
-//     return false;
-//   }
-
-//   static const_value_type MakeUnit() { return ConstRational{1, 1}; }
-//   static void Accumulate(const_value_type* value, const DimExpr& expr) {
-//     *value = MulConstRational(
-//         *value, GetConstRational(expr));  // The expr are in the denominator.
-//   }
-//   static bool IsUnit(const const_value_type& value) {
-//     return value.first == 1 && value.second == 1;
-//   }
-//   static bool IsUnitDimExpr(const DimExpr& dim_expr) {
-//     if (!dim_expr.Has<std::int64_t>()) {
-//       return false;
-//     }
-//     return dim_expr.Get<std::int64_t>() == 1;
-//   }
-//   static bool IsZeroDimExpr(const DimExpr& dim_expr) {
-//     if (!dim_expr.Has<std::int64_t>()) {
-//       return false;
-//     }
-//     return dim_expr.Get<std::int64_t>() == 0;
-//   }
-//   static void MakeAndAppendDimExpr(const const_value_type& value,
-//                                    List<DimExpr>* ret) {
-//     const auto& [num, dem] = value;
-//     (*ret)->emplace_back(num);
-//     PADDLE_ENFORCE_NE(dem,
-//                       0,
-//                       common::errors::InvalidArgument(
-//                           "The denominator of rational can not be zero."));
-//   }
-// };
 
 template <>
 struct FoldOperandTrait<Broadcast> {
@@ -909,19 +795,6 @@ struct FoldOperandTrait<Broadcast> {
     return false;
   }
 };
-template <>
-struct FoldConstants<Div> {
-  using dim_expr_type = Div<DimExpr>;
-  DimExpr Rewrite(const DimExpr& expr) {
-    const auto div_expr = expr.Get<Div<DimExpr>>();
-    auto lhs = div_expr->lhs;
-    auto rhs = div_expr->rhs;
-    if (lhs.Has<std::int64_t>() && rhs.Has<std::int64_t>()) {
-      return DimExpr(lhs.Get<std::int64_t>() / rhs.Get<std::int64_t>());
-    }
-    return expr;
-  }
-};
 
 /*
  * Simplify Example:
@@ -954,7 +827,6 @@ struct FoldUnitConstant<Div> {
       return div_expr->lhs;
     }
     return expr;
-    // PADDLE_THROW(common::errors::Fatal("Dead code."));
   }
 };
 
@@ -1205,14 +1077,20 @@ struct SimplifyBroadcast {
  */
 struct SimplifyDiv {
   using dim_expr_type = Div<DimExpr>;
-  ConstRational SimplifiedConstRational(int64_t num, int64_t dem) {
+  std::pair<int64_t, int64_t> SimplifiedConstRational(int64_t num,
+                                                      int64_t dem) {
     std::int64_t gcd = std::gcd(num, dem);
-    return ConstRational{num / gcd, dem / gcd};
+    return std::pair{num / gcd, dem / gcd};
   }
   DimExpr Rewrite(const DimExpr& expr) {
     const auto div_expr = expr.Get<Div<DimExpr>>();
     const auto lhs = div_expr->lhs;
     const auto rhs = div_expr->rhs;
+    if (lhs.Has<std::int64_t>() && rhs.Has<std::int64_t>()) {
+      auto [num, dem] = SimplifiedConstRational(lhs.Get<std::int64_t>(),
+                                                rhs.Get<std::int64_t>());
+      return DimExpr{num / dem};
+    }
 
     List<DimExpr> lhs_operands = lhs.Has<Mul<DimExpr>>()
                                      ? lhs.Get<Mul<DimExpr>>().operands
@@ -1249,30 +1127,37 @@ struct SimplifyDiv {
     List<DimExpr> last_lhs_operands{};
     List<DimExpr> last_rhs_operands{};
     if (!LhsIntSym.empty() && !RhsIntSym.empty()) {
+      PADDLE_ENFORCE_EQ(
+          LhsIntSym.size() == RhsIntSym.size() && LhsIntSym.size() == 1,
+          true,
+          common::errors::InvalidArgument(
+              "Int should be fold by FoldUnitConstant<Mul>"));
       int64_t old_lhs = LhsIntSym.at(0).Get<std::int64_t>();
       int64_t old_rhs = RhsIntSym.at(0).Get<std::int64_t>();
-      auto [new_lhs, new_rhs] =
-          SimplifiedConstRational(LhsIntSym.at(0).Get<std::int64_t>(),
-                                  RhsIntSym.at(0).Get<std::int64_t>());
-      // new_lhs_operands 中删掉 old 使用 new 替代
+      auto [new_lhs, new_rhs] = SimplifiedConstRational(old_lhs, old_rhs);
       for (const auto& lhs_operand : *new_lhs_operands) {
         if (lhs_operand.Has<std::int64_t>() &&
-            lhs_operand.Get<std::int64_t>() == old_lhs &&
-            lhs_operand.Get<std::int64_t>() != 1) {
-          last_lhs_operands->emplace_back(new_lhs);
+            lhs_operand.Get<std::int64_t>() == old_lhs) {
+          if (lhs_operand.Get<std::int64_t>() != 1) {
+            last_lhs_operands->emplace_back(new_lhs);
+          }
         } else {
           last_lhs_operands->emplace_back(lhs_operand);
         }
       }
       for (const auto& rhs_operand : *new_rhs_operands) {
         if (rhs_operand.Has<std::int64_t>() &&
-            rhs_operand.Get<std::int64_t>() == old_rhs &&
-            rhs_operand.Get<std::int64_t>() != 1) {
-          last_rhs_operands->emplace_back(new_rhs);
+            rhs_operand.Get<std::int64_t>() == old_rhs) {
+          if (rhs_operand.Get<std::int64_t>() != 1) {
+            last_rhs_operands->emplace_back(new_rhs);
+          }
         } else {
           last_rhs_operands->emplace_back(rhs_operand);
         }
       }
+    } else {
+      last_lhs_operands = new_lhs_operands;
+      last_rhs_operands = new_rhs_operands;
     }
 
     if (last_lhs_operands->empty() && last_rhs_operands->empty()) {
@@ -1305,6 +1190,7 @@ void DoPass(bool* rewrited, DimExpr* expr) {
   const auto old_expr = *expr;
   *expr = TrySimplifyPass<PassT>(*expr);
   *rewrited = *rewrited || (old_expr != *expr);
+  VLOG(0) << old_expr << "after " << typeid(PassT).name() << " " << *expr;
 }
 
 DimExpr Simplify(const DimExpr& expr) {
@@ -1331,6 +1217,7 @@ DimExpr Simplify(const DimExpr& expr) {
     DoPass<FoldUnitConstant<Broadcast>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Add>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Mul>>(&keep_rewrite, &ret);
+    DoPass<SimplifyDiv>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Max>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Min>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Broadcast>>(&keep_rewrite, &ret);
@@ -1338,7 +1225,6 @@ DimExpr Simplify(const DimExpr& expr) {
     // DoPass<FoldInversedPairToUnit<Mul>>(&keep_rewrite, &ret);
     DoPass<FoldRedundantBroadcast>(&keep_rewrite, &ret);
     DoPass<FoldRedundantSymbolicBroadcast>(&keep_rewrite, &ret);
-    DoPass<SimplifyDiv>(&keep_rewrite, &ret);
     DoPass<SimplifyBroadcast>(&keep_rewrite, &ret);
     if (expr_before_run_pipeline == ret) break;
   }
