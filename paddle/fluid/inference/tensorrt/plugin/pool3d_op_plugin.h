@@ -204,11 +204,11 @@ class Pool3DPluginDynamic : public DynamicPluginTensorRT {
   size_t getSerializationSize() const TRT_NOEXCEPT override;
   void serialize(void* buffer) const TRT_NOEXCEPT override;
 
-  nvinfer1::DimsExprs getOutputDimensions(
-      int output_index,
-      const nvinfer1::DimsExprs* inputs,
-      int nb_inputs,
-      nvinfer1::IExprBuilder& exprBuilder) TRT_NOEXCEPT override;
+  nvinfer1::DimsExprs getOutputDimensions(int output_index,
+                                          const nvinfer1::DimsExprs* inputs,
+                                          int nb_inputs,
+                                          nvinfer1::IExprBuilder& exprBuilder)
+      TRT_NOEXCEPT override;
 
   bool supportsFormatCombination(int pos,
                                  const nvinfer1::PluginTensorDesc* inOut,
@@ -291,11 +291,11 @@ class PIRPool3DPluginDynamic : public DynamicPluginTensorRT {
   size_t getSerializationSize() const TRT_NOEXCEPT override;
   void serialize(void* buffer) const TRT_NOEXCEPT override;
 
-  nvinfer1::DimsExprs getOutputDimensions(
-      int output_index,
-      const nvinfer1::DimsExprs* inputs,
-      int nb_inputs,
-      nvinfer1::IExprBuilder& exprBuilder) TRT_NOEXCEPT override;
+  nvinfer1::DimsExprs getOutputDimensions(int output_index,
+                                          const nvinfer1::DimsExprs* inputs,
+                                          int nb_inputs,
+                                          nvinfer1::IExprBuilder& exprBuilder)
+      TRT_NOEXCEPT override;
 
   bool supportsFormatCombination(int pos,
                                  const nvinfer1::PluginTensorDesc* inOut,
