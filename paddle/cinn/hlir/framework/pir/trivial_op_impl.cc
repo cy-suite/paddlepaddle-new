@@ -564,7 +564,7 @@ bool ScheduleBlockRealizesShouldVectorizeCheck(
 
 void CollectScheduleBlockRealizeLoadTensorsAndIndex(
     ir::Expr block,
-    std::unordered_map<std::string, std::vector<std::vector<Expr>>>
+    std::unordered_map<std::string, std::vector<std::vector<Expr>>>&
         load_tensor_and_indexs) {
   ir::ir_utils::CollectIRNodesWithoutTensor(
       block,
@@ -787,6 +787,7 @@ VectorizeInfo GetCanApplyVectorize(
   for (const auto& body : op_compute_bodies) {
     std::vector<ir::Expr> blocks =
         GetOpComputeBodyScheduleBlockRealizeExprSet(body);
+
     if (!ScheduleBlockRealizesShouldVectorizeCheck(blocks)) continue;
     ir::Expr expr_schedule_block_realize = blocks[0];
     const std::vector<ir::Var> for_iters =
