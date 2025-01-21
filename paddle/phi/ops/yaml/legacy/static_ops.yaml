@@ -11,7 +11,7 @@
   args : (Tensor x, IntArray axis={0}, bool keepdim=false, bool reduce_all=false, int in_dtype=-1, int out_dtype=-1)
   output : Tensor(out)
   infer_meta :
-    func : ReduceInferMeta
+    func : ReduceIntArrayAxisInferMeta
     param : [x, axis, keepdim]
   kernel :
     func : amax_raw
@@ -22,7 +22,7 @@
   args : (Tensor x, IntArray axis={0}, bool keepdim=false, bool reduce_all=false, int in_dtype=-1, int out_dtype=-1)
   output : Tensor(out)
   infer_meta :
-    func : ReduceInferMeta
+    func : ReduceIntArrayAxisInferMeta
     param : [x, axis, keepdim]
   kernel :
     func : amin_raw
