@@ -258,7 +258,6 @@ class AutoScanTest(unittest.TestCase):
         config = paddle_infer.Config()
         config.switch_ir_debug(True)
         config.set_optim_cache_dir(self.cache_dir)
-        # config.disable_glog_info()
         if ir_optim is not None:
             config.switch_ir_optim(ir_optim)
         if use_gpu:
@@ -638,7 +637,6 @@ class PassAutoScanTest(AutoScanTest):
 
     def create_trt_inference_config(self) -> paddle_infer.Config:
         config = paddle_infer.Config()
-        # config.disable_glog_info()
         config.enable_use_gpu(100, 0)
         config.set_optim_cache_dir(self.cache_dir)
         config.switch_ir_debug()
@@ -751,25 +749,15 @@ class TrtLayerAutoScanTest(AutoScanTest):
                     arr, baseline[key], rtol=rtol, atol=atol
                 )
         elif isinstance(tensor, list) and isinstance(baseline, list):
-            for i, (value_t, value_b) in enumerate(zip(tensor, baseline)):
-                try:
-                    assert value_t.shape == value_b.shape, (
-                        f"The output shapes are not equal, the baseline shape is {value_b.shape}, "
-                        f"but got {value_t.shape}"
-                    )
-                except AssertionError as e:
-                    print(f"Input tensor at index {i}: {tensor}")
-                    print(f"Input baseline at index {i}: {baseline}")
-                    raise
-
-                try:
-                    np.testing.assert_allclose(
-                        value_t, value_b, rtol=rtol, atol=atol
-                    )
-                except AssertionError as e:
-                    print(f"Input tensor at index {i}: {tensor}")
-                    print(f"Input baseline at index {i}: {baseline}")
-                    raise
+            for value_t, value_b in zip(tensor, baseline):
+                self.assertEqual(
+                    value_t.shape,
+                    value_b.shape,
+                    f"The output shapes are not equal, the baseline shape is {value_b.shape}, but got {value_t.shape}",
+                )
+                np.testing.assert_allclose(
+                    value_t, value_b, rtol=rtol, atol=atol
+                )
         else:
             raise ValueError("Input types are not supported")
 
