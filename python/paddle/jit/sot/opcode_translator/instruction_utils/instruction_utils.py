@@ -99,6 +99,8 @@ def convert_instruction(instr: dis.Instruction) -> Instruction:
 
 
 def expand_super_instrs(instructions: list[Instruction]) -> list[Instruction]:
+    from ..executor.opcode_executor import CALL_METHOD_LAYOUT_NULL_AFTER_VALUE
+
     expanded_instrs = []
 
     def replace_jump_target(instrs, old_target, new_target):
@@ -124,6 +126,8 @@ def expand_super_instrs(instructions: list[Instruction]) -> list[Instruction]:
         "STORE_FAST_STORE_FAST": ("STORE_FAST", "STORE_FAST"),
         "STORE_FAST_LOAD_FAST": ("STORE_FAST", "LOAD_FAST"),
     }
+    # xym debug
+    # breakpoint()
 
     for instr in instructions:
         if instr.opname in FUSED_INSTS:
@@ -146,6 +150,28 @@ def expand_super_instrs(instructions: list[Instruction]) -> list[Instruction]:
             replace_jump_target(instructions, instr, instr1)
             expanded_instrs.append(instr1)
             expanded_instrs.append(instr2)
+        elif (
+            sys.version_info >= (3, 12)
+            and instr.opname == "LOAD_ATTR"
+            and instr.arg & 1
+        ):
+            # xym debug
+            # breakpoint()
+            instr1 = copy_instruction(
+                instr,
+                "LOAD_ATTR",
+                instr.argval,
+                instr.arg & ~1,
+                instr.is_jump_target,
+                True,
+            )
+            instr2 = Instruction(34, "PUSH_NULL", None, None, is_generated=True)
+            replace_jump_target(instructions, instr, instr1)
+            if not CALL_METHOD_LAYOUT_NULL_AFTER_VALUE:
+                expanded_instrs.append(instr2)
+            expanded_instrs.append(instr1)
+            if CALL_METHOD_LAYOUT_NULL_AFTER_VALUE:
+                expanded_instrs.append(instr2)
         else:
             expanded_instrs.append(instr)
     return expanded_instrs

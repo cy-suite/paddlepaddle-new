@@ -271,7 +271,7 @@ class PrintStmtVariable(VariableBase):
         codegen.gen_call_function(len(self.args))
         codegen.gen_pop_top()
 
-    def flatten_items(self):
+    def flatten_inner_vars(self):
         return self.args
 
 

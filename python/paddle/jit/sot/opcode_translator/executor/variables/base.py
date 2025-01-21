@@ -422,21 +422,14 @@ class VariableBase:
             f'{self.__class__.__name__} does not implement "_reconstruct" method'
         )
 
-    def flatten_items(self) -> list[VariableBase]:
+    def flatten_inner_vars(self) -> list[VariableBase]:
         """
         Recursively flatten the items in this container variable to a list of Variable objects.
 
         Returns:
             list[VariableBase]: Flattened items of a container variable.
         """
-        from .container import ContainerVariable
-
-        if not isinstance(self, ContainerVariable):
-            return [self]
-        flattened_items = []
-        for item in self.get_items():
-            flattened_items.extend(item.flatten_items())
-        return flattened_items
+        return [self]
 
     def get_inputs(self) -> list[VariableBase]:
         """

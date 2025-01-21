@@ -26,6 +26,9 @@ from typing import (
 )
 
 import paddle
+from paddle.jit.sot.opcode_translator.executor.variables.base import (
+    VariableBase,
+)
 
 from .... import psdb
 from ....profiler import EventGuard
@@ -66,7 +69,7 @@ from ..tracker import (
     GetIterTracker,
     Tracker,
 )
-from .base import VariableBase, VariableFactory
+from .base import VariableFactory
 from .basic import (
     ConstantVariable,
     ObjectVariable,
@@ -385,12 +388,22 @@ class MethodVariable(CallableVariable):
         )
 
     def _reconstruct(self, pycode_gen):
-        assert self.method_name is not None
-        self.tensor.reconstruct(pycode_gen)
-        pycode_gen.gen_load_attr(self.method_name)
+        self.fn.reconstruct(pycode_gen)
+        pycode_gen.gen_load_method("__get__")
+        self.bound_instance.reconstruct(pycode_gen)
+        pycode_gen.gen_call_function(1)
 
     def call_function(self, /, *args, **kwargs):
         return self.fn(*(self.bound_instance, *args), **kwargs)
+
+    def flatten_inner_vars(self) -> list[VariableBase]:
+        """
+        Recursively flatten the items in this container variable to a list of Variable objects.
+
+        Returns:
+            list[VariableBase]: Flattened items of a container variable.
+        """
+        return self.bound_instance.flatten_inner_vars()
 
     @staticmethod
     def wrap_method(
