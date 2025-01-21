@@ -3708,16 +3708,15 @@ void ReduceSumInferMeta(const MetaTensor& x,
 }
 
 void ReduceInferMeta(const MetaTensor& x,
-                     const IntArray& axis,
+                     const std::vector<int64_t>& axis,
                      bool keep_dim,
                      MetaTensor* out) {
-  auto axis_data = axis.GetData();
   bool reduce_all = false;
-  if (axis_data.empty()) {
+  if (axis.empty()) {
     reduce_all = true;
   }
 
-  ReduceInferMetaBase(x, axis_data, keep_dim, reduce_all, out);
+  ReduceInferMetaBase(x, axis, keep_dim, reduce_all, out);
 }
 
 DDim ReduceInferDimForIntArrayAxis(const MetaTensor& x,
