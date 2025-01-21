@@ -126,8 +126,6 @@ def expand_super_instrs(instructions: list[Instruction]) -> list[Instruction]:
         "STORE_FAST_STORE_FAST": ("STORE_FAST", "STORE_FAST"),
         "STORE_FAST_LOAD_FAST": ("STORE_FAST", "LOAD_FAST"),
     }
-    # xym debug
-    # breakpoint()
 
     for instr in instructions:
         if instr.opname in FUSED_INSTS:
@@ -150,13 +148,12 @@ def expand_super_instrs(instructions: list[Instruction]) -> list[Instruction]:
             replace_jump_target(instructions, instr, instr1)
             expanded_instrs.append(instr1)
             expanded_instrs.append(instr2)
+        # If the LOAD_ATTR opcode will lead to load_method in 3.12+, we manually split it into two instructions
         elif (
             sys.version_info >= (3, 12)
             and instr.opname == "LOAD_ATTR"
             and instr.arg & 1
         ):
-            # xym debug
-            # breakpoint()
             instr1 = copy_instruction(
                 instr,
                 "LOAD_ATTR",

@@ -2480,7 +2480,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         extra_store_vars = (
             [
                 item
-                for item in iterator.flatten_items()
+                for item in iterator.flatten_inner_vars()
                 if isinstance(item, (TensorVariable, SymbolicVariable))
             ]
             if isinstance(iterator, IterVariable)

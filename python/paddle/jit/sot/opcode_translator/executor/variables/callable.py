@@ -388,6 +388,7 @@ class MethodVariable(CallableVariable):
         )
 
     def _reconstruct(self, pycode_gen):
+        # We bind the method to the instance before calling the method
         self.fn.reconstruct(pycode_gen)
         pycode_gen.gen_load_method("__get__")
         self.bound_instance.reconstruct(pycode_gen)
@@ -403,6 +404,7 @@ class MethodVariable(CallableVariable):
         Returns:
             list[VariableBase]: Flattened items of a container variable.
         """
+        # The method's inner_vars is from its bound_instance
         return self.bound_instance.flatten_inner_vars()
 
     @staticmethod

@@ -416,8 +416,6 @@ class FunctionGraph:
         return VariableLoader(store_var_info, self.pycode_gen)
 
     def compile_graph(self, *ret_vars: VariableBase) -> CompileGraphResult:
-        # xym debug
-        # breakpoint()
         ret_items = [
             ret_item
             for ret_var in ret_vars
@@ -481,8 +479,6 @@ class FunctionGraph:
             self.pycode_gen.gen_store_fast(tensor_var.out_var_name)
         # restore the outputs.
         for ret_var in ret_vars:
-            # xym debug
-            # breakpoint()
             ret_var.reconstruct(self.pycode_gen)
 
         # deal side effect
