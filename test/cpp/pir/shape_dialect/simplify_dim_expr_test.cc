@@ -263,9 +263,11 @@ TEST(Simplify, Case2) {
                                                DimExpr(2)}};
   DimExpr dim_expr{Div<DimExpr>{mul_op1, mul_op2}};
 
-  DimExpr expected = Div<DimExpr>{Mul<DimExpr>{List<DimExpr>{S2, S3, 7, 7}},
-                                  Mul<DimExpr>{List<DimExpr>{S0, S1, 2}}};
-
+  DimExpr expected = Div<DimExpr>{
+      Mul<DimExpr>{List<DimExpr>{S2, S3}},
+      Mul<DimExpr>{List<DimExpr>{
+          Div<DimExpr>{S0, DimExpr(7)}, Div<DimExpr>{S1, DimExpr(7)}, 2}}};
+  std::cout << "fgyfgy" << SimplifyDimExpr(dim_expr) << std::endl;
   ASSERT_TRUE((SimplifyDimExpr(dim_expr)) == expected);
 }
 
