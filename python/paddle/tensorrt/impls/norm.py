@@ -183,9 +183,11 @@ def fused_bias_dropout_residual_layer_norm_converter(
         trt.PluginField(
             "ele_bias",
             ele_bias_data,
+            (
                 trt.PluginFieldType.FLOAT16
                 if with_fp16
                 else trt.PluginFieldType.FLOAT32
+            ),
         ),
         trt.PluginField(
             "bias_size",
