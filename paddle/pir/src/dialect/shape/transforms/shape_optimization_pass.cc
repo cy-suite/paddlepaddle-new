@@ -266,8 +266,8 @@ void InferSymExprForOp(Operation* op,
     }
   } else {
     const bool is_grad_op = [&]() {
-      const auto& op_name = op->name();
       std::string suffix = "_grad";
+      const auto& op_name = op->name();
       if (op_name.size() < suffix.size()) return false;
       return op_name.compare(
                  op_name.size() - suffix.size(), suffix.size(), suffix) == 0;

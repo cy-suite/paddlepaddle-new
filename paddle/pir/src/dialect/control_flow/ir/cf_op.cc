@@ -19,6 +19,7 @@
 #include "paddle/pir/include/core/ir_printer.h"
 #include "paddle/pir/include/dialect/control_flow/ir/cf_op.h"
 #include "paddle/pir/include/dialect/control_flow/ir/cf_type.h"
+
 namespace pir {
 
 void YieldOp::Build(Builder &builder,
