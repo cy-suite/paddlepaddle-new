@@ -639,9 +639,11 @@ struct GPUContext::Impl {
     });
     if (blas_tf32_tensor_core_handle_ && phi::AllowTF32Cublas()) {
       std::lock_guard<std::mutex> guard(blas_tf32_mtx_);
+      phi::dynload::cublasSetStream(blas_tf32_tensor_core_handle_, stream());
       callback(blas_tf32_tensor_core_handle_);
     } else {
       std::lock_guard<std::mutex> guard(blas_mtx_);
+      phi::dynload::cublasSetStream(blas_handle_, stream());
       callback(blas_handle_);
     }
   }
@@ -684,9 +686,11 @@ struct GPUContext::Impl {
     });
     if (blas_tensor_core_handle_ != nullptr) {
       std::lock_guard<std::mutex> guard(blas_tensor_core_mtx_);
+      phi::dynload::cublasSetStream(blas_tensor_core_handle_, stream());
       callback(blas_tensor_core_handle_);
     } else {
       std::lock_guard<std::mutex> guard(blas_mtx_);
+      phi::dynload::cublasSetStream(blas_handle_, stream());
       callback(blas_handle_);
     }
   }
