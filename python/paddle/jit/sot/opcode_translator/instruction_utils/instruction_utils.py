@@ -99,7 +99,6 @@ def convert_instruction(instr: dis.Instruction) -> Instruction:
 
 
 def expand_super_instrs(instructions: list[Instruction]) -> list[Instruction]:
-    from ..executor.opcode_executor import CALL_METHOD_LAYOUT_NULL_AFTER_VALUE
 
     expanded_instrs = []
 
@@ -148,9 +147,9 @@ def expand_super_instrs(instructions: list[Instruction]) -> list[Instruction]:
             replace_jump_target(instructions, instr, instr1)
             expanded_instrs.append(instr1)
             expanded_instrs.append(instr2)
-        # If the LOAD_ATTR opcode will lead to load_method in 3.12+, we manually split it into two instructions
+        # If the LOAD_ATTR opcode will lead to load_method in 3.13+, we manually split it into two instructions
         elif (
-            sys.version_info >= (3, 12)
+            sys.version_info >= (3, 13)
             and instr.opname == "LOAD_ATTR"
             and instr.arg & 1
         ):
@@ -164,11 +163,8 @@ def expand_super_instrs(instructions: list[Instruction]) -> list[Instruction]:
             )
             instr2 = Instruction(34, "PUSH_NULL", None, None, is_generated=True)
             replace_jump_target(instructions, instr, instr1)
-            if not CALL_METHOD_LAYOUT_NULL_AFTER_VALUE:
-                expanded_instrs.append(instr2)
             expanded_instrs.append(instr1)
-            if CALL_METHOD_LAYOUT_NULL_AFTER_VALUE:
-                expanded_instrs.append(instr2)
+            expanded_instrs.append(instr2)
         else:
             expanded_instrs.append(instr)
     return expanded_instrs
