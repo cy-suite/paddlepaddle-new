@@ -361,6 +361,7 @@ def stacksize(instructions: list[Instruction]) -> float:
         int: The maximum stack size.
     """
     max_stack = [float("-inf")] * len(instructions)
+    histories = [[] for _ in range(len(instructions))]
 
     max_stack[0] = 0
 
@@ -379,12 +380,12 @@ def stacksize(instructions: list[Instruction]) -> float:
         Returns:
             None
         """
-        old_max = max_stack[nexti]
-        max_stack[nexti] = max(
-            max_stack[nexti], max_stack[lasti] + stack_effect
-        )
-        if old_max != max_stack[nexti]:
-            if nexti not in queue:  # may be slow, we can use a flag.
+        if (new_stack_size := max_stack[lasti] + stack_effect) > max_stack[
+            nexti
+        ]:
+            histories[nexti] = histories[lasti] + [lasti]
+            max_stack[nexti] = new_stack_size
+            if nexti not in queue and nexti not in histories[nexti]:
                 queue.append(nexti)
 
     while len(queue) > 0:
