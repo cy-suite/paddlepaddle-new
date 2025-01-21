@@ -366,7 +366,7 @@ def pool3d_converter(network, paddle_op, inputs):
             ),
             trt.PluginField(
                 "pool3d_type",
-                np.array(list(pooling_type), dtype=np.string_),
+                np.array(list(pooling_type), dtype=np.bytes_),
                 trt.PluginFieldType.CHAR,
             ),
             trt.PluginField(
