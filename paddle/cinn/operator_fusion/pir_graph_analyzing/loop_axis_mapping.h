@@ -138,14 +138,16 @@ struct LoopAxisMapping {
   std::vector<AxisTransformRoute> output2loop;
 
   void SetReverseMapping();
+  void EliminateIdentity();
+
   std::string DebugStr() const;
 };
 
-LoopAxisMapping AxisMappingMerge(const LoopAxisMapping upstream,
-                                 const LoopAxisMapping downstream,
+LoopAxisMapping LoopMappingMerge(const LoopAxisMapping& upstream,
+                                 const LoopAxisMapping& downstream,
                                  bool upstream_is_anchor = true);
-LoopAxisMapping ReducePlusTrivialAxisMappingMerge(
+LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
     const LoopAxisMapping& upstream, const LoopAxisMapping& downstream);
 
-LoopAxisMapping CreateAxisMapping(pir::Operation* op);
+LoopAxisMapping CreateLoopMapping(pir::Operation* op);
 }  // namespace cinn::fusion

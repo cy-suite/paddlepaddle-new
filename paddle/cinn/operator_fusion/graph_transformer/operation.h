@@ -143,12 +143,14 @@ struct LiftReduceToReduceTreeOperation {
   PatternNodePtr operator()(PatternGraph* graph, PatternNodePtr node) {
     auto origin_name = node->id();
     const auto& reduce_pattern = std::get<ReducePattern>(node->stmt_pattern());
+    const auto& loop_mapping = node->loop_mapping();
     node->set_stmt_pattern(ReduceTreePattern(
         {},
         reduce_pattern,
         std::make_shared<FusionTracker>(reduce_pattern.tracker_)));
-    VLOG(4) << "Make CopyInstr: " << origin_name << " -> " << node->id();
+    node->set_loop_mapping(loop_mapping);
     node->AppendInstr(std::make_shared<CopyInstr>(origin_name, node->id()));
+    VLOG(4) << "Make CopyInstr: " << origin_name << " -> " << node->id();
     return node;
   }
 };
@@ -175,10 +177,12 @@ struct LiftToItersPermutationPatternOperation {
                           "Op with multi output value can not lift to "
                           "ItersPermutationPattern"));
     std::string origin_name = node->id();
+    const auto& loop_mapping = node->loop_mapping();
     node->set_stmt_pattern(ItersPermutationPattern(
         GetOpsInPattern(node->stmt_pattern()),
         std::make_shared<FusionTracker>(GetFusionTracker(node->stmt_pattern())),
         graph->iters_fusion_policy()->GetLoopDims(node->fusion_iters())));
+    node->set_loop_mapping(loop_mapping);
     node->AppendInstr(std::make_shared<CopyInstr>(origin_name, node->id()));
     VLOG(4) << "Make CopyInstr: " << origin_name << " -> " << node->id();
     return node;
@@ -222,6 +226,8 @@ struct FuseItersPermutatioOperation {
                   : downstream_pattern.loop_dims_);
     };
     auto merged_node = graph->MergeNode(upstream, downstream, merge_pattern_fn);
+    merged_node->set_loop_mapping(LoopMappingMerge(
+        upstream->loop_mapping(), downstream->loop_mapping(), is_rise));
     merged_node->set_fusion_iters(
         graph->iters_fusion_policy()->MultiDownstreamItersFusion(
             upstream,

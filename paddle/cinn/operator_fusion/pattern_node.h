@@ -98,6 +98,13 @@ struct PatternNode {
     fusion_iters_ = fusion_iters;
   }
   FusionTrackerPtr fusion_tracker() { return GetFusionTracker(stmt_pattern_); }
+  void set_loop_mapping(const LoopAxisMapping& loop_mapping) {
+    std::visit([&](auto& pattern) { pattern.set_loop_mapping(loop_mapping); },
+               stmt_pattern_);
+  }
+  LoopAxisMapping loop_mapping() const {
+    return GetPatternLoopMapping(stmt_pattern_);
+  }
 
  private:
   StmtPattern stmt_pattern_;

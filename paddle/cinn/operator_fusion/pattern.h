@@ -55,8 +55,11 @@ struct PatternBase {
   std::vector<pir::Operation*> ops() const { return ops_; }
   FusionTrackerPtr tracker_;
   void update_tracker() const {}
-  std::vector<symbol::DimExpr> loops_;
-  std::vector<symbol::DimExpr> loops() const { return loops_; }
+  LoopAxisMapping loop_mapping_;
+  LoopAxisMapping loop_mapping() const { return loop_mapping_; }
+  void set_loop_mapping(const LoopAxisMapping& loop_mapping) {
+    loop_mapping_ = loop_mapping;
+  }
 };
 
 #define DEFINE_PATTERN_STATIC_ATTR(pattern)                         \
@@ -293,6 +296,10 @@ static std::vector<pir::Operation*> GetOpsInPattern(
   return std::visit([](const auto& impl) { return impl.ops(); }, pattern);
 }
 
+static LoopAxisMapping GetPatternLoopMapping(const StmtPattern& s) {
+  return std::visit([](const auto& impl) { return impl.loop_mapping(); }, s);
+}
+
 static std::unordered_set<pir::Value> GetPatternInputValuesIncludeInner(
     const StmtPattern& A) {
   std::unordered_set<pir::Value> result;
@@ -328,4 +335,5 @@ static std::unordered_set<pir::Value> GetPatternInputValues(
 static void PatternUpdateTracker(const StmtPattern& pattern) {
   return std::visit([](const auto& impl) { impl.update_tracker(); }, pattern);
 }
+
 }  // namespace cinn::fusion

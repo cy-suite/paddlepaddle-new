@@ -226,6 +226,7 @@ struct TransposeOpMatcher {
 
 struct ReshapeOpMatcher {
   bool operator()(const PatternGraph& graph, const PatternNodePtr& node) {
+    return false;
     auto has_dynamic_shape = [](const PatternNodePtr& node) {
       const auto in_value = node->sink_op()->operand_source(0);
       const auto out_value = node->sink_op()->result(0);

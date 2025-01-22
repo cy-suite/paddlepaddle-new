@@ -268,7 +268,7 @@ PatternGraph::PatternGraph(const std::vector<PatternContent>& contents,
         iters_fusion_policy()->iters_manager()->GetItersSignature(content.op);
     PatternNodePtr node = std::make_shared<PatternNode>(content, fusion_iters);
     op_to_node_map[content.op] = node;
-    anchor_fusion_policy()->RegisterAxisMapping(node, content.op);
+    node->set_loop_mapping(CreateLoopMapping(content.op));
     all_pattern_nodes_.emplace(node);
   }
 

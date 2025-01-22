@@ -61,6 +61,32 @@ void LoopAxisMapping::SetReverseMapping() {
   }
 }
 
+void LoopAxisMapping::EliminateIdentity() {
+  auto eliminate_identity = [](AxisTransformRoute& route) {
+    if (route.size() < 2) return;
+    for (int i = route.size() - 1; i >= 0; --i) {
+      if (std::get_if<IdentityTransformPtr>(&route[i])) {
+        route.erase(route.begin() + i);
+      }
+    }
+    if (route.empty()) {
+      route.push_back(IdentityTransform::InstancePtr());
+    }
+  };
+  for (auto& route : input2loop) {
+    eliminate_identity(route);
+  }
+  for (auto& route : loop2input) {
+    eliminate_identity(route);
+  }
+  for (auto& route : loop2output) {
+    eliminate_identity(route);
+  }
+  for (auto& route : output2loop) {
+    eliminate_identity(route);
+  }
+}
+
 std::string LoopAxisMapping::DebugStr() const {
   std::stringstream ss;
   for (size_t i = 0; i < input_values.size(); ++i) {
@@ -87,7 +113,7 @@ std::string LoopAxisMapping::DebugStr() const {
   return ss.str();
 }
 
-LoopAxisMapping AxisMappingMergeImpl(const LoopAxisMapping& upstream,
+LoopAxisMapping LoopMappingMergeImpl(const LoopAxisMapping& upstream,
                                      const LoopAxisMapping& downstream,
                                      bool upstream_is_anchor) {
   AxisTransformRoute loop_sink_route;
@@ -151,24 +177,32 @@ LoopAxisMapping AxisMappingMergeImpl(const LoopAxisMapping& upstream,
   return result;
 }
 
-LoopAxisMapping AxisMappingMerge(const LoopAxisMapping& upstream,
+LoopAxisMapping LoopMappingMerge(const LoopAxisMapping& upstream,
                                  const LoopAxisMapping& downstream,
                                  bool upstream_is_anchor) {
-  auto result = AxisMappingMergeImpl(upstream, downstream, upstream_is_anchor);
+  VLOG(4) << "Start LoopMappingMerge: "
+          << "\nUpstream: " << upstream.DebugStr()
+          << "\nDownstream: " << downstream.DebugStr();
+  auto result = LoopMappingMergeImpl(upstream, downstream, upstream_is_anchor);
   result.SetReverseMapping();
+  result.EliminateIdentity();
+  VLOG(4) << "\nMerged result: " << result.DebugStr();
   return result;
 }
 
-LoopAxisMapping ReducePlusTrivialAxisMappingMerge(
+LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
     const LoopAxisMapping& upstream, const LoopAxisMapping& downstream) {
   // Signal downstream reduce plus trivial fusion loop is downstream trivial
   // loop plus upstream reduce loop.
+  VLOG(4) << "Start LoopMappingMerge: "
+          << "\nUpstream: " << upstream.DebugStr()
+          << "\nDownstream: " << downstream.DebugStr();
   PADDLE_ENFORCE(
       upstream.reduce_axis_num > 0 && downstream.reduce_axis_num == 0,
       ::common::errors::InvalidArgument(
           "Upstream should be reduce pattern and "
           "downstream should be trivial pattern."));
-  auto result = AxisMappingMergeImpl(upstream, downstream, false);
+  auto result = LoopMappingMergeImpl(upstream, downstream, false);
   auto reduce_axis_num = upstream.reduce_axis_num;
   auto reduce_loop = SliceVector(upstream.loop,
                                  upstream.loop.size() - reduce_axis_num,
@@ -186,6 +220,8 @@ LoopAxisMapping ReducePlusTrivialAxisMappingMerge(
     route.insert(route.begin(), delete_reduce_axis);
   }
   result.SetReverseMapping();
+  result.EliminateIdentity();
+  VLOG(4) << "\nMerged result: " << result.DebugStr();
   return result;
 }
 
@@ -204,7 +240,7 @@ LoopAxisMapping CreateDefaultAxisMapping(pir::Operation* op) {
   return result;
 }
 
-LoopAxisMapping CreateAxisMappingForElementwise(pir::Operation* op) {
+LoopAxisMapping CreateLoopMappingForElementwise(pir::Operation* op) {
   LoopAxisMapping result;
   result.input2loop.resize(op->num_operands());
   result.loop2output.resize(op->num_results());
@@ -220,7 +256,7 @@ LoopAxisMapping CreateAxisMappingForElementwise(pir::Operation* op) {
   return result;
 }
 
-LoopAxisMapping CreateAxisMappingForTranspose(pir::Operation* op) {
+LoopAxisMapping CreateLoopMappingForTranspose(pir::Operation* op) {
   PADDLE_ENFORCE(
       op->num_operands() == 1 && op->num_results() == 1,
       ::common::errors::InvalidArgument(
@@ -238,7 +274,7 @@ LoopAxisMapping CreateAxisMappingForTranspose(pir::Operation* op) {
   return result;
 }
 
-LoopAxisMapping CreateAxisMappingForSlice(pir::Operation* op) {
+LoopAxisMapping CreateLoopMappingForSlice(pir::Operation* op) {
   PADDLE_ENFORCE(
       op->num_operands() == 1 && op->num_results() == 1,
       ::common::errors::InvalidArgument(
@@ -278,7 +314,7 @@ LoopAxisMapping CreateAxisMappingForSlice(pir::Operation* op) {
   return result;
 }
 
-LoopAxisMapping CreateAxisMappingForBroadcast(pir::Operation* op) {
+LoopAxisMapping CreateLoopMappingForBroadcast(pir::Operation* op) {
   LoopAxisMapping result;
   result.input_values.push_back(op->operand_source(0));
   result.output_values.push_back(op->result(0));
@@ -317,7 +353,7 @@ LoopAxisMapping CreateAxisMappingForBroadcast(pir::Operation* op) {
   return result;
 }
 
-LoopAxisMapping CreateAxisMappingForReduce(pir::Operation* op) {
+LoopAxisMapping CreateLoopMappingForReduce(pir::Operation* op) {
   PADDLE_ENFORCE(
       op->num_operands() == 1 && op->num_results() == 1,
       ::common::errors::InvalidArgument(
@@ -368,7 +404,7 @@ LoopAxisMapping CreateAxisMappingForReduce(pir::Operation* op) {
   return result;
 }
 
-LoopAxisMapping CreateAxisMappingForReshape(pir::Operation* op) {
+LoopAxisMapping CreateLoopMappingForReshape(pir::Operation* op) {
   PADDLE_ENFORCE(
       op->num_operands() == 1 && op->num_results() == 1,
       ::common::errors::InvalidArgument(
@@ -424,21 +460,22 @@ LoopAxisMapping CreateAxisMappingForReshape(pir::Operation* op) {
   return result;
 }
 
-LoopAxisMapping CreateAxisMapping(pir::Operation* op) {
+LoopAxisMapping CreateLoopMapping(pir::Operation* op) {
+  VLOG(4) << "CreateLoopMapping for op: " << OpsDebugStr({op});
   LoopAxisMapping result;
   auto op_kind = GetOpPatternKind(op);
   if (op->name() == "pd_op.transpose") {
-    result = CreateAxisMappingForTranspose(op);
+    result = CreateLoopMappingForTranspose(op);
   } else if (op->name() == "cinn_op.reshape" || op->name() == "pd_op.reshape") {
-    result = CreateAxisMappingForReshape(op);
+    result = CreateLoopMappingForReshape(op);
   } else if (op->name() == "cinn_op.slice") {
-    result = CreateAxisMappingForSlice(op);
+    result = CreateLoopMappingForSlice(op);
   } else if (op_kind == hlir::framework::kBroadcast) {
-    result = CreateAxisMappingForBroadcast(op);
+    result = CreateLoopMappingForBroadcast(op);
   } else if (op_kind == hlir::framework::kReduction) {
-    result = CreateAxisMappingForReduce(op);
+    result = CreateLoopMappingForReduce(op);
   } else if (op_kind == hlir::framework::kElementWise) {
-    result = CreateAxisMappingForElementwise(op);
+    result = CreateLoopMappingForElementwise(op);
   } else {
     result = CreateDefaultAxisMapping(op);
   }
@@ -446,6 +483,7 @@ LoopAxisMapping CreateAxisMapping(pir::Operation* op) {
   for (auto value : result.output_values) {
     result.outputs_use_count[value] = value.use_count();
   }
+  VLOG(4) << "LoopMapping Result: " << result.DebugStr();
   return result;
 }
 

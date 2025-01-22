@@ -69,19 +69,25 @@ static StmtPattern MergePatternImpl(const TrivialPattern& first,
                                     const TrivialPattern& second) {
   const auto& contents =
       UniqueConcatVector(GetOpsInPattern(first), GetOpsInPattern(second));
-  return TrivialPattern(
+  auto result = TrivialPattern(
       contents,
       second.sink_op(),
       std::make_shared<FusionTracker>(first.tracker_, second.tracker_));
+  result.set_loop_mapping(
+      LoopMappingMerge(first.loop_mapping(), second.loop_mapping(), false));
+  return result;
 }
 
 static StmtPattern MergePatternImpl(const TrivialPattern& first,
                                     const ReducePattern& second) {
   const auto& contents =
       UniqueConcatVector(GetOpsInPattern(first), GetOpsInPattern(second));
-  return ReducePattern(
+  auto result = ReducePattern(
       contents,
       std::make_shared<FusionTracker>(first.tracker_, second.tracker_));
+  result.set_loop_mapping(
+      LoopMappingMerge(first.loop_mapping(), second.loop_mapping(), false));
+  return result;
 }
 
 template <typename A, typename B>
@@ -105,11 +111,13 @@ static StmtPattern MergePatternImpl(const TrivialPattern& first,
     new_children.emplace_back(
         FusePatternIfConnected(first, old_child, connect_ops));
   }
-
-  return ReduceTreePattern(
+  auto result = ReduceTreePattern(
       new_children,
       FusePatternIfConnected(first, second.GetRootPattern(), connect_ops),
       std::make_shared<FusionTracker>(first.tracker_, second.tracker_));
+  result.set_loop_mapping(
+      LoopMappingMerge(first.loop_mapping(), second.loop_mapping(), false));
+  return result;
 }
 
 static StmtPattern MergePatternImpl(
@@ -120,15 +128,20 @@ static StmtPattern MergePatternImpl(
       FusePatternIfConnected(first, second.sink_trivial, connect_ops),
       std::make_shared<FusionTracker>(first.tracker_, second.tracker_));
   result.fake_reduce_iter_idx = second.fake_reduce_iter_idx;
+  result.set_loop_mapping(
+      LoopMappingMerge(first.loop_mapping(), second.loop_mapping(), false));
   return result;
 }
 
 static StmtPattern MergePatternImpl(const TrivialPattern& first,
                                     const ItersPermutationPattern& second) {
-  return ItersPermutationPattern(
+  auto result = ItersPermutationPattern(
       UniqueConcatVector(GetOpsInPattern(first), GetOpsInPattern(second)),
       std::make_shared<FusionTracker>(first.tracker_, second.tracker_),
       second.loop_dims());
+  result.set_loop_mapping(
+      LoopMappingMerge(first.loop_mapping(), second.loop_mapping(), false));
+  return result;
 }
 
 // RR & RT
@@ -162,6 +175,8 @@ static StmtPattern MergePatternImpl(const ReduceTreePattern& upstream,
       std::make_shared<FusionTracker>(upstream.tracker_,
                                       downstream.tracker_));  // copy first.
   int insert_num = InsertUpstreamIntoTree(upstream, result);
+  result.set_loop_mapping(LoopMappingMerge(
+      upstream.loop_mapping(), downstream.loop_mapping(), false));
   PADDLE_ENFORCE_EQ(insert_num,
                     1,
                     ::common::errors::PreconditionNotMet(
@@ -171,10 +186,13 @@ static StmtPattern MergePatternImpl(const ReduceTreePattern& upstream,
 
 static StmtPattern MergePatternImpl(const ReduceTreePattern& first,
                                     const TrivialPattern& second) {
-  return ReduceTreePlusTrivialPattern(
+  auto result = ReduceTreePlusTrivialPattern(
       first,
       second,
       std::make_shared<FusionTracker>(first.tracker_, second.tracker_));
+  result.set_loop_mapping(ReducePlusTrivialLoopMappingMerge(
+      first.loop_mapping(), second.loop_mapping()));
+  return result;
 }
 
 static std::vector<pir::Operation*> GetOutputOpsInPattern(
