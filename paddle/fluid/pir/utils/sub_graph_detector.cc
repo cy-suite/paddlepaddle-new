@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/fluid/pir/transforms/sub_graph_detector.h"
+#include "paddle/fluid/pir/utils/sub_graph_detector.h"
 
+#include <climits>
 #include <memory>
 
 #include <iterator>
@@ -49,6 +50,7 @@
 #endif
 
 REGISTER_FILE_SYMBOLS(sub_graph_detector);
+
 namespace pir {
 std::vector<pir::Operation*> InverselyTopologicalSort(pir::Block* block) {
   std::vector<pir::Operation*> sort_ops;
