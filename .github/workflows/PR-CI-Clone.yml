@@ -1,9 +1,6 @@
 name: Clone
 
 on:
-  pull_request_target:
-    branches: [ "develop" ]
-
   pull_request:
     branches: [ "develop" ]
 
