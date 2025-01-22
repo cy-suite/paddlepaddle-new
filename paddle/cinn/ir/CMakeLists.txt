@@ -7,6 +7,7 @@ gather_srcs(
   ir_base.cc
   ir_visitor.cc
   ir_printer.cc
+  ir_collector.cc
   ir_mutator.cc
   function_definition.cc
   buffer.cc
