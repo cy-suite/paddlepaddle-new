@@ -67,7 +67,7 @@ class IterVariable(VariableBase):
         """
         flattened_inner_vars = []
         for inner_var in self.get_wrapped_items():
-            flattened_inner_vars.extend(inner_var.get_wrapped_items())
+            flattened_inner_vars.extend(inner_var.flatten_inner_vars())
         return flattened_inner_vars
 
 

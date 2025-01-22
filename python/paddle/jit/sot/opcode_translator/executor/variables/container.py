@@ -840,8 +840,14 @@ class DictVariable(ContainerVariable):
         return reduce(
             operator.add,
             (
-                key.flatten_inner_vars() + val.flatten_inner_vars()
-                for key, val in items.items()
+                key_var.flatten_inner_vars()
+                + self[key_var].flatten_inner_vars()
+                for key in items.keys()
+                for key_var in [
+                    VariableFactory.from_value(
+                        key, self.graph, tracker=ConstTracker(key)
+                    )
+                ]
             ),
             [],
         )

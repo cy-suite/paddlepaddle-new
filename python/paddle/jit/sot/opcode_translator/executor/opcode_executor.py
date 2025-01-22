@@ -1056,7 +1056,7 @@ class OpcodeExecutorBase:
         return DictVariable(
             built_map,
             graph=self._graph,
-            tracker=DummyTracker(keys + values),
+            tracker=DummyTracker(list(keys) + values),
         )
 
     def BUILD_MAP(self, instr: Instruction):
