@@ -552,8 +552,8 @@ class FullGraphPreProcessPass(ValuePreservePass):
             pm = paddle.base.libpaddle.pir.PassManager()
             pm.add_pass("delete_assert_op_pass", {})
             paddle.base.libpaddle.pir.infer_symbolic_shape_pass(pm, program)
+            pm.add_pass("reduce_as_sum_pass", {})
             pm.run(program)
-            program = paddle.base.libpaddle.pir.reduce_as_sum_pass(program)
         return program
 
 

@@ -19,7 +19,6 @@
 #include "paddle/pir/include/core/ir_printer.h"
 #include "paddle/pir/include/dialect/control_flow/ir/cf_op.h"
 #include "paddle/pir/include/dialect/control_flow/ir/cf_type.h"
-
 namespace pir {
 
 void YieldOp::Build(Builder &builder,
@@ -93,7 +92,7 @@ TuplePopOp TuplePushOp::tuple_pop_op() {
 void TuplePushOp::CacheGradOpSymbolicShape(
     pir::InferSymbolicShapeContext *infer_context) {
   const auto &x_shape =
-      paddle::dialect::GetInputShape(infer_context, this->operation(), 0);
+      infer_context->GetShapeOrDataForValue(this->operand_source(0));
   pir::InferSymbolicShapeCacheKey op_shape_info(
       "cf.tuple_pop",
       {x_shape},
