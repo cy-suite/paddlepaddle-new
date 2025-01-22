@@ -624,6 +624,15 @@ void IrNode::convert_int64_to_int32() {
   if (type_ == UInt(64)) type_ = UInt(32);
 
   for (Expr &operand : operands) {
+    // If the operand is a S0/S1..., we need to insert cast Because the
+    // lowered_func input args is int64, changing the type directly without
+    // inserting a cast may cause some nvcc functions to report an error: more
+    // than one instance of overloaded function.
+    if (operand.is_var() && operand.is_index() &&
+        operand.as_index().IsDynamic()) {
+      operand = ir::Cast::Make(Int(32), operand);
+      return;
+    }
     operand->convert_int64_to_int32();
   }
 }
