@@ -17,6 +17,8 @@ if(WITH_DISTRIBUTE AND WITH_GPU)
   py_test_modules(test_pir_reshard_s_to_r MODULES test_pir_reshard_s_to_r)
   set_tests_properties(test_pir_reshard_s_to_r PROPERTIES TIMEOUT 120)
   py_test_modules(test_mlp MODULES test_mlp ENVS FLAGS_enable_pir_api=1)
+  py_test_modules(test_local_layer MODULES test_local_layer ENVS
+                  FLAGS_enable_pir_api=1)
   py_test_modules(
     test_semi_auto_parallel_dist_to_static_pir MODULES
     test_semi_auto_parallel_dist_to_static_pir ENVS FLAGS_enable_pir_api=1)
@@ -82,6 +84,9 @@ if(WITH_DISTRIBUTE AND WITH_GPU)
                        PROPERTIES LABELS "RUN_TYPE=EXCLUSIVE" TIMEOUT 300)
   py_test_modules(test_pir_moe_utils_api MODULES test_pir_moe_utils_api ENVS
                   FLAGS_enable_pir_api=1)
+  py_test_modules(
+    test_pipeline_scheduler_vpp_local_view MODULES
+    test_pipeline_scheduler_vpp_local_view ENVS FLAGS_enable_pir_api=1)
 endif()
 py_test_modules(test_pir_1f1b_plan MODULES test_pir_1f1b_plan ENVS
                 FLAGS_enable_pir_api=1)

@@ -179,7 +179,7 @@ class MmaBaseFromSharedMemory {
                               Shape::kK / WarpGemm::kK>;
   using WarpCount1 = WarpCount;
 
-  /// Number of warp-level GEMM oeprations
+  /// Number of warp-level GEMM operations
   static int const kWarpGemmIterations =
       (WarpGemm::kK / Operator::Policy::MmaShape::kK);
   static int const kWarpGemmIterations1 = kWarpGemmIterations;
@@ -531,7 +531,7 @@ class MmaPipelinedFromSharedMemory
 
   // For API compatibility with MmaMultistageFromSharedMemory
   // but not supported as it worsens perf: older gpus < sm80 don't
-  // support async tranfers and have to waste registers
+  // support async transfers and have to waste registers
   CUTLASS_DEVICE
   void set_prologue_done(bool value) {}
   CUTLASS_DEVICE

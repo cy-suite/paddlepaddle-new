@@ -173,7 +173,7 @@ struct _LoweredFunc_ : public IrNode {
    * The output buffer will be resized to the size required, we leave all the
    * expression here. The allocation and deallocation expressions will insert
    * into the head and tail of the function's body. It supports lazy
-   * allocation/deallocation if the corresponding intristic methods support.
+   * allocation/deallocation if the corresponding intrinsic methods support.
    *
    * Currently, we assume that all the input and output buffers should locate in
    * heap, no other memory type is allowed.
@@ -193,12 +193,21 @@ struct _LoweredFunc_ : public IrNode {
                           const Expr& body,
                           const std::vector<ir::Buffer>& temp_bufs);
 
+  static LoweredFunc Make(const std::string& name,
+                          const std::vector<Argument>& args,
+                          const stmt::BlockRef& body,
+                          const std::vector<ir::Buffer>& temp_bufs);
+
   // A simple version of the make function method,
   // regardless of the argument buffer information and IO information of
   // Argument, after building the function to optimize the buffer through pass
   static LoweredFunc Make(const std::string& name,
                           const std::vector<Argument>& args,
                           const Expr& body);
+
+  static LoweredFunc Make(const std::string& name,
+                          const std::vector<Argument>& args,
+                          const stmt::BlockRef& body);
 
   bool is_gpu_host() const { return cuda_axis_info.valid(); }
 

@@ -19,6 +19,7 @@
 #include <unordered_set>
 
 #include "paddle/cinn/common/cas.h"
+#include "paddle/cinn/common/const_fold.h"
 #include "paddle/cinn/common/simplify_special_pattern.h"
 #include "paddle/cinn/ir/ir_mutator.h"
 #include "paddle/cinn/ir/ir_printer.h"
@@ -100,8 +101,8 @@ Expr RampRelatedAdd(ir::Ramp *ramp, ir::Ramp *other) {
                           ::common::errors::InvalidArgument(
                               "Other ramp pointer should not be null."));
   if (ramp->lanes == other->lanes) {
-    Expr base_add = cinn::common::AutoSimplify(ramp->base + other->base);
-    Expr stride_add = cinn::common::AutoSimplify(ramp->stride + other->stride);
+    Expr base_add = optim::ArithSimplify(ramp->base + other->base);
+    Expr stride_add = optim::ArithSimplify(ramp->stride + other->stride);
     VLOG(2) << base_add;
     VLOG(2) << stride_add;
     return ir::Ramp::Make(base_add, stride_add, ramp->lanes);
@@ -522,8 +523,8 @@ bool IsSumPartialBySymbol(const ir::IndexExpr &expr,
 }
 ir::IndexExpr SimplifySymbolicAdd(const ir::IndexExpr &lhs,
                                   const ir::IndexExpr &sym,
-                                  const ir::IndexExpr &outter_mul_factor) {
-  if (lhs == sym) return sym * (outter_mul_factor + ir::IndexExpr(1));
+                                  const ir::IndexExpr &outer_mul_factor) {
+  if (lhs == sym) return sym * (outer_mul_factor + ir::IndexExpr(1));
   switch (lhs.node_type()) {
     case ir::IrNodeTy::IntImm: {
       auto imm = lhs.As<ir::IntImm>();
@@ -532,29 +533,29 @@ ir::IndexExpr SimplifySymbolicAdd(const ir::IndexExpr &lhs,
       return ir::IndexExpr(0);
     }
     case ir::IrNodeTy::_Var_: {
-      return sym * (outter_mul_factor + ir::IndexExpr(1));
+      return sym * (outer_mul_factor + ir::IndexExpr(1));
     }
     case ir::IrNodeTy::Add: {
       if (!common::IsSumPartialBySymbol(lhs.operand(0), sym))
         return lhs.operand(0) +
-               SimplifySymbolicAdd(lhs.operand(1), sym, outter_mul_factor);
-      return SimplifySymbolicAdd(lhs.operand(0), sym, outter_mul_factor) +
+               SimplifySymbolicAdd(lhs.operand(1), sym, outer_mul_factor);
+      return SimplifySymbolicAdd(lhs.operand(0), sym, outer_mul_factor) +
              lhs.operand(1);
     }
     case ir::IrNodeTy::Mul: {
       if (lhs.operand(1).is_constant() && lhs.operand(1).as_int64() == -1) {
-        return SimplifySymbolicAdd(lhs.operand(0), sym, -outter_mul_factor) *
+        return SimplifySymbolicAdd(lhs.operand(0), sym, -outer_mul_factor) *
                lhs.operand(1);
       }
       if (lhs.operand(0) == sym)
-        return lhs.operand(0) * (lhs.operand(1) + outter_mul_factor);
-      return (lhs.operand(0) + outter_mul_factor) * lhs.operand(1);
+        return lhs.operand(0) * (lhs.operand(1) + outer_mul_factor);
+      return (lhs.operand(0) + outer_mul_factor) * lhs.operand(1);
     }
     case ir::IrNodeTy::Mod:
       PADDLE_THROW(::common::errors::Fatal("Error in SimplifySymbolicAdd!"));
     case ir::IrNodeTy::Div: {
       return SimplifySymbolicAdd(
-                 lhs.operand(0), sym, lhs.operand(1) * outter_mul_factor) /
+                 lhs.operand(0), sym, lhs.operand(1) * outer_mul_factor) /
              lhs.operand(1);
     }
     default:
@@ -640,8 +641,7 @@ ir::IndexExpr SimplifySymbolicDivide(const ir::IndexExpr &lhs,
 
 bool ProveDivisible(const ir::IndexExpr &lhs, const ir::IndexExpr &rhs) {
   if (IsZero(lhs % rhs)) return true;
-  // remove AutoSimplify later.
-  if (IsZero(AutoSimplify(lhs % rhs))) return true;
+  if (IsZero(optim::ArithSimplify(lhs % rhs))) return true;
   return false;
 }
 
@@ -688,6 +688,64 @@ IndexType VerifyIndex(const ir::Expr &expr) {
     }
   }
   return IndexType::kInvalid;
+}
+
+ir::IndexExpr ConstructIndexExprByNodeType(const ir::IrNodeTy &ty,
+                                           const ir::IndexExpr &lhs,
+                                           const ir::IndexExpr &rhs,
+                                           bool simplify_flag) {
+  switch (ty) {
+    case ir::IrNodeTy::Add:
+      return simplify_flag ? lhs + rhs : ir::Add::Make(lhs, rhs);
+    case ir::IrNodeTy::Sub:
+      return simplify_flag ? lhs - rhs : ir::Sub::Make(lhs, rhs);
+    case ir::IrNodeTy::Mul:
+      return simplify_flag ? lhs * rhs : ir::Mul::Make(lhs, rhs);
+    case ir::IrNodeTy::Div:
+      return simplify_flag ? lhs / rhs : ir::Div::Make(lhs, rhs);
+    case ir::IrNodeTy::Mod:
+      return simplify_flag ? lhs % rhs : ir::Mod::Make(lhs, rhs);
+    case ir::IrNodeTy::Min:
+      return ir::Min::Make(lhs, rhs);
+    case ir::IrNodeTy::Max:
+      return ir::Max::Make(lhs, rhs);
+    default:
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "Unsupported type in Constructir::IndexExprByNodeType, which is: %s",
+          ty));
+  }
+}
+
+ir::IndexExpr ChangeSeqOfDivMod(const ir::IndexExpr &expr) {
+  switch (expr.node_type()) {
+    case ir::IrNodeTy::IntImm:
+    case ir::IrNodeTy::_Var_: {
+      return expr;
+    }
+    case ir::IrNodeTy::Add:
+    case ir::IrNodeTy::Sub:
+    case ir::IrNodeTy::Mul:
+    case ir::IrNodeTy::Div: {
+      auto lhs = ChangeSeqOfDivMod(expr.operand(0));
+      auto rhs = ChangeSeqOfDivMod(expr.operand(1));
+      return ConstructIndexExprByNodeType(expr.node_type(), lhs, rhs, false);
+    }
+    case ir::IrNodeTy::Mod: {
+      if (expr.operand(0).node_type() == ir::IrNodeTy::Div) {
+        auto div_lhs = ChangeSeqOfDivMod(expr.operand(0).operand(0));
+        auto div_rhs = ChangeSeqOfDivMod(expr.operand(0).operand(1));
+        auto mod_rhs = ChangeSeqOfDivMod(expr.operand(1));
+        return div_lhs % (div_rhs * mod_rhs) / div_rhs;
+      } else {
+        auto lhs = ChangeSeqOfDivMod(expr.operand(0));
+        auto rhs = ChangeSeqOfDivMod(expr.operand(1));
+        return ConstructIndexExprByNodeType(expr.node_type(), lhs, rhs, false);
+      }
+    }
+    default:
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "Unsupported type of expr in ChangeSeqOfDivMod which is: %s", expr));
+  }
 }
 }  // namespace common
 }  // namespace cinn

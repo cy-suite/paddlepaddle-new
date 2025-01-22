@@ -50,7 +50,7 @@ int32_t MemorySparseTable::Initialize() {
   for (auto &shards_task : _shards_task_pool) {
     shards_task.reset(new ::ThreadPool(1));
   }
-  VLOG(0) << "initalize MemorySparseTable succ";
+  VLOG(0) << "initialize MemorySparseTable succ";
   return 0;
 }
 
@@ -545,7 +545,7 @@ int32_t MemorySparseTable::Save_v2(const std::string &dirname,
                                                           _shard_idx,
                                                           file_start_idx + i);
       channel_config_for_slot_feature.path =
-          paddle::string::format_string("%s/slot_featue/part-%03d-%05d",
+          paddle::string::format_string("%s/slot_feature/part-%03d-%05d",
                                         table_path.c_str(),
                                         _shard_idx,
                                         file_start_idx + i);

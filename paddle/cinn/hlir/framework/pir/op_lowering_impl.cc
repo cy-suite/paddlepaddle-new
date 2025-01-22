@@ -33,6 +33,7 @@
 #include "paddle/cinn/ir/group_schedule/config/group_tile_config.h"
 #include "paddle/cinn/ir/ir_analyzer/ir_analyzer.h"
 #include "paddle/cinn/ir/schedule/ir_schedule.h"
+#include "paddle/cinn/ir/utils/stmt_converter.h"
 #include "paddle/cinn/lang/placeholder.h"
 #include "paddle/cinn/operator_fusion/fusion_interface.h"
 #include "paddle/cinn/optim/check_tensor_buffer_map.h"
@@ -99,9 +100,14 @@ BucketLoweredFuncsWrapper OpLowererImpl::BucketLower(
   std::unordered_map<::pir::Value, ir::Tensor> tensor_map;
   // for some op, it will output more tmp value and regard as
   // XX_0, XX_1, so we log them in tmp_tensor_info;
-  std::vector<ir::Expr> func_bodies =
+  std::vector<ir::stmt::BlockRef> func_body_blocks =
       LowerOps(group, ops, &group_func_arg_tensors, &tensor_map);
-
+  // TODO(Hongqing-work): delete this convert after using new IR update
+  // schedule.
+  std::vector<ir::Expr> func_bodies;
+  for (const auto& body : func_body_blocks) {
+    func_bodies.emplace_back(ir::ConvertStmtBlockToExprBlock(body));
+  }
   if (FLAGS_cinn_check_tensor_buffer_map) {
     optim::CheckTensorBufferMap(func_bodies, "BucketLower LowerOps");
     VLOG(3) << "LowerOps tensor-buffer map check succeed";
@@ -403,27 +409,20 @@ std::vector<ir::LoweredFunc> OpLowererImpl::PostProcess(
     lowered_funcs.push_back(std::move(func));
   }
 
-  // collect temp space sizes
-  if (lowered_funcs.size() > 1) {
-    for (auto& temp_space : lowered_funcs[0]->temp_spaces) {
-      int64_t size = -1;
-      if (temp_space.size().is_constant()) {
-        size = temp_space.size().as_int64();
-      }
-      group->mut_temp_space_sizes().push_back(size);
-    }
-  }
+  // 5. Unify temp_space args and set temp_space sizes
+  UnifyTempSpaceArgs(&lowered_funcs);
+  group->mut_temp_space_sizes() = CollectTempSpaceSizes(lowered_funcs);
 
   return lowered_funcs;
 }
 
-std::vector<ir::Expr> OpLowererImpl::LowerOps(
+std::vector<ir::stmt::BlockRef> OpLowererImpl::LowerOps(
     const OpLoweringGroupPtr& group,
     const std::vector<::pir::Operation*>& ops,
     std::vector<ir::Tensor>* group_func_arg_tensors,
     std::unordered_map<::pir::Value, ir::Tensor>* tensor_map) {
   auto& strategy = Operator::GetAttrs<StrategyFunction>("CINNStrategy");
-  std::vector<Expr> func_bodies;
+  std::vector<ir::stmt::BlockRef> func_bodies;
 
   for (auto* op : ops) {
     VLOG(4) << "start lowering op:" << op->name() << " id: " << op->id();
@@ -467,7 +466,7 @@ std::vector<ir::Expr> OpLowererImpl::LowerOps(
         DoOpLower(op_impl, op, tensor_map, &op_func_arg_tensors);
 
     for (const ir::LoweredFunc& func : funcs) {
-      func_bodies.push_back(func->body);
+      func_bodies.push_back(func->body_block);
     }
   }
 
@@ -783,11 +782,17 @@ ir::Expr OpLowererImpl::LowerX86(const OpLoweringGroupPtr& group,
   this->target_ = common::DefaultHostTarget();
   cinn::runtime::CurrentTarget::SetCurrentTarget(this->target_);
 
-  std::vector<ir::Expr> func_bodies =
+  std::vector<ir::stmt::BlockRef> func_bodies =
       LowerOps(group, ops, &group_func_arg_tensors, &tensor_map);
   this->target_ = common::DefaultDeviceTarget();
   cinn::runtime::CurrentTarget::SetCurrentTarget(this->target_);
-  ir::ModuleExpr mod_expr(func_bodies);
+  // TODO(Hongqing-work): delete this convert after using new IR update
+  // schedule.
+  std::vector<ir::Expr> expr_func_bodies;
+  for (const auto& body : func_bodies) {
+    expr_func_bodies.emplace_back(ir::ConvertStmtBlockToExprBlock(body));
+  }
+  ir::ModuleExpr mod_expr(expr_func_bodies);
   ir::IRSchedule ir_sch(
       mod_expr, -1, false, cinn::utils::ErrorMessageLevel::kGeneral, true);
   ir_sch.MergeExprs();

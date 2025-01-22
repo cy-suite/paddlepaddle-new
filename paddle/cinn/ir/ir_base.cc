@@ -311,9 +311,10 @@ const Expr &Expr::set_index(bool flag) const {
 
 const IndexExpr Expr::as_index() const {
   if (is_index()) {
-    std::set<ir::Expr> collection = ir::ir_utils::CollectIRNodesWithoutTensor(
-        *this,
-        [&](const Expr *x) { return x->node_type() == ir::IrNodeTy::Sub; });
+    std::vector<ir::Expr> collection =
+        ir::ir_utils::CollectIRNodesWithoutTensor(*this, [&](const Expr *x) {
+          return x->node_type() == ir::IrNodeTy::Sub;
+        });
     if (!collection.empty()) return IndexExpr(*this).Normalize();
     return IndexExpr(*this);
   }
@@ -323,9 +324,10 @@ const IndexExpr Expr::as_index() const {
 
 IndexExpr Expr::as_index() {
   if (is_index()) {
-    std::set<ir::Expr> collection = ir::ir_utils::CollectIRNodesWithoutTensor(
-        *this,
-        [&](const Expr *x) { return x->node_type() == ir::IrNodeTy::Sub; });
+    std::vector<ir::Expr> collection =
+        ir::ir_utils::CollectIRNodesWithoutTensor(*this, [&](const Expr *x) {
+          return x->node_type() == ir::IrNodeTy::Sub;
+        });
     if (!collection.empty()) return IndexExpr(*this).Normalize();
     return IndexExpr(*this);
   }
@@ -485,31 +487,6 @@ bool IndexExpr::IsDynamic() const {
     default:
       PADDLE_THROW(::common::errors::InvalidArgument(
           "Unsupported type in IsDynamic, which is: %s", node_type()));
-  }
-}
-
-IndexExpr ConstructIndexExprByNodeType(const IrNodeTy &ty,
-                                       const IndexExpr &lhs,
-                                       const IndexExpr &rhs) {
-  switch (ty) {
-    case IrNodeTy::Add:
-      return lhs + rhs;
-    case IrNodeTy::Sub:
-      return lhs - rhs;
-    case IrNodeTy::Mul:
-      return lhs * rhs;
-    case IrNodeTy::Div:
-      return lhs / rhs;
-    case IrNodeTy::Mod:
-      return lhs % rhs;
-    case IrNodeTy::Min:
-      return Min::Make(lhs, rhs);
-    case IrNodeTy::Max:
-      return Max::Make(lhs, rhs);
-    default:
-      PADDLE_THROW(::common::errors::InvalidArgument(
-          "Unsupported type in ConstructIndexExprByNodeType, which is: %s",
-          ty));
   }
 }
 

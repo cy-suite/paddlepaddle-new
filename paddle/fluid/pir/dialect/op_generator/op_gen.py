@@ -85,7 +85,7 @@ cache_grad_op_shape_black_list = {"fused_attention"}
 # =====================================
 # String Template for h file code gen
 # =====================================
-NAMESPACE_GARD_TEMPLATE = """namespace {namespace} {{
+NAMESPACE_GUARD_TEMPLATE = """namespace {namespace} {{
 {input}
 }} // namespace {namespace}"""
 
@@ -342,7 +342,7 @@ scalar_type_maps = {
     'int': 'pir::Int32Attribute',
     'int64_t': 'pir::Int64Attribute',
     'float': 'pir::FloatAttribute',
-    'dobule': 'pir::DoubleAttribute',
+    'double': 'pir::DoubleAttribute',
     'bool': 'pir::BoolAttribute',
 }
 
@@ -1191,7 +1191,7 @@ def GenOneDnnExtraAttrsDefaultValue(onednn_extra_args):
 """
     ARRAY_ATTRIBUTE_TEMPLATE = """  std::vector<pir::Attribute> vec_{attr_name};
 {{
-    std::vector<{cpp_type}> vec_values = {attr_valuse};
+    std::vector<{cpp_type}> vec_values = {attr_values};
     for (size_t i = 0; i < static_cast<size_t>(vec_values.size()); i++) {{
         {create_attribute}
         vec_{attr_name}.push_back(attr_{attr_name});
@@ -1215,7 +1215,7 @@ pir::Attribute attr_{attr_name} = pir::ArrayAttribute::get(pir::IrContext::Insta
                     cpp_type=onednn_extra_args[idx]['typename'].replace(
                         '[]', ''
                     ),
-                    attr_valuse=onednn_extra_args[idx]['default_value'],
+                    attr_values=onednn_extra_args[idx]['default_value'],
                     create_attribute=INTARRAY_STR_TEMPLATE.format(
                         attr_name=onednn_extra_args[idx]['name'],
                         op_attribute_type=inner_attribute_type,
@@ -1228,7 +1228,7 @@ pir::Attribute attr_{attr_name} = pir::ArrayAttribute::get(pir::IrContext::Insta
                     cpp_type=onednn_extra_args[idx]['typename'].replace(
                         '[]', ''
                     ),
-                    attr_valuse=onednn_extra_args[idx]['default_value'],
+                    attr_values=onednn_extra_args[idx]['default_value'],
                     create_attribute=SCALAR_STR_TEMPLATE.format(
                         attr_name=onednn_extra_args[idx]['name'],
                         attr="vec_values[i]",
@@ -1240,7 +1240,7 @@ pir::Attribute attr_{attr_name} = pir::ArrayAttribute::get(pir::IrContext::Insta
                     cpp_type=onednn_extra_args[idx]['typename'].replace(
                         '[]', ''
                     ),
-                    attr_valuse=onednn_extra_args[idx]['default_value'],
+                    attr_values=onednn_extra_args[idx]['default_value'],
                     create_attribute=STR_TEMPLATE.format(
                         attr_name=onednn_extra_args[idx]['name'],
                         op_attribute_type=inner_attribute_type,
@@ -2343,7 +2343,7 @@ def OpGenerator(
     if dialect_name == "pd_op":
         other_info = OP_TO_MULTI_KERNELS_MAP_H
         for name in reversed(namespaces):
-            other_info = NAMESPACE_GARD_TEMPLATE.format(
+            other_info = NAMESPACE_GUARD_TEMPLATE.format(
                 namespace=name, input=other_info
             )  # Add namespaces
         only_pd_op_header_files_str = """
@@ -2353,7 +2353,7 @@ def OpGenerator(
     elif dialect_name == "onednn_op":
         other_info = ONEDNN_ONLY_OP_SET_H
         for name in reversed(namespaces):
-            other_info = NAMESPACE_GARD_TEMPLATE.format(
+            other_info = NAMESPACE_GUARD_TEMPLATE.format(
                 namespace=name, input=other_info
             )  # Add namespaces
     else:
@@ -2362,7 +2362,7 @@ def OpGenerator(
     head_file_str = "\n".join(head_file_strs)
     declare_type_id_str = "\n".join(declare_type_id_strs)
     for name in reversed(namespaces):
-        head_file_str = NAMESPACE_GARD_TEMPLATE.format(
+        head_file_str = NAMESPACE_GUARD_TEMPLATE.format(
             namespace=name, input=head_file_str
         )  # Add namespaces
     head_file_str = H_FILE_TEMPLATE.format(
@@ -2384,7 +2384,7 @@ def OpGenerator(
         )
         other_info_str += sp_other_info_str
         for name in reversed(namespaces):
-            other_info_str = NAMESPACE_GARD_TEMPLATE.format(
+            other_info_str = NAMESPACE_GUARD_TEMPLATE.format(
                 namespace=name, input=other_info_str
             )  # Add namespaces
     elif dialect_name == "onednn_op":
@@ -2392,7 +2392,7 @@ def OpGenerator(
             maps=", \r".join(onednn_only_op_list)
         )
         for name in reversed(namespaces):
-            other_info_str = NAMESPACE_GARD_TEMPLATE.format(
+            other_info_str = NAMESPACE_GUARD_TEMPLATE.format(
                 namespace=name, input=other_info_str
             )  # Add namespaces
     else:
@@ -2442,7 +2442,7 @@ def OpGenerator(
     for id in range(len(new_op_def_cc_file)):
         source_file_str = source_file_strs[id]
         for name in reversed(namespaces):
-            source_file_str = NAMESPACE_GARD_TEMPLATE.format(
+            source_file_str = NAMESPACE_GUARD_TEMPLATE.format(
                 namespace=name, input=source_file_str
             )  # Add namespaces
 

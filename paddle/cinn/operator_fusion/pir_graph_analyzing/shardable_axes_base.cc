@@ -160,7 +160,9 @@ ShardableAxesSignature CreateSignatureForElementWise(pir::Operation* op) {
                       GetCompatibleRank(op->operand_source(i)),
                       ::common::errors::PreconditionNotMet(
                           "Required all inputs rank shall be equal output in "
-                          "elementwise op."));
+                          "elementwise op : %s [id:%d]",
+                          op->name(),
+                          op->id()));
     result.inputs.emplace_back(same_axes);
   }
   for (int i = 0; i < op->num_results(); ++i) {
@@ -168,7 +170,9 @@ ShardableAxesSignature CreateSignatureForElementWise(pir::Operation* op) {
                       GetCompatibleRank(op->result(i)),
                       ::common::errors::PreconditionNotMet(
                           "Required all outputs rank shall be equal each other "
-                          "in elementwise op."));
+                          "in elementwise op : %s [id:%d]",
+                          op->name(),
+                          op->id()));
     result.outputs.emplace_back(same_axes);
   }
   result.loop = result.outputs.back();
@@ -259,7 +263,7 @@ ShardableAxesSignature CreateSignatureForBroadcast(
     pir::Operation* op, pir::ShapeConstraintIRAnalysis* shape_analysis) {
   ShardableAxesSignature result = ShardableAxesSignature();
 
-  const auto& broad_cast_value = GetBroadcastOpInputOuputValue(op);
+  const auto& broad_cast_value = GetBroadcastOpInputOutputValue(op);
   PADDLE_ENFORCE_EQ(broad_cast_value.has_value(),
                     true,
                     ::common::errors::PreconditionNotMet(
@@ -343,15 +347,15 @@ ShardableAxesSignature CreateSignatureForReshape(
     return result;
   }
 
-  std::vector<std::pair<int, int>> partion_indices =
-      PartionReshapeAxes(in_shape, out_shape);
+  std::vector<std::pair<int, int>> partition_indices =
+      PartitionReshapeAxes(in_shape, out_shape);
 
   std::vector<std::string> output_axes;
-  for (int idx = 1; idx < partion_indices.size(); ++idx) {
-    const auto& in_start = partion_indices[idx - 1].first;
-    const auto& in_end = partion_indices[idx].first;
-    const auto& out_start = partion_indices[idx - 1].second;
-    const auto& out_end = partion_indices[idx].second;
+  for (int idx = 1; idx < partition_indices.size(); ++idx) {
+    const auto& in_start = partition_indices[idx - 1].first;
+    const auto& in_end = partition_indices[idx].first;
+    const auto& out_start = partition_indices[idx - 1].second;
+    const auto& out_end = partition_indices[idx].second;
     if (in_end == in_start + 1 && out_end == out_start + 1) {
       output_axes.emplace_back(input_axes[in_start]);
     } else {

@@ -191,7 +191,7 @@ inline void UnpackReduction(const ir::IndexExpr &expr, FLeaf fleaf) {
 }
 
 /*!
- * \brief Flattern the expression into a vector of expressions splited by `Add`
+ * \brief Flatten the expression into a vector of expressions splited by `Add`
  * or `Mul`.
  *
  * For example (Add):
@@ -240,7 +240,7 @@ bool ComparePriority(const ir::IndexExpr &lhs, const ir::IndexExpr &rhs);
 /*!
  * \brief Determines whether there are sub-parts in the `expr` that can be
  * simplified by `Add` operation with the input `symbol`. If true is returned,
- * the operation will be attempted on each subpart in outter
+ * the operation will be attempted on each subpart in outer
  * `SimplifySymbolicAdd` function.
  *
  * For example:
@@ -271,19 +271,19 @@ bool IsSumPartialBySymbol(const ir::IndexExpr &expr,
  * \param lhs The expression to be simplified.
  * \param sym  The symbol to be checked.
  *    it may be `i, j ..` or  `S0, S1 ..` or other symbolic expr.
- * \param outter_mul_factor The scale of symbolic expr.
- *    e.g. `S0 * 4` ===> sym == S0, outter_mul_factor == 4
+ * \param outer_mul_factor The scale of symbolic expr.
+ *    e.g. `S0 * 4` ===> sym == S0, outer_mul_factor == 4
  * \return The expr after simplification.
  */
 ir::IndexExpr SimplifySymbolicAdd(
     const ir::IndexExpr &lhs,
     const ir::IndexExpr &sym,
-    const ir::IndexExpr &outter_mul_factor = ir::IndexExpr(1));
+    const ir::IndexExpr &outer_mul_factor = ir::IndexExpr(1));
 
 /*!
  * \brief Determines whether there are sub-parts in the `expr` that can be
  * simplified by `Div` operation with the input `symbol`. If true is returned,
- * the operation will be attempted on each subpart in outter
+ * the operation will be attempted on each subpart in outer
  * `SimplifySymbolicDivide` function.
  *
  * For example:
@@ -339,6 +339,31 @@ bool ProveDivisible(const ir::IndexExpr &lhs, const ir::IndexExpr &rhs);
 bool IsNegatedIndexExpr(const ir::IndexExpr &candidate,
                         ir::IndexExpr &expr);  // NOLINT
 
+/*!
+ * \brief Construct index expression by node type with or without simplify.
+ * \param ty The node type of index expression.
+ * \param lhs left operand.
+ * \param rhs right operand.
+ * \param simplify_flag Whether to simplify the result.
+ * \return The constructed index expression.
+ */
+ir::IndexExpr ConstructIndexExprByNodeType(const ir::IrNodeTy &ty,
+                                           const ir::IndexExpr &lhs,
+                                           const ir::IndexExpr &rhs,
+                                           bool simplify_flag = true);
+
+/*!
+ * \brief Change the sequence of `Div` and `Mod` in index expression.
+ * Mathematical formula: `(a / b) % c = (a % (b * c)) / b`
+ * For example:
+ * 1. i / 4 % 8 => i % 32 / 4
+ * 2. i / S0 % S1 => i % (S0 * S1) / S0
+ * 3. (i * 32 + j) / 4 % 8 => (i * 32 + j) % 32 / 4
+ *
+ * \param expr The `IndexExpr` to be change
+ * \return `IndexExpr` after change.
+ */
+ir::IndexExpr ChangeSeqOfDivMod(const ir::IndexExpr &expr);
 enum IndexType {
   kInvalid = 0,  // invalid expr
   kValid = 1,    // valid expr
