@@ -60,9 +60,6 @@ class ContainerVariable(VariableBase):
     def init_value(self):
         return self.value
 
-    def get_inner_vars(self) -> list[VariableBase]:
-        raise FallbackError('ContainerVariable.get_inner_vars do not implement')
-
     def get_wrapped_items(self):
         raise FallbackError(
             "ContainerVariable.get_wrapped_items do not implement"
@@ -81,16 +78,10 @@ class ContainerVariable(VariableBase):
         return ConstantVariable(bool(self), self.graph, DummyTracker([self]))
 
     def flatten_inner_vars(self) -> list[VariableBase]:
-        """
-        Recursively flatten the items in this container variable to a list of Variable objects.
-
-        Returns:
-            list[VariableBase]: Flattened items of a container variable.
-        """
-        flattened_inner_vars = []
-        for inner_var in self.get_inner_vars():
-            flattened_inner_vars.extend(inner_var.flatten_inner_vars())
-        return flattened_inner_vars
+        items = []
+        for item in self.get_wrapped_items():
+            items.extend(item.flatten_inner_vars())
+        return items
 
     @check_guard
     def make_stringified_guard(self) -> list[StringifiedExpression]:
@@ -183,14 +174,11 @@ class ListVariable(ContainerVariable):
             Dispatcher.call(operator.getitem, self, idx).reconstruct(codegen)
         codegen.gen_build_list(size)
 
-    def get_inner_vars(self):
+    def get_wrapped_items(self):
         size = len(self)
         return [
             Dispatcher.call(operator.getitem, self, idx) for idx in range(size)
         ]
-
-    def get_wrapped_items(self):
-        return self.get_inner_vars()
 
     def get_iter(self):
         from .iter import SequenceIterVariable
@@ -564,14 +552,11 @@ class TupleVariable(ContainerVariable):
             Dispatcher.call(operator.getitem, self, idx).reconstruct(codegen)
         codegen.gen_build_tuple(size)
 
-    def get_inner_vars(self):
-        size = len(self)
-        return [
-            Dispatcher.call(operator.getitem, self, idx) for idx in range(size)
-        ]
-
     def get_wrapped_items(self):
-        return tuple(self.get_inner_vars())
+        size = len(self)
+        return tuple(
+            Dispatcher.call(operator.getitem, self, idx) for idx in range(size)
+        )
 
     def get_iter(self):
         from .iter import SequenceIterVariable
@@ -732,12 +717,12 @@ class RangeVariable(ContainerVariable):
         retval = self.get_py_value()[key]
         return ConstantVariable(retval, self.graph, GetItemTracker(self, key))
 
-    def get_inner_vars(self):
-        size = len(self)
-        return [self[idx] for idx in range(size)]
+    def get_items(self):
+        return [self.start, self.stop, self.step]
 
     def get_wrapped_items(self):
-        return self.get_inner_vars()
+        size = len(self)
+        return [self[idx] for idx in range(size)]
 
     def get_iter(self):
         from .iter import SequenceIterVariable
@@ -850,19 +835,16 @@ class DictVariable(ContainerVariable):
             value_var.reconstruct(codegen)
         codegen.gen_build_map(size)
 
-    def get_inner_vars(self):
-        items = []
-        for key in self.proxy.get_all().keys():
-            if not isinstance(key, ConstTypes):
-                raise InnerError(
-                    f"[{self.__class__.__name__}]: received {key} as key."
-                )
-            key_var = VariableFactory.from_value(
-                key, self.graph, tracker=ConstTracker(key)
-            )
-            value_var = self[key]
-            items.extend([key_var, value_var])
-        return items
+    def flatten_inner_vars(self):
+        items = self.get_wrapped_items()
+        return reduce(
+            operator.add,
+            (
+                key.flatten_inner_vars() + val.flatten_inner_vars()
+                for key, val in items.items()
+            ),
+            [],
+        )
 
     def get_wrapped_items(self):
         items = {}

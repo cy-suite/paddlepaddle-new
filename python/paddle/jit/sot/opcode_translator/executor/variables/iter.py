@@ -54,9 +54,9 @@ class IterVariable(VariableBase):
     def get_iter(self):
         return self
 
-    def get_inner_vars(self):
+    def get_wrapped_items(self):
         if isinstance(self.hold, (ContainerVariable, IterVariable)):
-            return self.hold.get_inner_vars()
+            return self.hold.get_wrapped_items()
         return [self.hold]
 
     def flatten_inner_vars(self) -> list[VariableBase]:
@@ -66,8 +66,8 @@ class IterVariable(VariableBase):
             list[VariableBase]: Flattened items of a container variable.
         """
         flattened_inner_vars = []
-        for inner_var in self.get_inner_vars():
-            flattened_inner_vars.extend(inner_var.flatten_inner_vars())
+        for inner_var in self.get_wrapped_items():
+            flattened_inner_vars.extend(inner_var.get_wrapped_items())
         return flattened_inner_vars
 
 
@@ -177,11 +177,11 @@ class ZipVariable(SequenceIterVariable):
     def __init__(self, iters, graph, tracker):
         super().__init__(iters, graph, tracker)
 
-    def get_inner_vars(self):
+    def get_wrapped_items(self):
         items = []
         for hold in self.hold:
             if isinstance(hold, (ContainerVariable, IterVariable)):
-                items.extend(hold.get_inner_vars())
+                items.extend(hold.get_wrapped_items())
             else:
                 items.append(hold)
         return items
