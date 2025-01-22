@@ -15,6 +15,7 @@
 #pragma once
 
 #include "paddle/cinn/ir/ir.h"
+#include "paddle/cinn/ir/stmt.h"
 
 namespace cinn {
 namespace ir {
@@ -34,7 +35,7 @@ std::set<Expr> CollectIRNodes(ir::LoweredFunc f,
  * Collect the IR Nodes(without duplication and tensor's compute body) in the
  * expression.
  */
-std::set<Expr> CollectIRNodesWithoutTensor(
+std::vector<Expr> CollectIRNodesWithoutTensor(
     Expr x,
     std::function<bool(const Expr*)>&& teller,
     bool uniq_target = false);
@@ -87,6 +88,11 @@ std::vector<std::string> CollectUndefinedVars(const Expr* e);
  * Collect the Tensor Nodes which will be written by Store or Call Nodes
  */
 std::set<std::string> CollectTensorNeedsWrite(const Expr* e);
+
+/**
+ * Collect the Tensor Nodes which will be written by Store or Call Nodes
+ */
+std::set<std::string> CollectTensorNeedsWrite(const stmt::BlockRef& block);
 }  // namespace ir_utils
 }  // namespace ir
 }  // namespace cinn

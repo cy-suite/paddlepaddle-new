@@ -40,7 +40,7 @@ def git_commit() -> str:
     return str(git_commit)
 
 def _get_version_detail(idx):
-    assert idx < 3, "vesion info consists of %(major)d.%(minor)d.%(patch)d, \
+    assert idx < 3, "version info consists of %(major)d.%(minor)d.%(patch)d, \
         so detail index must less than 3"
 
     if re.match(r'@TAG_VERSION_REGEX@', '@PADDLE_VERSION@'):
@@ -808,8 +808,6 @@ packages=['paddle',
           'paddle.quantization.imperative',
           'paddle.tensor',
           'paddle.onnx',
-          'paddle.tensorrt',
-          'paddle.tensorrt.impls',
           'paddle.autograd',
           'paddle.device',
           'paddle.device.cuda',
@@ -823,7 +821,15 @@ packages=['paddle',
           'paddle.decomposition',
           'paddle._typing',
           'paddle._typing.libs',
+          'paddle.api_tracer',
         ]
+
+if '@WITH_TENSORRT@' =='ON':
+    packages.extend([
+        'paddle.tensorrt',
+        'paddle.tensorrt.impls',
+    ])
+
 
 with open('@PADDLE_SOURCE_DIR@/python/requirements.txt') as f:
     setup_requires = f.read().splitlines()
@@ -1341,7 +1347,7 @@ def install_cpp_dist_and_build_test(paddle_install_dir, paddle_lib_test_dir):
     """install cpp distribution and build test target
 
     TODO(huangjiyi):
-    1. This function will be moved when seperating C++ distribution
+    1. This function will be moved when separating C++ distribution
     installation from python package installation.
     2. Reduce the header and library files to be installed.
     """
