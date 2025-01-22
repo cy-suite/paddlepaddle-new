@@ -3742,15 +3742,15 @@ def log10_(x: Tensor, name: str | None = None) -> Tensor:
         return _C_ops.log10_(x)
 
 
-# def is_clip_tensor(value):
-#     if paddle.is_tensor(value):
-#         if (len(value.shape) == 1 and value.shape[-1] == 1) or len(
-#             value.shape
-#         ) == 0:
-#             return False
-#         return True
-#     else:
-#         return False
+def is_clip_tensor(value):
+    if paddle.is_tensor(value):
+        if (len(value.shape) == 1 and value.shape[-1] == 1) or len(
+            value.shape
+        ) == 0:
+            return False
+        return True
+    else:
+        return False
 
 
 # def get_clip_tensor_shape(value1, value2, value3):
@@ -3817,7 +3817,7 @@ def clip(
     min = min_ if min is None else min
     max = max_ if max is None else max
 
-    if paddle.is_tensor(min) and paddle.is_tensor(max):
+    if is_clip_tensor(min) or is_clip_tensor(max):
         min = (
             min
             if paddle.is_tensor(min)
@@ -3959,7 +3959,7 @@ def clip_(
     max = fmax if max is None else max
 
     # if in_dynamic_mode():
-    if paddle.is_tensor(min) and paddle.is_tensor(max):
+    if is_clip_tensor(min) or is_clip_tensor(max):
         min = (
             min
             if paddle.is_tensor(min)
