@@ -159,7 +159,7 @@ std::vector<ir::Var> GetAllForIters(const ir::Expr& expr);
 
 }  // namespace trivial_fusion_detail
 
-struct VectorizeInfo {
+struct GroupVectorizeInfo {
   bool can_apply_vectorize{false};
   bool has_if_else_op{false};
   bool has_select_op{false};
@@ -173,7 +173,7 @@ struct FusionGroupInfo {
   std::vector<int64_t> reduce_axis;
   std::vector<std::string> reduce_var_name;
   bool can_apply_grid_reduce;
-  VectorizeInfo vectorize_info;
+  GroupVectorizeInfo vectorize_info;
 
   std::string DebugPrint() {
     std::stringstream ss;

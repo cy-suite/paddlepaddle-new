@@ -297,7 +297,8 @@ int UpdateWarpNumsInDifferentCase(
   if (base_info->has_if_else_op && last_dim == "R") {
     warp_nums = Trim(warp_nums, 1, 16);
   } else if (base_info->continuous_tensor_nums !=
-             base_info->fusion_group_arg_nums) {
+                 base_info->fusion_group_arg_nums &&
+             last_dim == "S") {
     warp_nums = Trim(warp_nums, 1, 8);
   } else {
     warp_nums = Trim(warp_nums, 1, 32);
