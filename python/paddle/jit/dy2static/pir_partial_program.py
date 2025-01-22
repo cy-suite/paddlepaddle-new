@@ -250,7 +250,11 @@ class RunnableProgram:
         )
         self.bwd_start_pre_op = (
             self.program.global_block().ops[self.backward_range[0] - 1]
-            if self.backward_range[0] - 1 < len(self.program.global_block().ops)
+            if (
+                self.backward_range[0] > 0
+                and self.backward_range[0] - 1
+                < len(self.program.global_block().ops)
+            )
             else None
         )
         self.bwd_end_nex_op = (
