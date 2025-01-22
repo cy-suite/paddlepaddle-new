@@ -638,7 +638,7 @@ class PostTrainingQuantization:
                             op._set_attr("op_namescope", "skip_quant")
 
                 op_type = op.type
-                # skip quant form simular conv1d_transpose
+                # skip quant form similar conv1d_transpose
                 if op_type == 'conv2d_transpose':
                     in_name = op.input("Filter")[0]
                     for _op in self._program.blocks[block_id].ops:
