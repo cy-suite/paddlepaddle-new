@@ -1625,6 +1625,7 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
             if is_inplaced
             else self.forward_api_name
         )
+
         forward_inputs_position_map = self.forward_inputs_position_map
         forward_outputs_position_map = self.forward_outputs_position_map
         forward_attrs_list = self.forward_attrs_list
@@ -1821,12 +1822,10 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
         returns_list = ["" for i in range(num_outputs)]
         num_visited_intermediate_outputs = 0
         for name, (rtype, pos) in forward_outputs_position_map.items():
-
             if name in intermediate_outputs:
                 num_visited_intermediate_outputs += 1
                 continue
             pos -= num_visited_intermediate_outputs
-
             returns_list[pos] = f"{name}"
 
             if IsPlainTensorType(rtype):
@@ -2477,7 +2476,6 @@ class DygraphNodeGenerator(DygraphFunctionGeneratorBase):
                 )
 
         grad_node_name = GetGradNodeName(self.backward_api_name)
-
         self.node_declaration_str = NODE_DECLARATION_TEMPLATE.format(
             grad_node_name,
             grad_node_name,
@@ -3159,9 +3157,9 @@ class DygraphForwardAndNodesGenerator(GeneratorBase):
             if forward_api_contents[op_string] in black_ops_list:
                 continue
             if op_string == 'backward_op' and (
-                forward_api_contents[op_string].endswith('double_grad')
-                or forward_api_contents[op_string].endswith('triple_grad')
-                or forward_api_contents[op_string].endswith('grad_grad')
+                forward_api_contents[op_string].endswith(
+                    ('double_grad', 'triple_grad', 'grad_grad')
+                )
             ):
                 continue
 
@@ -3354,18 +3352,12 @@ if __name__ == "__main__":
 
     for i in range(len(backward_yaml_paths)):
         backward_yaml_path = backward_yaml_paths[i]
-        # if backward_yaml_path.endswith('/dygraph_backward.yaml') or backward_yaml_path.endswith('/fused_backward.yaml'):
-        #     continue
         if backward_yaml_path.endswith('/backward.yaml'):
             generator_grad = DygraphForwardAndNodesGenerator(
                 backward_yaml_paths[i], backward_yaml_paths[i], all_bw, all_bw
             )
         else:
             continue
-        # else:
-        #     generator_grad = DygraphForwardAndNodesGenerator(
-        #         backward_yaml_paths[i], backward_yaml_paths[i]
-        #     )
 
         generator_grad.run(True)
 

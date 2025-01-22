@@ -644,9 +644,6 @@ class DistForwardAPI(ForwardAPI):
     def is_inplace_output(self, i):
         return self.outputs['names'][i] in self.inplace_map
 
-    def is_optional_output(self, i):
-        return self.outputs['names'][i] in self.optional_vars
-
     def is_inplace_and_optional_output(self, i):
         return (
             self.outputs['names'][i] in self.inplace_map
@@ -1144,9 +1141,7 @@ class DistForwardAPI(ForwardAPI):
 
                 get_out_code = f"std::get<{i}>(api_output)"
                 if out_type == 'Tensor':
-                    if self.is_inplace_and_optional_output(
-                        i
-                    ):  # or self.is_optional_output(i):
+                    if self.is_inplace_and_optional_output(i):
                         output_creation_code += MULTI_SINGLE_INPLACE_AND_OPTIONAL_OUT_CREATION_TEMPLATE.format(
                             idx=i, out=get_out_code
                         )
@@ -1197,9 +1192,7 @@ class DistForwardAPI(ForwardAPI):
                         if self.infer_meta['spmd_rule'] is not None
                         else self.outputs['out_size_expr'][i]
                     )
-                    if self.is_inplace_and_optional_output(
-                        i
-                    ):  # or self.is_optional_output(i):
+                    if self.is_inplace_and_optional_output(i):
                         output_creation_code += MULTI_VECTOR_INPLACE_AND_OPTIONAL_OUT_CREATION_TEMPLATE.format(
                             idx=i,
                             dist_output_arg=dist_output_arg,

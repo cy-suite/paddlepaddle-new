@@ -135,9 +135,6 @@ class ForwardAPI(BaseAPI):
                 else:
                     out_type_list.append(inplace_out_type_map[out_type])
             else:
-                # if out_name in self.optional_vars:
-                #     out_type_list.append(optional_out_type_map[out_type])
-                # else:
                 out_type_list.append(out_type)
 
         if len(out_type_list) == 1:
@@ -157,9 +154,6 @@ class ForwardAPI(BaseAPI):
                 else:
                     out_type_list.append(inplace_out_type_map[out_type])
             elif self.is_dygraph_api or out_name not in self.intermediate_outs:
-                # if out_name in self.optional_vars:
-                #     out_type_list.append(optional_out_type_map[out_type])
-                # else:
                 out_type_list.append(out_type)
 
         if len(out_type_list) == 1:
@@ -318,7 +312,7 @@ class ForwardAPI(BaseAPI):
                     inplace_flag
                     and self.outputs['names'][i] in self.inplace_map
                     and self.inplace_map[self.outputs['names'][i]]
-                    in self.optional_vars  # or self.outputs['names'][i] in self.optional_vars
+                    in self.optional_vars
                 ):
                     get_out_code = f"std::get<{i}>(api_output).get_ptr()"
 
