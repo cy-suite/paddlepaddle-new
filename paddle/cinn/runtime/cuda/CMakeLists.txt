@@ -11,7 +11,7 @@ gather_srcs(
   cuda_util.cc
   cuda_intrinsics.cc
   cuda_intrinsics_reduce.cc
-  cuda_instrinsics_float16.cc
-  cuda_instrinsics_bfloat16.cc)
+  cuda_intrinsics_float16.cc
+  cuda_intrinsics_bfloat16.cc)
 
 cinn_nv_library(cuda_runtime SRCS cinn_cuda_runtime_source.cuh)

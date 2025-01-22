@@ -268,6 +268,21 @@ def set_skip_gc_vars(num_micro_batches, job_types, sub_programs, jobs):
     thus a sub_program's vars might be used as the op's input of the later sub_program,
     and these vars cannot be gc after executing current sub_program.
     """
+    if paddle.base.framework.get_flags("FLAGS_enable_pir_api")[
+        "FLAGS_enable_pir_api"
+    ]:
+        return _set_skip_gc_vars_in_pir(
+            num_micro_batches, job_types, sub_programs, jobs
+        )
+    else:
+        return _set_skip_gc_vars_in_old_ir(
+            num_micro_batches, job_types, sub_programs, jobs
+        )
+
+
+def _set_skip_gc_vars_in_old_ir(
+    num_micro_batches, job_types, sub_programs, jobs
+):
     assert num_micro_batches >= 1, "num_micro_batches needs to be >= 1"
     type_to_program = dict(zip(job_types, sub_programs))
 
@@ -300,32 +315,54 @@ def set_skip_gc_vars(num_micro_batches, job_types, sub_programs, jobs):
     return type_to_program
 
 
-def set_pir_skip_gc_vars(num_micro_batches, job_types, sub_programs, jobs):
+def _set_skip_gc_vars_in_pir(num_micro_batches, job_types, sub_programs, jobs):
     assert num_micro_batches >= 1, "num_micro_batches needs to be >= 1"
-    type_to_var_names = {}
     type_to_program = dict(zip(job_types, sub_programs))
-    for job_type, program in type_to_program.items():
-        type_to_var_names[job_type] = set()
-        ops = program.global_block().ops
-        for op in ops:
-            if op.name() == "builtin.shadow_output":
-                # if a value is renamed by shadow_output,
-                # it will be used by other sub_programs
-                type_to_var_names[job_type].add(op.attrs()["output_name"])
-        if job_type in ["backward", "backward_w"]:
-            assert (
-                len(type_to_var_names[job_type]) == 0
-            ), f"The {job_type} sub_program can't have skip_gc_vars. But it is {type_to_var_names[job_type]}."
 
+    # step1: Get all required vars of every sub_program that are non-persistable and not in op's no_need_buffer.
+    type_to_required_vars = {}
     no_need_buffer_vars = core.get_no_need_buffer_values(type_to_program)
+    for job_type, program in type_to_program.items():
+        required_vars = set()
+        persistable_vars = set()
+        for key in program.global_block().kwargs():
+            required_vars.add(key)
+        for op in program.global_block().ops:
+            for var in op.operands_source():
+                if var.has_name:
+                    required_vars.add(var.name)
+                    if var.persistable:
+                        persistable_vars.add(var.name)
+            for var in op.results():
+                if var.has_name:
+                    required_vars.add(var.name)
+                    if var.persistable:
+                        persistable_vars.add(var.name)
+        if job_type in no_need_buffer_vars:
+            required_vars -= no_need_buffer_vars[job_type]
+        required_vars -= persistable_vars
+        type_to_required_vars[job_type] = required_vars
 
-    for job_type, var_set in no_need_buffer_vars.items():
-        if len(var_set) > 0:
-            type_to_var_names[job_type] = type_to_var_names[job_type] - var_set
-
-    for job in jobs:
+    # step2: Set `skip_gc_vars` for each job
+    suffixed_required_vars = [set() for i in range(num_micro_batches)]
+    num_jobs = len(jobs)
+    for job_id in reversed(range(num_jobs)):
+        job = jobs[job_id]
         job_type = job.type()
-        job.set_skip_gc_vars(type_to_var_names[job_type])
+        required_vars = type_to_required_vars[job_type]
+        micro_batch_id = job.micro_batch_id()
+        skip_gc_vars = required_vars & suffixed_required_vars[micro_batch_id]
+        logger.debug(
+            f"Skip gc vars for {job_type}-({micro_batch_id}): {skip_gc_vars}"
+        )
+
+        if job_type in ["send_backward", "backward_w"]:
+            assert (
+                len(skip_gc_vars) == 0
+            ), f"When enabling pipeline parallelism strategy, the skip_gc_vars for {job_type} subprogram must be empty, but it is {skip_gc_vars}."
+
+        job.set_skip_gc_vars(skip_gc_vars)
+        suffixed_required_vars[micro_batch_id] |= required_vars
 
     return type_to_program
 
@@ -780,7 +817,7 @@ def infer_chunk_id(op_idx, ops, with_dist=True):
                 return op.dist_attr.chunk_id
         else:
             if op.has_attr("chunk_id"):
-                return op.attrs()["chunk_id"]
+                return op.chunk_id
             else:
                 return -1
 
@@ -799,11 +836,8 @@ def infer_chunk_id(op_idx, ops, with_dist=True):
         for used_op in all_used_ops:
             if used_op.dist_attr and used_op.dist_attr.chunk_id != -1:
                 return used_op.dist_attr.chunk_id != -1
-            elif (
-                used_op.has_attr("chunk_id")
-                and used_op.attrs()["chunk_id"] != -1
-            ):
-                return used_op.attrs()["chunk_id"]
+            elif used_op.has_attr("chunk_id") and used_op.chunk_id != -1:
+                return used_op.chunk_id
 
     return -1
 
@@ -1119,7 +1153,7 @@ def _split_program_for_vpp(
                     f"Cannot infer chunk_id for op {op.name()} at index {idx}"
                 )
 
-        # Step2.2: indentify the job_type of the op
+        # Step2.2: identify the job_type of the op
         if op_role == int(OpRole.Optimize):
             job_type = "optimizer"
         elif op_role == int(OpRole.Backward) and split_bw:
@@ -1314,15 +1348,15 @@ def _program_for_vpp_split_bwk(
                     type_to_ops[type + str(chunk_id)] = []
         type_to_ops["fetch"] = []
 
-        dealed_op_idx = 0
+        dealt_op_idx = 0
         for ip, op in enumerate(block.ops):
-            if ip < dealed_op_idx:
+            if ip < dealt_op_idx:
                 continue
             if is_forward_op(op):
                 type = oprole_type[0]
             elif is_backward_op(op):
                 types = _get_backward_op_type(block, op, ip)
-                dealed_op_idx = dealed_op_idx + len(types) - 1
+                dealt_op_idx = dealt_op_idx + len(types) - 1
             elif is_optimize_op(op):
                 type = oprole_type[4]
             else:
@@ -1366,7 +1400,7 @@ def _program_for_vpp_split_bwk(
                     )
             else:
                 raise ValueError(f"There is not dist_attr for op[{op.type}].")
-            dealed_op_idx = dealed_op_idx + 1
+            dealt_op_idx = dealt_op_idx + 1
 
         return type_to_ops
 
@@ -1486,9 +1520,9 @@ def _program_for_zero_bubble(program, enable_send_recv_overlap=False):
             type_to_ops[type] = []
         type_to_ops["fetch"] = []
 
-        dealed_op_idx = 0
+        dealt_op_idx = 0
         for idx, op in enumerate(block.ops):
-            if idx < dealed_op_idx:
+            if idx < dealt_op_idx:
                 continue
             if _is_fetch_op(op):
                 type_to_ops["fetch"].append(op)
@@ -1496,7 +1530,7 @@ def _program_for_zero_bubble(program, enable_send_recv_overlap=False):
                 type_to_ops["forward"].append(op)
             elif is_backward_op(op):
                 types = _get_backward_op_type(block, op, idx)
-                dealed_op_idx = dealed_op_idx + len(types) - 1
+                dealt_op_idx = dealt_op_idx + len(types) - 1
                 for i, type in enumerate(types):
                     type_to_ops[type].append(block.ops[idx + i])
                     type_to_ops["backward"].append(block.ops[idx + i])
@@ -1508,7 +1542,7 @@ def _program_for_zero_bubble(program, enable_send_recv_overlap=False):
                     + str(op.attr('op_role'))
                     + " isn't one of Forward, Backward or Optimizer."
                 )
-            dealed_op_idx = dealed_op_idx + 1
+            dealt_op_idx = dealt_op_idx + 1
         return type_to_ops
 
     type_to_program = OrderedDict()
@@ -1624,18 +1658,18 @@ def _program_for_zero_bubble_vpp(
                         type_to_ops["backward_w" + str(chunk_id)] = []
         type_to_ops["fetch"] = []
 
-        dealed_op_idx = 0
-        dealed_types = []
+        dealt_op_idx = 0
+        dealt_types = []
         for idx, op in enumerate(block.ops):
-            if idx < dealed_op_idx:
-                type = dealed_types[len(dealed_types) - dealed_op_idx + idx]
+            if idx < dealt_op_idx:
+                type = dealt_types[len(dealt_types) - dealt_op_idx + idx]
             else:
                 if is_forward_op(op):
                     type = oprole_type[0]
                 elif is_backward_op(op):
                     type = _get_backward_op_type(block, op, idx)
-                    dealed_op_idx = dealed_op_idx + len(type) - 1
-                    dealed_types = type[1:]
+                    dealt_op_idx = dealt_op_idx + len(type) - 1
+                    dealt_types = type[1:]
                     type = type[0]
                 elif is_optimize_op(op):
                     type = oprole_type[3]
@@ -1645,7 +1679,7 @@ def _program_for_zero_bubble_vpp(
                         + str(op.attr('op_role'))
                         + " isn't one of Forward, Backward or Optimizer."
                     )
-                dealed_op_idx += 1
+                dealt_op_idx += 1
 
             dist_op = dist_context.get_dist_op_for_program(op)
             if _is_fetch_op(op):
@@ -1929,7 +1963,7 @@ def _pir_split_matmul_grad_to_matmul(block, matmul_grad_id):
     # When the rank of input matrix is 3, MatmulGradKernel use reshape to fold the first two dimensions of x and out_grad (see FoldInitDims in matmul_grad_kernel_impl.h), and then calls blas.Matmul to calculate y_grad.
     # If we directly append matmul op to calculate y_grad without FoldInitDims, blas.BatchedGEMM is actually called in MatmulKernel, which has a larger cost than using blas.Matmul after dimension folding.
     # Therefore, we imitate MatmulGradKernel here by inserting reshape op before matmul.
-    chunk_id = matmul_grad_op.attrs()["chunk_id"]
+    chunk_id = matmul_grad_op.chunk_id
 
     paddle.pir.set_insertion_point_after(matmul_grad_op)
     new_x = paddle._C_ops.reshape(x, new_x_dims)
