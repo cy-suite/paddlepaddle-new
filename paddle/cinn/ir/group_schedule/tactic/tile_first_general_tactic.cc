@@ -486,6 +486,52 @@ void TileFirstGeneralTactic::BindCudaInfo(ir::IRSchedule* sch,
 
 namespace {
 
+void ProcessScheduleBlockRealize(
+    const ir::ScheduleBlockRealize* block_realize,
+    const std::string& loop_var_name,
+    BoundVariableMap& bound_variable_map) {  // NOLINT
+  auto* schedule_block = block_realize->schedule_block.As<ScheduleBlock>();
+  auto iter_values = block_realize->iter_values;
+  auto iter_vars = schedule_block->iter_vars;
+
+  for (std::size_t i = 0; i < iter_values.size(); ++i) {
+    const auto& iter_value = iter_values[i];
+    if (iter_value.is_var() &&
+        iter_value.as_var()->name.find(loop_var_name) != std::string::npos) {
+      bound_variable_map[loop_var_name].emplace_back(iter_vars[i]);
+    } else if (iter_value.is_index()) {
+      ir::ir_utils::CollectIRNodes(
+          iter_value,
+          [&loop_var_name, &bound_variable_map, &iter_vars, i](const Expr* x) {
+            if (const auto* var = x->As<ir::_Var_>()) {
+              if (var->name == loop_var_name) {
+                bound_variable_map[loop_var_name].emplace_back(iter_vars[i]);
+              }
+            }
+            return false;
+          });
+    }
+  }
+}
+
+BoundVariableMap GetBoundVariables(const Expr& expr, const Expr& loop_var) {
+  BoundVariableMap bound_variable_map;
+  auto loop_var_name = loop_var.as_var()->name;
+
+  ir::ir_utils::CollectIRNodes(
+      expr,
+      [&loop_var_name, &bound_variable_map](const Expr* x) {
+        if (const auto block_realize = x->As<ir::ScheduleBlockRealize>()) {
+          ProcessScheduleBlockRealize(
+              block_realize, loop_var_name, bound_variable_map);
+        }
+        return false;
+      },
+      true);
+
+  return bound_variable_map;
+}
+
 /*
  * Check if the current loop variable containing the vectorize axis
  * is present in the iter values of the axis bind within the loop body.
@@ -513,67 +559,9 @@ bool ContainsVectorizableAxis(const ir::IRSchedule* sch,
 
   // Get all the lter values in the axis bind that contain a loop var and the
   // corresponding iter var.
-  auto get_bound_variables = [&vectorize_expr](const Expr& expr,
-                                               const Expr& loop_var) {
-    BoundVariableMap bound_variable_map;
-    auto loop_var_name = loop_var.as_var()->name;
-
-    ir::ir_utils::CollectIRNodes(
-        expr,
-        [&loop_var_name, &bound_variable_map](const Expr* x) {
-          if (const auto block_realize = x->As<ir::ScheduleBlockRealize>()) {
-            auto* schedule_block =
-                block_realize->schedule_block.As<ScheduleBlock>();
-            auto iter_values = block_realize->iter_values;
-            auto iter_vars = schedule_block->iter_vars;
-
-            for (std::size_t i = 0; i < iter_values.size(); ++i) {
-              const auto& iter_value = iter_values[i];
-              if (iter_value.is_var() &&
-                  iter_value.as_var()->name.find(loop_var_name) !=
-                      std::string::npos) {
-                bound_variable_map[loop_var_name].emplace_back(iter_vars[i]);
-              } else if (iter_value.is_index()) {
-                ir::ir_utils::CollectIRNodes(
-                    iter_value,
-                    [&loop_var_name, &bound_variable_map, &iter_vars, i](
-                        const Expr* x) {
-                      if (const auto* var = x->As<ir::_Var_>()) {
-                        if (var->name == loop_var_name) {
-                          bound_variable_map[loop_var_name].emplace_back(
-                              iter_vars[i]);
-                        }
-                      }
-                      return false;
-                    });
-              }
-            }
-          }
-          return false;
-        },
-        true);
-
-    return bound_variable_map;
-  };
-
-  auto bound_variable_map = get_bound_variables(
-      vectorize_expr, vectorize_expr.As<ir::For>()->loop_var);
-
-  VLOG(5) << "bound_variable_map:\n";
-  for (const auto& entry : bound_variable_map) {
-    const auto& loop_var_name = entry.first;
-    const auto& vars = entry.second;
-    VLOG(5) << "Loop Variable: " << loop_var_name;
-    for (const auto& var : vars) {
-      VLOG(5) << "Var: " << var;
-    }
-  }
-
-  if (bound_variable_map.empty()) {
-    return false;
-  }
-
-  return true;
+  auto bound_variable_map =
+      GetBoundVariables(vectorize_expr, vectorize_expr.As<ir::For>()->loop_var);
+  return !bound_variable_map.empty();
 }
 
 void SpatialRegionVectorizeTilingSchedule(ir::IRSchedule* sch,
