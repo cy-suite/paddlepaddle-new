@@ -84,7 +84,7 @@ AUTO_PARALLEL_COND_TEMPLATE = """
 OP_COMM_INIT = """
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
   const auto & comm_context_manager_ = phi::distributed::CommContextManager::GetInstance();
-  if (!comm_context_manager_.Has(std::to_string(ring_id))) {{
+  if (nranks > 1 && !comm_context_manager_.Has(std::to_string(ring_id))) {{
     auto store = phi::distributed::CreateOrGetGlobalTCPStore();
     phi::distributed::CommContextManager::CreateNCCLCommContext(
             store, std::to_string(ring_id), rank, nranks);
