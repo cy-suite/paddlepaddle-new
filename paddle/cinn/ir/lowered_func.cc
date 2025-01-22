@@ -28,6 +28,7 @@
 #include "paddle/cinn/ir/ir_printer.h"
 #include "paddle/cinn/ir/ir_visitor.h"
 #include "paddle/cinn/runtime/intrinsic.h"
+#include "paddle/cinn/utils/functional.h"
 #include "paddle/cinn/utils/string.h"
 
 PD_DECLARE_bool(cinn_runtime_display_debug_info);
@@ -68,11 +69,44 @@ LoweredFunc _LoweredFunc_::Make(const std::string& name,
 
 LoweredFunc _LoweredFunc_::Make(const std::string& name,
                                 const std::vector<Argument>& args,
+                                const stmt::BlockRef& body,
+                                const std::vector<ir::Buffer>& temp_bufs) {
+  auto* n = make_shared<_LoweredFunc_>();
+  n->name = name;
+  n->args = args;
+  n->body_block = body;
+  n->temp_bufs = temp_bufs;
+
+  n->CheckValid();
+  n->PrepareAllocOutputBufferExprs();
+  n->PrepareCreateTempBufferExprs();
+  n->PrepareAllocTempBufferExprs();
+  n->AllocTempBuffer();
+  bool with_expr_gen_tensor = false;
+  n->PrepareBufferCastExprs(with_expr_gen_tensor);
+  n->PrepareArgumentExprs();
+  n->PrepareDeallocTempBufferExprs();
+  n->PrepareDeallocOutputBufferExprs();
+  return LoweredFunc(n);
+}
+
+LoweredFunc _LoweredFunc_::Make(const std::string& name,
+                                const std::vector<Argument>& args,
                                 const Expr& body) {
   auto* n = make_shared<_LoweredFunc_>();
   n->name = name;
   n->args = args;
   n->body = body;
+  return LoweredFunc(n);
+}
+
+LoweredFunc _LoweredFunc_::Make(const std::string& name,
+                                const std::vector<Argument>& args,
+                                const stmt::BlockRef& body) {
+  auto* n = make_shared<_LoweredFunc_>();
+  n->name = name;
+  n->args = args;
+  n->body_block = body;
   return LoweredFunc(n);
 }
 
@@ -490,9 +524,9 @@ std::vector<Tensor> _LoweredFunc_::CollectAllTensorReference(
       with_expr_gen_tensor
           ? ir::ir_utils::CollectIRNodes(
                 body, [](const Expr* expr) { return expr->As<ir::_Tensor_>(); })
-          : ir::ir_utils::CollectIRNodesWithoutTensor(
+          : cinn::utils::VectorToSet(ir::ir_utils::CollectIRNodesWithoutTensor(
                 body,
-                [](const Expr* expr) { return expr->As<ir::_Tensor_>(); });
+                [](const Expr* expr) { return expr->As<ir::_Tensor_>(); }));
 
   std::vector<Tensor> tensors;
   // remove the duplicate tensor by their name.

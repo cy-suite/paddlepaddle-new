@@ -19,6 +19,7 @@
 #include "paddle/cinn/ir/ir.h"
 #include "paddle/cinn/ir/ir_mutator.h"
 #include "paddle/cinn/ir/ir_printer.h"
+#include "paddle/cinn/ir/stmt_visitors.h"
 
 namespace cinn {
 namespace ir {
@@ -190,11 +191,11 @@ std::vector<Expr> CollectIRNodesInOrder(
   return exprs;
 }
 
-std::set<Expr> CollectIRNodesWithoutTensor(
+std::vector<Expr> CollectIRNodesWithoutTensor(
     Expr expr, std::function<bool(const Expr*)>&& teller, bool uniq_target) {
-  std::set<Expr> exprs;
+  std::vector<Expr> exprs;
   IrNodesWithoutTensorCollector::handler_t handler = [&](const Expr* x) {
-    exprs.insert(*x);
+    exprs.push_back(*x);
   };
   IrNodesWithoutTensorCollector collector(
       std::move(teller), std::move(handler), uniq_target);
@@ -393,6 +394,26 @@ std::set<std::string> CollectTensorNeedsWrite(const Expr* e) {
   };
   IrNodesCollector collector(std::move(teller), std::move(handler), false);
   collector.Visit(e);
+  return tensor_written;
+}
+
+std::set<std::string> CollectTensorNeedsWrite(const stmt::BlockRef& block) {
+  std::set<std::string> tensor_written;
+  const auto& CollectInSubExpr = [&](const Expr* e) {
+    const auto& sub_expr_res = CollectTensorNeedsWrite(e);
+    tensor_written.insert(sub_expr_res.begin(), sub_expr_res.end());
+  };
+  const auto& CollectInStmt = [&](const stmt::StmtRef& stmt) {
+    if (stmt.isa<stmt::Store>()) {
+      const auto& store_stmt = stmt.as<stmt::Store>();
+      tensor_written.insert(store_stmt->tensor().As<ir::_Tensor_>()->name);
+      CollectInSubExpr(&(store_stmt->value()));
+    }
+    if (stmt.isa<stmt::Let>()) {
+      CollectInSubExpr(&(stmt.as<stmt::Let>()->body()));
+    }
+  };
+  stmt::Visit(block, CollectInStmt, [](const stmt::StmtRef& stmt) {});
   return tensor_written;
 }
 }  // namespace ir_utils

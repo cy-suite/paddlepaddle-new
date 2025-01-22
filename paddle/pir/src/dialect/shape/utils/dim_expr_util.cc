@@ -1033,10 +1033,10 @@ struct SimplifyBroadcast {
 };
 
 template <typename PassT>
-void DoPass(bool* rewrited, DimExpr* expr) {
+void DoPass(bool* rewritten, DimExpr* expr) {
   const auto old_expr = *expr;
   *expr = TrySimplifyPass<PassT>(*expr);
-  *rewrited = *rewrited || (old_expr != *expr);
+  *rewritten = *rewritten || (old_expr != *expr);
 }
 
 DimExpr Simplify(const DimExpr& expr) {
@@ -1269,6 +1269,30 @@ IR_API PriorityComparisonStatus CompareDimExprPriority(const DimExpr& lhs,
         return PriorityComparisonStatus::EQUAL;
       }};
   return std::visit(CompareForEqualPriority, lhs.variant(), rhs.variant());
+}
+
+DimExprCompareResult Compare(const DimExpr& lhs, const DimExpr& rhs) {
+  auto CompareFunc = common::Overloaded{
+      [](const int& lhs, const int& rhs) {
+        return lhs == rhs ? DimExprCompareResult::EQ
+                          : (lhs < rhs ? DimExprCompareResult::LT
+                                       : DimExprCompareResult::GT);
+      },
+      [](const Add<DimExpr>& lhs, const Add<DimExpr>& rhs) {
+        DimExpr simplified_result =
+            SimplifyDimExpr(DimExpr{lhs} - DimExpr{rhs});
+        if (simplified_result.isa<int64_t>()) {
+          int64_t const_result = simplified_result.dyn_cast<int64_t>();
+          return const_result == 0  ? DimExprCompareResult::EQ
+                 : const_result < 0 ? DimExprCompareResult::LT
+                                    : DimExprCompareResult::GT;
+        }
+        return DimExprCompareResult::UNKNOWN;
+      },
+      [](const auto& lhs, const auto& rhs) {
+        return DimExprCompareResult::UNKNOWN;
+      }};
+  return std::visit(CompareFunc, lhs.variant(), rhs.variant());
 }
 
 }  // namespace symbol
