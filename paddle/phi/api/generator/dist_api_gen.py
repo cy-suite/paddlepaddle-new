@@ -105,14 +105,17 @@ NCCL_COMMCONTEXT_INIT = """
         common::errors::Unavailable(
             "NCCLCommContext is nullptr, collective op should "
             "has ring_id attr."));
-    auto kernel_res = phi::KernelFactory::Instance().SelectKernelOrThrowError(
-        "{}", {{kernel_backend, kernel_layout, kernel_data_type}}, true);
-    if (FLAGS_low_precision_op_list) {{
-      phi::KernelFactory::Instance().AddToLowPrecisionKernelList("{}", kernel_data_type);
+    if (!comm_context->GetDevContext() || !comm_context->GetDevContext()->GetCommContext())
+    {{
+        auto kernel_res = phi::KernelFactory::Instance().SelectKernelOrThrowError(
+            "{}", {{kernel_backend, kernel_layout, kernel_data_type}}, true);
+        if (FLAGS_low_precision_op_list) {{
+        phi::KernelFactory::Instance().AddToLowPrecisionKernelList("{}", kernel_data_type);
+        }}
+        Backend act_kernel_backend = kernel_res.has_fallback_cpu ? Backend::CPU : kernel_backend;
+        auto* dev_context = GetDeviceContextByBackend(act_kernel_backend);
+        dev_context->SetCommContext(comm_context);
     }}
-    Backend act_kernel_backend = kernel_res.has_fallback_cpu ? Backend::CPU : kernel_backend;
-    auto* dev_context = GetDeviceContextByBackend(act_kernel_backend);
-    dev_context->SetCommContext(comm_context);
   }}
 #endif
 """
@@ -896,11 +899,17 @@ class DistForwardAPI(ForwardAPI):
             input_args=input_args, mesh=mesh, kernel_code=kernel_select_code
         )
 
-        if self.kernel['func'][0] == 'c_concat':
+        if 'ring_id' in self.attrs['names']:
+            # if self.kernel['func'][0] == 'c_concat':
+            if (
+                'rank' in self.attrs['names']
+                and 'nranks' in self.attrs['names']
+            ):
+                if_condition_code = (
+                    if_condition_code + '\n' + self.generate_op_comm_init_code()
+                )
             if_condition_code = (
                 if_condition_code
-                + '\n'
-                + self.generate_op_comm_init_code()
                 + '\n'
                 + self.generate_nccl_commcontext_init_code()
             )

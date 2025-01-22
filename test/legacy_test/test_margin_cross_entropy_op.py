@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import unittest
 
 import numpy as np
@@ -106,6 +107,7 @@ class TestMarginCrossEntropyOp(OpTest):
         self.dtype = np.float64
 
     def setUp(self):
+        os.environ["PADDLE_TRAINER_ENDPOINTS"] = "127.0.0.1:36001"
         self.initParams()
         self.init_loss_params()
         self.init_dtype()
@@ -227,6 +229,7 @@ class TestMarginCrossEntropyBF16Op(OpTest):
         self.np_dtype = "float32"
 
     def setUp(self):
+        os.environ["PADDLE_TRAINER_ENDPOINTS"] = "127.0.0.1:36001"
         self.initParams()
         self.init_loss_params()
         self.init_dtype()
@@ -333,6 +336,7 @@ class TestMarginCrossEntropyOpCPU(TestMarginCrossEntropyOp):
 )
 class TestMarginCrossEntropyOpV2(unittest.TestCase):
     def setUp(self):
+        os.environ["PADDLE_TRAINER_ENDPOINTS"] = "127.0.0.1:36001"
         self.initParams()
         np.random.seed(self.seed)
         paddle.framework.random._manual_program_seed(self.seed)
@@ -503,6 +507,7 @@ class TestMarginCrossEntropyOpV4(TestMarginCrossEntropyOpV2):
 )
 class TestMarginCrossEntropyOpAPIError(unittest.TestCase):
     def setUp(self):
+        os.environ["PADDLE_TRAINER_ENDPOINTS"] = "127.0.0.1:36001"
         self.initParams()
         np.random.seed(self.seed)
         paddle.framework.random._manual_program_seed(self.seed)
