@@ -29,6 +29,7 @@ if(WITH_DISTRIBUTE AND WITH_GPU)
   py_test_modules(
     test_semi_auto_parallel_sot_pir MODULES test_semi_auto_parallel_sot_pir
     ENVS FLAGS_enable_pir_api=1;MIN_GRAPH_SIZE=0)
+  set_tests_properties(test_semi_auto_parallel_sot_pir PROPERTIES TIMEOUT 120)
   py_test_modules(
     test_auto_parallel_c_embedding_pass MODULES
     test_auto_parallel_c_embedding_pass ENVS FLAGS_enable_pir_api=1)

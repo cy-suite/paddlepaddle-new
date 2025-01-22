@@ -27,7 +27,7 @@ from paddle.autograd.backward_utils import ValueDict
 from paddle.autograd.ir_backward import grad
 from paddle.base import core, framework
 from paddle.base.compiler import BuildStrategy
-from paddle.base.data_feeder import check_type, convert_dtype
+from paddle.base.data_feeder import check_type
 from paddle.base.dygraph.base import switch_to_static_graph
 from paddle.distributed.auto_parallel.static.mix_to_dist_pass import (
     apply_mix2dist_pass,
@@ -37,7 +37,6 @@ from paddle.distributed.auto_parallel.static.pir_pass import (
     apply_partition_pass,
     remove_unuseful_comm_op_pass,
 )
-from paddle.optimizer.lr import LRScheduler
 from paddle.pir import Value, fake_value, is_fake_value
 
 from .logging_utils import TranslatorLogger
@@ -182,7 +181,7 @@ class RunnableProgram:
     def name_value_map(self):
         return RunnableProgram._get_name_value_map_from_program(self.program)
 
-    def convert_name(self, values):
+    def convert_to_name(self, values):
         if len(values) == 0:
             return []
         if isinstance(values[0], str):
@@ -231,25 +230,25 @@ class RunnableProgram:
             in_out_values[0], list
         ), "in_out_values must be tuple with len == 3"
         self.program = program
-        self.x_names = self.convert_name(in_out_values[0])
-        self.param_names = self.convert_name(in_out_values[1])
-        self.out_names = self.convert_name(in_out_values[2])
+        self.x_names = self.convert_to_name(in_out_values[0])
+        self.param_names = self.convert_to_name(in_out_values[1])
+        self.out_names = self.convert_to_name(in_out_values[2])
+        if grad_in_out_values is None:
+            grad_in_out_values = [], [], []
+        self.x_grad_names = self.convert_to_name(grad_in_out_values[0])
+        self.p_grad_names = self.convert_to_name(grad_in_out_values[1])
+        self.o_grad_names = self.convert_to_name(grad_in_out_values[2])
         self.forward_range = forward_range
-        self.backward_range = backward_range
-        self.has_splited = False
-        self.finish_pass = False
         if self.forward_range is None:
             self.forward_range = (0, len(self.program.global_block().ops))
+        self.backward_range = backward_range
         if self.backward_range is None:
             self.backward_range = (
                 len(self.program.global_block().ops),
                 len(self.program.global_block().ops),
             )
-        if grad_in_out_values is None:
-            grad_in_out_values = [], [], []
-        self.x_grad_names = self.convert_name(grad_in_out_values[0])
-        self.p_grad_names = self.convert_name(grad_in_out_values[1])
-        self.o_grad_names = self.convert_name(grad_in_out_values[2])
+        self.has_splited = False
+        self.finish_pass = False
 
     def clone(self):
         cloned_program, _ = paddle.base.libpaddle.pir.clone_program(
@@ -608,15 +607,17 @@ class PartialProgramLayer:
         self._params, self._param_values = (
             parameters if parameters is not None else ([], [])
         )
-
-        self._build_strategy = kwargs.get('build_strategy', BuildStrategy())
-        assert isinstance(self._build_strategy, BuildStrategy)
-        self._origin_main_program = self._verify_program(
-            main_program, self._outputs
-        )
         if parameters is not None:
             parameters[0][:] = self._params
             parameters[1][:] = self._param_values
+
+        self._origin_main_program = self._verify_program(
+            main_program, self._outputs
+        )
+
+        self._build_strategy = kwargs.get('build_strategy', BuildStrategy())
+        assert isinstance(self._build_strategy, BuildStrategy)
+
         with paddle.base.framework._dygraph_guard(paddle.base.dygraph.Tracer()):
             self._cuda_graph_vec = self._create_cuda_graph_vec()
         self._cuda_graph_capture_mode = ""
@@ -645,6 +646,24 @@ class PartialProgramLayer:
         self._hookers = []
         self._backend = kwargs.get('backend', None)
         self._grad_var_names = {}
+
+    @cached_property
+    def origin_runnable_program(self) -> RunnableProgram:
+        inputs = list(self._inputs.var_list)
+        outputs = list(self._outputs.var_list)
+        params = self._param_values
+        paddle.base.libpaddle.pir.append_shadow_outputs(
+            self._origin_main_program,
+            outputs,
+            len(self._origin_main_program.global_block().ops),
+            "output_",
+        )
+        return RunnableProgram(
+            self._origin_main_program, (inputs, params, outputs)
+        )
+
+    def add_hooker(self, hooker):
+        self._hookers.append(hooker)
 
     def __call__(self, inputs):
         """
@@ -684,55 +703,37 @@ class PartialProgramLayer:
         )
         return self._outputs.quick_restore(out_vars)
 
-    @cached_property
-    def origin_runnable_program(self) -> RunnableProgram:
-        inputs = list(self._inputs.var_list)
-        outputs = list(self._outputs.var_list)
-        params = self._param_values
-        paddle.base.libpaddle.pir.append_shadow_outputs(
-            self._origin_main_program,
-            outputs,
-            len(self._origin_main_program.global_block().ops),
-            "output_",
-        )
-        return RunnableProgram(
-            self._origin_main_program, (inputs, params, outputs)
-        )
-
-    def _sync_lr_value_with_scheduler(self):
-        """Update lr_var value with calculated by lr_scheduler."""
-        main_program = self._origin_main_program
-        if hasattr(main_program, 'lr_scheduler') and hasattr(
-            main_program, 'lr_var'
-        ):
-            lr_scheduler = main_program.lr_scheduler
-            lr_var = main_program.lr_var
-
-            assert isinstance(lr_scheduler, LRScheduler), "must be LRScheduler"
-            lr_scheduler = self._origin_main_program.lr_scheduler
-            lr_value = lr_scheduler()
-            data = np.array(lr_value).astype(convert_dtype(lr_var.dtype))
-            lr_var.set_value(data)
-
-    def add_hooker(self, hooker):
-        self._hookers.append(hooker)
-
-    def _get_scope(self, program_id=None, use_scope_cache=False):
-        if not use_scope_cache:
-            return core.Scope()
-        if program_id not in self._scope_cache:
-            self._scope_cache[program_id] = []
-        cached_scopes = self._scope_cache[program_id]
-        for scope in cached_scopes:
-            if scope._can_reused:
-                return scope
-        scope = core.Scope()
-        cached_scopes.append(scope)
-        return scope
-
     # whole
+    @property
+    def program(self) -> RunnableProgram:
+        """
+        Return current train or eval program.
+        """
+        if self.training:
+            return self._train_program
+        else:
+            return self._infer_program
+
+    @property
+    def program_id(self):
+        """
+        Return current train or eval program hash id.
+        """
+        if self.training:
+            return self._train_program_id
+        else:
+            return self._infer_program_id
+
+    @cached_property
+    def _train_program(self) -> RunnableProgram:
+        return self._create_program()
+
+    @cached_property
+    def _infer_program(self) -> RunnableProgram:
+        return self._create_program(is_infer_mode=True)
+
     @switch_to_static_graph
-    def _create_program(self, is_infer_mode=False):
+    def _create_program(self, is_infer_mode=False) -> RunnableProgram:
 
         if is_infer_mode:
 
@@ -869,131 +870,17 @@ class PartialProgramLayer:
 
     @cached_property
     def _train_program_id(self):
-        program_id = paddle.utils._hash_with_id(self.train_program, self)
+        program_id = paddle.utils._hash_with_id(self._train_program, self)
         return program_id
 
     @cached_property
     def _infer_program_id(self):
-        return paddle.utils._hash_with_id(self.infer_program, self)
-
-    @property
-    def program(self):
-        """
-        Return current train or eval program.
-        """
-        if self.training:
-            return self.train_program
-        else:
-            return self.infer_program
-
-    @property
-    def program_id(self):
-        """
-        Return current train or eval program hash id.
-        """
-        if self.training:
-            return self._train_program_id
-        else:
-            return self._infer_program_id
-
-    @cached_property
-    def train_program(self):
-        return self._create_program()
-
-    @cached_property
-    def infer_program(self):
-        return self._create_program(is_infer_mode=True)
-
-    def _verify_program(self, main_program, outputs):
-        """
-        Verify that the program parameter is initialized, prune some unused params,
-        and remove redundant op callstack.
-        """
-        # Check all params from main program can be found in self._params
-        self._check_params_all_inited(main_program)
-
-        return main_program
-
-    def prepare_gradient_aggregation(
-        self, start_idx, main_program, target_program
-    ):
-        """
-        Why we need add gradient aggregation operation ?
-        In some cases, if non leaf nodes are used as output, gradient overwriting will occur, such as
-        def forward(self, in):
-            x = 2 * in  # <---- x is a non-leaf node in program.
-            y = x + 3
-            return x, y
-
-        loss = forward(in)[0].sum()
-        loss.backward()  # <----- x@grad will be overwritten by elementwise_add_grad Op
-        """
-
-        def _need_aggregation(var):
-            """
-            if exist a op whose inputs is var, then return True
-            """
-            if var.type not in [
-                core.VarDesc.VarType.DENSE_TENSOR,
-                core.VarDesc.VarType.SELECTED_ROWS,
-            ]:
-                return False
-            if var.dtype not in [paddle.float32, paddle.float64]:
-                return False
-            for op in main_program.global_block().ops:
-                for in_arg in op.input_arg_names:
-                    if in_arg == var.name:
-                        return True
-            return False
-
-        def _insert_aggregation_ops_for_var(target_program, var):
-            suffix = "@dy2static"
-            var_grad_name = var.grad_name
-            new_grad_name = var.name + suffix + "@GRAD"
-            found_ops = list(
-                filter(
-                    lambda x: x[0] >= start_idx
-                    and any(
-                        out_arg == var_grad_name
-                        for out_arg in x[1].output_arg_names
-                    ),
-                    enumerate(target_program.global_block().ops),
-                )
-            )
-
-            # len(found_ops) may equals zero when stop_gradient works.
-            # len(found_ops) may > 1, because we may have fill_constant op.
-            if len(found_ops) == 0:
-                return None
-            # step1: create a new var named var.name@GRAD
-            target_program.global_block().create_var(
-                name=new_grad_name,
-                type=var.type,
-                dtype=var.dtype,
-                shape=var.shape,
-            )
-            # step2: rename the var.name@GRAD to var.name@GRAD@dy2static
-            for _, op in found_ops:
-                op._rename_input(var_grad_name, new_grad_name)
-                op._rename_output(var_grad_name, new_grad_name)
-            # step3: insert sum op to aggregate the gradient.
-            #        var.name@GRAD = sum(var.name@dy2static@GRAD, var.name@GRAD)
-            target_program.global_block()._insert_op(
-                found_ops[-1][0] + 1,
-                type='sum',
-                inputs={'X': [var_grad_name, new_grad_name]},
-                outputs={"Out": var_grad_name},
-            )
-            return None
-
-        to_processed_vars = list(
-            filter(_need_aggregation, self._outputs.var_list)
-        )
-        for _var in to_processed_vars:
-            _insert_aggregation_ops_for_var(target_program, _var)
+        return paddle.utils._hash_with_id(self._infer_program, self)
 
     @switch_to_static_graph
-    def _append_backward_desc(self, train_runnable_program: RunnableProgram):
+    def _append_backward_desc(
+        self, train_runnable_program: RunnableProgram
+    ) -> RunnableProgram:
         program = train_runnable_program.program
         targets = train_runnable_program.out_values
         # TODO(@zhuoge): refine the interface, use runnable_program to apply passes.
@@ -1077,10 +964,6 @@ class PartialProgramLayer:
                     forward_end_idx,
                     forward_end_idx + op_between_forward_and_backward,
                 )
-            # TODO: add later
-            # self.prepare_gradient_aggregation(
-            # start_idx + 1, main_program, program
-            # )
 
         mapping_value = lambda x: x if isinstance(x, Value) else fake_value()
         inputs_size = len(inputs)
@@ -1142,34 +1025,6 @@ class PartialProgramLayer:
         whole_program.apply_dist_bwd_pass()
         return whole_program
 
-    def _prepare_attributes(self, in_sot_mode=False):
-        attrs = [
-            'forward_program',
-            self.program.forward_program,
-            'backward_program',
-            self.program.backward_program,
-            'is_test',
-            not self.training,
-            'program_id',
-            self.program_id,
-            'in_sot_mode',
-            in_sot_mode,
-        ]
-        for key, val in self.program.program_attr.items():
-            attrs.append(key)
-            attrs.append(val)
-
-        if self._cuda_graph_capture_mode:
-            attrs.extend(
-                (
-                    'cuda_graph_capture_mode',
-                    self._cuda_graph_capture_mode,
-                    'cuda_graph_pool_id',
-                    self._cuda_graph_pool_id,
-                )
-            )
-        return attrs
-
     def _prepare_inputs(self, inputs):
         """
         Prepare inputs, outputs, attrs.
@@ -1210,11 +1065,52 @@ class PartialProgramLayer:
             self._outputs.var_list
         )
 
+    def _prepare_attributes(self, in_sot_mode=False):
+        attrs = [
+            'forward_program',
+            self.program.forward_program,
+            'backward_program',
+            self.program.backward_program,
+            'is_test',
+            not self.training,
+            'program_id',
+            self.program_id,
+            'in_sot_mode',
+            in_sot_mode,
+        ]
+        for key, val in self.program.program_attr.items():
+            attrs.append(key)
+            attrs.append(val)
+
+        if self._cuda_graph_capture_mode:
+            attrs.extend(
+                (
+                    'cuda_graph_capture_mode',
+                    self._cuda_graph_capture_mode,
+                    'cuda_graph_pool_id',
+                    self._cuda_graph_pool_id,
+                )
+            )
+        return attrs
+
     def _create_scope_vec(self, program_id=None, use_scope_cache=False):
         inner_scope = self._get_scope(
             program_id=program_id, use_scope_cache=use_scope_cache
         )
         return [inner_scope]
+
+    def _get_scope(self, program_id=None, use_scope_cache=False):
+        if not use_scope_cache:
+            return core.Scope()
+        if program_id not in self._scope_cache:
+            self._scope_cache[program_id] = []
+        cached_scopes = self._scope_cache[program_id]
+        for scope in cached_scopes:
+            if scope._can_reused:
+                return scope
+        scope = core.Scope()
+        cached_scopes.append(scope)
+        return scope
 
     def _create_cuda_graph_vec(self):
         var = core.eager.Tensor(
@@ -1226,15 +1122,6 @@ class PartialProgramLayer:
         )
         var.stop_gradient = True
         return var
-
-    def _update_stop_gradient(self, out_vars):
-        # Update stop_gradient for all outputs
-        def set_stop_gradient(var, eager_tensor):
-            assert isinstance(var, Value)
-            eager_tensor.stop_gradient = var.stop_gradient
-
-        for idx, var in zip(self._outputs.var_list, out_vars):
-            set_stop_gradient(idx, var)
 
     def _restore_out(self, out_vars):
         """
@@ -1307,6 +1194,16 @@ class PartialProgramLayer:
                 raise NotImplementedError(
                     "only support selected_row and dense_tensor grad type."
                 )
+
+    def _verify_program(self, main_program, outputs):
+        """
+        Verify that the program parameter is initialized, prune some unused params,
+        and remove redundant op callstack.
+        """
+        # Check all params from main program can be found in self._params
+        self._check_params_all_inited(main_program)
+
+        return main_program
 
     def _check_params_all_inited(self, main_program):
         """
