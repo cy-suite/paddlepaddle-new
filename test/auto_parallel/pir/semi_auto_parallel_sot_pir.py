@@ -130,7 +130,8 @@ class TestSimpleNetForSemiAutoParallelSOT:
             dataloader=data_loader, meshes=[self.mesh]
         )
         dy_layer = DPDemoNet(self.mesh)
-        dy_layer = paddle.jit.to_static(dy_layer)
+        unified_strategy = dist.Strategy({"full_graph": False})
+        dy_layer = dist.to_static(dy_layer, strategy=unified_strategy)
         dy_opt = paddle.optimizer.Adam(
             learning_rate=0.01, parameters=dy_layer.parameters()
         )
