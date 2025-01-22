@@ -657,16 +657,15 @@ class PartialProgramLayer:
         self._params, self._param_values = (
             parameters if parameters is not None else ([], [])
         )
-        if parameters is not None:
-            parameters[0][:] = self._params
-            parameters[1][:] = self._param_values
-
-        self._origin_main_program = self._verify_program(
-            main_program, self._outputs
-        )
 
         self._build_strategy = kwargs.get('build_strategy', BuildStrategy())
         assert isinstance(self._build_strategy, BuildStrategy)
+        self._origin_main_program = self._verify_program(
+            main_program, self._outputs
+        )
+        if parameters is not None:
+            parameters[0][:] = self._params
+            parameters[1][:] = self._param_values
 
         with paddle.base.framework._dygraph_guard(paddle.base.dygraph.Tracer()):
             self._cuda_graph_vec = self._create_cuda_graph_vec()
