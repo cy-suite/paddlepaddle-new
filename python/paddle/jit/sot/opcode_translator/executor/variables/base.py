@@ -493,7 +493,6 @@ class VariableBase:
                 fn=fn,
                 graph=self.graph,
                 tracker=GetAttrTracker(self, name),
-                method_name=name,
             )
 
         return VariableFactory.from_value(

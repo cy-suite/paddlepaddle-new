@@ -364,7 +364,6 @@ class MethodVariable(CallableVariable):
         fn (VariableBase): The method to be wrapped.
         graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
         tracker(Tracker): The Tracker object that tracks the information of this variable.
-        method_name (str): The name of the method to be wrapped.
     """
 
     def __init__(
@@ -373,13 +372,10 @@ class MethodVariable(CallableVariable):
         fn: VariableBase,
         graph: FunctionGraph,
         tracker: Tracker,
-        *,
-        method_name: str | None = None,
     ):
         super().__init__(graph, tracker)
         self.bound_instance = bound_instance
         self.fn = fn
-        self.method_name = method_name
 
     def get_py_value(self, allow_tensor=False):
         return self.fn.get_py_value().__get__(
@@ -409,7 +405,6 @@ class MethodVariable(CallableVariable):
         tracker: Tracker,
         instance: VariableBase | None = None,
         fn: VariableBase | None = None,
-        method_name: str | None = None,
     ):
         # NOTE(SigureMo): Since the method_self need method_var as the obj
         # of the tracker, we need to temporarily set the tracker of method_self
@@ -429,7 +424,6 @@ class MethodVariable(CallableVariable):
         method_var = MethodVariable(
             instance_var,
             fn_var,
-            method_name=method_name,
             graph=graph,
             tracker=tracker,
         )
@@ -450,7 +444,8 @@ class MethodVariable(CallableVariable):
     @property
     def main_info(self) -> dict[str, Any]:
         return {
-            "method": self.method_name,
+            "function": self.fn.main_info,
+            "instance": self.bound_instance.main_info,
         }
 
 
