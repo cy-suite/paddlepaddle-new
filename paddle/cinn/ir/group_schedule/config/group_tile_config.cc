@@ -296,6 +296,9 @@ int UpdateWarpNumsInDifferentCase(
   const auto& last_dim = base_info->iter_space_type.back().first;
   if (base_info->has_if_else_op && last_dim == "R") {
     warp_nums = Trim(warp_nums, 1, 16);
+  } else if (base_info->continuous_tensor_nums !=
+             base_info->fusion_group_arg_nums) {
+    warp_nums = Trim(warp_nums, 1, 8);
   } else {
     warp_nums = Trim(warp_nums, 1, 32);
   }
