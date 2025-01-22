@@ -19,7 +19,7 @@ import sys
 import numpy as np
 import tensorrt as trt
 
-from paddle.tensorrt.util import TensorRTConfigManager
+from paddle.tensorrt.util import TensorRTConfigManager, TensorRTConstantManager
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.abspath(os.path.join(current_dir, os.pardir))
@@ -125,7 +125,7 @@ def get_trt_plugin(plugin_name, field_collection, version, plugin_namespace=""):
     )
     assert (
         plugin_creator
-    ), f"Unabled to find plugin creator with name{plugin_name}"
+    ), f"Unable to found plugin creator with name {plugin_name}"
     plugin = plugin_creator.create_plugin(
         name=plugin_name, field_collection=field_collection
     )
@@ -171,8 +171,8 @@ def add_elementwise_layer(network, paddle_op, inputs, op_type):
 def add_1D_constant_layer(network, data, dtype=np.int32, is_scalar=False):
     if not isinstance(data, list):
         data = [data]
-    constant_data = np.array(data, dtype=dtype)
     shape = () if is_scalar else (len(data),)
+    constant_data = np.array(data, dtype=dtype)
     constant_layer = network.add_constant(shape, constant_data)
     return constant_layer.get_output(0)
 
@@ -453,6 +453,7 @@ def trt_reduce_to_scalar(network, tensor, dtype=trt.int32):
 def convert_conv2d(network, paddle_op, inputs):
     from paddle.tensorrt.util import support_fp32_mix_precision
 
+    bias = None
     if (
         paddle_op.name() == "pd_op.conv2d"
         or paddle_op.name() == "pd_op.depthwise_conv2d"
@@ -469,7 +470,8 @@ def convert_conv2d(network, paddle_op, inputs):
             output_size = None
         else:
             raise ValueError("Invalid number of inputs for conv2d_transpose")
-
+    if paddle_op.name() == "pd_op.fused_conv2d_add_act":
+        input_tensor, filter, bias, _ = inputs
     input_shape = paddle_op.operands()[0].source().shape
     filter_shape = paddle_op.operands()[1].source().shape
 
@@ -521,13 +523,14 @@ def convert_conv2d(network, paddle_op, inputs):
     if (
         paddle_op.name() == "pd_op.conv2d"
         or paddle_op.name() == "pd_op.depthwise_conv2d"
+        or paddle_op.name() == "pd_op.fused_conv2d_add_act"
     ):
         layer = network.add_convolution_nd(
             input=input_tensor,
             num_output_maps=n_output,
             kernel_shape=nv_ksize,
             kernel=filter,
-            bias=None,
+            bias=bias,
         )
     elif (
         paddle_op.name() == "pd_op.conv2d_transpose"
@@ -564,9 +567,24 @@ def convert_conv2d(network, paddle_op, inputs):
     return layer.get_output(0)
 
 
+def get_input_constant_value(paddle_op, inputs, input_index):
+    input_op = paddle_op.operands()[input_index].source().get_defining_op()
+    constant_manager = TensorRTConstantManager()
+    if input_op.name() == "builtin.constant":
+        return constant_manager.get_constant_value(
+            input_op.attrs()["value"]
+        ).tolist()
+    elif input_op.name() == "pd_op.full_int_array":
+        return input_op.attrs()["value"]
+    elif input_op.name() == "pd_op.full":
+        return [input_op.attrs()["value"]]
+    else:
+        return None
+
+
 def add_reduce_layer(network, paddle_op, inputs, op_type):
     input_tensor = inputs[0]
-    axis = paddle_op.operands()[1].source().get_defining_op().attrs()["value"]
+    axis = get_input_constant_value(paddle_op, inputs, 1)
     input_shape = paddle_op.operands()[0].source().shape
     keepdim = paddle_op.attrs()["keepdim"]
     if network.has_implicit_batch_dimension:
@@ -759,3 +777,15 @@ def get_axis_length(network, input_tensor, axis, is_scalar=False):
             network, dynamic_shape, axis, is_scalar
         )
     return output_tensor
+
+
+def WithFp16():
+    from paddle.tensorrt import PrecisionMode
+
+    trt_manager = TensorRTConfigManager()
+    precision_mode = trt_manager.get_precision_mode()
+    enable_fp16 = False
+    if precision_mode == PrecisionMode.FP16:
+        enable_fp16 = True
+    # TODO(lizexu123) WithInt8() and use_dla are not yet implemented
+    return enable_fp16
