@@ -3121,7 +3121,7 @@ def to_static(
                 raise NotImplementedError(
                     "Only sharding stage 1, 2 and 3 can to_static for now. User-defined shard_fn will be supported later."
                 )
-    if strategy.full_graph:
+    if strategy is None or strategy.full_graph:
         dist_model = DistModel(
             layer, loader, loss, optimizer, strategy, input_spec=input_spec
         )
