@@ -806,22 +806,20 @@ class PartialProgramLayer:
             infer_program.apply_pir_program_pass(pass_fn)
             return infer_program
         else:
-            fwd_runnable_program: RunnableProgram = (
+            train_program: RunnableProgram = (
                 self.origin_runnable_program.clone()
             )
-            fwd_runnable_program.apply_dist_pass_for_origin_program()
+            train_program.apply_dist_pass_for_origin_program()
 
             # Author(liujinnan): auto_layout_pass should be applied to the original_program, before append backward. So we put it here.
             if auto_layout_is_enabled():
                 pm = paddle.pir.PassManager(2)
                 pm.add_pass("auto_layout_pass", {})
-                pm.run(fwd_runnable_program.program)
+                pm.run(train_program.program)
 
-            train_runnable_program = self._append_backward_desc(
-                fwd_runnable_program
-            )
+            train_program = self._append_backward_desc(train_program)
             # Note: Only set grad type once after initializing train program. So we put it here.
-            self._set_grad_type(self._params, train_runnable_program)
+            self._set_grad_type(self._params, train_program)
 
             def pass_fn(forward_program, backward_program, program_name_attr):
                 def init_backward_program_shape_analysis(
@@ -899,8 +897,8 @@ class PartialProgramLayer:
                     )
                 return forward_program, backward_program
 
-            train_runnable_program.apply_pir_program_pass(pass_fn)
-            return train_runnable_program
+            train_program.apply_pir_program_pass(pass_fn)
+            return train_program
 
     @cached_property
     def _train_program_id(self):
@@ -911,7 +909,6 @@ class PartialProgramLayer:
     def _infer_program_id(self):
         return paddle.utils._hash_with_id(self.infer_program, self)
 
-    # whole
     @property
     def program(self) -> RunnableProgram:
         """
