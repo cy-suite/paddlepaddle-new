@@ -175,15 +175,6 @@ class ZipVariable(SequenceIterVariable):
     def __init__(self, iters, graph, tracker):
         super().__init__(iters, graph, tracker)
 
-    # def get_wrapped_items(self):
-    #     items = []
-    #     for hold in self.hold:
-    #         if isinstance(hold, (ContainerVariable, IterVariable)):
-    #             items.extend(hold.get_wrapped_items())
-    #         else:
-    #             items.append(hold)
-    #     return items
-
     def next(self):
         # can not use <listcomp> here, because it will raise a RuntimeError("StopIteration")
         # but we want a StopIteration Exception
