@@ -666,7 +666,6 @@ class PartialProgramLayer:
         if parameters is not None:
             parameters[0][:] = self._params
             parameters[1][:] = self._param_values
-
         with paddle.base.framework._dygraph_guard(paddle.base.dygraph.Tracer()):
             self._cuda_graph_vec = self._create_cuda_graph_vec()
         self._cuda_graph_capture_mode = ""
@@ -765,6 +764,7 @@ class PartialProgramLayer:
         cached_scopes.append(scope)
         return scope
 
+    # whole
     @switch_to_static_graph
     def _create_program(self, is_infer_mode=False) -> RunnableProgram:
         if is_infer_mode:
@@ -816,7 +816,6 @@ class PartialProgramLayer:
                 pm = paddle.pir.PassManager(2)
                 pm.add_pass("auto_layout_pass", {})
                 pm.run(train_program.program)
-
             train_program = self._append_backward_desc(train_program)
             # Note: Only set grad type once after initializing train program. So we put it here.
             self._set_grad_type(self._params, train_program)
@@ -963,7 +962,6 @@ class PartialProgramLayer:
         forward_end_op = None
         if forward_end_idx > 0:
             forward_end_op = program.global_block().ops[-1]
-
         grad_info_map = [None] * len(combined_inputs)
         with backend_guard(self._backend):
             check_type(
