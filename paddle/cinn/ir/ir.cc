@@ -84,13 +84,11 @@ Expr Cast::Make(Type t, Expr v) {
 #undef __CAST_TO_TYPE
 
   // Cast indexExpr without `cast` and `load`
-  if (!v.is_var() && common::VerifyIndex(v) == common::IndexType::kValid &&
-      t == Int(64)) {
+  if (common::VerifyIndex(v) == common::IndexType::kValid && t == Int(64)) {
     v->convert_int32_to_int64();
     return v;
   }
-  if (!v.is_var() && common::VerifyIndex(v) == common::IndexType::kValid &&
-      t == Int(32)) {
+  if (common::VerifyIndex(v) == common::IndexType::kValid && t == Int(32)) {
     v->convert_int64_to_int32();
     return v;
   }

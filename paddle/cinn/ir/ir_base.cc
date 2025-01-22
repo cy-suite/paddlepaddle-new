@@ -624,15 +624,6 @@ void IrNode::convert_int64_to_int32() {
   if (type_ == UInt(64)) type_ = UInt(32);
 
   for (Expr &operand : operands) {
-    // If the operand is a S0/S1..., we need to insert cast Because the
-    // lowered_func input args is int64, changing the type directly without
-    // inserting a cast may cause some nvcc functions to report an error: more
-    // than one instance of overloaded function.
-    if (operand.is_var() && operand.is_index() &&
-        operand.as_index().IsDynamic()) {
-      operand = ir::Cast::Make(Int(32), operand);
-      return;
-    }
     operand->convert_int64_to_int32();
   }
 }
@@ -661,6 +652,27 @@ void TryElevateInt32ToInt64(const std::vector<Expr> &expr_vec) {
                               expr->type()));
     if (expr->type() == Int(32)) {
       expr->convert_int32_to_int64();
+    }
+  }
+}
+
+void TryElevateInt64ToInt32(const std::vector<Expr> &expr_vec) {
+  for (const Expr &expr : expr_vec) {
+    if (!expr.is_index()) return;
+    if (expr.as_index().IsDynamic()) return;
+  }
+
+  for (const Expr &expr : expr_vec) {
+    if (expr->type() != Int(64))
+      if (expr->type() != Int(32))
+        PADDLE_ENFORCE_EQ(expr->type().is_unk(),
+                          true,
+                          ::common::errors::InvalidArgument(
+                              "Current only support convert int64_t "
+                              "to int32_t, but get type is: %s",
+                              expr->type()));
+    if (expr->type() == Int(64)) {
+      expr->convert_int64_to_int32();
     }
   }
 }
