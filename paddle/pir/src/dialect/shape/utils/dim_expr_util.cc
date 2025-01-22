@@ -198,7 +198,6 @@ struct IsListLhsBeforeListRhsStruct {
     const auto& [lhs_operands] = lhs;
     const auto& [rhs_operands] = rhs;
     if (lhs_operands->empty() || rhs_operands->empty()) {
-      // 处理错误情况或抛出异常
       throw std::runtime_error("Operands are uninitialized.");
     }
     if (lhs_operands->size() < rhs_operands->size()) {
@@ -364,25 +363,6 @@ struct VisitEachOperandStruct<Mul> {
       }
     } else {
       DoEach(expr, depth, false);
-    }
-  }
-};
-
-template <>
-struct VisitEachOperandStruct<Div> {
-  template <typename DoEachT>
-  static void Call(const DimExpr& expr,
-                   const DoEachT& DoEach,
-                   std::size_t depth,
-                   bool is_inversed) {
-    if (expr.Has<Div<DimExpr>>()) {
-      const auto& dim_expr = expr.Get<Div<DimExpr>>();
-      const auto& lhs = dim_expr->lhs;
-      const auto& rhs = dim_expr->rhs;
-      Call(lhs, DoEach, depth + 1, is_inversed);
-      Call(rhs, DoEach, depth + 1, !is_inversed);
-    } else {
-      DoEach(expr, depth, is_inversed);
     }
   }
 };
@@ -1226,7 +1206,7 @@ DimExpr Simplify(const DimExpr& expr) {
     DoPass<SimplifyDoubleNeg>(&keep_rewrite, &ret);
     DoPass<SimplifyOperands<Add>>(&keep_rewrite, &ret);
     DoPass<SimplifyOperands<Mul>>(&keep_rewrite, &ret);
-    // DoPass<SimplifyOperands<Div>>(&keep_rewrite, &ret);
+    DoPass<SimplifyOperands<Div>>(&keep_rewrite, &ret);
     DoPass<SimplifyOperands<Broadcast>>(&keep_rewrite, &ret);
     DoPass<SortOperands<Add>>(&keep_rewrite, &ret);
     DoPass<SortOperands<Mul>>(&keep_rewrite, &ret);
