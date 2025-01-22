@@ -160,7 +160,7 @@ ItersFusionPolicy::SearchTransformRouteFromReduce2Reduce(
   VLOG(4) << "Start search transform Route from reduce to reduce.";
   if (source.loop_iters.size() == target.loop_iters.size() &&
       source.reduce_iter_nums == target.reduce_iter_nums) {
-    // Currenly only support fusion with same iter_nums and same reduce axis
+    // Currently only support fusion with same iter_nums and same reduce axis
     // TODO(huangjiyi): Analysis fusion with different non reduce axis
     auto [source_flatten_iters, source_reduce_iters] = SplitReduceIters(source);
     auto [target_flatten_iters, target_reduce_iters] = SplitReduceIters(target);
@@ -205,7 +205,7 @@ ItersFusionPolicy::SearchTransformRouteFromReduce2Reduce(
       route.push_back(TransposeItersTransform(perm));
       return route;
     } else {
-      // TODO(huangjiyi): Support tranpose reduce axis
+      // TODO(huangjiyi): Support transpose reduce axis
       VLOG(4) << "Can't not transpose reduce axis currently.";
       return std::nullopt;
     }
@@ -321,7 +321,7 @@ std::optional<ItersTransformRoute> ItersFusionPolicy::SearchItersTransformRoute(
     if (!transform_strategy_[ItersTransformType::AppendIters] ||
         !FLAGS_enable_append_iters_in_fusion) {
       VLOG(4) << "Can not append iters in fusion, because of AppendIters "
-                 "tranform is disabled.";
+                 "transform is disabled.";
       return std::nullopt;
     }
     std::vector<int32_t> append_axis;
@@ -355,7 +355,7 @@ std::optional<ItersTransformRoute> ItersFusionPolicy::SearchItersTransformRoute(
     if (!transform_strategy_[ItersTransformType::TransposeIters] ||
         !FLAGS_enable_transpose_iters_in_fusion) {
       VLOG(4) << "Can not transpose iters in fusion, because of "
-                 "TransposeIters tranform is disabled";
+                 "TransposeIters transform is disabled";
       return std::nullopt;
     }
     const auto perm =
