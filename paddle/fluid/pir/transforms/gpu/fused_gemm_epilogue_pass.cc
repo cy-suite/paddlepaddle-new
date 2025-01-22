@@ -36,29 +36,15 @@ class FusedLinearPattern
   bool MatchAndRewrite(paddle::dialect::MatmulOp matmul,
                        pir::PatternRewriter &rewriter) const override {
     auto matmul_out = matmul->result(0);
-
-    paddle::dialect::AddOp add;
-    bool can_fuse = false;
-    for (auto user_it = matmul_out.use_begin(); user_it != matmul_out.use_end();
-         ++user_it) {
-      if (!user_it->owner()) {
-        continue;
-      }
-      if (add = user_it->owner()->dyn_cast<paddle::dialect::AddOp>()) {
-        if (add->operand_source(0) != matmul_out) {
-          continue;
-        }
-        if (can_fuse == false) {
-          can_fuse = true;
-        } else {
-          // The result of matmul can only be uniquely used by an add OP.
-          return false;
-        }
-      }
-    }
-    if (!can_fuse) {
+    // The result of matmul can only be uniquely used by an add OP.
+    if (matmul_out.use_count() != 1) {
       return false;
     }
+    if (!matmul_out.use_begin()->owner()->dyn_cast<paddle::dialect::AddOp>()) {
+      return false;
+    }
+    auto add =
+        matmul_out.use_begin()->owner()->dyn_cast<paddle::dialect::AddOp>();
 
     // The data rank of matmul should be >= 2.
     // The weight rank of matmul should be = 2.
@@ -76,7 +62,7 @@ class FusedLinearPattern
         "activation",
         pir::StrAttribute::get(pir::IrContext::Instance(), "none"));
 
-    rewriter.SetInsertionPointAfter(matmul);
+    rewriter.SetInsertionPointAfter(add);
 
     auto fuse_gemm = rewriter.Build<paddle::dialect::FusedGemmEpilogueOp>(
         matmul->operand_source(0),
@@ -100,10 +86,10 @@ class FusedLinearPattern
   }
 };
 
-//  %2, %3 = pd_op.add_grad( %0, %1 )
-//  %6, %7 = pd_op.matmul_grad( %4, %5, %2)
+//  %3, %4 = pd_op.add_grad( %0, %1，%2 )
+//  %7, %8 = pd_op.matmul_grad( %5, %6, %3)
 //  fused to
-//  %6, %7, %3 = pd_op.fused_gemm_epilogue_grad( %4, %5, none, %1)
+//  %7, %8, %4 = pd_op.fused_gemm_epilogue_grad( %5, %6, none, %2)
 class FusedLinearGradPattern
     : public pir::OpRewritePattern<paddle::dialect::MatmulGradOp> {
  public:
