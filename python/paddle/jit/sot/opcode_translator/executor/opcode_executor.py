@@ -1056,7 +1056,7 @@ class OpcodeExecutorBase:
         return DictVariable(
             built_map,
             graph=self._graph,
-            tracker=DummyTracker(list(keys) + values),
+            tracker=DummyTracker(keys + values),
         )
 
     def BUILD_MAP(self, instr: Instruction):
@@ -1075,6 +1075,7 @@ class OpcodeExecutorBase:
             self.stack
         ), f"OpExecutor want BUILD_CONST_KEY_MAP with size {map_size} + 1, but current stack do not have enough elems."
         keys = self.stack.pop().get_wrapped_items()
+        keys = list(keys) if isinstance(keys, tuple) else keys
         assert len(keys) == map_size
         values = self.stack.pop_n(map_size)
         self.stack.push(self.build_map(keys, values))

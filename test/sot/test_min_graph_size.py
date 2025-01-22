@@ -91,6 +91,7 @@ class TestMinGraphSize(TestCaseBase):
         x = paddle.to_tensor(1)
         layer = CustomLayer()
         self.assert_results(layer.forward, x)
+        self.assert_results(layer.forward, x)
 
     @min_graph_size_guard(10)
     def test_call_with_kwargs(self):
