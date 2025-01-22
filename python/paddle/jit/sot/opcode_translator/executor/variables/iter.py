@@ -60,11 +60,6 @@ class IterVariable(VariableBase):
         return [self.hold]
 
     def flatten_inner_vars(self) -> list[VariableBase]:
-        """
-        Recursively flatten the items in this container variable to a list of Variable objects.
-        Returns:
-            list[VariableBase]: Flattened items of a container variable.
-        """
         flattened_inner_vars = []
         for inner_var in self.get_wrapped_items():
             flattened_inner_vars.extend(inner_var.flatten_inner_vars())

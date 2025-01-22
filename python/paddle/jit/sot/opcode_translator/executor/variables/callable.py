@@ -398,12 +398,6 @@ class MethodVariable(CallableVariable):
         return self.fn(*(self.bound_instance, *args), **kwargs)
 
     def flatten_inner_vars(self) -> list[VariableBase]:
-        """
-        Recursively flatten the items in this container variable to a list of Variable objects.
-
-        Returns:
-            list[VariableBase]: Flattened items of a container variable.
-        """
         # The method's inner_vars is from its bound_instance
         return self.bound_instance.flatten_inner_vars()
 
