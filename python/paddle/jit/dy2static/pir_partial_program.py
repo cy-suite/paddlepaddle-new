@@ -173,7 +173,7 @@ class RunnableProgram:
     def name_value_map(self):
         return RunnableProgram._get_name_value_map_from_program(self.program)
 
-    def convert_to_name(self, values):
+    def convert_name(self, values):
         if len(values) == 0:
             return []
         if isinstance(values[0], str):
@@ -222,25 +222,25 @@ class RunnableProgram:
             in_out_values[0], list
         ), "in_out_values must be tuple with len == 3"
         self.program = program
-        self.x_names = self.convert_to_name(in_out_values[0])
-        self.param_names = self.convert_to_name(in_out_values[1])
-        self.out_names = self.convert_to_name(in_out_values[2])
-        if grad_in_out_values is None:
-            grad_in_out_values = [], [], []
-        self.x_grad_names = self.convert_to_name(grad_in_out_values[0])
-        self.p_grad_names = self.convert_to_name(grad_in_out_values[1])
-        self.o_grad_names = self.convert_to_name(grad_in_out_values[2])
+        self.x_names = self.convert_name(in_out_values[0])
+        self.param_names = self.convert_name(in_out_values[1])
+        self.out_names = self.convert_name(in_out_values[2])
         self.forward_range = forward_range
+        self.backward_range = backward_range
+        self.has_splited = False
+        self.finish_pass = False
         if self.forward_range is None:
             self.forward_range = (0, len(self.program.global_block().ops))
-        self.backward_range = backward_range
         if self.backward_range is None:
             self.backward_range = (
                 len(self.program.global_block().ops),
                 len(self.program.global_block().ops),
             )
-        self.has_splited = False
-        self.finish_pass = False
+        if grad_in_out_values is None:
+            grad_in_out_values = [], [], []
+        self.x_grad_names = self.convert_name(grad_in_out_values[0])
+        self.p_grad_names = self.convert_name(grad_in_out_values[1])
+        self.o_grad_names = self.convert_name(grad_in_out_values[2])
 
         # Flag operator, indicating the operator between the forward subgraph and the backward subgraph. After self.program is updated by the pass, it is recommended to use the self.update_op_range interface to update the forward_range and backward_range.
         self.fwd_end_next_op = (
@@ -366,13 +366,13 @@ class RunnableProgram:
                 return True
         return False
 
-    def apply_dist_fwd_pass(self):
+    def apply_dist_pass_for_origin_program(self):
         if self.is_distributed_program():
             paddle.distributed.auto_parallel.static.mix_to_dist_pass.apply_mix2dist_pass(
                 self.program
             )
 
-    def apply_dist_bwd_pass(self):
+    def apply_dist_pass_for_whole_program(self):
         if self.is_distributed_program():
             paddle.distributed.auto_parallel.static.mix_to_dist_pass.apply_mix2dist_pass(
                 self.program
@@ -815,7 +815,7 @@ class PartialProgramLayer:
             fwd_runnable_program: RunnableProgram = (
                 self.origin_runnable_program.clone()
             )
-            fwd_runnable_program.apply_dist_fwd_pass()
+            fwd_runnable_program.apply_dist_pass_for_origin_program()
 
             # Author(liujinnan): auto_layout_pass should be applied to the original_program, before append backward. So we put it here.
             if auto_layout_is_enabled():
@@ -1054,7 +1054,7 @@ class PartialProgramLayer:
             (0, forward_end_idx),
             (backward_start_op_index, backward_end_op_index),
         )
-        whole_program.apply_dist_bwd_pass()
+        whole_program.apply_dist_pass_for_whole_program()
         return whole_program
 
     @property
