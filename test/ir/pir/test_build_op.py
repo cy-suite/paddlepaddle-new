@@ -200,12 +200,12 @@ class TestGetValueByOpId(unittest.TestCase):
             )
             pred = paddle.less_than(y, x)
             out = paddle.static.nn.cond(pred, true_func, false_func)
-            value1 = main_program.get_value_by_op_id(65)
+            value1 = main_program.get_value_by_op_id(69)
             self.assertEqual(
                 out.get_defining_op().id(),
                 value1[0].get_defining_op().id(),
             )
-            value2 = main_program.get_value_by_op_id([58, 65])
+            value2 = main_program.get_value_by_op_id([58, 69])
             self.assertEqual(
                 58,
                 value2[0].get_defining_op().id(),
