@@ -41,7 +41,7 @@ struct is_other_float
 
 // check if complex type
 template <typename T>
-struct is_complex
+struct is_complex64_or_complex128
     : std::integral_constant<
           bool,
           std::is_same<T, phi::dtype::complex<float>>::value ||
@@ -73,7 +73,7 @@ struct IsfiniteFunctor<
     phi::CPUContext,
     T,
     typename std::enable_if<!std::is_floating_point<T>::value &&
-                            !is_complex<T>::value>::type> {
+                            !is_complex64_or_complex128<T>::value>::type> {
   void operator()(const phi::CPUContext& ctx,
                   const DenseTensor& in,
                   DenseTensor* output) {
@@ -122,9 +122,10 @@ struct IsfiniteFunctor<
 };
 
 template <typename T>
-struct IsfiniteFunctor<phi::CPUContext,
-                       T,
-                       typename std::enable_if<is_complex<T>::value>::type> {
+struct IsfiniteFunctor<
+    phi::CPUContext,
+    T,
+    typename std::enable_if<is_complex64_or_complex128<T>::value>::type> {
   void operator()(const phi::CPUContext& ctx,
                   const DenseTensor& in,
                   DenseTensor* output) {
@@ -147,10 +148,11 @@ struct IsnanFunctor {
 };
 
 template <typename T>
-struct IsnanFunctor<phi::CPUContext,
-                    T,
-                    typename std::enable_if<!std::is_floating_point<T>::value &&
-                                            !is_complex<T>::value>::type> {
+struct IsnanFunctor<
+    phi::CPUContext,
+    T,
+    typename std::enable_if<!std::is_floating_point<T>::value &&
+                            !is_complex64_or_complex128<T>::value>::type> {
   void operator()(const phi::CPUContext& ctx,
                   const DenseTensor& in,
                   DenseTensor* output) {
@@ -198,9 +200,10 @@ struct IsnanFunctor<phi::CPUContext,
 };
 
 template <typename T>
-struct IsnanFunctor<phi::CPUContext,
-                    T,
-                    typename std::enable_if<is_complex<T>::value>::type> {
+struct IsnanFunctor<
+    phi::CPUContext,
+    T,
+    typename std::enable_if<is_complex64_or_complex128<T>::value>::type> {
   void operator()(const phi::CPUContext& ctx,
                   const DenseTensor& in,
                   DenseTensor* output) {
@@ -223,10 +226,11 @@ struct IsinfFunctor {
 };
 
 template <typename T>
-struct IsinfFunctor<phi::CPUContext,
-                    T,
-                    typename std::enable_if<!std::is_floating_point<T>::value &&
-                                            !is_complex<T>::value>::type> {
+struct IsinfFunctor<
+    phi::CPUContext,
+    T,
+    typename std::enable_if<!std::is_floating_point<T>::value &&
+                            !is_complex64_or_complex128<T>::value>::type> {
   void operator()(const phi::CPUContext& ctx,
                   const DenseTensor& in,
                   DenseTensor* output) {
@@ -274,9 +278,10 @@ struct IsinfFunctor<phi::CPUContext,
 };
 
 template <typename T>
-struct IsinfFunctor<phi::CPUContext,
-                    T,
-                    typename std::enable_if<is_complex<T>::value>::type> {
+struct IsinfFunctor<
+    phi::CPUContext,
+    T,
+    typename std::enable_if<is_complex64_or_complex128<T>::value>::type> {
   void operator()(const phi::CPUContext& ctx,
                   const DenseTensor& in,
                   DenseTensor* output) {
@@ -322,7 +327,7 @@ __global__ void IsfiniteCUDAKernel(
     const T* in_data,
     int num,
     bool* out_data,
-    typename std::enable_if<is_complex<T>::value>::type* = 0) {
+    typename std::enable_if<is_complex64_or_complex128<T>::value>::type* = 0) {
   unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
   for (int i = idx; i < num; i += blockDim.x * gridDim.x) {
     const T& a = in_data[i];
@@ -361,7 +366,7 @@ __global__ void IsnanCUDAKernel(
     const T* in_data,
     int num,
     bool* out_data,
-    typename std::enable_if<is_complex<T>::value>::type* = 0) {
+    typename std::enable_if<is_complex64_or_complex128<T>::value>::type* = 0) {
   unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
   for (int i = idx; i < num; i += blockDim.x * gridDim.x) {
     const T& a = in_data[i];
@@ -400,7 +405,7 @@ __global__ void IsinfCUDAKernel(
     const T* in_data,
     int num,
     bool* out_data,
-    typename std::enable_if<is_complex<T>::value>::type* = 0) {
+    typename std::enable_if<is_complex64_or_complex128<T>::value>::type* = 0) {
   unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
   for (int i = idx; i < num; i += blockDim.x * gridDim.x) {
     const T& a = in_data[i];
