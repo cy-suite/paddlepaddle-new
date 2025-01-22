@@ -444,8 +444,8 @@ class MethodVariable(CallableVariable):
     @property
     def main_info(self) -> dict[str, Any]:
         return {
-            "function": self.fn.main_info,
-            "instance": self.bound_instance.main_info,
+            "function": self.fn,
+            "instance": self.bound_instance,
         }
 
 
