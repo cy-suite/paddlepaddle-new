@@ -183,13 +183,13 @@
 
 - op : einsum
   args : (Tensor[] x, str equation)
-  output : Tensor(out), Tensor[](inner_cache){x.size()}, Tensor[](xshape){x.size()}
+  output : Tensor(out), Tensor[](inner_cache){x.size()}, Tensor[](x_shape){x.size()}
   infer_meta :
     func : EinsumRawInferMeta
     param : [x, equation]
   kernel :
     func : einsum
-  optional : inner_cache, xshape
+  optional : inner_cache, x_shape
   backward : einsum_grad
 
 - op : elementwise_pow
