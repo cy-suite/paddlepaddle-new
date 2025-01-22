@@ -696,24 +696,6 @@ class PartialProgramLayer:
         self._backend = kwargs.get('backend', None)
         self._grad_var_names = {}
 
-    @cached_property
-    def origin_runnable_program(self) -> RunnableProgram:
-        inputs = list(self._inputs.var_list)
-        outputs = list(self._outputs.var_list)
-        params = self._param_values
-        paddle.base.libpaddle.pir.append_shadow_outputs(
-            self._origin_main_program,
-            outputs,
-            len(self._origin_main_program.global_block().ops),
-            "output_",
-        )
-        return RunnableProgram(
-            self._origin_main_program, (inputs, params, outputs)
-        )
-
-    def add_hooker(self, hooker):
-        self._hookers.append(hooker)
-
     def __call__(self, inputs):
         """
         Execute static graph by Interpreter and Return dynamic Tensors.
@@ -752,24 +734,36 @@ class PartialProgramLayer:
         )
         return self._outputs.quick_restore(out_vars)
 
-    # whole
-    @property
-    def program(self) -> RunnableProgram:
-        """
-        Return current train or eval program.
-        """
-        if self.training:
-            return self.train_program
-        else:
-            return self.infer_program
-
     @cached_property
-    def train_program(self) -> RunnableProgram:
-        return self._create_program()
+    def origin_runnable_program(self) -> RunnableProgram:
+        inputs = list(self._inputs.var_list)
+        outputs = list(self._outputs.var_list)
+        params = self._param_values
+        paddle.base.libpaddle.pir.append_shadow_outputs(
+            self._origin_main_program,
+            outputs,
+            len(self._origin_main_program.global_block().ops),
+            "output_",
+        )
+        return RunnableProgram(
+            self._origin_main_program, (inputs, params, outputs)
+        )
 
-    @cached_property
-    def infer_program(self) -> RunnableProgram:
-        return self._create_program(is_infer_mode=True)
+    def add_hooker(self, hooker):
+        self._hookers.append(hooker)
+
+    def _get_scope(self, program_id=None, use_scope_cache=False):
+        if not use_scope_cache:
+            return core.Scope()
+        if program_id not in self._scope_cache:
+            self._scope_cache[program_id] = []
+        cached_scopes = self._scope_cache[program_id]
+        for scope in cached_scopes:
+            if scope._can_reused:
+                return scope
+        scope = core.Scope()
+        cached_scopes.append(scope)
+        return scope
 
     @switch_to_static_graph
     def _create_program(self, is_infer_mode=False) -> RunnableProgram:
@@ -907,6 +901,54 @@ class PartialProgramLayer:
 
             train_runnable_program.apply_pir_program_pass(pass_fn)
             return train_runnable_program
+
+    @cached_property
+    def _train_program_id(self):
+        program_id = paddle.utils._hash_with_id(self.train_program, self)
+        return program_id
+
+    @cached_property
+    def _infer_program_id(self):
+        return paddle.utils._hash_with_id(self.infer_program, self)
+
+    # whole
+    @property
+    def program(self) -> RunnableProgram:
+        """
+        Return current train or eval program.
+        """
+        if self.training:
+            return self.train_program
+        else:
+            return self.infer_program
+
+    @property
+    def program_id(self):
+        """
+        Return current train or eval program hash id.
+        """
+        if self.training:
+            return self._train_program_id
+        else:
+            return self._infer_program_id
+
+    @cached_property
+    def train_program(self) -> RunnableProgram:
+        return self._create_program()
+
+    @cached_property
+    def infer_program(self) -> RunnableProgram:
+        return self._create_program(is_infer_mode=True)
+
+    def _verify_program(self, main_program, outputs):
+        """
+        Verify that the program parameter is initialized, prune some unused params,
+        and remove redundant op callstack.
+        """
+        # Check all params from main program can be found in self._params
+        self._check_params_all_inited(main_program)
+
+        return main_program
 
     @switch_to_static_graph
     def _append_backward_desc(
@@ -1057,24 +1099,33 @@ class PartialProgramLayer:
         whole_program.apply_dist_pass_for_whole_program()
         return whole_program
 
-    @property
-    def program_id(self):
-        """
-        Return current train or eval program hash id.
-        """
-        if self.training:
-            return self._train_program_id
-        else:
-            return self._infer_program_id
+    def _prepare_attributes(self, in_sot_mode=False):
+        attrs = [
+            'forward_program',
+            self.program.forward_program,
+            'backward_program',
+            self.program.backward_program,
+            'is_test',
+            not self.training,
+            'program_id',
+            self.program_id,
+            'in_sot_mode',
+            in_sot_mode,
+        ]
+        for key, val in self.program.program_attr.items():
+            attrs.append(key)
+            attrs.append(val)
 
-    @cached_property
-    def _train_program_id(self):
-        program_id = paddle.utils._hash_with_id(self.train_program, self)
-        return program_id
-
-    @cached_property
-    def _infer_program_id(self):
-        return paddle.utils._hash_with_id(self.infer_program, self)
+        if self._cuda_graph_capture_mode:
+            attrs.extend(
+                (
+                    'cuda_graph_capture_mode',
+                    self._cuda_graph_capture_mode,
+                    'cuda_graph_pool_id',
+                    self._cuda_graph_pool_id,
+                )
+            )
+        return attrs
 
     def _prepare_inputs(self, inputs):
         """
@@ -1116,52 +1167,11 @@ class PartialProgramLayer:
             self._outputs.var_list
         )
 
-    def _prepare_attributes(self, in_sot_mode=False):
-        attrs = [
-            'forward_program',
-            self.program.forward_program,
-            'backward_program',
-            self.program.backward_program,
-            'is_test',
-            not self.training,
-            'program_id',
-            self.program_id,
-            'in_sot_mode',
-            in_sot_mode,
-        ]
-        for key, val in self.program.program_attr.items():
-            attrs.append(key)
-            attrs.append(val)
-
-        if self._cuda_graph_capture_mode:
-            attrs.extend(
-                (
-                    'cuda_graph_capture_mode',
-                    self._cuda_graph_capture_mode,
-                    'cuda_graph_pool_id',
-                    self._cuda_graph_pool_id,
-                )
-            )
-        return attrs
-
     def _create_scope_vec(self, program_id=None, use_scope_cache=False):
         inner_scope = self._get_scope(
             program_id=program_id, use_scope_cache=use_scope_cache
         )
         return [inner_scope]
-
-    def _get_scope(self, program_id=None, use_scope_cache=False):
-        if not use_scope_cache:
-            return core.Scope()
-        if program_id not in self._scope_cache:
-            self._scope_cache[program_id] = []
-        cached_scopes = self._scope_cache[program_id]
-        for scope in cached_scopes:
-            if scope._can_reused:
-                return scope
-        scope = core.Scope()
-        cached_scopes.append(scope)
-        return scope
 
     def _create_cuda_graph_vec(self):
         var = core.eager.Tensor(
@@ -1245,16 +1255,6 @@ class PartialProgramLayer:
                 raise NotImplementedError(
                     "only support selected_row and dense_tensor grad type."
                 )
-
-    def _verify_program(self, main_program, outputs):
-        """
-        Verify that the program parameter is initialized, prune some unused params,
-        and remove redundant op callstack.
-        """
-        # Check all params from main program can be found in self._params
-        self._check_params_all_inited(main_program)
-
-        return main_program
 
     def _check_params_all_inited(self, main_program):
         """
