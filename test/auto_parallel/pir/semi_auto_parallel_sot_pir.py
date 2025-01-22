@@ -79,6 +79,7 @@ class DPDemoNet(nn.Layer):
         out = self.relu_1(out)
         out = self.linear_1(out)
         out = self.relu_2(out)
+        out = paddle.cast(out, 'float32')
         return out
 
 
@@ -125,12 +126,15 @@ class TestSimpleNetForSemiAutoParallelSOT:
         paddle.disable_static()
         self.set_random_seed(self._seed)
         data_loader = self.create_data_loader()
+        dist_dataloader = dist.shard_dataloader(
+            dataloader=data_loader, meshes=[self.mesh]
+        )
         dy_layer = DPDemoNet(self.mesh)
         dy_layer = paddle.jit.to_static(dy_layer)
         dy_opt = paddle.optimizer.Adam(
             learning_rate=0.01, parameters=dy_layer.parameters()
         )
-        dy_losses = self.run_dynamic(dy_layer, dy_opt, data_loader)
+        dy_losses = self.run_dynamic(dy_layer, dy_opt, dist_dataloader)
 
     def run_test_case(self):
         self.test_dp_demo_net()

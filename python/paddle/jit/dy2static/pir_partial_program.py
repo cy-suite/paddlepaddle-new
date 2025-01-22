@@ -29,14 +29,6 @@ from paddle.base import core, framework
 from paddle.base.compiler import BuildStrategy
 from paddle.base.data_feeder import check_type
 from paddle.base.dygraph.base import switch_to_static_graph
-from paddle.distributed.auto_parallel.static.mix_to_dist_pass import (
-    apply_mix2dist_pass,
-)
-from paddle.distributed.auto_parallel.static.pir_pass import (
-    ReshardPasses,
-    apply_partition_pass,
-    remove_unuseful_comm_op_pass,
-)
 from paddle.pir import Value, fake_value, is_fake_value
 
 from .logging_utils import TranslatorLogger
@@ -250,6 +242,49 @@ class RunnableProgram:
         self.has_splited = False
         self.finish_pass = False
 
+        # Flag operator, indicating the operator between the forward subgraph and the backward subgraph. After self.program is updated by the pass, it is recommended to use the self.update_op_range interface to update the forward_range and backward_range.
+        self.fwd_end_next_op = (
+            self.program.global_block().ops[self.forward_range[1]]
+            if self.forward_range[1] < len(self.program.global_block().ops)
+            else None
+        )
+        self.bwd_start_pre_op = (
+            self.program.global_block().ops[self.backward_range[0] - 1]
+            if self.backward_range[0] - 1 < len(self.program.global_block().ops)
+            else None
+        )
+        self.bwd_end_nex_op = (
+            self.program.global_block().ops[self.backward_range[1]]
+            if self.backward_range[1] < len(self.program.global_block().ops)
+            else None
+        )
+
+    def update_op_range(self):
+        if self.fwd_end_next_op is None or self.bwd_start_pre_op is None:
+            self.forward_range = (0, len(self.program.global_block().ops))
+            self.backward_range = (
+                len(self.program.global_block().ops),
+                len(self.program.global_block().ops),
+            )
+        else:
+            fwd_start = self.forward_range[0]
+            fwd_end = self.forward_range[1]
+            bwd_start = self.backward_range[0]
+            bwd_end = self.backward_range[1]
+            for idx, op in enumerate(self.program.global_block().ops):
+                if op == self.fwd_end_next_op:
+                    fwd_end = idx
+                if op == self.bwd_start_pre_op:
+                    bwd_start = idx + 1
+                if op == self.bwd_end_nex_op:
+                    bwd_end = idx
+
+            if self.bwd_end_nex_op is None:
+                bwd_end = len(self.program.global_block().ops)
+
+            self.forward_range = (fwd_start, fwd_end)
+            self.backward_range = (bwd_start, bwd_end)
+
     def clone(self):
         cloned_program, _ = paddle.base.libpaddle.pir.clone_program(
             self.program
@@ -267,6 +302,7 @@ class RunnableProgram:
             self.has_splited is False
         ), "Please ensure only split once! don't call split_forward_backward manually."
         self.has_splited = True
+        self.update_op_range()
         [
             fwd_prog,
             bwd_prog,
@@ -328,15 +364,25 @@ class RunnableProgram:
 
     def apply_dist_fwd_pass(self):
         if self.is_distributed_program():
-            apply_mix2dist_pass(self.program)
+            paddle.distributed.auto_parallel.static.mix_to_dist_pass.apply_mix2dist_pass(
+                self.program
+            )
 
     def apply_dist_bwd_pass(self):
         if self.is_distributed_program():
-            apply_mix2dist_pass(self.program)
-            apply_partition_pass(self.program)
-            ReshardPasses.apply_reshard_pass(self.program)
+            paddle.distributed.auto_parallel.static.mix_to_dist_pass.apply_mix2dist_pass(
+                self.program
+            )
+            paddle.distributed.auto_parallel.static.pir_pass.apply_partition_pass(
+                self.program
+            )
+            paddle.distributed.auto_parallel.static.pir_pass.ReshardPasses.apply_reshard_pass(
+                self.program
+            )
             paddle.base.libpaddle.pir.apply_dist2dense_pass(self.program)
-            remove_unuseful_comm_op_pass(self.program)
+            paddle.distributed.auto_parallel.static.pir_pass.remove_unuseful_comm_op_pass(
+                self.program
+            )
 
     # cached property can ensure program is splited only once.
     @cached_property
@@ -710,31 +756,20 @@ class PartialProgramLayer:
         Return current train or eval program.
         """
         if self.training:
-            return self._train_program
+            return self.train_program
         else:
-            return self._infer_program
-
-    @property
-    def program_id(self):
-        """
-        Return current train or eval program hash id.
-        """
-        if self.training:
-            return self._train_program_id
-        else:
-            return self._infer_program_id
+            return self.infer_program
 
     @cached_property
-    def _train_program(self) -> RunnableProgram:
+    def train_program(self) -> RunnableProgram:
         return self._create_program()
 
     @cached_property
-    def _infer_program(self) -> RunnableProgram:
+    def infer_program(self) -> RunnableProgram:
         return self._create_program(is_infer_mode=True)
 
     @switch_to_static_graph
     def _create_program(self, is_infer_mode=False) -> RunnableProgram:
-
         if is_infer_mode:
 
             def pass_fn(forward_program, backward_program, program_name_attr):
@@ -774,20 +809,22 @@ class PartialProgramLayer:
             infer_program.apply_pir_program_pass(pass_fn)
             return infer_program
         else:
-            train_program: RunnableProgram = (
+            fwd_runnable_program: RunnableProgram = (
                 self.origin_runnable_program.clone()
             )
-
-            train_program.apply_dist_fwd_pass()
+            fwd_runnable_program.apply_dist_fwd_pass()
 
             # Author(liujinnan): auto_layout_pass should be applied to the original_program, before append backward. So we put it here.
             if auto_layout_is_enabled():
                 pm = paddle.pir.PassManager(2)
                 pm.add_pass("auto_layout_pass", {})
-                pm.run(train_program.program)
-            train_program = self._append_backward_desc(train_program)
+                pm.run(fwd_runnable_program.program)
+
+            train_runnable_program = self._append_backward_desc(
+                fwd_runnable_program
+            )
             # Note: Only set grad type once after initializing train program. So we put it here.
-            self._set_grad_type(self._params, train_program)
+            self._set_grad_type(self._params, train_runnable_program)
 
             def pass_fn(forward_program, backward_program, program_name_attr):
                 def init_backward_program_shape_analysis(
@@ -865,17 +902,8 @@ class PartialProgramLayer:
                     )
                 return forward_program, backward_program
 
-            train_program.apply_pir_program_pass(pass_fn)
-            return train_program
-
-    @cached_property
-    def _train_program_id(self):
-        program_id = paddle.utils._hash_with_id(self._train_program, self)
-        return program_id
-
-    @cached_property
-    def _infer_program_id(self):
-        return paddle.utils._hash_with_id(self._infer_program, self)
+            train_runnable_program.apply_pir_program_pass(pass_fn)
+            return train_runnable_program
 
     @switch_to_static_graph
     def _append_backward_desc(
@@ -893,6 +921,7 @@ class PartialProgramLayer:
         forward_end_op = None
         if forward_end_idx > 0:
             forward_end_op = program.global_block().ops[-1]
+
         grad_info_map = [None] * len(combined_inputs)
         with backend_guard(self._backend):
             check_type(
@@ -1024,6 +1053,25 @@ class PartialProgramLayer:
         )
         whole_program.apply_dist_bwd_pass()
         return whole_program
+
+    @property
+    def program_id(self):
+        """
+        Return current train or eval program hash id.
+        """
+        if self.training:
+            return self._train_program_id
+        else:
+            return self._infer_program_id
+
+    @cached_property
+    def _train_program_id(self):
+        program_id = paddle.utils._hash_with_id(self.train_program, self)
+        return program_id
+
+    @cached_property
+    def _infer_program_id(self):
+        return paddle.utils._hash_with_id(self.infer_program, self)
 
     def _prepare_inputs(self, inputs):
         """
