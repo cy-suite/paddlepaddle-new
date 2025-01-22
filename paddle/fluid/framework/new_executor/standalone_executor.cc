@@ -124,10 +124,11 @@ StandaloneExecutor::StandaloneExecutor(const phi::Place& place,
           VLOG(4) << "Add CustomEngine pass : " << pass;
         }
 
-        ::pir::PassManager pass_pm(::pir::IrContext::Instance(), 0);
-        for (std::string custom_pass : passes)
+        ::pir::PassManager pass_pm(::pir::IrContext::Instance(), 3);
+        for (std::string custom_pass : passes) {
           pass_pm.AddPass(pir::PassRegistry::Instance().Get(custom_pass));
-        pass_pm.Run(base_program.get());
+          pass_pm.Run(base_program.get());
+        }
       }
 #endif
       auto kernel_program =
