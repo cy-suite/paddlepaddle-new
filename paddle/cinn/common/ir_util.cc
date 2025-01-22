@@ -720,12 +720,16 @@ ir::IndexExpr ConstructIndexExprByNodeType(const ir::IrNodeTy &ty,
 ir::IndexExpr ChangeSeqOfDivMod(const ir::IndexExpr &expr) {
   switch (expr.node_type()) {
     case ir::IrNodeTy::IntImm:
-    case ir::IrNodeTy::_Var_: {
+    case ir::IrNodeTy::_Var_:
+    case ir::IrNodeTy::Cast:
+    case ir::IrNodeTy::Load: {
       return expr;
     }
     case ir::IrNodeTy::Add:
     case ir::IrNodeTy::Sub:
     case ir::IrNodeTy::Mul:
+    case ir::IrNodeTy::Min:
+    case ir::IrNodeTy::Max:
     case ir::IrNodeTy::Div: {
       auto lhs = ChangeSeqOfDivMod(expr.operand(0));
       auto rhs = ChangeSeqOfDivMod(expr.operand(1));
