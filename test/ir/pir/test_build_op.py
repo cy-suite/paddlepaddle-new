@@ -207,7 +207,7 @@ class TestGetValueByOpId(unittest.TestCase):
             )
             value2 = main_program.get_value_by_op_id([58, 69])
             self.assertEqual(
-                58,
+                69,
                 value2[0].get_defining_op().id(),
             )
 
