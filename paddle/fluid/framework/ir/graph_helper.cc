@@ -27,7 +27,6 @@ limitations under the License. */
 #include "paddle/fluid/framework/details/nccl_op_handle.h"
 #include "paddle/phi/core/distributed/nccl_comm_context.h"
 #include "paddle/phi/core/platform/collective_helper.h"
-
 #endif
 #include "paddle/common/flags.h"
 PD_DECLARE_bool(convert_all_blocks);
