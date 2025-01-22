@@ -184,13 +184,12 @@ struct Layers {
     return unary_op("c_identity", x, out, &attrs);
   }
 
-  VarDesc* all_reduce_sum(VarDesc* x,
-                          VarDesc* out = nullptr,
-                          int ring_id = -1) {
+  VarDesc* c_allreduce_sum(VarDesc* x,
+                           VarDesc* out = nullptr,
+                           int ring_id = -1) {
     AttributeMap attrs;
     attrs["ring_id"] = ring_id;
-    attrs["reduce_type"] = static_cast<int>(phi::ReduceType::kRedSum);
-    return unary_op_new("all_reduce", x, out, &attrs);
+    return unary_op("c_allreduce_sum", x, out, &attrs);
   }
 
   VarDesc* fc(VarDesc* input,
@@ -922,27 +921,6 @@ struct Layers {
     op->SetType(type);
     op->SetInput("X", {x->Name()});
     op->SetOutput("Out", {out->Name()});
-    if (attrs) {
-      for (auto& iter : *attrs) {
-        op->SetAttr(iter.first, iter.second);
-      }
-    }
-    op->SetAttr(OpProtoAndCheckerMaker::OpRoleAttrName(),
-                static_cast<int>(OpRole::kForward));
-    return out;
-  }
-
-  VarDesc* unary_op_new(std::string type,
-                        VarDesc* x,
-                        VarDesc* out = nullptr,
-                        const AttributeMap* attrs = nullptr) {
-    if (!out) {
-      out = dense_tensor(unique_name());
-    }
-    OpDesc* op = program_.MutableBlock(0)->AppendOp();
-    op->SetType(type);
-    op->SetInput("x", {x->Name()});
-    op->SetOutput("out", {out->Name()});
     if (attrs) {
       for (auto& iter : *attrs) {
         op->SetAttr(iter.first, iter.second);

@@ -67,7 +67,7 @@ using VariableIdMap = std::map<std::string, std::vector<int>>;
 class SingleStreamGuard {
  public:
   explicit SingleStreamGuard(std::shared_ptr<OperatorBase>& op) : op_(op) {
-    if (op_->Type() == "all_reduce" &&
+    if (op_->Type() == "c_allreduce_sum" &&
         op_->Attr<bool>("use_calc_stream") == false) {
       VLOG(6) << "Set c_allredce_sum's attr use_calc_stream to true";
       op_->SetAttr("use_calc_stream", true);
@@ -80,7 +80,7 @@ class SingleStreamGuard {
       return;
     }
 
-    if (op_->Type() == "all_reduce") {
+    if (op_->Type() == "c_allreduce_sum") {
       op_->SetAttr("use_calc_stream", false);
       VLOG(6) << "Set c_allredce_sum's attr use_calc_stream to false";
     }

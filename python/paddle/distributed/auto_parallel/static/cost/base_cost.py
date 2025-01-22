@@ -789,15 +789,19 @@ class CommOpCost(OpCost):
                 try:
                     var_name = self.op.input("X")[0]
                 except:
-                    var_name = self.op.output("Out")[0]
+                    try:
+                        var_name = self.op.output("Out")[0]
+                    except:
+                        var_name = self.op.output("out")[0]
+
                 var = get_var_with_recursion(
                     var_name, self.op.block, self.op.block.program
                 )
                 dtype = var.dtype
                 shape = var.shape
             elif self.op_desc is not None:
-                dtype = self.op_desc["inputs"]["X"][0][0]
-                shape = self.op_desc["inputs"]["X"][0][1]
+                dtype = self.op_desc["inputs"]["x"][0][0]
+                shape = self.op_desc["inputs"]["x"][0][1]
 
             factor = None
             if dtype == paddle.float32 or dtype == paddle.int32:
