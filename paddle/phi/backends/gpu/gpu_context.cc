@@ -960,17 +960,21 @@ void GPUContext::Init() {
 }
 
 void GPUContext::SetStream(gpuStream_t stream) {
+#if !defined(_WIN32)
   this->SetAllocator(paddle::memory::allocation::AllocatorFacade::Instance()
                          .GetAllocator(impl_->GetPlace(), stream)
                          .get());
+#endif
   impl_->allocator_ = const_cast<Allocator*>(&this->GetAllocator());  // NOLINT
   impl_->SetStream(stream);
 }
 
 void GPUContext::SetCUDAStream(CUDAStream* stream, bool clear) {
+#if !defined(_WIN32)
   this->SetAllocator(paddle::memory::allocation::AllocatorFacade::Instance()
                          .GetAllocator(stream->place(), stream->raw_stream())
                          .get());
+#endif
   impl_->allocator_ = const_cast<Allocator*>(&this->GetAllocator());  // NOLINT
   impl_->SetCUDAStream(stream, clear);
 }
