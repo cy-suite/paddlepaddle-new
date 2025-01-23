@@ -50,6 +50,7 @@ void GenerateShapeKernel(const Context& ctx,
                          const std::vector<int>& dim_idx,
                          DenseTensor* out) {
   // only need shape
+  ctx.template HostAlloc<int64_t>(out);
 }
 
 }  // namespace phi

@@ -119,9 +119,13 @@ class ShadowOutputAnalysis final {
     if (op->isa<pir::ShadowOutputOp>() &&
         (!op->attributes().count("no_need_buffer"))) {
       // std::cerr << "insert shadow output\n";
-      ProcessShadowOutput(op->operand_source(0));
+      if (op->operand_source(0).defining_op()) {
+        ProcessShadowOutput(op->operand_source(0));
+      }
       return;
     }
+
+    // if( op->isa<paddle::dialect::da>)
 
     if ((op->dialect()->name() == "pd_op") &&
         (!cinn::hlir::framework::pir::CompatibleInfo::IsSupportForCinn(*op))) {
@@ -142,6 +146,12 @@ class ShadowOutputAnalysis final {
   }
 
   void ProcessShadowOutput(pir::Value val) {
+    if (!val.type().isa<paddle::dialect::DenseTensorType>()) {
+      return;
+    }
+    if (!(val.defining_op())) {
+      return;
+    }
     auto& shape_analysis = pir::ShapeAnalysisManager::Instance().Get(
         val.defining_op()->GetParentProgram());
 
