@@ -471,10 +471,10 @@ GroupVectorizeInfo GetCanApplyVectorize(
     const std::vector<ir::Var> for_iters =
         hlir::framework::pir::trivial_fusion_detail::GetAllForIters(body);
 
-    bool has_if_else_op = ScheduleBlockRealizeHasSpecialOp(
+    has_if_else_op = ScheduleBlockRealizeHasSpecialOp(
         expr_schedule_block_realize,
         [](const ir::Expr* e) { return e->As<ir::IfThenElse>(); });
-    bool has_select_op = ScheduleBlockRealizeHasSpecialOp(
+    has_select_op = ScheduleBlockRealizeHasSpecialOp(
         expr_schedule_block_realize,
         [](const ir::Expr* e) { return e->As<ir::Select>(); });
 
