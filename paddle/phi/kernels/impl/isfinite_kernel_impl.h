@@ -331,7 +331,7 @@ __global__ void IsfiniteCUDAKernel(
   unsigned int idx = threadIdx.x + blockIdx.x * blockDim.x;
   for (int i = idx; i < num; i += blockDim.x * gridDim.x) {
     const T& a = in_data[i];
-    out_data[i] = std::isfinite(a.real) && std::isfinite(a.imag);
+    out_data[i] = isfinite(a.real) && isfinite(a.imag);
   }
 }
 
