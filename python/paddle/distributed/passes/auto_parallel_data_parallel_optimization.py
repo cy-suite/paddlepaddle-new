@@ -489,12 +489,7 @@ class DataParallelOptimizationPass(PassBase):
 
             allreduce_op = block.ops[group.allreduce_op_idx]
             assert (
-                allreduce_op.type
-                == "all_reduce"
-                in [
-                    dist.ReduceOp.AVG,
-                    dist.ReduceOp.SUM,
-                ]
+                allreduce_op.type == "all_reduce"
             ), f"should found all_reduce with avg or sum op but found {allreduce_op}"
             allreduce_op_dist_attr = (
                 self.dist_context.get_op_dist_attr_for_program(allreduce_op)
