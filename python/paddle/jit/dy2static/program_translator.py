@@ -152,17 +152,17 @@ def check_view_api_used_by_inplace(program: paddle.pir.Program) -> None:
 
     all_vars_list = program.list_vars()
     for value in all_vars_list:
-        uesd_by_stride_ops = []
+        used_by_stride_ops = []
         for op in reversed(value.all_used_ops()):
             inplace_info = paddle.core.pir.get_op_inplace_info(op)
             if val_is_used_by_stride_op(op, value):
-                uesd_by_stride_ops.append(op)
+                used_by_stride_ops.append(op)
             if is_used_by_inplace_op(op, value, inplace_info):
                 if op.name() in skipped_inplace_ops:
                     continue
                 if value.get_defining_op().name() in framework.stride_ops:
                     show_op_callstack(op)
-                if len(uesd_by_stride_ops) == 0:
+                if len(used_by_stride_ops) == 0:
                     continue
                 show_op_callstack(op)
 
