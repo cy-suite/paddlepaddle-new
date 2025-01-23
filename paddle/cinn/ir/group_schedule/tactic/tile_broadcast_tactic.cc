@@ -265,23 +265,9 @@ std::vector<int> GetCommonBroadcastAxis(ir::IRSchedule* sch) {
   return common_broadcast_axis;
 }
 
-bool UseContinuousDataTile(const ScheduleConfig& config) {
-  // use continuous data tile for [S] and [...R]
-  if (config.base_info->iter_space_type.size() == 1 &&
-      config.base_info->iter_space_type.back().first == "S") {
-    return true;
-  }
-  if (config.base_info->iter_space_type.back().first == "R") {
-    return true;
-  }
-  return false;
-}
-
 bool ScheduleBlockEnableVectorize(const ScheduleConfig& config,
                                   const std::string& block_id) {
   if (!config.base_info->can_apply_vectorize) return false;
-
-  if (!UseContinuousDataTile(config)) return false;
   return true;
 }
 
