@@ -258,7 +258,7 @@ class AutoScanTest(unittest.TestCase):
         config = paddle_infer.Config()
         config.switch_ir_debug(True)
         config.set_optim_cache_dir(self.cache_dir)
-        config.disable_glog_info()
+        # config.disable_glog_info()
         if ir_optim is not None:
             config.switch_ir_optim(ir_optim)
         if use_gpu:
@@ -638,10 +638,10 @@ class PassAutoScanTest(AutoScanTest):
 
     def create_trt_inference_config(self) -> paddle_infer.Config:
         config = paddle_infer.Config()
-        config.disable_glog_info()
+        # config.disable_glog_info()
         config.enable_use_gpu(100, 0)
         config.set_optim_cache_dir(self.cache_dir)
-        config.switch_ir_debug()
+        config.switch_ir_debug(True)
         return config
 
 
@@ -705,11 +705,11 @@ class TrtLayerAutoScanTest(AutoScanTest):
 
     def create_inference_config(self, use_trt=True) -> paddle_infer.Config:
         config = paddle_infer.Config()
-        config.disable_glog_info()
+        # config.disable_glog_info()
         config.enable_use_gpu(100, 0)
         config.set_optim_cache_dir(self.cache_dir)
         if use_trt:
-            config.switch_ir_debug()
+            config.switch_ir_debug(True)
             config.enable_tensorrt_engine(
                 max_batch_size=self.trt_param.max_batch_size,
                 workspace_size=self.trt_param.workspace_size,
@@ -923,7 +923,7 @@ class TrtLayerAutoScanTest(AutoScanTest):
                                 prog_config.ops[i].attrs
                                 for i in range(len(prog_config.ops))
                             ]
-                            dynamic_shape = self.generate_dynamic_shape()
+                            dynamic_shape = self.generate_dynamic_shape(attrs)
 
                             main_program_desc, util_program = create_fake_model(
                                 prog_config,
@@ -1087,6 +1087,11 @@ class TrtLayerAutoScanTest(AutoScanTest):
                             atol, rtol, trt_result, baseline_result
                         )
                         trt_engine_num, paddle_op_num = nodes_num
+                        if trt_engine_num == 0:
+                            raise RuntimeError(
+                                f"No nodes were converted to TRTEngine.Expected TRT Nodes but got:"
+                                f"trt_nodes_num={trt_engine_num},total_nodes_num={paddle_op_num}."
+                            )
                         self.assert_op_size(trt_engine_num, paddle_op_num)
                         # deserialize test
                         if trt_engine_num > 0:
