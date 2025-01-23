@@ -93,8 +93,9 @@ void TuplePushOp::CacheGradOpSymbolicShape(
     pir::InferSymbolicShapeContext *infer_context) {
   const auto &x_shape =
       infer_context->GetShapeOrDataForValue(this->operand_source(0));
+  std::string tuple_pop_name(TuplePopOp::name());
   pir::InferSymbolicShapeCacheKey op_shape_info(
-      "cf.tuple_pop",
+      tuple_pop_name,
       {x_shape},
       pir::GetOrderedOriginalAttributes("cf.tuple_pop",
                                         this->operation()->attributes()));
