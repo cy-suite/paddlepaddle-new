@@ -93,15 +93,9 @@ class TrtConvertSoftmaxTest(TrtLayerAutoScanTest):
                 "softmax_input": [1, 3, 24, 48]
             }
         elif self.dims == 3:
-            self.dynamic_shape.min_input_shape = {
-                "softmax_input": [1, 3, 24]
-            }
-            self.dynamic_shape.max_input_shape = {
-                "softmax_input": [4, 3, 48]
-            }
-            self.dynamic_shape.opt_input_shape = {
-                "softmax_input": [1, 3, 48]
-            }
+            self.dynamic_shape.min_input_shape = {"softmax_input": [1, 3, 24]}
+            self.dynamic_shape.max_input_shape = {"softmax_input": [4, 3, 48]}
+            self.dynamic_shape.opt_input_shape = {"softmax_input": [1, 3, 48]}
         elif self.dims == 2:
             self.dynamic_shape.min_input_shape = {"softmax_input": [1, 32]}
             self.dynamic_shape.max_input_shape = {"softmax_input": [4, 64]}
