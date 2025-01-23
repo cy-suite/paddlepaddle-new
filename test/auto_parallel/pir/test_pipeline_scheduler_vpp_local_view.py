@@ -1,4 +1,4 @@
-# Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
+# Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,23 @@
 
 import unittest
 
-import paddle
+import collective.test_communication_api_base as test_base
 
-paddle.enable_static()
+
+class TestVPPLocalView(test_base.CommunicationTestDistBase):
+    def setUp(self):
+        super().setUp(
+            num_of_devices=2,
+            timeout=300,
+        )
+        self._default_envs = {"dtype": "float32", "seed": "2024"}
+        self._changeable_envs = {"backend": ["gpu"]}
+
+    def test_pp(self):
+        self.run_test_case(
+            "vpp_pass_unittest_local_view_pir.py",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
