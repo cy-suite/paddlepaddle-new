@@ -1042,7 +1042,7 @@ def _set_process_mesh_and_chunk_id(
     op_input_vars = op.operands_source()
     op_output_vars = op.results()
 
-    # NOTE(zhangwl):dist_skip_op donnot have op_mesh
+    # NOTE(zhangwl):dist_skip_op do not have op_mesh
     op_mesh = None
     if op.name() in dist_skip_op_list:
         input_var_process_mesh = None

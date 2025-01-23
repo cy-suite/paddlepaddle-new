@@ -1883,7 +1883,7 @@ def _to_prim(
     start_idx=-1,
     backward_length=-1,
 ):
-    """Swith to static graph and call to_prim."""
+    """Switch to static graph and call to_prim."""
     # TODO(Aurelius84): Fix this cycle import problem
     from paddle.incubate.autograd import primapi
 
