@@ -28,17 +28,17 @@ namespace phi {
 template <class T, class Context>
 static DenseTensor Fill(const Context& ctx,
                         std::vector<int> shape,
-                        float fill_value) {
+                        T fill_value) {
   DenseTensor ret;
   ret.Resize(common::make_ddim(shape));
   ctx.template Alloc<T>(&ret);
-  funcs::SetConstant<Context, T>()(ctx, &ret, T(fill_value));
+  funcs::SetConstant<Context, T>()(ctx, &ret, fill_value);
   return ret;
 }
 
 template <class T, class Context>
 static DenseTensor Eye(const Context& dev_ctx, int n) {
-  auto output = Fill<T, Context>(dev_ctx, {n}, 1);
+  auto output = Fill<T, Context>(dev_ctx, {n}, T(1));
   auto ret = Diag<T, Context>(dev_ctx, output, 0, 0);
   return ret;
 }
@@ -114,9 +114,9 @@ void SvdGradKernel(const Context& dev_ctx,
       F,
       Diag<T, Context>(dev_ctx, Infinits<T, Context>(dev_ctx, {k}), 0, 0));
   F = Pow<T, Context>(dev_ctx, F, -1);
-  DenseTensor sigma_term = Fill<T, Context>(dev_ctx, {1}, 0.0);
-  DenseTensor u_term = Fill<T, Context>(dev_ctx, {1}, 0.0);
-  DenseTensor v_term = Fill<T, Context>(dev_ctx, {1}, 0.0);
+  DenseTensor sigma_term = Fill<T, Context>(dev_ctx, {1}, T(0.0));
+  DenseTensor u_term = Fill<T, Context>(dev_ctx, {1}, T(0.0));
+  DenseTensor v_term = Fill<T, Context>(dev_ctx, {1}, T(0.0));
 
   if (s_grad.get_ptr() != nullptr) {
     const DenseTensor& gS = *(s_grad.get_ptr());

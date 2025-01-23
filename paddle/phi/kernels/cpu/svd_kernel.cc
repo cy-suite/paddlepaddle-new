@@ -23,8 +23,13 @@
 namespace phi {
 
 template <typename T>
-void LapackSvd(
-    const T* X, T* U, T* VH, T* S, int rows, int cols, int full = false) {
+void LapackSvd(const T* X,
+               T* U,
+               T* VH,
+               phi::dtype::Real<T>* S,
+               int rows,
+               int cols,
+               int full = false) {
   char jobz = full ? 'A' : 'S';
   int mx = std::max(rows, cols);
   int mn = std::min(rows, cols);
@@ -33,23 +38,26 @@ void LapackSvd(
   int ldu = rows;
   int ldvt = full ? cols : mn;
   int lwork = full ? (4 * mn * mn + 6 * mn + mx) : (4 * mn * mn + 7 * mn);
+  std::vector<phi::dtype::Real<T>> rwork(
+      std::max(5 * mn * mn + 5 * mn, 2 * mx * mn + 2 * mn * mn + mn));
   std::vector<T> work(lwork);
   std::vector<int> iwork(8 * mn);
   int info = 0;
-  phi::funcs::lapackSvd<T>(jobz,
-                           rows,
-                           cols,
-                           a,
-                           lda,
-                           S,
-                           U,
-                           ldu,
-                           VH,
-                           ldvt,
-                           work.data(),
-                           lwork,
-                           iwork.data(),
-                           &info);
+  phi::funcs::lapackSvd<T, phi::dtype::Real<T>>(jobz,
+                                                rows,
+                                                cols,
+                                                a,
+                                                lda,
+                                                S,
+                                                U,
+                                                ldu,
+                                                VH,
+                                                ldvt,
+                                                work.data(),
+                                                lwork,
+                                                rwork.data(),
+                                                iwork.data(),
+                                                &info);
   if (info < 0) {
     PADDLE_THROW(common::errors::InvalidArgument(
         "This %s-th argument has an illegal value", info));
@@ -65,7 +73,7 @@ template <typename T>
 void BatchSvd(const T* X,
               T* U,
               T* VH,
-              T* S,
+              phi::dtype::Real<T>* S,
               int rows,
               int cols,
               int batches,
@@ -97,6 +105,15 @@ void SvdKernel(const Context& dev_ctx,
   int full = full_matrices;
   /*Create Tensors and output, set the dim ...*/
   auto numel = X.numel();
+  if (numel == 0) {
+    U->Resize(U->dims());
+    S->Resize(S->dims());
+    VH->Resize(VH->dims());
+    dev_ctx.template Alloc<T>(U);
+    dev_ctx.template Alloc<phi::dtype::Real<T>>(S);
+    dev_ctx.template Alloc<T>(VH);
+    return;
+  }
   DenseTensor trans_x = ::phi::TransposeLast2Dim<T>(dev_ctx, X);
   auto x_dims = X.dims();
   int rows = static_cast<int>(x_dims[x_dims.size() - 2]);
@@ -104,18 +121,10 @@ void SvdKernel(const Context& dev_ctx,
   // int k = std::min(rows, cols);
   // int col_u = full ? rows : k;
   // int col_v = full ? cols : k;
-  PADDLE_ENFORCE_LT(
-      0,
-      rows,
-      errors::InvalidArgument("The row of Input(X) should be greater than 0."));
-  PADDLE_ENFORCE_LT(
-      0,
-      cols,
-      errors::InvalidArgument("The col of Input(X) should be greater than 0."));
   auto* x_data = trans_x.data<T>();
   int batches = static_cast<int>(numel / (rows * cols));
-  auto* U_out = dev_ctx.template Alloc<phi::dtype::Real<T>>(U);
-  auto* VH_out = dev_ctx.template Alloc<phi::dtype::Real<T>>(VH);
+  auto* U_out = dev_ctx.template Alloc<T>(U);
+  auto* VH_out = dev_ctx.template Alloc<T>(VH);
   auto* S_out = dev_ctx.template Alloc<phi::dtype::Real<T>>(S);
   /*SVD Use the Eigen Library*/
   BatchSvd<T>(x_data, U_out, VH_out, S_out, rows, cols, batches, full);
@@ -137,4 +146,11 @@ void SvdKernel(const Context& dev_ctx,
 
 }  // namespace phi
 
-PD_REGISTER_KERNEL(svd, CPU, ALL_LAYOUT, phi::SvdKernel, float, double) {}
+PD_REGISTER_KERNEL(svd,
+                   CPU,
+                   ALL_LAYOUT,
+                   phi::SvdKernel,
+                   float,
+                   double,
+                   phi::dtype::complex<float>,
+                   phi::dtype::complex<double>) {}
