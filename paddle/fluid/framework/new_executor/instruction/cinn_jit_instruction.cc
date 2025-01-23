@@ -314,15 +314,21 @@ CinnJitInstruction::CinnJitInstruction(
 
   for (int i = 0; i < op->num_results(); ++i) {
     auto result = op->result(i);
+    // std::cerr << "use count " << result.use_count() << std::endl;
+    // std::cerr << "use is " << result.first_use().owner()->name() <<
+    // std::endl;
 
     if (result.use_count() == 1 &&
         result.first_use().owner()->isa<pir::ShadowOutputOp>()) {
+      // std::cerr << "is a showd !!\n";
+
       auto t1 = result.first_use().owner()->dyn_cast<pir::ShadowOutputOp>();
 
       // if( t1.attributes().count("no_need_buffers") &&
       // t1.attribute("no_need_buffers").dyn_cast<pir::BoolAttribute>().data())
-      if (t1.attributes().count("no_need_buffers")) {
+      if (t1.attributes().count("no_need_buffer")) {
         std::cerr << "index is no need buffer        " << i << std::endl;
+        no_need_buffer_set.insert(i + input_tensor_size);
       }
     }
   }
@@ -347,6 +353,11 @@ void CinnJitInstruction::Run() {
         tensor_args_, ir_dims_, input_tensor_size, output_tensor_size);
   }
   for (size_t i = 0; i < tensor_args_.size(); ++i) {
+    // if( no_need_buffer_set.count(i) )
+    // {
+    //   std::cerr << "no need buffer dims " << tensor_args_[i]->dims() <<
+    //   std::endl;
+    // }
     dev_ctx_->Alloc(tensor_args_[i], tensor_args_[i]->dtype());
   }
 
