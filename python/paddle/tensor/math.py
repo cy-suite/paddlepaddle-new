@@ -2585,7 +2585,7 @@ def baddbmm(
 
             >>> out = paddle.baddbmm(input=input, x=x, y=y, beta=0.5, alpha=5.0)
 
-            >>> print(out)
+            >>> out
             Tensor(shape=[2, 2, 2], dtype=float32, place=Place(cpu), stop_gradient=True,
             [[[10.50000000, 10.50000000],
               [10.50000000, 10.50000000]],
@@ -2636,14 +2636,6 @@ def baddbmm(
                 raise ValueError(
                     f"If input's dimension[2] is not equal to y's dimension[2], input's dimension[2] must be 1. But received input's dimension[2] = {input_shape[2]}, y's dimension[2] = {y_shape[2]}"
                 )
-            # 上面的判断已经包含了这种情况
-            # else:
-            #     if not (
-            #         input_shape[0] == x_shape[0] or input_shape[0] == 1
-            #     ) or not (input_shape[1] == x_shape[1] or input_shape[1] == 1):
-            #         raise ValueError(
-            #             f"If input's dimension[2] is 1, input's dimension[0] and dimension[1] must be equal to x's dimension[0] and x's dimension[1] respectively, or they must be 1. But received input's shape = {input_shape}, x's shape = {x_shape}, y's shape = {y_shape}"
-            #         )
     elif len(input_shape) == 2:
         if input_shape[0] != x_shape[0]:
             raise ValueError(
@@ -2742,14 +2734,6 @@ def baddbmm_(
                 raise ValueError(
                     f"If input's dimension[2] is not equal to y's dimension[2], input's dimension[2] must be 1. But received input's dimension[2] = {input_shape[2]}, y's dimension[2] = {y_shape[2]}"
                 )
-            # 上面的判断已经包含了这种情况
-            # else:
-            #     if not (
-            #         input_shape[0] == x_shape[0] or input_shape[0] == 1
-            #     ) or not (input_shape[1] == x_shape[1] or input_shape[1] == 1):
-            #         raise ValueError(
-            #             f"If input's dimension[2] is 1, input's dimension[0] and dimension[1] must be equal to x's dimension[0] and x's dimension[1] respectively, or they must be 1. But received input's shape = {input_shape}, x's shape = {x_shape}, y's shape = {y_shape}"
-            #         )
     elif len(input_shape) == 2:
         if input_shape[0] != x_shape[0]:
             raise ValueError(
