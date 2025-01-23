@@ -25,6 +25,7 @@ from paddle.framework import (
     LayerHelper,
     _create_tensor,
     in_dynamic_mode,
+    in_dynamic_or_pir_mode,
     in_pir_mode,
 )
 from paddle.nn import Layer
@@ -139,7 +140,7 @@ def _c_concat(tensor, group=None):
     rank = group.rank
     nranks = group.nranks
 
-    if in_dynamic_mode() or in_pir_mode():
+    if in_dynamic_or_pir_mode():
         return _C_ops.c_concat(tensor, rank, nranks, ring_id, True, True)
     else:
         op_type = 'c_concat'

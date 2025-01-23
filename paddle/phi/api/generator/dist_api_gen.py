@@ -81,7 +81,7 @@ AUTO_PARALLEL_COND_TEMPLATE = """
   }}
 """
 
-OP_COMM_INIT = """
+NCCL_COMMCONTEXT_INIT = """
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
   const auto & comm_context_manager_ = phi::distributed::CommContextManager::GetInstance();
   if (nranks > 1 && !comm_context_manager_.Has(std::to_string(ring_id))) {{
@@ -92,7 +92,7 @@ OP_COMM_INIT = """
 #endif
 """
 
-NCCL_COMMCONTEXT_INIT = """
+SET_NCCL_COMMCONTEXT = """
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
   const auto & comm_context_manager = phi::distributed::CommContextManager::GetInstance();
   phi::distributed::NCCLCommContext* comm_context = nullptr;
@@ -104,7 +104,8 @@ NCCL_COMMCONTEXT_INIT = """
         nullptr,
         common::errors::Unavailable(
             "NCCLCommContext is nullptr, collective op should "
-            "has ring_id attr."));
+            "has ring_id(%d) attr.",
+            std::to_string(ring_id)));
     if (!comm_context->GetDevContext() || !comm_context->GetDevContext()->GetCommContext())
     {{
         auto kernel_res = phi::KernelFactory::Instance().SelectKernelOrThrowError(
@@ -899,19 +900,22 @@ class DistForwardAPI(ForwardAPI):
             input_args=input_args, mesh=mesh, kernel_code=kernel_select_code
         )
 
+        # Current initialization only consider the case where the parameters of op contain ring_id, nranks and rank.
+        # Other cases will be addressed in the future.
         if 'ring_id' in self.attrs['names']:
-            # if self.kernel['func'][0] == 'c_concat':
             if (
                 'rank' in self.attrs['names']
                 and 'nranks' in self.attrs['names']
             ):
                 if_condition_code = (
-                    if_condition_code + '\n' + self.generate_op_comm_init_code()
+                    if_condition_code
+                    + '\n'
+                    + self.generate_nccl_commcontext_init_code()
                 )
             if_condition_code = (
                 if_condition_code
                 + '\n'
-                + self.generate_nccl_commcontext_init_code()
+                + self.generate_set_nccl_commcontext_code()
             )
 
         return kernel_key_item_init + if_condition_code
@@ -1364,11 +1368,11 @@ class DistForwardAPI(ForwardAPI):
             self.api, self.kernel['func'][0], self.kernel['func'][0]
         )
 
-    def generate_op_comm_init_code(self) -> str:
-        return OP_COMM_INIT.format(self.kernel['func'][0])
-
     def generate_nccl_commcontext_init_code(self) -> str:
-        return NCCL_COMMCONTEXT_INIT.format(self.kernel['func'][0], self.api)
+        return NCCL_COMMCONTEXT_INIT.format(self.kernel['func'][0])
+
+    def generate_set_nccl_commcontext_code(self) -> str:
+        return SET_NCCL_COMMCONTEXT.format(self.kernel['func'][0], self.api)
 
     def generate_reshard_input_code(self) -> str:
         input_reshard_code = ""
