@@ -375,7 +375,12 @@ def depthwise_conv3d_transpose_python_api(
     x, padding="SAME", stride=(1, 1, 1), dilation=(1, 1, 1)
 ):
     conv = paddle.nn.Conv3DTranspose(
-        in_channels=2, out_channels=2, kernel_size=(3, 3, 3), stride=stride, padding=padding, dilation=dilation
+        in_channels=2,
+        out_channels=2,
+        kernel_size=(3, 3, 3),
+        stride=stride,
+        padding=padding,
+        dilation=dilation,
     )
     return conv(x)
 
