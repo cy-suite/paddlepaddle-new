@@ -20,7 +20,7 @@ import paddle
 from paddle import base
 
 
-class L1(paddle.nn.Layer):
+class dy_to_st(paddle.nn.Layer):
     def __init__(self):
         super().__init__()
         self._param_attr = base.ParamAttr(
@@ -55,7 +55,7 @@ class L1(paddle.nn.Layer):
         return x_grad, z_grad, y_grad, w1_grad, b1_grad
 
 
-class L2(paddle.nn.Layer):
+class dygraph(paddle.nn.Layer):
     def __init__(self):
         super().__init__()
         self._param_attr = base.ParamAttr(
@@ -85,8 +85,8 @@ class L2(paddle.nn.Layer):
 
 
 class TestBaseLayer(unittest.TestCase):
-    def test_L1(self):
-        layer = L1()
+    def test_dy_to_st(self):
+        layer = dy_to_st()
         x = paddle.to_tensor([[1.0, 2.0], [3.0, 4.0]], dtype='float32')
         out_grad = paddle.to_tensor([[1.0, 1.0], [1.0, 1.0]], dtype='float32')
         x.stop_gradient = False
@@ -104,8 +104,8 @@ class TestBaseLayer(unittest.TestCase):
         assert np.allclose(w1_grad.numpy(), w1_grad_check.numpy())
         assert np.allclose(b1_grad.numpy(), b1_grad_check.numpy())
 
-    def test_L2(self):
-        layer = L2()
+    def test_dygraph(self):
+        layer = dygraph()
         x = paddle.to_tensor([[1.0, 2.0], [3.0, 4.0]], dtype='float32')
         out_grad = paddle.to_tensor([[1.0, 1.0], [1.0, 1.0]], dtype='float32')
         x.stop_gradient = False
