@@ -511,11 +511,12 @@ def shuffle_channel_converter(network, paddle_op, inputs):
     )
     shape_dim2 = [2, 3]
     shape_dim2_tensor = trt_gather(network, input_shape_tensor, shape_dim2)
-    itensors = []
-    itensors.append(batch_shape_tensor)
-    itensors.append(group_tensor)
-    itensors.append(new_channel_shape_tensor)
-    itensors.append(shape_dim2_tensor)
+    itensors = [
+        batch_shape_tensor,
+        group_tensor,
+        new_channel_shape_tensor,
+        shape_dim2_tensor,
+    ]
     reshape_tensor = trt_concat(network, itensors)
     layer = network.add_shuffle(input)
     layer.set_input(1, reshape_tensor)
@@ -543,12 +544,9 @@ def full_batch_size_like_converter(network, paddle_op, inputs):
 
     shape_attr_tensor = add_1D_constant_layer(network, shape)
 
-    gather_output_shape_indices = []
-    for i in range(len(shape)):
-        if i == output_dim_idx:
-            gather_output_shape_indices.append(len(shape))
-            continue
-        gather_output_shape_indices.append(i)
+    gather_output_shape_indices = [
+        len(shape) if i == output_dim_idx else i for i in range(len(shape))
+    ]
 
     concat_inputs = [shape_attr_tensor, batch_tensor]
     concat_tensor = trt_concat(network, concat_inputs)
