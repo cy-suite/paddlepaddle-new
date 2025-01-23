@@ -113,7 +113,7 @@ int TensorDtype2NumpyDtype(phi::DataType dtype) {
       return pybind11::detail::npy_api::NPY_BYTE_;
     default:
       PADDLE_THROW(common::errors::InvalidArgument(
-          "Unknow phi::DataType, the int value = %d.",
+          "Unknown phi::DataType, the int value = %d.",
           static_cast<int>(dtype)));
       return 0;
   }
