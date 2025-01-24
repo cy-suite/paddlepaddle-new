@@ -361,7 +361,7 @@ class TestGradientClipByGlobalNorm(TestGradientClip):
         for place in self.get_places():
             self.check_sparse_gradient_clip(place)
 
-    # raise typeError
+    # raise TypeError
     def test_type_error(self):
         # the type of optimizer(grad_clip=) must be an instance of GradientClipBase's derived class
         with self.assertRaises(TypeError):
