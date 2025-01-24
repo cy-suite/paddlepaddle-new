@@ -1189,7 +1189,7 @@ void DoPass(bool* rewrited, DimExpr* expr) {
   const auto old_expr = *expr;
   *expr = TrySimplifyPass<PassT>(*expr);
   *rewrited = *rewrited || (old_expr != *expr);
-  VLOG(0) << old_expr << "after " << typeid(PassT).name() << " " << *expr;
+  // VLOG(0) << old_expr << "after " << typeid(PassT).name() << " " << *expr;
 }
 
 DimExpr Simplify(const DimExpr& expr) {

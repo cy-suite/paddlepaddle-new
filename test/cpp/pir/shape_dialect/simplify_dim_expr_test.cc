@@ -85,19 +85,9 @@ TEST(Simplify, NumberNaiveDiv) {
   ASSERT_EQ((simplified_dim_expr.Get<std::int64_t>()), 1);
 }
 
-TEST(Simplify, NumberMul) {
-  DimExpr div_expr{Div<DimExpr>{DimExpr(1), DimExpr(5)}};
-  DimExpr dim_expr{Mul<DimExpr>{List<DimExpr>{div_expr, DimExpr(5)}}};
-
-  DimExpr simplified_dim_expr = SimplifyDimExpr(dim_expr);
-  ASSERT_TRUE((simplified_dim_expr.Has<std::int64_t>()));
-  ASSERT_EQ((simplified_dim_expr.Get<std::int64_t>()), 1);
-}
-
-TEST(Simplify, NestNumberAddMul) {
-  DimExpr div_expr{Div<DimExpr>{DimExpr(1), DimExpr(5)}};
-  List<DimExpr> sum_lists{DimExpr(0),
-                          Mul<DimExpr>{List<DimExpr>{DimExpr(5), div_expr}}};
+TEST(Simplify, NestNumberAddDiv) {
+  DimExpr div_expr{Div<DimExpr>{DimExpr(5), DimExpr(5)}};
+  List<DimExpr> sum_lists{DimExpr(0), div_expr};
   DimExpr dim_expr{Add<DimExpr>{sum_lists}};
 
   DimExpr simplified_dim_expr = SimplifyDimExpr(dim_expr);
@@ -137,12 +127,11 @@ TEST(Simplify, SymbolicDiv) {
 
 TEST(Simplify, SymbolicMulUnit) {
   DimExpr sym = MakeSymbolic();
-  List<DimExpr> num_lists{sym, Div<DimExpr>{DimExpr(1), sym}};
+  List<DimExpr> num_lists{sym, DimExpr(1)};
   DimExpr dim_expr{Mul<DimExpr>{num_lists}};
 
   DimExpr simplified_dim_expr = SimplifyDimExpr(dim_expr);
-  ASSERT_TRUE((simplified_dim_expr.Has<std::int64_t>()));
-  ASSERT_EQ((simplified_dim_expr.Get<std::int64_t>()), 1);
+  ASSERT_TRUE((simplified_dim_expr == sym));
 }
 
 TEST(Simplify, SymbolicDivUnit) {
@@ -214,8 +203,8 @@ TEST(Simplify, FoldBroadcast) {
 }
 
 TEST(Simplify, Case1) {
-  // Mul(Broadcast(S11, S8), Broadcast(S10, S13, S4, S7), Broadcast(S12, S3, S6,
-  // S9), 1 / (S0), 16, 1 / (49))
+  // Div(Mul(Div(Mul(Broadcast(S11, S8), Broadcast(S10, S13, S4, S7),
+  // Broadcast(S12, S3, S6, S9)), S0)), 16), 49)
   DimExpr S11{"S11"};
   DimExpr S8{"S8"};
   DimExpr mul_op1 = Broadcast<DimExpr>{{S11, S8}};
@@ -233,14 +222,11 @@ TEST(Simplify, Case1) {
   DimExpr mul_op3 = Broadcast<DimExpr>{{S12, S3, S6, S9}};
 
   DimExpr S0{"S0"};
-  DimExpr mul_op4 = Div<DimExpr>{DimExpr(1), S0};
+  DimExpr mul_op4 =
+      Div<DimExpr>{Mul<DimExpr>{List<DimExpr>{mul_op1, mul_op2, mul_op3}}, S0};
 
-  DimExpr mul_op5 = Div<DimExpr>{DimExpr(1), DimExpr(49)};
-
-  DimExpr mul_op6 = DimExpr(16);
-
-  List<DimExpr> mul_list{mul_op1, mul_op2, mul_op3, mul_op4, mul_op5, mul_op6};
-  DimExpr dim_expr{Mul<DimExpr>{mul_list}};
+  DimExpr dim_expr = Div<DimExpr>{
+      Mul<DimExpr>{List<DimExpr>{mul_op4, DimExpr{16}}}, DimExpr(49)};
 
   ASSERT_TRUE((SimplifyDimExpr(dim_expr)) == dim_expr);
 }
@@ -267,7 +253,6 @@ TEST(Simplify, Case2) {
       Mul<DimExpr>{List<DimExpr>{S2, S3}},
       Mul<DimExpr>{List<DimExpr>{
           Div<DimExpr>{S0, DimExpr(7)}, Div<DimExpr>{S1, DimExpr(7)}, 2}}};
-  std::cout << "fgyfgy" << SimplifyDimExpr(dim_expr) << std::endl;
   ASSERT_TRUE((SimplifyDimExpr(dim_expr)) == expected);
 }
 

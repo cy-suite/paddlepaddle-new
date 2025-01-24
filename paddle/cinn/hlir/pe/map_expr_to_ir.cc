@@ -873,7 +873,7 @@ class MapExprToIrTranslator {
   }
 
   ir::Expr Divide(const std::vector<ir::Expr>& ir_exprs) const {
-    if (ir_exprs.size() == 0) {
+    if (ir_exprs.size() < 2) {
       PADDLE_THROW(::common::errors::Fatal("Dead code"));
     } else {
       return ir::Div::Make(ir_exprs.at(0), ir_exprs.at(1));
