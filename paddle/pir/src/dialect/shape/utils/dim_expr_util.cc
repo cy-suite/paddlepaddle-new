@@ -720,28 +720,6 @@ struct FoldOperandTrait<Mul> {
     (*ret)->emplace_back(value);
   }
   static bool IsInversedPair(const DimExpr& lhs, const DimExpr& rhs) {
-    // Note(ooooo) : The assumption, though not mathematically rigorous, aids in
-    // simplifying processes. Mul(Div(1, S0), S0) -> 1 , Mul(S0, Div(1, S0) -> 1
-    if (lhs.Has<Div<DimExpr>>()) {
-      auto div_expr = lhs.Get<Div<DimExpr>>();
-      if (!(div_expr->lhs.Has<std::int64_t>() &&
-            div_expr->lhs.Get<std::int64_t>() == 1)) {
-        return false;
-      }
-      if (div_expr->rhs == rhs) {
-        return true;
-      }
-    }
-    if (rhs.Has<Div<DimExpr>>()) {
-      auto div_expr = rhs.Get<Div<DimExpr>>();
-      if (!(div_expr->rhs.Has<std::int64_t>() &&
-            div_expr->rhs.Get<std::int64_t>() == 1)) {
-        return false;
-      }
-      if (div_expr->lhs == lhs) {
-        return true;
-      }
-    }
     return false;
   }
 };
@@ -1219,7 +1197,6 @@ DimExpr Simplify(const DimExpr& expr) {
     DoPass<FoldConstants<Min>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Broadcast>>(&keep_rewrite, &ret);
     DoPass<FoldInversedPairToUnit<Add>>(&keep_rewrite, &ret);
-    // DoPass<FoldInversedPairToUnit<Mul>>(&keep_rewrite, &ret);
     DoPass<FoldRedundantBroadcast>(&keep_rewrite, &ret);
     DoPass<FoldRedundantSymbolicBroadcast>(&keep_rewrite, &ret);
     DoPass<SimplifyBroadcast>(&keep_rewrite, &ret);
