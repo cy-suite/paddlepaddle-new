@@ -470,13 +470,17 @@ GroupVectorizeInfo GetCanApplyVectorize(
     ir::Expr expr_schedule_block_realize = blocks[0];
     const std::vector<ir::Var> for_iters =
         hlir::framework::pir::trivial_fusion_detail::GetAllForIters(body);
+    if (ScheduleBlockRealizeHasSpecialOp(
+            expr_schedule_block_realize,
+            [](const ir::Expr* e) { return e->As<ir::IfThenElse>(); })) {
+      has_if_else_op = true;
+    }
 
-    has_if_else_op = ScheduleBlockRealizeHasSpecialOp(
-        expr_schedule_block_realize,
-        [](const ir::Expr* e) { return e->As<ir::IfThenElse>(); });
-    has_select_op = ScheduleBlockRealizeHasSpecialOp(
-        expr_schedule_block_realize,
-        [](const ir::Expr* e) { return e->As<ir::Select>(); });
+    if (ScheduleBlockRealizeHasSpecialOp(
+            expr_schedule_block_realize,
+            [](const ir::Expr* e) { return e->As<ir::Select>(); })) {
+      has_select_op = true;
+    }
 
     if (ScheduleBlockRealizeCanVectorize(
             expr_schedule_block_realize, for_iters, &continuous_tensors))
