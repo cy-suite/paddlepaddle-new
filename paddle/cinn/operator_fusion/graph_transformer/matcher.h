@@ -195,29 +195,6 @@ struct RecomputeNodeMatcher {
   }
 };
 
-struct HorizontalFusionMatcher {
-  bool operator()(const PatternGraph& graph,
-                  const PatternNodePtr& lhs,
-                  const PatternNodePtr& rhs) {
-    if (!StmtPatternGraphMatcher<HorizontalFusionPattern>()(graph, lhs)) {
-      return false;
-    }
-    if (!StmtPatternGraphMatcher<HorizontalFusionPattern>()(graph, rhs)) {
-      return false;
-    }
-    const auto& lhs_pattern =
-        std::get<HorizontalFusionPattern>(lhs->stmt_pattern());
-    const auto& rhs_pattern =
-        std::get<HorizontalFusionPattern>(rhs->stmt_pattern());
-
-    return graph.policy_manager()
-               .template GetPolicy<GeneralTopoPolicy>()
-               ->CanFuse(lhs, rhs) &&
-           IsLoopFrameworkEqual(lhs_pattern.padding_patterns_.back().pattern,
-                                rhs_pattern.padding_patterns_.back().pattern);
-  }
-};
-
 struct TransposeOpMatcher {
   bool operator()(const PatternGraph& graph, const PatternNodePtr& node) {
     return (node->sink_op()->name() == "pd_op.transpose");
@@ -285,9 +262,9 @@ struct LeafReshapeConnectionMatcher {
 struct NotAllElementWiseDownstreamMatcher {
   bool operator()(const PatternGraph& graph, const PatternNodePtr& node) {
     size_t count = 0;
-    for (const auto& downsteram : node->downstream()) {
-      if (StmtPatternGraphMatcher<TrivialPattern>()(graph, downsteram)) {
-        auto ops = std::get<TrivialPattern>(downsteram->stmt_pattern()).ops();
+    for (const auto& downstream : node->downstream()) {
+      if (StmtPatternGraphMatcher<TrivialPattern>()(graph, downstream)) {
+        auto ops = std::get<TrivialPattern>(downstream->stmt_pattern()).ops();
         bool is_elementwise =
             std::all_of(ops.begin(), ops.end(), [](pir::Operation* op) {
               return GetOpPatternKind(op) == hlir::framework::kElementWise;
@@ -367,8 +344,7 @@ struct HorizontalFusionConstrain {
 
     return graph.policy_manager().GetPolicy<GeneralTopoPolicy>()->CanFuse(
                lhs, rhs) &&
-           IsLoopFrameworkEqual(lhs_pattern.padding_patterns_.back().pattern,
-                                rhs_pattern.padding_patterns_.back().pattern);
+           IsLoopFrameworkEqual(lhs_pattern, rhs_pattern);
   }
 };
 

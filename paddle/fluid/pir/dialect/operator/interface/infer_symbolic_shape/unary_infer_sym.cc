@@ -2030,7 +2030,7 @@ bool MaxPool2dWithIndexOpInferSymbolicShape(
   PADDLE_ENFORCE_EQ(
       x_shape.size(),
       4,
-      common::errors::InvalidArgument("Pooling intput should be 4-D Tensor"
+      common::errors::InvalidArgument("Pooling input should be 4-D Tensor"
                                       "but received %dD-Tensor",
                                       x_shape.size()));
 
@@ -2064,7 +2064,7 @@ bool MaxPool3dWithIndexOpInferSymbolicShape(
   PADDLE_ENFORCE_EQ(
       x_shape.size(),
       5,
-      common::errors::InvalidArgument("Pooling intput should be 5-D Tensor"
+      common::errors::InvalidArgument("Pooling input should be 5-D Tensor"
                                       "but received %dD-Tensor",
                                       x_shape.size()));
 
@@ -2534,7 +2534,7 @@ bool PixelShuffleOpInferSymbolicShape(
 
   const bool channel_last = (data_format == "NHWC");
 
-  // the number of channels shoule be able to be divided by the upscale_factor
+  // the number of channels should be able to be divided by the upscale_factor
   // ^ 2.
   // TODO(Lans1ot, Buaa): add constrain for the channel number and
   // upscale_factor
@@ -2779,20 +2779,12 @@ bool Pad3dOpInferSymbolicShape(pir::Operation *op,
                         x_shape.size()));
   const auto &paddings_shape =
       infer_context->GetShapeOrDataForValue(op->operand_source(1));
-  if (!paddings_shape.data().has_value()) {
-    std::stringstream ss;
-    ss << paddings_shape;
-    PADDLE_THROW(
-        common::errors::InvalidArgument("The data of paddings's symbol shape "
-                                        "should have value, but now got [%s].",
-                                        ss.str()));
-  }
   const std::string &data_format =
       op->attribute<pir::StrAttribute>("data_format").AsString();
-
+  const std::vector<symbol::DimExpr> &paddings =
+      paddle::dialect::details::GetDataFromTensorOrTensorList(paddings_shape);
   const std::vector<symbol::DimExpr> &out_dims = [&] {
     std::vector<symbol::DimExpr> out_dims = x_shape;
-    const auto &paddings = paddings_shape.data().value();
     PADDLE_ENFORCE_EQ(paddings.size(),
                       6,
                       common::errors::InvalidArgument(
@@ -3343,7 +3335,7 @@ bool SplitOpInferSymbolicShape(pir::Operation *op,
       op->operand_source(2).defining_op()->isa<paddle::dialect::FullOp>(),
       true,
       common::errors::InvalidArgument(
-          "Invalid input args : axis, pleace check"));
+          "Invalid input args : axis, please check"));
 
   int64_t axis = op->operand_source(2)
                      .defining_op<paddle::dialect::FullOp>()
@@ -3487,7 +3479,7 @@ bool SplitWithNumOpInferSymbolicShape(
       }
     }
     if (count == 1) {
-      // caculate the axis of split_with_num_op
+      // calculate the axis of split_with_num_op
       symbol::TensorListShapeOrDataDimExprs res_list_s_d(
           num, out_s_d(candidate_axis, num));
       infer_context->SetShapeOrDataForValue(

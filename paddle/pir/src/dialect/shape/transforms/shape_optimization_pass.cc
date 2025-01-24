@@ -190,7 +190,7 @@ void CheckInferSymWithInferMeta(
                 << " [id:" << op->id() << "] "
                 << " carefully! "
                 << "shape[" << i
-                << "] of infer_sym_shape shoule be int64_t NOT a symbol!";
+                << "] of infer_sym_shape should be int64_t NOT a symbol!";
             LOG(ERROR) << print_stream.str();
             continue;
           }
@@ -265,7 +265,16 @@ void InferSymExprForOp(Operation* op,
           op, infer_context->GetShapeOrDataForValue(op->result(0)));
     }
   } else {
-    LOG(WARNING) << op->name() << " DOES NOT have InferSymbolicShapeInterface!";
+    bool is_grad_op = [&]() {
+      std::string suffix = "_grad";
+      const auto& op_name = op->name();
+      if (op_name.size() < suffix.size()) return false;
+      return op_name.compare(
+                 op_name.size() - suffix.size(), suffix.size(), suffix) == 0;
+    }();
+    if (!is_grad_op)
+      LOG(WARNING) << op->name()
+                   << " DOES NOT have InferSymbolicShapeInterface!";
     const bool all_outs_static_dims = [&] {
       bool all_static_dims = true;
       for (uint32_t i = 0; i < op->num_results(); ++i) {

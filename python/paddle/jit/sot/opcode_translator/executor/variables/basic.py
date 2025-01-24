@@ -163,6 +163,18 @@ class ConstantVariable(VariableBase):
             not bool(self.get_py_value()), self.graph, DummyTracker([self])
         )
 
+    def getitem(self, key):
+        track_vars: list[VariableBase] = [self]
+        if self.get_py_type() is not str:
+            raise InnerError(
+                f"getitem can only be applied to a str variable, but got {self.get_py_type()}"
+            )
+        if isinstance(key, VariableBase):
+            track_vars.append(key)
+            key = key.get_py_value()
+        retval = self.value[key]
+        return ConstantVariable(retval, self.graph, DummyTracker(track_vars))
+
     def str(self):
         return ConstantVariable(
             str(self.value), self.graph, DummyTracker([self])
@@ -241,8 +253,8 @@ class PrintStmtVariable(VariableBase):
         codegen.gen_call_function(len(self.args))
         codegen.gen_pop_top()
 
-    def flatten_items(self):
-        return self.args
+    def flatten_inner_vars(self):
+        return self.args.flatten_inner_vars()
 
 
 IMPLEMENTED_TENSOR_PROPERTIES = set()
@@ -515,15 +527,10 @@ class TensorVariable(VariableBase):
         return self.graph.call_tensor_method("__getitem__", self, key)
 
     def setitem(self, key, value):
-        self.graph.add_global_guarded_variable(value)
-
-        key_var = VariableFactory.from_value(
-            key, self.graph, tracker=ConstTracker(key)
-        )
         new_tensor = self.graph.call_paddle_api(
             paddle.static.setitem,
             self,
-            key_var,
+            key,
             value,
         )
 
@@ -795,6 +802,7 @@ class SymbolicVariable(VariableBase):
 
         disable_symbolic(self)
         self.graph.need_cache = False
+        log(3, f"Fallback {self} to ConstantVariable")
         return ConstantVariable(
             self.get_py_value(), self.graph, DummyTracker([self])
         )
@@ -803,6 +811,10 @@ class SymbolicVariable(VariableBase):
         if ENV_SOT_BREAK_GRAPH_ON_GET_SYMBOLIC_VALUE.get():
             raise BreakGraphError("get_py_value from SymbolicVariable")
         self.need_guard_value = True
+        log(
+            3,
+            f"get_py_value from SymbolicVariable {self} caused value need guard",
+        )
         if isinstance(self.value, SymbolicValue):
             assert isinstance(
                 self.tracker, SymbolicOperationTracker
