@@ -74,7 +74,7 @@ class LinearInterpolateV2OpConverter : public OpConverter {
       auto* scale_var = scope.FindVar(op_desc.Input("Scale")[0]);
       auto* scale_tensor = scale_var->GetMutable<phi::DenseTensor>();
       auto* scale_d = scale_tensor->data<float>();
-      scale_w = scale_d[1];
+      scale_w = scale_d[0];
     } else {
       const std::vector<float> scale_attr =
           PADDLE_GET_CONST(std::vector<float>, op_desc.GetAttr("scale"));

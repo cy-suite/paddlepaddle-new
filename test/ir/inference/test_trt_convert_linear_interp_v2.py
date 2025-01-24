@@ -50,51 +50,47 @@ class TrtConvertLinearInterpV2Test(TrtLayerAutoScanTest):
 
         for data_layout in ["NCHW", "NHWC"]:
             for align_corners in [False, True]:
-                for scale_x in [2.0]:
-                    scale = [scale_x]
-                    dics = [
-                        {
-                            "data_layout": data_layout,
-                            "interp_method": "linear",
-                            "align_corners": align_corners,
-                            "align_mode": 0,
-                            "scale": scale,
-                            "out_h": -1,
-                            "out_w": -1,
-                        }
-                    ]
+                dics = [
+                    {
+                        "data_layout": data_layout,
+                        "interp_method": "linear",
+                        "align_corners": align_corners,
+                        "align_mode": 0,
+                        "scale": [],
+                        "out_h": -1,
+                        "out_w": -1,
+                    }
+                ]
 
-                    ops_config = [
-                        {
-                            "op_type": "linear_interp_v2",
-                            "op_inputs": {
-                                "X": ["input_data"],
-                                "Scale": ["input_scale"],
-                            },
-                            "op_outputs": {
-                                "Out": ["linear_interp_v2_output_data"]
-                            },
-                            "op_attrs": dics[0],
-                        }
-                    ]
-                    ops = self.generate_op_config(ops_config)
-
-                    program_config = ProgramConfig(
-                        ops=ops,
-                        weights={
-                            "input_scale": TensorConfig(
-                                data_gen=partial(generate_input2, dics)
-                            )
+                ops_config = [
+                    {
+                        "op_type": "linear_interp_v2",
+                        "op_inputs": {
+                            "X": ["input_data"],
+                            "Scale": ["input_scale"],
                         },
-                        inputs={
-                            "input_data": TensorConfig(
-                                data_gen=partial(generate_input1, dics)
-                            )
-                        },
-                        outputs=["linear_interp_v2_output_data"],
-                    )
+                        "op_outputs": {"Out": ["linear_interp_v2_output_data"]},
+                        "op_attrs": dics[0],
+                    }
+                ]
+                ops = self.generate_op_config(ops_config)
 
-                    yield program_config
+                program_config = ProgramConfig(
+                    ops=ops,
+                    weights={
+                        "input_scale": TensorConfig(
+                            data_gen=partial(generate_input2, dics)
+                        )
+                    },
+                    inputs={
+                        "input_data": TensorConfig(
+                            data_gen=partial(generate_input1, dics)
+                        )
+                    },
+                    outputs=["linear_interp_v2_output_data"],
+                )
+
+                yield program_config
 
     def sample_predictor_configs(
         self, program_config
@@ -124,7 +120,6 @@ class TrtConvertLinearInterpV2Test(TrtLayerAutoScanTest):
             attrs, False
         ), 1e-5
         self.trt_param.precision = paddle_infer.PrecisionType.Half
-        program_config.set_input_type(np.float16)
         yield self.create_inference_config(), generate_trt_nodes_num(
             attrs, False
         ), 1e-2
@@ -235,7 +230,6 @@ class TrtConvertLinearInterpV2Test1(TrtLayerAutoScanTest):
             attrs, False
         ), 1e-5
         self.trt_param.precision = paddle_infer.PrecisionType.Half
-        program_config.set_input_type(np.float16)
         yield self.create_inference_config(), generate_trt_nodes_num(
             attrs, False
         ), 1e-2
