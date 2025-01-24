@@ -498,6 +498,13 @@ class Conv3dTransposeOpPattern
         return false;
       }
     }
+    pir::Value filter = op.operand_source(1);
+    auto filter_type = filter.type().dyn_cast<paddle::dialect::DenseTensorType>();
+    auto filter_shape = filter_type.dims();
+    if (filter_shape.size() != 5) {
+      VLOG(3) << "The conv3d filter's dims size should be 5";
+      return false;
+    }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }
@@ -521,6 +528,13 @@ class Conv3dOpPattern
     }
     if (paddings.size() > 3) {
       VLOG(3) << "In conv3d, paddings size must be less than or equal to 3";
+      return false;
+    }
+    pir::Value filter = op.operand_source(1);
+    auto filter_type = filter.type().dyn_cast<paddle::dialect::DenseTensorType>();
+    auto filter_shape = filter_type.dims();
+    if (filter_shape.size() != 5) {
+      VLOG(3) << "The conv3d filter's dims size should be 5";
       return false;
     }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));

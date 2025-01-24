@@ -570,10 +570,6 @@ def convert_conv2d(network, paddle_op, inputs):
 def convert_conv3d(network, paddle_op, inputs):
     input_tensor, filter = inputs
     filter_shape = paddle_op.operands()[1].source().shape
-    if len(filter_shape) != 5:
-        raise ValueError(
-            f"The conv3d filter's dims size should be 5, but got {len(filter_shape)}"
-        )
 
     n_output = filter_shape[0]
     n_input = filter_shape[1]
