@@ -785,10 +785,11 @@ void HogwildWorker::CreateThreadOperators(const ProgramDesc &program) {
     op_names_.push_back(op_name);
     ops_.emplace_back(OpRegistry::CreateOp(*op_desc));
     // change to device stream
-    if (op_name == "c_broadcast" || op_name == "c_allreduce_sum" ||
-        (op_name == "reduce" &&
-         op_desc->GetAttrIfExists<int>("reduce_type") ==
-             static_cast<int>(phi::ReduceType::kRedSum))) {
+    if (op_name == "c_broadcast" ||
+        (op_name == "reduce" ||
+         op_name == "all_reduce" &&
+             op_desc->GetAttrIfExists<int>("reduce_type") ==
+                 static_cast<int>(phi::ReduceType::kRedSum))) {
       ops_[op_index]->SetAttr("use_calc_stream", true);
     }
     op_index++;

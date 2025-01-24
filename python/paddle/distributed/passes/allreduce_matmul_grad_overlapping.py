@@ -15,6 +15,8 @@
 import collections
 import logging
 
+import paddle.distributed as dist
+
 from ..auto_parallel.static.utils import (
     get_logger,
 )
@@ -77,8 +79,9 @@ class AllreduceMatmulGradOverlappingPass(PassBase):
                 for j in range(i + 1, op_num):
                     op_j = ops[j]
                     if (
-                        op_j.type == 'c_allreduce_sum'
-                        and op_j.input("X") == x_grad
+                        op_j.type == 'all_reduce'
+                        and op_j.attr("reduce_type") == dist.ReduceOp.SUM
+                        and op_j.input("x") == x_grad
                     ):
                         matmul_grad_id_to_allreduce_id[i] = j
         return matmul_grad_id_to_allreduce_id
