@@ -163,7 +163,7 @@ struct GroupVectorizeInfo {
   bool can_apply_vectorize{false};
   bool has_if_else_op{false};
   bool has_select_op{false};
-  int continuous_tensor_nums{0};
+  int continuous_arg_nums{0};
   int fusion_group_arg_nums{0};
 };
 
@@ -184,7 +184,7 @@ struct FusionGroupInfo {
        << "\ncan_apply_grid_reduce: " << can_apply_grid_reduce
        << "\ncan_apply_vectorize: " << vectorize_info.can_apply_vectorize
        << "\nhas_select_op: " << vectorize_info.has_select_op
-       << "\ncontinuous_tensor_nums: " << vectorize_info.continuous_tensor_nums
+       << "\ncontinuous_arg_nums: " << vectorize_info.continuous_arg_nums
        << "\nfusion_group_arg_nums: " << vectorize_info.fusion_group_arg_nums;
     return ss.str();
   }

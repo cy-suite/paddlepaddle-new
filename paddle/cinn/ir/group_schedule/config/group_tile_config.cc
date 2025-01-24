@@ -167,14 +167,6 @@ std::shared_ptr<ScheduleConfig::BaseInfo> InitBasicInfo(
   base_info->loop_ranges = group_info->loop_ranges;
   base_info->loop_strides = group_info->loop_strides;
   base_info->can_apply_grid_reduce = group_info->can_apply_grid_reduce;
-  base_info->can_apply_vectorize =
-      group_info->vectorize_info.can_apply_vectorize;
-  base_info->has_if_else_op = group_info->vectorize_info.has_if_else_op;
-  base_info->has_select_op = group_info->vectorize_info.has_select_op;
-  base_info->continuous_tensor_nums =
-      group_info->vectorize_info.continuous_tensor_nums;
-  base_info->fusion_group_arg_nums =
-      group_info->vectorize_info.fusion_group_arg_nums;
 
   std::set<int64_t> reduce_dim_loc(group_info->reduce_axis.begin(),
                                    group_info->reduce_axis.end());
@@ -194,6 +186,22 @@ std::shared_ptr<ScheduleConfig::BaseInfo> InitBasicInfo(
   }
 
   base_info->iter_space_type = GetIterSpaceType(group_info, reduce_dim_loc);
+
+  const int64_t iters_dim = base_info->iter_space_type.size();
+  const auto& last_dim = base_info->iter_space_type.back().first;
+  // TileFirstGeneralTactic apply Vectorize current only support [S, R] and [S]
+  if ((iters_dim == 2 && last_dim == "R") ||
+      (iters_dim == 1 && last_dim == "S")) {
+    base_info->can_apply_vectorize =
+        group_info->vectorize_info.can_apply_vectorize;
+    base_info->has_if_else_op = group_info->vectorize_info.has_if_else_op;
+    base_info->has_select_op = group_info->vectorize_info.has_select_op;
+    base_info->continuous_arg_nums =
+        group_info->vectorize_info.continuous_arg_nums;
+    base_info->fusion_group_arg_nums =
+        group_info->vectorize_info.fusion_group_arg_nums;
+  }
+
   return base_info;
 }
 
@@ -296,7 +304,7 @@ int UpdateWarpNumsInDifferentCase(
   const auto& last_dim = base_info->iter_space_type.back().first;
   if (base_info->has_if_else_op && last_dim == "R") {
     warp_nums = Trim(warp_nums, 1, 16);
-  } else if (base_info->continuous_tensor_nums !=
+  } else if (base_info->continuous_arg_nums !=
                  base_info->fusion_group_arg_nums &&
              last_dim == "S") {
     warp_nums = Trim(warp_nums, 1, 8);
@@ -356,24 +364,24 @@ bool SpecialSpatialWithBroadcastCaseCanApplyVectorize(
     const int grid_dim_x,
     const int wrap_nums_per_block) {
   if (wrap_nums_per_block == 32) {
-    if (grid_dim_x <= 512 && base_info->continuous_tensor_nums <= 2 &&
+    if (grid_dim_x <= 512 && base_info->continuous_arg_nums <= 2 &&
         base_info->fusion_group_arg_nums >= 9) {
       return false;
     }
 
-    if (grid_dim_x >= 10240 && base_info->continuous_tensor_nums <= 2 &&
+    if (grid_dim_x >= 10240 && base_info->continuous_arg_nums <= 2 &&
         base_info->fusion_group_arg_nums >= 10) {
       return false;
     }
   }
 
   if (wrap_nums_per_block == 16 && grid_dim_x >= 10240) {
-    if (base_info->continuous_tensor_nums <= 2 &&
+    if (base_info->continuous_arg_nums <= 2 &&
         base_info->fusion_group_arg_nums >= 9) {
       return false;
     }
 
-    if (base_info->continuous_tensor_nums <= 4 &&
+    if (base_info->continuous_arg_nums <= 4 &&
         base_info->fusion_group_arg_nums >= 11) {
       return false;
     }
@@ -407,13 +415,9 @@ TileConfigMap BuildVectorizeConfig(
     const std::shared_ptr<ScheduleConfig::BaseInfo>& base_info,
     const common::Target& target) {
   if (!base_info->can_apply_vectorize) return {};
-  // current only support [S, R] and [S]
   const int64_t iters_dim = base_info->iter_space_type.size();
-  if (iters_dim > 2) {
-    base_info->can_apply_vectorize = false;
-    return {};
-  }
   const auto& last_dim = base_info->iter_space_type.back().first;
+
   const std::vector<int> vectorize_factors{4, 2};
   int64_t spatial_numel = base_info->spatial_numel;
   int64_t reduce_numel = base_info->reduce_numel;
