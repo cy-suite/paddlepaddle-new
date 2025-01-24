@@ -399,7 +399,7 @@ def post_process(output_dir: str):
             replace_bad_attr(filename)
             check_remove_syntax_error(filename)
 
-            # insert moduels if necessary
+            # insert modules if necessary
             insert_import_modules(filename)
 
 
@@ -531,8 +531,8 @@ class OpsYamlBaseAPI:
             ')'
         ), f"Args declaration should start with '(' and end with ')', please check the args of {api_name} in yaml."
         args_str = args_str[1:-1]
-        patten = re.compile(r',(?![^{]*\})')  # support int[] a={1,3}
-        args_list = re.split(patten, args_str.strip())
+        pattern = re.compile(r',(?![^{]*\})')  # support int[] a={1,3}
+        args_list = re.split(pattern, args_str.strip())
         args_list = [x.strip() for x in args_list]
 
         for item in args_list:

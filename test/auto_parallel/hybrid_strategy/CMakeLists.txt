@@ -163,12 +163,9 @@ if((WITH_GPU) AND (LINUX))
 endif()
 if((WITH_GPU) AND (LINUX))
   py_test_modules(
-    test_dist_llama_inference
-    MODULES
-    test_dist_llama_inference
+    test_parallel_api_with_llama_lora MODULES test_parallel_api_with_llama_lora
     ENVS
-    "http_proxy=;https_proxy=;PYTHONPATH=../..:${PADDLE_BINARY_DIR}/python;FLAGS_enable_pir_api=1"
-  )
-  set_tests_properties(test_dist_llama_inference
-                       PROPERTIES TIMEOUT "300" LABELS "RUN_TYPE=HYBRID")
+    "http_proxy=;https_proxy=;PYTHONPATH=../..:${PADDLE_BINARY_DIR}/python")
+  set_tests_properties(test_parallel_api_with_llama_lora
+                       PROPERTIES TIMEOUT "360" LABELS "RUN_TYPE=HYBRID")
 endif()

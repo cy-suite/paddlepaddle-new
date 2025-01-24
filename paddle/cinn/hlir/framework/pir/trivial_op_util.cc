@@ -316,15 +316,6 @@ ExprSetFinder ScheduleBlockRealizeIsInit = FilterMaker(
     },
     "ScheduleBlockRealizeIsInit");
 
-ExprSetFinder ScheduleBlockRealizeIsSplitTransform = FilterMaker(
-    [](const ir::Expr& e) -> bool {
-      return (e.As<ir::ScheduleBlockRealize>() &&
-              e.As<ir::ScheduleBlockRealize>()
-                      ->schedule_block.As<ir::ScheduleBlock>()
-                      ->name.find("_split_transform") != std::string::npos);
-    },
-    "ScheduleBlockRealizeIsSplitTransform");
-
 ExprSetFinder IsFor = FilterMaker(
     [](const ir::Expr& e) -> bool { return e.As<ir::For>(); }, "IsFor");
 
@@ -407,7 +398,7 @@ ExprSetFinder FindFather(const ir::Expr& root) {
 ExprSetFinder DirectlyFather(const ir::Expr& root) {
   const auto& f = [root](const auto& child) -> ExprSet {
     ExprSet result = FindFather(root)(child);
-    // VLOG(4) << "Direcly Father of \n" << child << "\nIn root: \n" << root <<
+    // VLOG(4) << "Directly Father of \n" << child << "\nIn root: \n" << root <<
     // "\n is : "; for (const auto& r: result){ VLOG(4) << "\n  RESULT: " << r;
     //}
     return {result[result.size() - 1]};
@@ -677,10 +668,10 @@ ExprTransformer RemoveOneTransformer(int one) {
         ExprSetFinderUtils::DirectlyFather(copied).GetSingle(target_for);
     if (target_block.As<ir::ScheduleBlockRealize>() != nullptr) {
       VLOG(4) << "RemoveOneTransformer: father block is root realize";
-      ir::Expr shedule_block =
+      ir::Expr schedule_block =
           target_block.As<ir::ScheduleBlockRealize>()->schedule_block;
       PADDLE_ENFORCE_EQ(
-          shedule_block.As<ir::ScheduleBlock>()->body,
+          schedule_block.As<ir::ScheduleBlock>()->body,
           target_for,
           ::common::errors::InvalidArgument(
               "Root realize body should be equal to target for."));
@@ -688,9 +679,9 @@ ExprTransformer RemoveOneTransformer(int one) {
       const auto for_body_stmts = for_body.As<ir::Block>()->stmts;
       if (for_body_stmts.size() == 1 &&
           for_body_stmts[0].As<ir::For>() != nullptr) {
-        shedule_block.As<ir::ScheduleBlock>()->body = for_body_stmts[0];
+        schedule_block.As<ir::ScheduleBlock>()->body = for_body_stmts[0];
       } else {
-        shedule_block.As<ir::ScheduleBlock>()->body = for_body;
+        schedule_block.As<ir::ScheduleBlock>()->body = for_body;
       }
     } else if (target_block.As<ir::Block>() != nullptr) {
       std::vector<ir::Expr> new_bodies;
@@ -1003,13 +994,14 @@ ir::Expr ReshapeLoop(const ir::Expr& root,
   const auto block_name = block_realize.As<ir::ScheduleBlockRealize>()
                               ->schedule_block.As<ir::ScheduleBlock>()
                               ->name;
-  const auto shape_partion = fusion::PartionReshapeAxes(in_shape, out_shape);
+  const auto shape_partition =
+      fusion::PartitionReshapeAxes(in_shape, out_shape);
 
-  for (int idx = shape_partion.size() - 1; idx > 0; --idx) {
-    const auto& in_s = shape_partion[idx - 1].first;
-    const auto& in_e = shape_partion[idx].first;
-    const auto& out_s = shape_partion[idx - 1].second;
-    const auto& out_e = shape_partion[idx].second;
+  for (int idx = shape_partition.size() - 1; idx > 0; --idx) {
+    const auto& in_s = shape_partition[idx - 1].first;
+    const auto& in_e = shape_partition[idx].first;
+    const auto& out_s = shape_partition[idx - 1].second;
+    const auto& out_e = shape_partition[idx].second;
 
     std::vector<int> fuse_indices;
     for (int i = in_e - 1; i >= in_s; --i) {

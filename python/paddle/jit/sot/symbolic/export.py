@@ -211,7 +211,7 @@ class PyFileGen:
     def create_inputs(self):
         create_paddle_inputs = self.new_root("def create_paddle_inputs():")
         self.new_root("\n")
-        craete_numpy_inputs = self.new_root("def create_numpy_inputs():")
+        create_numpy_inputs = self.new_root("def create_numpy_inputs():")
 
         paddle_inputs = ["inputs = ("]
         numpy_inputs = ["inputs = ("]
@@ -257,7 +257,7 @@ class PyFileGen:
         numpy_inputs.append("return inputs")
 
         create_paddle_inputs.add_sub(*paddle_inputs)
-        craete_numpy_inputs.add_sub(*numpy_inputs)
+        create_numpy_inputs.add_sub(*numpy_inputs)
 
     def create_test(self):
         test_class = self.new_root("class TestLayer(unittest.TestCase):")
@@ -318,13 +318,13 @@ class PyFileGen:
 
         def search(outputs, path, result):
             if isinstance(outputs, (list, tuple)):
-                search_sequnce(outputs, path, result)
+                search_sequence(outputs, path, result)
             elif isinstance(outputs, dict):
                 search_dict(outputs, path, result)
             elif isinstance(outputs, Symbol):
                 result.append(self.name_gener(outputs) + " = " + "".join(path))
 
-        def search_sequnce(outputs, path, result):
+        def search_sequence(outputs, path, result):
             for idx, out in enumerate(outputs):
                 path.append(f"[{idx}]")
                 search(out, path, result)

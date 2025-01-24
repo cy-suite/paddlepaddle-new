@@ -237,9 +237,9 @@ def save_state_dict(
                     )
                     local_tensor = val
                 local_state_dict[key] = local_tensor
-                local_tenosr_dtype = str(local_tensor.dtype).split('.')[1]
+                local_tensor_dtype = str(local_tensor.dtype).split('.')[1]
                 local_state_dict_metadata[key] = LocalTensorMetadata(
-                    global_offset, local_shape, local_tenosr_dtype
+                    global_offset, local_shape, local_tensor_dtype
                 )
                 local_storage_metadata[
                     LocalTensorIndex(key, tuple(global_offset))
@@ -273,7 +273,7 @@ def save_state_dict(
         if coordinator_rank == paddle.distributed.get_rank():
             logger.debug(f"metadata:{metadata}")
             paddle.save(metadata, os.path.join(path, f"{unique_id}.metadata"))
-        logger.debug(f"local_state_dict:{local_state_dict}")
+
         dedup_tensor(
             local_state_dict, local_storage_metadata, metadata.storage_metadata
         )

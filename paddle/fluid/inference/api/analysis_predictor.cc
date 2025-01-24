@@ -27,6 +27,7 @@
 #include <vector>
 
 #include "paddle/common/enforce.h"
+#include "paddle/common/errors.h"
 #include "paddle/fluid/framework/feed_fetch_method.h"
 #include "paddle/fluid/framework/feed_fetch_type.h"
 #include "paddle/fluid/framework/feed_hook.h"
@@ -907,11 +908,13 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
         });
         // Infer symbol shape for all ops before fused pass
         fused_op_pm.AddPass(pir::CreateShapeOptimizationPass());
-        const std::vector<std::string> FusedOpPasses{// Operator fusion pass
-                                                     "map_op_to_another_pass",
-                                                     "conv2d_bn_fuse_pass",
-                                                     "conv2d_add_act_fuse_pass",
-                                                     "conv2d_add_fuse_pass"};
+        const std::vector<std::string> FusedOpPasses{
+            // Operator fusion pass
+            "map_op_to_another_pass",
+            "conv2d_bn_fuse_pass",
+            "conv2d_add_act_fuse_pass",
+            "conv2d_add_fuse_pass",
+            "matmul_add_act_fuse_pass"};
 
         for (const auto &fused_op : FusedOpPasses) {
           fused_op_pm.AddPass(pir::PassRegistry::Instance().Get(fused_op));
@@ -1053,18 +1056,17 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
   if (config_.enable_gpu_mixed_) {
     if (!config_.cinn_enabled()) {
       AddAutoMixedPrecisionPass(basic_pass_pm);
-
-      if (FLAGS_enable_auto_layout_pass) {
-        AddAutoLayoutPasses(basic_pass_pm);
-      } else {
-        auto transfer_layout_pass = ::pir::CreateTransferLayoutPass();
-        if (std::find(config_.deleted_passes_.begin(),
-                      config_.deleted_passes_.end(),
-                      transfer_layout_pass->name()) ==
-            config_.deleted_passes_.end()) {
-          basic_pass_pm.AddPass(std::move(transfer_layout_pass));
-        }
-      }
+    }
+  }
+  if (FLAGS_enable_auto_layout_pass) {
+    AddAutoLayoutPasses(basic_pass_pm);
+  } else {
+    auto transfer_layout_pass = ::pir::CreateTransferLayoutPass();
+    if (std::find(config_.deleted_passes_.begin(),
+                  config_.deleted_passes_.end(),
+                  transfer_layout_pass->name()) ==
+        config_.deleted_passes_.end()) {
+      basic_pass_pm.AddPass(std::move(transfer_layout_pass));
     }
   }
   auto common_subexpression_elimination_pass =
@@ -2648,7 +2650,7 @@ bool AnalysisPredictor::ZeroCopyRun(bool switch_stream) {
     static std::once_flag set_output_holder_map;
     std::call_once(set_output_holder_map, [&]() {
       auto scope = executor_->GetScope();
-      VLOG(4) << "Set ouput tensor's holder.";
+      VLOG(4) << "Set output tensor's holder.";
       for (auto name : GetOutputNames()) {
         auto out_tensor = scope->FindVar(name)->GetMutable<phi::DenseTensor>();
 
@@ -3025,6 +3027,11 @@ uint64_t AnalysisPredictor::TryShrinkMemory() {
 }
 
 void AnalysisPredictor::ClearIntermediateTensor() {
+  if (config_.new_ir_enabled()) {
+    PADDLE_THROW(common::errors::PreconditionNotMet(
+        "Don't need to use this API [ClearIntermediateTensor] when PIR is "
+        "enabled."));
+  }
   PADDLE_ENFORCE_NOT_NULL(inference_program_.get(),
                           common::errors::PreconditionNotMet(
                               "The inference program should be loaded first."));
@@ -3126,6 +3133,14 @@ AnalysisPredictor::~AnalysisPredictor() {  // NOLINT
       }
       framework::global_transfer_scope_key().erase(sub_scope_);
     }
+    for (auto &var_name : scope_->LocalVarNames()) {
+      auto *var = scope_->FindVar(var_name);
+      if (var->IsType<phi::DenseTensor>()) {
+        auto *tensor = var->GetMutable<phi::DenseTensor>();
+        tensor->clear();
+      }
+    }
+
     scope_->DeleteScope(sub_scope_);
   }
 
@@ -3444,9 +3459,9 @@ USE_TRT_CONVERTER(preln_layernorm_shift_partition)
 USE_TRT_CONVERTER(merge_layernorm)
 USE_TRT_CONVERTER(trans_layernorm)
 USE_TRT_CONVERTER(skip_merge_layernorm)
-USE_TRT_CONVERTER(generic_plugin_creater)
-USE_TRT_CONVERTER(custom_plugin_creater)
-USE_TRT_CONVERTER(custom_generic_plugin_creater)
+USE_TRT_CONVERTER(generic_plugin_creator)
+USE_TRT_CONVERTER(custom_plugin_creater)  // typos: disable-line
+USE_TRT_CONVERTER(custom_generic_plugin_creator)
 USE_TRT_CONVERTER(fuse_eleadd_transpose)
 USE_TRT_CONVERTER(tanh_shrink)
 USE_TRT_CONVERTER(logsigmoid)

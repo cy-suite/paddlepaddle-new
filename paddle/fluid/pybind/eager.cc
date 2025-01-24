@@ -827,6 +827,7 @@ Tensor is the basic data structure in PaddlePaddle. There are some ways to creat
  *  **/
 int TensorInit(PyObject* self, PyObject* args, PyObject* kwargs) {
   EAGER_TRY
+  SetPythonStack();
   // set a flag to record use kwargs or not
   bool flag_kwargs = false;
   if (kwargs) flag_kwargs = true;
@@ -1460,6 +1461,7 @@ static void TensorDealloc(TensorObject* self) {
   if (self->weakrefs != nullptr)
     PyObject_ClearWeakRefs(reinterpret_cast<PyObject*>(self));
   self->tensor.~Tensor();
+  Py_XDECREF(self->dict);
   Py_TYPE(self)->tp_free(reinterpret_cast<PyObject*>(self));
 }
 
@@ -1502,6 +1504,7 @@ void BindEager(pybind11::module* module) {
   type->tp_base = reinterpret_cast<PyTypeObject*>(&PyBaseObject_Type);
   type->tp_flags |=
       Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;  // NOLINT
+  type->tp_dictoffset = offsetof(TensorObject, dict);
 #if PY_VERSION_HEX >= 0x03050000
   type->tp_as_async = &heap_type->as_async;
 #endif
@@ -1550,6 +1553,7 @@ void BindEagerStringTensor(pybind11::module* module) {
   type->tp_base = reinterpret_cast<PyTypeObject*>(&PyBaseObject_Type);
   type->tp_flags |=
       Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_HEAPTYPE;  // NOLINT
+  type->tp_dictoffset = offsetof(TensorObject, dict);
 #if PY_VERSION_HEX >= 0x03050000
   type->tp_as_async = &heap_type->as_async;
 #endif

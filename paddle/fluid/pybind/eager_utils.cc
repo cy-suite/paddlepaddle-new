@@ -31,6 +31,7 @@ limitations under the License. */
 #include "paddle/fluid/framework/scope.h"
 #include "paddle/fluid/framework/scope_guard.h"
 #include "paddle/fluid/jit/function.h"
+#include "paddle/fluid/pir/dialect/distributed/ir/dist_type.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_type.h"
 #include "paddle/fluid/pir/dialect/operator/utils/utils.h"
 #include "paddle/fluid/pir/utils/name_analysis.h"
@@ -51,6 +52,7 @@ limitations under the License. */
 
 COMMON_DECLARE_bool(check_nan_inf);
 COMMON_DECLARE_int32(check_nan_inf_level);
+COMMON_DECLARE_int32(call_stack_level);
 
 using egr::ConvertToDistTensor;
 
@@ -112,7 +114,7 @@ int TensorDtype2NumpyDtype(phi::DataType dtype) {
       return pybind11::detail::npy_api::NPY_BYTE_;
     default:
       PADDLE_THROW(common::errors::InvalidArgument(
-          "Unknow phi::DataType, the int value = %d.",
+          "Unknown phi::DataType, the int value = %d.",
           static_cast<int>(dtype)));
       return 0;
   }
@@ -268,6 +270,19 @@ void SetPythonStack() {
     }
     std::string last = str + egr::Controller::Instance().GetPythonStack();
     egr::Controller::Instance().SetPythonStack(last);
+  }
+
+  if (FLAGS_call_stack_level == 3) {
+    VLOG(4) << "this is SetPythonStack";
+    pybind11::gil_scoped_acquire gil;
+    PyObject* mod = PyImport_ImportModule("traceback");
+    PyObject* traceback_list = PyObject_CallMethod(mod, "format_stack", "");
+    std::string str = "";
+    for (Py_ssize_t i = 0; i < PyList_Size(traceback_list); i++) {
+      PyObject* line = PyList_GetItem(traceback_list, i);
+      str += py::str(PyUnicode_AsUTF8(line));
+    }
+    egr::Controller::Instance().SetPythonStack(str);
   }
 }
 
@@ -1003,7 +1018,7 @@ PyObject* ToPyObject(const std::vector<paddle::Tensor>& value,
   PyGILState_Release(gstate);
 
   for (size_t i = 0; i < value.size(); i++) {
-    if (!value[i].initialized() && return_py_none_if_not_initialize) {
+    if (!value[i].has_allocation() && return_py_none_if_not_initialize) {
       Py_INCREF(Py_None);
       PyList_SET_ITEM(result, static_cast<Py_ssize_t>(i), Py_None);
     } else {
@@ -1651,7 +1666,7 @@ std::vector<paddle::Tensor*> GetTensorPtrListFromArgs(
   }
 
   std::vector<paddle::Tensor*> result;
-  const phi::distributed::ProcessMesh* local_mesh = mesh;
+  const phi::distributed::ProcessMesh* local_mesh = nullptr;
   int mesh_start_index = -1;
 
   if (PyList_Check(list)) {
@@ -2013,7 +2028,18 @@ paddle::Tensor CreateTensorFromValue(const pir::Value& value) {
           std::make_shared<phi::Allocation>(),
           phi::DenseTensorMeta(dtype, ddims));
     }
-    tensor.set_impl(dense_tensor);
+
+    if (value.type().isa<paddle::dialect::DistDenseTensorType>()) {
+      paddle::dialect::DistDenseTensorType value_type =
+          value.type().dyn_cast<paddle::dialect::DistDenseTensorType>();
+      auto pir_attr = value_type.tensor_dist_attr();
+      auto mesh = pir_attr.process_mesh_attr().process_mesh();
+      auto placements = pir_attr.placements();
+      tensor.set_impl(std::make_shared<phi::distributed::DistTensor>(
+          dense_tensor, mesh, placements));
+    } else {
+      tensor.set_impl(dense_tensor);
+    }
   } else if (value.type().isa<paddle::dialect::SelectedRowsType>()) {
     std::shared_ptr<phi::SelectedRows> selected_rows_tensor =
         std::make_shared<phi::SelectedRows>();
@@ -2513,7 +2539,7 @@ paddle::Tensor PyTensorHook::operator()(const paddle::Tensor& var) {
   PyObject* res = nullptr;
   try {
     bool return_py_none_if_not_initialize = true;
-    if (var.defined() && !var.initialized()) {
+    if (var.defined() && !var.has_allocation()) {
       return_py_none_if_not_initialize = !var.is_dist_tensor();
     }
     PyObject* p_tmp_var = ToPyObject(var, return_py_none_if_not_initialize);
