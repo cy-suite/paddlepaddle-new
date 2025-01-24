@@ -725,6 +725,44 @@ struct FoldOperandTrait<Mul> {
 };
 
 template <>
+struct FoldUnitConstant<Mul> {
+  using dim_expr_type = Mul<DimExpr>;
+  static bool IsZeroDimExpr(const DimExpr& dim_expr) {
+    if (!dim_expr.Has<std::int64_t>()) {
+      return false;
+    }
+    return dim_expr.Get<std::int64_t>() == 0;
+  }
+  DimExpr Rewrite(const DimExpr& expr) {
+    const auto [operands] = expr.Get<Mul<DimExpr>>();
+    if (GetConstDimCount<Mul>(operands) == 0) {
+      return expr;
+    }
+    List<DimExpr> ret_operands{};
+    for (const auto& operand : *operands) {
+      if (FoldOperandTrait<Mul>::IsUnitDimExpr(operand)) {
+        continue;
+      } else if (IsZeroDimExpr(operand)) {
+        // Mul(S0,0) => 0
+        return DimExpr{0};
+      } else {
+        ret_operands->emplace_back(operand);
+      }
+    }
+    if (ret_operands->empty()) {
+      FoldOperandTrait<Mul>::MakeAndAppendDimExpr(
+          FoldOperandTrait<Mul>::MakeUnit(), &ret_operands);
+    }
+    if (ret_operands->size() == 1) {
+      return ret_operands->at(0);
+    } else {
+      return Mul<DimExpr>{ret_operands};
+    }
+    PADDLE_THROW(common::errors::Fatal("Dead code."));
+  }
+};
+
+template <>
 struct FoldOperandTrait<Broadcast> {
   using const_value_type = std::int64_t;
 
@@ -1056,6 +1094,10 @@ struct SimplifyDiv {
   using dim_expr_type = Div<DimExpr>;
   std::pair<int64_t, int64_t> SimplifiedConstRational(int64_t num,
                                                       int64_t dem) {
+    if (num == 0 && dem == 0) {
+      PADDLE_THROW(
+          common::errors::InvalidArgument("num and dem cannot both be zero."));
+    }
     std::int64_t gcd = std::gcd(num, dem);
     return std::pair{num / gcd, dem / gcd};
   }
@@ -1063,6 +1105,8 @@ struct SimplifyDiv {
     const auto div_expr = expr.Get<Div<DimExpr>>();
     const auto lhs = div_expr->lhs;
     const auto rhs = div_expr->rhs;
+    PADDLE_ENFORCE_NE(
+        rhs, symbol::DimExpr{0}, "In SimplifyDiv Pass dem cannot be zero.");
     if (lhs.Has<std::int64_t>() && rhs.Has<std::int64_t>()) {
       auto [num, dem] = SimplifiedConstRational(lhs.Get<std::int64_t>(),
                                                 rhs.Get<std::int64_t>());
