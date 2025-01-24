@@ -70,7 +70,9 @@ class RmsNormFusePattern : public paddle::drr::DrrPatternBase {
           multiply2(pat.Tensor("cast_2_out"), pat.Tensor("w"));
     } else {
       pat.Tensor("pow_out") = pow(pat.Tensor("x"));
-      pat.Tensor("mean_out") = mean(pat.Tensor("pow_out"));
+      pat.Tensor("full_int_array_out") = full_int_array();
+      pat.Tensor("mean_out") =
+          mean(pat.Tensor("pow_out"), pat.Tensor("full_int_array_out"));
       pat.Tensor("scale_out") = scale(pat.Tensor("mean_out"), full());
       pat.Tensor("rsqrt_out") = rsqrt(pat.Tensor("scale_out"));
       pat.Tensor("multiply_out1") =
