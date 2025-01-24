@@ -499,7 +499,8 @@ class Conv3dTransposeOpPattern
       }
     }
     pir::Value filter = op.operand_source(1);
-    auto filter_type = filter.type().dyn_cast<paddle::dialect::DenseTensorType>();
+    auto filter_type =
+        filter.type().dyn_cast<paddle::dialect::DenseTensorType>();
     auto filter_shape = filter_type.dims();
     if (filter_shape.size() != 5) {
       VLOG(3) << "The conv3d filter's dims size should be 5";
@@ -531,7 +532,8 @@ class Conv3dOpPattern
       return false;
     }
     pir::Value filter = op.operand_source(1);
-    auto filter_type = filter.type().dyn_cast<paddle::dialect::DenseTensorType>();
+    auto filter_type =
+        filter.type().dyn_cast<paddle::dialect::DenseTensorType>();
     auto filter_shape = filter_type.dims();
     if (filter_shape.size() != 5) {
       VLOG(3) << "The conv3d filter's dims size should be 5";
