@@ -20,9 +20,8 @@ from paddle.tensorrt.register import converter_registry
 
 @converter_registry.register("pd_op.mean", trt_version="trt_version_ge=8.0")
 def mean_converter(network, paddle_op, inputs):
-    input_tensor = inputs[0]
+    input_tensor, dim = inputs
     keep_dim = paddle_op.attrs().get("keepdim")
-    dim = paddle_op.attrs().get("axis")
 
     mean_layer = network.add_reduce(
         input_tensor,
