@@ -1055,7 +1055,7 @@ void DiagonalInferMeta(const MetaTensor& input,
       }
     }
   } else {
-    out_dims.push_back(-1)
+    out_dims.push_back(-1);
   }
   out->set_dims(common::make_ddim(out_dims));
   out->set_dtype(input.dtype());
