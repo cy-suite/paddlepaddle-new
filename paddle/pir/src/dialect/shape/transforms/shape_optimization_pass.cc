@@ -32,8 +32,8 @@ COMMON_DECLARE_bool(pir_apply_shape_optimization_pass);
 
 constexpr int vlog_level = 3;
 
-// TODO(zhangbopd): Some op results infered by InferSymbolicShape is NOT consist
-// with the result infered by InferMeta and should be fixed.
+// TODO(zhangbopd): Some op results inferred by InferSymbolicShape is NOT
+// consist with the result inferred by InferMeta and should be fixed.
 namespace {
 bool NeedCheckInferSymbolicWithInferMeta(const std::string& op_name,
                                          size_t result_idx) {
@@ -190,7 +190,7 @@ void CheckInferSymWithInferMeta(
                 << " [id:" << op->id() << "] "
                 << " carefully! "
                 << "shape[" << i
-                << "] of infer_sym_shape shoule be int64_t NOT a symbol!";
+                << "] of infer_sym_shape should be int64_t NOT a symbol!";
             LOG(ERROR) << print_stream.str();
             continue;
           }
