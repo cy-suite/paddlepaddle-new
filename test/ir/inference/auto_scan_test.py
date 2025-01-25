@@ -964,6 +964,8 @@ class TrtLayerAutoScanTest(AutoScanTest):
                             trt_program = self.transform_to_trt_program(
                                 pir_main_program, trt_config
                             )
+                            for op in trt_program.global_block().ops:
+                                print(op)
 
                             assert any(
                                 op.name() == "pd_op.tensorrt_engine"
