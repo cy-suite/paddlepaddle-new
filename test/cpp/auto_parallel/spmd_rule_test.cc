@@ -686,7 +686,8 @@ TEST(ConcatRule, Ctor) {
           inferred_dist_attrs.first[0]));
   EXPECT_TRUE(paddle::holds_alternative<phi::distributed::TensorDistAttr>(
       inferred_dist_attrs.second[0]));
-  auto& inputs_infer1 = paddle::get<1>(inferred_dist_attrs.first[0]);
+  auto& inputs_infer1 =
+      PADDLE_GET(std::vector<TensorDistAttr>, inferred_dist_attrs.first[0]);
   for (auto e : inputs_infer1) {
     check_dim_mapping(e, {-1, 1, 0});
     check_partial_dims(e, {});
@@ -743,7 +744,8 @@ TEST(ConcatRule, Ctor) {
           inferred_dist_attrs.first[0]));
   EXPECT_TRUE(paddle::holds_alternative<phi::distributed::TensorDistAttr>(
       inferred_dist_attrs.second[0]));
-  auto& inputs_infer2 = paddle::get<1>(inferred_dist_attrs.first[0]);
+  auto& inputs_infer2 =
+      PADDLE_GET(std::vector<TensorDistAttr>, inferred_dist_attrs.first[0]);
   for (auto e : inputs_infer2) {
     check_dim_mapping(e, {1, -1, 0});
     check_partial_dims(e, {});
