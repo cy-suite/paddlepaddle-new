@@ -18,6 +18,7 @@
 
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/enforce.h"
+#include "paddle/phi/kernels/empty_kernel.h"
 #include "paddle/phi/kernels/lu_solve_kernel.h"
 
 namespace phi {
@@ -29,24 +30,26 @@ void LuSolveKernel(const Context& dev_ctx,
                    const DenseTensor& pivots,
                    const std::string& trans,
                    DenseTensor* out) {
+
   // Get input matrix dimensions
   const auto& lu_dims = lu.dims();
   const int64_t m = lu_dims[lu_dims.size() - 2];  // Number of rows
   const int64_t n = lu_dims[lu_dims.size() - 1];  // Number of columns
 
-  // Get number of right-hand sides from x
-  const auto& x_dims = x.dims();
-  const int64_t nrhs = x_dims[x_dims.size() - 1];
-
-  // Verify LU matrix is square
+    // Verify LU matrix is square
   PADDLE_ENFORCE_EQ(
       n,
       m,
       phi::errors::InvalidArgument(
           "LU matrix must be square, but got (%lld, %lld)", m, n));
 
+  // Get number of right-hand sides from x
+  const auto& x_dims = x.dims();
+  const int64_t nrhs = x_dims[x_dims.size() - 1]; // Number of columns
+
   // Allocate output tensor
   dev_ctx.template Alloc<T>(out);
+  EmptyLikeKernel<T, context>(dev_ctx, x, x.dtype(), out);
 
   // Copy RHS data to output (will be overwritten with solution)
   std::copy_n(x.data<T>(), x.numel(), out->data<T>());
@@ -55,22 +58,32 @@ void LuSolveKernel(const Context& dev_ctx,
   char trans_char = (trans == "N") ? 'N' : ((trans == "T") ? 'T' : 'C');
   int n_int = static_cast<int>(n);
   int nrhs_int = static_cast<int>(nrhs);
-  int lda = n_int;  // Leading dimension of A (LU matrix)
-  int ldb = n_int;  // Leading dimension of B (RHS/solution matrix)
+  int lda = std::max(1, n_int);  // Leading dimension of A (LU matrix)
+  int ldb = std::max(1, n_int);  // Leading dimension of B (RHS/solution matrix)
   int info = 0;
 
+  auto outdims = out->dims();
+  auto outrank = outdims.size();
+  auto batchsize = common::slice_ddim(outdims, 0, outrank - 2);
+  auto out_data = out->data<T>();
+  auto lu_data = lu.data<T>();
+  auto pivots_data = pivots.data<int>();
   if (std::is_same<T, float>::value) {
-    phi::dynload::sgetrs_(
-        &trans_char,
-        &n_int,     // Order of matrix A
-        &nrhs_int,  // Number of right hand sides
-        reinterpret_cast<float*>(
-            const_cast<T*>(lu.data<T>())),         // LU factorization
-        &lda,                                      // Leading dimension of A
-        const_cast<int*>(pivots.data<int>()),      // Pivot indices
-        reinterpret_cast<float*>(out->data<T>()),  // RHS/solution matrix
-        &ldb,                                      // Leading dimension of B
-        &info);                                    // Status indicator
+    for (int i = 0; i < batchsize; i++) {
+      auto out_data_item = &out_data[i * n_int * n_int];
+      auto lu_data_item = &lu_data[i * n_int * n_int];
+      auto pivots_data_item = &pivots_data[i * n_int];
+      phi::dynload::sgetrs_(
+        trans_char,
+        n_int,     // Order of matrix A
+        nrhs_int,  // Number of right hand sides
+        lu_data_item,         // LU factorization
+        lda,                                      // Leading dimension of A
+        pivots_data,      // Pivot indices
+        out_data_item,  // RHS/solution matrix
+        ldb,                                      // Leading dimension of B
+        info);                                    // Status indicator
+    }
   } else if (std::is_same<T, double>::value) {
     phi::dynload::dgetrs_(
         &trans_char,
