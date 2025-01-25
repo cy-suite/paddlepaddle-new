@@ -140,23 +140,34 @@ InferSymbolicShapeContext::GetShapeOrDataForValue(Value val) const {
 }
 
 void InferSymbolicShapeContext::SetSymbolForValueByStaticShape(Value val) {
+  const auto& GetValueMessage = [](Value val) -> std::string {
+    std::ostringstream oss;
+    if (val.isa<pir::OpResult>()) {
+      const auto val_idx = val.dyn_cast<OpResult>().index();
+      oss << "The Value is a OpResult, defined by " << val.defining_op()->name()
+          << "[" << val.defining_op()->id() << "], with results index "
+          << val_idx;
+    } else if (val.isa<pir::BlockArgument>()) {
+      const auto val_idx = val.dyn_cast<pir::BlockArgument>().index();
+      const auto* block = val.dyn_cast<pir::BlockArgument>().owner();
+      oss << "The Value is a BlockArgument, defined by "
+          << block->GetParentOp()->name() << "[" << block->GetParentOp()->id()
+          << "], with input index " << val_idx;
+    } else {
+      oss << "It's a FakeValue.";
+    }
+    return oss.str();
+  };
   const auto& value_type = val.type();
-  pir::Operation* op = val.defining_op();
-  auto value_index = val.dyn_cast<OpResult>().index();
   if (!val || !value_type) {
-    LOG(WARNING)
-        << "Risk on SetSymbolForValueByStaticShape for null value, which is "
-        << op->name() << "[id" << op->id() << "] 's"
-        << "value(" << value_index
-        << "). Please look at op's InferSymbolicShapeInterface.";
+    LOG(WARNING) << "Risk on SetSymbolForValueByStaticShape for null value. "
+                 << GetValueMessage(val);
     return;
   }
   if (!IsStaticShape(val)) {
-    LOG(WARNING) << "Risk on SetSymbolForValueByStaticShape for "
-                    "contain_unknown_dim, which is "
-                 << op->name() << "[id" << op->id() << "] 's"
-                 << "value(" << value_index << ").";
-    return;
+    LOG(WARNING)
+        << "Risk on SetSymbolForValueByStaticShape for contain_unknown_dim. "
+        << GetValueMessage(val);
   }
   const auto& GetStaticShapeForDenseTensorType =
       [&](DenseTensorType type_info) -> symbol::TensorShapeOrDataDimExprs {
