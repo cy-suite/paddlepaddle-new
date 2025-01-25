@@ -145,10 +145,7 @@ void InferSymbolicShapeContext::SetSymbolForValueByStaticShape(Value val) {
     LOG(WARNING) << "Risk on SetSymbolForValueByStaticShape for null value";
     return;
   }
-  if (!IsStaticShape(val)) {
-    if (val.isa<pir::BlockArgument>()) {
-      continue;
-    }
+  if (!IsStaticShape(val) && !val.isa<pir::BlockArgument>()) {
     LOG(WARNING)
         << "Risk on SetSymbolForValueByStaticShape for contain_unknown_dim";
   }
