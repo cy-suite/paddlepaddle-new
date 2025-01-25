@@ -29,6 +29,44 @@ extern "C" void dgetrf_(
 extern "C" void sgetrf_(
     int *m, int *n, float *a, int *lda, int *ipiv, int *info);
 
+// getrs_
+extern "C" void sgetrs_(char *trans,
+                        int *n,
+                        int *nrhs,
+                        float *a,
+                        int *lda,
+                        int *ipiv,
+                        float *b,
+                        int *ldb,
+                        int *info);
+extern "C" void dgetrs_(char *trans,
+                        int *n,
+                        int *nrhs,
+                        double *a,
+                        int *lda,
+                        int *ipiv,
+                        double *b,
+                        int *ldb,
+                        int *info);
+extern "C" void cgetrs_(char *trans,
+                        int *n,
+                        int *nrhs,
+                        std::complex<float> *a,
+                        int *lda,
+                        int *ipiv,
+                        std::complex<float> *b,
+                        int *ldb,
+                        int *info);
+extern "C" void zgetrs_(char *trans,
+                        int *n,
+                        int *nrhs,
+                        std::complex<double> *a,
+                        int *lda,
+                        int *ipiv,
+                        std::complex<double> *b,
+                        int *ldb,
+                        int *info);
+
 // evd
 extern "C" void zheevd_(char *jobz,
                         char *uplo,
