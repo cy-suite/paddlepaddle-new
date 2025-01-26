@@ -48,24 +48,6 @@ extern "C" void dgetrs_(char *trans,
                         double *b,
                         int *ldb,
                         int *info);
-extern "C" void cgetrs_(char *trans,
-                        int *n,
-                        int *nrhs,
-                        std::complex<float> *a,
-                        int *lda,
-                        int *ipiv,
-                        std::complex<float> *b,
-                        int *ldb,
-                        int *info);
-extern "C" void zgetrs_(char *trans,
-                        int *n,
-                        int *nrhs,
-                        std::complex<double> *a,
-                        int *lda,
-                        int *ipiv,
-                        std::complex<double> *b,
-                        int *ldb,
-                        int *info);
 
 // evd
 extern "C" void zheevd_(char *jobz,
