@@ -20,9 +20,6 @@
 
 namespace phi {
 
-// lu_solve_grad forward: lu_solve(x, lu, pivots, trans) -> out
-// backward: given out_grad, compute x_grad = lu_solve(out_grad, lu, pivots,
-// trans)
 template <typename T, typename Context>
 void LuSolveGradKernel(const Context& dev_ctx,
                        const DenseTensor& x,

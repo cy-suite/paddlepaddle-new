@@ -13,31 +13,14 @@
 // limitations under the License.
 
 #include "paddle/phi/backends/cpu/cpu_context.h"
-#include "paddle/phi/backends/dynload/lapack.h"
 #include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/kernels/funcs/lapack/lapack_function.h"
 
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/enforce.h"
 #include "paddle/phi/kernels/lu_solve_kernel.h"
 
 namespace phi {
-
-template <typename T>
-void lapackLuSolve(char trans,
-                   int n,
-                   int nrhs,
-                   T* a,
-                   int lda,
-                   int* ipiv,
-                   T* b,
-                   int ldb,
-                   int* info) {
-  if (std::is_same<T, float>::value) {
-    phi::dynload::sgetrs_(&trans, &n, &nrhs, a, &lda, ipiv, b, &ldb, info);
-  } else if (std::is_same<T, double>::value) {
-    phi::dynload::dgetrs_(&trans, &n, &nrhs, a, &lda, ipiv, b, &ldb, info);
-  }
-}
 
 template <typename T, typename Context>
 void LuSolveKernel(const Context& dev_ctx,
@@ -67,20 +50,24 @@ void LuSolveKernel(const Context& dev_ctx,
   auto outdims = out->dims();
   auto outrank = outdims.size();
   auto batchsize = product(common::slice_ddim(outdims, 0, outrank - 2));
-
   auto out_data = out->data<T>();
-  auto lu_data = const_cast<T*>(lu.data<T>());
-  auto pivots_data = const_cast<T*>(pivots.data<int>());
+  auto lu_data = reinterpret_cast<T*>(const_cast<T*>(lu.data<T>()));
+  auto pivots_data = reinterpret_cast<T*>(const_cast<T*>(pivots.data<int>()));
 
   for (int i = 0; i < batchsize; i++) {
     auto* out_data_item = &out_data[i * n_int * n_int];
     auto* lu_data_item = &lu_data[i * n_int * n_int];
     auto* pivots_data_item = &pivots_data[i * n_int];
-    lapackLuSolve<T>(
-      trans_char, n_int, nrhs_int, lu_data_item, lda, pivots_data_item,
-    out_data_item,
-    ldb,
-    &info);
+    phi::funcs::lapackLuSolve<T>(
+      trans_char,
+      n_int,
+      nrhs_int,
+      lu_data_item,
+      lda,
+      pivots_data_item,
+      out_data_item,
+      ldb,
+      &info);
     PADDLE_ENFORCE_EQ(
       info,
       0,
