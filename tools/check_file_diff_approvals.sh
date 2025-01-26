@@ -131,6 +131,13 @@ if [[ ${IF_USE_EVAL} ]]; then
     check_approval 1 wanghuancoder SigureMo
 fi
 
+CPP_FILE_ADDED_LINES=$(git diff -U0 upstream/$BRANCH -- 'paddle/' |grep "^+")
+IF_USE_FESETROUND=`echo $CPP_FILE_ADDED_LINES | grep -B5 --no-group-separator "fesetround" || true`
+if [[ ${IF_USE_FESETROUND} ]]; then
+    echo_line="You must have one RD (zyfncg(Recommend), SigureMo, phlrain) approval for using fesetround, which may affect all floating-point precision calculations in the same process.\n"
+    check_approval 1 zyfncg SigureMo phlrain
+fi
+
 HAS_DEFINE_FLAG=`git diff -U0 upstream/$BRANCH |grep -o -m 1 "DEFINE_int32" |grep -o -m 1 "DEFINE_bool" | grep -o -m 1 "DEFINE_string" || true`
 if [ ${HAS_DEFINE_FLAG} ] && [ "${GIT_PR_ID}" != "" ]; then
     echo_line="You must have one RD zyfncg or zhangbo9674 or phlrain approval for the usage (either add or delete) of DEFINE_int32/DEFINE_bool/DEFINE_string flag.\n"
@@ -162,7 +169,7 @@ if [ "${HAS_USED_CCTESTOLD}" != "" ] && [ "${GIT_PR_ID}" != "" ]; then
     check_approval 1 phlrain risemeup1 zhangbo9674
 fi
 
-HAS_USED_CCTEST=`git diff -U0 upstream/$BRANCH |grep "cc_test" || true`
+HAS_USED_CCTEST=`git diff -U0 upstream/$BRANCH |grep -w "cc_test" || true`
 if [ "${HAS_USED_CCTEST}" != "" ] && [ "${GIT_PR_ID}" != "" ]; then
     echo_line="Paddle utest will gradually discard cc_test\n  instead, the paddle_test is recommended,\n if you must use cc_test, you must be approved by risemeup1 or zhangbo9674 for using cc_test. Thanks!\n"
     check_approval 1 risemeup1 zhangbo9674
