@@ -73,16 +73,15 @@ void LuSolveKernel(const Context& dev_ctx,
       auto out_data_item = &out_data[i * n_int * n_int];
       auto lu_data_item = &lu_data[i * n_int * n_int];
       auto pivots_data_item = &pivots_data[i * n_int];
-      phi::dynload::sgetrs_(
-        trans_char,
-        n_int,     // Order of matrix A
-        nrhs_int,  // Number of right hand sides
-        lu_data_item,         // LU factorization
-        lda,                                      // Leading dimension of A
-        pivots_data,      // Pivot indices
-        out_data_item,  // RHS/solution matrix
-        ldb,                                      // Leading dimension of B
-        info);                                    // Status indicator
+      phi::funcs::lapackLuSolve<T>(trans_char,
+                                   n_int,
+                                   nrhs_int,
+                                   lu_data_item,
+                                   lda,
+                                   pivots_data_item,
+                                   out_data_item,
+                                   ldb,
+                                   info);
     }
   } else if (std::is_same<T, double>::value) {
     phi::dynload::dgetrs_(
