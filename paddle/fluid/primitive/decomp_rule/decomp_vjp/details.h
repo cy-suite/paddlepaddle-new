@@ -555,7 +555,7 @@ void concat_grad(const std::vector<Tensor>& x,
 
   int neg_num = 0;
   for (size_t i = 0; i < x.size(); i++) {
-    if (x[i].dims()[axis_vale] < 0) {
+    if (x[i].dims()[axis_value] < 0) {
       neg_num++;
     }
   }
