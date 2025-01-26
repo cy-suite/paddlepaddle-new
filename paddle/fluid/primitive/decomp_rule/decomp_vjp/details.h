@@ -1857,7 +1857,6 @@ void hardswish_grad(const Tensor& x, const Tensor& out_grad, Tensor* x_grad) {
     t2 = cast<T>(t2, x.dtype());
 
     auto res = out_grad * (t1 * t2 * (x / offset + factor) + one - t2);
-    // auto res = out_grad * (t1 * t2 * (x / offset + factor) );
     set_output<T>(res, x_grad);
   }
 }
@@ -1870,7 +1869,10 @@ void leaky_relu_grad(const Tensor& out,
   if (x_grad) {
     auto zero = full_scalar<T>(0.0, out.dtype());
     auto condition = greater_than<T>(out, zero);
-    auto res = where<T>(condition, out_grad, out_grad * negative_slope);
+    auto cond_cast = cast<T>(t1, out_grad.dtype());
+    auto res = cond_cast * out_grad +
+               (1 - cond_cast) * out_grad *
+                   full_scalar<T>(negative_slope, out_grad.type());
     set_output<T>(res, x_grad);
   }
 }
