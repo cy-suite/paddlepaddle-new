@@ -2083,6 +2083,10 @@ def get_setup_parameters():
         'paddle.api_tracer',
     ]
 
+    print(
+        f"[CI DEBUG] env_dict.get('WITH_TENSORRT'): {env_dict.get('WITH_TENSORRT')}"
+    )
+
     if env_dict.get("WITH_TENSORRT") == 'ON':
         packages.extend(
             [
