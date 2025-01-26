@@ -46,10 +46,6 @@ void LuSolveKernel(const Context& dev_ctx,
   const auto& x_dims = x.dims();
   const int64_t nrhs = x_dims[x_dims.size() - 1]; // Number of columns
 
-  // Get number of right-hand sides from x
-  const auto& x_dims = x.dims();
-  const int64_t nrhs = x_dims[x_dims.size() - 1]; // Number of columns
-
   // Allocate output tensor
   dev_ctx.template Alloc<T>(out);
 
