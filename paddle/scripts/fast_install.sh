@@ -340,7 +340,7 @@ function checkLinuxPython(){
         if [ "$python_path" != "" ];then
           break
         else
-          echo "输入路径有误,未找到python"
+          echo "输入路径有误,未找到 python"
         fi
     done
   fi
