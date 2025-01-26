@@ -361,8 +361,6 @@ extern void *lapack_dso_handle;
   __macro(sgetrf_);                  \
   __macro(sgetrs_);                  \
   __macro(dgetrs_);                  \
-  __macro(cgetrs_);                  \
-  __macro(zgetrs_);                  \
   __macro(zheevd_);                  \
   __macro(cheevd_);                  \
   __macro(dsyevd_);                  \
