@@ -3608,6 +3608,7 @@ def lu_solve(b: Tensor, lu_data: Tensor, pivots: Tensor, name=None) -> Tensor:
          [-1.4000001]
          [ 0.6      ]]
     """
+    b = b if b.shape[:-2] == lu_data.shape[:-2] else paddle.broadcast_to(b, b.shape[:-2] + lu_data.shape[-2:])
     if in_dynamic_or_pir_mode():
         out = _C_ops.lu_solve(b, lu_data, pivots)
     else:

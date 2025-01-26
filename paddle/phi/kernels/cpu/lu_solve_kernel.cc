@@ -36,12 +36,12 @@ void LuSolveKernel(const Context& dev_ctx,
   const int64_t m = lu_dims[lu_dims.size() - 2];  // Number of rows
   const int64_t n = lu_dims[lu_dims.size() - 1];  // Number of columns
 
-    // Verify LU matrix is square
+  // Verify LU matrix is square
   PADDLE_ENFORCE_EQ(
-      n,
-      m,
-      phi::errors::InvalidArgument(
-          "LU matrix must be square, but got (%lld, %lld)", m, n));
+    n,
+    m,
+    phi::errors::InvalidArgument(
+      "LU matrix must be square, but got (%lld, %lld)", m, n));
 
   // Get number of right-hand sides from x
   const auto& x_dims = x.dims();
@@ -49,7 +49,6 @@ void LuSolveKernel(const Context& dev_ctx,
 
   // Allocate output tensor
   dev_ctx.template Alloc<T>(out);
-  EmptyLikeKernel<T, context>(dev_ctx, x, x.dtype(), out);
 
   // Copy RHS data to output (will be overwritten with solution)
   std::copy_n(x.data<T>(), x.numel(), out->data<T>());
@@ -64,44 +63,31 @@ void LuSolveKernel(const Context& dev_ctx,
 
   auto outdims = out->dims();
   auto outrank = outdims.size();
-  auto batchsize = common::slice_ddim(outdims, 0, outrank - 2);
+  auto batchsize = product(common::slice_ddim(outdims, 0, outrank - 2));
   auto out_data = out->data<T>();
   auto lu_data = lu.data<T>();
   auto pivots_data = pivots.data<int>();
-  if (std::is_same<T, float>::value) {
-    for (int i = 0; i < batchsize; i++) {
-      auto out_data_item = &out_data[i * n_int * n_int];
-      auto lu_data_item = &lu_data[i * n_int * n_int];
-      auto pivots_data_item = &pivots_data[i * n_int];
-      phi::funcs::lapackLuSolve<T>(trans_char,
-                                   n_int,
-                                   nrhs_int,
-                                   lu_data_item,
-                                   lda,
-                                   pivots_data_item,
-                                   out_data_item,
-                                   ldb,
-                                   info);
-    }
-  } else if (std::is_same<T, double>::value) {
-    phi::dynload::dgetrs_(
-        &trans_char,
-        &n_int,
-        &nrhs_int,
-        reinterpret_cast<double*>(const_cast<T*>(lu.data<T>())),
-        &lda,
-        const_cast<int*>(pivots.data<int>()),
-        reinterpret_cast<double*>(out->data<T>()),
-        &ldb,
-        &info);
-  }
+  for (int i = 0; i < batchsize; i++) {
+    auto out_data_item = &out_data[i * n_int * n_int];
+    auto* lu_data_item = &lu_data[i * n_int * n_int];
+    auto* pivots_data_item = &pivots_data[i * n_int];
+    phi::funcs::lapackLuSolve<T>(trans_char,
+                                 n_int,
+                                 nrhs_int,
+                                 lu_data_item,
+                                 lda,
+                                 pivots_data_item,
+                                 out_data_item,
+                                 ldb,
+                                 info);
 
-  PADDLE_ENFORCE_EQ(
+    PADDLE_ENFORCE_EQ(
       info,
       0,
       phi::errors::PreconditionNotMet(
           "LU solve failed with error code %d. Check if matrix is singular.",
           info));
+  }
 }
 
 }  // namespace phi
