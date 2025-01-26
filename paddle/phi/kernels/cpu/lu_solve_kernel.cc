@@ -52,7 +52,7 @@ void LuSolveKernel(const Context& dev_ctx,
   auto batchsize = product(common::slice_ddim(outdims, 0, outrank - 2));
   auto out_data = out->data<T>();
   auto lu_data = reinterpret_cast<T*>(const_cast<T*>(lu.data<T>()));
-  auto pivots_data = reinterpret_cast<T*>(const_cast<T*>(pivots.data<int>()));
+  auto pivots_data = reinterpret_cast<int*>(const_cast<int*>(pivots.data<int>()));
 
   for (int i = 0; i < batchsize; i++) {
     auto* out_data_item = &out_data[i * n_int * n_int];
