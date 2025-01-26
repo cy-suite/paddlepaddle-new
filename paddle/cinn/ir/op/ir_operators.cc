@@ -96,7 +96,7 @@ Expr BitwiseOrCallImpl(common::UnknownArch,
                        Expr a,
                        Expr b) {
   std::stringstream ss;
-  ss << "Unsupport arch: " << target.arch_str() << " for bitwise_or.";
+  ss << "Unsupported arch: " << target.arch_str() << " for bitwise_or.";
   PADDLE_THROW(::common::errors::InvalidArgument(ss.str()));
 }
 
@@ -106,7 +106,7 @@ Expr BitwiseOrCallImpl(common::X86Arch, const Target &target, Expr a, Expr b) {
 
 Expr BitwiseOrCallImpl(common::ARMArch, const Target &target, Expr a, Expr b) {
   std::stringstream ss;
-  ss << "Unsupport arch: " << target.arch_str() << " for bitwise_or.";
+  ss << "Unsupported arch: " << target.arch_str() << " for bitwise_or.";
   PADDLE_THROW(::common::errors::InvalidArgument(ss.str()));
 }
 
@@ -170,7 +170,7 @@ Expr BitwiseAndCallImpl(common::UnknownArch,
                         Expr a,
                         Expr b) {
   std::stringstream ss;
-  ss << "Unsupport arch: " << target.arch_str() << " for bitwise_and.";
+  ss << "Unsupported arch: " << target.arch_str() << " for bitwise_and.";
   PADDLE_THROW(::common::errors::InvalidArgument(ss.str()));
 }
 
@@ -180,7 +180,7 @@ Expr BitwiseAndCallImpl(common::X86Arch, const Target &target, Expr a, Expr b) {
 
 Expr BitwiseAndCallImpl(common::ARMArch, const Target &target, Expr a, Expr b) {
   std::stringstream ss;
-  ss << "Unsupport arch: " << target.arch_str() << " for bitwise_and.";
+  ss << "Unsupported arch: " << target.arch_str() << " for bitwise_and.";
   PADDLE_THROW(::common::errors::InvalidArgument(ss.str()));
 }
 
@@ -244,7 +244,7 @@ Expr BitwiseXorCallImpl(common::UnknownArch,
                         Expr a,
                         Expr b) {
   std::stringstream ss;
-  ss << "Unsupport arch: " << target.arch_str() << " for bitwise_xor.";
+  ss << "Unsupported arch: " << target.arch_str() << " for bitwise_xor.";
   PADDLE_THROW(::common::errors::InvalidArgument(ss.str()));
 }
 
@@ -254,7 +254,7 @@ Expr BitwiseXorCallImpl(common::X86Arch, const Target &target, Expr a, Expr b) {
 
 Expr BitwiseXorCallImpl(common::ARMArch, const Target &target, Expr a, Expr b) {
   std::stringstream ss;
-  ss << "Unsupport arch: " << target.arch_str() << " for bitwise_xor.";
+  ss << "Unsupported arch: " << target.arch_str() << " for bitwise_xor.";
   PADDLE_THROW(::common::errors::InvalidArgument(ss.str()));
 }
 
@@ -315,7 +315,7 @@ Expr operator^(Expr a, Expr b) {
 
 Expr BitwiseNotCallImpl(common::UnknownArch, const Target &target, Expr a) {
   std::stringstream ss;
-  ss << "Unsupport arch: " << target.arch_str() << " for bitwise_not.";
+  ss << "Unsupported arch: " << target.arch_str() << " for bitwise_not.";
   PADDLE_THROW(::common::errors::InvalidArgument(ss.str()));
 }
 
@@ -325,7 +325,7 @@ Expr BitwiseNotCallImpl(common::X86Arch, const Target &target, Expr a) {
 
 Expr BitwiseNotCallImpl(common::ARMArch, const Target &target, Expr a) {
   std::stringstream ss;
-  ss << "Unsupport arch: " << target.arch_str() << " for bitwise_not.";
+  ss << "Unsupported arch: " << target.arch_str() << " for bitwise_not.";
   PADDLE_THROW(::common::errors::InvalidArgument(ss.str()));
 }
 
