@@ -51,7 +51,8 @@ void LuSolveKernel(const Context& dev_ctx,
   dev_ctx.template Alloc<T>(out);
 
   // Copy RHS data to output (will be overwritten with solution)
-  std::copy_n(x.data<T>(), x.numel(), out->data<T>());
+  // std::copy_n(x.data<T>(), x.numel(), out->data<T>());
+  phi::Copy(dev_ctx, x, dev_ctx.GetPlace(), false, out);
 
   // Prepare LAPACK parameters
   char trans_char = (trans == "N") ? 'N' : ((trans == "T") ? 'T' : 'C');
@@ -64,9 +65,11 @@ void LuSolveKernel(const Context& dev_ctx,
   auto outdims = out->dims();
   auto outrank = outdims.size();
   auto batchsize = product(common::slice_ddim(outdims, 0, outrank - 2));
+
   auto out_data = out->data<T>();
   auto lu_data = lu.data<T>();
   auto pivots_data = pivots.data<int>();
+
   for (int i = 0; i < batchsize; i++) {
     auto out_data_item = &out_data[i * n_int * n_int];
     auto* lu_data_item = &lu_data[i * n_int * n_int];
@@ -79,7 +82,7 @@ void LuSolveKernel(const Context& dev_ctx,
                                  pivots_data_item,
                                  out_data_item,
                                  ldb,
-                                 info);
+                                 *info);
 
     PADDLE_ENFORCE_EQ(
       info,
