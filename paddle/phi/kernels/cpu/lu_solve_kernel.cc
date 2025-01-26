@@ -18,7 +18,6 @@
 
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/enforce.h"
-#include "paddle/phi/kernels/empty_kernel.h"
 #include "paddle/phi/kernels/lu_solve_kernel.h"
 
 namespace phi {
