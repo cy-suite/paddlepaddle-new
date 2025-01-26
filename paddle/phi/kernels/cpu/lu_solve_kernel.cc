@@ -44,12 +44,12 @@ void LuSolveKernel(const Context& dev_ctx,
   int n_int = lu_dims[lu_dims.size() - 1];
   int nrhs_int = x_dims[x_dims.size() - 1];
   int lda = std::max(1, n_int);  // Leading dimension of A (LU matrix)
-  int ldb = std::max(1, nrhs_int);  // Leading dimension of B (RHS/solution matrix)
+  int ldb = std::max(1, n_int);  // Leading dimension of B (RHS/solution matrix)
   int info = 0;
 
   auto outdims = out->dims();
   auto outrank = outdims.size();
-  auto batchsize = product(common::slice_ddim(outdims, 0, outrank - 2));
+  int batchsize = product(common::slice_ddim(outdims, 0, outrank - 2));
   auto out_data = out->data<T>();
   auto lu_data = reinterpret_cast<T*>(const_cast<T*>(lu.data<T>()));
   auto pivots_data = reinterpret_cast<int*>(const_cast<int*>(pivots.data<int>()));

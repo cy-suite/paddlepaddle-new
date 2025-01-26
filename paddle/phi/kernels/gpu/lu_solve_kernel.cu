@@ -73,17 +73,13 @@ void LuSolveKernel(const Context& dev_ctx,
                    const DenseTensor& pivots,
                    const std::string& trans,
                    DenseTensor* out) {
+  dev_ctx.template Alloc<T>(out);
+  // Copy x to out since cusolverDn*getrs overwrites the input
+  phi::Copy(dev_ctx, x, dev_ctx.GetPlace(), false, out);
+
   // Validate input dimensions
   auto x_dims = x.dims();
   auto lu_dims = lu.dims();
-
-  int n = static_cast<int>(lu_dims[lu_dims.size() - 1]);
-  int nrhs = static_cast<int>(x_dims[x_dims.size() - 2]);
-
-  dev_ctx.template Alloc<T>(out);
-
-  // Copy x to out since cusolverDn*getrs overwrites the input
-  phi::Copy(dev_ctx, x, dev_ctx.GetPlace(), false, out);
 
   cublasOperation_t trans_op;
   if (trans == "N") {
@@ -96,46 +92,38 @@ void LuSolveKernel(const Context& dev_ctx,
     PADDLE_THROW(phi::errors::InvalidArgument(
         "trans must be one of ['N', 'T', 'C'], but got %s", trans));
   }
-
-  int lda = n;
+  int n = static_cast<int>(lu_dims[lu_dims.size() - 1]);
+  int nrhs = static_cast<int>(x_dims[x_dims.size() - 1]);
+  int lda = std::max(1, n);
+  int ldb = std::max(1, n);
 
   DenseTensor info_tensor;
   info_tensor.Resize({1});
   dev_ctx.template Alloc<int>(&info_tensor);
   int* d_info = info_tensor.data<int>();
 
-  auto handle = dev_ctx.cusolver_dn_handle();
-
-  if (std::is_same<T, float>::value) {
-    auto* lu_ptr = reinterpret_cast<const float*>(lu.data<T>());
-    auto* out_ptr = reinterpret_cast<float*>(out->data<T>());
-
-    PADDLE_ENFORCE_GPU_SUCCESS(dynload::cusolverDnSgetrs(handle,
-                                                         trans_op,
-                                                         n,
-                                                         nrhs,
-                                                         lu_ptr,
-                                                         lda,
-                                                         pivots.data<int>(),
-                                                         out_ptr,
-                                                         lda,
-                                                         d_info));
-  } else if (std::is_same<T, double>::value) {
-    auto* lu_ptr = reinterpret_cast<const double*>(lu.data<T>());
-    auto* out_ptr = reinterpret_cast<double*>(out->data<T>());
-
-    PADDLE_ENFORCE_GPU_SUCCESS(dynload::cusolverDnDgetrs(handle,
-                                                         trans_op,
-                                                         n,
-                                                         nrhs,
-                                                         lu_ptr,
-                                                         lda,
-                                                         pivots.data<int>(),
-                                                         out_ptr,
-                                                         lda,
-                                                         d_info));
+  auto outdims = out->dims();
+  auto outrank = outdims.size();
+  int batchsize = product(common::slice_ddim(outdims, 0, outrank - 2));
+  auto out_data = out->data<T>();
+  auto lu_data = reinterpret_cast<T*>(const_cast<T*>(lu.data<T>()));
+  auto pivots_data = reinterpret_cast<int*>(const_cast<int*>(pivots.data<int>()));
+  for (int i = 0; i < batchsize; i++) {
+    auto handle = dev_ctx.cusolver_dn_handle();
+    auto* out_data_item = &out_data[i * n * n];
+    auto* lu_data_item = &lu_data[i * n * n];
+    auto* pivots_data_item = &pivots_data[i * n];
+    cusolver_getrs<T>(handle,
+                      trans_op,
+                      n,
+                      nrhs,
+                      lu_data_item,
+                      lda,
+                      pivots_data_item,
+                      out_data_item,
+                      ldb,
+                      d_info);
   }
-
   // Synchronize to ensure the solve is complete
   dev_ctx.Wait();
 }
@@ -144,3 +132,5 @@ void LuSolveKernel(const Context& dev_ctx,
 
 PD_REGISTER_KERNEL(
     lu_solve, GPU, ALL_LAYOUT, phi::LuSolveKernel, float, double) {}
+
+#endif  // not PADDLE_WITH_HIP
