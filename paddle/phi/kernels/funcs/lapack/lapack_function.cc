@@ -54,7 +54,7 @@ void lapackLuSolve<double>(char trans,
                           double *b,
                           int ldb,
                           int *info) {
-  dynload::sgetrs_(&trans, &n, &nrhs, a, &lda, ipiv, b, &ldb, info);
+  dynload::dgetrs_(&trans, &n, &nrhs, a, &lda, ipiv, b, &ldb, info);
 }
 
 // eigh

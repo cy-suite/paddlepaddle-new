@@ -1973,7 +1973,7 @@ void FractionalMaxPoolInferMeta(const MetaTensor& x,
   PADDLE_ENFORCE_EQ(
       (x_dims.size() == 4 || x_dims.size() == 5),
       true,
-      errors::InvalidArgument("Pooling intput should be 4-D or "
+      errors::InvalidArgument("Pooling input should be 4-D or "
                               "5-D tensor but received %dD-Tensor",
                               x_dims.size()));
 
@@ -2151,7 +2151,7 @@ static phi::DDim ValidateShape(const std::vector<int64_t> shape,
 
   for (size_t i = 0; i < shape.size(); ++i) {
     if (shape[i] == -1) {
-      // only one dimension can be set to -1, whose size will be infered.
+      // only one dimension can be set to -1, whose size will be inferred.
       PADDLE_ENFORCE_EQ(
           unk_dim_idx,
           -1,
@@ -2578,7 +2578,7 @@ void MaxPoolWithIndexInferMeta(const MetaTensor& x,
   PADDLE_ENFORCE_EQ(
       (x_dims.size() == 4 || x_dims.size() == 5),
       true,
-      errors::InvalidArgument("Pooling intput should be 4-D or "
+      errors::InvalidArgument("Pooling input should be 4-D or "
                               "5-D tensor but received %dD-Tensor",
                               x_dims.size()));
 

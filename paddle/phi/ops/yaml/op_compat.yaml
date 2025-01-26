@@ -521,6 +521,7 @@
   drop_empty_grad : [input_grad]
 
 - op : c_concat
+  backward: c_concat_grad
   inputs :
     x : X
   outputs :

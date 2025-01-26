@@ -96,7 +96,6 @@ limitations under the License. */
 #include "paddle/fluid/platform/tensorrt/engine_params.h"
 #include "paddle/fluid/pybind/auto_parallel_py.h"
 #include "paddle/fluid/pybind/bind_cost_model.h"
-#include "paddle/fluid/pybind/bind_fleet_executor.h"
 #include "paddle/fluid/pybind/box_helper_py.h"
 #include "paddle/fluid/pybind/communication.h"
 #include "paddle/fluid/pybind/compatible.h"
@@ -257,6 +256,7 @@ DECLARE_FILE_SYMBOLS(best_fit_allocator);
 DECLARE_FILE_SYMBOLS(aligned_allocator);
 DECLARE_FILE_SYMBOLS(pass_timing);
 DECLARE_FILE_SYMBOLS(op_compatible_info);
+DECLARE_FILE_SYMBOLS(sub_graph_detector);
 
 namespace paddle::pybind {
 
@@ -2638,7 +2638,6 @@ All parameter, weight, gradient are variables in Paddle.
   BindCostModel(&m);
   BindConstValue(&m);
   BindGlobalValueGetterSetter(&m);
-  BindFleetExecutor(&m);
   BindTCPStore(&m);
   BindCommContextManager(&m);
   BindAutoParallel(&m);
