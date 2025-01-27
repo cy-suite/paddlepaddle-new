@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/phi/backends/cpu/cpu_context.h"
+#include "paddle/phi/backends/gpu/gpu_context.h"
 #include "paddle/phi/core/kernel_registry.h"
 
 #include "paddle/phi/kernels/lu_solve_grad_kernel.h"
@@ -37,6 +37,5 @@ void LuSolveGradKernel(const Context& dev_ctx,
 
 }  // namespace phi
 
-// Register the CPU backward kernel
 PD_REGISTER_KERNEL(
-    lu_solve_grad, CPU, ALL_LAYOUT, phi::LuSolveGradKernel, float, double) {}
+    lu_solve_grad, GPU, ALL_LAYOUT, phi::LuSolveGradKernel, float, double) {}

@@ -29,69 +29,53 @@ void LuSolveKernel(const Context& dev_ctx,
                    const DenseTensor& pivots,
                    const std::string& trans,
                    DenseTensor* out) {
-
-  // Get input matrix dimensions
-  const auto& lu_dims = lu.dims();
-  const int64_t m = lu_dims[lu_dims.size() - 2];  // Number of rows
-  const int64_t n = lu_dims[lu_dims.size() - 1];  // Number of columns
-
-  // Verify LU matrix is square
-  PADDLE_ENFORCE_EQ(
-    n,
-    m,
-    phi::errors::InvalidArgument(
-      "LU matrix must be square, but got (%lld, %lld)", m, n));
-
-  // Get number of right-hand sides from x
-  const auto& x_dims = x.dims();
-  const int64_t nrhs = x_dims[x_dims.size() - 1]; // Number of columns
+  // Get lu matrix dimensions
+  auto lu_dims = lu.dims();
+  // Get x matrix dimensions
+  auto x_dims = x.dims();
 
   // Allocate output tensor
   dev_ctx.template Alloc<T>(out);
-
   // Copy RHS data to output (will be overwritten with solution)
-  // std::copy_n(x.data<T>(), x.numel(), out->data<T>());
-  phi::Copy(dev_ctx, x, dev_ctx.GetPlace(), false, out);
+  phi::Copy(dev_ctx, x, x.place(), false, out);
 
   // Prepare LAPACK parameters
   char trans_char = (trans == "N") ? 'N' : ((trans == "T") ? 'T' : 'C');
-  int n_int = static_cast<int>(n);
-  int nrhs_int = static_cast<int>(nrhs);
+  int n_int = lu_dims[lu_dims.size() - 1];
+  int nrhs_int = x_dims[x_dims.size() - 1];
   int lda = std::max(1, n_int);  // Leading dimension of A (LU matrix)
   int ldb = std::max(1, n_int);  // Leading dimension of B (RHS/solution matrix)
   int info = 0;
 
   auto outdims = out->dims();
   auto outrank = outdims.size();
-  auto batchsize = product(common::slice_ddim(outdims, 0, outrank - 2));
-
+  int batchsize = product(common::slice_ddim(outdims, 0, outrank - 2));
   auto out_data = out->data<T>();
-  auto lu_data = lu.data<T>();
-  auto pivots_data = pivots.data<int>();
+  auto lu_data = reinterpret_cast<T*>(const_cast<T*>(lu.data<T>()));
+  auto pivots_data = reinterpret_cast<int*>(const_cast<int*>(pivots.data<int>()));
 
   for (int i = 0; i < batchsize; i++) {
-    auto out_data_item = &out_data[i * n_int * n_int];
+    auto* out_data_item = &out_data[i * n_int * n_int];
     auto* lu_data_item = &lu_data[i * n_int * n_int];
     auto* pivots_data_item = &pivots_data[i * n_int];
-    phi::funcs::lapackLuSolve<T>(trans_char,
-                                 n_int,
-                                 nrhs_int,
-                                 lu_data_item,
-                                 lda,
-                                 pivots_data_item,
-                                 out_data_item,
-                                 ldb,
-                                 *info);
-
+    phi::funcs::lapackLuSolve<T>(
+      trans_char,
+      n_int,
+      nrhs_int,
+      lu_data_item,
+      lda,
+      pivots_data_item,
+      out_data_item,
+      ldb,
+      &info);
     PADDLE_ENFORCE_EQ(
       info,
       0,
       phi::errors::PreconditionNotMet(
-          "LU solve failed with error code %d. Check if matrix is singular.",
-          info));
+      "LU solve failed with error code %d. Check if matrix is singular.",
+      info));
   }
 }
-
 }  // namespace phi
 
 PD_REGISTER_KERNEL(
