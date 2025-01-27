@@ -3612,7 +3612,7 @@ def lu_solve(b: Tensor, lu_data: Tensor, pivots: Tensor, name=None) -> Tensor:
     """
     b = b if b.shape[:-2] == lu_data.shape[:-2] else paddle.broadcast_to(b, b.shape[:-2] + lu_data.shape[-2:])
     if in_dynamic_or_pir_mode():
-        out = _C_ops.lu_solve(b, lu_data, pivots)
+        out = _C_ops.lu_solve(b, lu_data, pivots, 'N')
     else:
         check_variable_and_dtype(b, 'dtype', ['float32', 'float64'], 'lu_solve')
         check_variable_and_dtype(lu_data, 'dtype', ['float32', 'float64'], 'lu_solve')
@@ -3622,6 +3622,7 @@ def lu_solve(b: Tensor, lu_data: Tensor, pivots: Tensor, name=None) -> Tensor:
         helper.append_op(
             type='lu_solve',
             inputs={'X': b, 'Lu': lu_data, 'Pivots': pivots},
+            attrs={'trans': 'N'}
             outputs={'Out': out}
         )
     return out
