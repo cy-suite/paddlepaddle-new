@@ -62,7 +62,7 @@ void cusolver_getrs<double>(const cusolverDnHandle_t& cusolverH,
                             double *b,
                             int ldb,
                             int *info) {
-  PADDLE_ENFORCE_GPU_SUCCESS(dynload::cusolverDnSgetrs(
+  PADDLE_ENFORCE_GPU_SUCCESS(dynload::cusolverDnDgetrs(
       cusolverH, trans, n, nrhs, a, lda, ipiv, b, ldb, info));
 }
 
