@@ -47,27 +47,27 @@ class TestLUAPIError(unittest.TestCase):
 
             self.assertRaises(ValueError, test_lu_size)
 
-            # The size of pivots shoule gather than 2.
+            # The size of pivots shoule gather than 1.
             def test_pivots_size():
                 b = paddle.randn([3, 1])
                 lu = paddle.randn([3, 3])
-                pivots = paddle.randn([0])
+                pivots = paddle.randn([])
                 paddle.linalg.lu_solve(b, lu, pivots)
 
             self.assertRaises(ValueError, test_pivots_size)
 
-            # b.shape[-1] shoule equal to lu.shape[-2].
+            # b.shape[-2] shoule equal to lu.shape[-2].
             def test_b_lu_shape():
-                b = paddle.randn([3, 1])
+                b = paddle.randn([1, 3])
                 lu = paddle.randn([3, 3])
                 pivots = paddle.randn([3])
                 paddle.linalg.lu_solve(b, lu, pivots)
 
             self.assertRaises(ValueError, test_b_lu_shape)
 
-            # b.shape[-1] shoule equal to pivots.shape[-1].
+            # lu.shape[-1] shoule equal to pivots.shape[-1].
             def test_b_pivots_shape():
-                b = paddle.randn([1, 3])
+                b = paddle.randn([3, 1])
                 lu = paddle.randn([3, 3])
                 pivots = paddle.randn([2])
                 paddle.linalg.lu_solve(b, lu, pivots)
@@ -76,7 +76,7 @@ class TestLUAPIError(unittest.TestCase):
 
             # lu.shape[-2] shoule equal to lu.shape[-1].
             def test_lu_shape():
-                b = paddle.randn([1, 3])
+                b = paddle.randn([3, 1])
                 lu = paddle.randn([3, 2])
                 pivots = paddle.randn([3])
                 paddle.linalg.lu_solve(b, lu, pivots)

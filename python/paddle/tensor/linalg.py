@@ -3605,21 +3605,21 @@ def lu_solve(b: Tensor, lu_data: Tensor, pivots: Tensor, name=None):
     """
     b = b if b.shape[:-2] == lu_data.shape[:-2] else paddle.broadcast_to(b, lu_data.shape[-2:] + b.shape[:-2])
     pivots = pivots if pivots.shape[:-1] == lu_data.shape[:-2] else paddle.broadcast_to(pivots, lu_data.shape[-2:] + pivots.shape[:-1])
-    if len(b.shape) >= 2:
+    if b.ndim < 2:
         raise ValueError(f'`b` dimension must be gather than 2, but got {len(b.shape)}')
-    if len(lu_data.shape) >= 2:
+    if lu_data.ndim < 2:
         raise ValueError(f'`lu_data` dimension must be gather than 2, but got {len(lu_data.shape)}')
-    if len(pivots.shape) >= 1:
+    if pivots.ndim < 1:
         raise ValueError(f'`pivots` dimension must be gather than 1, but got {len(pivots.shape)}')
-    if b.shape[-1] != lu_data.shape[-2]:
-        raise ValueError(f'`b` shape[-1] must be equal to `lu_data` shape[-2], but got {b.shape[-1]} and {lu_data.shape[-2]}')
+    if b.shape[-2] != lu_data.shape[-2]:
+        raise ValueError(f'the rows of `b` must be equal to the rows of `lu_data`, but got {b.shape[-2]} and {lu_data.shape[-2]}')
     if lu_data.shape[-1] != lu_data.shape[-2]:
         raise ValueError(f'`lu_data` shape[-1] must be equal to `lu_data` shape[-2], but got {lu_data.shape[-1]} and {lu_data.shape[-2]}')
     if pivots.shape[-1] != lu_data.shape[-1]:
         raise ValueError(f'`pivots` shape[-1] must be equal to `lu_data` shape[-1], but got {pivots.shape[-1]} and {lu_data.shape[-1]}')
 
     if in_dynamic_or_pir_mode():
-        out = _C_ops.lu_solve(b, lu_data, pivots)
+        out = _C_ops.lu_solve(b, lu_data, pivots, 'N')
     else:
         check_variable_and_dtype(b, 'dtype', ['float32', 'float64'], 'lu_solve')
         check_variable_and_dtype(lu_data, 'dtype', ['float32', 'float64'], 'lu_solve')
@@ -3629,7 +3629,8 @@ def lu_solve(b: Tensor, lu_data: Tensor, pivots: Tensor, name=None):
         helper.append_op(
             type='lu_solve',
             inputs={'X': b, 'Lu': lu_data, 'Pivots': pivots},
-            outputs={'Out': out}
+            outputs={'Out': out},
+            attrs={'trans':'N'}
         )
     return out
 
