@@ -26,7 +26,7 @@ namespace phi {
 
 template <typename T>
 void cusolver_getrs(const cusolverDnHandle_t& cusolverH,
-                    char trans,
+                    cublasOperation_t trans,
                     int n,
                     int nrhs,
                     T *a,
@@ -38,7 +38,7 @@ void cusolver_getrs(const cusolverDnHandle_t& cusolverH,
 
 template <>
 void cusolver_getrs<float>(const cusolverDnHandle_t& cusolverH,
-                           char trans,
+                           cublasOperation_t trans,
                            int n,
                            int nrhs,
                            float *a,
@@ -53,7 +53,7 @@ void cusolver_getrs<float>(const cusolverDnHandle_t& cusolverH,
 
 template <>
 void cusolver_getrs<double>(const cusolverDnHandle_t& cusolverH,
-                            char trans,
+                            cublasOperation_t trans,
                             int n,
                             int nrhs,
                             double *a,
@@ -68,7 +68,7 @@ void cusolver_getrs<double>(const cusolverDnHandle_t& cusolverH,
 
 template <typename T, typename Context>
 void lu_solve_kernel(const Context& dev_ctx,
-                     char trans,
+                     cublasOperation_t trans,
                      int n,
                      int nrhs,
                      T *a,
