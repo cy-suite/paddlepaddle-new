@@ -3622,7 +3622,7 @@ def lu_solve(b: Tensor, lu_data: Tensor, pivots: Tensor, name=None) -> Tensor:
         helper.append_op(
             type='lu_solve',
             inputs={'X': b, 'Lu': lu_data, 'Pivots': pivots},
-            attrs={'trans': 'N'}
+            attrs={'trans': 'N'},
             outputs={'Out': out}
         )
     return out
