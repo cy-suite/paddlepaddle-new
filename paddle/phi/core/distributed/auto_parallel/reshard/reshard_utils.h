@@ -146,7 +146,7 @@ phi::DDim InferShapeForReshardFromReplicate(
     RESHARD_FUNCTOR_IMPL(dev_ctx, fn_name, dtype, __VA_ARGS__); \
   } while (0)
 
-#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP) ||
+#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP) || \
     defined(PADDLE_WITH_XPU) || defined(PADDLE_WITH_CUSTOM_DEVICE)
 #define RESHARD_FUNCTOR_WITHOUT_DTYPE(dev_ctx, fn_name, ...)                  \
   do {                                                                        \
