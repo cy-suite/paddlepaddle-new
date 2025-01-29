@@ -110,6 +110,8 @@ phi::DDim InferShapeForReshardFromReplicate(
   }()
 #endif
 
+#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP) || \
+    defined(PADDLE_WITH_XPU)
 #define RESHARD_FUNCTOR_IMPL(dev_ctx, fn_name, dtype, ...)                \
   do {                                                                    \
     if (phi::CPUContext::classof(dev_ctx)) {                              \
@@ -128,11 +130,26 @@ phi::DDim InferShapeForReshardFromReplicate(
           }));                                                            \
     } else {                                                              \
       PADDLE_THROW(common::errors::Unimplemented(                         \
-          "The %s in reshard only supported on CPU, GPU, XPU "            \
-          "and Custom Device for now.",                                   \
+          "The %s in reshard only supported on CPU, GPU, and XPU for now.", \
           #fn_name));                                                     \
     }                                                                     \
   } while (0)
+#else
+#define RESHARD_FUNCTOR_IMPL(dev_ctx, fn_name, dtype, ...)                \
+  do {                                                                    \
+    if (phi::CPUContext::classof(dev_ctx)) {                              \
+      VLOG(4) << "Call `" << #fn_name << "` in Resharding on CPU.";       \
+      PD_VISIT_BOOL_AND_FLOATING_AND_INTEGRAL_TYPES_CPU(                  \
+          dtype, #fn_name, ([&] {                                         \
+            fn_name<data_t>(static_cast<const CPUContext&>(*dev_ctx),     \
+                            __VA_ARGS__);                                 \
+          }));                                                            \
+    } else {                                                              \
+      PADDLE_THROW(common::errors::Unimplemented(                         \
+          "The %s in reshard only supported on CPU for now.", #fn_name)); \
+    }                                                                     \
+  } while (0)
+#endif
 
 #define RESHARD_FUNCTOR_WITH_COMM(dev_ctx, fn_name, dtype, process_ids, ...) \
   do {                                                                       \
@@ -147,7 +164,7 @@ phi::DDim InferShapeForReshardFromReplicate(
   } while (0)
 
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP) || \
-    defined(PADDLE_WITH_XPU) || defined(PADDLE_WITH_CUSTOM_DEVICE)
+    defined(PADDLE_WITH_XPU)
 #define RESHARD_FUNCTOR_WITHOUT_DTYPE(dev_ctx, fn_name, ...)                  \
   do {                                                                        \
     if (phi::CPUContext::classof(dev_ctx)) {                                  \
@@ -160,7 +177,7 @@ phi::DDim InferShapeForReshardFromReplicate(
       fn_name(static_cast<const DEVICE_CONTEXT&>(*dev_ctx), __VA_ARGS__);     \
     } else {                                                                  \
       PADDLE_THROW(common::errors::Unimplemented(                             \
-          "The %s in reshard only supported CPU, GPU, XPU and Custom Device", \
+          "The %s in reshard only supported CPU, GPU, and XPU Device",        \
           #fn_name));                                                         \
     }                                                                         \
   } while (0)
@@ -173,7 +190,7 @@ phi::DDim InferShapeForReshardFromReplicate(
       fn_name(static_cast<const CPUContext&>(*dev_ctx), __VA_ARGS__);          \
     } else {                                                                   \
       PADDLE_THROW(common::errors::Unimplemented(                              \
-          "The %s in reshard only supported CPU, GPU, XPU and Custom Device.", \
+          "The %s in reshard only supported CPU, GPU, and XPU Device.",        \
            #fn_name));                                                         \
     }                                                                          \
   } while (0)
