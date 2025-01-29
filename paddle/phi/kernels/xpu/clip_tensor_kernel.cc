@@ -29,9 +29,6 @@ void ClipTensorKernel(const Context& dev_ctx,
                       const DenseTensor& min,
                       const DenseTensor& max,
                       DenseTensor* out) {
-  DenseTensor tem_min = phi::Cast<T, Context>(dev_ctx, min, x.dtype());
-  DenseTensor tem_max = phi::Cast<T, Context>(dev_ctx, max, x.dtype());
-
   DenseTensor tem_max_out = phi::Maximum<T, Context>(dev_ctx, min, x);
   MinimumKernel<T, Context>(dev_ctx, tem_max_out, max, out);
 }

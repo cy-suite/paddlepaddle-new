@@ -39,10 +39,7 @@ void ClipTensorKernel(const Context& dev_ctx,
                       const DenseTensor& min,
                       const DenseTensor& max,
                       DenseTensor* out) {
-  DenseTensor tem_min = phi::Cast<T, Context>(dev_ctx, min, x.dtype());
-  DenseTensor tem_max = phi::Cast<T, Context>(dev_ctx, max, x.dtype());
-
-  std::vector<const DenseTensor*> ins = {&x, &tem_min, &tem_max};
+  std::vector<const DenseTensor*> ins = {&x, &min, &max};
   std::vector<DenseTensor*> outs = {out};
   dev_ctx.template Alloc<T>(out);
 
