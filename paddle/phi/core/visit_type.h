@@ -31,6 +31,17 @@ namespace phi {
 #define PD_PRIVATE_CASE_TYPE(NAME, enum_type, type, ...) \
   PD_PRIVATE_CASE_TYPE_USING_HINT(NAME, enum_type, type, data_t, __VA_ARGS__)
 
+#if ((defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)) &&
+     (NCCL_VERSION_CODE >= 21000 && !defined(PADDLE_WITH_RCCL)) ||
+    defined(PADDLE_WITH_XPU))
+#define PD_PRIVATE_CASE_TYPE_BFLOAT16(NAME, ...)         \
+PD_PRIVATE_CASE_TYPE(NAME, ::paddle::DataType::BFLOAT16, \
+                     phi::bfloat16, __VA_ARGS__)
+#else
+#define PD_PRIVATE_CASE_TYPE_BFLOAT16(NAME, ...)
+#endif
+
+
 ///////// Floating Dispatch Marco ///////////
 
 #define PD_VISIT_FLOATING_TYPES(TYPE, NAME, ...)                          \
@@ -58,6 +69,7 @@ namespace phi {
           NAME, ::paddle::DataType::FLOAT64, double, __VA_ARGS__)          \
       PD_PRIVATE_CASE_TYPE(                                                \
           NAME, ::paddle::DataType::FLOAT16, paddle::float16, __VA_ARGS__) \
+      PD_PRIVATE_CASE_TYPE_BFLOAT16(NAME, __VA_ARGS__)                  \
       default:                                                             \
         PD_THROW("function " #NAME " is not implemented for data type `",  \
                  __dtype__,                                                \
@@ -149,9 +161,7 @@ namespace phi {
   }()
 
 ///////// BOOL and Floating and Integral Dispatch Marco ///////////
-
-#if (NCCL_VERSION_CODE >= 21000) && !defined(PADDLE_WITH_RCCL)
-#define PD_VISIT_BOOL_AND_FLOATING_AND_INTEGRAL_TYPES_GPU(TYPE, NAME, ...)    \
+#define PD_VISIT_BOOL_AND_FLOATING_AND_INTEGRAL_TYPES(TYPE, NAME, ...)    \
   [&] {                                                                       \
     const auto& __dtype__ = TYPE;                                             \
     switch (__dtype__) {                                                      \
@@ -171,42 +181,13 @@ namespace phi {
           NAME, ::paddle::DataType::INT16, int16_t, __VA_ARGS__)              \
       PD_PRIVATE_CASE_TYPE(                                                   \
           NAME, ::paddle::DataType::FLOAT16, float16, __VA_ARGS__)            \
-      PD_PRIVATE_CASE_TYPE(                                                   \
-          NAME, ::paddle::DataType::BFLOAT16, bfloat16, __VA_ARGS__)          \
+      PD_PRIVATE_CASE_TYPE_BFLOAT16(NAME, __VA_ARGS__)                        \
       default:                                                                \
         PD_THROW("function " #NAME " is not implemented for data type `",     \
                  __dtype__,                                                   \
                  "`");                                                        \
     }                                                                         \
   }()
-#else
-#define PD_VISIT_BOOL_AND_FLOATING_AND_INTEGRAL_TYPES_GPU(TYPE, NAME, ...)    \
-  [&] {                                                                       \
-    const auto& __dtype__ = TYPE;                                             \
-    switch (__dtype__) {                                                      \
-      PD_PRIVATE_CASE_TYPE(NAME, ::phi::DataType::BOOL, bool, __VA_ARGS__)    \
-      PD_PRIVATE_CASE_TYPE(                                                   \
-          NAME, ::paddle::DataType::FLOAT32, float, __VA_ARGS__)              \
-      PD_PRIVATE_CASE_TYPE(                                                   \
-          NAME, ::paddle::DataType::FLOAT64, double, __VA_ARGS__)             \
-      PD_PRIVATE_CASE_TYPE(NAME, ::paddle::DataType::INT32, int, __VA_ARGS__) \
-      PD_PRIVATE_CASE_TYPE(                                                   \
-          NAME, ::paddle::DataType::INT64, int64_t, __VA_ARGS__)              \
-      PD_PRIVATE_CASE_TYPE(                                                   \
-          NAME, ::paddle::DataType::INT8, int8_t, __VA_ARGS__)                \
-      PD_PRIVATE_CASE_TYPE(                                                   \
-          NAME, ::paddle::DataType::UINT8, uint8_t, __VA_ARGS__)              \
-      PD_PRIVATE_CASE_TYPE(                                                   \
-          NAME, ::paddle::DataType::INT16, int16_t, __VA_ARGS__)              \
-      PD_PRIVATE_CASE_TYPE(                                                   \
-          NAME, ::paddle::DataType::FLOAT16, float16, __VA_ARGS__)            \
-      default:                                                                \
-        PD_THROW("function " #NAME " is not implemented for data type `",     \
-                 __dtype__,                                                   \
-                 "`");                                                        \
-    }                                                                         \
-  }()
-#endif
 
 #define PD_VISIT_BOOL_AND_FLOATING_AND_INTEGRAL_TYPES_CPU(TYPE, NAME, ...)    \
   [&] {                                                                       \
