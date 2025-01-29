@@ -67,8 +67,8 @@ void XToRShrinkReshardFunction::Eval(phi::DeviceContext* dev_ctx,
     if (cur_global_rank != root_rank) {
       // send dense tensor to root
 #if defined(PADDLE_WITH_XPU)
-    PADDLE_THROW(::common::errors::Unimplemented(
-      "Not supported PSendKernel  on xpu yet."));
+      PADDLE_THROW(::common::errors::Unimplemented(
+          "Not supported PSendKernel  on xpu yet."));
 #else
       RESHARD_FUNCTOR_WITH_COMM(dev_ctx,
                                 PSendKernel,
@@ -83,8 +83,8 @@ void XToRShrinkReshardFunction::Eval(phi::DeviceContext* dev_ctx,
         if (all_process_ids[i] != root_rank) {
           rank_to_result.emplace(all_process_ids[i], DenseTensor());
 #if defined(PADDLE_WITH_XPU)
-    PADDLE_THROW(::common::errors::Unimplemented(
-      "Not supported PRecv on xpu yet."));
+          PADDLE_THROW(::common::errors::Unimplemented(
+              "Not supported PRecv on xpu yet."));
 #else
           RESHARD_FUNCTOR_WITH_COMM(dev_ctx,
                                     PRecv,
@@ -92,7 +92,7 @@ void XToRShrinkReshardFunction::Eval(phi::DeviceContext* dev_ctx,
                                     all_process_ids,
                                     all_process_ids[i],
                                     {} /*out_shape*/,
-                                     /*dynamic_shape=*/true,
+                                    /*dynamic_shape=*/true,
                                     &rank_to_result[all_process_ids[i]]);
 #endif
         }

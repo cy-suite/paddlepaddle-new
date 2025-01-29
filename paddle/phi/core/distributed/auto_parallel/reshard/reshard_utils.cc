@@ -111,38 +111,38 @@ CommContext* CreateOrGetCommContext(const DeviceContext& dev_ctx,
 #endif
     }
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_ROCM)
-    else if(phi::GPUContext::classof(&dev_ctx)) { // NOLINT
+    else if (phi::GPUContext::classof(&dev_ctx)) {  // NOLINT
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
-        CommContextManager::CreateNCCLCommContext(store,
-                                                  unique_comm_key,
-                                                  static_cast<int>(rank),
-                                                  static_cast<int>(world_size));
+      CommContextManager::CreateNCCLCommContext(store,
+                                                unique_comm_key,
+                                                static_cast<int>(rank),
+                                                static_cast<int>(world_size));
 #else
       PADDLE_THROW(common::errors::Unimplemented(
           "Cannot use nccl on GPU, please turn WITH_NCCL flag on."));
 #endif
     }
 #elif defined(PADDLE_WITH_XPU)
-    else if(phi::XPUContext::classof(&dev_ctx)) { // NOLINT
+    else if (phi::XPUContext::classof(&dev_ctx)) {  // NOLINT
 #if defined(PADDLE_WITH_XPU_BKCL)
-     CommContextManager::CreateBKCLCommContext(store,
-                                                  unique_comm_key,
-                                                  static_cast<int>(rank),
-                                                  static_cast<int>(world_size));
+      CommContextManager::CreateBKCLCommContext(store,
+                                                unique_comm_key,
+                                                static_cast<int>(rank),
+                                                static_cast<int>(world_size));
 #else
       PADDLE_THROW(common::errors::Unimplemented(
           "Cannot use xpu on GPU, please turn WITH_XPU_BKCL flag on."));
 #endif
     }
 #elif defined(PADDLE_WITH_CUSTOM_DEVICE)
-    else if (phi::CustomContext::classof(&dev_ctx)) { // NOLINT
-        CommContextManager::CreateXCCLCommContext(
-            store, unique_comm_key, dev_ctx.GetPlace(), rank, world_size);
+    else if (phi::CustomContext::classof(&dev_ctx)) {  // NOLINT
+      CommContextManager::CreateXCCLCommContext(
+          store, unique_comm_key, dev_ctx.GetPlace(), rank, world_size);
     }
 #endif
-    else { // NOLINT
-        PADDLE_THROW(common::errors::Unimplemented(
-            "CommContext is only supported CPU, GPU, XPU, and CustomDevice."));
+    else {  // NOLINT
+      PADDLE_THROW(common::errors::Unimplemented(
+          "CommContext is only supported CPU, GPU, XPU, and CustomDevice."));
     }
   }
 

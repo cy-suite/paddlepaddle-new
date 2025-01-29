@@ -80,7 +80,7 @@ void SubMeshToGlobalReshardFunction::Eval(phi::DeviceContext* dev_ctx,
                                           DistTensor* out) {
   VLOG(3) << "Call SubMeshToGlobalReshardFunction Eval";
 #if defined(PADDLE_WITH_XPU)
-    PADDLE_THROW(::common::errors::Unimplemented(
+  PADDLE_THROW(::common::errors::Unimplemented(
       "Not supported PSendKernel/PRecv on xpu yet."));
 #else
   const TensorDistAttr& in_dist_attr = in.dist_attr();

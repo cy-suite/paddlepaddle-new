@@ -79,17 +79,17 @@ phi::DDim InferShapeForReshardFromReplicate(
     const TensorDistAttr& dist_attr);
 
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
-  #define DEVICE_CONTEXT GPUContext
+#define DEVICE_CONTEXT GPUContext
 #elif defined(PADDLE_WITH_XPU)
-  #define DEVICE_CONTEXT XPUContext
+#define DEVICE_CONTEXT XPUContext
 #elif defined(PADDLE_WITH_CUSTOM_DEVICE)
-  #define DEVICE_CONTEXT CustomContext
+#define DEVICE_CONTEXT CustomContext
 #endif
 
 // Some reshard function supports fewer data types on xpu than on gpu. For
 // example, `Transpose`, `Split`, and `Divide` do not support double type.
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
-#define PD_VISIT_RESHARD_TYPES  PD_VISIT_BOOL_AND_FLOATING_AND_INTEGRAL_TYPES
+#define PD_VISIT_RESHARD_TYPES PD_VISIT_BOOL_AND_FLOATING_AND_INTEGRAL_TYPES
 #else
 #define PD_VISIT_RESHARD_TYPES(TYPE, NAME, ...)                               \
   [&] {                                                                       \
@@ -104,35 +104,38 @@ phi::DDim InferShapeForReshardFromReplicate(
           NAME, ::paddle::DataType::FLOAT16, paddle::float16, __VA_ARGS__)    \
       PD_PRIVATE_CASE_TYPE_BFLOAT16(NAME, __VA_ARGS__)                        \
       default:                                                                \
-        PD_THROW("Reshard function " #NAME " is not implemented"              \
-                 " for data type `", __dtype__, "`");                         \
+        PD_THROW("Reshard function " #NAME                                    \
+                 " is not implemented"                                        \
+                 " for data type `",                                          \
+                 __dtype__,                                                   \
+                 "`");                                                        \
     }                                                                         \
   }()
 #endif
 
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP) || \
     defined(PADDLE_WITH_XPU)
-#define RESHARD_FUNCTOR_IMPL(dev_ctx, fn_name, dtype, ...)                \
-  do {                                                                    \
-    if (phi::CPUContext::classof(dev_ctx)) {                              \
-      VLOG(4) << "Call `" << #fn_name << "` in Resharding on CPU.";       \
-      PD_VISIT_BOOL_AND_FLOATING_AND_INTEGRAL_TYPES_CPU(                  \
-          dtype, #fn_name, ([&] {                                         \
-            fn_name<data_t>(static_cast<const CPUContext&>(*dev_ctx),     \
-                            __VA_ARGS__);                                 \
-          }));                                                            \
-    } else if(DEVICE_CONTEXT::classof(dev_ctx)) {                         \
-      VLOG(4) << "Call `" << #fn_name << "` in Resharding on device.";    \
-      PD_VISIT_RESHARD_TYPES(                                             \
-          dtype, #fn_name, ([&] {                                         \
-            fn_name<data_t>(static_cast<const DEVICE_CONTEXT&>(*dev_ctx), \
-                            __VA_ARGS__);                                 \
-          }));                                                            \
-    } else {                                                              \
-      PADDLE_THROW(common::errors::Unimplemented(                         \
+#define RESHARD_FUNCTOR_IMPL(dev_ctx, fn_name, dtype, ...)                  \
+  do {                                                                      \
+    if (phi::CPUContext::classof(dev_ctx)) {                                \
+      VLOG(4) << "Call `" << #fn_name << "` in Resharding on CPU.";         \
+      PD_VISIT_BOOL_AND_FLOATING_AND_INTEGRAL_TYPES_CPU(                    \
+          dtype, #fn_name, ([&] {                                           \
+            fn_name<data_t>(static_cast<const CPUContext&>(*dev_ctx),       \
+                            __VA_ARGS__);                                   \
+          }));                                                              \
+    } else if (DEVICE_CONTEXT::classof(dev_ctx)) {                          \
+      VLOG(4) << "Call `" << #fn_name << "` in Resharding on device.";      \
+      PD_VISIT_RESHARD_TYPES(                                               \
+          dtype, #fn_name, ([&] {                                           \
+            fn_name<data_t>(static_cast<const DEVICE_CONTEXT&>(*dev_ctx),   \
+                            __VA_ARGS__);                                   \
+          }));                                                              \
+    } else {                                                                \
+      PADDLE_THROW(common::errors::Unimplemented(                           \
           "The %s in reshard only supported on CPU, GPU, and XPU for now.", \
-          #fn_name));                                                     \
-    }                                                                     \
+          #fn_name));                                                       \
+    }                                                                       \
   } while (0)
 #else
 #define RESHARD_FUNCTOR_IMPL(dev_ctx, fn_name, dtype, ...)                \
@@ -165,34 +168,34 @@ phi::DDim InferShapeForReshardFromReplicate(
 
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP) || \
     defined(PADDLE_WITH_XPU)
-#define RESHARD_FUNCTOR_WITHOUT_DTYPE(dev_ctx, fn_name, ...)                  \
-  do {                                                                        \
-    if (phi::CPUContext::classof(dev_ctx)) {                                  \
-      VLOG(4) << "Call `" << #fn_name                                         \
-              << "`without DType in  Resharding on CPU.";                     \
-      fn_name(static_cast<const CPUContext&>(*dev_ctx), __VA_ARGS__);         \
-    } else if (DEVICE_CONTEXT::classof(dev_ctx)) {                            \
-            VLOG(4) << "Call `" << #fn_name                                   \
-              << "`without DType in  Resharding on device.";                  \
-      fn_name(static_cast<const DEVICE_CONTEXT&>(*dev_ctx), __VA_ARGS__);     \
-    } else {                                                                  \
-      PADDLE_THROW(common::errors::Unimplemented(                             \
-          "The %s in reshard only supported CPU, GPU, and XPU Device",        \
-          #fn_name));                                                         \
-    }                                                                         \
+#define RESHARD_FUNCTOR_WITHOUT_DTYPE(dev_ctx, fn_name, ...)              \
+  do {                                                                    \
+    if (phi::CPUContext::classof(dev_ctx)) {                              \
+      VLOG(4) << "Call `" << #fn_name                                     \
+              << "`without DType in  Resharding on CPU.";                 \
+      fn_name(static_cast<const CPUContext&>(*dev_ctx), __VA_ARGS__);     \
+    } else if (DEVICE_CONTEXT::classof(dev_ctx)) {                        \
+      VLOG(4) << "Call `" << #fn_name                                     \
+              << "`without DType in  Resharding on device.";              \
+      fn_name(static_cast<const DEVICE_CONTEXT&>(*dev_ctx), __VA_ARGS__); \
+    } else {                                                              \
+      PADDLE_THROW(common::errors::Unimplemented(                         \
+          "The %s in reshard only supported CPU, GPU, and XPU Device",    \
+          #fn_name));                                                     \
+    }                                                                     \
   } while (0)
 #else
-#define RESHARD_FUNCTOR_WITHOUT_DTYPE(dev_ctx, fn_name, ...)                   \
-  do {                                                                         \
-    if (phi::CPUContext::classof(dev_ctx)) {                                   \
-      VLOG(4) << "Call `" << #fn_name                                          \
-              << "`without DType in Resharding on CPU.";                       \
-      fn_name(static_cast<const CPUContext&>(*dev_ctx), __VA_ARGS__);          \
-    } else {                                                                   \
-      PADDLE_THROW(common::errors::Unimplemented(                              \
-          "The %s in reshard only supported CPU, GPU, and XPU Device.",        \
-           #fn_name));                                                         \
-    }                                                                          \
+#define RESHARD_FUNCTOR_WITHOUT_DTYPE(dev_ctx, fn_name, ...)            \
+  do {                                                                  \
+    if (phi::CPUContext::classof(dev_ctx)) {                            \
+      VLOG(4) << "Call `" << #fn_name                                   \
+              << "`without DType in Resharding on CPU.";                \
+      fn_name(static_cast<const CPUContext&>(*dev_ctx), __VA_ARGS__);   \
+    } else {                                                            \
+      PADDLE_THROW(common::errors::Unimplemented(                       \
+          "The %s in reshard only supported CPU, GPU, and XPU Device.", \
+          #fn_name));                                                   \
+    }                                                                   \
   } while (0)
 #endif
 

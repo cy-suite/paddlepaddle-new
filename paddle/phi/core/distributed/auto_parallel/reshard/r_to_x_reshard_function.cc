@@ -72,8 +72,8 @@ void RToXExpandReshardFunction::Eval(phi::DeviceContext* dev_ctx,
     for (const auto& out_process_id : out_process_ids) {
       if (out_process_id != root_rank) {
 #if defined(PADDLE_WITH_XPU)
-    PADDLE_THROW(::common::errors::Unimplemented(
-      "Not supported PSendKernel on xpu yet."));
+        PADDLE_THROW(::common::errors::Unimplemented(
+            "Not supported PSendKernel on xpu yet."));
 #else
         RESHARD_FUNCTOR_WITH_COMM(dev_ctx,
                                   PSendKernel,
@@ -90,8 +90,8 @@ void RToXExpandReshardFunction::Eval(phi::DeviceContext* dev_ctx,
     }
   } else {
 #if defined(PADDLE_WITH_XPU)
-    PADDLE_THROW(::common::errors::Unimplemented(
-      "Not supported PRecv on xpu yet."));
+    PADDLE_THROW(
+        ::common::errors::Unimplemented("Not supported PRecv on xpu yet."));
 #else
     RESHARD_FUNCTOR_WITH_COMM(dev_ctx,
                               PRecv,

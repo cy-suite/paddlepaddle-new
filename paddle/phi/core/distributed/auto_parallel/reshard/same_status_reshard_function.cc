@@ -79,8 +79,8 @@ void SameStatusReshardFunction::Eval(phi::DeviceContext* dev_ctx,
     int64_t dst = iter.second;
     if (src == cur_global_rank) {
 #if defined(PADDLE_WITH_XPU)
-    PADDLE_THROW(::common::errors::Unimplemented(
-      "Not supported PSendKernel on xpu yet."));
+      PADDLE_THROW(::common::errors::Unimplemented(
+          "Not supported PSendKernel on xpu yet."));
 #else
       VLOG(3) << "Send from src " << src << " to dst " << dst;
       int64_t dst_local_rank = GetLocalRankInParticipate(all_process_ids, dst);
@@ -102,8 +102,8 @@ void SameStatusReshardFunction::Eval(phi::DeviceContext* dev_ctx,
 #endif
     } else if (dst == cur_global_rank) {
 #if defined(PADDLE_WITH_XPU)
-    PADDLE_THROW(::common::errors::Unimplemented(
-      "Not supported PRecvKernel on xpu yet."));
+      PADDLE_THROW(::common::errors::Unimplemented(
+          "Not supported PRecvKernel on xpu yet."));
 #else
       VLOG(3) << "Recv from src " << src << " to dst " << dst;
       int64_t src_local_rank = GetLocalRankInParticipate(all_process_ids, src);
@@ -113,7 +113,7 @@ void SameStatusReshardFunction::Eval(phi::DeviceContext* dev_ctx,
                                 all_process_ids,
                                 src_local_rank,
                                 {} /*out_shape*/,
-                                 /*dynamic_shape=*/true,
+                                /*dynamic_shape=*/true,
                                 GetMutableTensor(out));
 #endif
     }

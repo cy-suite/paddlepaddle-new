@@ -43,8 +43,8 @@ void ReshardSToRWithPadding(DeviceContext* dev_ctx,
   // If the input value doesn't split on axis 0, we need to split
   // and concat on specific axis.
 #if defined(PADDLE_WITH_XPU)
-    PADDLE_THROW(::common::errors::Unimplemented(
-      "Not supported AllGather on xpu yet."));
+  PADDLE_THROW(
+      ::common::errors::Unimplemented("Not supported AllGather on xpu yet."));
 #else
   RESHARD_FUNCTOR_WITH_COMM(
       dev_ctx, AllGather, dtype, process_ids, in, num_of_process, out);

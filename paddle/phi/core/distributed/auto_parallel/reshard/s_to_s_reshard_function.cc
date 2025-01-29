@@ -98,8 +98,8 @@ void SToSReshardFunction::Eval(phi::DeviceContext* dev_ctx,
 
   // 2. use all to all to switch data to other ranks
 #if defined(PADDLE_WITH_XPU)
-    PADDLE_THROW(::common::errors::Unimplemented(
-      "Not supported AllToAll on xpu yet."));
+  PADDLE_THROW(
+      ::common::errors::Unimplemented("Not supported AllToAll on xpu yet."));
 #else
   RESHARD_FUNCTOR_WITH_COMM(dev_ctx,
                             AllToAll,

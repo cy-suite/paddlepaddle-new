@@ -31,16 +31,15 @@ namespace phi {
 #define PD_PRIVATE_CASE_TYPE(NAME, enum_type, type, ...) \
   PD_PRIVATE_CASE_TYPE_USING_HINT(NAME, enum_type, type, data_t, __VA_ARGS__)
 
-#if ((defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)) &&    \
-     (NCCL_VERSION_CODE >= 21000 && !defined(PADDLE_WITH_RCCL)) || \
-    defined(PADDLE_WITH_XPU))
-#define PD_PRIVATE_CASE_TYPE_BFLOAT16(NAME, ...)         \
-PD_PRIVATE_CASE_TYPE(NAME, ::paddle::DataType::BFLOAT16, \
-                     phi::bfloat16, __VA_ARGS__)
+#if ((defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)) &&        \
+         (NCCL_VERSION_CODE >= 21000 && !defined(PADDLE_WITH_RCCL)) || \
+     defined(PADDLE_WITH_XPU))
+#define PD_PRIVATE_CASE_TYPE_BFLOAT16(NAME, ...) \
+  PD_PRIVATE_CASE_TYPE(                          \
+      NAME, ::paddle::DataType::BFLOAT16, phi::bfloat16, __VA_ARGS__)
 #else
 #define PD_PRIVATE_CASE_TYPE_BFLOAT16(NAME, ...)
 #endif
-
 
 ///////// Floating Dispatch Marco ///////////
 
@@ -69,7 +68,7 @@ PD_PRIVATE_CASE_TYPE(NAME, ::paddle::DataType::BFLOAT16, \
           NAME, ::paddle::DataType::FLOAT64, double, __VA_ARGS__)          \
       PD_PRIVATE_CASE_TYPE(                                                \
           NAME, ::paddle::DataType::FLOAT16, paddle::float16, __VA_ARGS__) \
-      PD_PRIVATE_CASE_TYPE_BFLOAT16(NAME, __VA_ARGS__)                  \
+      PD_PRIVATE_CASE_TYPE_BFLOAT16(NAME, __VA_ARGS__)                     \
       default:                                                             \
         PD_THROW("function " #NAME " is not implemented for data type `",  \
                  __dtype__,                                                \
@@ -161,7 +160,7 @@ PD_PRIVATE_CASE_TYPE(NAME, ::paddle::DataType::BFLOAT16, \
   }()
 
 ///////// BOOL and Floating and Integral Dispatch Marco ///////////
-#define PD_VISIT_BOOL_AND_FLOATING_AND_INTEGRAL_TYPES(TYPE, NAME, ...)    \
+#define PD_VISIT_BOOL_AND_FLOATING_AND_INTEGRAL_TYPES(TYPE, NAME, ...)        \
   [&] {                                                                       \
     const auto& __dtype__ = TYPE;                                             \
     switch (__dtype__) {                                                      \
