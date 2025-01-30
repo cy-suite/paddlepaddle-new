@@ -12,6 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#ifndef PADDLE_WITH_HIP
+// HIP not support cusolver
+
 #include "paddle/phi/backends/gpu/gpu_context.h"
 #include "paddle/phi/core/kernel_registry.h"
 
@@ -39,3 +42,5 @@ void LuSolveGradKernel(const Context& dev_ctx,
 
 PD_REGISTER_KERNEL(
     lu_solve_grad, GPU, ALL_LAYOUT, phi::LuSolveGradKernel, float, double) {}
+
+#endif  // not PADDLE_WITH_HIP
