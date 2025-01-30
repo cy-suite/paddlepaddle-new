@@ -3821,7 +3821,7 @@ def clip(
             return _C_ops.clip_tensor(x_bcast, min_bcast, max_bcast)
         else:
             check_dtype(
-                x_bcast,
+                x_bcast.dtype,
                 'x',
                 ['float16', 'float32', 'float64', 'int32', 'int64', 'uint16'],
                 'clip',

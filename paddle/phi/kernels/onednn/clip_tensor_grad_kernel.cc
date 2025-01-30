@@ -17,6 +17,7 @@
 #include "paddle/phi/backends/onednn/onednn_reuse.h"
 #include "paddle/phi/infermeta/unary.h"
 #include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/kernels/cast_kernel.h"
 
 namespace phi {
 
@@ -132,16 +133,20 @@ void ClipTensorGradKernel(const Context& dev_ctx,
   MetaTensor meta_x_ls_min(&x_ls_min);
   UnchangedInferMeta(x, &meta_x_ls_min);
   BinaryFun<T, dnnl::algorithm::binary_lt>(dev_ctx, min, x, -1, *x_ls_min);
+  phi::DenseTensor cast_x_ls_min;
+  cast_x_ls_min = phi::Cast(dev_ctx, *x_ls_min, x.dtype());
 
   phi::DenseTensor x_ls_max;
   MetaTensor meta_x_ls_max(&x_ls_max);
   UnchangedInferMeta(x, &meta_x_ls_max);
   BinaryFun<T, dnnl::algorithm::binary_lt>(dev_ctx, x, max, -1, *x_ls_max);
+  phi::DenseTensor cast_x_ls_max;
+  cast_x_ls_max = phi::Cast(dev_ctx, *x_ls_max, x.dtype());
 
   phi::DenseTensor mask_zero;
   MetaTensor meta_mask_zero(&mask_zero);
   UnchangedInferMeta(x, &meta_mask_zero);
-  BinaryFun<T, dnnl::algorithm::binary_mul>(dev_ctx, *x_ls_min, *x_ls_max, -1, *mask_zero);
+  BinaryFun<T, dnnl::algorithm::binary_mul>(dev_ctx, *cast_x_ls_min, *cast_x_ls_max, -1, *mask_zero);
 
   BinaryFun<T, dnnl::algorithm::binary_mul>(dev_ctx, *mask_zero, out_grad, -1, x_grad);
 }
