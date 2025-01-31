@@ -1002,15 +1002,15 @@ def build_pserver_startup_program_pass(program, p_main_program, config):
                     merged_ordervars.append(merged_p.ordered_vars[0])
                 break
 
-    def _get_splited_name_and_shape(varname):
-        for splited_param in params:
-            pname = splited_param.name
+    def _get_split_name_and_shape(varname):
+        for split_param in params:
+            pname = split_param.name
             if _same_or_split_var(pname, varname) and varname != pname:
-                return pname, splited_param.shape
+                return pname, split_param.shape
 
             for idx, ordered in enumerate(merged_ordervars):
                 if _same_or_split_var(varname, ordered.name):
-                    return pname, splited_param.shape
+                    return pname, split_param.shape
 
         return "", []
 
@@ -1030,7 +1030,7 @@ def build_pserver_startup_program_pass(program, p_main_program, config):
         # TODO(gongwb) : remove this line.
         if op.type not in ["recv", "fetch_barrier", "concat"]:
             for key in op.output_names:
-                newname, _ = _get_splited_name_and_shape(op.output(key)[0])
+                newname, _ = _get_split_name_and_shape(op.output(key)[0])
                 if newname:
                     op_on_pserver = True
                     new_outputs[key] = created_var_map[newname]

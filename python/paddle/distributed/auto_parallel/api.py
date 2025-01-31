@@ -3241,7 +3241,7 @@ class ShardDataloader:
     ShardDataloader converts a dataloader to a new dataloader which provided two capabilities:
     1. split dataloader by shard_dim to do data parallel.
     2. reshard the output of dataloader to distributed tensor.
-    if is_dataset_splitted is True, just need to do reshard.
+    if is_dataset_split is True, just need to do reshard.
 
     Args:
         dataloader (paddle.io.DataLoader): The dataloader to be sharded.
@@ -3255,7 +3255,7 @@ class ShardDataloader:
         shard_dims (list|tuple|str|int]): The mesh dimension to shard the dataloader.
             Users can specify the shard_dim of each mesh or specify a single shard_dim for all meshes.
             Default: None, which means the data loader will not be split, i.e. mp.
-        is_dataset_splitted (bool): Whether the dataset has been splitted.
+        is_dataset_split (bool): Whether the dataset has been split.
     """
 
     def __init__(
@@ -3264,12 +3264,12 @@ class ShardDataloader:
         meshes: ProcessMesh | list[ProcessMesh] | tuple[ProcessMesh],
         input_keys: list[str] | tuple[str] | None = None,
         shard_dims: list | tuple | str | int | None = None,
-        is_dataset_splitted: bool = False,
+        is_dataset_split: bool = False,
     ):
         # do some check
-        if is_dataset_splitted is True and shard_dims is None:
+        if is_dataset_split is True and shard_dims is None:
             raise ValueError(
-                "shard_dims must be set when is_dataset_splitted is True"
+                "shard_dims must be set when is_dataset_split is True"
             )
 
         self._meshes = to_list(meshes)
@@ -3296,7 +3296,7 @@ class ShardDataloader:
             dp_rank = mesh.get_rank_by_dim_and_process_id(shard_dim, process_id)
             dp_world_size = mesh.get_dim_size(shard_dim)
 
-        if is_dataset_splitted is True or shard_dims is None:
+        if is_dataset_split is True or shard_dims is None:
             self._dataloader = dataloader
             self.batch_size = dataloader.batch_sampler.batch_size
         else:
@@ -3516,14 +3516,14 @@ def shard_dataloader(
     meshes: ProcessMesh | Sequence[ProcessMesh],
     input_keys: Sequence[str] | None = None,
     shard_dims: Sequence[str] | Sequence[int] | str | int | None = None,
-    is_dataset_splitted: bool = False,
+    is_dataset_split: bool = False,
 ) -> ShardDataloader:
     """
     Convert the dataloader to a ShardDataloader which provided two capabilities:
     1. split dataloader by shard_dim to do data parallel if it it not None.
     2. reshard the output of dataloader to distributed tensor.
-    if is_dataset_splitted is True, it means that the dataset has been split by users, and just need to do reshard.
-    only if is_dataset_splitted is False and shard_dims is not None, it will do split.
+    if is_dataset_split is True, it means that the dataset has been split by users, and just need to do reshard.
+    only if is_dataset_split is False and shard_dims is not None, it will do split.
 
     Args:
         dataloader (paddle.io.DataLoader): The dataloader to be sharded. the output of dataloader
@@ -3540,7 +3540,7 @@ def shard_dataloader(
             The mesh dimension to shard the dataloader.
             Users can specify the shard_dim of each mesh or specify a single shard_dim for all meshes.
             Default: None, which means the data loader will not be split, i.e. mp.
-        is_dataset_splitted (bool): Whether the dataset has been splitted, Default: False.
+        is_dataset_split (bool): Whether the dataset has been split, Default: False.
     Returns:
         ShardDataloader: The sharded dataloader.
 
@@ -3700,7 +3700,7 @@ def shard_dataloader(
     """
 
     return ShardDataloader(
-        dataloader, meshes, input_keys, shard_dims, is_dataset_splitted
+        dataloader, meshes, input_keys, shard_dims, is_dataset_split
     )
 
 

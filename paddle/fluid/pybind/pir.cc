@@ -1947,9 +1947,9 @@ void mapping_value(const std::vector<pir::Value> &origin,
                  });
 }
 
-using SplitedProgram = std::vector<std::shared_ptr<Program>>;
-using SplitedAttribute = std::map<std::string, std::vector<pir::Value>>;
-using SplitedResult = std::pair<SplitedProgram, SplitedAttribute>;
+using SplitProgram = std::vector<std::shared_ptr<Program>>;
+using SplitAttribute = std::map<std::string, std::vector<pir::Value>>;
+using SplitResult = std::pair<SplitProgram, SplitAttribute>;
 
 static auto GetNoNeedBufferValue(const ::pir::Block *whole_block,
                                  std::pair<size_t, size_t> range) {
@@ -2059,7 +2059,7 @@ int AppendShadowOutputs(Program *program,
   return counter;
 }
 
-SplitedResult SplitForwardBackward(
+SplitResult SplitForwardBackward(
     const Program &program,
     const std::vector<pir::Value> &forward_inputs,
     const std::vector<pir::Value> &forward_params,
@@ -2231,7 +2231,7 @@ SplitedResult SplitForwardBackward(
     forward_program->Print(print_stream);
     print_stream << "BackwardProgram is:\n";
     backward_program->Print(print_stream);
-    std::cout << "Splited Program (fwd | bwd): \n"
+    std::cout << "Split Program (fwd | bwd): \n"
               << print_stream.str() << std::endl;
   }
 

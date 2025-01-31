@@ -109,7 +109,7 @@ def get_worker_info() -> WorkerInfo:
             >>> import numpy as np
             >>> from paddle.io import IterableDataset, DataLoader, get_worker_info
 
-            >>> class SplitedIterableDataset(IterableDataset): # type: ignore[type-arg]
+            >>> class SplitIterableDataset(IterableDataset): # type: ignore[type-arg]
             ...     def __init__(self, start, end):
             ...         self.start = start
             ...         self.end = end
@@ -131,7 +131,7 @@ def get_worker_info() -> WorkerInfo:
             ...             yield np.array([i])
             ...
             >>> place = paddle.CPUPlace()
-            >>> dataset = SplitedIterableDataset(start=2, end=9)
+            >>> dataset = SplitIterableDataset(start=2, end=9)
             >>> dataloader = DataLoader(
             ...     dataset,
             ...     places=place,

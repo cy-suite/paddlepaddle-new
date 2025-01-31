@@ -35,7 +35,7 @@ namespace distributed {
 // [Flatten(Dim(0), Dim(1)), Split(Dim(2), (6,8), 0), Split(Dim(2), (6,8), 1)]
 // meaning that dim0 in output is flattened from dim0 and dim1 in input,
 // dim1 and dim2 in output are obtained by splitting dim2 in input, the
-// splitted shape is (6, 8), dim1 refers to the first shape value in (6, 8)
+// split shape is (6, 8), dim1 refers to the first shape value in (6, 8)
 // and dim2 refers to the second shape value in (6, 8).
 class DimTrans {
  public:
@@ -123,14 +123,14 @@ class Split : public DimTrans {
 
   int64_t split_id() const;
 
-  // get the splitted shape value of the split_id_ dimension
-  int64_t local_splitted_shape_value();
+  // get the split shape value of the split_id_ dimension
+  int64_t local_split_shape_value();
 
   std::string to_string() override;
 
  private:
   std::shared_ptr<DimTrans> input_dim_trans_;
-  std::vector<int64_t> splitted_shape_;
+  std::vector<int64_t> split_shape_;
   int64_t split_id_;
 };
 
@@ -151,7 +151,7 @@ std::shared_ptr<DimTrans> make_split(const std::shared_ptr<DimTrans> dim,
 // axis, set its dim mapping equals to the corresponding input axis.
 // 3. For Flatten, i.e., the output axis is flattened from some input axes, it
 // can be sharded only if the leftmost flattened axes is sharded.
-// 4. For Split, i.e., the output axes is splited from a input axis, only the
+// 4. For Split, i.e., the output axes is split from a input axis, only the
 // leftmost output split axis can be sharded when its shape can be divisible
 // by the mesh dimension.
 std::vector<std::vector<int64_t>> InferFromDimTrans(

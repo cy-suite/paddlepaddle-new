@@ -1637,7 +1637,7 @@ std::shared_ptr<OpStrategy> StrategyForSoftmax(
                               "than or equal to %d, but got %d.",
                               loop_index + 1,
                               loops.size()));
-        auto splited_loops = ir_sch.Split(loops[loop_index], {-1, 5});
+        auto split_loops = ir_sch.Split(loops[loop_index], {-1, 5});
 
         all_blocks = ir_sch.GetAllBlocks();
         loops = ir_sch.GetLoops(all_blocks[2]);

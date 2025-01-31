@@ -211,9 +211,9 @@ paddle::framework::FetchList StandaloneExecutor::Run(
     is_interpretercore_build_result_shared_ = true;
   }
 
-  std::vector<std::vector<phi::DenseTensor>> splited_feeds;
+  std::vector<std::vector<phi::DenseTensor>> split_feeds;
   if (FLAGS_enable_pir_in_executor) {
-    SplitFeedTensors(feed_names, plan_.MicroBatchNum(), scope_, &splited_feeds);
+    SplitFeedTensors(feed_names, plan_.MicroBatchNum(), scope_, &split_feeds);
   }
 
   fetch_list_.resize(plan_.MicroBatchNum());
@@ -237,7 +237,7 @@ paddle::framework::FetchList StandaloneExecutor::Run(
 
     if (FLAGS_enable_pir_in_executor) {
       interpretercores_[job_idx]->Run(feed_names,
-                                      splited_feeds[job->MicroBatchId()],
+                                      split_feeds[job->MicroBatchId()],
                                       /*need_fetch = */ false,
                                       /*enable_job_schedule_profiler = */
                                       enable_job_schedule_profiler);

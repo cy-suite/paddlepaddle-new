@@ -120,7 +120,7 @@ void BindCommunicatorContext(py::module* m) {
       .def("program_id",
            [](const CommContext& self) { return self.program_id; })
       .def("split_varnames",
-           [](const CommContext& self) { return self.splited_varnames; })
+           [](const CommContext& self) { return self.split_varnames; })
       .def("split_endpoints",
            [](const CommContext& self) { return self.epmap; })
       .def("sections",

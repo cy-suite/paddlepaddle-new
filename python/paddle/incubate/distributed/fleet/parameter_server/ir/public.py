@@ -788,10 +788,10 @@ class CompileTimeStrategy:
             param, grad = merged
             grad_name = grad.merged_var.name
             param_name = param.merged_var.name
-            splited_varname = []
+            split_varname = []
 
             for i in range(len(ep_list)):
-                splited_varname.append(f"{param_name}.block{i}")
+                split_varname.append(f"{param_name}.block{i}")
 
             is_distributed = (
                 True if param_name in distributed_varnames else False
@@ -806,7 +806,7 @@ class CompileTimeStrategy:
 
             sparse_ctx = core.CommContext(
                 grad_name,
-                splited_varname,
+                split_varname,
                 ep_list,
                 shape,
                 [grad_name],
@@ -963,14 +963,14 @@ class CompileTimeStrategy:
                 for i, block in enumerate(split):
                     size = block[1]
                     rows = size // orig_dim1_flatten
-                    splited_shape = [rows]
+                    split_shape = [rows]
                     if len(orig_shape) >= 2:
-                        splited_shape.extend(orig_shape[1:])
+                        split_shape.extend(orig_shape[1:])
 
                     new_var_name = f"{varname}.block{i}"
                     slice_var = vars_metatools.VarStruct(
                         name=new_var_name,
-                        shape=splited_shape,
+                        shape=split_shape,
                         dtype=orig_var.dtype,
                         type=orig_var.type,
                         lod_level=orig_var.lod_level,
@@ -996,12 +996,12 @@ class CompileTimeStrategy:
 
         sparse_gradnames = [grad.name for _, grad in self.origin_sparse_pairs]
 
-        for grad_varname, splited_vars in grad_var_mapping_items:
+        for grad_varname, split_vars in grad_var_mapping_items:
             if grad_varname in sparse_gradnames:
                 continue
 
             send_vars = []
-            for _, var in enumerate(splited_vars):
+            for _, var in enumerate(split_vars):
                 send_vars.append(var)
 
             recv_vars = []
@@ -1014,14 +1014,14 @@ class CompileTimeStrategy:
                 self.param_grad_ep_mapping[ep]["params"].append(recv_vars[i])
                 self.param_grad_ep_mapping[ep]["grads"].append(send_vars[i])
 
-        for grad_varname, splited_vars in grad_var_mapping_items:
+        for grad_varname, split_vars in grad_var_mapping_items:
             if grad_varname not in sparse_gradnames:
                 continue
 
             ps_dispatcher.reset()
 
             send_vars = []
-            for _, var in enumerate(splited_vars):
+            for _, var in enumerate(split_vars):
                 send_vars.append(var)
 
             recv_vars = []
@@ -1158,11 +1158,11 @@ class CompileTimeStrategy:
 
         assert len(grad_blocks) == len(param_blocks)
 
-        # origin_param_name->[splited_param_vars]
+        # origin_param_name->[split_param_vars]
         self.param_var_mapping = self._create_vars_from_blocklist(param_blocks)
         self.grad_var_mapping = self._create_vars_from_blocklist(grad_blocks)
 
-        # dict(grad_splited_var->param_splited_var)
+        # dict(grad_split_var->param_split_var)
         self.grad_param_mapping = collections.OrderedDict()
         for g, p in zip(grad_blocks, param_blocks):
             g_name, g_bid, _ = g.split(":")

@@ -642,7 +642,7 @@ class GeoCommunicator : public AsyncCommunicator {
     return param_name;
   }
 
-  inline std::string SplitedGradToParam(const std::string delta_name) {
+  inline std::string SplitGradToParam(const std::string delta_name) {
     // delta_name: emb.delta0
     auto pos = delta_name.find(".block");
     std::string param_name = delta_name.substr(0, pos);

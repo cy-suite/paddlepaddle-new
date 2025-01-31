@@ -1783,7 +1783,7 @@ def log_softmax(
 
 def glu(x: Tensor, axis: int = -1, name: str | None = None) -> Tensor:
     r"""
-    The gated linear unit. The input is evenly splited into 2 parts along a
+    The gated linear unit. The input is evenly split into 2 parts along a
     given axis. The first part is used as the content, and the second part is
     passed through a sigmoid function then used as the gate. The output is a
     elementwise multiplication of the content and the gate.

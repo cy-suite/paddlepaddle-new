@@ -221,7 +221,7 @@ def _get_dims_mapping(dist_parameter, mp_group):
         The splitting mapping
     Examples:
         splitting_strategy's format (-1, -1, -1, 0), meaning the dims
-        of the tensor is 4 and it is splited along the first strategy axis in mesh
+        of the tensor is 4 and it is split along the first strategy axis in mesh
 
     Mesh Examples: (2, 4) means dp=2, mp=4
 

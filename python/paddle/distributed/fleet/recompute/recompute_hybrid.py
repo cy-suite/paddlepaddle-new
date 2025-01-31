@@ -274,7 +274,7 @@ def recompute_hybrid(
     # 3. Here, we only use float dtype to distinguish whether a gradient is needed in output tensor
 
     Parameters:
-        ctx(dict): include 'mp_group', 'offload', and 'partition' keys. the key 'mp_group' (Group), represents the activations are splitted
+        ctx(dict): include 'mp_group', 'offload', and 'partition' keys. the key 'mp_group' (Group), represents the activations are split
                    in which group. the key 'offload' (bool, optional, default=False), represents whether to offload to cpu. the key 'partition' (bool, optional, default=False),
                    represents whether to split activations in the mp_group.
         function(paddle.nn.Layer): layer of sequence of layers that describes part of forward pass of the model

@@ -227,7 +227,7 @@ class RunnableProgram:
         self.out_names = self.convert_name(in_out_values[2])
         self.forward_range = forward_range
         self.backward_range = backward_range
-        self.has_splited = False
+        self.has_split = False
         self.finish_pass = False
         if self.forward_range is None:
             self.forward_range = (0, len(self.program.global_block().ops))
@@ -303,9 +303,9 @@ class RunnableProgram:
 
     def split_forward_backward(self):
         assert (
-            self.has_splited is False
+            self.has_split is False
         ), "Please ensure only split once! don't call split_forward_backward manually."
-        self.has_splited = True
+        self.has_split = True
         self.update_op_range()
         [
             fwd_prog,
@@ -388,7 +388,7 @@ class RunnableProgram:
                 self.program
             )
 
-    # cached property can ensure program is splited only once.
+    # cached property can ensure program is split only once.
     @cached_property
     def _forward_backward_program(self):
         return self.split_forward_backward()

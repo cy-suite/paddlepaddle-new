@@ -159,7 +159,7 @@ class IterableDataset(Dataset[_T]):
             >>> import numpy as np
             >>> from paddle.io import IterableDataset, DataLoader, get_worker_info
 
-            >>> class SplitedIterableDataset(IterableDataset): # type: ignore[type-arg]
+            >>> class SplitIterableDataset(IterableDataset): # type: ignore[type-arg]
             ...     def __init__(self, start, end):
             ...         self.start = start
             ...         self.end = end
@@ -180,7 +180,7 @@ class IterableDataset(Dataset[_T]):
             ...         for i in range(iter_start, iter_end):
             ...             yield np.array([i])
             ...
-            >>> dataset = SplitedIterableDataset(start=2, end=9)
+            >>> dataset = SplitIterableDataset(start=2, end=9)
             >>> dataloader = DataLoader(
             ...     dataset,
             ...     num_workers=2,

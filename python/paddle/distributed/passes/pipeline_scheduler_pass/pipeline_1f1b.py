@@ -139,45 +139,37 @@ class Pipeline1F1BPass(PipelinePassBase):
                 forward_split_points.append(forward_op_id)
 
         (
-            splitted_backward_job_types,
-            splitted_backward_programs,
+            split_backward_job_types,
+            split_backward_programs,
         ) = self._split_program_for_overlapping(
             BACKWARD, backward_program, backward_split_points
         )
         (
-            splitted_forward_job_types,
-            splitted_forward_programs,
+            split_forward_job_types,
+            split_forward_programs,
         ) = self._split_program_for_overlapping(
             FORWARD, forward_program, forward_split_points
         )
 
-        self._multistreaming_for_overlapping(
-            splitted_backward_programs, BACKWARD
-        )
-        self._multistreaming_for_overlapping(splitted_forward_programs, FORWARD)
+        self._multistreaming_for_overlapping(split_backward_programs, BACKWARD)
+        self._multistreaming_for_overlapping(split_forward_programs, FORWARD)
 
-        # Rearrange splitted chunks for BACKWARD and FORWARD
+        # Rearrange split chunks for BACKWARD and FORWARD
         self.jobs_in_stable_phase.clear()
-        num_splitted_backward_jobs, num_splitted_forward_jobs = len(
-            splitted_backward_job_types
-        ), len(splitted_forward_job_types)
-        for idx in range(
-            max(num_splitted_backward_jobs, num_splitted_forward_jobs)
-        ):
-            if idx < num_splitted_backward_jobs:
-                self.jobs_in_stable_phase.append(
-                    splitted_backward_job_types[idx]
-                )
-            if idx < num_splitted_forward_jobs:
-                self.jobs_in_stable_phase.append(
-                    splitted_forward_job_types[idx]
-                )
+        num_split_backward_jobs, num_split_forward_jobs = len(
+            split_backward_job_types
+        ), len(split_forward_job_types)
+        for idx in range(max(num_split_backward_jobs, num_split_forward_jobs)):
+            if idx < num_split_backward_jobs:
+                self.jobs_in_stable_phase.append(split_backward_job_types[idx])
+            if idx < num_split_forward_jobs:
+                self.jobs_in_stable_phase.append(split_forward_job_types[idx])
 
         return (
-            splitted_backward_job_types,
-            splitted_backward_programs,
-            splitted_forward_job_types,
-            splitted_forward_programs,
+            split_backward_job_types,
+            split_backward_programs,
+            split_forward_job_types,
+            split_forward_programs,
         )
 
     def _create_job_list(self):
@@ -388,17 +380,15 @@ class Pipeline1F1BPass(PipelinePassBase):
             logger.info("Backward forward overlap enabled in 1F1B.")
             forward_program, backward_program = sub_programs[1], sub_programs[2]
             (
-                splitted_backward_job_types,
-                splitted_backward_programs,
-                splitted_forward_job_types,
-                splitted_forward_programs,
+                split_backward_job_types,
+                split_backward_programs,
+                split_forward_job_types,
+                split_forward_programs,
             ) = self._backward_forward_overlap(
                 backward_program, forward_program
             )
-            types += splitted_forward_job_types + splitted_backward_job_types
-            sub_programs += (
-                splitted_forward_programs + splitted_backward_programs
-            )
+            types += split_forward_job_types + split_backward_job_types
+            sub_programs += split_forward_programs + split_backward_programs
 
         for i in range(len(types)):
             logger.debug(
@@ -433,14 +423,14 @@ class Pipeline1F1BPass(PipelinePassBase):
             BACKWARD,
         ], f"job_type should be one of {[FORWARD, BACKWARD]}"
 
-        splitted_programs, __, __ = split_program(program, split_points)
+        split_programs, __, __ = split_program(program, split_points)
 
-        splitted_job_types = []
-        num_splitted_programs = len(splitted_programs)
-        for idx in range(num_splitted_programs):
-            splitted_job_types.append(f"{job_type}(chunk{idx})")
+        split_job_types = []
+        num_split_programs = len(split_programs)
+        for idx in range(num_split_programs):
+            split_job_types.append(f"{job_type}(chunk{idx})")
 
-        return splitted_job_types, splitted_programs
+        return split_job_types, split_programs
 
     def is_comm_op_valid_to_overlap(self, op):
         return (

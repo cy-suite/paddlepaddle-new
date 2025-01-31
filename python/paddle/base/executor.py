@@ -1498,7 +1498,7 @@ class Executor:
                 fetch_list = [([sgd, sgd], [(param, grad)]), 'loss']
 
         Returns:
-            optimize_ops(list): The optimize operators splited from fetch_list.
+            optimize_ops(list): The optimize operators split from fetch_list.
             fetch_list(list):  The updated fetch_list which does not contain optimize operators.
         """
         _optimize_ops = []

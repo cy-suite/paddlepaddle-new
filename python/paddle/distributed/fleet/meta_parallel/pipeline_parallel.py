@@ -2698,7 +2698,7 @@ class VPPFhenBInBalancedMemory(PipelineParallelWithInterleaveFthenB):
         micro_dataset = self._wrap_data(data)
         num_steps = self.accumulate_steps * self.num_model_chunks
 
-        # the whole pipeline is splited into 3 parse:
+        # the whole pipeline is split into 3 parse:
         # startup_steps, steady_1f1b_steps, cooldown_steps
         startup_steps = (
             self.accumulate_steps * (self.num_model_chunks - 1)

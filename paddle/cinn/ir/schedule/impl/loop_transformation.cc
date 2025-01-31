@@ -128,8 +128,8 @@ std::vector<Expr> DyScheduleImpl::Split(const Expr& loop,
     substitute_value = optim::ArithSimplify(substitute_value);
     Expr new_node = ir::ir_utils::IRCopy(for_node->body);
     ReplaceExpr(&new_node, {for_node->loop_var}, {substitute_value});
-    std::vector<Expr> splited_loops;
-    splited_loops.resize(processed_factors.size());
+    std::vector<Expr> split_loops;
+    split_loops.resize(processed_factors.size());
     if (tot_extent < prod_size) {
       new_node = IfThenElse::Make(LT::Make(substitute_value, for_node->extent),
                                   new_node);
@@ -142,14 +142,14 @@ std::vector<Expr> DyScheduleImpl::Split(const Expr& loop,
                            for_node->for_type(),
                            for_node->device_api,
                            new_node);
-      splited_loops[i] = new_node;
+      split_loops[i] = new_node;
     }
 
     SimplifyBindingsInStaticShape(this, loop, "split", &new_node);
 
     this->Replace(loop, new_node);
-    VLOG(3) << "After Split, ir is:\n" << splited_loops.at(0);
-    return splited_loops;
+    VLOG(3) << "After Split, ir is:\n" << split_loops.at(0);
+    return split_loops;
   }
 
   Expr tot_extent = for_node->extent;
@@ -219,8 +219,8 @@ std::vector<Expr> DyScheduleImpl::Split(const Expr& loop,
   substitute_value = optim::ArithSimplify(substitute_value);
   Expr new_node = ir::ir_utils::IRCopy(for_node->body);
   ReplaceExpr(&new_node, {for_node->loop_var}, {substitute_value});
-  std::vector<Expr> splited_loops;
-  splited_loops.resize(process_factors.size());
+  std::vector<Expr> split_loops;
+  split_loops.resize(process_factors.size());
 
   if (!exact_split) {
     new_node =
@@ -235,14 +235,14 @@ std::vector<Expr> DyScheduleImpl::Split(const Expr& loop,
                          for_node->for_type(),
                          for_node->device_api,
                          new_node);
-    splited_loops[i] = new_node;
+    split_loops[i] = new_node;
   }
 
   SimplifyBindingsInStaticShape(this, loop, "split", &new_node);
 
   this->Replace(loop, new_node);
-  VLOG(3) << "After Split, ir is:\n" << splited_loops.at(0);
-  return splited_loops;
+  VLOG(3) << "After Split, ir is:\n" << split_loops.at(0);
+  return split_loops;
   CINN_IR_SCHEDULE_END(this->err_msg_level_);
 }
 
@@ -330,8 +330,8 @@ std::vector<Expr> DyScheduleImpl::Split(const Expr& loop,
   substitute_value = optim::ArithSimplify(substitute_value);
   Expr new_node = ir::ir_utils::IRCopy(for_node->body);
   ReplaceExpr(&new_node, {for_node->loop_var}, {substitute_value});
-  std::vector<Expr> splited_loops;
-  splited_loops.resize(process_factors.size());
+  std::vector<Expr> split_loops;
+  split_loops.resize(process_factors.size());
 
   for (int i = process_factors.size() - 1; i >= 0; i--) {
     if (!new_node.As<ir::Block>()) new_node = Block::Make({new_node});
@@ -341,14 +341,14 @@ std::vector<Expr> DyScheduleImpl::Split(const Expr& loop,
                          for_node->for_type(),
                          for_node->device_api,
                          new_node);
-    splited_loops[i] = new_node;
+    split_loops[i] = new_node;
   }
 
   SimplifyBindingsInStaticShape(this, loop, "split", &new_node);
 
   this->Replace(loop, new_node);
-  VLOG(3) << "After Split, ir is:\n" << splited_loops.at(0);
-  return splited_loops;
+  VLOG(3) << "After Split, ir is:\n" << split_loops.at(0);
+  return split_loops;
   CINN_IR_SCHEDULE_END(this->err_msg_level_);
 }
 

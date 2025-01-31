@@ -1072,14 +1072,14 @@ void GeoCommunicator::Send(
   auto before_send = GetCurrentUS();
   auto table_name = var_names[0];
 
-  size_t splited_var_nums =
-      send_varname_to_ctx_[table_name].splited_varnames.size();
+  size_t split_var_nums =
+      send_varname_to_ctx_[table_name].split_varnames.size();
 
   std::unordered_map<std::string, std::unordered_set<int64_t>> ids_table;
 
-  for (size_t j = 0; j < splited_var_nums; j++) {
+  for (size_t j = 0; j < split_var_nums; j++) {
     ids_table.insert(std::pair<std::string, std::unordered_set<int64_t>>(
-        send_varname_to_ctx_[table_name].splited_varnames[j],
+        send_varname_to_ctx_[table_name].split_varnames[j],
         std::unordered_set<int64_t>()));
   }
 
@@ -1092,11 +1092,11 @@ void GeoCommunicator::Send(
   auto &rows = var->Get<phi::SelectedRows>().rows();
 
   // insert ids which has not been record
-  // VLOG(0) << "fl-ps > table_name: " << table_name << " splited_var_nums: " <<
-  // splited_var_nums << " rows size: " << rows.size();
+  // VLOG(0) << "fl-ps > table_name: " << table_name << " split_var_nums: " <<
+  // split_var_nums << " rows size: " << rows.size();
   for (auto row : rows) {  // batch_size == rows.size()
-    auto ep_idx = row % splited_var_nums;
-    ids_table.at(send_varname_to_ctx_[table_name].splited_varnames[ep_idx])
+    auto ep_idx = row % split_var_nums;
+    ids_table.at(send_varname_to_ctx_[table_name].split_varnames[ep_idx])
         .insert(row);
     // VLOG(0) << " id: " << rows[j] << " ";
   }
@@ -1142,13 +1142,13 @@ void GeoCommunicator::InitImpl(const RpcCtxMap &send_varname_to_ctx,
     } else {
       it++;
     }
-    for (auto &splited_var : ctx.splited_varnames) {  // embedding_0.w_0.block0
+    for (auto &split_var : ctx.split_varnames) {  // embedding_0.w_0.block0
       parallel_task_nums_ += 1;
       sparse_id_queues_.insert(
           std::pair<std::string,
                     ::paddle::framework::Channel<
                         std::shared_ptr<std::vector<int64_t>>>>(
-              splited_var,
+              split_var,
               ::paddle::framework::MakeChannel<
                   std::shared_ptr<std::vector<int64_t>>>(send_queue_size_)));
     }
@@ -1375,7 +1375,7 @@ void GeoCommunicator::SendSparse(const std::string &varname,
   if (sparse_ids.empty()) {
     return;
   }
-  std::string param_name = SplitedGradToParam(varname);
+  std::string param_name = SplitGradToParam(varname);
   VLOG(1) << "In GeoCommunicator::SendSparse(" << varname << " " << param_name
           << ", ids.size = " << sparse_ids.size() << ", table_id: " << table_id
           << ", ep_idx: " << ep_idx;
@@ -1463,7 +1463,7 @@ void GeoCommunicator::RecvSparse(const std::string &varname,
   auto status = _worker_ptr->PullGeoParam(table_id, &values, &keys, ep_idx);
   status.wait();
 
-  std::string param = SplitedGradToParam(varname);
+  std::string param = SplitGradToParam(varname);
   VLOG(1) << "RecvSparse receive var: " << varname << " " << param << ", "
           << table_id << "; ids Size: " << keys.size()
           << "; values size: " << values.size();
@@ -1525,14 +1525,14 @@ void GeoCommunicator::MainThread() {
                 "sparse variables can only be merged by one variables"));
         int pserver_num = static_cast<int>(ctx.epmap.size());
         for (int ep_idx = 0; ep_idx < pserver_num; ep_idx++) {
-          // varname: emb@GRAD, param_name: emb, splited_varname: emb.delta0
+          // varname: emb@GRAD, param_name: emb, split_varname: emb.delta0
           auto send_recv_task = [this, table_id, ep_idx, &ctx] {
-            auto splited_varname =
-                ctx.splited_varnames[ep_idx];  // embedding_0.w_0.block0
-                                               // embedding_1.w_0.block0
-            auto sparse_ids = MergeSparseIds(splited_varname);
-            SendSparse(splited_varname, sparse_ids, table_id, ep_idx);
-            RecvSparse(splited_varname, table_id, ep_idx);
+            auto split_varname =
+                ctx.split_varnames[ep_idx];  // embedding_0.w_0.block0
+                                             // embedding_1.w_0.block0
+            auto sparse_ids = MergeSparseIds(split_varname);
+            SendSparse(split_varname, sparse_ids, table_id, ep_idx);
+            RecvSparse(split_varname, table_id, ep_idx);
           };
           tasks.emplace_back(
               send_threadpool_->enqueue(std::move(send_recv_task)));

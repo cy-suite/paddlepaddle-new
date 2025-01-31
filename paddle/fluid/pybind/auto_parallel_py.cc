@@ -451,7 +451,7 @@ void BindAutoParallel(py::module *m) {
   auto Shard = py::class_<phi::distributed::Shard,
                           std::shared_ptr<phi::distributed::Shard>>(
                    *m, "Shard", Placement, R"DOC(
-               The `Shard` describes how `Tensor` splitted across multiple devices according to specified dimensions.
+               The `Shard` describes how `Tensor` split across multiple devices according to specified dimensions.
 
                Parameters:
                    dim (int): specify the slicing dimension of the tensor.

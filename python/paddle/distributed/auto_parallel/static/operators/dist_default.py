@@ -595,7 +595,7 @@ class DistributedDefaultImpl0(DistributedOperatorImpl):
                         ctx, process_mesh, rank_id
                     )
 
-                # NOTE all not splited axis should be presented in mesh
+                # NOTE all not split axis should be presented in mesh
                 for axis, size in enumerate(process_mesh.shape):
                     if size <= 1 or axis in dims_mapping:
                         pass

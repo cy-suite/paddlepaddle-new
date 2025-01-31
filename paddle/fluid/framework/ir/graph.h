@@ -477,7 +477,7 @@ class Graph {
   std::unordered_set<ir::Node *> node_set_;
   size_t num_node_created_{0};  // help to generate a unique node id.
   // NOTE(Aurelius84): Whether is constructed with partial ProgramDesc.
-  // In case of @to_static, whole training program is splited into two
+  // In case of @to_static, whole training program is split into two
   // parts: forward graph and backward graph, which can be executed
   // independently.
   bool is_partial_{false};

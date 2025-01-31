@@ -41,7 +41,7 @@ struct CommContext {
               int64_t program_id = -1,
               const std::vector<int32_t> &remote_sparse_ids = {})
       : var_name(name),
-        splited_varnames(names),
+        split_varnames(names),
         epmap(emap),
         height_sections(sections),
         origin_varnames(origin_names),
@@ -57,7 +57,7 @@ struct CommContext {
 
   CommContext(const CommContext &ctx) {
     var_name = ctx.var_name;
-    splited_varnames = ctx.splited_varnames;
+    split_varnames = ctx.split_varnames;
     epmap = ctx.epmap;
     height_sections = ctx.height_sections;
     trainer_id = ctx.trainer_id;
@@ -83,8 +83,8 @@ struct CommContext {
           ss << "remote_sparse_id: " << i << " ";
         });
 
-    for (size_t i = 0; i < splited_varnames.size(); i++) {
-      ss << "slice varname: " << splited_varnames[i] << " ep: " << epmap[i]
+    for (size_t i = 0; i < split_varnames.size(); i++) {
+      ss << "slice varname: " << split_varnames[i] << " ep: " << epmap[i]
          << " section: " << height_sections[i] << " ";
     }
 
@@ -105,7 +105,7 @@ struct CommContext {
   }
 
   std::string var_name;
-  std::vector<std::string> splited_varnames;
+  std::vector<std::string> split_varnames;
   std::vector<std::string> epmap;
   std::vector<int64_t> height_sections;
   std::vector<std::string> origin_varnames;

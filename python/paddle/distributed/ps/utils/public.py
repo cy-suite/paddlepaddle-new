@@ -582,9 +582,9 @@ def get_the_one_send_context(attrs, split_dense_table=False, ep_list=None):
             if param_name in attrs['remote_sparse']:  # for recall/ncf model
                 remote_sparse_ids.append(idx)
 
-            splited_varname = []
+            split_varname = []
             for i in range(len(ep_list)):
-                splited_varname.append(f"{param_name}.block{i}")
+                split_varname.append(f"{param_name}.block{i}")
 
             is_distributed = (
                 True if param_name in distributed_varnames else False
@@ -602,12 +602,12 @@ def get_the_one_send_context(attrs, split_dense_table=False, ep_list=None):
             print(
                 "public get_the_one_send_context sparse: ",
                 grad_name,
-                splited_varname,
+                split_varname,
                 shape,
             )
             sparse_ctx = CommContext(
                 grad_name,
-                splited_varname,
+                split_varname,
                 ep_list,
                 shape,
                 [grad_name],

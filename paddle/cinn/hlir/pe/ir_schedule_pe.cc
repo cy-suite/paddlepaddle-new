@@ -83,9 +83,9 @@ void IRElementwiseSchedule(ir::IRSchedule &ir_sch,  // NOLINT
     if (size <= target.max_num_threads()) {
       ir_sch.Bind(loop, "threadIdx.x");
     } else {
-      auto splited = ir_sch.Split(loop, {-1, target.max_num_threads()});
-      ir_sch.Bind(splited[0], "blockIdx.x");
-      ir_sch.Bind(splited[1], "threadIdx.x");
+      auto split = ir_sch.Split(loop, {-1, target.max_num_threads()});
+      ir_sch.Bind(split[0], "blockIdx.x");
+      ir_sch.Bind(split[1], "threadIdx.x");
     }
   };
   target.arch.Match(
@@ -117,9 +117,9 @@ void IRInjectiveSchedule(ir::IRSchedule &ir_sch,  // NOLINT
     if (size <= target.max_num_threads()) {
       ir_sch.Bind(loop, "threadIdx.x");
     } else {
-      auto splited = ir_sch.Split(loop, {-1, target.max_num_threads()});
-      ir_sch.Bind(splited[0], "blockIdx.x");
-      ir_sch.Bind(splited[1], "threadIdx.x");
+      auto split = ir_sch.Split(loop, {-1, target.max_num_threads()});
+      ir_sch.Bind(split[0], "blockIdx.x");
+      ir_sch.Bind(split[1], "threadIdx.x");
     }
   };
   target.arch.Match(
@@ -172,10 +172,10 @@ void IRScheduleInjectiveCPU(ir::IRSchedule &ir_sch,  // NOLINT
       auto loops      = ir_sch.GetLoops(all_blocks[0]);
       int last_shape  = ir::GetLoopExtent(loops.back());
       factor          = GetVectorizeFactor(last_shape, factor);
-      auto splited    = ir_sch.Split(loops.back(), {-1, factor});
-      ir_sch.Vectorize(splited[1], factor);
+      auto split    = ir_sch.Split(loops.back(), {-1, factor});
+      ir_sch.Vectorize(split[1], factor);
       if (dims == 1) {
-        ir_sch.Parallel(splited[0]);
+        ir_sch.Parallel(split[0]);
       }
     } */
   VLOG(3) << "After IRScheduleInjectiveCPU, new ir is : "
@@ -195,9 +195,9 @@ void IRGpuScheduleInjective(ir::IRSchedule &ir_sch,  // NOLINT
   int prod_size = std::accumulate(
       output_shape.begin(), output_shape.end(), 1, std::multiplies<int>());
   if (prod_size > num_thread) {
-    auto splited = ir_sch.Split(fused, {-1, num_thread});
-    ir_sch.Bind(splited[0], "blockIdx.x");
-    ir_sch.Bind(splited[1], "threadIdx.x");
+    auto split = ir_sch.Split(fused, {-1, num_thread});
+    ir_sch.Bind(split[0], "blockIdx.x");
+    ir_sch.Bind(split[1], "threadIdx.x");
   } else {
     ir_sch.Bind(fused, "threadIdx.x");
   }
@@ -242,9 +242,9 @@ std::vector<cinn::common::CINNValue> IRGpuScheduleMatMul(
     auto loops = ir_sch.GetLoops(init_block);
     if (loops.size() == 1) {
       if (ir::GetLoopExtent(loops[0]) > num_thread) {
-        auto splited = ir_sch.Split(loops[0], {-1, num_thread});
-        ir_sch.Bind(splited[0], "blockIdx.x");
-        ir_sch.Bind(splited[1], "threadIdx.x");
+        auto split = ir_sch.Split(loops[0], {-1, num_thread});
+        ir_sch.Bind(split[0], "blockIdx.x");
+        ir_sch.Bind(split[1], "threadIdx.x");
       } else {
         ir_sch.Bind(loops[0], "threadIdx.x");
       }
@@ -273,7 +273,7 @@ void IRCudaScheduleMul(ir::IRSchedule &ir_sch,  // NOLINT
                     2U,
                     ::common::errors::InvalidArgument(
                         "The size of loops should be greater than 2."));
-  auto splited = ir_sch.Split(loops[1], {-1, 2});
+  auto split = ir_sch.Split(loops[1], {-1, 2});
   all_blocks = ir_sch.GetAllBlocks();
   loops = ir_sch.GetLoops(all_blocks.back());
   ir_sch.Bind(loops[0], "blockIdx.x");
@@ -349,15 +349,14 @@ void IRCudaSplitSchedule(ir::IRSchedule &ir_sch,  // NOLINT
 
         if (tsize > target.max_num_threads()) {
           // split [-1, 256]
-          auto splited = ir_sch.Split(ir_sch.GetLoops(block_name)[0],
-                                      {-1, target.max_num_threads() / 4});
-          ir_sch.Bind(splited[0], "blockIdx.x");
-          ir_sch.Bind(splited[1], "threadIdx.x");
+          auto split = ir_sch.Split(ir_sch.GetLoops(block_name)[0],
+                                    {-1, target.max_num_threads() / 4});
+          ir_sch.Bind(split[0], "blockIdx.x");
+          ir_sch.Bind(split[1], "threadIdx.x");
         } else {
-          auto splited =
-              ir_sch.Split(ir_sch.GetLoops(block_name)[0], {1, tsize});
-          ir_sch.Bind(splited[0], "blockIdx.x");
-          ir_sch.Bind(splited[1], "threadIdx.x");
+          auto split = ir_sch.Split(ir_sch.GetLoops(block_name)[0], {1, tsize});
+          ir_sch.Bind(split[0], "blockIdx.x");
+          ir_sch.Bind(split[1], "threadIdx.x");
         }
       }
     } else {
@@ -373,15 +372,15 @@ void IRCudaSplitSchedule(ir::IRSchedule &ir_sch,  // NOLINT
           auto tsize = first_loop.As<ir::For>()->extent.as_int32();
           if (tsize > target.max_num_threads()) {
             // split [-1, 256]
-            auto splited = ir_sch.Split(ir_sch.GetLoops(block_names[idx])[0],
-                                        {-1, target.max_num_threads() / 4});
-            ir_sch.Bind(splited[0], "blockIdx.x");
-            ir_sch.Bind(splited[1], "threadIdx.x");
+            auto split = ir_sch.Split(ir_sch.GetLoops(block_names[idx])[0],
+                                      {-1, target.max_num_threads() / 4});
+            ir_sch.Bind(split[0], "blockIdx.x");
+            ir_sch.Bind(split[1], "threadIdx.x");
           } else {
-            auto splited =
+            auto split =
                 ir_sch.Split(ir_sch.GetLoops(block_names[idx])[0], {1, tsize});
-            ir_sch.Bind(splited[0], "blockIdx.x");
-            ir_sch.Bind(splited[1], "threadIdx.x");
+            ir_sch.Bind(split[0], "blockIdx.x");
+            ir_sch.Bind(split[1], "threadIdx.x");
           }
         }
       }
@@ -1180,9 +1179,9 @@ void IRPoolScheduleGPU(ir::IRSchedule &ir_sch,  // NOLINT
   // Blocks were changed after Fuse, so we have to get all blocks again.
   all_blocks = ir_sch.GetAllBlocks();
   loops = ir_sch.GetLoops(all_blocks[0]);
-  auto splited = ir_sch.Split(loops[0], {-1, 1024});
-  ir_sch.Bind(splited[0], "blockIdx.x");
-  ir_sch.Bind(splited[1], "threadIdx.x");
+  auto split = ir_sch.Split(loops[0], {-1, 1024});
+  ir_sch.Bind(split[0], "blockIdx.x");
+  ir_sch.Bind(split[1], "threadIdx.x");
   VLOG(3) << "End IRPoolScheduleGPU: " << ir_sch.GetModule().GetExprs().at(0);
 }
 
@@ -1198,14 +1197,14 @@ void IRGlobalPoolScheduleGPU(ir::IRSchedule &ir_sch,  // NOLINT
   auto loops = ir_sch.GetLoops(all_blocks[1]);
   if (loops.size() > 1) {
     auto fused = ir_sch.Fuse(all_blocks[0], {0, 1});
-    auto splited = ir_sch.Split(fused, {-1, 32});
+    auto split = ir_sch.Split(fused, {-1, 32});
     all_blocks = ir_sch.GetAllBlocks();
     fused = ir_sch.Fuse(all_blocks[1], {0, 1});
-    splited = ir_sch.Split(fused, {-1, 32});
-    ir_sch.Bind(splited[0], "blockIdx.x");
-    ir_sch.Bind(splited[1], "threadIdx.y");
+    split = ir_sch.Split(fused, {-1, 32});
+    ir_sch.Bind(split[0], "blockIdx.x");
+    ir_sch.Bind(split[1], "threadIdx.y");
     all_blocks = ir_sch.GetAllBlocks();
-    ir_sch.SimpleComputeAt(all_blocks[0], splited[1]);
+    ir_sch.SimpleComputeAt(all_blocks[0], split[1]);
     all_blocks = ir_sch.GetAllBlocks();
     ir_sch.SetBuffer(all_blocks[0], "local", true);
     loops = ir_sch.GetLoops(all_blocks[0]);
@@ -1218,15 +1217,15 @@ void IRGlobalPoolScheduleGPU(ir::IRSchedule &ir_sch,  // NOLINT
     ir_sch.Bind(loops[2], "threadIdx.x");
   } else {
     loops = ir_sch.GetLoops(all_blocks[0]);
-    auto splited = ir_sch.Split(loops[0], {-1, 32});
+    auto split = ir_sch.Split(loops[0], {-1, 32});
     all_blocks = ir_sch.GetAllBlocks();
     loops = ir_sch.GetLoops(all_blocks[1]);
-    splited = ir_sch.Split(loops[0], {-1, 32});
-    ir_sch.Bind(splited[0], "blockIdx.x");
-    ir_sch.Bind(splited[1], "threadIdx.y");
+    split = ir_sch.Split(loops[0], {-1, 32});
+    ir_sch.Bind(split[0], "blockIdx.x");
+    ir_sch.Bind(split[1], "threadIdx.y");
     all_blocks = ir_sch.GetAllBlocks();
-    splited = ir_sch.GetLoops(all_blocks[1]);
-    ir_sch.SimpleComputeAt(all_blocks[0], splited[1]);
+    split = ir_sch.GetLoops(all_blocks[1]);
+    ir_sch.SimpleComputeAt(all_blocks[0], split[1]);
     all_blocks = ir_sch.GetAllBlocks();
     ir_sch.SetBuffer(all_blocks[0], "local", true);
     loops = ir_sch.GetLoops(all_blocks[0]);
