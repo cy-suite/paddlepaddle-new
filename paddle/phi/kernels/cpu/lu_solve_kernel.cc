@@ -37,7 +37,8 @@ void LuSolveKernel(const Context& dev_ctx,
 
   // Allocate output tensor
   dev_ctx.template Alloc<T>(out);
-  *out = Transpose2DTo6D<Context, T>(dev_ctx, x);
+  // Copy RHS data to output (will be overwritten with solution)
+  phi::Copy(dev_ctx, x, x.place(), false, out);
 
   // Prepare LAPACK parameters
   char trans_char = (trans == "N") ? 'N' : ((trans == "T") ? 'T' : 'C');
@@ -75,7 +76,6 @@ void LuSolveKernel(const Context& dev_ctx,
       "LU solve failed with error code %d. Check if matrix is singular.",
       info));
   }
-  *out = Transpose2DTo6D<Context, T>(dev_ctx, *out);
 }
 }  // namespace phi
 
