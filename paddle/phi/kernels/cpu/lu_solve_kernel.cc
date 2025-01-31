@@ -55,8 +55,8 @@ void LuSolveKernel(const Context& dev_ctx,
   auto pivots_data = reinterpret_cast<int*>(const_cast<int*>(pivots.data<int>()));
 
   for (int i = 0; i < batchsize; i++) {
-    auto* out_data_item = &out_data[i * n_int * n_int];
-    auto* lu_data_item = &lu_data[i * n_int * n_int];
+    auto* out_data_item = &out_data[i * ldb * nrhs_int];
+    auto* lu_data_item = &lu_data[i * lda * n_int];
     auto* pivots_data_item = &pivots_data[i * n_int];
     phi::funcs::lapackLuSolve<T>(
       trans_char,
