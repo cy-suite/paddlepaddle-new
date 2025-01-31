@@ -19,6 +19,7 @@
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/enforce.h"
 #include "paddle/phi/kernels/lu_solve_kernel.h"
+#include "paddle/phi/kernels/impl/lu_kernel_impl.h"
 
 namespace phi {
 
@@ -36,8 +37,7 @@ void LuSolveKernel(const Context& dev_ctx,
 
   // Allocate output tensor
   dev_ctx.template Alloc<T>(out);
-  // Copy RHS data to output (will be overwritten with solution)
-  phi::Copy(dev_ctx, x, x.place(), false, out);
+  *out = Transpose2DTo6D<Context, T>(dev_ctx, x);
 
   // Prepare LAPACK parameters
   char trans_char = (trans == "N") ? 'N' : ((trans == "T") ? 'T' : 'C');
@@ -75,6 +75,7 @@ void LuSolveKernel(const Context& dev_ctx,
       "LU solve failed with error code %d. Check if matrix is singular.",
       info));
   }
+  *out = Transpose2DTo6D<Context, T>(dev_ctx, *out);
 }
 }  // namespace phi
 
