@@ -44,15 +44,13 @@ kinf = 'kinf'
 Optin = 'Optin'
 padd = 'padd'
 pash = 'pash'
+splited = 'splited'
+splitted = 'splitted'
 statis = 'statis'
 UNEXPECT = 'UNEXPECT'
 tood = 'tood'
 unpacket = "unpacket"
 vaccum = 'vaccum'
-splitted = 'splitted'
-Splitted = 'Splitted'
-splited = 'splited'
-Splited = 'Splited'
 
 # These words need to be fixed
 Operants = 'Operants'
