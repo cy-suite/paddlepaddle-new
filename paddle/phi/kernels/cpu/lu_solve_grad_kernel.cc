@@ -15,6 +15,7 @@
 #include "paddle/phi/backends/cpu/cpu_context.h"
 #include "paddle/phi/core/kernel_registry.h"
 
+#include "paddle/phi/kernels/impl/lu_kernel_impl.h"
 #include "paddle/phi/kernels/lu_solve_grad_kernel.h"
 #include "paddle/phi/kernels/lu_solve_kernel.h"
 
@@ -27,12 +28,17 @@ void LuSolveGradKernel(const Context& dev_ctx,
                        const DenseTensor& pivots,
                        const DenseTensor& out_grad,
                        const std::string& trans,
-                       DenseTensor* x_grad) {
-  // Allocate memory for x_grad
-  dev_ctx.template Alloc<T>(x_grad);
+                       DenseTensor* x_grad,
+                       DenseTensor* lu_grad) {
 
-  // Use the forward kernel to compute the gradient
-  LuSolveKernel<T, Context>(dev_ctx, out_grad, lu, pivots, trans, x_grad);
+  if (x_grad != nullptr) {
+    std::string trans_t = (trans == "N") ? "T" : "N";
+    LuSolveKernel<T, Context>(dev_ctx, out_grad, lu, pivots, trans_t, x_grad);
+  }
+  
+  if (lu_grad!= nullptr) {
+    DenseTensor L, U, P;
+  }
 }
 
 }  // namespace phi

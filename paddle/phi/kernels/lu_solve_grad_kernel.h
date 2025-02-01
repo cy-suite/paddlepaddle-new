@@ -27,6 +27,7 @@ void LuSolveGradKernel(const Context& dev_ctx,
                        const DenseTensor& pivots,
                        const DenseTensor& out_grad,
                        const std::string& trans,
-                       DenseTensor* x_grad);
+                       DenseTensor* x_grad,
+                       DenseTensor* lu_grad);
 
 }  // namespace phi

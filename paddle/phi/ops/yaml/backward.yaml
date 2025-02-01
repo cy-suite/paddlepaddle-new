@@ -1989,10 +1989,10 @@
 - backward_op : lu_solve_grad
   forward : lu_solve (Tensor x, Tensor lu, Tensor pivots, str trans = "N") -> Tensor(out)
   args : (Tensor x, Tensor lu, Tensor pivots, Tensor out_grad, str trans = "N")
-  output : Tensor(x_grad)
+  output : Tensor(x_grad), Tensor(lu_grad)
   infer_meta :
-    func : UnchangedInferMeta
-    param : [x]
+    func : GeneralBinaryGradInferMeta
+    param : [x, lu]
   kernel :
     func : lu_solve_grad
     data_type : x

@@ -3573,7 +3573,7 @@ def lu(
         return lu, p
 
 
-def lu_solve(b: Tensor, lu_data: Tensor, pivots: Tensor, name=None):
+def lu_solve(b: Tensor, lu_data: Tensor, pivots: Tensor, trans: str = "N", name=None):
     r"""
     Computes the solution y to the system of linear equations :math:`Ay = b` ,
     given LU decomposition :math:`A` and column vector :math:`b`.
@@ -3587,6 +3587,7 @@ def lu_solve(b: Tensor, lu_data: Tensor, pivots: Tensor, name=None):
         pivots (Tensor): Permutation matrix P of LU decomposition. It has
             shape :math:`(*, m)`, where :math:`*` is batch dimensions, that can be converted
             to a permutation matrix P, with data type int32.
+        trans (str): The transpose of the matrix A. It can be "N" or "T",
 
     Returns:
         Tensor, the same data type as the `b` and `lu_data`.
@@ -3619,7 +3620,7 @@ def lu_solve(b: Tensor, lu_data: Tensor, pivots: Tensor, name=None):
         raise ValueError(f'`pivots` shape[-1] must be equal to `lu_data` shape[-1], but got {pivots.shape[-1]} and {lu_data.shape[-1]}')
 
     if in_dynamic_or_pir_mode():
-        out = _C_ops.lu_solve(b, lu_data, pivots, 'N')
+        out = _C_ops.lu_solve(b, lu_data, pivots, trans)
     else:
         check_variable_and_dtype(b, 'dtype', ['float32', 'float64'], 'lu_solve')
         check_variable_and_dtype(lu_data, 'dtype', ['float32', 'float64'], 'lu_solve')
@@ -3628,9 +3629,9 @@ def lu_solve(b: Tensor, lu_data: Tensor, pivots: Tensor, name=None):
         out = helper.create_variable_for_type_inference(dtype=b.dtype)
         helper.append_op(
             type='lu_solve',
-            inputs={'X': b, 'Lu': lu_data, 'Pivots': pivots},
-            outputs={'Out': out},
-            attrs={'trans':'N'}
+            inputs={'x': b, 'lu': lu_data, 'pivots': pivots},
+            outputs={'out': out},
+            attrs={'trans':trans}
         )
     return out
 

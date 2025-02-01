@@ -16,8 +16,8 @@
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/funcs/lapack/lapack_function.h"
 
-#include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/enforce.h"
+#include "paddle/phi/kernels/impl/lu_kernel_impl.h"
 #include "paddle/phi/kernels/lu_solve_kernel.h"
 
 namespace phi {
@@ -37,7 +37,8 @@ void LuSolveKernel(const Context& dev_ctx,
   // Allocate output tensor
   dev_ctx.template Alloc<T>(out);
   // Copy RHS data to output (will be overwritten with solution)
-  phi::Copy(dev_ctx, x, x.place(), false, out);
+  // phi::Copy(dev_ctx, x, x.place(), false, out);
+  *out = Transpose2DTo6D<Context, T>(dev_ctx, x);
 
   // Prepare LAPACK parameters
   char trans_char = (trans == "N") ? 'N' : ((trans == "T") ? 'T' : 'C');
@@ -55,8 +56,8 @@ void LuSolveKernel(const Context& dev_ctx,
   auto pivots_data = reinterpret_cast<int*>(const_cast<int*>(pivots.data<int>()));
 
   for (int i = 0; i < batchsize; i++) {
-    auto* out_data_item = &out_data[i * n_int * n_int];
-    auto* lu_data_item = &lu_data[i * n_int * n_int];
+    auto* out_data_item = &out_data[i * lda * n_int];
+    auto* lu_data_item = &lu_data[i * ldb * nrhs_int];
     auto* pivots_data_item = &pivots_data[i * n_int];
     phi::funcs::lapackLuSolve<T>(
       trans_char,
@@ -75,6 +76,7 @@ void LuSolveKernel(const Context& dev_ctx,
       "LU solve failed with error code %d. Check if matrix is singular.",
       info));
   }
+  *out = Transpose2DTo6D<Context, T>(dev_ctx, *out);
 }
 }  // namespace phi
 
