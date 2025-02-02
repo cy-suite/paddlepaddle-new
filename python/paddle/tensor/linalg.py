@@ -3091,7 +3091,7 @@ def svd_lowrank(
     If :math:`X` is the input matrix or a batch of input matrices, the output should satisfies:
 
     .. math::
-        X \approx U * diag(S) * V^{T}
+        X \approx U * diag(S) * V^{H}
 
     When :math:`M` is given, the output should satisfies:
 
