@@ -3798,7 +3798,7 @@ def clip(
         min_ = float(np.finfo(np.float32).min)
         max_ = float(np.finfo(np.float32).max)
 
-    if paddle.to_tensor(min) or paddle.to_tensor(max):
+    if paddle.is_tensor(min) or paddle.is_tensor(max):
         min = min_ if min is None else min
         max = max_ if max is None else max
         min = (
@@ -3905,7 +3905,7 @@ def clip_(
     min = fmin if min is None else min
     max = fmax if max is None else max
 
-    if paddle.to_tensor(min) or paddle.to_tensor(max):
+    if paddle.is_tensor(min) or paddle.is_tensor(max):
         min = (
             min
             if paddle.is_tensor(min)
