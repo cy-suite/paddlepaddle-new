@@ -513,7 +513,7 @@ void ShapeConstraintIRAnalysis::InferShapeOrDataForValue(Value val) {
     }
   };
 
-  const auto& VisitNotInferedInputOp =
+  const auto& VisitNotInferredInputOp =
       [&](Operation* op, const std::function<void(Operation*)>& Visit) {
         for (auto& operand : GetRealOperandSource(op)) {
           if (operand.impl() && !context_.HasShapeOrDataForValue(operand)) {
@@ -526,7 +526,8 @@ void ShapeConstraintIRAnalysis::InferShapeOrDataForValue(Value val) {
         }
       };
 
-  ::common::BfsWalker<Operation*> build_subgraph_walker(VisitNotInferedInputOp);
+  ::common::BfsWalker<Operation*> build_subgraph_walker(
+      VisitNotInferredInputOp);
   build_subgraph_walker(val.defining_op(), [&](Operation* op) {
     subgraph_ops.insert(op);
     bool has_prev_op = false;
