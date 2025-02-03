@@ -3385,6 +3385,7 @@ USE_TRT_CONVERTER(multiclass_nms3);
 USE_TRT_CONVERTER(nearest_interp);
 USE_TRT_CONVERTER(nearest_interp_v2);
 USE_TRT_CONVERTER(bilinear_interp_v2);
+USE_TRT_CONVERTER(linear_interp_v2);
 USE_TRT_CONVERTER(reshape);
 USE_TRT_CONVERTER(reshape2);
 USE_TRT_CONVERTER(gather_nd);
