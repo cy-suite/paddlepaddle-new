@@ -31,14 +31,13 @@ jobs:
     - name: Clone paddle
       uses: actions/checkout@v4
       with:
-        ref: ${{ github.event.pull_request.base.ref }}
+        # ref: ${{ github.event.pull_request.base.ref }}
         submodules: 'recursive'
         fetch-depth: 1000
 
     - name: Merge PR to test branch
       run: |
-        git fetch origin refs/pull/${PR_ID}/merge
-        git checkout -b test FETCH_HEAD
+        git log
 
     - name: Download bos client
       env:
