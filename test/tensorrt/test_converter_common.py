@@ -476,6 +476,9 @@ class TestLinearInterpTRTPattern(TensorRTBaseTest):
     def test_trt_result(self):
         self.check_trt_result()
 
+    def test_fp16_trt_result(self):
+        self.check_trt_result(precision_mode="fp16")
+
 
 class TestLinearInterpCase1TRTPattern(TensorRTBaseTest):
     def setUp(self):
@@ -501,6 +504,9 @@ class TestLinearInterpCase1TRTPattern(TensorRTBaseTest):
 
     def test_trt_result(self):
         self.check_trt_result()
+
+    def test_fp16_trt_result(self):
+        self.check_trt_result(precision_mode="fp16")
 
 
 class TestLinearInterpCase2TRTPattern(TensorRTBaseTest):
@@ -528,6 +534,9 @@ class TestLinearInterpCase2TRTPattern(TensorRTBaseTest):
     def test_trt_result(self):
         self.check_trt_result()
 
+    def test_fp16_trt_result(self):
+        self.check_trt_result(precision_mode="fp16")
+
 
 class TestLinearInterpCase3TRTPattern(TensorRTBaseTest):
     def setUp(self):
@@ -553,6 +562,9 @@ class TestLinearInterpCase3TRTPattern(TensorRTBaseTest):
 
     def test_trt_result(self):
         self.check_trt_result()
+
+    def test_fp16_trt_result(self):
+        self.check_trt_result(precision_mode="fp16")
 
 
 class TestLinearInterpCase4TRTPattern(TensorRTBaseTest):
@@ -580,6 +592,9 @@ class TestLinearInterpCase4TRTPattern(TensorRTBaseTest):
     def test_trt_result(self):
         self.check_trt_result()
 
+    def test_fp16_trt_result(self):
+        self.check_trt_result(precision_mode="fp16")
+
 
 class TestLinearInterpCase5TRTPattern(TensorRTBaseTest):
     def setUp(self):
@@ -605,6 +620,9 @@ class TestLinearInterpCase5TRTPattern(TensorRTBaseTest):
 
     def test_trt_result(self):
         self.check_trt_result()
+
+    def test_fp16_trt_result(self):
+        self.check_trt_result(precision_mode="fp16")
 
 
 if __name__ == "__main__":
