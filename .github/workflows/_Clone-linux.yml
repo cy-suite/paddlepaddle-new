@@ -50,7 +50,7 @@ jobs:
         bos_file: "~/bos_upload.py"
       run: |
         if [ ! -f "${bos_file}" ]; then
-          wget -q --no-proxy -O "${bos_path}"  https://paddle-docker-tar.cdn.bcebos.com/bos_upload.py --no-check-certificate
+          wget -q --no-proxy -O ~  https://paddle-docker-tar.cdn.bcebos.com/bos_upload.py --no-check-certificate
         fi
 
     - name: Push paddle-action.tar.gz to bos
