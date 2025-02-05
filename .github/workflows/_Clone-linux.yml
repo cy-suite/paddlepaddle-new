@@ -6,11 +6,11 @@ on:
       PR_ID:
         description: 'PR number'
         required: true
-        type: string
+        type: number
       COMMIT_ID:
         description: 'commit number'
         required: true
-        type: string
+        type: number
 
 env:
   PR_ID: ${{ inputs.PR_ID }}
