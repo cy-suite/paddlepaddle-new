@@ -1088,10 +1088,12 @@ struct SimplifyBroadcast {
 
 /*
  * Simplify Example:
- *
+ * Div(Mul(S0, S1), S1) => S0
  */
+
 struct SimplifyDiv {
   using dim_expr_type = Div<DimExpr>;
+
   std::pair<int64_t, int64_t> SimplifiedConstRational(int64_t num,
                                                       int64_t dem) {
     if (num == 0 && dem == 0) {
@@ -1101,49 +1103,58 @@ struct SimplifyDiv {
     std::int64_t gcd = std::gcd(num, dem);
     return std::pair{num / gcd, dem / gcd};
   }
+
   DimExpr Rewrite(const DimExpr& expr) {
     const auto div_expr = expr.Get<Div<DimExpr>>();
     const auto lhs = div_expr->lhs;
     const auto rhs = div_expr->rhs;
     PADDLE_ENFORCE_NE(
         rhs, symbol::DimExpr{0}, "In SimplifyDiv Pass dem cannot be zero.");
+
     if (lhs.Has<std::int64_t>() && rhs.Has<std::int64_t>()) {
       auto [num, dem] = SimplifiedConstRational(lhs.Get<std::int64_t>(),
                                                 rhs.Get<std::int64_t>());
       return DimExpr{num / dem};
     }
 
-    List<DimExpr> lhs_operands = lhs.Has<Mul<DimExpr>>()
-                                     ? lhs.Get<Mul<DimExpr>>().operands
-                                     : List<DimExpr>{lhs};
-    List<DimExpr> rhs_operands = rhs.Has<Mul<DimExpr>>()
-                                     ? rhs.Get<Mul<DimExpr>>().operands
-                                     : List<DimExpr>{rhs};
+    auto getOperandsList = [](const DimExpr& expr) -> List<DimExpr> {
+      return expr.Has<Mul<DimExpr>>() ? expr.Get<Mul<DimExpr>>().operands
+                                      : List<DimExpr>{expr};
+    };
+    List<DimExpr> lhs_operands = getOperandsList(lhs);
+    List<DimExpr> rhs_operands = getOperandsList(rhs);
 
-    std::vector<DimExpr> rhs_set(rhs_operands->begin(), rhs_operands->end());
+    auto cancelCommonOperands = [](const List<DimExpr>& lhsList,
+                                   const List<DimExpr>& rhsList)
+        -> std::pair<List<DimExpr>, List<DimExpr>> {
+      List<DimExpr> newLhs;
+      std::vector<DimExpr> rhsVec(rhsList->begin(), rhsList->end());
+      for (const auto& operand : *lhsList) {
+        auto it = std::find(rhsVec.begin(), rhsVec.end(), operand);
+        if (it != rhsVec.end()) {
+          rhsVec.erase(it);
+        } else {
+          newLhs->emplace_back(operand);
+        }
+      }
+      List<DimExpr> newRhs(rhsVec.begin(), rhsVec.end());
+      return {newLhs, newRhs};
+    };
+    auto [new_lhs_operands, new_rhs_operands] =
+        cancelCommonOperands(lhs_operands, rhs_operands);
 
-    List<DimExpr> new_lhs_operands{};
-    for (const auto& lhs_operand : *lhs_operands) {
-      auto it = std::find(rhs_set.begin(), rhs_set.end(), lhs_operand);
-      if (it != rhs_set.end()) {
-        rhs_set.erase(it);
-      } else {
-        new_lhs_operands->emplace_back(lhs_operand);
+    auto filterIntOperands =
+        [](const List<DimExpr>& operands) -> std::vector<DimExpr> {
+      std::vector<DimExpr> res;
+      for (const auto& operand : *operands) {
+        if (operand.Has<std::int64_t>()) {
+          res.push_back(operand);
+        }
       }
-    }
-    List<DimExpr> new_rhs_operands(rhs_set.begin(), rhs_set.end());
-    std::vector<DimExpr> LhsIntSym;
-    std::vector<DimExpr> RhsIntSym;
-    for (const auto& lhs_operand : *new_lhs_operands) {
-      if (lhs_operand.Has<std::int64_t>()) {
-        LhsIntSym.push_back(lhs_operand);
-      }
-    }
-    for (const auto& rhs_operand : *new_rhs_operands) {
-      if (rhs_operand.Has<std::int64_t>()) {
-        RhsIntSym.push_back(rhs_operand);
-      }
-    }
+      return res;
+    };
+    auto LhsIntSym = filterIntOperands(new_lhs_operands);
+    auto RhsIntSym = filterIntOperands(new_rhs_operands);
     List<DimExpr> last_lhs_operands{};
     List<DimExpr> last_rhs_operands{};
     if (!LhsIntSym.empty() && !RhsIntSym.empty()) {
@@ -1155,26 +1166,25 @@ struct SimplifyDiv {
       int64_t old_lhs = LhsIntSym.at(0).Get<std::int64_t>();
       int64_t old_rhs = RhsIntSym.at(0).Get<std::int64_t>();
       auto [new_lhs, new_rhs] = SimplifiedConstRational(old_lhs, old_rhs);
-      for (const auto& lhs_operand : *new_lhs_operands) {
-        if (lhs_operand.Has<std::int64_t>() &&
-            lhs_operand.Get<std::int64_t>() == old_lhs) {
-          if (lhs_operand.Get<std::int64_t>() != 1) {
-            last_lhs_operands->emplace_back(new_lhs);
+
+      auto replaceIntOperand = [=](const List<DimExpr>& operands,
+                                   int64_t oldInt,
+                                   int64_t newVal) -> List<DimExpr> {
+        List<DimExpr> res;
+        for (const auto& operand : *operands) {
+          if (operand.Has<std::int64_t>() &&
+              operand.Get<std::int64_t>() == oldInt) {
+            if (oldInt != 1) {
+              res->emplace_back(newVal);
+            }
+          } else {
+            res->emplace_back(operand);
           }
-        } else {
-          last_lhs_operands->emplace_back(lhs_operand);
         }
-      }
-      for (const auto& rhs_operand : *new_rhs_operands) {
-        if (rhs_operand.Has<std::int64_t>() &&
-            rhs_operand.Get<std::int64_t>() == old_rhs) {
-          if (rhs_operand.Get<std::int64_t>() != 1) {
-            last_rhs_operands->emplace_back(new_rhs);
-          }
-        } else {
-          last_rhs_operands->emplace_back(rhs_operand);
-        }
-      }
+        return res;
+      };
+      last_lhs_operands = replaceIntOperand(new_lhs_operands, old_lhs, new_lhs);
+      last_rhs_operands = replaceIntOperand(new_rhs_operands, old_rhs, new_rhs);
     } else {
       last_lhs_operands = new_lhs_operands;
       last_rhs_operands = new_rhs_operands;
