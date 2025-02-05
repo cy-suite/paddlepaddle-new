@@ -1336,7 +1336,7 @@ phi::KernelKey GetKernelKey(
   }
 
   if (kernel_backend == phi::Backend::UNDEFINED) {
-    VLOG(8) << "Kernel backend cannot be infered from op operands";
+    VLOG(8) << "Kernel backend cannot be inferred from op operands";
     kernel_backend = paddle::experimental::ParseBackend(place);
   }
 
@@ -1348,7 +1348,7 @@ phi::KernelKey GetKernelKey(
 #endif
   phi::KernelKey res(kernel_backend, kernel_layout, kernel_dtype);
 
-  // kernel backend infered incorrectly from memcpy op operands,
+  // kernel backend inferred incorrectly from memcpy op operands,
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
   // case that place from (not GPU) to GPU.
   // We handle this special case by following code to fix up the problem.
