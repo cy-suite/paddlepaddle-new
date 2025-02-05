@@ -11,6 +11,10 @@ on:
         description: 'commit number'
         required: true
         type: string
+      PR_REF:
+        description: 'pr ref'
+        required: true
+        type: string
 
 env:
   PR_ID: ${{ inputs.PR_ID }}
@@ -37,7 +41,7 @@ jobs:
 
     - name: Merge PR to test branch
       run: |
-        git fetch origin pull/${PR_ID}/merge
+        git fetch origin ${PR_REF}
         git checkout -b test FETCH_HEAD
 
     - name: Download bos client

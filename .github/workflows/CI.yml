@@ -7,6 +7,7 @@ on:
 env:
   PR_ID: ${{ github.event.pull_request.number }}
   COMMIT_ID: ${{ github.event.pull_request.head.sha }}
+  PR_REF: ${{ github.event.pull_request.head.ref }}
 
 jobs:
   Clone:
@@ -14,6 +15,8 @@ jobs:
     with:
       PR_ID: ${PR_ID}
       COMMIT_ID: ${COMMIT_ID}
+      PR_REF: ${PR_REF}
+
 
   # SOT:
   #   uses: ./.github/workflows/_SOT.yml
