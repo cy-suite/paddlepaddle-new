@@ -41,6 +41,7 @@ jobs:
 
     - name: Merge PR to test branch
       run: |
+        echo ${PR_REF}
         git fetch origin ${PR_REF}
         git checkout -b test FETCH_HEAD
 
@@ -63,7 +64,7 @@ jobs:
         python -m pip install bce-python-sdk==0.8.74
         python ${bos_file} Paddle.tar.gz paddle-github-action/PR/Paddle/${PR_ID}/${COMMIT_ID}
 
-    - name: Clean environment
-      if: always()
-      run: |
-        rm -rf /home/paddle/actions-runner/_work/Paddle/Paddle/*
+    # - name: Clean environment
+    #   if: always()
+    #   run: |
+    #     rm -rf /home/paddle/actions-runner/_work/Paddle/Paddle/*
