@@ -26,9 +26,11 @@ void LuSolveGradKernel(const Context& dev_ctx,
                        const DenseTensor& x,
                        const DenseTensor& lu,
                        const DenseTensor& pivots,
+                       const DenseTensor& out,
                        const DenseTensor& out_grad,
                        const std::string& trans,
-                       DenseTensor* x_grad) {
+                       DenseTensor* x_grad,
+                       DenseTensor* lu_grad) {
   // Allocate memory for x_grad
   dev_ctx.template Alloc<T>(x_grad);
 
