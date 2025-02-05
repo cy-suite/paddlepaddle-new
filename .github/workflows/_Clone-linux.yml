@@ -38,10 +38,12 @@ jobs:
     - name: Merge PR to test branch
       run: |
         git checkout -b test
+        git config --global user.name "paddleCI"
+        git config --global user.email "paddleCI@badiu.com"
         git fetch origin pull/${{ github.event.pull_request.number }}/head:pr
+        git branch
         git merge --no-ff pr
         git checkout -d pr
-        git branch
 
     - name: Download bos client
       env:
