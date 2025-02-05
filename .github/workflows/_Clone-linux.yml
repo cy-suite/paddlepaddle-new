@@ -33,8 +33,8 @@ jobs:
 
     - name: Merge PR to test branch
       run: |
-        git fetch origin pull/${PR_ID}/merge
-        git checkout -b test FETCH_HEAD
+        git fetch origin pull/${PR_ID}/merge:test
+        git checkout test
 
     - name: Download bos client
       env:
