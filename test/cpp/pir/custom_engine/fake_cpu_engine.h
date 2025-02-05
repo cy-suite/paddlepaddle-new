@@ -17,6 +17,7 @@
 
 #include "paddle/fluid/custom_engine/custom_engine_ext.h"
 #include "paddle/fluid/framework/new_executor/instruction/custom_engine_instruction.h"
+#include "paddle/fluid/framework/new_executor/pir_adaptor/pir_adaptor_util.h"
 #include "test/cpp/pir/custom_engine/custom_engine_op.h"
 #include "test/cpp/pir/custom_engine/fake_cpu_engine_base.h"
 
