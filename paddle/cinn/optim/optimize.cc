@@ -44,6 +44,8 @@
 #include "paddle/cinn/optim/vectorize_loops.h"
 #include "paddle/cinn/pass/pass_manager.h"
 
+PD_DECLARE_bool(cinn_enable_vectorize);
+
 namespace cinn {
 namespace optim {
 
@@ -122,10 +124,12 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
 
   target.arch.Match(
       [&](common::NVGPUArch) {
-        FuncPassManager func_pass_manager;
-        func_pass_manager.AddPass(CreateRearrangeLoadInstructionPass());
-        func_pass_manager.Run(copied);
-        VLOG(4) << "After Optimize RearrangeLoadInstruction:" << copied;
+        if (!FLAGS_cinn_enable_vectorize) {
+          FuncPassManager func_pass_manager;
+          func_pass_manager.AddPass(CreateRearrangeLoadInstructionPass());
+          func_pass_manager.Run(copied);
+          VLOG(4) << "After Optimize RearrangeLoadInstruction:" << copied;
+        }
       },
       [](auto) {});
 

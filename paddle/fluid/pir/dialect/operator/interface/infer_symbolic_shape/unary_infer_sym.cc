@@ -3028,7 +3028,7 @@ bool ReshapeOpInferSymbolicShape(
       }
     }
 
-    // replace '-1' with infered shape
+    // replace '-1' with inferred shape
 
     const auto &product_exclude_minus_one =
         GetProduct(target_shape, IsPositiveInteger);
