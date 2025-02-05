@@ -291,7 +291,7 @@ struct SortOperands {
     PADDLE_ENFORCE_EQ(
         !operands->empty(),
         true,
-        common::errors::InvalidArgument("input op is empty, pleace check!"));
+        common::errors::InvalidArgument("input op is empty, please check!"));
     for (std::size_t i = 0; i < operands->size() - 1; ++i) {
       if (IsLhsBeforeRhs(operands->at(i + 1), operands->at(i))) {
         return false;

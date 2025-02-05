@@ -45,11 +45,11 @@ class TestElementwiseSPMDRule(unittest.TestCase):
         result_dist_attrs = self.clip_rule.infer_forward(
             self.x_dist_tensor_spec
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
-        self.assertEqual(infered_input_dist_attrs[0].dims_mapping, [-1, 0])
-        self.assertEqual(infered_output_dist_attrs[0].dims_mapping, [-1, 0])
+        self.assertEqual(inferred_input_dist_attrs[0].dims_mapping, [-1, 0])
+        self.assertEqual(inferred_output_dist_attrs[0].dims_mapping, [-1, 0])
 
     def test_backward_single_mesh_dim(self):
         # [-1, 0]--> [-1, 0], [-1, 0] (output --> inputs, output)
@@ -58,11 +58,11 @@ class TestElementwiseSPMDRule(unittest.TestCase):
         result_dist_attrs = self.clip_rule.infer_backward(
             self.x_dist_tensor_spec, self.out_dist_tensor_spec
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
-        self.assertEqual(infered_input_dist_attrs[0].dims_mapping, [-1, 0])
-        self.assertEqual(infered_output_dist_attrs[0].dims_mapping, [-1, 0])
+        self.assertEqual(inferred_input_dist_attrs[0].dims_mapping, [-1, 0])
+        self.assertEqual(inferred_output_dist_attrs[0].dims_mapping, [-1, 0])
 
 
 if __name__ == "__main__":
