@@ -41,8 +41,8 @@ jobs:
 
     - name: Merge PR to test branch
       run: |
-        echo ${inputs.MERGE_COMMIT}
-        git fetch origin ${inputs.MERGE_COMMIT}
+        echo ${{ inputs.MERGE_COMMIT }}
+        git fetch origin ${{ inputs.MERGE_COMMIT }}
         git checkout -b test FETCH_HEAD
 
     - name: Download bos client
@@ -67,4 +67,4 @@ jobs:
     # - name: Clean environment
     #   if: always()
     #   run: |
-    #     rm -rf /home/paddle/actions-runner/_work/Paddle/Paddle/*
+    #     rm -rf ${{ github.workspace }}/*
