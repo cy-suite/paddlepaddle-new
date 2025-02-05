@@ -21,7 +21,7 @@ permissions:
 
 jobs:
   Clone:
-    # Don't run on forked repos.
+    # Don't run  on forked repos.
     if: github.repository_owner == 'PaddlePaddle'
     runs-on:
       group: HK-Clone
