@@ -12,7 +12,7 @@ jobs:
   Clone:
     uses: ./.github/workflows/_Clone-linux.yml
     with:
-      PR_ID: ${PR_ID}
+      PR_ID: ${{ github.event.pull_request.number }}
       COMMIT_ID: ${COMMIT_ID}
 
   # SOT:
