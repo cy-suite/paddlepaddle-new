@@ -716,7 +716,6 @@ def to_distributed(
         model.forward, input_spec=custom_input_spec, full_graph=True
     )
     program = static_func.concrete_program.main_program
-    print("whtest program = ", program)
     # currently, paddle.jit.to_static has side effects that will affect model.
     # After fixing it, one line of code below can be dropped
     static_func.rollback()
@@ -802,16 +801,6 @@ def to_distributed(
                     local_mesh = mesh.get_mesh_with_dim("pp", pp_stage_id)
 
                 for program_ops_id, dist_infos in processed_pattern.items():
-                    print("whdbg program_ops_id = ", program_ops_id)
-                    print("whdbg dist_infos = ", dist_infos)
-                    print(
-                        "whdbg ops_id_to_layer.keys() = ",
-                        ops_id_to_layer.keys(),
-                    )
-                    print(
-                        "whdbg ops_id_to_layer = ",
-                        ops_id_to_layer,
-                    )
                     assert (
                         program_ops_id in ops_id_to_layer.keys()
                     ), f"program_ops: {program_ops_id} is not corresponding to a dynamic layer, program = {program}"
