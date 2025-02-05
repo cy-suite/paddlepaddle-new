@@ -31,17 +31,20 @@ jobs:
     - name: Clone paddle
       uses: actions/checkout@v4
       with:
-        # ref: ${{ github.event.pull_request.base.ref }}
+        ref: ${{ github.event.pull_request.base.ref }}
         submodules: 'recursive'
         fetch-depth: 1000
 
     - name: Merge PR to test branch
       run: |
-        git branch
+        git checkout -b test
+        git fetch origin pull/${{ github.event.pull_request.number }}/head:pr
+        git merge --no-ff pr
+        git checkout -d pr
 
     - name: Download bos client
       env:
-        bos_file: "~/bos_upload.py"
+        bos_file: "/home/paddle/actions-runner/bos_upload.py"
       run: |
         if [ ! -f "${bos_file}" ]; then
           wget -q --no-proxy -O ${bos_file} https://paddle-docker-tar.cdn.bcebos.com/bos_upload.py --no-check-certificate
