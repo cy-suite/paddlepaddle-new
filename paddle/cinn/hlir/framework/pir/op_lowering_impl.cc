@@ -382,12 +382,12 @@ std::vector<ir::LoweredFunc> OpLowererImpl::PostProcess(
                            common::ARMArch>) {},
           [&](common::NVGPUArch) {
 #ifdef CINN_WITH_CUDA
-            optim::EliminateCommonGlobalMemoryRead(&(func_body));
+            // optim::EliminateCommonGlobalMemoryRead(&(func_body));
             optim::OptimizeExprGPU(&(func_body));
 #endif
           },
           [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
-            optim::EliminateCommonGlobalMemoryRead(&(func_body));
+            // optim::EliminateCommonGlobalMemoryRead(&(func_body));
             optim::OptimizeExprGPU(&(func_body));
           });
     }
@@ -743,6 +743,8 @@ ir::LoweredFunc OpLowererImpl::GenerateInferShapeFunc(
                               group_func_args,
                               ir::Block::Make(ir_bodys),
                               {});
+  infer_shape_func->body_block =
+      ir::ConvertExprBlockToStmtBlock(infer_shape_func->body);
   return infer_shape_func;
 }
 ir::Expr OpLowererImpl::LowerX86(const OpLoweringGroupPtr& group,

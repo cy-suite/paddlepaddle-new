@@ -26,6 +26,7 @@ from dataclasses import dataclass
 from itertools import chain
 from typing import TYPE_CHECKING, Any, Callable
 
+import paddle
 from paddle.jit.utils import OrderedSet
 
 from ...profiler import EventGuard, event_register
@@ -886,7 +887,9 @@ class OpcodeExecutorBase:
             getattr, graph=self._graph, tracker=DanglingTracker()
         )(obj, method_name_var)
 
-        if isinstance(method, MethodVariable) and "__getattr__" not in dir(
+        if isinstance(
+            method, MethodVariable
+        ) and not paddle.base.libpaddle.has_custom_getattro(
             method.bound_instance.get_py_type()
         ):
             # bound method or the class override the __getattr__
@@ -1074,7 +1077,8 @@ class OpcodeExecutorBase:
         assert map_size + 1 <= len(
             self.stack
         ), f"OpExecutor want BUILD_CONST_KEY_MAP with size {map_size} + 1, but current stack do not have enough elems."
-        keys = self.stack.pop().get_items()
+        keys = self.stack.pop().get_wrapped_items()
+        keys = list(keys) if isinstance(keys, tuple) else keys
         assert len(keys) == map_size
         values = self.stack.pop_n(map_size)
         self.stack.push(self.build_map(keys, values))
@@ -2480,7 +2484,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         extra_store_vars = (
             [
                 item
-                for item in iterator.flatten_items()
+                for item in iterator.flatten_inner_vars()
                 if isinstance(item, (TensorVariable, SymbolicVariable))
             ]
             if isinstance(iterator, IterVariable)
