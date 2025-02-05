@@ -803,7 +803,7 @@ def to_distributed(
                 for program_ops_id, dist_infos in processed_pattern.items():
                     assert (
                         program_ops_id in ops_id_to_layer.keys()
-                    ), f"program_ops: {program_ops_id} is not corresponding to a dynamic layer, program = {program}"
+                    ), f"program_ops: {program_ops_id} is not corresponding to a dynamic layer"
                     dynamic_layer = ops_id_to_layer[program_ops_id]
                     mesh_num_dims = len(local_mesh.shape)
                     sharding_info = dist_infos.get_dist_info(mesh_num_dims)
