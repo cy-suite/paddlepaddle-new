@@ -3814,7 +3814,24 @@ def clip(
 
         min = min if min.dtype == x.dtype else paddle.cast(min, x.dtype)
         max = max if max.dtype == x.dtype else paddle.cast(max, x.dtype)
-        x_bcast, min_bcast, max_bcast = paddle.broadcast_tensors([x, min, max])
+
+        tem_shape = broadcast_shape(x.shape, min.shape)
+        out_shape = broadcast_shape(tem_shape, max.shape)
+        min_bcast = (
+            paddle.broadcast_to(min, out_shape)
+            if min.shape != out_shape
+            else min
+        )
+        max_bcast = (
+            paddle.broadcast_to(max, out_shape)
+            if max.shape!= out_shape
+            else max
+        )
+        x_bcast = (
+            paddle.broadcast_to(x, out_shape)
+            if x.shape!= out_shape
+            else x
+        )
         min_bcast.stop_gradient = True
         max_bcast.stop_gradient = True
         if in_dynamic_or_pir_mode():
