@@ -964,8 +964,6 @@ class TrtLayerAutoScanTest(AutoScanTest):
                             trt_program = self.transform_to_trt_program(
                                 pir_main_program, trt_config
                             )
-                            for op in trt_program.global_block().ops:
-                                print(op)
 
                             assert any(
                                 op.name() == "pd_op.tensorrt_engine"
@@ -1089,11 +1087,6 @@ class TrtLayerAutoScanTest(AutoScanTest):
                             atol, rtol, trt_result, baseline_result
                         )
                         trt_engine_num, paddle_op_num = nodes_num
-                        if trt_engine_num == 0:
-                            raise RuntimeError(
-                                f"No nodes were converted to TRTEngine.Expected TRT Nodes but got:"
-                                f"trt_nodes_num={trt_engine_num},total_nodes_num={paddle_op_num}."
-                            )
                         self.assert_op_size(trt_engine_num, paddle_op_num)
                         # deserialize test
                         if trt_engine_num > 0:
