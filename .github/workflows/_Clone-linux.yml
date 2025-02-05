@@ -6,18 +6,15 @@ on:
       PR_ID:
         description: 'PR number'
         required: true
-        type: number
+        type: string
       COMMIT_ID:
         description: 'commit number'
         required: true
-        type: number
+        type: string
 
 env:
   PR_ID: ${{ inputs.PR_ID }}
   COMMIT_ID: ${{ inputs.COMMIT_ID }}
-
-permissions:
-  contents: read
 
 jobs:
   Clone:
