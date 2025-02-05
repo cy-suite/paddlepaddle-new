@@ -435,18 +435,6 @@ def linear_interp_test(
     align_corners=True,
     align_mode=0,
 ):
-    # if isinstance(scale, (float, int)):
-    #     scale_list = []
-    #     for _ in range(len(x.shape) - 2):
-    #         scale_list.append(scale)
-    #     scale = list(map(float, scale_list))
-    # elif isinstance(scale, (list, tuple)):
-    #     scale = list(map(float, scale))
-    # if SizeTensor is not None:
-    #     if not isinstance(SizeTensor, list) and not isinstance(
-    #         SizeTensor, tuple
-    #     ):
-    #         SizeTensor = [SizeTensor]
     return paddle._C_ops.linear_interp(
         x,
         OutSize,
