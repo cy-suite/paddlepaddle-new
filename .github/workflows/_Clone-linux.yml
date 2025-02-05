@@ -11,8 +11,8 @@ on:
         description: 'commit number'
         required: true
         type: string
-      PR_REF:
-        description: 'pr ref'
+      MERGE_COMMIT:
+        description: ''
         required: true
         type: string
 
@@ -41,8 +41,8 @@ jobs:
 
     - name: Merge PR to test branch
       run: |
-        echo ${PR_REF}
-        git fetch origin ${PR_REF}
+        echo ${inputs.MERGE_COMMIT}
+        git fetch origin ${inputs.MERGE_COMMIT}
         git checkout -b test FETCH_HEAD
 
     - name: Download bos client
