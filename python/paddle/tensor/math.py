@@ -3806,12 +3806,13 @@ def clip(
             if paddle.is_tensor(min)
             else paddle.full_like(x, float(min), x.dtype)
         )
+        min.stop_gradient = True
         max = (
             max
             if paddle.is_tensor(max)
             else paddle.full_like(x, float(max), x.dtype)
         )
-
+        max.stop_gradient = True
         min = min if min.dtype == x.dtype else paddle.cast(min, x.dtype)
         max = max if max.dtype == x.dtype else paddle.cast(max, x.dtype)
 
@@ -3832,8 +3833,6 @@ def clip(
             if x.shape!= out_shape
             else x
         )
-        min_bcast.stop_gradient = True
-        max_bcast.stop_gradient = True
         if in_dynamic_or_pir_mode():
             return _C_ops.clip_tensor(x_bcast, min_bcast, max_bcast)
         else:
