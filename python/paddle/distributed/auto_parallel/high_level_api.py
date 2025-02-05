@@ -808,9 +808,13 @@ def to_distributed(
                         "whdbg ops_id_to_layer.keys() = ",
                         ops_id_to_layer.keys(),
                     )
+                    print(
+                        "whdbg ops_id_to_layer = ",
+                        ops_id_to_layer,
+                    )
                     assert (
                         program_ops_id in ops_id_to_layer.keys()
-                    ), f"program_ops: {program_ops_id} is not corresponding to a dynamic layer"
+                    ), f"program_ops: {program_ops_id} is not corresponding to a dynamic layer, program = {program}"
                     dynamic_layer = ops_id_to_layer[program_ops_id]
                     mesh_num_dims = len(local_mesh.shape)
                     sharding_info = dist_infos.get_dist_info(mesh_num_dims)
