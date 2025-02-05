@@ -160,7 +160,9 @@ ShardableAxesSignature CreateSignatureForElementWise(pir::Operation* op) {
                       GetCompatibleRank(op->operand_source(i)),
                       ::common::errors::PreconditionNotMet(
                           "Required all inputs rank shall be equal output in "
-                          "elementwise op."));
+                          "elementwise op : %s [id:%d]",
+                          op->name(),
+                          op->id()));
     result.inputs.emplace_back(same_axes);
   }
   for (int i = 0; i < op->num_results(); ++i) {
@@ -168,7 +170,9 @@ ShardableAxesSignature CreateSignatureForElementWise(pir::Operation* op) {
                       GetCompatibleRank(op->result(i)),
                       ::common::errors::PreconditionNotMet(
                           "Required all outputs rank shall be equal each other "
-                          "in elementwise op."));
+                          "in elementwise op : %s [id:%d]",
+                          op->name(),
+                          op->id()));
     result.outputs.emplace_back(same_axes);
   }
   result.loop = result.outputs.back();
@@ -259,7 +263,7 @@ ShardableAxesSignature CreateSignatureForBroadcast(
     pir::Operation* op, pir::ShapeConstraintIRAnalysis* shape_analysis) {
   ShardableAxesSignature result = ShardableAxesSignature();
 
-  const auto& broad_cast_value = GetBroadcastOpInputOuputValue(op);
+  const auto& broad_cast_value = GetBroadcastOpInputOutputValue(op);
   PADDLE_ENFORCE_EQ(broad_cast_value.has_value(),
                     true,
                     ::common::errors::PreconditionNotMet(

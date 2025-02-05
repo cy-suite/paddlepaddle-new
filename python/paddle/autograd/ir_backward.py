@@ -45,7 +45,9 @@ from paddle.autograd.backward_utils import (
     return_map_value,
     return_map_value_list,
     some_in_set,
+    update_if_output_stopgradient,
     update_no_grad_set_by_stopgradient,
+    update_while_output_stopgradient,
     warning_once,
     while_prune_check,
 )
@@ -791,6 +793,11 @@ def append_backward_ops(
                                     input_tuple[1]
                                 )
 
+                        update_if_output_stopgradient(
+                            grad_op,
+                            grad_op.as_if_op().true_block().ops[-1],
+                            grad_op.as_if_op().false_block().ops[-1],
+                        )
                         for input_tuple in inputs_used_by_other_op:
                             state.value_to_valuegrad[input_tuple[0]] = []
                         # update input_grad map
@@ -869,6 +876,10 @@ def append_backward_ops(
                             sub_state,
                             sub_bwd_value_to_block_argument_map,
                             sub_control_flow_value_to_copyvalue_map,
+                        )
+
+                        update_while_output_stopgradient(
+                            grad_op, while_grad_block.ops[-1]
                         )
                         # update input_grad map
                         update_input_grad_map(op, input_grads, origin_inputs)
@@ -1036,7 +1047,9 @@ def _complete_grad_op_chunk_id(block, state):
 
     # TODO(Ruibiao): Reorganize these unclear codes about chunk_id
     def get_op_chunk_id(op):
-        if op.dist_attr is None:
+        if op.has_attr("chunk_id"):
+            op_chunk_id = op.chunk_id
+        elif op.dist_attr is None:
             op_chunk_id = -1
             if op.name() in dist_skip_op_list:
                 op_chunk_id = infer_dist_skip_op_chunk_id(op)
@@ -1066,7 +1079,10 @@ def _complete_grad_op_chunk_id(block, state):
         fwd_op_chunk_id = get_op_chunk_id(op)
 
         for bwd_op in state.op_to_opgrad[op]:
-            if bwd_op.dist_attr is None:
+            if op.has_attr("chunk_id"):
+                bwd_op.set_int_attr("chunk_id", op.chunk_id)
+                continue
+            elif bwd_op.dist_attr is None:
                 continue
 
             if bwd_op.name() in ["pd_op.add_", "pd_op.add_n_"]:
@@ -1102,7 +1118,7 @@ def calc_gradient_helper(
     grad_outputs: Value | Sequence[Value | None] | None = None,
     no_grad_set: set[Value] | None = None,
 ) -> ValueDict:
-    block = outputs[0].get_defining_op().get_parent_block()
+    block = paddle.base.libpaddle.pir.get_current_insertion_point().block()
     state = State(block)
     if all_stop_gradient_true(block):
         logging.warning(

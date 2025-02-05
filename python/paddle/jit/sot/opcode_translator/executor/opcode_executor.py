@@ -24,7 +24,7 @@ import traceback
 import types
 from dataclasses import dataclass
 from itertools import chain
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from paddle.jit.utils import OrderedSet
 
@@ -32,6 +32,7 @@ from ...profiler import EventGuard, event_register
 from ...psdb import NO_BREAKGRAPH_CODES
 from ...utils import (
     ENV_MIN_GRAPH_SIZE,
+    ENV_SOT_FORCE_FALLBACK_SIR_IDS,
     BreakGraphError,
     FallbackError,
     InnerError,
@@ -107,6 +108,9 @@ from .variables import (
     VariableBase,
     VariableFactory,
 )
+
+if TYPE_CHECKING:
+    from .function_graph import CompileGraphResult
 
 SUPPORT_COMPARE_OP = {
     ">": operator.gt,
@@ -315,6 +319,34 @@ def fallback_when_occur_error(fn: Callable):
             )
 
     return inner
+
+
+def parse_force_fallback_sir_ids() -> set[int]:
+    ids_string = ENV_SOT_FORCE_FALLBACK_SIR_IDS.get()
+    if not ids_string:
+        return set()
+    ids = set()
+    for comma_sep_part in ids_string.split(","):
+        comma_sep_part = comma_sep_part.strip()
+        range_parts = comma_sep_part.split("-")
+        if len(range_parts) == 1:
+            ids.add(int(comma_sep_part))
+        else:
+            ids |= set(range(int(range_parts[0]), int(range_parts[1]) + 1))
+    return ids
+
+
+def need_fallback(compile_graph_result: CompileGraphResult) -> bool:
+    graph_fn, (statement_ir, _, _) = compile_graph_result
+
+    assert statement_ir.name[:4] == "SIR_"
+    sir_id = int(statement_ir.name[4:])
+    if (
+        graph_fn.graph_size() < ENV_MIN_GRAPH_SIZE.get()
+        or sir_id in parse_force_fallback_sir_ids()
+    ):
+        return True
+    return False
 
 
 class OpcodeExecutorBase:
@@ -738,22 +770,6 @@ class OpcodeExecutorBase:
 
     def binary_subscr_operation(self, key, container, opname):
         assert isinstance(key, VariableBase)
-        # TODO(xiongkun): getitem / getattr support key and attr as variable.
-        if isinstance(key, TensorVariable) and isinstance(
-            container, TensorVariable
-        ):
-            # NOTE(xiongkun): tensor[tensor] should support.
-            output = self._graph.call_tensor_method(
-                "__getitem__", container, key
-            )
-            self.stack.push(output)
-            return
-
-        if isinstance(key, TensorVariable):
-            raise BreakGraphError(
-                f"Key is a TensorVariable in {opname}, {container}[{key}]"
-            )
-
         result = BuiltinVariable(
             operator.getitem, self._graph, DanglingTracker()
         )(container, key)
@@ -957,20 +973,15 @@ class OpcodeExecutorBase:
 
     def store_subscr_operation(self, key, container, value, opname):
         assert isinstance(key, VariableBase)
-        self._graph.add_global_guarded_variable(key)
-        if isinstance(key, TensorVariable):
-            raise BreakGraphError(
-                f"Key is a TensorVariable in {opname}, {container}[{key}] = {value}"
-            )
-        # TODO(xiongkun): support tensor[tensor] = tensor, dy2static is not the same with dygraph.
-        container[key.get_py_value()] = value
+        BuiltinVariable(operator.setitem, self._graph, DanglingTracker())(
+            container, key, value
+        )
         value.debug_name = f"{container.debug_name}[{key.debug_name}]"
 
     def DELETE_SUBSCR(self, instr: Instruction):
         key = self.stack.pop()
         container = self.stack.pop()
         assert isinstance(key, VariableBase)
-        self._graph.add_global_guarded_variable(key)
         BuiltinVariable(operator.delitem, self._graph, DanglingTracker())(
             container, key
         )
@@ -1352,7 +1363,7 @@ class OpcodeExecutorBase:
         next_instr = self._instructions[self._lasti]
         assert (
             next_instr.opname in NEED_TO_BOOL
-        ), f"The bytecode is illegal! The opcode following TO_BOOL must be in ['POP_JUMP_IF_TRUE', 'POP_JUMP_IF_FALSE', 'UNARY_NOT'], the next instuction now is {next_instr.opname}"
+        ), f"The bytecode is illegal! The opcode following TO_BOOL must be in ['POP_JUMP_IF_TRUE', 'POP_JUMP_IF_FALSE', 'UNARY_NOT'], the next instruction now is {next_instr.opname}"
 
     @call_break_graph_decorator(push_n=1)
     def IS_OP(self, instr: Instruction):
@@ -2013,8 +2024,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
     def compile_return(self, ret_val):
         compile_graph_result = self._graph.compile_graph(ret_val)
-        graph_fn, _ = compile_graph_result
-        if graph_fn.graph_size() < ENV_MIN_GRAPH_SIZE.get():
+        if need_fallback(compile_graph_result):
             self.new_code = None
         else:
             self._graph.compile_function(compile_graph_result, [ret_val])
@@ -2048,15 +2058,14 @@ class OpcodeExecutor(OpcodeExecutorBase):
             _var = self.get_var(name, allow_undefined=True)
             if _var is SotUndefinedVar():
                 continue
-            if _var not in stack:
+            if _var not in store_vars:
                 store_vars.append(_var)
             store_var_info.setdefault(_var.id, [])
             store_var_info[_var.id].append(name)
 
         compile_graph_result = self._graph.compile_graph(*store_vars)
-        graph_fn, _ = compile_graph_result
 
-        if graph_fn.graph_size() < ENV_MIN_GRAPH_SIZE.get():
+        if need_fallback(compile_graph_result):
             return self._graph._restore_origin_opcode(
                 list(stack), store_var_info, end_idx
             )
@@ -2142,7 +2151,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             null_indices=null_indices,
         )
 
-        # 4. setup vars which is created in loop as Undefind
+        # 4. setup vars which is created in loop as Undefined
         for name in true_fn_input_var_names[:-1]:
             if not self.has_var(name):
                 self._graph.pycode_gen.gen_load_const(SotUndefinedVar())
@@ -2324,7 +2333,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         for_iter_idx = self.indexof(for_iter)
         loop_body_start_idx = for_iter_idx + 1
         loop_body_end_idx = self.indexof(for_iter.jump_to)
-        curent_stack = 1
+        current_stack = 1
 
         while True:
             if loop_body_start_idx >= len(self._instructions):
@@ -2332,9 +2341,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
             cur_instr = self._instructions[loop_body_start_idx]
             # do not consider jump instr
             stack_effect = calc_stack_effect(cur_instr, jump=False)
-            curent_stack += stack_effect
+            current_stack += stack_effect
             loop_body_start_idx += 1
-            if curent_stack == 0:
+            if current_stack == 0:
                 break
 
         # 2. create loop body function
@@ -2454,7 +2463,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         after_loop_fn = create_after_loop_fn()
 
-        # 4. setup vars which is created in loop as Undefind
+        # 4. setup vars which is created in loop as Undefined
         for name in loop_body_inputs[:-1]:
             if not self.has_var(name):
                 self._graph.pycode_gen.gen_load_const(SotUndefinedVar())
@@ -2469,9 +2478,12 @@ class OpcodeExecutor(OpcodeExecutorBase):
             OrderedSet(loop_body_inputs[:-1]) | after_loop_read_names
         )
         extra_store_vars = (
-            [iterator]
+            [
+                item
+                for item in iterator.flatten_items()
+                if isinstance(item, (TensorVariable, SymbolicVariable))
+            ]
             if isinstance(iterator, IterVariable)
-            and isinstance(iterator.hold, TensorVariable)
             else []
         )
         var_loader = self.get_compute_fn_and_update_changed_vars(

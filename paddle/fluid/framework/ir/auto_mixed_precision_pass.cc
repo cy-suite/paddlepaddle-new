@@ -200,6 +200,7 @@ void AutoMixedPrecisionPass::SetDefaultBlacklist() const {
       "softmax_with_cross_entropy",
       "sigmoid_cross_entropy_with_logits",
       "c_softmax_with_cross_entropy",
+      "c_softmax_with_multi_label_cross_entropy",
       "cross_entropy",
       "cross_entropy2",
 #ifndef PADDLE_WITH_XPU
@@ -565,7 +566,7 @@ void AutoMixedPrecisionPass::UpdateOpPrecision() const {
             vars_should_not_low_precision.insert(in_var_node->Var()->Name());
           }
         }
-        // when op_1 only support cpu kernel. if op_2's intput var is op_1's
+        // when op_1 only support cpu kernel. if op_2's input var is op_1's
         // output var, then op_2 should not run at low precision.
         if (GetOpOriginalType(op_type) != "feed" &&
             GetOpOriginalType(op_type) != "tensorrt_engine" &&
@@ -1069,7 +1070,7 @@ void AutoMixedPrecisionPass::InsertCastOp() const {
             cache_kv_outputs.size(),
             common::errors::InvalidArgument(
                 "Cache inputs should be the same size with cache outputs, but "
-                "recieved %d as inputs and %d as outputs.",
+                "received %d as inputs and %d as outputs.",
                 cache_kv_inputs.size(),
                 cache_kv_outputs.size()));
         for (size_t i = 0; i < cache_kv_inputs.size(); ++i) {
