@@ -381,5 +381,38 @@ enum IndexType {
  * information in some scenarios.
  */
 IndexType VerifyIndex(const ir::Expr &expr);
+
+/*!
+ * \brief The multiplication in rhs is broken down and each sub-part is
+ * independently determined to be divisible.
+ * \param lhs The dividend.
+ * \param rhs The divisor.
+ * \param ty  ty is `Mod` or `Div`.
+ * \return A optional index expression indicating whether the `lhs`
+ * is divisible, nullopt indicating not divisible.
+ *
+ * For example:
+ * 1. i * S0 * S1 * S2 / (S0 * S1) ==> i / S2
+ * 2. i * S0 * S1 / S0 ==> i * S1
+ * 3. i * S0 / (S0 + 1) ==> nullopt
+ */
+std::optional<ir::IndexExpr> DivByPartMul(const ir::IndexExpr &lhs,
+                                          const ir::IndexExpr &rhs,
+                                          ir::IrNodeTy ty);
+
+/*!
+ * \brief Simplify complex modulo expressions.
+ * \param lhs The dividend.
+ * \param rhs The divisor.
+ * \return A optional index expression indicating whether simplified
+ *
+ * For example:
+ * 1. (i / S0 * S0 + i % (S0 * S1)) % S0 ==> i % S0
+ * 2. (i / S0 * S0 * S1 + i % (S0 * S1 * S2)) % (S0 * S1) ==> i % (S0 * S1)
+ * 3. i % (S0 * S1) % S0 ==> i % S0
+ * 4. i * S0 * S1 % (S0 * S1) ==> 0
+ */
+std::optional<ir::IndexExpr> SimplifyComplexMod(const ir::IndexExpr &lhs,
+                                                const ir::IndexExpr &rhs);
 }  // namespace common
 }  // namespace cinn
