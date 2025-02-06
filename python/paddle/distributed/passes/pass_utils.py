@@ -1788,11 +1788,11 @@ def split_matmul_grad_to_matmul(
     tran_x = matmul_grad_op.attr("trans_x")
     assert (
         not tran_x
-    ), f"matmul_grad(id={matmul_grad_id}) with tran_x == True is not supported for spliting matmul_grad to matmul"
+    ), f"matmul_grad(id={matmul_grad_id}) with tran_x == True is not supported for splitting matmul_grad to matmul"
     tran_y = matmul_grad_op.attr("trans_y")
     assert (
         not tran_y
-    ), f"matmul_grad(id={matmul_grad_id}) with tran_y == True is not supported for spliting matmul_grad to matmul"
+    ), f"matmul_grad(id={matmul_grad_id}) with tran_y == True is not supported for splitting matmul_grad to matmul"
 
     x = matmul_grad_op.input("X")
     y = matmul_grad_op.input("Y")
@@ -1927,11 +1927,11 @@ def _pir_split_matmul_grad_to_matmul(block, matmul_grad_id):
 
     assert not matmul_grad_op.has_attr(
         "trans_x"
-    ), f"matmul_grad(id={matmul_grad_id}) with tran_x == True is not supported for spliting matmul_grad to matmul"
+    ), f"matmul_grad(id={matmul_grad_id}) with tran_x == True is not supported for splitting matmul_grad to matmul"
 
     assert not matmul_grad_op.has_attr(
         "trans_y"
-    ), f"matmul_grad(id={matmul_grad_id}) with tran_y == True is not supported for spliting matmul_grad to matmul"
+    ), f"matmul_grad(id={matmul_grad_id}) with tran_y == True is not supported for splitting matmul_grad to matmul"
 
     x = matmul_grad_op.operand_source(0)
     y = matmul_grad_op.operand_source(1)

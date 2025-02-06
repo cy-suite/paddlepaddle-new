@@ -239,8 +239,8 @@ def shard_tensor(
             be Shard, Replicate and Partial.
         dtype(str|np.dtype, optional): The desired data type of returned tensor.
             It Can be 'bool' , 'float16' , 'float32' , 'float64' , 'int8' , 'int16' , 'int32' , 'int64' , 'uint8',
-            'complex64' , 'complex128'. Default: None. If None, the the dtype is infered from ``data``
-            except for python float number, in which case the dtype is infered from ``get_default_type`` .
+            'complex64' , 'complex128'. Default: None. If None, the the dtype is inferred from ``data``
+            except for python float number, in which case the dtype is inferred from ``get_default_type`` .
         place(CPUPlace|CUDAPinnedPlace|CUDAPlace|str, optional): The place to allocate Tensor. Can be
             CPUPlace, CUDAPinnedPlace, CUDAPlace. Default: None, means global place. If ``place`` is
             string, It can be ``cpu``, ``gpu:x`` and ``gpu_pinned``, where ``x`` is the index of the GPUs.

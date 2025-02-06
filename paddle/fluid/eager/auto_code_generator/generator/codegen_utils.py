@@ -542,20 +542,27 @@ class FunctionGeneratorBase:
 
     def CollectOriginalForwardInfo(self):
         forward_api_contents = self.forward_api_contents
-
-        self.forward_api_name = forward_api_contents['op']
-        forward_args_str = forward_api_contents['args']
-        forward_returns_str = forward_api_contents['output']
-
         assert (
             'op' in forward_api_contents.keys()
+            or 'backward_op' in forward_api_contents.keys()
         ), 'Unable to find "op" in forward_api_contents keys'
+
+        if 'op' in forward_api_contents.keys():
+            self.forward_api_name = forward_api_contents['op']
+        elif 'backward_op' in forward_api_contents.keys():
+            self.forward_api_name = forward_api_contents['backward_op']
+
         assert (
             'args' in forward_api_contents.keys()
         ), 'Unable to find "args" in forward_api_contents keys'
+
+        forward_args_str = forward_api_contents['args']
+
         assert (
             'output' in forward_api_contents.keys()
         ), 'Unable to find "output" in forward_api_contents keys'
+
+        forward_returns_str = forward_api_contents['output']
 
         # Collect Original Forward Inputs/Outputs and then perform validation checks
         (
