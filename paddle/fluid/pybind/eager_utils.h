@@ -241,6 +241,25 @@ class UnPackHook : public egr::UnPackHookBase {
  private:
   PyObject* hook_;
 };
+
+class NodePostHook : public egr::NodePostHookBase {
+ public:
+  explicit NodePostHook(py::object hook) : hook_(hook) {}
+
+  ~NodePostHook() {}
+
+  paddle::small_vector<std::vector<paddle::Tensor>, egr::kSlotSmallVectorSize>
+  operator()(
+      const paddle::small_vector<std::vector<paddle::Tensor>,
+                                 egr::kSlotSmallVectorSize>& grad_outputs,
+      const paddle::small_vector<std::vector<paddle::Tensor>,
+                                 egr::kSlotSmallVectorSize>& grad_inputs)
+      override;
+
+ private:
+  py::object hook_;
+};
+
 template <typename Tuple, size_t N>
 struct TupleTensorResult {
   static void Run(const Tuple& out, PyObject* result) {

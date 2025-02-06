@@ -124,4 +124,16 @@ class SavedTensorsHooks {
   bool is_enable_{false};
 };
 
+class NodePostHookBase {
+ public:
+  virtual ~NodePostHookBase() = default;
+  virtual paddle::small_vector<std::vector<paddle::Tensor>,
+                               egr::kSlotSmallVectorSize>
+  operator()(
+      const paddle::small_vector<std::vector<paddle::Tensor>,
+                                 egr::kSlotSmallVectorSize>& grad_outputs,
+      const paddle::small_vector<std::vector<paddle::Tensor>,
+                                 egr::kSlotSmallVectorSize>& grad_inputs) = 0;
+};
+
 }  // namespace egr
