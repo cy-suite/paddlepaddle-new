@@ -106,7 +106,7 @@ def analysisFNDAFile(rootPath, test):
             for i in range(1, len(message_list) - 1):
                 fn = message_list[i]
                 matchObj = re.match(
-                    r'(.*)Maker(.*)|(.*)Touch(.*)Regist(.*)|(.*)Touch(.*)JitKernel(.*)|(.*)converterC2Ev(.*)',
+                    r'(.*)Maker(.*)|(.*)Touch(.*)Regist(.*)|(.*)Touch(.*)JitKernel(.*)|(.*)converterC2Ev(.*)',  # typos: disable-line
                     fn,
                     re.IGNORECASE,
                 )
