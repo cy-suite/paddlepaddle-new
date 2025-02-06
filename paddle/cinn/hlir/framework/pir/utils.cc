@@ -238,7 +238,7 @@ bool HasDynamicRank(const ::pir::Operation& op) {
     ::pir::Value value = op.operand_source(i);
     if (value.type().isa<::pir::DenseTensorType>()) {
       if (value.type().dyn_cast<::pir::DenseTensorType>().dims().size() == -1) {
-        return false;
+        return true;
       }
     }
   }
@@ -246,11 +246,11 @@ bool HasDynamicRank(const ::pir::Operation& op) {
     ::pir::Value value = op.result(i);
     if (value.type().isa<::pir::DenseTensorType>()) {
       if (value.type().dyn_cast<::pir::DenseTensorType>().dims().size() == -1) {
-        return false;
+        return true;
       }
     }
   }
-  return true;
+  return false;
 }
 
 bool AllInputDenseTensor(const ::pir::Operation& op) {
