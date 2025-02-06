@@ -581,8 +581,10 @@ bool IsDivisiblieBySymbol(const ir::IndexExpr &expr,
       return IsDivisiblieBySymbol(expr.operand(0), symbol, ty) &&
              IsDivisiblieBySymbol(expr.operand(1), symbol, ty);
     case ir::IrNodeTy::Mul:
-      return IsDivisiblieBySymbol(expr.operand(0), symbol, ty) ||
-             IsDivisiblieBySymbol(expr.operand(1), symbol, ty);
+      // Because (S0 / 7 * 100) / S0 is not divisiblie by S0, so we push
+      // `expr.node_type()` into third parameter.
+      return IsDivisiblieBySymbol(expr.operand(0), symbol, expr.node_type()) ||
+             IsDivisiblieBySymbol(expr.operand(1), symbol, expr.node_type());
     case ir::IrNodeTy::Mod:
       // Because S0 % 3 + S0 % 5 is not divisiblie by S0, so we push
       // `expr.node_type()` into third parameter.
