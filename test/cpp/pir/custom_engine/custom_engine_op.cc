@@ -171,11 +171,10 @@ pir::Block *FakeEngineOp::block() {
 
 pir::Block *FakeEngineOp::block() const {
   pir::Region &region = (*this)->region(0);
-  PADDLE_ENFORCE_EQ(
-      region.empty(),
-      false,
-      ::common::errors::Unavailable(
-          "Required CustomEngineOp's region must not be emptpy."));
+  PADDLE_ENFORCE_EQ(region.empty(),
+                    false,
+                    ::common::errors::Unavailable(
+                        "Required CustomEngineOp's region must not be empty."));
   return &region.front();
 }
 
