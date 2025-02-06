@@ -38,7 +38,7 @@ jobs:
         git config --global user.email "paddleCI@badiu.com"
         git fetch origin pull/${{ github.event.pull_request.number }}/head:pr
         git merge --no-ff pr
-        git checkout -d pr
+        git branch -d pr
 
     - name: Download bos client
       env:
@@ -58,6 +58,8 @@ jobs:
         tar -zcf Paddle.tar.gz Paddle
         python -m pip install bce-python-sdk==0.8.74
         python ${bos_file} Paddle.tar.gz paddle-github-action/PR/Paddle/${PR_ID}/${COMMIT_ID}
+        cd -
+        git checkout develop
 
     # - name: Clean environment
     #   if: always()
