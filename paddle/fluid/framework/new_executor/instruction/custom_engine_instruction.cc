@@ -148,11 +148,10 @@ CustomEngineInstruction::CustomEngineInstruction(
       op_attributes.at("op_name").dyn_cast<pir::StrAttribute>().AsString();
 
   pir::Region &region = op->region(0);
-  PADDLE_ENFORCE_EQ(
-      region.empty(),
-      false,
-      ::common::errors::Unavailable(
-          "Required CustomEngineOp's region must not be emptpy."));
+  PADDLE_ENFORCE_EQ(region.empty(),
+                    false,
+                    ::common::errors::Unavailable(
+                        "Required CustomEngineOp's region must not be empty."));
   pir::Block *block = &(region.front());
 
   paddle::framework::Scope *subgraph_scope =

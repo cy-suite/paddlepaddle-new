@@ -16,8 +16,7 @@
 #include "paddle/fluid/custom_engine/custom_engine_ext.h"
 #include "paddle/fluid/framework/new_executor/instruction/instruction_base.h"
 #include "paddle/phi/core/kernel_context.h"
-// #include "paddle/fluid/framework/new_executor/pir_adaptor/pir_adaptor_util.h"
-// #include "paddle/phi/core/platform/device_context.h"
+
 namespace pir {
 class Operation;
 }  // namespace pir
@@ -86,7 +85,7 @@ class CustomEngineInstruction : public InstructionBase {
 
  private:
   phi::Place place_;
-  std::string op_name_ = "custom_engine.instruction";
+  std::string op_name_ = "custom_engine.group_op";
   ::pir::Operation* op_{nullptr};  // not owned
 
   phi::KernelContext kernel_context_;
