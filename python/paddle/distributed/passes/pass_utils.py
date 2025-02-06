@@ -391,7 +391,7 @@ def shadow_var_between_sub_programs(sub_programs):
                         if input_arg_name in op.input("XShape"):
                             continue
                     input_arg_names.add(input_arg_name)
-                    # NOTE(Ruibiao): When translating these codes to pir, we can simplely set
+                    # NOTE(Ruibiao): When translating these codes to pir, we can simply set
                     # `shadow_arg_names=input_arg_names-output_arg_names` since the program
                     # in pir satisfies SSA form.
                     if input_arg_name not in output_arg_names:
@@ -2107,7 +2107,7 @@ class PipelineMemoryEstimator:
                     continue
 
                 var_info[var_name]["count"] -= 1
-                if var_name not in has_used_vars and not self._is_perisitable(
+                if var_name not in has_used_vars and not self._is_persistable(
                     var_name, var_info
                 ):
                     has_used_vars.add(var_name)
@@ -2122,7 +2122,7 @@ class PipelineMemoryEstimator:
 
                 if self._is_last_used(var_name, var_info):
                     if (
-                        not self._is_perisitable(var_name, var_info)
+                        not self._is_persistable(var_name, var_info)
                         and var_name not in skip_gc_vars
                     ):
                         last_use_vars.append(var_name)
@@ -2242,7 +2242,7 @@ class PipelineMemoryEstimator:
 
         return var_info[var_name]["count"] == 0
 
-    def _is_perisitable(self, var_name, var_info):
+    def _is_persistable(self, var_name, var_info):
         if var_name not in var_info:
             return False
 
