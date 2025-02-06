@@ -315,6 +315,9 @@ void InferSymExprForOp(Operation* op,
                      << "[id:" << op->id()
                      << "], op_infer_cache_key is :" << op_infer_cache_key;
         for (uint32_t i = 0; i < op->num_results(); ++i) {
+          if (!op->result(i) || !op->result(i).type()) {
+            continue;
+          }
           infer_context->SetSymbolForValueByStaticShape(op->result(i));
         }
       }
