@@ -817,7 +817,7 @@ def infer_chunk_id(op_idx, ops, with_dist=True):
                 return op.dist_attr.chunk_id
         else:
             if op.has_attr("chunk_id"):
-                return op.attrs()["chunk_id"]
+                return op.chunk_id
             else:
                 return -1
 
@@ -836,11 +836,8 @@ def infer_chunk_id(op_idx, ops, with_dist=True):
         for used_op in all_used_ops:
             if used_op.dist_attr and used_op.dist_attr.chunk_id != -1:
                 return used_op.dist_attr.chunk_id != -1
-            elif (
-                used_op.has_attr("chunk_id")
-                and used_op.attrs()["chunk_id"] != -1
-            ):
-                return used_op.attrs()["chunk_id"]
+            elif used_op.has_attr("chunk_id") and used_op.chunk_id != -1:
+                return used_op.chunk_id
 
     return -1
 
@@ -1791,11 +1788,11 @@ def split_matmul_grad_to_matmul(
     tran_x = matmul_grad_op.attr("trans_x")
     assert (
         not tran_x
-    ), f"matmul_grad(id={matmul_grad_id}) with tran_x == True is not supported for spliting matmul_grad to matmul"
+    ), f"matmul_grad(id={matmul_grad_id}) with tran_x == True is not supported for splitting matmul_grad to matmul"
     tran_y = matmul_grad_op.attr("trans_y")
     assert (
         not tran_y
-    ), f"matmul_grad(id={matmul_grad_id}) with tran_y == True is not supported for spliting matmul_grad to matmul"
+    ), f"matmul_grad(id={matmul_grad_id}) with tran_y == True is not supported for splitting matmul_grad to matmul"
 
     x = matmul_grad_op.input("X")
     y = matmul_grad_op.input("Y")
@@ -1930,11 +1927,11 @@ def _pir_split_matmul_grad_to_matmul(block, matmul_grad_id):
 
     assert not matmul_grad_op.has_attr(
         "trans_x"
-    ), f"matmul_grad(id={matmul_grad_id}) with tran_x == True is not supported for spliting matmul_grad to matmul"
+    ), f"matmul_grad(id={matmul_grad_id}) with tran_x == True is not supported for splitting matmul_grad to matmul"
 
     assert not matmul_grad_op.has_attr(
         "trans_y"
-    ), f"matmul_grad(id={matmul_grad_id}) with tran_y == True is not supported for spliting matmul_grad to matmul"
+    ), f"matmul_grad(id={matmul_grad_id}) with tran_y == True is not supported for splitting matmul_grad to matmul"
 
     x = matmul_grad_op.operand_source(0)
     y = matmul_grad_op.operand_source(1)
@@ -1966,7 +1963,7 @@ def _pir_split_matmul_grad_to_matmul(block, matmul_grad_id):
     # When the rank of input matrix is 3, MatmulGradKernel use reshape to fold the first two dimensions of x and out_grad (see FoldInitDims in matmul_grad_kernel_impl.h), and then calls blas.Matmul to calculate y_grad.
     # If we directly append matmul op to calculate y_grad without FoldInitDims, blas.BatchedGEMM is actually called in MatmulKernel, which has a larger cost than using blas.Matmul after dimension folding.
     # Therefore, we imitate MatmulGradKernel here by inserting reshape op before matmul.
-    chunk_id = matmul_grad_op.attrs()["chunk_id"]
+    chunk_id = matmul_grad_op.chunk_id
 
     paddle.pir.set_insertion_point_after(matmul_grad_op)
     new_x = paddle._C_ops.reshape(x, new_x_dims)
