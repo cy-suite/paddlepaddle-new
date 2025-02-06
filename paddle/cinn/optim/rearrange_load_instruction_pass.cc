@@ -311,16 +311,11 @@ struct RearrangeLoadInstructionMutator : public ir::stmt::StmtMutator<> {
   bool HasVectorizedLoop(BlockRef block) {
     bool is_vectorized = false;
     auto pre_callback = [&is_vectorized](const StmtRef& stmt) {
-      if (stmt.isa<For>()) {
-        auto for_stmt = stmt.as<For>();
-        if (for_stmt->is_vectorized()) is_vectorized = true;
-      }
+      if (stmt.isa<For>() && stmt.as<For>()->is_vectorized())
+        is_vectorized = true;
     };
 
-    for (const auto& stmt : block->stmts()) {
-      ir::stmt::Visit(stmt, pre_callback, [](const StmtRef&) {});
-      if (is_vectorized) break;
-    }
+    ir::stmt::Visit(block, pre_callback, [](const StmtRef&) {});
     return is_vectorized;
   }
 
