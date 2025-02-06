@@ -4314,7 +4314,7 @@ void FillSplitOutDims(const MetaTensor& x,
   }
   for (size_t i = 0; i < sections_vec.size(); ++i) {
     if (axis_value != 0) {
-      // Only pass LoD when not spliting along the first dim.
+      // Only pass LoD when not splitting along the first dim.
       (*out)[i]->set_dtype(x.dtype());
       (*out)[i]->set_dims(out_dims[i]);
       (*out)[i]->set_layout(x.layout());
@@ -4364,7 +4364,7 @@ void SplitInferMeta(const MetaTensor& x,
     }
     for (size_t i = 0; i < sections_data.size(); ++i) {
       if (axis_value != 0) {
-        // Only pass LoD when not spliting along the first dim.
+        // Only pass LoD when not splitting along the first dim.
         out[i]->set_dtype(x.dtype());
         out[i]->set_dims(out_dims[i]);
         out[i]->set_layout(x.layout());
@@ -4455,7 +4455,7 @@ void SplitWithNumInferMeta(const MetaTensor& x,
     }
     for (int i = 0; i < num; ++i) {
       if (axis_value != 0) {
-        // Only pass LoD when not spliting along the first dim.
+        // Only pass LoD when not splitting along the first dim.
         out[i]->set_dtype(x.dtype());
         out[i]->set_dims(out_dims[i]);
         out[i]->set_layout(x.layout());
