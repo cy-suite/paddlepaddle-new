@@ -41,11 +41,11 @@ void ReluForwardInplace(paddle::Tensor& x) {  // NOLINT
   int64_t numel = x.numel();
   int64_t block = 512;
   int64_t grid = (numel + block - 1) / block;
-  PD_DISPATCH_FLOATING_AND_HALF_TYPES(
-      x.type(), "relu_cuda_forward_kernel", ([&] {
-        relu_cuda_forward_kernel<data_t>
-            <<<grid, block, 0, x.stream()>>>(x.data<data_t>(), numel);
-      }));
+  PD_DISPATCH_FLOATING_TYPES(x.type(), "relu_cuda_forward_kernel", ([&] {
+                               relu_cuda_forward_kernel<data_t>
+                                   <<<grid, block, 0, x.stream()>>>(
+                                       x.data<data_t>(), numel);
+                             }));
 }
 
 PD_BUILD_OP(custom_relu_inplace)

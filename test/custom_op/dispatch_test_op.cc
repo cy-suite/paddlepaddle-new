@@ -117,7 +117,7 @@ PD_BUILD_OP(dispatch_test_float_and_integer_and_complex)
 std::vector<paddle::Tensor> DispatchTestFloatAndHalf(const paddle::Tensor& x) {
   auto out = paddle::empty_like(x);
 
-  PD_DISPATCH_FLOATING_AND_HALF_TYPES(
+  PD_DISPATCH_FLOATING_TYPES(
       x.type(), "assign_cpu_kernel", ([&] {
         assign_cpu_kernel<data_t>(
             x.data<data_t>(), out.mutable_data<data_t>(), x.size());

@@ -25,9 +25,6 @@ namespace paddle {
 #define PD_DISPATCH_FLOATING_TYPES(TYPE, NAME, ...) \
   PD_VISIT_FLOATING_TYPES(TYPE, NAME, __VA_ARGS__)
 
-#define PD_DISPATCH_FLOATING_AND_HALF_TYPES(TYPE, NAME, ...) \
-  PD_VISIT_FLOATING_AND_HALF_TYPES(TYPE, NAME, __VA_ARGS__)
-
 ///////// Integral Dispatch Marco ///////////
 
 #define PD_DISPATCH_INTEGRAL_TYPES(TYPE, NAME, ...) \
