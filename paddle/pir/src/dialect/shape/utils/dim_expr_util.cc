@@ -13,8 +13,7 @@
 // limitations under the License.
 
 #include "paddle/pir/include/dialect/shape/utils/dim_expr_util.h"
-#include <cstdint>
-#include "paddle/pir/include/dialect/shape/utils/dim_expr.h"
+#include <numeric>
 
 namespace symbol {
 
@@ -199,7 +198,6 @@ struct IsListLhsBeforeListRhsStruct {
     const auto& [lhs_operands] = lhs;
     const auto& [rhs_operands] = rhs;
     if (lhs_operands->empty() || rhs_operands->empty()) {
-      // 处理错误情况或抛出异常
       throw std::runtime_error("Operands are uninitialized.");
     }
     if (lhs_operands->size() < rhs_operands->size()) {
@@ -1074,132 +1072,145 @@ struct SimplifyBroadcast {
   }
 };
 
+std::pair<List<DimExpr>, List<DimExpr>> GetDivExprNumAndDem(
+    const DimExpr& expr) {
+  const auto div_expr = expr.Get<Div<DimExpr>>();
+  const auto lhs = div_expr->lhs;
+  const auto rhs = div_expr->rhs;
+  PADDLE_ENFORCE_NE(rhs,
+                    symbol::DimExpr{0},
+                    common::errors::InvalidArgument(
+                        "In SimplifyDiv Pass dem cannot be zero."));
+  auto GetOperandsList = [](const DimExpr& expr) -> List<DimExpr> {
+    return expr.Has<Mul<DimExpr>>() ? expr.Get<Mul<DimExpr>>().operands
+                                    : List<DimExpr>{expr};
+  };
+  return {GetOperandsList(lhs), GetOperandsList(rhs)};
+}
+
+std::pair<int64_t, int64_t> SimplifiedConstRational(int64_t num, int64_t dem) {
+  if (num == 0 && dem == 0) {
+    PADDLE_THROW(
+        common::errors::InvalidArgument("num and dem cannot both be zero."));
+  }
+  std::int64_t gcd = std::gcd(num, dem);
+  return std::pair{num / gcd, dem / gcd};
+}
+
+DimExpr SetDivSimpliedRes(const List<DimExpr>& lhs_operands,
+                          const List<DimExpr>& rhs_operands) {
+  if (lhs_operands->empty() && rhs_operands->empty()) {
+    return DimExpr{1};
+  }
+
+  if (rhs_operands->empty()) {
+    return lhs_operands->size() == 1 ? lhs_operands->at(0)
+                                     : Mul<DimExpr>{lhs_operands};
+  }
+  if (lhs_operands->empty()) {
+    return Div<DimExpr>{1,
+                        rhs_operands->size() == 1 ? rhs_operands->at(0)
+                                                  : Mul<DimExpr>{rhs_operands}};
+  }
+  DimExpr last_lhs = lhs_operands->size() == 1 ? lhs_operands->at(0)
+                                               : Mul<DimExpr>{lhs_operands};
+  DimExpr last_rhs = rhs_operands->size() == 1 ? rhs_operands->at(0)
+                                               : Mul<DimExpr>{rhs_operands};
+
+  return Div<DimExpr>{last_lhs, last_rhs};
+}
+
+/*
+ * Simplify Example:
+ * Div(Mul(S0, 8), 4) => Mul(S0, 2)
+ */
+template <>
+struct FoldConstants<Div> {
+  using dim_expr_type = Div<DimExpr>;
+
+  std::pair<List<DimExpr>, List<DimExpr>> FilterIntOperands(
+      const List<DimExpr>& operands) {
+    List<DimExpr> NoIntSymList{}, IntSymList{};
+    for (const auto& operand : *operands) {
+      if (operand.Has<std::int64_t>()) {
+        IntSymList->emplace_back(operand);
+      } else {
+        NoIntSymList->emplace_back(operand);
+      }
+    }
+    return {NoIntSymList, IntSymList};
+  }
+
+  DimExpr Rewrite(const DimExpr& expr) {
+    auto [lhs_operands, rhs_operands] = GetDivExprNumAndDem(expr);
+    auto [lhs_no_int_list, lhs_int_list] = FilterIntOperands(lhs_operands);
+    auto [rhs_no_int_list, rhs_int_list] = FilterIntOperands(rhs_operands);
+    if (!lhs_int_list->empty() && !rhs_int_list->empty()) {
+      PADDLE_ENFORCE_EQ(lhs_int_list->size() == rhs_int_list->size() &&
+                            lhs_int_list->size() == 1,
+                        true,
+                        common::errors::InvalidArgument(
+                            "Int should be fold by FoldUnitConstant<Mul>"));
+      auto [lhs_int, rhs_int] =
+          SimplifiedConstRational(lhs_int_list->at(0).Get<int64_t>(),
+                                  rhs_int_list->at(0).Get<int64_t>());
+      if (lhs_int != 1) {
+        lhs_no_int_list->emplace_back(lhs_int);
+      }
+      if (rhs_int != 1) {
+        rhs_no_int_list->emplace_back(rhs_int);
+      }
+      return SetDivSimpliedRes(lhs_no_int_list, rhs_no_int_list);
+    } else {
+      return expr;
+    }
+  }
+};
+
 /*
  * Simplify Example:
  * Div(Mul(S0, S1), S1) => S0
  */
-
 struct SimplifyDiv {
   using dim_expr_type = Div<DimExpr>;
 
-  std::pair<int64_t, int64_t> SimplifiedConstRational(int64_t num,
-                                                      int64_t dem) {
-    if (num == 0 && dem == 0) {
-      PADDLE_THROW(
-          common::errors::InvalidArgument("num and dem cannot both be zero."));
+  std::pair<List<DimExpr>, List<DimExpr>> FoldSameOperand(
+      const List<DimExpr>& lhsList, const List<DimExpr>& rhsList) {
+    auto sorted_lhs = lhsList;
+    auto sorted_rhs = rhsList;
+    List<DimExpr> result_lhs{};
+    List<DimExpr> result_rhs{};
+    std::sort(sorted_lhs->begin(), sorted_lhs->end(), &IsLhsBeforeRhs);
+    std::sort(sorted_rhs->begin(), sorted_rhs->end(), &IsLhsBeforeRhs);
+    size_t i = 0, j = 0;
+    while (i < sorted_lhs->size() && j < sorted_rhs->size()) {
+      if (sorted_lhs->at(i) == sorted_rhs->at(j)) {
+        ++i;
+        ++j;
+      } else if (IsLhsBeforeRhs(sorted_lhs->at(i), sorted_rhs->at(j))) {
+        result_lhs->push_back(sorted_lhs->at(i));
+        ++i;
+      } else {
+        result_rhs->push_back(sorted_rhs->at(j));
+        ++j;
+      }
     }
-    std::int64_t gcd = std::gcd(num, dem);
-    return std::pair{num / gcd, dem / gcd};
+    while (i < sorted_lhs->size()) {
+      result_lhs->push_back(sorted_lhs->at(i));
+      ++i;
+    }
+    while (j < sorted_rhs->size()) {
+      result_rhs->push_back(sorted_rhs->at(j));
+      ++j;
+    }
+    return std::make_pair(result_lhs, result_rhs);
   }
 
   DimExpr Rewrite(const DimExpr& expr) {
-    const auto div_expr = expr.Get<Div<DimExpr>>();
-    const auto lhs = div_expr->lhs;
-    const auto rhs = div_expr->rhs;
-    PADDLE_ENFORCE_NE(
-        rhs, symbol::DimExpr{0}, "In SimplifyDiv Pass dem cannot be zero.");
-
-    if (lhs.Has<std::int64_t>() && rhs.Has<std::int64_t>()) {
-      auto [num, dem] = SimplifiedConstRational(lhs.Get<std::int64_t>(),
-                                                rhs.Get<std::int64_t>());
-      return DimExpr{num / dem};
-    }
-
-    auto getOperandsList = [](const DimExpr& expr) -> List<DimExpr> {
-      return expr.Has<Mul<DimExpr>>() ? expr.Get<Mul<DimExpr>>().operands
-                                      : List<DimExpr>{expr};
-    };
-    List<DimExpr> lhs_operands = getOperandsList(lhs);
-    List<DimExpr> rhs_operands = getOperandsList(rhs);
-
-    auto cancelCommonOperands = [](const List<DimExpr>& lhsList,
-                                   const List<DimExpr>& rhsList)
-        -> std::pair<List<DimExpr>, List<DimExpr>> {
-      List<DimExpr> newLhs;
-      std::vector<DimExpr> rhsVec(rhsList->begin(), rhsList->end());
-      for (const auto& operand : *lhsList) {
-        auto it = std::find(rhsVec.begin(), rhsVec.end(), operand);
-        if (it != rhsVec.end()) {
-          rhsVec.erase(it);
-        } else {
-          newLhs->emplace_back(operand);
-        }
-      }
-      List<DimExpr> newRhs(rhsVec.begin(), rhsVec.end());
-      return {newLhs, newRhs};
-    };
+    auto [lhs_operands, rhs_operands] = GetDivExprNumAndDem(expr);
     auto [new_lhs_operands, new_rhs_operands] =
-        cancelCommonOperands(lhs_operands, rhs_operands);
-
-    auto filterIntOperands =
-        [](const List<DimExpr>& operands) -> std::vector<DimExpr> {
-      std::vector<DimExpr> res;
-      for (const auto& operand : *operands) {
-        if (operand.Has<std::int64_t>()) {
-          res.push_back(operand);
-        }
-      }
-      return res;
-    };
-    auto LhsIntSym = filterIntOperands(new_lhs_operands);
-    auto RhsIntSym = filterIntOperands(new_rhs_operands);
-    List<DimExpr> last_lhs_operands{};
-    List<DimExpr> last_rhs_operands{};
-    if (!LhsIntSym.empty() && !RhsIntSym.empty()) {
-      PADDLE_ENFORCE_EQ(
-          LhsIntSym.size() == RhsIntSym.size() && LhsIntSym.size() == 1,
-          true,
-          common::errors::InvalidArgument(
-              "Int should be fold by FoldUnitConstant<Mul>"));
-      int64_t old_lhs = LhsIntSym.at(0).Get<std::int64_t>();
-      int64_t old_rhs = RhsIntSym.at(0).Get<std::int64_t>();
-      auto [new_lhs, new_rhs] = SimplifiedConstRational(old_lhs, old_rhs);
-
-      auto replaceIntOperand = [=](const List<DimExpr>& operands,
-                                   int64_t oldInt,
-                                   int64_t newVal) -> List<DimExpr> {
-        List<DimExpr> res;
-        for (const auto& operand : *operands) {
-          if (operand.Has<std::int64_t>() &&
-              operand.Get<std::int64_t>() == oldInt) {
-            if (oldInt != 1) {
-              res->emplace_back(newVal);
-            }
-          } else {
-            res->emplace_back(operand);
-          }
-        }
-        return res;
-      };
-      last_lhs_operands = replaceIntOperand(new_lhs_operands, old_lhs, new_lhs);
-      last_rhs_operands = replaceIntOperand(new_rhs_operands, old_rhs, new_rhs);
-    } else {
-      last_lhs_operands = new_lhs_operands;
-      last_rhs_operands = new_rhs_operands;
-    }
-
-    if (last_lhs_operands->empty() && last_rhs_operands->empty()) {
-      return DimExpr{1};
-    }
-
-    if (last_rhs_operands->empty()) {
-      return last_lhs_operands->size() == 1 ? last_lhs_operands->at(0)
-                                            : Mul<DimExpr>{last_lhs_operands};
-    }
-    if (last_lhs_operands->empty()) {
-      return Div<DimExpr>{1,
-                          last_rhs_operands->size() == 1
-                              ? last_rhs_operands->at(0)
-                              : Mul<DimExpr>{last_rhs_operands}};
-    }
-    DimExpr last_lhs = last_lhs_operands->size() == 1
-                           ? last_lhs_operands->at(0)
-                           : Mul<DimExpr>{last_lhs_operands};
-    DimExpr last_rhs = last_rhs_operands->size() == 1
-                           ? last_rhs_operands->at(0)
-                           : Mul<DimExpr>{last_rhs_operands};
-
-    return Div<DimExpr>{last_lhs, last_rhs};
+        FoldSameOperand(lhs_operands, rhs_operands);
+    return SetDivSimpliedRes(new_lhs_operands, new_rhs_operands);
   }
 };
 
@@ -1234,7 +1245,7 @@ DimExpr Simplify(const DimExpr& expr) {
     DoPass<FoldUnitConstant<Broadcast>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Add>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Mul>>(&keep_rewrite, &ret);
-    DoPass<SimplifyDiv>(&keep_rewrite, &ret);
+    DoPass<FoldConstants<Div>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Max>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Min>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Broadcast>>(&keep_rewrite, &ret);
@@ -1242,6 +1253,7 @@ DimExpr Simplify(const DimExpr& expr) {
     DoPass<FoldRedundantBroadcast>(&keep_rewrite, &ret);
     DoPass<FoldRedundantSymbolicBroadcast>(&keep_rewrite, &ret);
     DoPass<SimplifyBroadcast>(&keep_rewrite, &ret);
+    DoPass<SimplifyDiv>(&keep_rewrite, &ret);
     if (expr_before_run_pipeline == ret) break;
   }
   return ret;
@@ -1515,7 +1527,7 @@ std::unordered_set<std::string> CollectDimExprSymbols(const DimExpr& dim_expr) {
       [&](const Mul<DimExpr>& dim_expr) {
         CollectListDimExprSymbolsImpl(dim_expr.operands, &symbols);
       },
-       [&](const Div<DimExpr>& dim_expr) {
+      [&](const Div<DimExpr>& dim_expr) {
         CollectUnaryDimExprSymbolsImpl(dim_expr->lhs, &symbols);
         CollectUnaryDimExprSymbolsImpl(dim_expr->rhs, &symbols);
       },
