@@ -1,4 +1,4 @@
-# Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
+# Copyright (c) 2025 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,46 +12,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import subprocess
 import unittest
 
-import collective.test_communication_api_base as test_base
 
-
-class TestSemiAutoParallelLlamaACCTest(test_base.CommunicationTestDistBase):
+class TestDistLlamaInference(unittest.TestCase):
     def setUp(self):
-        super().setUp(num_of_devices=2, timeout=300, nnode=1)
+        self.script = "dist_llama_inference.py"
 
     def test_dist_llama_inferece_in_program(self):
-        _default_envs = {
-            "FLAGS_enable_pir_api": "0",
-        }
-        _changeable_envs = {
-            "backend": ["gpu"],
-        }
-        envs_list = test_base.gen_product_envs_list(
-            _default_envs, _changeable_envs
-        )
-        for envs in envs_list:
-            self.run_test_case(
-                "dist_llama_inference.py",
-                user_defined_envs=envs,
-            )
+        env = dict(os.environ)
+        env["CUDA_VISIBLE_DEVICES"] = "0,1"
+        env["FLAGS_enable_pir_api"] = "0"
+        cmd = f"python -u -m paddle.distributed.launch --gpus 0,1 {self.script}"
+        cmd = cmd.split(" ")
+        local_proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, env=env)
+
+        local_out, local_err = local_proc.communicate()
 
     def test_dist_llama_inferece_in_pir(self):
-        _default_envs = {
-            "FLAGS_enable_pir_api": "1",
-        }
-        _changeable_envs = {
-            "backend": ["gpu"],
-        }
-        envs_list = test_base.gen_product_envs_list(
-            _default_envs, _changeable_envs
-        )
-        for envs in envs_list:
-            self.run_test_case(
-                "dist_llama_inference.py",
-                user_defined_envs=envs,
-            )
+        env = dict(os.environ)
+        env["CUDA_VISIBLE_DEVICES"] = "0,1"
+        env["FLAGS_enable_pir_api"] = "1"
+        cmd = f"python -u -m paddle.distributed.launch --gpus 0,1 {self.script}"
+        cmd = cmd.split(" ")
+        local_proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, env=env)
+
+        local_out, local_err = local_proc.communicate()
 
 
 if __name__ == "__main__":
