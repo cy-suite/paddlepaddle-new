@@ -299,20 +299,12 @@ TEST_F(TestIndexExpr, CommonFactor) {
   ir::Var tx = ir::Var("tx");
   ir::Var bx = ir::Var("bx");
 
-  ir::Expr t = S0 * S1 * S2;
-  ir::Expr t1 = S2 * S1 * S0;
-  std::cout << (t - t1).as_index().Normalize(ir::IndexExpr::OptLevel::Level2)
-            << std::endl;
-  std::cout << (t.as_index().Normalize(ir::IndexExpr::OptLevel::Level2) ==
-                t1.as_index().Normalize(ir::IndexExpr::OptLevel::Level2))
-            << std::endl;
-
-  ir::Expr q4 = ((((((((S1 + S13) + S17) + S21) + S5) + S9)) * S2) * S3);
-  ir::Expr q = (((((((S3 * S5) * S2) + ((S3 * S9) * S2)) + ((S3 * S21) * S2)) +
-                  ((S2 * S3) * S17)) +
-                 ((S2 * S3) * S13)) +
-                ((S2 * S3) * S1));
-  ir::Expr q1 =
+  ir::Expr q = ((((((((S1 + S13) + S17) + S21) + S5) + S9)) * S2) * S3);
+  ir::Expr q1 = (((((((S3 * S5) * S2) + ((S3 * S9) * S2)) + ((S3 * S21) * S2)) +
+                   ((S2 * S3) * S17)) +
+                  ((S2 * S3) * S13)) +
+                 ((S2 * S3) * S1));
+  ir::Expr q2 =
       (((((((((f * 1024) + tx) + (bx * 4096)) %
             ((((((((((((((((((((((((((S3 * S5) * S2) * S0) +
                                    (((S3 * S9) * S2) * S0)) +
@@ -465,8 +457,22 @@ TEST_F(TestIndexExpr, CommonFactor) {
           ((S2 * S3) * S13)) +
          ((S2 * S3) * S1))));
 
-  std::cout << q1.as_index().Normalize(ir::IndexExpr::OptLevel::Level2)
-            << std::endl;
+  EXPECT_EQ(q.as_index().Normalize(ir::IndexExpr::OptLevel::Level2),
+            (((((((S1 + S13) + S17) + S21) + S5) + S9) * S2) * S3));
+  EXPECT_EQ(q1.as_index().Normalize(ir::IndexExpr::OptLevel::Level2),
+            (((((((S5 + S9) + S21) + S17) + S13) + S1) * S2) * S3));
+  EXPECT_EQ(
+      q2.as_index().Normalize(ir::IndexExpr::OptLevel::Level2),
+      ((((f * 1024) + tx) + (bx * 4096)) %
+       ((((((((((((((((S5 + S9) + S21) + S17) + S13) + S1) * S2) * S3) * S0) /
+               4096) *
+              4096) +
+             (((((((S5 + S9) + S21) + S17) + S13) + S1) * S2) * S3)) +
+            4095) /
+           (((((((S5 + S9) + S21) + S17) + S13) + S1) * S2) * S3)) *
+          S3) *
+         S2) *
+        (((((S5 + S9) + S21) + S17) + S13) + S1))));
 }
 }  // namespace common
 }  // namespace cinn
