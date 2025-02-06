@@ -495,11 +495,10 @@ static IndexExpr SimplifyAdd(const IndexExpr &lhs, const IndexExpr &rhs) {
     bool found = false;
     ir::IndexExpr res(lhs.type(), 0);
     for (size_t i = 0; i < flatten_add_lhs.size(); ++i) {
-      if (!found) {
-        if (auto tmp = MergeByCommonFactor(flatten_add_lhs[i], rhs)) {
-          res = res + tmp.value();
-          found = true;
-        }
+      auto merge_res = MergeByCommonFactor(flatten_add_lhs[i], rhs);
+      if (!found && merge_res.has_value()) {
+        res = res + merge_res.value();
+        found = true;
       } else {
         res = res + flatten_add_lhs[i];
       }
