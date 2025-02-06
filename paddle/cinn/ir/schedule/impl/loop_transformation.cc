@@ -357,7 +357,7 @@ Expr DyScheduleImpl::Fuse(const std::vector<Expr>& loops) {
   std::string primitive = "Fuse";
   std::ostringstream os;
 
-  VLOG(3) << "Tring to fuse:\n" << loops[0];
+  VLOG(3) << "Trying to fuse:\n" << loops[0];
   std::vector<const ir::For*> for_nodes;
   std::vector<Var> loop_vars;
 
