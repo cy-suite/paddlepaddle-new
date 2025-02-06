@@ -82,7 +82,7 @@ def gather_converter(network, paddle_op, inputs):
     index_tensor = inputs[1]
     axis_value = get_input_constant_value(paddle_op, inputs, 2)[0]
     axis_value = int(axis_value)
-    
+
     reshape_layer = network.add_shuffle(index_tensor)
     reshape_layer.reshape_dims = (-1,)
     gather_layer = network.add_gather(

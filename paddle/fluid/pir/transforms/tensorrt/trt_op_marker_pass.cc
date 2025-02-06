@@ -664,6 +664,7 @@ class GatherOpPattern
     if (!op.axis().defining_op()->isa<paddle::dialect::FullOp>()) {
       VLOG(3) << "When axis is not a constant "
                  "Skip to convert into TRT.";
+
       return false;
     }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
