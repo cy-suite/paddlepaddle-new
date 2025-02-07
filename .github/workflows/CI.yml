@@ -20,7 +20,7 @@ jobs:
 
   test:
     runs-on: ubuntu-latest
-    step:
+    steps:
     - name: 11
       env:
         AK: ${{ vars.AK }}
