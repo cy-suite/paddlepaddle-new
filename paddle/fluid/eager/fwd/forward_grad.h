@@ -29,9 +29,15 @@ namespace forward_ad {
 struct ForwardGrad;
 struct ForwardADLevel;
 
+namespace {
+// See discussion in forward_grad.h for why these are global variables and not
+// thread local
+
 // std::mutex all_forward_levels_mutex_;
-static const paddle::Tensor singleton_undefined_tensor;
 std::vector<std::shared_ptr<ForwardADLevel>> all_forward_levels_;
+
+static const paddle::Tensor singleton_undefined_tensor;
+}  // namespace
 
 struct TEST_API ForwardADLevel {
   explicit ForwardADLevel(uint64_t idx) : idx_(idx) {}
