@@ -598,7 +598,7 @@ class GroupNormDecompHelper {
         merge_out_shape_.push_back(x_dims[i]);
       }
     } else {
-      auto x_shape = shape<T>(x);
+      auto x_shape = shape64<T>(x);
       if (channel_axis_ > 0) {
         split_shape_tensor_.push_back(
             get_slice_vec<T>(x_shape, 0, channel_axis_));
@@ -676,7 +676,7 @@ class GroupNormDecompHelper {
       std::cerr << "static hwg " << hwg_numel << std::endl;
       return full_scalar<T>(hwg_numel, x.dtype());
     } else {
-      auto x_shape = shape<T>(x);
+      auto x_shape = shape64<T>(x);
       auto numel = get_slice<T>(x_shape, reduce_axis_.front());
       for (size_t i = 1; i < reduce_axis_.size(); ++i) {
         numel = numel * get_slice<T>(x_shape, reduce_axis_[i]);
