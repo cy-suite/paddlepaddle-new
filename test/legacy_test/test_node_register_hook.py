@@ -40,6 +40,31 @@ class TestNodeRegisterHook(unittest.TestCase):
         check = paddle.ones([4, 4]) * 4
         self.assertTrue(paddle.equal_all(check, a.grad))
 
+    def test_node_post_hook_remove(self):
+        def hook(outputs, inputs):
+            ret = []
+            for out in outputs:
+                ret.append(out + out)
+            return ret
+
+        a = paddle.rand([4, 4])
+        b = paddle.rand([4, 4])
+        a.stop_gradient = False
+        b.stop_gradient = False
+
+        c = a + b
+        d = c + c
+
+        handle = d.grad_fn._register_post_hook(hook)
+
+        e = d + d
+
+        handle.remove()
+
+        d.sum().backward()
+        check = paddle.ones([4, 4]) * 2
+        self.assertTrue(paddle.equal_all(check, a.grad))
+
 
 if __name__ == '__main__':
     unittest.main()
