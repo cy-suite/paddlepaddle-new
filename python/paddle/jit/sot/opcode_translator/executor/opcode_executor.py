@@ -1418,6 +1418,8 @@ class OpcodeExecutorBase:
                 )
             return
 
+        # breakpoint()
+
         flag = instr.arg
         closure, related_list, kw_defaults, default_args = (
             self.attach_new_attribute(flag, related_list)
@@ -1509,7 +1511,7 @@ class OpcodeExecutorBase:
             kw_default_args_variable = self.stack.pop()
             assert isinstance(kw_default_args_variable, DictVariable)
             related_list.append(kw_default_args_variable)
-            kw_defaults = kw_default_args_variable.get_py_value()
+            kw_defaults = kw_default_args_variable.get_wrapped_items()
 
         if flag & MF.MF_HAS_DEFAULTS:
             '''
