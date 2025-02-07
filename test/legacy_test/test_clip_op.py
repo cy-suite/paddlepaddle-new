@@ -36,24 +36,15 @@ class TestClipOp(OpTest):
         self.attrs = {}
         self.attrs['min'] = self.min
         self.attrs['max'] = self.max
-        if 'Min' in self.inputs:
-            min_v = self.inputs['Min']
-        else:
-            min_v = self.attrs['min']
-
-        if 'Max' in self.inputs:
-            max_v = self.inputs['Max']
-        else:
-            max_v = self.attrs['max']
+        min_v = self.attrs['min']
+        max_v = self.attrs['max']
 
         input = np.random.random(self.shape).astype(self.dtype)
         input[np.abs(input - min_v) < self.max_relative_error] = 0.5
         input[np.abs(input - max_v) < self.max_relative_error] = 0.5
         self.inputs['X'] = input
         self.outputs = {'Out': np.clip(self.inputs['X'], min_v, max_v)}
-        self.check_cinn = ('Min' not in self.inputs) and (
-            'Max' not in self.inputs
-        )
+        self.check_cinn = True
 
     def test_check_output(self):
         paddle.enable_static()
@@ -75,8 +66,6 @@ class TestClipOp(OpTest):
         self.shape = (4, 10, 10)
         self.max = 0.8
         self.min = 0.3
-        self.inputs['Max'] = np.array([0.8]).astype(self.dtype)
-        self.inputs['Min'] = np.array([0.1]).astype(self.dtype)
 
 
 class TestCase1(TestClipOp):
@@ -109,8 +98,6 @@ class TestCase4(TestClipOp):
         self.shape = (4, 8, 8)
         self.max = 0.7
         self.min = 0.2
-        # self.inputs['Max'] = np.array([0.8]).astype(self.dtype)
-        # self.inputs['Min'] = np.array([0.3]).astype(self.dtype)
 
 
 class TestCase5(TestClipOp):
@@ -151,9 +138,6 @@ class TestFP16Case4(TestClipOp):
         self.shape = (4, 8, 8)
         self.max = 0.7
         self.min = 0.2
-        # self.inputs['Max'] = np.array([0.8]).astype(self.dtype)
-        # self.inputs['Min'] = np.array([0.3]).astype(self.dtype)
-
 
 class TestFP16Case5(TestClipOp):
     def initTestCase(self):
@@ -182,15 +166,8 @@ class TestClipBF16Op(OpTest):
         self.attrs = {}
         self.attrs['min'] = self.min
         self.attrs['max'] = self.max
-        if 'Min' in self.inputs:
-            min_v = self.inputs['Min']
-        else:
-            min_v = self.attrs['min']
-
-        if 'Max' in self.inputs:
-            max_v = self.inputs['Max']
-        else:
-            max_v = self.attrs['max']
+        min_v = self.attrs['min']
+        max_v = self.attrs['max']
 
         input = np.random.random(self.shape).astype(np.float32)
         input[np.abs(input - min_v) < self.max_relative_error] = 0.5
@@ -222,8 +199,6 @@ class TestClipBF16Op(OpTest):
         self.shape = (4, 10, 10)
         self.max = 0.8
         self.min = 0.3
-        # self.inputs['Max'] = np.array([0.8]).astype(np.float32)
-        # self.inputs['Min'] = np.array([0.1]).astype(np.float32)
 
 
 class TestBF16Case1(TestClipBF16Op):
@@ -252,9 +227,6 @@ class TestBF16Case4(TestClipBF16Op):
         self.shape = (4, 8, 8)
         self.max = 0.7
         self.min = 0.2
-        # self.inputs['Max'] = np.array([0.8]).astype(np.float32)
-        # self.inputs['Min'] = np.array([0.3]).astype(np.float32)
-
 
 class TestBF16Case5(TestClipBF16Op):
     def initTestCase(self):
@@ -300,14 +272,9 @@ class TestClipAPI(unittest.TestCase):
             images = paddle.static.data(
                 name='image', shape=data_shape, dtype='float32'
             )
-            min = paddle.static.data(name='min', shape=[1], dtype='float32')
-            max = paddle.static.data(name='max', shape=[1], dtype='float32')
-            # out_1 = self._executed_api(images, min=min, max=max)
             out_2 = self._executed_api(images, min=0.2, max=0.9)
             out_3 = self._executed_api(images, min=0.3)
             out_4 = self._executed_api(images, max=0.7)
-            # out_5 = self._executed_api(images, min=min)
-            # out_6 = self._executed_api(images, max=max)
             out_7 = self._executed_api(images, max=-1.0)
             out_8 = self._executed_api(images)
             out_9 = self._executed_api(
@@ -321,12 +288,9 @@ class TestClipAPI(unittest.TestCase):
             )
 
         (
-            # res1,
             res2,
             res3,
             res4,
-            # res5,
-            # res6,
             res7,
             res8,
             res9,
@@ -335,17 +299,12 @@ class TestClipAPI(unittest.TestCase):
         ) = exe.run(
             main,
             feed={
-                "image": data,
-                "min": np.array([0.2]).astype('float32'),
-                "max": np.array([0.8]).astype('float32'),
+                "image": data
             },
             fetch_list=[
-                # out_1,
                 out_2,
                 out_3,
                 out_4,
-                # out_5,
-                # out_6,
                 out_7,
                 out_8,
                 out_9,
@@ -354,12 +313,9 @@ class TestClipAPI(unittest.TestCase):
             ],
         )
 
-        # np.testing.assert_allclose(res1, data.clip(0.2, 0.8), rtol=1e-05)
         np.testing.assert_allclose(res2, data.clip(0.2, 0.9), rtol=1e-05)
         np.testing.assert_allclose(res3, data.clip(min=0.3), rtol=1e-05)
         np.testing.assert_allclose(res4, data.clip(max=0.7), rtol=1e-05)
-        # np.testing.assert_allclose(res5, data.clip(min=0.2), rtol=1e-05)
-        # np.testing.assert_allclose(res6, data.clip(max=0.8), rtol=1e-05)
         np.testing.assert_allclose(res7, data.clip(max=-1), rtol=1e-05)
         np.testing.assert_allclose(res8, data, rtol=1e-05)
         np.testing.assert_allclose(
@@ -384,15 +340,10 @@ class TestClipAPI(unittest.TestCase):
         data_shape = [1, 9, 9, 4]
         data = np.random.random(data_shape).astype('float32')
         images = paddle.to_tensor(data, dtype='float32')
-        v_min = paddle.to_tensor(np.array([0.2], dtype=np.float32))
-        v_max = paddle.to_tensor(np.array([0.8], dtype=np.float32))
-
         out_1 = self._executed_api(images, min=0.2, max=0.8)
         images = paddle.to_tensor(data, dtype='float32')
         out_2 = self._executed_api(images, min=0.2, max=0.9)
         images = paddle.to_tensor(data, dtype='float32')
-        # out_3 = self._executed_api(images, min=v_min, max=v_max)
-
         out_4 = self._executed_api(
             paddle.cast(images * 10, 'int32'), min=2, max=8
         )
@@ -408,9 +359,6 @@ class TestClipAPI(unittest.TestCase):
         np.testing.assert_allclose(
             out_2.numpy(), data.clip(0.2, 0.9), rtol=1e-05
         )
-        # np.testing.assert_allclose(
-        #     out_3.numpy(), data.clip(0.2, 0.8), rtol=1e-05
-        # )
         np.testing.assert_allclose(
             out_4.numpy(), (data * 10).astype(np.int32).clip(2, 8), rtol=1e-05
         )
@@ -463,20 +411,12 @@ class TestClipOpFp16(unittest.TestCase):
                 images = paddle.static.data(
                     name='image1', shape=data_shape, dtype='float16'
                 )
-                min = paddle.static.data(
-                    name='min1', shape=[1], dtype='float16'
-                )
-                max = paddle.static.data(
-                    name='max1', shape=[1], dtype='float16'
-                )
-                out = paddle.clip(images)#, min, max)
+                out = paddle.clip(images, 0.2, 0.8)
                 place = paddle.CUDAPlace(0)
                 exe = paddle.static.Executor(place)
                 res1 = exe.run(
                     feed={
                         "image1": data,
-                        # "min1": np.array([0.2]).astype('float16'),
-                        # "max1": np.array([0.8]).astype('float16'),
                     },
                     fetch_list=[out],
                 )
