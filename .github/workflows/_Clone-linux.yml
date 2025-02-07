@@ -12,6 +12,8 @@ on:
         required: true
         type: string
 
+permissions: read-all
+
 env:
   PR_ID: ${{ inputs.PR_ID }}
   COMMIT_ID: ${{ inputs.COMMIT_ID }}
@@ -54,7 +56,6 @@ jobs:
         SK: ${{ vars.SK }}
         bos_file: "/home/paddle/actions-runner/bos_upload.py"
       run: |
-        echo $PR_ID
         cd ..
         tar -zcf Paddle.tar.gz Paddle
         python -m pip install bce-python-sdk==0.8.74
