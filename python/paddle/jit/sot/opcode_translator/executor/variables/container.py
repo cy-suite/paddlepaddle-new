@@ -837,7 +837,7 @@ class DictVariable(ContainerVariable):
 
     def flatten_inner_vars(self):
         items = self.get_wrapped_items()
-        return (
+        return [
             inner_var
             for key in items.keys()
             for key_var in [
@@ -849,7 +849,7 @@ class DictVariable(ContainerVariable):
                 key_var.flatten_inner_vars()
                 + self[key_var].flatten_inner_vars()
             )
-        )
+        ]
 
     def get_wrapped_items(self):
         items = {}
