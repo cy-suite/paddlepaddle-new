@@ -32,6 +32,7 @@ limitations under the License. */
 #include "paddle/phi/common/place.h"
 #include "paddle/phi/core/allocator.h"
 #include "paddle/phi/core/cuda_stream.h"
+#include "paddle/phi/core/memory/allocation/allocator_facade.h"
 
 #ifdef PADDLE_WITH_CUDA
 #include "paddle/phi/backends/dynload/cublas.h"
@@ -640,10 +641,12 @@ struct GPUContext::Impl {
     if (blas_tf32_tensor_core_handle_ && phi::AllowTF32Cublas()) {
       std::lock_guard<std::mutex> guard(blas_tf32_mtx_);
       phi::dynload::cublasSetStream(blas_tf32_tensor_core_handle_, stream());
+      phi::dynload::cublasSetSmCountTarget(blas_tf32_tensor_core_handle_, 50);
       callback(blas_tf32_tensor_core_handle_);
     } else {
       std::lock_guard<std::mutex> guard(blas_mtx_);
       phi::dynload::cublasSetStream(blas_handle_, stream());
+      phi::dynload::cublasSetSmCountTarget(blas_handle_, 50);
       callback(blas_handle_);
     }
   }
@@ -687,10 +690,12 @@ struct GPUContext::Impl {
     if (blas_tensor_core_handle_ != nullptr) {
       std::lock_guard<std::mutex> guard(blas_tensor_core_mtx_);
       phi::dynload::cublasSetStream(blas_tensor_core_handle_, stream());
+      phi::dynload::cublasSetSmCountTarget(blas_tensor_core_handle_, 50);
       callback(blas_tensor_core_handle_);
     } else {
       std::lock_guard<std::mutex> guard(blas_mtx_);
       phi::dynload::cublasSetStream(blas_handle_, stream());
+      phi::dynload::cublasSetSmCountTarget(blas_handle_, 50);
       callback(blas_handle_);
     }
   }
@@ -964,11 +969,17 @@ void GPUContext::Init() {
 }
 
 void GPUContext::SetStream(gpuStream_t stream) {
+  this->SetAllocator(paddle::memory::allocation::AllocatorFacade::Instance()
+                         .GetAllocator(impl_->GetPlace(), stream)
+                         .get());
   impl_->allocator_ = const_cast<Allocator*>(&this->GetAllocator());  // NOLINT
   impl_->SetStream(stream);
 }
 
 void GPUContext::SetCUDAStream(CUDAStream* stream, bool clear) {
+  this->SetAllocator(paddle::memory::allocation::AllocatorFacade::Instance()
+                         .GetAllocator(stream->place(), stream->raw_stream())
+                         .get());
   impl_->allocator_ = const_cast<Allocator*>(&this->GetAllocator());  // NOLINT
   impl_->SetCUDAStream(stream, clear);
 }
