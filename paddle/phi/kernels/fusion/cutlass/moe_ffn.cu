@@ -69,7 +69,14 @@ void MoeFFNKernel(const Context& ctx,
   const int64_t expanded_active_expert_rows = permute_input.dims()[0];
   const int num_experts = ffn1_weight.dims()[0];
   const int hidden_size = ffn1_weight.dims()[1];
-  const int inter_size = ffn1_weight.dims()[2];
+  int inter_dim = ffn1_weight.dims()[2];
+
+  if (quant_method == "weight_only_int4") {
+    inter_dim = inter_dim * 2;
+  }
+
+  const int64_t inter_size = inter_dim;
+
   DenseTensor fc1_out_tensor =
       Empty<T>(ctx, {expanded_active_expert_rows, inter_size});
   T* fc1_out = fc1_out_tensor.data<T>();
