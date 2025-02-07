@@ -25,6 +25,7 @@ from paddle.framework import (
     LayerHelper,
     _create_tensor,
     in_dynamic_mode,
+    in_dynamic_or_pir_mode,
     in_pir_mode,
 )
 from paddle.nn import Layer
@@ -139,21 +140,7 @@ def _c_concat(tensor, group=None):
     rank = group.rank
     nranks = group.nranks
 
-    if in_dynamic_mode():
-        return _legacy_C_ops.c_concat(
-            tensor,
-            'ring_id',
-            ring_id,
-            'use_calc_stream',
-            True,
-            'rank',
-            rank,
-            'nranks',
-            nranks,
-            'use_model_parallel',
-            True,
-        )
-    elif in_pir_mode():
+    if in_dynamic_or_pir_mode():
         return _C_ops.c_concat(tensor, rank, nranks, ring_id, True, True)
     else:
         op_type = 'c_concat'
@@ -266,15 +253,7 @@ class mp_allreduce_eager(PyLayer):
         if ctx.skip_c_identity_dynamic:
             return dy
         else:
-            return _legacy_C_ops.c_identity(
-                dy,
-                'use_calc_stream',
-                True,
-                'ring_id',
-                ctx.ring_id,
-                'use_model_parallel',
-                True,
-            )
+            return _C_ops.c_identity(dy, ctx.ring_id, True, True)
 
 
 def _mp_allreduce(

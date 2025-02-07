@@ -16,7 +16,9 @@ import ctypes
 import hashlib
 import logging
 
-import numpy as np
+import paddle
+
+paddle.base.core.register_paddle_plugin()
 import tensorrt as trt
 
 import paddle
@@ -29,6 +31,7 @@ from .impls.attribute import *  # noqa: F403
 from .impls.common import *  # noqa: F403
 from .impls.conv import *  # noqa: F403
 from .impls.creation import *  # noqa: F403
+from .impls.einsum import *  # noqa: F403
 from .impls.input import *  # noqa: F403
 from .impls.linalg import *  # noqa: F403
 from .impls.logic import *  # noqa: F403
@@ -44,6 +47,7 @@ from .impls.vision import *  # noqa: F403
 from .register import converter_registry
 from .util import (
     TensorRTConfigManager,
+    TensorRTConstantManager,
     get_cache_path,
     get_trt_version,
     get_trt_version_list,
@@ -66,15 +70,14 @@ class PaddleToTensorRTConverter:
         self.scope = scope
         self.program = paddle_program
         self.trt_config = trt_config
+        constant_manager = TensorRTConstantManager()
         params = paddle_program.global_block().all_parameters()
         param_dict = {}
         # save parameters
         for v in params:
             name = v.get_defining_op().attrs()["parameter_name"]
-            weight_array = np.array(self.scope.var(name).get_tensor())
-            # weights = trt.Weights(weight_array)
-            param_dict.update({name: weight_array})
-        self.param_dict = param_dict
+            weight_tensor = self.scope.var(name).get_tensor()
+            constant_manager.set_constant_value(name, weight_tensor, v)
 
         self.input_info = {}
         self.trt_output_value_map = {}
@@ -146,6 +149,8 @@ class PaddleToTensorRTConverter:
         opt_value_map = {}
         max_value_map = {}
         input_names = []
+        new_input_values = []
+        constant_manager = TensorRTConstantManager()
 
         # Because one of the inputs to pd_op.concat is builtin.combine,
         # during the conversion process using the converter,
@@ -166,9 +171,22 @@ class PaddleToTensorRTConverter:
             defining_op = value.get_defining_op()
             if defining_op.name() == "builtin.parameter":
                 param_name = defining_op.attrs()["parameter_name"]
-                weight = trt.Weights(self.param_dict[param_name])
+                weight = trt.Weights(
+                    constant_manager.get_constant_value(param_name)
+                )
                 value_to_trt_tensor[value.id] = weight
-                input_names.append("")
+            elif defining_op.name() == "builtin.constant":
+                constant_value_name = defining_op.attrs()["value"]
+                constant_tensor = self.scope.var(
+                    constant_value_name
+                ).get_tensor()
+                constant_manager.set_constant_value(
+                    constant_value_name, constant_tensor, value
+                )
+                constant_tensor = trt.Weights(
+                    constant_manager.get_constant_value(constant_value_name)
+                )
+                value_to_trt_tensor[value.id] = constant_tensor
             else:
                 shape = value.shape
                 dtype = map_dtype(value.dtype.name)
@@ -180,6 +198,7 @@ class PaddleToTensorRTConverter:
                     name=input_name, dtype=dtype, shape=shape
                 )
                 input_names.append(input_name)
+                new_input_values.append(value)
                 value_to_trt_tensor[value.id] = input_tensor
 
         for op in operations:
@@ -191,6 +210,9 @@ class PaddleToTensorRTConverter:
                 source = operand.source()
                 if not source.initialized():
                     operands.append(None)
+                    continue
+                vec_type = source.type().as_vec_type()
+                if vec_type is not None and len(vec_type.as_list()) == 0:
                     continue
                 define_op_name = source.get_defining_op().name()
                 if define_op_name == "builtin.combine":
@@ -238,6 +260,10 @@ class PaddleToTensorRTConverter:
 
             for idx, result in enumerate(op.results()):
                 if result.is_combine():
+                    # empty vec value condition
+                    if len(result.type().as_vec_type().as_list()) == 0:
+                        results.append(result)
+                        continue
                     used_ops = result.all_used_ops()
                     for use_op in used_ops:
                         if use_op.name() == "builtin.split":
@@ -245,6 +271,7 @@ class PaddleToTensorRTConverter:
                             results.extend(split_outputs)
                 else:
                     results.append(result)
+
             for idx, result in enumerate(results):
                 if idx < len(trt_outs):
                     value_to_trt_tensor[result.id] = trt_outs[idx]
@@ -254,84 +281,86 @@ class PaddleToTensorRTConverter:
         # Set TRT min/opt/max input shape and the value of shape tensor
         for i, value in enumerate(origin_input_value):
             trt_input = value_to_trt_tensor[value.id]
-            if isinstance(trt_input, trt.Weights):
+            defining_op_name = value.get_defining_op().name()
+            if (
+                defining_op_name == "builtin.parameter"
+                or defining_op_name == "builtin.constant"
+            ):
+                # constant/parameter condition, needn't get min/opt/max shape
                 continue
             input_name = trt_input.name
-            if input_name != "":
-                _logger.info(
-                    f"set shape of {value}, op is: {value.get_defining_op()}"
+            _logger.info(
+                f"set shape of {value}, op is: {value.get_defining_op()}"
+            )
+            min_shape = []
+            opt_shape = []
+            max_shape = []
+            min_value = []
+            opt_value = []
+            max_value = []
+
+            value_define_op = value.get_defining_op()
+            # if the input value is generated by the other trt_engine_op, so the shape is searched by origin value
+            if (
+                value_define_op.name() == "builtin.split"
+                and value_define_op.operand_source(0).get_defining_op().name()
+                == "pd_op.tensorrt_engine"
+            ):
+                min_shape = self.input_info[value.id]["min_shape"]
+                opt_shape = self.input_info[value.id]["opt_shape"]
+                max_shape = self.input_info[value.id]["max_shape"]
+                if trt_input.is_shape_tensor:
+                    min_value = self.input_info[value.id]["min_value"]
+                    opt_value = self.input_info[value.id]["opt_value"]
+                    max_value = self.input_info[value.id]["max_value"]
+            else:
+                min_shape = get_value_shape_range_info(
+                    value, False, paddle.base.core.ShapeMode.kMIN
                 )
-                min_shape = []
-                opt_shape = []
-                max_shape = []
-                min_value = []
-                opt_value = []
-                max_value = []
+                opt_shape = get_value_shape_range_info(
+                    value, False, paddle.base.core.ShapeMode.kOPT
+                )
+                max_shape = get_value_shape_range_info(
+                    value, False, paddle.base.core.ShapeMode.kMAX
+                )
 
-                value_define_op = value.get_defining_op()
-                # if the input value is generated by the other trt_engine_op, so the shape is searched by origin value
-                if (
-                    value_define_op.name() == "builtin.split"
-                    and value_define_op.operand_source(0)
-                    .get_defining_op()
-                    .name()
-                    == "pd_op.tensorrt_engine"
-                ):
-                    min_shape = self.input_info[value.id]["min_shape"]
-                    opt_shape = self.input_info[value.id]["opt_shape"]
-                    max_shape = self.input_info[value.id]["max_shape"]
-                    if trt_input.is_shape_tensor:
-                        min_value = self.input_info[value.id]["min_value"]
-                        opt_value = self.input_info[value.id]["opt_value"]
-                        max_value = self.input_info[value.id]["max_value"]
-                else:
-                    min_shape = get_value_shape_range_info(
-                        value, False, paddle.base.core.ShapeMode.kMIN
+                if trt_input.is_shape_tensor:
+                    min_value = get_value_shape_range_info(
+                        value, True, paddle.base.core.ShapeMode.kMIN
                     )
-                    opt_shape = get_value_shape_range_info(
-                        value, False, paddle.base.core.ShapeMode.kOPT
+                    opt_value = get_value_shape_range_info(
+                        value, True, paddle.base.core.ShapeMode.kOPT
                     )
-                    max_shape = get_value_shape_range_info(
-                        value, False, paddle.base.core.ShapeMode.kMAX
+                    max_value = get_value_shape_range_info(
+                        value, True, paddle.base.core.ShapeMode.kMAX
                     )
+            if not trt_input.is_shape_tensor:
+                _logger.info(f"set min_shape of {value} as {min_shape}")
+                _logger.info(f"set opt_shape of {value} as {opt_shape}")
+                _logger.info(f"set max_shape of {value} as {max_shape}")
+                profile.set_shape(
+                    input_name, min=min_shape, opt=opt_shape, max=max_shape
+                )
+            else:
+                _logger.info(
+                    f"set min_value of shape input: {value} as {min_value}"
+                )
+                _logger.info(
+                    f"set max_value of shape input: {value} as {opt_value}"
+                )
+                _logger.info(
+                    f"set opt_value of shape input: {value} as {max_value}"
+                )
+                profile.set_shape_input(
+                    input_name, min=min_value, opt=opt_value, max=max_value
+                )
 
-                    if trt_input.is_shape_tensor:
-                        min_value = get_value_shape_range_info(
-                            value, True, paddle.base.core.ShapeMode.kMIN
-                        )
-                        opt_value = get_value_shape_range_info(
-                            value, True, paddle.base.core.ShapeMode.kOPT
-                        )
-                        max_value = get_value_shape_range_info(
-                            value, True, paddle.base.core.ShapeMode.kMAX
-                        )
-                if not trt_input.is_shape_tensor:
-                    _logger.info(f"set min_shape of {value} as {min_shape}")
-                    _logger.info(f"set opt_shape of {value} as {opt_shape}")
-                    _logger.info(f"set max_shape of {value} as {max_shape}")
-                    profile.set_shape(
-                        input_name, min=min_shape, opt=opt_shape, max=max_shape
-                    )
-                else:
-                    _logger.info(
-                        f"set min_value of shape input: {value} as {min_value}"
-                    )
-                    _logger.info(
-                        f"set max_value of shape input: {value} as {opt_value}"
-                    )
-                    _logger.info(
-                        f"set opt_value of shape input: {value} as {max_value}"
-                    )
-                    profile.set_shape_input(
-                        input_name, min=min_value, opt=opt_value, max=max_value
-                    )
-
-                min_shape_map[input_name] = min_shape
-                opt_shape_map[input_name] = opt_shape
-                max_shape_map[input_name] = max_shape
-                min_value_map[input_name] = min_value
-                opt_value_map[input_name] = opt_value
-                max_value_map[input_name] = max_value
+            min_shape_map[input_name] = min_shape
+            opt_shape_map[input_name] = opt_shape
+            max_shape_map[input_name] = max_shape
+            min_value_map[input_name] = min_value
+            opt_value_map[input_name] = opt_value
+            max_value_map[input_name] = max_value
 
         out_shapes = []
         out_names = []
@@ -391,7 +420,9 @@ class PaddleToTensorRTConverter:
             config.builder_optimization_level = (
                 self.trt_config.optimization_level
             )
-        config.set_memory_pool_limit(trt.MemoryPoolType.WORKSPACE, 1 << 30)
+        config.set_memory_pool_limit(
+            trt.MemoryPoolType.WORKSPACE, self.trt_config.workspace_size
+        )
 
         if self.trt_config is not None:
             precision_mode = self.trt_config.precision_mode
@@ -470,7 +501,7 @@ class PaddleToTensorRTConverter:
         with paddle.pir_utils.IrGuard(), paddle.pir.core.program_guard(program):
             pir.set_insertion_point(group_op)
             out = paddle._C_ops.tensorrt_engine(
-                origin_input_value,
+                new_input_values,
                 trt_params,
                 input_names,
                 out_names,
@@ -530,5 +561,24 @@ class PaddleToTensorRTConverter:
                     orin_out_values[o_i].replace_all_uses_with(new_out[o_i])
 
                 self.program.global_block().remove_op(op)
+
+        save_one_parameter = (
+            False  # We need to keep at least one parameter for save
+        )
+        for op in self.program.global_block().ops:
+            if op.name() == "builtin.parameter":
+                parameter_name = op.attrs()["parameter_name"]
+                if (
+                    not save_one_parameter
+                    and "constant_folding" not in parameter_name
+                ):
+                    save_one_parameter = True
+                    continue
+                if op.results()[0].use_empty():
+                    self.program.global_block().remove_op(op)
+            if op.name() == "builtin.constant":
+                if op.results()[0].use_empty():
+                    self.program.global_block().remove_op(op)
+
         # Call clear_shape_info to clear the previous shape information
         clear_shape_info()

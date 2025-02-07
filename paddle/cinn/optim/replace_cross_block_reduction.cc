@@ -30,7 +30,7 @@ namespace {
 
 ir::Expr CalcBufferSizeInBytes(const ir::Buffer& buffer) {
   const ir::Expr numel = buffer->SymbolicNumel();
-  return common::AutoSimplify(numel * buffer->dtype.bytes());
+  return optim::ArithSimplify(numel * buffer->dtype.bytes());
 }
 
 std::unordered_set<std::string> GetReduceVarNames(
@@ -339,7 +339,7 @@ struct CrossBlockReductionReplacer : public BaseMutator {
           update_stmt.As<ir::Block>()->stmts.size(),
           1UL,
           ::common::errors::InvalidArgument(
-              "There should be exactly one statment inside schedule_block."));
+              "There should be exactly one statement inside schedule_block."));
       update_stmt = update_stmt.As<ir::Block>()->stmts[0];
     }
     PADDLE_ENFORCE_NOT_NULL(
