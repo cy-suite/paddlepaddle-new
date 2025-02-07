@@ -236,6 +236,7 @@ limitations under the License. */
 #include "paddle/fluid/inference/tensorrt/pir/declare_plugin.h"
 #include "paddle/fluid/platform/tensorrt/trt_plugin.h"
 #endif
+#include "paddle/fluid/eager/accumulation/accumulation_node.h"
 
 COMMON_DECLARE_bool(use_mkldnn);
 COMMON_DECLARE_string(prim_backward_blacklist);
@@ -1203,7 +1204,7 @@ PYBIND11_MODULE(libpaddle, m) {
    private:
     std::shared_ptr<egr::GradNodeBase> node_;
     int64_t hook_id_;
-  }
+  };
 
   py::class_<NodePostHookRemoveHelper,
              std::shared_ptr<NodePostHookRemoveHelper>>(

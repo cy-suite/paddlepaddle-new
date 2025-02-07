@@ -340,7 +340,7 @@ class GradNodeBase {
     is_run_auto_parallel_ = is_run_auto_parallel;
   }
 
-  int64_t RegisterNodePostHook(std::shared_ptr<NodePostHook>&& hook);
+  int64_t RegisterNodePostHook(std::shared_ptr<NodePostHookBase>&& hook);
   bool RemoveNodePostHook(int64_t hook_id);
   bool HasNodePostHook();
   paddle::small_vector<std::vector<paddle::Tensor>, egr::kSlotSmallVectorSize>
@@ -371,7 +371,7 @@ class GradNodeBase {
       gradient_hooks_;
   int64_t next_hook_id_{0};
 
-  std::map<int64_t, std::shared_ptr<NodePostHook>> post_hooks_;
+  std::map<int64_t, std::shared_ptr<NodePostHookBase>> post_hooks_;
   int64_t next_post_hook_id_{0};
 
   // We handle complex to real conversion only if any complex GradIn is involved

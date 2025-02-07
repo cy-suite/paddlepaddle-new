@@ -868,7 +868,7 @@ uintptr_t GradNodeBase::GetPtr() const {
 }
 
 int64_t GradNodeBase::RegisterNodePostHook(
-    std::shared_ptr<NodePostHook>&& hook) {
+    std::shared_ptr<NodePostHookBase>&& hook) {
   post_hooks_.emplace(next_post_hook_id_, std::move(hook));
   return next_post_hook_id_++;
 }

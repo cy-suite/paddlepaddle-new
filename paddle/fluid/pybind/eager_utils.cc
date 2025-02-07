@@ -2726,7 +2726,7 @@ PyObject* ToPyObject(
   PyObject* args = nullptr;
   args = PyTuple_New(grads.size());
 
-  for (size_t i = 0; i < grads; i++) {
+  for (size_t i = 0; i < grads.size(); i++) {
     if (grads[i].size() == 0) {
       Py_INCREF(Py_None);
       PyTuple_SET_ITEM(args, i, Py_None);
@@ -2750,11 +2750,13 @@ CastPyArg2SmallVectorOfVectorOfTensor(PyObject* obj) {
     for (Py_ssize_t i = 0; i < len; i++) {
       item = PyList_GetItem(obj, i);
       if (PyObject_TypeCheck(item, p_tensor_type)) {
-        paddle::Tensor& tensor = reinterpret_cast<TensorObject*>(item)->tensor;
-        result.emplace_back({tensor});
+        std::vector<paddle::Tensor> tensors;
+        tensors.push_back(reinterpret_cast<TensorObject*>(item)->tensor);
+        result.emplace_back(tensors);
       } else if (item == Py_None) {
         // emplace empty Tensor for None
-        result.emplace_back();
+        std::vector<paddle::Tensor> tensors;
+        result.emplace_back(tensors);
       } else {
         result.emplace_back(CastPyArg2VectorOfTensor(obj, 0));
       }
@@ -2765,11 +2767,13 @@ CastPyArg2SmallVectorOfVectorOfTensor(PyObject* obj) {
     for (Py_ssize_t i = 0; i < len; i++) {
       item = PyTuple_GetItem(obj, i);
       if (PyObject_TypeCheck(item, p_tensor_type)) {
-        paddle::Tensor& tensor = reinterpret_cast<TensorObject*>(item)->tensor;
-        result.emplace_back({tensor});
+        std::vector<paddle::Tensor> tensors;
+        tensors.push_back(reinterpret_cast<TensorObject*>(item)->tensor);
+        result.emplace_back(tensors);
       } else if (item == Py_None) {
         // emplace empty Tensor for None
-        result.emplace_back();
+        std::vector<paddle::Tensor> tensors;
+        result.emplace_back(tensors);
       } else {
         result.emplace_back(CastPyArg2VectorOfTensor(obj, 0));
       }
