@@ -19,11 +19,13 @@
 #include <unordered_set>
 
 #include "paddle/cinn/common/cas.h"
+#include "paddle/cinn/common/const_fold.h"
 #include "paddle/cinn/common/simplify_special_pattern.h"
 #include "paddle/cinn/ir/ir_mutator.h"
 #include "paddle/cinn/ir/ir_printer.h"
 #include "paddle/cinn/ir/op/ir_operators.h"
 #include "paddle/cinn/ir/utils/ir_compare.h"
+#include "paddle/cinn/ir/utils/ir_copy.h"
 #include "paddle/common/enforce.h"
 namespace cinn {
 namespace common {
@@ -100,8 +102,8 @@ Expr RampRelatedAdd(ir::Ramp *ramp, ir::Ramp *other) {
                           ::common::errors::InvalidArgument(
                               "Other ramp pointer should not be null."));
   if (ramp->lanes == other->lanes) {
-    Expr base_add = cinn::common::AutoSimplify(ramp->base + other->base);
-    Expr stride_add = cinn::common::AutoSimplify(ramp->stride + other->stride);
+    Expr base_add = optim::ArithSimplify(ramp->base + other->base);
+    Expr stride_add = optim::ArithSimplify(ramp->stride + other->stride);
     VLOG(2) << base_add;
     VLOG(2) << stride_add;
     return ir::Ramp::Make(base_add, stride_add, ramp->lanes);
@@ -478,7 +480,7 @@ bool ComparePriority(const ir::IndexExpr &lhs, const ir::IndexExpr &rhs) {
   auto lhsLen = lhs.length();
   auto rhsLen = rhs.length();
   if (lhsLen < rhsLen) return false;
-  // Add < Mul < Div < Mod.
+  // Add < Mul < Div < Mod < Min < Max < Cast < Load.
   else if (lhsLen == rhsLen)
     return lhs.node_type() <= rhs.node_type();
   else
@@ -509,6 +511,10 @@ bool IsSumPartialBySymbol(const ir::IndexExpr &expr,
       return IsSumPartialBySymbol(expr.operand(0), symbol);
     }
     case ir::IrNodeTy::Mod:
+    case ir::IrNodeTy::Min:
+    case ir::IrNodeTy::Max:
+    case ir::IrNodeTy::Load:
+    case ir::IrNodeTy::Cast:
       return false;
     default:
       PADDLE_THROW(::common::errors::InvalidArgument(
@@ -518,8 +524,8 @@ bool IsSumPartialBySymbol(const ir::IndexExpr &expr,
 }
 ir::IndexExpr SimplifySymbolicAdd(const ir::IndexExpr &lhs,
                                   const ir::IndexExpr &sym,
-                                  const ir::IndexExpr &outter_mul_factor) {
-  if (lhs == sym) return sym * (outter_mul_factor + ir::IndexExpr(1));
+                                  const ir::IndexExpr &outer_mul_factor) {
+  if (lhs == sym) return sym * (outer_mul_factor + ir::IndexExpr(1));
   switch (lhs.node_type()) {
     case ir::IrNodeTy::IntImm: {
       auto imm = lhs.As<ir::IntImm>();
@@ -528,29 +534,29 @@ ir::IndexExpr SimplifySymbolicAdd(const ir::IndexExpr &lhs,
       return ir::IndexExpr(0);
     }
     case ir::IrNodeTy::_Var_: {
-      return sym * (outter_mul_factor + ir::IndexExpr(1));
+      return sym * (outer_mul_factor + ir::IndexExpr(1));
     }
     case ir::IrNodeTy::Add: {
       if (!common::IsSumPartialBySymbol(lhs.operand(0), sym))
         return lhs.operand(0) +
-               SimplifySymbolicAdd(lhs.operand(1), sym, outter_mul_factor);
-      return SimplifySymbolicAdd(lhs.operand(0), sym, outter_mul_factor) +
+               SimplifySymbolicAdd(lhs.operand(1), sym, outer_mul_factor);
+      return SimplifySymbolicAdd(lhs.operand(0), sym, outer_mul_factor) +
              lhs.operand(1);
     }
     case ir::IrNodeTy::Mul: {
       if (lhs.operand(1).is_constant() && lhs.operand(1).as_int64() == -1) {
-        return SimplifySymbolicAdd(lhs.operand(0), sym, -outter_mul_factor) *
+        return SimplifySymbolicAdd(lhs.operand(0), sym, -outer_mul_factor) *
                lhs.operand(1);
       }
       if (lhs.operand(0) == sym)
-        return lhs.operand(0) * (lhs.operand(1) + outter_mul_factor);
-      return (lhs.operand(0) + outter_mul_factor) * lhs.operand(1);
+        return lhs.operand(0) * (lhs.operand(1) + outer_mul_factor);
+      return (lhs.operand(0) + outer_mul_factor) * lhs.operand(1);
     }
     case ir::IrNodeTy::Mod:
       PADDLE_THROW(::common::errors::Fatal("Error in SimplifySymbolicAdd!"));
     case ir::IrNodeTy::Div: {
       return SimplifySymbolicAdd(
-                 lhs.operand(0), sym, lhs.operand(1) * outter_mul_factor) /
+                 lhs.operand(0), sym, lhs.operand(1) * outer_mul_factor) /
              lhs.operand(1);
     }
     default:
@@ -559,9 +565,9 @@ ir::IndexExpr SimplifySymbolicAdd(const ir::IndexExpr &lhs,
   }
 }
 
-bool IsDivisiblieBySymbol(const ir::IndexExpr &expr,
-                          const ir::IndexExpr &symbol,
-                          const ir::IrNodeTy &ty) {
+bool IsDivisibleBySymbol(const ir::IndexExpr &expr,
+                         const ir::IndexExpr &symbol,
+                         const ir::IrNodeTy &ty) {
   if (expr == symbol) return true;
   // TODO(liujinnan): Check Ty
   switch (expr.node_type()) {
@@ -572,23 +578,30 @@ bool IsDivisiblieBySymbol(const ir::IndexExpr &expr,
     case ir::IrNodeTy::_Var_:
       return expr == symbol;
     case ir::IrNodeTy::Add:
-      return IsDivisiblieBySymbol(expr.operand(0), symbol, ty) &&
-             IsDivisiblieBySymbol(expr.operand(1), symbol, ty);
+      return IsDivisibleBySymbol(expr.operand(0), symbol, ty) &&
+             IsDivisibleBySymbol(expr.operand(1), symbol, ty);
     case ir::IrNodeTy::Mul:
-      return IsDivisiblieBySymbol(expr.operand(0), symbol, ty) ||
-             IsDivisiblieBySymbol(expr.operand(1), symbol, ty);
-    case ir::IrNodeTy::Mod:
-      // Because S0 % 3 + S0 % 5 is not divisiblie by S0, so we push
+      // Because (S0 / 7 * 100) / S0 is not divisible by S0, so we push
       // `expr.node_type()` into third parameter.
-      return IsDivisiblieBySymbol(expr.operand(0), symbol, expr.node_type()) &&
-             IsDivisiblieBySymbol(expr.operand(1), symbol, expr.node_type());
+      return IsDivisibleBySymbol(expr.operand(0), symbol, expr.node_type()) ||
+             IsDivisibleBySymbol(expr.operand(1), symbol, expr.node_type());
+    case ir::IrNodeTy::Mod:
+      // Because S0 % 3 + S0 % 5 is not divisible by S0, so we push
+      // `expr.node_type()` into third parameter.
+      return IsDivisibleBySymbol(expr.operand(0), symbol, expr.node_type()) &&
+             IsDivisibleBySymbol(expr.operand(1), symbol, expr.node_type());
     case ir::IrNodeTy::Div: {
       if (ty != expr.node_type()) return false;
-      return IsDivisiblieBySymbol(expr.operand(0), symbol, expr.node_type());
+      return IsDivisibleBySymbol(expr.operand(0), symbol, expr.node_type());
     }
+    case ir::IrNodeTy::Min:
+    case ir::IrNodeTy::Max:
+    case ir::IrNodeTy::Load:
+    case ir::IrNodeTy::Cast:
+      return false;
     default:
       PADDLE_THROW(::common::errors::InvalidArgument(
-          "Unsupported type of expr in IsDivisiblieBySymbol which is: %s",
+          "Unsupported type of expr in IsDivisibleBySymbol which is: %s",
           expr));
   }
 }
@@ -611,7 +624,7 @@ ir::IndexExpr SimplifySymbolicDivide(const ir::IndexExpr &lhs,
       return SimplifySymbolicDivide(lhs.operand(0), sym, ty) +
              SimplifySymbolicDivide(lhs.operand(1), sym, ty);
     case ir::IrNodeTy::Mul: {
-      if (!common::IsDivisiblieBySymbol(lhs.operand(0), sym, ty))
+      if (!common::IsDivisibleBySymbol(lhs.operand(0), sym, ty))
         return lhs.operand(0) * SimplifySymbolicDivide(lhs.operand(1), sym, ty);
       return SimplifySymbolicDivide(lhs.operand(0), sym, ty) * lhs.operand(1);
     }
@@ -631,8 +644,7 @@ ir::IndexExpr SimplifySymbolicDivide(const ir::IndexExpr &lhs,
 
 bool ProveDivisible(const ir::IndexExpr &lhs, const ir::IndexExpr &rhs) {
   if (IsZero(lhs % rhs)) return true;
-  // remove AutoSimplify later.
-  if (IsZero(AutoSimplify(lhs % rhs))) return true;
+  if (IsZero(optim::ArithSimplify(lhs % rhs))) return true;
   return false;
 }
 
@@ -647,26 +659,158 @@ bool IsNegatedIndexExpr(const ir::IndexExpr &candidate,
   return false;
 }
 
-bool VerifyIndex(const ir::Expr &expr) {
+IndexType VerifyIndex(const ir::Expr &expr) {
   switch (expr.node_type()) {
     case ir::IrNodeTy::_Var_:
-    case ir::IrNodeTy::IntImm:
-    case ir::IrNodeTy::Load: {
-      if (expr.type().is_index_type()) return true;
-      return false;
+    case ir::IrNodeTy::IntImm: {
+      return expr.type().is_index_type() ? IndexType::kValid
+                                         : IndexType::kInvalid;
     }
-    case ir::IrNodeTy::Cast:
-      return VerifyIndex(expr->operand(0));
+    case ir::IrNodeTy::Load: {
+      return expr.type().is_index_type() ? IndexType::kLoad
+                                         : IndexType::kInvalid;
+    }
+    case ir::IrNodeTy::Cast: {
+      IndexType result = VerifyIndex(expr->operand(0));
+      return result == IndexType::kValid && expr.type().is_index_type()
+                 ? IndexType::kCast
+                 : IndexType::kInvalid;
+    }
     case ir::IrNodeTy::Add:
     case ir::IrNodeTy::Sub:
     case ir::IrNodeTy::Mul:
     case ir::IrNodeTy::Div:
     case ir::IrNodeTy::Mod:
     case ir::IrNodeTy::Max:
-    case ir::IrNodeTy::Min:
-      return VerifyIndex(expr->operand(0)) && VerifyIndex(expr->operand(1));
+    case ir::IrNodeTy::Min: {
+      IndexType left = VerifyIndex(expr->operand(0));
+      IndexType right = VerifyIndex(expr->operand(1));
+      if (left == IndexType::kInvalid || right == IndexType::kInvalid)
+        return IndexType::kInvalid;
+      return std::max(left, right);
+    }
   }
-  return false;
+  return IndexType::kInvalid;
+}
+
+ir::IndexExpr ConstructIndexExprByNodeType(const ir::IrNodeTy &ty,
+                                           const ir::IndexExpr &lhs,
+                                           const ir::IndexExpr &rhs,
+                                           bool simplify_flag) {
+  switch (ty) {
+    case ir::IrNodeTy::Add:
+      return simplify_flag ? lhs + rhs : ir::Add::Make(lhs, rhs);
+    case ir::IrNodeTy::Sub:
+      return simplify_flag ? lhs - rhs : ir::Sub::Make(lhs, rhs);
+    case ir::IrNodeTy::Mul:
+      return simplify_flag ? lhs * rhs : ir::Mul::Make(lhs, rhs);
+    case ir::IrNodeTy::Div:
+      return simplify_flag ? lhs / rhs : ir::Div::Make(lhs, rhs);
+    case ir::IrNodeTy::Mod:
+      return simplify_flag ? lhs % rhs : ir::Mod::Make(lhs, rhs);
+    case ir::IrNodeTy::Min:
+      return ir::Min::Make(lhs, rhs);
+    case ir::IrNodeTy::Max:
+      return ir::Max::Make(lhs, rhs);
+    default:
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "Unsupported type in Constructir::IndexExprByNodeType, which is: %s",
+          ty));
+  }
+}
+
+ir::IndexExpr ChangeSeqOfDivMod(const ir::IndexExpr &expr) {
+  switch (expr.node_type()) {
+    case ir::IrNodeTy::IntImm:
+    case ir::IrNodeTy::_Var_:
+    case ir::IrNodeTy::Cast:
+    case ir::IrNodeTy::Load: {
+      return expr;
+    }
+    case ir::IrNodeTy::Add:
+    case ir::IrNodeTy::Sub:
+    case ir::IrNodeTy::Mul:
+    case ir::IrNodeTy::Min:
+    case ir::IrNodeTy::Max:
+    case ir::IrNodeTy::Div: {
+      auto lhs = ChangeSeqOfDivMod(expr.operand(0));
+      auto rhs = ChangeSeqOfDivMod(expr.operand(1));
+      return ConstructIndexExprByNodeType(expr.node_type(), lhs, rhs, false);
+    }
+    case ir::IrNodeTy::Mod: {
+      if (expr.operand(0).node_type() == ir::IrNodeTy::Div) {
+        auto div_lhs = ChangeSeqOfDivMod(expr.operand(0).operand(0));
+        auto div_rhs = ChangeSeqOfDivMod(expr.operand(0).operand(1));
+        auto mod_rhs = ChangeSeqOfDivMod(expr.operand(1));
+        return div_lhs % (div_rhs * mod_rhs) / div_rhs;
+      } else {
+        auto lhs = ChangeSeqOfDivMod(expr.operand(0));
+        auto rhs = ChangeSeqOfDivMod(expr.operand(1));
+        if (lhs.node_type() == ir::IrNodeTy::Div) {
+          return (lhs.operand(0) % (lhs.operand(1) * rhs)) / lhs.operand(1);
+        }
+        return ConstructIndexExprByNodeType(expr.node_type(), lhs, rhs, false);
+      }
+    }
+    default:
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "Unsupported type of expr in ChangeSeqOfDivMod which is: %s", expr));
+  }
+}
+std::optional<ir::IndexExpr> DivByPartMul(const ir::IndexExpr &lhs,
+                                          const ir::IndexExpr &rhs,
+                                          ir::IrNodeTy ty) {
+  std::vector<ir::IndexExpr> elems = common::GetFlattenExprs<ir::Mul>(rhs);
+
+  ir::IndexExpr result = ir::ir_utils::IRCopy(lhs);
+
+  for (const auto &elem : elems) {
+    if (common::IsDivisibleBySymbol(result, elem, ty)) {
+      result = common::SimplifySymbolicDivide(result, elem, ty);
+    } else {
+      return std::nullopt;
+    }
+  }
+  return result;
+}
+
+std::optional<ir::IndexExpr> SimplifyComplexMod(const ir::IndexExpr &lhs,
+                                                const ir::IndexExpr &rhs) {
+  if (lhs == rhs) return ir::IndexExpr(lhs.type(), 0);
+  switch (lhs.node_type()) {
+    case ir::IrNodeTy::Add: {
+      auto simplify_lhs = SimplifyComplexMod(lhs.operand(0), rhs);
+      auto simplify_rhs = SimplifyComplexMod(lhs.operand(1), rhs);
+      if (simplify_lhs.has_value() && simplify_rhs.has_value())
+        return (simplify_lhs.value() + simplify_rhs.value());
+      return std::nullopt;
+    }
+    case ir::IrNodeTy::Mul: {
+      // (S0 % 4 * S1 % 8) % 4 != S0 % 4 * S1 % 4;
+      if (DivByPartMul(lhs, rhs, ir::IrNodeTy::Mod))
+        return ir::IndexExpr(lhs.type(), 0);
+      return std::nullopt;
+    }
+    case ir::IrNodeTy::Div:
+    case ir::IrNodeTy::IntImm:
+    case ir::IrNodeTy::_Var_:
+    case ir::IrNodeTy::Min:
+    case ir::IrNodeTy::Max:
+    case ir::IrNodeTy::Load:
+    case ir::IrNodeTy::Cast: {
+      return std::nullopt;
+    }
+    case ir::IrNodeTy::Mod: {
+      if (DivByPartMul(lhs.operand(1), rhs, ir::IrNodeTy::Mod)) {
+        return lhs.operand(0) % rhs;
+      }
+      return std::nullopt;
+    }
+    default:
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "Unsupported type of expr in SimplifyComplexMod which is: %s", lhs));
+  }
+  return std::nullopt;
 }
 }  // namespace common
 }  // namespace cinn

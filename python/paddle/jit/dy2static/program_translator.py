@@ -152,17 +152,17 @@ def check_view_api_used_by_inplace(program: paddle.pir.Program) -> None:
 
     all_vars_list = program.list_vars()
     for value in all_vars_list:
-        uesd_by_stride_ops = []
+        used_by_stride_ops = []
         for op in reversed(value.all_used_ops()):
             inplace_info = paddle.core.pir.get_op_inplace_info(op)
             if val_is_used_by_stride_op(op, value):
-                uesd_by_stride_ops.append(op)
+                used_by_stride_ops.append(op)
             if is_used_by_inplace_op(op, value, inplace_info):
                 if op.name() in skipped_inplace_ops:
                     continue
                 if value.get_defining_op().name() in framework.stride_ops:
                     show_op_callstack(op)
-                if len(uesd_by_stride_ops) == 0:
+                if len(used_by_stride_ops) == 0:
                     continue
                 show_op_callstack(op)
 
@@ -436,16 +436,6 @@ class StaticFunction(Generic[_InputT, _RetT]):
         self._property = kwargs.get("property", False)
         # Note: Record the patched method name for rollback.
         self._patched_name = None
-        self._get_debug_name()
-
-    def _get_debug_name(self) -> str:
-        try:
-            if self.class_instance:
-                self._debug_name = self.class_instance.__class__.__name__
-            else:
-                self._debug_name = self._dygraph_function.__name__
-        except Exception:
-            self._debug_name = "static_function"
 
     @property
     def is_property(self) -> bool:
@@ -947,7 +937,6 @@ class ASTStaticFunction(StaticFunction[_InputT, _RetT]):
             concrete_program, partial_program_layer = self._program_cache[
                 cache_key
             ]
-        partial_program_layer._debug_name = self._debug_name
         return concrete_program, partial_program_layer
 
     def get_concrete_program_with_cache_key(
@@ -1070,7 +1059,7 @@ class ASTStaticFunction(StaticFunction[_InputT, _RetT]):
                 )
                 if cached_program_len > 1:
                     logging_utils.warn(
-                        f"Current {self._function_spec} has more than one cached programs: {cached_program_len}, the last traced progam will be return by default."
+                        f"Current {self._function_spec} has more than one cached programs: {cached_program_len}, the last traced program will be return by default."
                     )
 
                 cache_key = self._program_cache._recent_cache_key
@@ -1277,16 +1266,22 @@ class ConcreteProgram:
                 is_to_static=True
             ), static_op_arg_cast_guard(_convert_into_value):
                 # 1. Adds `paddle.static.data` layers for input if needed
-                static_inputs = func_spec.pir_to_static_inputs_with_spec(
-                    input_spec, main_program
+                static_inputs, program_inputs = (
+                    func_spec.pir_to_static_inputs_with_spec(
+                        input_spec, main_program
+                    )
                 )
-                _kwargs = func_spec.pir_to_static_inputs_with_spec(
+                _kwargs, _ = func_spec.pir_to_static_inputs_with_spec(
                     input_kwargs_spec, main_program
                 )
                 if class_instance:
                     static_inputs = (
                         class_instance,
                         *list(static_inputs),
+                    )
+                    program_inputs = (
+                        class_instance,
+                        *list(program_inputs),
                     )
 
                 # 2. Builds program only once and returns the output Variables.
@@ -1330,7 +1325,7 @@ class ConcreteProgram:
             check_view_api_used_by_inplace(main_program)
 
         return ConcreteProgram(
-            inputs=static_inputs,
+            inputs=program_inputs,
             outputs=outputs,
             parameters=all_parameters_and_buffers,
             function=dygraph_function,
@@ -1554,7 +1549,7 @@ class PirPrimHooker(PirPartialProgramLayerHook):
                 backward_length = (
                     len(whole_program.global_block().ops) - forward_end_idx
                 )
-                # decompse forward program
+                # decompose forward program
                 dst_vars = decomposition.decompose(
                     whole_program,
                     src_vars,
@@ -1564,7 +1559,7 @@ class PirPrimHooker(PirPartialProgramLayerHook):
                 new_start_index = (
                     len(whole_program.global_block().ops) - backward_length
                 )
-                # decompse backward program
+                # decompose backward program
                 dst_vars = decomposition.decompose(
                     whole_program,
                     dst_vars,
@@ -1894,7 +1889,7 @@ def _to_prim(
     start_idx=-1,
     backward_length=-1,
 ):
-    """Swith to static graph and call to_prim."""
+    """Switch to static graph and call to_prim."""
     # TODO(Aurelius84): Fix this cycle import problem
     from paddle.incubate.autograd import primapi
 

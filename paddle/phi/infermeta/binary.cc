@@ -195,29 +195,24 @@ void Atan2InferMeta(const MetaTensor& x, const MetaTensor& y, MetaTensor* out) {
   const auto& x_dims = x.dims();
   const auto& y_dims = y.dims();
 
-  if (x_dims == y_dims) {
-    out->share_meta(x);
-    return;
-  }
+  PADDLE_ENFORCE_EQ(
+      x_dims.size(),
+      y_dims.size(),
+      common::errors::InvalidArgument("The rank (%d) of X shall be same as "
+                                      "rank (%d) of Y.",
+                                      x_dims.size(),
+                                      y_dims.size()));
 
-  const int max_ndim = std::max(x_dims.size(), y_dims.size());
-  const int axis = std::abs(static_cast<int>(x_dims.size()) -
-                            static_cast<int>(y_dims.size()));
+  if (x_dims.size() > 0)
+    PADDLE_ENFORCE_LE(x_dims[0],
+                      y_dims[0],
+                      common::errors::InvalidArgument(
+                          "The count (%d) of elements of X shall not "
+                          "greater than count (%d) of elements of Y.",
+                          x_dims[0],
+                          y_dims[0]));
 
-  std::vector<int> x_dims_array(max_ndim, 1);
-  std::vector<int> y_dims_array(max_ndim, 1);
-  std::vector<int> out_dims_array(max_ndim, 1);
-
-  funcs::GetBroadcastDimsArrays(x_dims,
-                                y_dims,
-                                x_dims_array.data(),
-                                y_dims_array.data(),
-                                out_dims_array.data(),
-                                max_ndim,
-                                axis);
-
-  out->set_dims(common::make_ddim(out_dims_array));
-  out->share_lod(x);
+  out->share_meta(x);
   if (x.dtype() == DataType::INT32 || x.dtype() == DataType::INT64 ||
       y.dtype() == DataType::INT32 || y.dtype() == DataType::INT64) {
     out->set_dtype(DataType::FLOAT64);
@@ -884,9 +879,9 @@ void ConvTransposeInferMeta(const MetaTensor& x,
             output_size[i],
             infer_shape,
             errors::InvalidArgument(
-                "output_size of Op(ConvTransposeOp) should not be "
-                "less than the infered output size. But received output_size = "
-                "[%s], whose dim %d is less than the infered output size [%s]",
+                "output_size of Op(ConvTransposeOp) should not be less than "
+                "the inferred output size. But received output_size = [%s], "
+                "whose dim %d is less than the inferred output size [%s]",
                 common::make_ddim(output_size).to_str(),
                 i,
                 infer_shape));
@@ -895,8 +890,8 @@ void ConvTransposeInferMeta(const MetaTensor& x,
             infer_shape + strides[i],
             errors::InvalidArgument(
                 "output_size of Op(ConvTransposeOp) should be less "
-                "than infered size + stride. But received output_size = [%s], "
-                "whose dim %d is not less than the infered output size (%d) + "
+                "than inferred size + stride. But received output_size = [%s], "
+                "whose dim %d is not less than the inferred output size (%d) + "
                 "stride (%d) = %d",
                 common::make_ddim(output_size).to_str(),
                 i,
@@ -4428,7 +4423,7 @@ void UnpoolInferMeta(const MetaTensor& x,
   PADDLE_ENFORCE_EQ(in_x_dims.size() == 4,
                     true,
                     common::errors::InvalidArgument(
-                        "Unpool Intput(X) must be of 4-dimensional, but "
+                        "Unpool Input(X) must be of 4-dimensional, but "
                         "received Input(X)'s dimensions is %d.",
                         in_x_dims.size()));
   PADDLE_ENFORCE_EQ(in_x_dims,
@@ -4474,7 +4469,7 @@ void Unpool3dInferMeta(const MetaTensor& x,
   PADDLE_ENFORCE_EQ(in_x_dims.size() == 5,
                     true,
                     common::errors::InvalidArgument(
-                        "Unpool Intput(X) must be of 5-dimensional, but "
+                        "Unpool Input(X) must be of 5-dimensional, but "
                         "received Input(X)'s dimensions is %d.",
                         in_x_dims.size()));
   PADDLE_ENFORCE_EQ(in_x_dims,

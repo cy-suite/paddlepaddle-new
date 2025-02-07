@@ -17,7 +17,14 @@ import numpy as np
 import tensorrt as trt
 
 from paddle import pir
-from paddle.tensorrt.converter_utils import get_shape_tensor_element
+from paddle.tensorrt.converter_utils import (
+    add_1D_constant_layer,
+    get_input_constant_value,
+    get_shape_tensor_element,
+    trt_concat,
+    trt_reshape,
+    trt_shape,
+)
 from paddle.tensorrt.register import converter_registry
 from paddle.tensorrt.util import get_trt_version_list
 
@@ -25,8 +32,7 @@ from paddle.tensorrt.util import get_trt_version_list
 @converter_registry.register("pd_op.dropout", trt_version="8.x")
 def dropout_converter(network, paddle_op, inputs):
     input_x = inputs[0]
-    p_defining_op = paddle_op.operands()[2].source().get_defining_op()
-    dropout_prob = p_defining_op.attrs()["value"]
+    dropout_prob = get_input_constant_value(paddle_op, inputs, 2)[0]
     downgrade_in_infer = paddle_op.attrs().get("mode")
 
     if downgrade_in_infer == "upscale_in_train":
@@ -195,6 +201,67 @@ def bilinear_interp_converter(network, paddle_op, inputs):
             resize_layer.set_input(1, output_size_tensor)
 
     return resize_layer.get_output(0)
+
+
+@converter_registry.register(
+    "pd_op.embedding", trt_version="trt_version_ge=8.0"
+)
+def embedding_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    weight = inputs[1]
+    gather_layer = network.add_gather(weight, x, 0)
+    return gather_layer.get_output(0)
+
+
+@converter_registry.register("pd_op.unbind", trt_version="trt_version_ge=8.0")
+def unbind_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    input_shape = x.shape
+    axis = paddle_op.attrs().get("axis")
+    rank = len(input_shape)
+    if axis < 0:
+        axis += rank
+    axis = int(axis)
+    # Input for the add_slice layer
+    start_tensors = []
+    size_tensors = []
+    # Input for the add_shuffle layer
+    new_shape_tensors = []
+    for i in range(rank):
+        if axis == i:
+            size_tensors.append(add_1D_constant_layer(network, 1))
+        else:
+            size_tensors.append(
+                get_shape_tensor_element(network, trt_shape(network, x), i)
+            )
+            new_shape_tensors.append(
+                get_shape_tensor_element(network, trt_shape(network, x), i)
+            )
+        start_tensors.append(add_1D_constant_layer(network, 0))
+
+    new_shape_tensor = trt_concat(network, new_shape_tensors)
+    stride = trt.Dims([1] * rank)
+    outputs = []
+    output_size = len(paddle_op.results()[0].type().as_vec_type().as_list())
+    for i in range(output_size):
+        start_tensors[axis] = add_1D_constant_layer(network, i)
+        # Create Slice layer
+        slice_layer = network.add_slice(
+            x,
+            stride,
+            stride,
+            stride,
+        )
+        slice_layer.set_input(1, trt_concat(network, start_tensors))
+        slice_layer.set_input(2, trt_concat(network, size_tensors))
+        shuffle_layer = trt_reshape(
+            network,
+            slice_layer.get_output(0),
+            new_shape_tensor,
+            is_shape_tensor=True,
+        )
+        outputs.append(shuffle_layer)
+    return outputs
 
 
 @converter_registry.register(
