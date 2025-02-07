@@ -192,7 +192,6 @@ void XPUTracer::CollectTraceData(TraceEventCollector* collector) {
   while (true) {
     XPTIResult status = phi::dynload::xptiActivityGetNextRecord(&record);
     if (status == XPTI_SUCCESS) {
-      record->PrintForDebug();
       switch (record->type) {
         case XPTI_EVENT_TYPE_API:
           AddApiRecord(record, tracing_start_ns_, collector);
