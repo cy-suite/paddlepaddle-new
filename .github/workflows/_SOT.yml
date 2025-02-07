@@ -14,7 +14,7 @@ on:
 
 env:
   dockerfile: Dockerfile.cuda9_cudnn7_gcc48_py35_centos6
-  docker-image: cuda9_cudnn7_gcc48_py35_centos6
+  docker-image: 077ca344c322
 
 jobs:
   build-test:
@@ -84,84 +84,84 @@ jobs:
         wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/Paddle/${PR_ID}/${COMMIT_ID}/Paddle.tar.gz
         tar xf Paddle.tar.gz
         cd Paddle
-    #     git config --global user.name "PaddleCI"
-    #     git config --global user.email "paddle_ci@example.com"
-    #     git remote add upstream https://github.com/PaddlePaddle/Paddle.git
-    #     git checkout develop
-    #     git_code=1
-    #     set +e
-    #     git pull upstream develop
-    #     if [ $? -eq 0 ]; then
-    #       git_code=0
-    #       echo 'git pull succeed with'
-    #     else
-    #       proxy="${{ vars.PADDLE_PROXY }}"
-    #       echo "::add-mask::$proxy"
-    #       export http_proxy=$proxy
-    #       export https_proxy=$proxy
-    #       git pull upstream develop
-    #       if [ $? -eq 0 ]; then
-    #         git_code=0
-    #         echo 'git pull succeed with'
-    #       else
-    #         echo "proxy filed"
-    #         exit 2
-    #       fi
-    #     fi
-    #     set -e
-    #     git checkout test
-    #     git merge develop
+        git config --global user.name "PaddleCI"
+        git config --global user.email "paddle_ci@example.com"
+        git remote add upstream https://github.com/PaddlePaddle/Paddle.git
+        git checkout develop
+        git_code=1
+        set +e
+        git pull upstream develop
+        if [ $? -eq 0 ]; then
+          git_code=0
+          echo 'git pull succeed with'
+        else
+          proxy="${{ vars.PADDLE_PROXY }}"
+          echo "::add-mask::$proxy"
+          export http_proxy=$proxy
+          export https_proxy=$proxy
+          git pull upstream develop
+          if [ $? -eq 0 ]; then
+            git_code=0
+            echo 'git pull succeed with'
+          else
+            echo "proxy filed"
+            exit 2
+          fi
+        fi
+        set -e
+        git checkout test
+        git merge develop
 
-    # - name: Configure cache and ccache
-    #   run: |
-    #     # docker start paddle-CI /bin/bash
-    #     # docker exec -it paddle-CI
-    #     mkdir -p /home/data/cfs/.cache/build
-    #     echo "CACHE_DIR=/home/data/cfs/.cache/build" >> $GITHUB_ENV
-    #     if [ -f '/home/data/gzcfs/gz.txt' ];then
-    #       mkdir -p /home/data/gzcfs/.ccache/sot
-    #       echo "CCACHE_DIR=/home/data/gzcfs/.ccache/sot" >> $GITHUB_ENV
-    #     else
-    #       mkdir -p /home/data/cfs/.ccache/sot
-    #       echo "CCACHE_DIR=/home/data/cfs/.ccache/sot" >> $GITHUB_ENV
-    #     fi
+    - name: Configure cache and ccache
+      run: |
+        # docker start paddle-CI /bin/bash
+        # docker exec -it paddle-CI
+        mkdir -p /home/data/cfs/.cache/build
+        echo "CACHE_DIR=/home/data/cfs/.cache/build" >> $GITHUB_ENV
+        if [ -f '/home/data/gzcfs/gz.txt' ];then
+          mkdir -p /home/data/gzcfs/.ccache/sot
+          echo "CCACHE_DIR=/home/data/gzcfs/.ccache/sot" >> $GITHUB_ENV
+        else
+          mkdir -p /home/data/cfs/.ccache/sot
+          echo "CCACHE_DIR=/home/data/cfs/.ccache/sot" >> $GITHUB_ENV
+        fi
 
-    # - name: Check sot
-    #   env:
-    #     work_dir: "/workspace/Paddle"
-    #     PADDLE_ROOT: "/workspace/Paddle"
-    #   run: |
-    #     # docker start paddle-CI /bin/bash
-    #     # docker exec -it paddle-CI
-    #     EXCODE=0
-    #     set +e
-    #     PATH=/usr/local/bin:${PATH}
-    #     ln -sf $(which python3.10) /usr/local/bin/python
-    #     ln -sf $(which pip3.10) /usr/local/bin/pip
-    #     bash -x ${work_dir}/paddle/scripts/paddle_build.sh cicheck_sot;EXCODE=$?
-    #     echo "EXCODE=$EXCODE" >> $GITHUB_ENV
+    - name: Check sot
+      env:
+        work_dir: "/workspace/Paddle"
+        PADDLE_ROOT: "/workspace/Paddle"
+      run: |
+        # docker start paddle-CI /bin/bash
+        # docker exec -it paddle-CI
+        EXCODE=0
+        set +e
+        PATH=/usr/local/bin:${PATH}
+        ln -sf $(which python3.10) /usr/local/bin/python
+        ln -sf $(which pip3.10) /usr/local/bin/pip
+        bash -x ${work_dir}/paddle/scripts/paddle_build.sh cicheck_sot;EXCODE=$?
+        echo "EXCODE=$EXCODE" >> $GITHUB_ENV
 
-    # - name: Check result
-    #   run: |
-    #     # docker start paddle-CI /bin/bash
-    #     # docker exec -it paddle-CI
-    #     if [[ $EXCODE -eq 0 ]];then
-    #       echo "Congratulations!  Your PR passed the paddle-build."
-    #     elif [[ $EXCODE -eq 4 ]];then
-    #       echo "Sorry, your code style check failed."
-    #     elif [[ $EXCODE -eq 5 ]];then
-    #       echo "Sorry, API's example code check failed."
-    #     elif [[ $EXCODE -eq 6 ]];then
-    #       echo "Sorry, your pr need to be approved."
-    #     elif [[ $EXCODE -eq 7 ]];then
-    #       echo "Sorry, build failed."
-    #     elif [[ $EXCODE -eq 8 ]];then
-    #       echo "Sorry, some tests failed."
-    #     elif [[ $EXCODE -eq 9 ]];then
-    #       echo "Sorry, coverage check failed."
-    #     fi
-    #     # set -x
-    #     exit $EXCODE
+    - name: Check result
+      run: |
+        # docker start paddle-CI /bin/bash
+        # docker exec -it paddle-CI
+        if [[ $EXCODE -eq 0 ]];then
+          echo "Congratulations!  Your PR passed the paddle-build."
+        elif [[ $EXCODE -eq 4 ]];then
+          echo "Sorry, your code style check failed."
+        elif [[ $EXCODE -eq 5 ]];then
+          echo "Sorry, API's example code check failed."
+        elif [[ $EXCODE -eq 6 ]];then
+          echo "Sorry, your pr need to be approved."
+        elif [[ $EXCODE -eq 7 ]];then
+          echo "Sorry, build failed."
+        elif [[ $EXCODE -eq 8 ]];then
+          echo "Sorry, some tests failed."
+        elif [[ $EXCODE -eq 9 ]];then
+          echo "Sorry, coverage check failed."
+        fi
+        # set -x
+        exit $EXCODE
 
     # - name: Terminate and delete the container
     #   if: always()
