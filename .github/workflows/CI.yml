@@ -18,6 +18,15 @@ jobs:
       PR_ID: ${{ github.event.pull_request.number }}
       COMMIT_ID: ${{ github.event.pull_request.head.sha }}
 
+  test:
+    runs-on: ubuntu-latest
+    step:
+    - name: 11
+      env:
+        AK: ${{ vars.AK }}
+      run: |
+        echo ${AK}
+
   # SOT:
   #   uses: ./.github/workflows/_SOT.yml
   #   needs: Clone
