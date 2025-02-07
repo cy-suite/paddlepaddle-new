@@ -1418,8 +1418,6 @@ class OpcodeExecutorBase:
                 )
             return
 
-        # breakpoint()
-
         flag = instr.arg
         closure, related_list, kw_defaults, default_args = (
             self.attach_new_attribute(flag, related_list)
