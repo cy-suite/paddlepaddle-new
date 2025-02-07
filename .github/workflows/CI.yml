@@ -13,8 +13,8 @@ jobs:
   Clone:
     uses: ./.github/workflows/_Clone-linux.yml
     with:
-      PR_ID: ${{ env.PR_ID }}
-      COMMIT_ID: ${{ env.COMMIT_ID }}
+      PR_ID: ${{ github.event.pull_request.number }}
+      COMMIT_ID: ${{ github.event.pull_request.head.sha }}
 
   # SOT:
   #   uses: ./.github/workflows/_SOT.yml
