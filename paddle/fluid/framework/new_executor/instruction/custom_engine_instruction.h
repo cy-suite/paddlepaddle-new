@@ -16,7 +16,6 @@
 #include "paddle/fluid/custom_engine/custom_engine_ext.h"
 #include "paddle/fluid/framework/new_executor/instruction/instruction_base.h"
 #include "paddle/phi/core/kernel_context.h"
-
 namespace pir {
 class Operation;
 }  // namespace pir
