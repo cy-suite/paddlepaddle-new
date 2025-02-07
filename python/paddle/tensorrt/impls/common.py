@@ -371,7 +371,6 @@ def linear_interp_converter(network, paddle_op, inputs):
     out_w = paddle_op.attrs().get("out_w")
     scale_attr = paddle_op.attrs().get("scale")
     layer = network.add_resize(input_tensor)
-
     trt_major = get_trt_version_list()[0]
     trt_minor = get_trt_version_list()[1]
     trt_version_float = float(f"{trt_major}.{trt_minor}")
@@ -422,7 +421,7 @@ def linear_interp_converter(network, paddle_op, inputs):
 
     if outsize_tensor is not None:
         outsize_itensors = []
-        input_shape = trt_shape(input_tensor).get_output(0)
+        input_shape = trt_shape(network, input_tensor)
         batch_dim = get_shape_tensor_element(network, input_shape, 0)
         outsize_itensors.append(batch_dim)
 
