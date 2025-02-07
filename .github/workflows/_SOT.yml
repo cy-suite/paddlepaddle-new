@@ -73,8 +73,8 @@ jobs:
 
     - name: Download paddle and update
       run: |
-        docker start paddle-CI /bin/bash
-        docker exec -it paddle-CI
+        docker start paddle-CI
+        docker exec -it paddle-CI /bin/bash
         ln -s /home/data/cfs/.cache /root/.cache
         wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/Paddle/${PR_ID}/${COMMIT_ID}/Paddle.tar.gz
         tar xf Paddle.tar.gz
@@ -109,8 +109,8 @@ jobs:
 
     - name: Configure cache and ccache
       run: |
-        docker start paddle-CI /bin/bash
-        docker exec -it paddle-CI
+        docker start paddle-CI
+        docker exec -it paddle-CI /bin/bash
         mkdir -p /home/data/cfs/.cache/build
         echo "CACHE_DIR=/home/data/cfs/.cache/build" >> $GITHUB_ENV
         if [ -f '/home/data/gzcfs/gz.txt' ];then
@@ -126,8 +126,8 @@ jobs:
         work_dir: "/workspace/Paddle"
         PADDLE_ROOT: "/workspace/Paddle"
       run: |
-        docker start paddle-CI /bin/bash
-        docker exec -it paddle-CI
+        docker start paddle-CI
+        docker exec -it paddle-CI /bin/bash
         EXCODE=0
         set +e
         PATH=/usr/local/bin:${PATH}
@@ -138,8 +138,8 @@ jobs:
 
     - name: Check result
       run: |
-        docker start paddle-CI /bin/bash
-        docker exec -it paddle-CI
+        docker start paddle-CI
+        docker exec -it paddle-CI /bin/bash
         if [[ $EXCODE -eq 0 ]];then
           echo "Congratulations!  Your PR passed the paddle-build."
         elif [[ $EXCODE -eq 4 ]];then
