@@ -1235,7 +1235,7 @@ PYBIND11_MODULE(libpaddle, m) {
            [](const std::shared_ptr<egr::GradNodeBase> &self, py::object hook) {
              if (std::dynamic_pointer_cast<egr::GradNodeAccumulation>(self)) {
                PADDLE_THROW(common::errors::InvalidArgument(
-                   "Could not regist hook for GradNodeAccumulation."));
+                   "Could not register hook for GradNodeAccumulation."));
              }
              int64_t hook_id = self->RegisterNodePostHook(
                  std::make_shared<NodePostHook>(hook));
