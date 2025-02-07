@@ -44,13 +44,14 @@ jobs:
 
     - name: Download bos client
       env:
-        home_path: "/home/paddle/actions-runner/"
-        bos_file: "/home/paddle/actions-runner/bce-python-sdk-0.8.27/BosClient.py"
+        bos_file: "/home/paddle/actions-runner/bos_upload.py"
+        # home_path: "/home/paddle/actions-runner/"
+        # bos_file: "/home/paddle/actions-runner/bce-python-sdk-0.8.27/BosClient.py"
       run: |
         if [ ! -f "${bos_file}" ]; then
-          # wget -q --no-proxy -O ${bos_file} https://paddle-docker-tar.cdn.bcebos.com/bos_upload.py --no-check-certificate
-          wget -q --no-proxy -O ${home_path}/bce_whl.tar.gz https://paddle-docker-tar.bj.bcebos.com/home/bce_whl.tar.gz --no-check-certificate
-          tar xf ${home_path}/bce_whl.tar.gz -C ${home_path}
+          wget -q --no-proxy -O ${bos_file} https://paddle-docker-tar.cdn.bcebos.com/bos_upload.py --no-check-certificate
+          # wget -q --no-proxy -O ${home_path}/bce_whl.tar.gz https://paddle-docker-tar.bj.bcebos.com/home/bce_whl.tar.gz --no-check-certificate
+          # tar xf ${home_path}/bce_whl.tar.gz -C ${home_path}
         fi
 
     - name: Push paddle-action.tar.gz to bos
@@ -59,7 +60,8 @@ jobs:
         SK: 123
         # AK: ${{ vars.AK }}
         # SK: ${{ vars.SK }}
-        bos_file: "/home/paddle/actions-runner/bce-python-sdk-0.8.27/BosClient.py"
+        bos_file: "/home/paddle/actions-runner/bos_upload.py"
+        # bos_file: "/home/paddle/actions-runner/bce-python-sdk-0.8.27/BosClient.py"
       # continue-on-error: true
       run: |
         cd ..
