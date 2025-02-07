@@ -22,46 +22,47 @@ jobs:
       group: GZ_BD-CPU
     container:
       image: ${docker-image}
-      # env:
-      #   PR_ID: ${{ inputs.PR_ID }}
-      #   COMMIT_ID: ${{ inputs.COMMIT_ID }}
-      #   FLAGS_fraction_of_gpu_memory_to_use: 0.15
-      #   CTEST_OUTPUT_ON_FAILURE: 1
-      #   CTEST_PARALLEL_LEVEL: 2
-      #   WITH_GPU: "OFF"
-      #   WITH_CACHE: "ON"
-      #   WITH_AVX: "OFF"
-      #   WITH_MKL: "OFF"
-      #   WITH_TESTING: "OFF"
-      #   WITH_COVERAGE: "OFF"
-      #   COVERALLS_UPLOAD: "OFF"
-      #   GIT_PR_ID: ${{ inputs.PR_ID }}
-      #   PADDLE_VERSION: 0.0.0
-      #   CMAKE_BUILD_TYPE: Release
-      #   PADDLE_FRACTION_GPU_MEMORY_TO_USE: 0.15
-      #   WITH_DISTRIBUTE: "OFF"
-      #   RUN_TEST: "OFF"
-      #   PRECISION_TEST: "OFF"
-      #   PREC_SUFFIX: .py3
-      #   WITH_UNITY_BUILD: "ON"
-      #   TIMEOUT_DEBUG_HEL: "OFF"
-      #   PY_VERSION: 3.10
-      #   CI_SKIP_CPP_TEST: "OFF"
-      #   PROC_RUN: 12
-      #   FLAGS_enable_eager_mode: 1
-      #   WITH_TENSORRT: "OFF"
-      #   WITH_NEWIR: "ON"
-      #   GENERATOR: "Ninja"
-      #   WITH_INFERENCE_API_TEST: "OFF"
-      #   CCACHE_MAXSIZE: 150G
-      #   CCACHE_LIMIT_MULTIPLE: 0.8
-      # volumes:
-      #   - cfs:/home/data/cfs
-      #   - gzcfs:/home/data/gzcfs
-      #   - shm:/dev/shm
-      # options: -it --name paddle-CI -w /workspace
+      env:
+        PR_ID: ${{ inputs.PR_ID }}
+        COMMIT_ID: ${{ inputs.COMMIT_ID }}
+        FLAGS_fraction_of_gpu_memory_to_use: 0.15
+        CTEST_OUTPUT_ON_FAILURE: 1
+        CTEST_PARALLEL_LEVEL: 2
+        WITH_GPU: "OFF"
+        WITH_CACHE: "ON"
+        WITH_AVX: "OFF"
+        WITH_MKL: "OFF"
+        WITH_TESTING: "OFF"
+        WITH_COVERAGE: "OFF"
+        COVERALLS_UPLOAD: "OFF"
+        GIT_PR_ID: ${{ inputs.PR_ID }}
+        PADDLE_VERSION: 0.0.0
+        CMAKE_BUILD_TYPE: Release
+        PADDLE_FRACTION_GPU_MEMORY_TO_USE: 0.15
+        WITH_DISTRIBUTE: "OFF"
+        RUN_TEST: "OFF"
+        PRECISION_TEST: "OFF"
+        PREC_SUFFIX: .py3
+        WITH_UNITY_BUILD: "ON"
+        TIMEOUT_DEBUG_HEL: "OFF"
+        PY_VERSION: 3.10
+        CI_SKIP_CPP_TEST: "OFF"
+        PROC_RUN: 12
+        FLAGS_enable_eager_mode: 1
+        WITH_TENSORRT: "OFF"
+        WITH_NEWIR: "ON"
+        GENERATOR: "Ninja"
+        WITH_INFERENCE_API_TEST: "OFF"
+        CCACHE_MAXSIZE: 150G
+        CCACHE_LIMIT_MULTIPLE: 0.8
+      volumes:
+        - cfs:/home/data/cfs
+        - gzcfs:/home/data/gzcfs
+        - shm:/dev/shm
+      options: -it --name paddle-CI -w /workspace
 
     steps:
+    # sudo usermod -aG docker $USER
     # - name: Check docker image and run container
     #   run: |
     #     if ! docker image inspect ${docker-image} > /dev/null 2>&1; then
