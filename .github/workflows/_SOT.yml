@@ -79,6 +79,7 @@ jobs:
       run: |
         docker start paddle-CI
         docker exec -i paddle-CI /bin/bash
+        pwd
         ln -s /home/data/cfs/.cache /root/.cache
         wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/Paddle/${PR_ID}/${COMMIT_ID}/Paddle.tar.gz
         tar xf Paddle.tar.gz
