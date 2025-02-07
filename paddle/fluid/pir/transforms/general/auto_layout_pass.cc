@@ -109,8 +109,9 @@ class AutoLayoutPass : public pir::Pass {
         }
       }
     }
-    VLOG(4) << "conv_count: " << conv_count_
-            << " transpose_count: " << transpose_count_;
+    VLOG(4) << "end IsNeedAllTranspose"
+            << " conv_count_: " << conv_count_
+            << " transpose_count_: " << transpose_count_;
     return conv_count_ > transpose_count_;
   }
 
