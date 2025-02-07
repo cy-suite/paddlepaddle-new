@@ -13,63 +13,73 @@ on:
         type: string
 
 env:
-  PR_ID: ${{ github.event.pull_request.number }}
-  COMMIT_ID: ${{ github.event.pull_request.head.sha }}
   dockerfile: Dockerfile.cuda9_cudnn7_gcc48_py35_centos6
   docker-image: cuda9_cudnn7_gcc48_py35_centos6
-  FLAGS_fraction_of_gpu_memory_to_use: 0.15
-  CTEST_OUTPUT_ON_FAILURE: 1
-  CTEST_PARALLEL_LEVEL: 2
-  WITH_GPU: "OFF"
-  WITH_CACHE: "ON"
-  WITH_AVX: "OFF"
-  WITH_MKL: "OFF"
-  WITH_TESTING: "OFF"
-  WITH_COVERAGE: "OFF"
-  COVERALLS_UPLOAD: "OFF"
-  GIT_PR_ID: ${{ inputs.PR_ID }}
-  PADDLE_VERSION: 0.0.0
-  CMAKE_BUILD_TYPE: Release
-  PADDLE_FRACTION_GPU_MEMORY_TO_USE: 0.15
-  WITH_DISTRIBUTE: "OFF"
-  RUN_TEST: "OFF"
-  PRECISION_TEST: "OFF"
-  PREC_SUFFIX: .py3
-  WITH_UNITY_BUILD: "ON"
-  TIMEOUT_DEBUG_HEL: "OFF"
-  PY_VERSION: 3.10
-  CI_SKIP_CPP_TEST: "OFF"
-  PROC_RUN: 12
-  FLAGS_enable_eager_mode: 1
-  WITH_TENSORRT: "OFF"
-  WITH_NEWIR: "ON"
-  GENERATOR: "Ninja"
-  WITH_INFERENCE_API_TEST: "OFF"
-  CCACHE_MAXSIZE: 150G
-  CCACHE_LIMIT_MULTIPLE: 0.8
 
 jobs:
   build-test:
     runs-on:
       group: GZ_BD-CPU
+    container:
+      image: ${{ env.docker-image }}
+      env:
+        PR_ID: ${{ inputs.PR_ID }}
+        COMMIT_ID: ${{ inputs.COMMIT_ID }}
+        FLAGS_fraction_of_gpu_memory_to_use: 0.15
+        CTEST_OUTPUT_ON_FAILURE: 1
+        CTEST_PARALLEL_LEVEL: 2
+        WITH_GPU: "OFF"
+        WITH_CACHE: "ON"
+        WITH_AVX: "OFF"
+        WITH_MKL: "OFF"
+        WITH_TESTING: "OFF"
+        WITH_COVERAGE: "OFF"
+        COVERALLS_UPLOAD: "OFF"
+        GIT_PR_ID: ${{ inputs.PR_ID }}
+        PADDLE_VERSION: 0.0.0
+        CMAKE_BUILD_TYPE: Release
+        PADDLE_FRACTION_GPU_MEMORY_TO_USE: 0.15
+        WITH_DISTRIBUTE: "OFF"
+        RUN_TEST: "OFF"
+        PRECISION_TEST: "OFF"
+        PREC_SUFFIX: .py3
+        WITH_UNITY_BUILD: "ON"
+        TIMEOUT_DEBUG_HEL: "OFF"
+        PY_VERSION: 3.10
+        CI_SKIP_CPP_TEST: "OFF"
+        PROC_RUN: 12
+        FLAGS_enable_eager_mode: 1
+        WITH_TENSORRT: "OFF"
+        WITH_NEWIR: "ON"
+        GENERATOR: "Ninja"
+        WITH_INFERENCE_API_TEST: "OFF"
+        CCACHE_MAXSIZE: 150G
+        CCACHE_LIMIT_MULTIPLE: 0.8
+      volumes:
+        - cfs:/home/data/cfs
+        - gzcfs:/home/data/gzcfs
+        - shm:/dev/shm
+      options: -it --name paddle-CI -w /workspace
+
     steps:
-    - name: Check docker image and run container
-      run: |
-        if ! docker image inspect ${docker-image} > /dev/null 2>&1; then
-          bash ci_dockerfile.sh
-          docker build -t ${docker-image} -f ${dockerfile}
-        fi
-        docker run -d --name paddle-CI \
-          -v cfs:/home/data/cfs \
-          -v gzcfs:/home/data/gzcfs \
-          -v shm:/dev/shm \
-          -w /workspace --network=host ${docker-image}
-      working_directory: ./tools/dockerfile/
+    # - name: Check docker image and run container
+    #   run: |
+    #     if ! docker image inspect ${docker-image} > /dev/null 2>&1; then
+    #       bash ci_dockerfile.sh
+    #       docker build -t ${docker-image} -f ${dockerfile}
+    #     fi
+    #     docker run -d --name paddle-CI \
+    #       -v cfs:/home/data/cfs \
+    #       -v gzcfs:/home/data/gzcfs \
+    #       -v shm:/dev/shm \
+    #       -w /workspace --network=host ${docker-image}
+    #   working_directory: ./tools/dockerfile/
 
     - name: Download paddle and update
+      continue-on-error: true
       run: |
-        docker start paddle-CI /bin/bash
-        docker exec -it paddle-CI
+#        docker start paddle-CI /bin/bash
+#        docker exec -it paddle-CI
         ln -s /home/data/cfs/.cache /root/.cache
         wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/Paddle/${PR_ID}/${COMMIT_ID}/Paddle.tar.gz
         tar xf Paddle.tar.gz
@@ -79,7 +89,7 @@ jobs:
         git remote add upstream https://github.com/PaddlePaddle/Paddle.git
         git checkout develop
         git_code=1
-        set +e
+#        set +e
         git pull upstream develop
         if [ $? -eq 0 ]; then
           git_code=0
@@ -98,14 +108,14 @@ jobs:
             exit 2
           fi
         fi
-        set -e
+#        set -e
         git checkout test
         git merge develop
 
     - name: Configure cache and ccache
       run: |
-        docker start paddle-CI /bin/bash
-        docker exec -it paddle-CI
+#        docker start paddle-CI /bin/bash
+#        docker exec -it paddle-CI
         mkdir -p /home/data/cfs/.cache/build
         echo "CACHE_DIR=/home/data/cfs/.cache/build" >> $GITHUB_ENV
         if [ -f '/home/data/gzcfs/gz.txt' ];then
@@ -120,15 +130,22 @@ jobs:
       env:
         work_dir: "/workspace/Paddle"
         PADDLE_ROOT: "/workspace/Paddle"
+      continue-on-error: true
       run: |
-        docker start paddle-CI /bin/bash
-        docker exec -it paddle-CI
+#        docker start paddle-CI /bin/bash
+#        docker exec -it paddle-CI
         EXCODE=0
-        set +e
+#        set +e
         PATH=/usr/local/bin:${PATH}
         ln -sf $(which python3.10) /usr/local/bin/python
         ln -sf $(which pip3.10) /usr/local/bin/pip
         bash -x ${work_dir}/paddle/scripts/paddle_build.sh cicheck_sot;EXCODE=$?
+        echo "EXCODE=$EXCODE" >> $GITHUB_ENV
+
+    - name: Check result
+      run: |
+#        docker start paddle-CI /bin/bash
+#        docker exec -it paddle-CI
         if [[ $EXCODE -eq 0 ]];then
           echo "Congratulations!  Your PR passed the paddle-build."
         elif [[ $EXCODE -eq 4 ]];then
@@ -148,6 +165,7 @@ jobs:
         exit $EXCODE
 
     - name: Terminate and delete the container
+      if: always()
       run: |
         docker stop paddle-CI
         docker rm paddle-CI
