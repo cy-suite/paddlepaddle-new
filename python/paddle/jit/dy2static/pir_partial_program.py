@@ -349,7 +349,7 @@ class RunnableProgram:
         # NOTE(dev): Add this line to trigger program_name_attr logic
         program_name_attr = self.program_name_attr
         self.forward_program, self.backward_program = pass_fn(
-            origin_fwd, origin_bwd, program_name_attr
+            origin_fwd, origin_bwd, program_name_attr, self.program
         )
         prog_logger.log(
             1,
@@ -623,7 +623,12 @@ class FullGraphPreProcessPass(ValuePreservePass):
     def apply(self, program):
         program = paddle.base.libpaddle.pir.apply_bn_add_act_pass(program)
         if self.use_cinn_pass:
-            program = paddle.base.libpaddle.pir.reduce_as_sum_pass(program)
+            # NOTE(gongshaotian): execute infer_symbolic_shape_pass before reduce_as_sum_pass
+            pm = paddle.base.libpaddle.pir.PassManager()
+            pm.add_pass("delete_assert_op_pass", {})
+            paddle.base.libpaddle.pir.infer_symbolic_shape_pass(pm, program)
+            paddle.base.libpaddle.pir.reduce_as_sum_pass(pm, program)
+            pm.run(program)
         return program
 
 
@@ -820,7 +825,12 @@ class PartialProgramLayer:
             # Note: Only set grad type once after initializing train program. So we put it here.
             self._set_grad_type(self._params, train_program)
 
-            def pass_fn(forward_program, backward_program, program_name_attr):
+            def pass_fn(
+                forward_program,
+                backward_program,
+                program_name_attr,
+                whole_program,
+            ):
                 def init_backward_program_shape_analysis(
                     forward_program, backward_program
                 ):
@@ -830,9 +840,7 @@ class PartialProgramLayer:
                     backward_shape_analysis = paddle.base.libpaddle.pir.get_shape_constraint_ir_analysis(
                         backward_program
                     )
-                    backward_shape_analysis.register_symbol_cstr_from_shape_analysis(
-                        forward_shape_analysis
-                    )
+
                     forward_name_value_map = {
                         name: item
                         for item in forward_program.list_vars()
@@ -885,11 +893,40 @@ class PartialProgramLayer:
                     ),
                 )
                 if cinn_is_enabled(self._build_strategy, self._backend):
-                    paddle.base.libpaddle.pir.apply_cinn_pass(forward_program)
+                    whole_shape_analysis = paddle.base.libpaddle.pir.get_shape_constraint_ir_analysis(
+                        whole_program
+                    )
+                    forward_shape_analysis = paddle.base.libpaddle.pir.get_shape_constraint_ir_analysis(
+                        forward_program
+                    )
+                    forward_shape_analysis.register_symbol_cstr_from_shape_analysis(
+                        whole_shape_analysis
+                    )
+                    backward_shape_analysis = paddle.base.libpaddle.pir.get_shape_constraint_ir_analysis(
+                        backward_program
+                    )
+                    backward_shape_analysis.register_symbol_cstr_from_shape_analysis(
+                        whole_shape_analysis
+                    )
+                    for var in forward_program.list_vars():
+                        forward_shape_analysis.set_shape_or_data_for_var(
+                            var,
+                            whole_shape_analysis.get_shape_or_data_for_var(var),
+                        )
                     init_backward_program_shape_analysis(
                         forward_program, backward_program
                     )
-                    paddle.base.libpaddle.pir.apply_cinn_pass(backward_program)
+                    for var in backward_program.list_vars():
+                        backward_shape_analysis.set_shape_or_data_for_var(
+                            var,
+                            whole_shape_analysis.get_shape_or_data_for_var(var),
+                        )
+                    paddle.base.libpaddle.pir.apply_cinn_pass(
+                        forward_program, False
+                    )
+                    paddle.base.libpaddle.pir.apply_cinn_pass(
+                        backward_program, False
+                    )
                 else:
                     paddle.base.libpaddle.pir.check_infer_symbolic_if_need(
                         forward_program
