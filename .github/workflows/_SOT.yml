@@ -20,8 +20,8 @@ jobs:
   build-test:
     runs-on:
       group: GZ_BD-CPU
-    # container:
-    #   image: ${{ env.docker-image }}
+    container:
+      image: ${docker-image}
       # env:
       #   PR_ID: ${{ inputs.PR_ID }}
       #   COMMIT_ID: ${{ inputs.COMMIT_ID }}
@@ -66,7 +66,7 @@ jobs:
     #   run: |
     #     if ! docker image inspect ${docker-image} > /dev/null 2>&1; then
     #       bash ci_dockerfile.sh
-    #       docker build -t ${docker-image} -f ${dockerfile}
+    #       docker build -t ${docker-image} -f ${dockerfile} .
     #     fi
     #     docker run -d --name paddle-CI \
     #       -v cfs:/home/data/cfs \
@@ -76,7 +76,6 @@ jobs:
     #   working_directory: ./tools/dockerfile/
 
     - name: Download paddle and update
-      continue-on-error: true
       run: |
         # docker start paddle-CI /bin/bash
         # docker exec -it paddle-CI
@@ -89,7 +88,7 @@ jobs:
     #     git remote add upstream https://github.com/PaddlePaddle/Paddle.git
     #     git checkout develop
     #     git_code=1
-    #     # set +e
+    #     set +e
     #     git pull upstream develop
     #     if [ $? -eq 0 ]; then
     #       git_code=0
@@ -108,7 +107,7 @@ jobs:
     #         exit 2
     #       fi
     #     fi
-    #     # set -e
+    #     set -e
     #     git checkout test
     #     git merge develop
 
@@ -130,12 +129,11 @@ jobs:
     #   env:
     #     work_dir: "/workspace/Paddle"
     #     PADDLE_ROOT: "/workspace/Paddle"
-    #   continue-on-error: true
     #   run: |
     #     # docker start paddle-CI /bin/bash
     #     # docker exec -it paddle-CI
     #     EXCODE=0
-    #     # set +e
+    #     set +e
     #     PATH=/usr/local/bin:${PATH}
     #     ln -sf $(which python3.10) /usr/local/bin/python
     #     ln -sf $(which pip3.10) /usr/local/bin/pip
