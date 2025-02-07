@@ -82,7 +82,7 @@ class TestFusedMoEOp(OpTest):
             dtype=self.x_type,
         )
 
-        # d_model*2 for swiglu
+        # d_model * 2 for swiglu
         self.bmm_w1 = paddle.to_tensor(
             np.array([expert.fc2.weight.numpy() for expert in self.experts]),
             dtype=self.x_type,
