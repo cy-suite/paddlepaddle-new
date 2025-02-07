@@ -36,38 +36,38 @@ jobs:
           -v cfs:/home/data/cfs \
           -v gzcfs:/home/data/gzcfs \
           -v shm:/dev/shm \
-          -e PR_ID: ${{ inputs.PR_ID }} \
-          -e COMMIT_ID: ${{ inputs.COMMIT_ID }} \
-          -e FLAGS_fraction_of_gpu_memory_to_use: 0.15 \
-          -e CTEST_OUTPUT_ON_FAILURE: 1 \
-          -e CTEST_PARALLEL_LEVEL: 2 \
-          -e WITH_GPU: OFF \
-          -e WITH_CACHE: ON \
-          -e WITH_AVX: OFF \
-          -e WITH_MKL: OFF \
-          -e WITH_TESTING: OFF \
-          -e WITH_COVERAGE: OFF \
-          -e COVERALLS_UPLOAD: OFF \
-          -e GIT_PR_ID: ${{ inputs.PR_ID }} \
-          -e PADDLE_VERSION: 0.0.0 \
-          -e CMAKE_BUILD_TYPE: Release \
-          -e PADDLE_FRACTION_GPU_MEMORY_TO_USE: 0.15 \
-          -e WITH_DISTRIBUTE: OFF \
-          -e RUN_TEST: OFF \
-          -e PRECISION_TEST: OFF \
-          -e PREC_SUFFIX: .py3 \
-          -e WITH_UNITY_BUILD: ON \
-          -e TIMEOUT_DEBUG_HEL: OFF \
-          -e PY_VERSION: 3.10 \
-          -e CI_SKIP_CPP_TEST: OFF \
-          -e PROC_RUN: 12 \
-          -e FLAGS_enable_eager_mode: 1 \
-          -e WITH_TENSORRT: OFF \
-          -e WITH_NEWIR: ON \
-          -e GENERATOR: Ninja \
-          -e WITH_INFERENCE_API_TEST: OFF \
-          -e CCACHE_MAXSIZE: 150G \
-          -e CCACHE_LIMIT_MULTIPLE: 0.8 \
+          -e PR_ID=${{ inputs.PR_ID }} \
+          -e COMMIT_ID=${{ inputs.COMMIT_ID }} \
+          -e FLAGS_fraction_of_gpu_memory_to_use=0.15 \
+          -e CTEST_OUTPUT_ON_FAILURE=1 \
+          -e CTEST_PARALLEL_LEVEL=2 \
+          -e WITH_GPU=OFF \
+          -e WITH_CACHE=ON \
+          -e WITH_AVX=OFF \
+          -e WITH_MKL=OFF \
+          -e WITH_TESTING=OFF \
+          -e WITH_COVERAGE=OFF \
+          -e COVERALLS_UPLOAD=OFF \
+          -e GIT_PR_ID=${{ inputs.PR_ID }} \
+          -e PADDLE_VERSION=0.0.0 \
+          -e CMAKE_BUILD_TYPE=Release \
+          -e PADDLE_FRACTION_GPU_MEMORY_TO_USE=0.15 \
+          -e WITH_DISTRIBUTE=OFF \
+          -e RUN_TEST=OFF \
+          -e PRECISION_TEST=OFF \
+          -e PREC_SUFFIX=.py3 \
+          -e WITH_UNITY_BUILD=ON \
+          -e TIMEOUT_DEBUG_HEL=OFF \
+          -e PY_VERSION=3.10 \
+          -e CI_SKIP_CPP_TEST=OFF \
+          -e PROC_RUN=12 \
+          -e FLAGS_enable_eager_mode=1 \
+          -e WITH_TENSORRT=OFF \
+          -e WITH_NEWIR=ON \
+          -e GENERATOR=Ninja \
+          -e WITH_INFERENCE_API_TEST=OFF \
+          -e CCACHE_MAXSIZE=150G \
+          -e CCACHE_LIMIT_MULTIPLE=0.8 \
           -w /workspace --network host ${docker-image}
       # working_directory: ./tools/dockerfile/
 
