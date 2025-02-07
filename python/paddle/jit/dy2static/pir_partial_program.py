@@ -774,7 +774,12 @@ class PartialProgramLayer:
     def _create_program(self, is_infer_mode=False) -> RunnableProgram:
         if is_infer_mode:
 
-            def pass_fn(forward_program, backward_program, program_name_attr):
+            def pass_fn(
+                forward_program,
+                backward_program,
+                program_name_attr,
+                whole_program,
+            ):
                 # common pass
                 pm = paddle.base.libpaddle.pir.PassManager()
                 paddle.base.libpaddle.pir.infer_symbolic_shape_pass(
