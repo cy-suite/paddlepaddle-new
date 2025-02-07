@@ -14,7 +14,7 @@ on:
 
 env:
   dockerfile: Dockerfile.cuda9_cudnn7_gcc48_py35_centos6
-  docker-image: ccr-25bpr1w4-pub.cnc.bj.baidubce.com/baidu.xiaolvyun.images/paddlepaddle:16f3b54db05fedde62335d22bbcdfb79
+  docker-image: 077ca344c322
 
 jobs:
   build-test:
@@ -68,7 +68,7 @@ jobs:
           -e WITH_INFERENCE_API_TEST=OFF \
           -e CCACHE_MAXSIZE=150G \
           -e CCACHE_LIMIT_MULTIPLE=0.8 \
-          -w /workspace --network host ${docker-image}
+          -w /workspace --network host ${docker-image} /bin/bash
       # working_directory: ./tools/dockerfile/
 
     - name: Download paddle and update
