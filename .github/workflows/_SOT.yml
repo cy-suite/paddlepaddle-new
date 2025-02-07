@@ -14,7 +14,7 @@ on:
 
 env:
   dockerfile: Dockerfile.cuda9_cudnn7_gcc48_py35_centos6
-  docker-image: 077ca344c322
+  docker-image: ccr-25bpr1w4-pub.cnc.bj.baidubce.com/baidu.xiaolvyun.images/paddlepaddle:16f3b54db05fedde62335d22bbcdfb79
 
 jobs:
   build-test:
