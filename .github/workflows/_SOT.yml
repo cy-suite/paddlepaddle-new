@@ -114,8 +114,8 @@ jobs:
 
     - name: Configure cache and ccache
       run: |
-#        docker start paddle-CI /bin/bash
-#        docker exec -it paddle-CI
+        # docker start paddle-CI /bin/bash
+        # docker exec -it paddle-CI
         mkdir -p /home/data/cfs/.cache/build
         echo "CACHE_DIR=/home/data/cfs/.cache/build" >> $GITHUB_ENV
         if [ -f '/home/data/gzcfs/gz.txt' ];then
@@ -132,10 +132,10 @@ jobs:
         PADDLE_ROOT: "/workspace/Paddle"
       continue-on-error: true
       run: |
-#        docker start paddle-CI /bin/bash
-#        docker exec -it paddle-CI
+        # docker start paddle-CI /bin/bash
+        # docker exec -it paddle-CI
         EXCODE=0
-#        set +e
+        # set +e
         PATH=/usr/local/bin:${PATH}
         ln -sf $(which python3.10) /usr/local/bin/python
         ln -sf $(which pip3.10) /usr/local/bin/pip
@@ -144,8 +144,8 @@ jobs:
 
     - name: Check result
       run: |
-#        docker start paddle-CI /bin/bash
-#        docker exec -it paddle-CI
+        # docker start paddle-CI /bin/bash
+        # docker exec -it paddle-CI
         if [[ $EXCODE -eq 0 ]];then
           echo "Congratulations!  Your PR passed the paddle-build."
         elif [[ $EXCODE -eq 4 ]];then
