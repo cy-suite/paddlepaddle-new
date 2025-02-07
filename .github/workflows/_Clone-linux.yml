@@ -14,6 +14,10 @@ on:
 
 permissions: read-all
 
+defaults:
+  run:
+    shell: bash
+
 env:
   PR_ID: ${{ inputs.PR_ID }}
   COMMIT_ID: ${{ inputs.COMMIT_ID }}
