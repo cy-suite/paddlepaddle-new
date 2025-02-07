@@ -13,8 +13,8 @@ jobs:
   Clone:
     uses: ./.github/workflows/_Clone-linux.yml
     with:
-      PR_ID: "${PR_ID}"
-      COMMIT_ID: "${COMMIT_ID}"
+      PR_ID: ${PR_ID}
+      COMMIT_ID: ${COMMIT_ID}
 
   # SOT:
   #   uses: ./.github/workflows/_SOT.yml
