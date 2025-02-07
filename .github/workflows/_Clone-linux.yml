@@ -59,7 +59,7 @@ jobs:
         SK: 123
         # AK: ${{ vars.AK }}
         # SK: ${{ vars.SK }}
-        bos_file: "/home/paddle/actions-runner/BosClient.py"
+        bos_file: "/home/paddle/actions-runner/bce-python-sdk-0.8.27/BosClient.py"
       # continue-on-error: true
       run: |
         cd ..
