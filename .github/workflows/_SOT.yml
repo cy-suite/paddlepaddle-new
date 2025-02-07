@@ -21,7 +21,7 @@ jobs:
     runs-on:
       group: GZ_BD-CPU
     container:
-      image: ${docker-image}
+      image: ${{ env.docker-image }}
       env:
         PR_ID: ${{ inputs.PR_ID }}
         COMMIT_ID: ${{ inputs.COMMIT_ID }}
