@@ -3194,7 +3194,7 @@ void BindShapeConstraintIRAnalysis(pybind11::module *m) {
       shape_constraint_ir_analysis(*m, "ShapeConstraintIRAnalysis", R"DOC(
       A class that store the shape information of all operators.
     )DOC");
-  x shape_constraint_ir_analysis
+  shape_constraint_ir_analysis
       .def("get_shape_or_data_for_var",
            &pir::ShapeConstraintIRAnalysis::GetShapeOrDataForValue,
            return_value_policy::reference)

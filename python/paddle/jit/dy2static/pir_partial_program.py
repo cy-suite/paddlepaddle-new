@@ -349,7 +349,7 @@ class RunnableProgram:
         # NOTE(dev): Add this line to trigger program_name_attr logic
         program_name_attr = self.program_name_attr
         self.forward_program, self.backward_program = pass_fn(
-            origin_fwd, origin_bwd, program_name_attr, self.program
+            origin_fwd, origin_bwd, program_name_attr
         )
         prog_logger.log(
             1,
@@ -546,6 +546,7 @@ class ValuePreservePass:
     def __init__(self, values, use_cinn_pass):
         self.values = values
         self.use_cinn_pass = use_cinn_pass
+        self.program = None
 
     def apply(self, program):
         raise RuntimeError("Not implemented.")
@@ -627,6 +628,8 @@ class FullGraphPreProcessPass(ValuePreservePass):
             pm = paddle.base.libpaddle.pir.PassManager()
             pm.add_pass("delete_assert_op_pass", {})
             paddle.base.libpaddle.pir.infer_symbolic_shape_pass(pm, program)
+            pm.run(program)
+            self.program = program
             paddle.base.libpaddle.pir.reduce_as_sum_pass(pm, program)
             pm.run(program)
         return program
@@ -699,6 +702,7 @@ class PartialProgramLayer:
         self._hookers = []
         self._backend = kwargs.get('backend', None)
         self._grad_var_names = {}
+        self.full_graph_program_with_symbol_shape = None
 
     def __call__(self, inputs):
         """
@@ -774,12 +778,7 @@ class PartialProgramLayer:
     def _create_program(self, is_infer_mode=False) -> RunnableProgram:
         if is_infer_mode:
 
-            def pass_fn(
-                forward_program,
-                backward_program,
-                program_name_attr,
-                whole_program,
-            ):
+            def pass_fn(forward_program, backward_program, program_name_attr):
                 # common pass
                 pm = paddle.base.libpaddle.pir.PassManager()
                 paddle.base.libpaddle.pir.infer_symbolic_shape_pass(
@@ -834,7 +833,7 @@ class PartialProgramLayer:
                 forward_program,
                 backward_program,
                 program_name_attr,
-                whole_program,
+                whole_program=self.full_graph_program_with_symbol_shape,
             ):
                 def init_backward_program_shape_analysis(
                     forward_program, backward_program
@@ -1115,6 +1114,9 @@ class PartialProgramLayer:
         forward_index_pass = IndicesPreservePass(
             [forward_end_idx, backward_start_op_index, backward_end_op_index],
             fused_bn_add_act_pass,
+        )
+        self.full_graph_program_with_symbol_shape = (
+            fused_bn_add_act_pass.program
         )
 
         program = forward_index_pass(program)
