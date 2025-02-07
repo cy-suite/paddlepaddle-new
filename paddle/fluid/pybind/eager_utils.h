@@ -242,6 +242,7 @@ class UnPackHook : public egr::UnPackHookBase {
   PyObject* hook_;
 };
 
+#pragma GCC visibility push(hidden)
 class NodePostHook : public egr::NodePostHookBase {
  public:
   explicit NodePostHook(py::object hook) : hook_(hook) {}
@@ -259,6 +260,7 @@ class NodePostHook : public egr::NodePostHookBase {
  private:
   py::object hook_;
 };
+#pragma GCC visibility pop
 
 template <typename Tuple, size_t N>
 struct TupleTensorResult {
