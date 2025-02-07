@@ -116,7 +116,7 @@ break_graph_tensor_method = {
     # TODO: Browse all possible functions and make prior judgments.
 }
 
-not_supported_paddle_layer = {paddle.nn.RNN}
+not_supported_paddle_layer = {}
 
 
 def is_not_supported_paddle_layer(layer_class):
