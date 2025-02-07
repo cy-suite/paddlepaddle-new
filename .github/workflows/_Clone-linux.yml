@@ -59,7 +59,6 @@ jobs:
         # AK: ${{ vars.AK }}
         # SK: ${{ vars.SK }}
         bos_file: "/home/paddle/actions-runner/bos_upload.py"
-      continue-on-error: true
       run: |
         cd ..
         tar -zcf Paddle.tar.gz Paddle
