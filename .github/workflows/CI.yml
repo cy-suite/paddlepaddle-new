@@ -10,10 +10,10 @@ concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  PR_ID: ${{ github.event.pull_request.number }}
-  COMMIT_ID: ${{ github.event.pull_request.head.sha }}
-  # PR_REF: ${{ github.event.pull_request.head.ref }}
+# env:
+#   PR_ID: ${{ github.event.pull_request.number }}
+#   COMMIT_ID: ${{ github.event.pull_request.head.sha }}
+#   # PR_REF: ${{ github.event.pull_request.head.ref }}
 
 jobs:
   Clone:
@@ -22,21 +22,12 @@ jobs:
       PR_ID: ${{ github.event.pull_request.number }}
       COMMIT_ID: ${{ github.event.pull_request.head.sha }}
 
-  test:
-    runs-on: ubuntu-latest
-    steps:
-    - name: 11
-      env:
-        AK: ${{ vars.AK }}
-      run: |
-        echo ${{ vars.AK }}
-
-  # SOT:
-  #   uses: ./.github/workflows/_SOT.yml
-  #   needs: Clone
-  #   with:
-  #     PR_ID: ${{ PR_ID }}
-  #     COMMIT_ID: ${{ COMMIT_ID }}
+  SOT:
+    uses: ./.github/workflows/_SOT.yml
+    needs: Clone
+    with:
+      PR_ID: ${{ github.event.pull_request.number }}
+      COMMIT_ID: ${{ github.event.pull_request.head.sha }}
 
   # Py3:
   #   uses: ./.github/workflows/_Py3.yml
