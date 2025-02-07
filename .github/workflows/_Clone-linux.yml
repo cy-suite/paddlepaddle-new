@@ -54,6 +54,7 @@ jobs:
         SK: ${{ vars.SK }}
         bos_file: "/home/paddle/actions-runner/bos_upload.py"
       run: |
+        echo $AK
         cd ..
         tar -zcf Paddle.tar.gz Paddle
         python -m pip install bce-python-sdk==0.8.74
