@@ -55,7 +55,14 @@ class IterVariable(VariableBase):
         return self
 
     def flatten_inner_vars(self) -> list[VariableBase]:
-        return self.hold.flatten_inner_vars()
+        holds = self.hold
+        if not isinstance(holds, list):
+            holds = [holds]
+        return [
+            inner_var
+            for hold in holds
+            for inner_var in hold.flatten_inner_vars()
+        ]
 
 
 class SequenceIterVariable(IterVariable):
