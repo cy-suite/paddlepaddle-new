@@ -158,8 +158,8 @@ jobs:
         # set -x
         exit $EXCODE
 
-    # - name: Terminate and delete the container
-    #   if: always()
-    #   run: |
-    #     docker stop paddle-CI
-    #     docker rm paddle-CI
+    - name: Terminate and delete the container
+      if: always()
+      run: |
+        docker stop paddle-CI
+        docker rm paddle-CI
