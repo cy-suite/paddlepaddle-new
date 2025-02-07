@@ -78,8 +78,8 @@ jobs:
     - name: Download paddle and update
       continue-on-error: true
       run: |
-#        docker start paddle-CI /bin/bash
-#        docker exec -it paddle-CI
+        # docker start paddle-CI /bin/bash
+        # docker exec -it paddle-CI
         ln -s /home/data/cfs/.cache /root/.cache
         wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/Paddle/${PR_ID}/${COMMIT_ID}/Paddle.tar.gz
         tar xf Paddle.tar.gz
@@ -89,7 +89,7 @@ jobs:
         git remote add upstream https://github.com/PaddlePaddle/Paddle.git
         git checkout develop
         git_code=1
-#        set +e
+        # set +e
         git pull upstream develop
         if [ $? -eq 0 ]; then
           git_code=0
@@ -108,7 +108,7 @@ jobs:
             exit 2
           fi
         fi
-#        set -e
+        # set -e
         git checkout test
         git merge develop
 
@@ -161,11 +161,11 @@ jobs:
         elif [[ $EXCODE -eq 9 ]];then
           echo "Sorry, coverage check failed."
         fi
-        set -x
+        # set -x
         exit $EXCODE
 
-    - name: Terminate and delete the container
-      if: always()
-      run: |
-        docker stop paddle-CI
-        docker rm paddle-CI
+    # - name: Terminate and delete the container
+    #   if: always()
+    #   run: |
+    #     docker stop paddle-CI
+    #     docker rm paddle-CI
