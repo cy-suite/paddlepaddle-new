@@ -216,7 +216,7 @@ ir::Expr ExprSetFinder::GetSingle(const ir::Expr& x) const {
       o.size(),
       1,
       ::common::errors::InvalidArgument(
-          "Try to get single result, but we get %d. \nRoot: %s \nResult: %s\n",
+          "Try to get single result, but we get %d. \nRoot:\n%s \nResult:\n%s",
           o.size(),
           x,
           cinn::utils::Join(o, "\n")));
