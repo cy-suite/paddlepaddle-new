@@ -2535,7 +2535,7 @@ void BindUtils(pybind11::module *m) {
 namespace {
 
 void ApplyCinnPass(Program &program,  // NOLINT
-                   bool need_infer_symbolic_shape) {
+                   bool need_infer_symbolic_shape = true) {
 #ifdef PADDLE_WITH_CINN
   auto CreatePassManager = [&]() -> std::shared_ptr<pir::PassManager> {
     pir::IrContext *ctx = pir::IrContext::Instance();
@@ -3194,7 +3194,7 @@ void BindShapeConstraintIRAnalysis(pybind11::module *m) {
       shape_constraint_ir_analysis(*m, "ShapeConstraintIRAnalysis", R"DOC(
       A class that store the shape information of all operators.
     )DOC");
-  shape_constraint_ir_analysis
+  x shape_constraint_ir_analysis
       .def("get_shape_or_data_for_var",
            &pir::ShapeConstraintIRAnalysis::GetShapeOrDataForValue,
            return_value_policy::reference)
