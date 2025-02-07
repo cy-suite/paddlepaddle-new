@@ -25,7 +25,7 @@ jobs:
       env:
         AK: ${{ vars.AK }}
       run: |
-        echo ${AK}
+        echo ${{ vars.AK }}
 
   # SOT:
   #   uses: ./.github/workflows/_SOT.yml
