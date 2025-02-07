@@ -36,7 +36,7 @@ gather_srcs(
   if_fusion_pass.cc
   merge_block_utils.cc
   eliminate_common_global_memory_read.cc
-  rearrange_load_instruction.cc
+  rearrange_load_instruction_pass.cc
   check_tensor_buffer_map.cc
   longlong2int_pass.cc
   vectorize_for_trans.cc
@@ -45,10 +45,3 @@ gather_srcs(
 if(WITH_CUDA OR WITH_ROCM)
   gather_srcs(cinnapi_src SRCS transform_gpu_forloop.cc)
 endif()
-
-cinn_cc_test(test_replace_call_with_expr SRCS replace_call_with_expr_test.cc
-             DEPS cinncore)
-
-cinn_cc_test(test_cast_simplify SRCS cast_simplify_test.cc DEPS cinncore)
-cinn_cc_test(test_replace_cross_thread_reduction SRCS
-             replace_cross_thread_reduction_test.cc DEPS cinncore)
