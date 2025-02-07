@@ -57,10 +57,10 @@ jobs:
 
     - name: Push paddle-action.tar.gz to bos
       env:
-        AK: 123
-        SK: 123
-        # AK: ${{ vars.AK }}
-        # SK: ${{ vars.SK }}
+        # AK: 123
+        # SK: 123
+        AK: ${{ vars.AK }}
+        SK: ${{ vars.SK }}
         # bos_file: "/home/paddle/actions-runner/bos_upload.py"
         bos_file: "/home/paddle/actions-runner/bos/BosClient.py"
       # continue-on-error: true
