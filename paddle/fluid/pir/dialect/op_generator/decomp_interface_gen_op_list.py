@@ -84,7 +84,7 @@ decomp_rule_interface_declare_gen_op_list = (
 )
 decomp_rule_interface_implementation_gen_op_list = GENERATE_IMPL_DECOMP
 # xshape output will no longer used after decomp, but return none to keep output num the same as origin op
-decomp_ops_contain_unused_output = ["squeeze", "unsqueeze"]
+  = ["squeeze", "unsqueeze"]
 
 ##################### decomp_vjp ####################
 # come into effect in generated file op_decomp_vjp.cc
