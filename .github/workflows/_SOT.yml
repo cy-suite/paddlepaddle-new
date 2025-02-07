@@ -68,7 +68,7 @@ jobs:
           -e WITH_INFERENCE_API_TEST=OFF \
           -e CCACHE_MAXSIZE=150G \
           -e CCACHE_LIMIT_MULTIPLE=0.8 \
-          -w /workspace --network host ${docker-image} /bin/bash
+          -w /workspace --network host ${{ env.docker-image }} /bin/bash
       # working_directory: ./tools/dockerfile/
 
     - name: Download paddle and update
