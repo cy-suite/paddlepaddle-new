@@ -32,6 +32,7 @@ enum class PatternType {
   ReduceTree,
   ReduceTreePlusTrivial,
   ItersPermutation,
+  Anchor,
   Horizontal,
   Unsupport = -1,
 };
@@ -208,6 +209,16 @@ struct ItersPermutationPattern : public PatternBase {
   LoopFramework loop_dims() const { return loop_dims_; }
 };
 
+struct AnchorPattern : public PatternBase {
+  explicit AnchorPattern(const std::vector<pir::Operation*>& ops,
+                         const FusionTrackerPtr& tracker,
+                         const LoopAxisMapping& loop_mapping)
+      : PatternBase(UniqueId(), tracker, ops) {
+    set_loop_mapping(loop_mapping);
+  }
+  DEFINE_PATTERN_STATIC_ATTR(Anchor);
+};
+
 struct HorizontalFusionPattern : public PatternBase {
   struct PaddingStmtPattern;
   explicit HorizontalFusionPattern(
@@ -233,9 +244,10 @@ using StmtPattern = std::variant<TrivialPattern,
                                  ReducePattern,
                                  ReduceTreePattern,
                                  ReduceTreePlusTrivialPattern,
+                                 ItersPermutationPattern,
+                                 AnchorPattern,
                                  HorizontalFusionPattern,
-                                 UnsupportPattern,
-                                 ItersPermutationPattern>;
+                                 UnsupportPattern>;
 
 static std::string GetPatternId(const StmtPattern& s);
 static std::vector<pir::Operation*> GetOpsInPattern(const StmtPattern& pattern);

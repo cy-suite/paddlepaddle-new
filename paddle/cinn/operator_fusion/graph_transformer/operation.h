@@ -169,6 +169,28 @@ struct LiftToHorizontalFusionPatternOperation {
   }
 };
 
+struct LiftToAnchorPatternOperation {
+  PatternNodePtr operator()(PatternGraph* graph, PatternNodePtr node) {
+    std::string origin_name = node->id();
+    node->set_stmt_pattern(AnchorPattern(
+        GetOpsInPattern(node->stmt_pattern()),
+        std::make_shared<FusionTracker>(GetFusionTracker(node->stmt_pattern())),
+        node->loop_mapping()));
+    node->AppendInstr(std::make_shared<CopyInstr>(origin_name, node->id()));
+    VLOG(4) << "Make CopyInstr: " << origin_name << " -> " << node->id();
+    return node;
+  }
+};
+
+struct AnchorFusionOperation {
+  PatternNodePtr operator()(PatternGraph* graph,
+                            const PatternNodePtr& upstream,
+                            const PatternNodePtr& downstream) {
+    auto valid_loop_transform = GetValidLoopTransformRoute(
+        upstream->loop_mapping(), downstream->loop_mapping(), true);
+  }
+};
+
 struct LiftToItersPermutationPatternOperation {
   PatternNodePtr operator()(PatternGraph* graph, PatternNodePtr node) {
     PADDLE_ENFORCE_EQ(node->sink_op()->num_results(),

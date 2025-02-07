@@ -330,7 +330,7 @@ std::vector<T> UniqueConcatVector(const std::vector<T>& first,
   return result;
 }
 
-template <typename Int>
+template <typename Int = int>
 std::vector<Int> ArangeVector(Int start, Int end, Int step = 1) {
   std::vector<Int> res;
   for (Int i = start; i < end; i += step) {
@@ -366,7 +366,7 @@ std::vector<Int> GetReversePerm(const std::vector<Int>& perm) {
 template <typename T, typename Int>
 std::vector<T> TransposeVector(const std::vector<T>& v,
                                const std::vector<Int>& perm) {
-  PADDLE_ENFORCE_EQ(
+  PADDLE_ENFORCE_GE(
       v.size(),
       perm.size(),
       ::common::errors::InvalidArgument(
@@ -374,6 +374,9 @@ std::vector<T> TransposeVector(const std::vector<T>& v,
   std::vector<T> result;
   for (size_t i = 0; i < perm.size(); ++i) {
     result.emplace_back(v[perm[i]]);
+  }
+  for (size_t i = perm.size(); i < v.size(); ++i) {
+    result.emplace_back(v[i]);
   }
   return result;
 }
@@ -711,6 +714,9 @@ bool ShapeProductEqual(const std::vector<symbol::DimExpr>& in_shape,
                        int in_end,
                        int out_start,
                        int out_end);
+
+bool ShapeProductEqual(const std::vector<symbol::DimExpr>& in_shape,
+                       const std::vector<symbol::DimExpr>& out_shape);
 
 std::vector<std::pair<int, int>> PartionReshapeAxes(
     const std::vector<symbol::DimExpr>& in_shape,

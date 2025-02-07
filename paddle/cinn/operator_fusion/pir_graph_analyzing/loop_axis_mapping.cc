@@ -113,23 +113,35 @@ std::string LoopAxisMapping::DebugStr() const {
   return ss.str();
 }
 
-LoopAxisMapping LoopMappingMergeImpl(const LoopAxisMapping& upstream,
-                                     const LoopAxisMapping& downstream,
-                                     bool upstream_is_anchor) {
-  AxisTransformRoute loop_sink_route;
+std::pair<AxisTransformRoute, AxisTransformRoute> GetLoopTransformRoute(
+    const LoopAxisMapping& upstream, const LoopAxisMapping& downstream) {
+  AxisTransformRoute loop_sink_route, loop_lift_route;
   for (size_t i = 0; i < upstream.output_values.size(); ++i) {
     auto value = upstream.output_values[i];
     auto indices = FindPosInVector(downstream.input_values, value);
     for (auto idx : indices) {
       AxisTransformRoute sink_route =
           ConcatVector(upstream.loop2output[i], downstream.input2loop[idx]);
+      AxisTransformRoute lift_route =
+          ConcatVector(downstream.loop2input[idx], upstream.output2loop[i]);
       if (sink_route.size() < loop_sink_route.size() ||
           loop_sink_route.empty()) {
         loop_sink_route = sink_route;
       }
+      if (lift_route.size() < loop_lift_route.size() ||
+          loop_lift_route.empty()) {
+        loop_lift_route = lift_route;
+      }
     }
   }
-  AxisTransformRoute loop_lift_route = ReverseTransformRoute(loop_sink_route);
+  return {loop_sink_route, loop_lift_route};
+}
+
+LoopAxisMapping LoopMappingMergeImpl(const LoopAxisMapping& upstream,
+                                     const LoopAxisMapping& downstream,
+                                     bool upstream_is_anchor) {
+  const auto& [loop_sink_route, loop_lift_route] =
+      GetLoopTransformRoute(upstream, downstream);
 
   LoopAxisMapping result;
   result.input_values = upstream.input_values;
@@ -222,6 +234,168 @@ LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
   result.SetReverseMapping();
   result.EliminateIdentity();
   VLOG(4) << "\nMerged result: " << result.DebugStr();
+  return result;
+}
+
+std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
+    const LoopAxisMapping& upstream,
+    const LoopAxisMapping& downstream,
+    bool upstream_is_anchor) {
+  const auto& [loop_sink_route, loop_lift_route] =
+      GetLoopTransformRoute(upstream, downstream);
+  auto loop_transform_route =
+      upstream_is_anchor ? loop_lift_route : loop_sink_route;
+  auto source_loop = upstream_is_anchor ? downstream.loop : upstream.loop;
+
+  size_t id = 0;
+  auto unique_id = [&]() { return "I" + std::to_string(id++); };
+
+  AxisTransformRoute result;
+  std::vector<std::string> axis_ids;
+  std::unordered_map<std::string, symbol::DimExpr> axis_symbols;
+  std::unordered_set<std::string> deleted_axes;
+  std::unordered_set<std::string> unused_axes;
+  for (const auto& symbol : source_loop) {
+    auto axis_id = unique_id();
+    axis_ids.push_back(axis_id);
+    axis_symbols[axis_id] = symbol;
+  }
+  size_t cur_axis_size = axis_ids.size();
+
+  auto apply_transpose = [&](const TransposeTransformPtr& transform) {
+    axis_ids = TransposeVector(axis_ids, transform->perm);
+    result.push_back(transform);
+  };
+  auto apply_append_axis = [&](const AppendAxisTransformPtr& transform) {
+    for (size_t i = 0; i < transform->axis.size(); ++i) {
+      auto axis = transform->axis[i];
+      auto symbol = transform->shape[i];
+      bool can_reuse = false;
+      for (const auto& deleted_axis : deleted_axes) {
+        if (axis_symbols.at(deleted_axis) == symbol) {
+          // Can reuse deleted axis.
+          int deleted_axis_pos =
+              std::find(axis_ids.begin(), axis_ids.end(), deleted_axis) -
+              axis_ids.begin();
+          auto perm = ArangeVector<int32_t>(0, axis_ids.size());
+          perm.erase(perm.begin() + deleted_axis_pos);
+          perm.insert(perm.begin() + axis, deleted_axis_pos);
+          axis_ids.erase(axis_ids.begin() + deleted_axis_pos);
+          auto axis_id = unique_id();
+          axis_ids.insert(axis_ids.begin() + axis, axis_id);
+          axis_symbols[axis_id] = symbol;
+          deleted_axes.erase(deleted_axis);
+          cur_axis_size++;
+          result.push_back(std::make_shared<TransposeTransform>(perm));
+          can_reuse = true;
+          break;
+        }
+      }
+      // If can not reuse deleted axis, insert new axis and mark it as unused.
+      if (!can_reuse) {
+        auto axis_id = unique_id();
+        axis_ids.insert(axis_ids.begin() + axis, axis_id);
+        axis_symbols[axis_id] = symbol;
+        unused_axes.insert(axis_id);
+        cur_axis_size++;
+        result.push_back(std::make_shared<AppendAxisTransform>(
+            std::vector<int64_t>{axis}, std::vector<symbol::DimExpr>{symbol}));
+      }
+    }
+  };
+  auto apply_delete_axis = [&](const DeleteAxisTransformPtr& transform) {
+    for (int i = transform->axis.size() - 1; i >= 0; --i) {
+      auto axis = transform->axis[i];
+      auto axis_id = axis_ids[axis];
+      auto symbol = axis_symbols.at(axis_id);
+      if (symbol == symbol::DimExpr(1) || unused_axes.count(axis_id)) {
+        // Unused axis or axis with size 1 can be deleted directly.
+        axis_ids.erase(axis_ids.begin() + axis);
+        unused_axes.erase(axis_id);
+        result.push_back(std::make_shared<DeleteAxisTransform>(
+            std::vector<int64_t>{axis}, std::vector<symbol::DimExpr>{symbol}));
+      } else {
+        // Used axis can not be deleted directly, we need to transpose it to
+        // the end to ensure accuracy of subsequent transform.
+        std::vector<std::string> new_axis_ids;
+        std::vector<int> perm;
+        for (int i = 0; i < axis_ids.size(); ++i) {
+          if (i == axis) continue;
+          new_axis_ids.push_back(axis_ids[i]);
+          perm.push_back(i);
+        }
+        deleted_axes.insert(axis_id);
+        new_axis_ids.push_back(axis_id);
+        axis_ids = new_axis_ids;
+        perm.push_back(axis);
+        result.push_back(std::make_shared<TransposeTransform>(perm));
+      }
+      cur_axis_size--;
+    }
+  };
+  auto apply_reshape = [&](const ReshapeTransformPtr& transform) {
+    auto in_shape = transform->in_shape;
+    auto out_shape = transform->out_shape;
+    std::vector<std::string> new_axis_ids;
+    if (!ShapeProductEqual(in_shape, out_shape)) {
+      for (const auto& symbol : out_shape) {
+        auto axis_id = unique_id();
+        new_axis_ids.push_back(axis_id);
+        axis_symbols[axis_id] = symbol;
+      }
+    } else {
+      const auto& partion_indices = PartionReshapeAxes(in_shape, out_shape);
+      for (int idx = 1; idx < partion_indices.size(); ++idx) {
+        const auto& [in_start, out_start] = partion_indices[idx - 1];
+        const auto& [in_end, out_end] = partion_indices[idx];
+        if (in_end == in_start + 1 && out_end == out_start + 1) {
+          new_axis_ids.push_back(axis_ids[in_start]);
+        } else {
+          bool is_unused = true;
+          for (int i = in_start; i < in_end; ++i) {
+            if (axis_symbols.at(axis_ids[i]) != symbol::DimExpr(1) &&
+                !unused_axes.count(axis_ids[i])) {
+              is_unused = false;
+              break;
+            }
+          }
+          for (int i = out_start; i < out_end; ++i) {
+            auto axis_id = unique_id();
+            new_axis_ids.push_back(axis_id);
+            axis_symbols[axis_id] = out_shape[i];
+            if (is_unused) unused_axes.insert(axis_id);
+          }
+        }
+      }
+    }
+    new_axis_ids = ConcatVector(
+        new_axis_ids, SliceVector(axis_ids, cur_axis_size, axis_ids.size()));
+    axis_ids = new_axis_ids;
+    cur_axis_size = out_shape.size();
+    result.push_back(transform);
+  };
+
+  auto apply_transform = adt::match{
+      [&](const IdentityTransformPtr& trans) {},
+      [&](const TransposeTransformPtr& trans) { apply_transpose(trans); },
+      [&](const AppendAxisTransformPtr& trans) { apply_append_axis(trans); },
+      [&](const DeleteAxisTransformPtr& trans) { apply_delete_axis(trans); },
+      [&](const ReshapeTransformPtr& trans) { apply_reshape(trans); },
+      [&](const auto& trans) {
+        PADDLE_THROW(
+            ::common::errors::Unimplemented("Unknown transform type."));
+      }};
+
+  for (auto& transform : loop_transform_route) {
+    if (std::holds_alternative<UnsupportedTransformPtr>(transform)) {
+      return std::nullopt;
+    } else {
+      std::visit(apply_transform, transform);
+    }
+  }
+
+  // Check if all deleted axes are used, otherwise the transform is invalid.
+  if (!deleted_axes.empty()) return std::nullopt;
   return result;
 }
 

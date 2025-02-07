@@ -218,14 +218,18 @@ bool ShapeProductEqual(const std::vector<symbol::DimExpr>& in_shape,
          GetShapeProduct(out_shape, out_start, out_end);
 }
 
+bool ShapeProductEqual(const std::vector<symbol::DimExpr>& in_shape,
+                       const std::vector<symbol::DimExpr>& out_shape) {
+  return ShapeProductEqual(
+      in_shape, out_shape, 0, in_shape.size(), 0, out_shape.size());
+}
+
 std::vector<std::pair<int, int>> PartionReshapeAxes(
     const std::vector<symbol::DimExpr>& in_shape,
     const std::vector<symbol::DimExpr>& out_shape) {
-  PADDLE_ENFORCE(
-      ShapeProductEqual(
-          in_shape, out_shape, 0, in_shape.size(), 0, out_shape.size()),
-      ::common::errors::InvalidArgument(
-          "Shape product should be equal for reshape operation."));
+  PADDLE_ENFORCE(ShapeProductEqual(in_shape, out_shape),
+                 ::common::errors::InvalidArgument(
+                     "Shape product should be equal for reshape operation."));
 
   int input_rank = in_shape.size();
   int output_rank = out_shape.size();

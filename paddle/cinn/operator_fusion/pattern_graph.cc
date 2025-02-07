@@ -49,6 +49,18 @@ std::vector<PatternNodePtr> PatternGraph::ClusterOps() {
   VLOG(4) << "[Group Cluster] After ReduceTree_Trivial_Fusion: ";
   PrintGraphInfo();
 
+  // All -> AnchorPattern
+  VLOG(4) << "[Group Cluster] Start LiftToAnchorPattern";
+  LiftToAnchorPattern();
+  VLOG(4) << "[Group Cluster] After LiftToAnchorPattern: ";
+  PrintGraphInfo();
+
+  // AnchorPattern x AnchorPattern Fusion
+  VLOG(4) << "[Group Cluster] Start AnchorFusion";
+  AnchorFusion();
+  VLOG(4) << "[Group Cluster] After AnchorFusion: ";
+  PrintGraphInfo();
+
   // All -> ItersPermutationPattern
   VLOG(4) << "[Group Cluster] Start LiftToItersPermutationPattern";
   LiftToItersPermutationPattern();
@@ -215,6 +227,21 @@ void PatternGraph::ReduceTree_Trivial_Fusion() {
   GraphTransformer<NodePattern,
                    CanFuseReduceTreeAndTrivialMatcher,
                    MergeReduceTreeAndTrivialOperation>(this);
+}
+
+void PatternGraph::LiftToAnchorPattern() {
+  GraphTransformer<NodePattern,
+                   Or<StmtPatternGraphMatcher<TrivialPattern>,
+                      StmtPatternGraphMatcher<ReduceTreePlusTrivialPattern>,
+                      StmtPatternGraphMatcher<ReducePattern>,
+                      StmtPatternGraphMatcher<ReduceTreePattern>>,
+                   LiftToAnchorPatternOperation>(this);
+}
+
+void PatternGraph::AnchorFusion() {
+  GraphTransformer<ReverseTopoNodePairPattern,
+                   CanAnchorFusionMatcher,
+                   AnchorFusionOperation>(this);
 }
 
 void PatternGraph::LiftToItersPermutationPattern() {

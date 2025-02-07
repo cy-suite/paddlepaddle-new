@@ -195,46 +195,6 @@ static StmtPattern MergePatternImpl(const ReduceTreePattern& first,
   return result;
 }
 
-static std::vector<pir::Operation*> GetOutputOpsInPattern(
-    const StmtPattern& pattern) {
-  struct Visitor {
-    std::vector<pir::Operation*> operator()(const ReducePattern& pattern) {
-      return {pattern.GetReduceOp()};
-    }
-    std::vector<pir::Operation*> operator()(const TrivialPattern& pattern) {
-      return {pattern.sink_op()};
-    }
-    std::vector<pir::Operation*> operator()(const UnsupportPattern& pattern) {
-      PADDLE_THROW(::common::errors::Unimplemented(
-          "Get output ops in UnsupportPattern is not implement!"));
-    }
-    std::vector<pir::Operation*> operator()(const ReduceTreePattern& pattern) {
-      return this->operator()(pattern.GetRootPattern());
-    }
-    std::vector<pir::Operation*> operator()(
-        const ReduceTreePlusTrivialPattern& pattern) {
-      return {this->operator()(pattern.sink_trivial)};
-    }
-    std::vector<pir::Operation*> operator()(
-        const HorizontalFusionPattern& horizontal) {
-      using PaddingStmtPattern =
-          typename HorizontalFusionPattern::PaddingStmtPattern;
-      return VectorFlatMap(horizontal.padding_patterns_,
-                           std::function<std::vector<pir::Operation*>(
-                               const PaddingStmtPattern& pattern)>(
-                               [](const PaddingStmtPattern& pattern) {
-                                 return std::visit(Visitor(), pattern.pattern);
-                               }));
-    }
-    std::vector<pir::Operation*> operator()(
-        const ItersPermutationPattern& pattern) {
-      PADDLE_THROW(::common::errors::Unimplemented(
-          "Can't get output ops for ItersPermutationPattern Currently."));
-    }
-  };
-  return std::visit(Visitor(), pattern);
-}
-
 using LoopValueDims = std::vector<ValueDim>;
 
 static std::vector<LoopValueDims> GetLoopValueDims(const StmtPattern& pattern);
@@ -330,6 +290,11 @@ struct LoopValueDimsVisitor {
       const ItersPermutationPattern& pattern) {
     PADDLE_THROW(::common::errors::Unimplemented(
         "Can't get loop value dims for ItersPermutationPattern Currently."));
+  }
+
+  std::vector<LoopValueDims> operator()(const AnchorPattern& pattern) {
+    PADDLE_THROW(::common::errors::Unimplemented(
+        "Can't get loop value dims for AnchorPattern Currently."));
   }
 };
 
@@ -488,6 +453,15 @@ struct LoopFrameworkVisitor {
   MaybeLoopFramework operator()(const ItersPermutationPattern& pattern) {
     const auto loop_dims = pattern.loop_dims();
     return {loop_dims.first, loop_dims.second};
+  }
+
+  MaybeLoopFramework operator()(const AnchorPattern& pattern) {
+    MaybeLoopFramework result;
+    result.loop = pattern.loop_mapping().loop;
+    auto reduce_num = pattern.loop_mapping().reduce_axis_num;
+    result.is_reduce =
+        CreateIsReduceVector(result.loop.size() - reduce_num, reduce_num);
+    return result;
   }
 };
 

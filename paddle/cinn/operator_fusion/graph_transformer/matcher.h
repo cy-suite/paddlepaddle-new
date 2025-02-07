@@ -141,6 +141,18 @@ struct DownstreamHasItersRelationMatcher {
   }
 };
 
+struct CanAnchorFusionMatcher {
+  bool operator()(const PatternGraph& graph,
+                  const PatternNodePtr& upstream,
+                  const PatternNodePtr& downstream) {
+    return StmtPatternGraphMatcher<AnchorPattern>()(graph, upstream) &&
+           StmtPatternGraphMatcher<AnchorPattern>()(graph, downstream) &&
+           graph.policy_manager()
+               .template GetPolicy<GeneralTopoPolicy>()
+               ->CanFuse(upstream, downstream);
+  }
+};
+
 struct CanFuseItersPermutationMatcher {
   bool operator()(PatternGraph graph,  // NOLINT
                   const PatternNodePtr& upstream,

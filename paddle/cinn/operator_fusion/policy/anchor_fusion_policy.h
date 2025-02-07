@@ -27,13 +27,13 @@ struct AnchorFusionPolicy final : public PolicyBase {
   static constexpr PolicyKind Kind = PolicyKind::AnchorFusion;
   std::string Name() { return "AnchorFusionPolicy"; }
 
-  void RegisterAxisMapping(const PatternNodePtr& node, pir::Operation* op) {
-    VLOG(4) << "RegisterAxisMapping for: " << OpsDebugStr({op});
-    loop_axis_mapping_[node] = CreateAxisMapping(op);
+  bool CanFuseSource2Target(const PatternNodePtr& source,
+                            const PatternNodePtr& target) {
+    return true;
   }
 
   std::optional<AxisTransformRoute> GetValidAxisTransformRoute(
-      const PatternNodePtr& source, const PatternNodePtr& target) {}
+      const PatternNodePtr& source, const PatternNodePtr& target);
 
   std::unordered_map<PatternNodePtr, LoopAxisMapping> loop_axis_mapping_;
 };

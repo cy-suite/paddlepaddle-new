@@ -45,8 +45,8 @@ struct UnsupportedTransform {
     static UnsupportedTransformPtr instance(new UnsupportedTransform());
     return instance;
   }
-  AxisTransform reverse() { return InstancePtr(); }
   std::string DebugStr() const { return "Unsupported"; }
+  AxisTransform reverse() { return InstancePtr(); }
 
  private:
   UnsupportedTransform() = default;
@@ -58,8 +58,8 @@ struct IdentityTransform {
     static IdentityTransformPtr instance(new IdentityTransform());
     return instance;
   }
-  AxisTransform reverse() { return InstancePtr(); }
   std::string DebugStr() const { return "Identity"; }
+  AxisTransform reverse() { return InstancePtr(); }
 
  private:
   IdentityTransform() = default;
@@ -68,11 +68,11 @@ struct IdentityTransform {
 struct TransposeTransform {
   explicit TransposeTransform(const std::vector<int32_t>& perm) : perm(perm) {}
   std::vector<int32_t> perm;
-  AxisTransform reverse() {
-    return std::make_shared<TransposeTransform>(GetReversePerm(perm));
-  }
   std::string DebugStr() const {
     return "Transpose{perm=(" + cinn::utils::Join(perm, ",") + ")}";
+  }
+  AxisTransform reverse() {
+    return std::make_shared<TransposeTransform>(GetReversePerm(perm));
   }
 };
 
@@ -82,11 +82,11 @@ struct DeleteAxisTransform {
       : axis(axis), shape(shape) {}
   std::vector<int64_t> axis;
   std::vector<symbol::DimExpr> shape;
-  AxisTransform reverse();
   std::string DebugStr() const {
     return "DeleteAxis{axis=(" + cinn::utils::Join(axis, ",") + "), shape=(" +
            cinn::utils::Join(shape, ",") + ")}";
   }
+  AxisTransform reverse();
 };
 
 struct AppendAxisTransform {
@@ -98,11 +98,11 @@ struct AppendAxisTransform {
   }
   std::vector<int64_t> axis;
   std::vector<symbol::DimExpr> shape;
-  AxisTransform reverse();
   std::string DebugStr() const {
     return "AppendAxis{axis=(" + cinn::utils::Join(axis, ",") + "), shape=(" +
            cinn::utils::Join(shape, ",") + ")}";
   }
+  AxisTransform reverse();
 };
 
 struct ReshapeTransform {
@@ -111,12 +111,12 @@ struct ReshapeTransform {
       : in_shape(in_shape), out_shape(out_shape) {}
   std::vector<symbol::DimExpr> in_shape;
   std::vector<symbol::DimExpr> out_shape;
-  AxisTransform reverse() {
-    return std::make_shared<ReshapeTransform>(out_shape, in_shape);
-  }
   std::string DebugStr() const {
     return "Reshape{in_shape=(" + cinn::utils::Join(in_shape, ",") +
            "), out_shape=(" + cinn::utils::Join(out_shape, ",") + ")}";
+  }
+  AxisTransform reverse() {
+    return std::make_shared<ReshapeTransform>(out_shape, in_shape);
   }
 };
 
@@ -143,11 +143,17 @@ struct LoopAxisMapping {
   std::string DebugStr() const;
 };
 
+LoopAxisMapping CreateLoopMapping(pir::Operation* op);
+
 LoopAxisMapping LoopMappingMerge(const LoopAxisMapping& upstream,
                                  const LoopAxisMapping& downstream,
                                  bool upstream_is_anchor = true);
 LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
     const LoopAxisMapping& upstream, const LoopAxisMapping& downstream);
 
-LoopAxisMapping CreateLoopMapping(pir::Operation* op);
+std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
+    const LoopAxisMapping& upstream,
+    const LoopAxisMapping& downstream,
+    bool upstream_is_anchor);
+
 }  // namespace cinn::fusion
