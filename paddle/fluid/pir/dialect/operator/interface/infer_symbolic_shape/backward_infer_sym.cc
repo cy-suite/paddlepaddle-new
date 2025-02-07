@@ -108,4 +108,9 @@ bool GroupNormGradOpInferSymbolicShape(
   }
   return true;
 }
+
+bool GroupNormGrad_OpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  return GroupNormOpInferSymbolicShape(op, infer_context);
+}
 }  // namespace paddle::dialect
