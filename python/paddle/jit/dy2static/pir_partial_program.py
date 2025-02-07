@@ -898,6 +898,10 @@ class PartialProgramLayer:
                     ),
                 )
                 if cinn_is_enabled(self._build_strategy, self._backend):
+                    kw_value_list = (
+                        backward_program.global_block().kwargs().values()
+                    )
+
                     whole_shape_analysis = paddle.base.libpaddle.pir.get_shape_constraint_ir_analysis(
                         whole_program
                     )
@@ -922,6 +926,8 @@ class PartialProgramLayer:
                         forward_program, backward_program
                     )
                     for var in backward_program.list_vars():
+                        if var in kw_value_list:
+                            continue
                         backward_shape_analysis.set_shape_or_data_for_var(
                             var,
                             whole_shape_analysis.get_shape_or_data_for_var(var),
