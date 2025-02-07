@@ -772,7 +772,7 @@ def complete_op_role(main_program, op_role_scope: list):
             global_op_idx += 1
 
 
-def pipeline_pass(dense_main_program, dense_starup_program, pipeline_strategy):
+def pipeline_pass(dense_main_program, dense_startup_program, pipeline_strategy):
     """
     Pipeline schedule pass for auto parallel. Enables the pipeline parallel scheduling
     strategies like FThenB, 1F1B, VPP, etc.
@@ -807,7 +807,7 @@ def pipeline_pass(dense_main_program, dense_starup_program, pipeline_strategy):
     pass_context = PassContext()
     pipeline_pass.apply(
         dense_main_program,
-        dense_starup_program,
+        dense_startup_program,
         pass_context,
     )
     plan = pass_context.get_attr("plan")
@@ -1042,7 +1042,7 @@ def _set_process_mesh_and_chunk_id(
     op_input_vars = op.operands_source()
     op_output_vars = op.results()
 
-    # NOTE(zhangwl):dist_skip_op donnot have op_mesh
+    # NOTE(zhangwl):dist_skip_op do not have op_mesh
     op_mesh = None
     if op.name() in dist_skip_op_list:
         input_var_process_mesh = None
