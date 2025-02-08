@@ -241,6 +241,9 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
     const LoopAxisMapping& upstream,
     const LoopAxisMapping& downstream,
     bool upstream_is_anchor) {
+  VLOG(4) << "Try to get valid loop transform route " << upstream_is_anchor
+      ? "from downstream to upstream."
+      : "from upstream to downstream.";
   const auto& [loop_sink_route, loop_lift_route] =
       GetLoopTransformRoute(upstream, downstream);
   auto loop_transform_route =
@@ -388,6 +391,8 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
 
   for (auto& transform : loop_transform_route) {
     if (std::holds_alternative<UnsupportedTransformPtr>(transform)) {
+      VLOG(4) << "Can not find valid loop transform because of unsupported "
+                 "transform.";
       return std::nullopt;
     } else {
       std::visit(apply_transform, transform);
@@ -395,7 +400,11 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
   }
 
   // Check if all deleted axes are used, otherwise the transform is invalid.
-  if (!deleted_axes.empty()) return std::nullopt;
+  if (!deleted_axes.empty()) {
+    VLOG(4) << "Can not find valid loop transform because of unreused deleted "
+               "axes.";
+    return std::nullopt;
+  }
   return result;
 }
 

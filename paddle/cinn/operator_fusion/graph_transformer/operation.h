@@ -186,8 +186,28 @@ struct AnchorFusionOperation {
   PatternNodePtr operator()(PatternGraph* graph,
                             const PatternNodePtr& upstream,
                             const PatternNodePtr& downstream) {
-    auto valid_loop_transform = GetValidLoopTransformRoute(
+    auto loop_lift_transform = GetValidLoopTransformRoute(
         upstream->loop_mapping(), downstream->loop_mapping(), true);
+    auto loop_sink_transform = GetValidLoopTransformRoute(
+        upstream->loop_mapping(), downstream->loop_mapping(), false);
+    if (!loop_lift_transform.has_value() && !loop_sink_transform.has_value()) {
+      return upstream;
+    }
+    bool upstream_is_anchor = loop_lift_transform.has_value();
+    const auto merge_pattern_fn =
+        [upstream_is_anchor](const StmtPattern& upstream,
+                             const StmtPattern& downstream) -> StmtPattern {
+      return AnchorPattern(
+          UniqueConcatVector(GetOpsInPattern(upstream),
+                             GetOpsInPattern(downstream)),
+          std::make_shared<FusionTracker>(GetFusionTracker(upstream),
+                                          GetFusionTracker(downstream)),
+          LoopMappingMerge(GetPatternLoopMapping(upstream),
+                           GetPatternLoopMapping(downstream),
+                           upstream_is_anchor));
+    };
+    auto merged_node = graph->MergeNode(upstream, downstream, merge_pattern_fn);
+    // Update tracker
   }
 };
 

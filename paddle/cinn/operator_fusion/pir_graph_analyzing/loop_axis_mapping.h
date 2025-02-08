@@ -147,7 +147,7 @@ LoopAxisMapping CreateLoopMapping(pir::Operation* op);
 
 LoopAxisMapping LoopMappingMerge(const LoopAxisMapping& upstream,
                                  const LoopAxisMapping& downstream,
-                                 bool upstream_is_anchor = true);
+                                 bool upstream_is_anchor);
 LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
     const LoopAxisMapping& upstream, const LoopAxisMapping& downstream);
 
