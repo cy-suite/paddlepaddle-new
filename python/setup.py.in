@@ -1187,7 +1187,7 @@ headers = (
     #new_executor headers
     list(find_files('pir_adaptor_util.h','@PADDLE_SOURCE_DIR@/paddle/fluid/framework/new_executor/pir_adaptor/'))+
     list(find_files('custom_engine_instruction.h','@PADDLE_SOURCE_DIR@/paddle/fluid/framework/new_executor/instruction/'))+
-    list(find_files('new_executor_base_defs.h','@PADDLE_SOURCE_DIR@/paddle/fluid/framework/new_executor/'))+
+    list(find_files('instruction_defs.h','@PADDLE_SOURCE_DIR@/paddle/fluid/framework/new_executor/'))+
     list(find_files('instruction_base.h','@PADDLE_SOURCE_DIR@/paddle/fluid/framework/new_executor/instruction/')))
 jit_layer_headers = ['layer.h', 'serializer.h', 'serializer_utils.h', 'all.h', 'function.h']
 for f in jit_layer_headers:

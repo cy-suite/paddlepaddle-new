@@ -19,7 +19,7 @@
 #include <vector>
 
 #include "paddle/fluid/framework/infershape_utils.h"
-#include "paddle/fluid/framework/new_executor/new_executor_base_defs.h"
+#include "paddle/fluid/framework/new_executor/instruction/instruction_defs.h"
 #include "paddle/fluid/framework/operator.h"
 #include "paddle/fluid/framework/variable_helper.h"
 #include "paddle/fluid/pir/dialect/operator/interface/infermeta.h"
