@@ -115,6 +115,7 @@ jobs:
         git checkout develop
         git_code=1
         set +e
+        set -x
         git pull upstream develop
         if [ $? -eq 0 ]; then
           git_code=0
@@ -136,12 +137,12 @@ jobs:
           fi
         fi
         set -e
-        git fetch origin pull/${PR_ID}/head
-        git checkout -b origin_pr FETCH_HEAD
+        git checkout pr
+        # git fetch origin pull/${PR_ID}/head
+        # git checkout -b origin_pr FETCH_HEAD
         git fetch upstream develop
         git checkout -b test_pr upstream/develop
-        git merge --no-edit origin_pr
-        # git checkout test
+        git merge --no-edit pr
         # git merge develop
         "
 
@@ -193,6 +194,7 @@ jobs:
           echo 'Sorry, coverage check failed.'
         fi
         # set -x
+        rm -rf * .[^.]*
         exit $EXCODE
         "
 
