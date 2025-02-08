@@ -65,7 +65,7 @@ jobs:
           -v "cfs:/home/data/cfs" \
           -v "gzcfs:/home/data/gzcfs" \
           -v "shm:/dev/shm" \
-          -v "/home/gushiwei:/home/gushiwei"
+          -v "/home/gushiwei:/home/gushiwei" \
           -e PR_ID \
           -e COMMIT_ID \
           -e FLAGS_fraction_of_gpu_memory_to_use \
