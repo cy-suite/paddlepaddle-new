@@ -166,7 +166,7 @@ jobs:
         ln -sf $(which python3.10) /usr/local/bin/python
         ln -sf $(which pip3.10) /usr/local/bin/pip
         bash -x ${work_dir}/paddle/scripts/paddle_build.sh cicheck_sot;EXCODE=$?
-        echo "EXCODE=$EXCODE" >> $GITHUB_ENV
+        echo \"EXCODE=$EXCODE\" >> $GITHUB_ENV
         "
 
     - name: Check result
