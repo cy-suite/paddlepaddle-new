@@ -145,7 +145,8 @@ def moe_dispatch(
         x (Tensor): The input tensor with shape `[batch_size * seq_len, d_model]`.
         gating_output (Tensor): The gating output probabilities with shape `[batch_size * seq_len, num_experts]`.
         moe_topk (int): The number of top experts to select for each token.
-        group_moe (bool, optional): Whether to use group MoE. Default is `True`.Group_size is expert_nums // moe_topk.
+        group_moe (bool, optional): Whether to use group MoE. Default is `False`.Group_size is expert_nums // moe_topk.
+        topk_only_mode (bool, optional): Whether to only use tok. Default is `False`.
 
     Returns:
         Tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
@@ -164,6 +165,8 @@ def moe_dispatch(
 
             >>> x = paddle.randn([1280, 768]) # 1280 = bs * 128
             >>> gating_output = paddle.rand([1280, 48])
+            >>> group_moe = False
+            >>> topk_only_mode = True
             >>> moe_topk = 6
             >>> (
             ...     permute_input,
@@ -171,7 +174,7 @@ def moe_dispatch(
             ...     permute_indices_per_token,
             ...     expert_scales_float,
             ...     top_k_indices
-            ... ) = moe_dispatch(x, gating_output, moe_topk, True)
+            ... ) = moe_dispatch(x, gating_output, moe_topk, group_moe, topk_only_mode)
             >>> print(permute_input.shape)
             [7680, 768]
             >>> print(token_nums_per_expert.shape)
