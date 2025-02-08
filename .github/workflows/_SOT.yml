@@ -65,7 +65,7 @@ jobs:
           -v "cfs:/home/data/cfs" \
           -v "gzcfs:/home/data/gzcfs" \
           -v "shm:/dev/shm" \
-          -v "${work_dir}:/workspace" \
+          # -v "${work_dir}:/workspace" \
           -e PR_ID \
           -e COMMIT_ID \
           -e FLAGS_fraction_of_gpu_memory_to_use \
@@ -113,20 +113,16 @@ jobs:
         git config --global user.name "PaddleCI"
         git config --global user.email "paddle_ci@example.com"
         git remote add upstream https://github.com/PaddlePaddle/Paddle.git
-        echo "111"
         git checkout develop
         git_code=1
-        echo 222
-        echo ${{ vars.PADDLE_PROXY }}
-        echo 333
         set +e
         git pull upstream develop
         if [ $? -eq 0 ]; then
           git_code=0
           echo 'git pull succeed with'
         else
-          proxy="${{ vars.PADDLE_PROXY }}"
-          echo "::add-mask::$proxy"
+          proxy=${{ vars.PADDLE_PROXY }}
+          echo \"::add-mask::$proxy\"
           export http_proxy=$proxy
           export https_proxy=$proxy
           git pull upstream develop
@@ -134,7 +130,7 @@ jobs:
             git_code=0
             echo 'git pull succeed with'
           else
-            echo "proxy filed"
+            echo 'proxy filed'
             exit 2
           fi
         fi
