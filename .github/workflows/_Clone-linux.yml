@@ -58,7 +58,6 @@ jobs:
         # SK: ${{ vars.SK }}
         # bos_file: "/home/paddle/actions-runner/bos_upload.py"
         bos_file: "/home/paddle/actions-runner/bos/BosClient.py"
-      # continue-on-error: true
       run: |
         cd ..
         tar -zcf Paddle.tar.gz Paddle
@@ -68,6 +67,7 @@ jobs:
         cd -
         git checkout develop
         git branch -D test
+        git gc
 
     # - name: Clean environment
     #   if: always()

@@ -104,38 +104,41 @@ jobs:
     - name: Download paddle and update
       run: |
         # docker start paddle-CI
-        docker exec paddle-CI /bin/bash -c "
+        docker exec -t paddle-CI /bin/bash -c "
         pwd
         ln -s /home/data/cfs/.cache /root/.cache
         wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/Paddle/${PR_ID}/${COMMIT_ID}/Paddle.tar.gz --no-check-certificate
         tar xf Paddle.tar.gz --strip-components=1
         rm Paddle.tar.gz
-        git config --global user.name "PaddleCI";
+        git config --global user.name "PaddleCI"
         git config --global user.email "paddle_ci@example.com"
-        git remote add upstream https://github.com/PaddlePaddle/Paddle.git;
+        git remote add upstream https://github.com/PaddlePaddle/Paddle.git
         echo "111"
-        git checkout develop;
-        git_code=1;
-        set +e;
-        git pull upstream develop;
+        git checkout develop
+        git_code=1
+        echo 222
+        echo ${{ vars.PADDLE_PROXY }}
+        echo 333
+        set +e
+        git pull upstream develop
         if [ $? -eq 0 ]; then
           git_code=0;
-          echo 'git pull succeed with';
+          echo 'git pull succeed with'
         else;
-          proxy="${{ vars.PADDLE_PROXY }}";
-          echo "::add-mask::$proxy";
-          export http_proxy=$proxy;
-          export https_proxy=$proxy;
-          git pull upstream develop;
+          proxy="${{ vars.PADDLE_PROXY }}"
+          echo "::add-mask::$proxy"
+          export http_proxy=$proxy
+          export https_proxy=$proxy
+          git pull upstream develop
           if [ $? -eq 0 ]; then
-            git_code=0;
-            echo 'git pull succeed with';
+            git_code=0
+            echo 'git pull succeed with'
           else
-            echo "proxy filed";
+            echo "proxy filed"
             exit 2;
           fi
-        fi;
-        set -e;
+        fi
+        set -e
         git checkout test
         git merge develop
         "
