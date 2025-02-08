@@ -5284,15 +5284,25 @@ void TransposeInferMeta(const MetaTensor& x,
 
   // Note: x_rank > axis_size when fuse squeeze2 + transpose2, else x_rank ==
   // axis_size
-  PADDLE_ENFORCE_GE(x_rank,
-                    axis_size,
-                    errors::InvalidArgument(
-                        "The input tensor's dimension "
-                        "should be equal to or greater than the axis's size. "
-                        "But received input tensor's dimension is %d, "
-                        "axis's size is %d",
-                        x_rank,
-                        axis_size));
+  // PADDLE_ENFORCE_GE(x_rank,
+  //                   axis_size,
+  //                   errors::InvalidArgument(
+  //                       "The input tensor's dimension "
+  //                       "should be equal to or greater than the axis's size.
+  //                       " "But received input tensor's dimension is %d, "
+  //                       "axis's size is %d",
+  //                       x_rank,
+  //                       axis_size));
+  PADDLE_ENFORCE_EQ(
+      x_rank,
+      axis_size,
+      errors::InvalidArgument(
+          "Input(perm) is the permutation of dimensions of Input(x), "
+          "its length should be equal to dimensions of Input(x), "
+          "but received dimension of Input(x) is %d, "
+          "the length of Input(perm) is %d.",
+          x_rank,
+          axis_size));
 
   std::vector<int> formatted_axis = axis;
   std::vector<int> count(axis_size, 0);
