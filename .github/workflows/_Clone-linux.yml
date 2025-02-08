@@ -3,10 +3,10 @@ name: Clone-linux
 on:
   workflow_call:
     inputs:
-      PR_ID:
-        description: 'PR number'
-        required: true
-        type: string
+      # PR_ID:
+      #   description: 'PR number'
+      #   required: true
+      #   type: string
       COMMIT_ID:
         description: 'commit number'
         required: true
@@ -19,7 +19,7 @@ defaults:
     shell: bash
 
 env:
-  PR_ID: ${{ inputs.PR_ID }}
+  # PR_ID: ${{ inputs.PR_ID }}
   COMMIT_ID: ${{ inputs.COMMIT_ID }}
 
 jobs:
@@ -39,6 +39,7 @@ jobs:
 
     - name: Merge PR to test branch
       run: |
+        echo "${{ github.event.pull_request.number }}"
         git checkout -b test
         git config --global user.name "PaddleCI"
         git config --global user.email "paddle_ci@example.com"
