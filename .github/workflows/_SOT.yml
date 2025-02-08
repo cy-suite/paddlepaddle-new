@@ -60,7 +60,7 @@ jobs:
         #   bash ci_dockerfile.sh
         #   docker build -t ${docker-image} -f ${dockerfile} .
         # fi
-        docker run --name paddle-CI \
+        docker run -d -t --name paddle-CI \
           -v "cfs:/home/data/cfs" \
           -v "gzcfs:/home/data/gzcfs" \
           -v "shm:/dev/shm" \
