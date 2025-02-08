@@ -14,7 +14,7 @@ on:
 
 env:
   dockerfile: Dockerfile.cuda9_cudnn7_gcc48_py35_centos6
-  docker-image: 077ca344c322
+  docker_image: 077ca344c322
 
 defaults:
   run:
@@ -29,9 +29,40 @@ jobs:
     # sudo usermod -aG docker $USER
     - name: Check docker image and run container
       env:
-        docker-image: 077ca344c322
+        PR_ID: ${{ inputs.PR_ID }}
+        COMMIT_ID: ${{ inputs.COMMIT_ID }}
+        FLAGS_fraction_of_gpu_memory_to_use: 0.15
+        CTEST_OUTPUT_ON_FAILURE: 1
+        CTEST_PARALLEL_LEVEL: 2
+        WITH_GPU: "OFF"
+        WITH_CACHE: "ON"
+        WITH_AVX: "OFF"
+        WITH_MKL: "OFF"
+        WITH_TESTING: "OFF"
+        WITH_COVERAGE: "OFF"
+        COVERALLS_UPLOAD: "OFF"
+        GIT_PR_ID: ${{ inputs.PR_ID }}
+        PADDLE_VERSION: 0.0.0
+        CMAKE_BUILD_TYPE: Release
+        PADDLE_FRACTION_GPU_MEMORY_TO_USE: 0.15
+        WITH_DISTRIBUTE: "OFF"
+        RUN_TEST: OFF
+        PRECISION_TEST: "OFF"
+        PREC_SUFFIX: .py3
+        WITH_UNITY_BUILD: "ON"
+        TIMEOUT_DEBUG_HEL: "OFF"
+        PY_VERSION: 3.10
+        CI_SKIP_CPP_TEST: "OFF"
+        PROC_RUN: 12
+        FLAGS_enable_eager_mode: 1
+        WITH_TENSORRT: "OFF"
+        WITH_NEWIR: "ON"
+        GENERATOR: Ninja
+        WITH_INFERENCE_API_TEST: "OFF"
+        CCACHE_MAXSIZE: 150G
+        CCACHE_LIMIT_MULTIPLE: 0.8
       run: |
-        # if ! docker image inspect ${docker-image} > /dev/null 2>&1; then
+        # if ! docker image inspect ${docker_image} > /dev/null 2>&1; then
         #   cd ..
         #   wget https://raw.githubusercontent.com/PaddlePaddle/Paddle/refs/heads/develop/tools/dockerfile/ci_dockerfile.sh
         #   wget https://raw.githubusercontent.com/PaddlePaddle/Paddle/refs/heads/develop/tools/dockerfile/Dockerfile.ubuntu20
@@ -42,39 +73,39 @@ jobs:
           -v cfs:/home/data/cfs \
           -v gzcfs:/home/data/gzcfs \
           -v shm:/dev/shm \
-          -e PR_ID=${{ inputs.PR_ID }} \
-          -e COMMIT_ID=${{ inputs.COMMIT_ID }} \
-          -e FLAGS_fraction_of_gpu_memory_to_use=0.15 \
-          -e CTEST_OUTPUT_ON_FAILURE=1 \
-          -e CTEST_PARALLEL_LEVEL=2 \
-          -e WITH_GPU=OFF \
-          -e WITH_CACHE=ON \
-          -e WITH_AVX=OFF \
-          -e WITH_MKL=OFF \
-          -e WITH_TESTING=OFF \
-          -e WITH_COVERAGE=OFF \
-          -e COVERALLS_UPLOAD=OFF \
-          -e GIT_PR_ID=${{ inputs.PR_ID }} \
-          -e PADDLE_VERSION=0.0.0 \
-          -e CMAKE_BUILD_TYPE=Release \
-          -e PADDLE_FRACTION_GPU_MEMORY_TO_USE=0.15 \
-          -e WITH_DISTRIBUTE=OFF \
-          -e RUN_TEST=OFF \
-          -e PRECISION_TEST=OFF \
-          -e PREC_SUFFIX=.py3 \
-          -e WITH_UNITY_BUILD=ON \
-          -e TIMEOUT_DEBUG_HEL=OFF \
-          -e PY_VERSION=3.10 \
-          -e CI_SKIP_CPP_TEST=OFF \
-          -e PROC_RUN=12 \
-          -e FLAGS_enable_eager_mode=1 \
-          -e WITH_TENSORRT=OFF \
-          -e WITH_NEWIR=ON \
-          -e GENERATOR=Ninja \
-          -e WITH_INFERENCE_API_TEST=OFF \
-          -e CCACHE_MAXSIZE=150G \
-          -e CCACHE_LIMIT_MULTIPLE=0.8 \
-          -w /workspace --network host ${docker-image} /bin/bash
+          -e PR_ID \
+          -e COMMIT_ID \
+          -e FLAGS_fraction_of_gpu_memory_to_use \
+          -e CTEST_OUTPUT_ON_FAILURE \
+          -e CTEST_PARALLEL_LEVEL \
+          -e WITH_GPU \
+          -e WITH_CACHE \
+          -e WITH_AVX \
+          -e WITH_MKL \
+          -e WITH_TESTING \
+          -e WITH_COVERAGE \
+          -e COVERALLS_UPLOAD \
+          -e GIT_PR_ID \
+          -e PADDLE_VERSION \
+          -e CMAKE_BUILD_TYPE \
+          -e PADDLE_FRACTION_GPU_MEMORY_TO_USE \
+          -e WITH_DISTRIBUTE \
+          -e RUN_TEST \
+          -e PRECISION_TEST \
+          -e PREC_SUFFIX \
+          -e WITH_UNITY_BUILD \
+          -e TIMEOUT_DEBUG_HEL \
+          -e PY_VERSION \
+          -e CI_SKIP_CPP_TEST \
+          -e PROC_RUN \
+          -e FLAGS_enable_eager_mode \
+          -e WITH_TENSORRT \
+          -e WITH_NEWIR \
+          -e GENERATOR \
+          -e WITH_INFERENCE_API_TEST \
+          -e CCACHE_MAXSIZE \
+          -e CCACHE_LIMIT_MULTIPLE \
+          -w /workspace --network host ${docker_image} /bin/bash
       # working_directory: ./tools/dockerfile/
 
     - name: Download paddle and update
