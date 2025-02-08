@@ -19,7 +19,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "paddle/fluid/framework/new_executor/new_executor_base_defs.h"
+#include "paddle/fluid/framework/new_executor/instruction/instruction_defs.h"
 #include "paddle/phi/api/profiler/event.h"
 
 namespace pir {
