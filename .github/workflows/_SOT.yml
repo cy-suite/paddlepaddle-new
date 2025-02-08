@@ -65,7 +65,6 @@ jobs:
           -v "cfs:/home/data/cfs" \
           -v "gzcfs:/home/data/gzcfs" \
           -v "shm:/dev/shm" \
-          # -v "${work_dir}:/workspace" \
           -e PR_ID \
           -e COMMIT_ID \
           -e FLAGS_fraction_of_gpu_memory_to_use \

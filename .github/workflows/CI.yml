@@ -7,7 +7,7 @@ on:
 permissions: read-all
 
 concurrency:
-  group: ${{ github.ref }}
+  group: ${{ github.event.pull_request.number }}
   cancel-in-progress: true
 
 env:
