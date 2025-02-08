@@ -122,9 +122,9 @@ jobs:
         set +e
         git pull upstream develop
         if [ $? -eq 0 ]; then
-          git_code=0;
+          git_code=0
           echo 'git pull succeed with'
-        else;
+        else
           proxy="${{ vars.PADDLE_PROXY }}"
           echo "::add-mask::$proxy"
           export http_proxy=$proxy
@@ -135,7 +135,7 @@ jobs:
             echo 'git pull succeed with'
           else
             echo "proxy filed"
-            exit 2;
+            exit 2
           fi
         fi
         set -e
