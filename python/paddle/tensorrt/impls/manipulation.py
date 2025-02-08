@@ -750,8 +750,8 @@ def tile_converter(network, paddle_op, inputs):
     else:
         repeat_tensor = inputs[1]
         repeat_tensor = trt_concat(network, repeat_tensor)
-        repeat_tensor = resize_to_1d(network, repeat_tensor)
         repeat_shape = repeat_tensor.shape
+        repeat_tensor = resize_to_1d(network, repeat_tensor)
         repeat_rank = repeat_shape[0]
 
     if rank > repeat_rank:
