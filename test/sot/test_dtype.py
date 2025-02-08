@@ -16,8 +16,8 @@ import unittest
 
 from test_case_base import (
     TestCaseBase,
-    run_in_both_default_and_pir,
     test_instruction_translator_cache_context,
+    test_with_faster_guard,
 )
 
 import paddle
@@ -42,8 +42,12 @@ def reconstruct_dtype():
     return y
 
 
+def dtype_guard(x, cast_map):
+    out = paddle.cast(x, cast_map[x.dtype])
+    return out, out.dtype
+
+
 class TestTensorAstype(TestCaseBase):
-    @run_in_both_default_and_pir
     def test_tensor_astype(self):
         x = paddle.ones([2, 3], dtype="float32")
         y = paddle.ones([2, 3], dtype="int32")
@@ -51,7 +55,7 @@ class TestTensorAstype(TestCaseBase):
 
 
 class TestTensorDtypeGuard(TestCaseBase):
-    @run_in_both_default_and_pir
+    @test_with_faster_guard
     def test_tensor_dtype_guard(self):
         x = paddle.ones([2, 3], dtype="float32")
         y = paddle.ones([2, 3], dtype="int32")
@@ -65,9 +69,16 @@ class TestTensorDtypeGuard(TestCaseBase):
 
 
 class TestDtypeReconstruct(TestCaseBase):
-    @run_in_both_default_and_pir
     def test_dtype_reconstruct(self):
         self.assert_results(reconstruct_dtype)
+
+
+class TestDtypeGuard(TestCaseBase):
+    @test_with_faster_guard
+    def test_dtype_guard(self):
+        dtype_map = {paddle.float32: paddle.float64}
+        x = paddle.ones([2, 3], dtype="float32")
+        self.assert_results(dtype_guard, x, dtype_map)
 
 
 if __name__ == "__main__":

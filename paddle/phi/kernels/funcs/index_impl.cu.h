@@ -53,7 +53,7 @@ __global__ void VectorizedIndexKernel(T *out,
 
 template <typename T, typename Functor>
 void IndexKernel(const KPDevice &dev_ctx, DenseTensor *out, Functor func) {
-  int numel = out->numel();
+  int64_t numel = out->numel();
   T *out_data = dev_ctx.template Alloc<T>(out);
   if (numel <= 0) return;
   int vec_size = phi::GetVectorizedSize(out_data);
@@ -83,7 +83,7 @@ void IndexKernel(const KPDevice &dev_ctx, DenseTensor *out, Functor func) {
           <<<grid, block, 0, stream>>>(out_data, numel, main_offset, func);
       break;
     default: {
-      PADDLE_THROW(phi::errors::Unimplemented(
+      PADDLE_THROW(common::errors::Unimplemented(
           "Unsupported vectorized size: %d !", vec_size));
       break;
     }

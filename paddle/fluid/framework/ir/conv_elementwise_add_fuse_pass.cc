@@ -15,10 +15,11 @@
 #include "paddle/fluid/framework/ir/conv_elementwise_add_fuse_pass.h"
 #include "paddle/fluid/framework/ir/cutlass_teller.h"
 #include "paddle/fluid/framework/op_version_registry.h"
+#ifdef PADDLE_WITH_CUDA
+#include "paddle/phi/core/platform/device/gpu/gpu_info.h"
+#endif
 
-namespace paddle {
-namespace framework {
-namespace ir {
+namespace paddle::framework::ir {
 
 #define GET_IR_NODE(node__) GET_IR_NODE_FROM_SUBGRAPH(node__, node__, pattern);
 #define GET_NODES                    \
@@ -71,7 +72,10 @@ ConvElementwiseAddFusePass::ConvElementwiseAddFusePass() {
       .IsTensor()
       .End()
       .AddAttr("axis")
+#ifdef PADDLE_WITH_TENSORRT
+#else
       .IsNumEQ(1)
+#endif
       .End();
 }
 
@@ -121,14 +125,18 @@ void ConvElementwiseAddFusePass::ApplyImpl(ir::Graph* graph) const {
         static_cast<phi::DataType>(Get<int>("model_precision")) ==
             phi::DataType::FLOAT16 ||
         Get<bool>("enable_gpu_mixed");
+
     bool cutlass_enable = Get<bool>("use_cutlass");
     auto* scope = param_scope();
     bool cutlass_can_fuse = CutlassTeller::Instance()->CbaCanSupport(
         conv_op->Op(), scope, act_type, Get<int>("gpu_device_id"));
-    if (cutlass_can_fuse && cutlass_enable && is_fp16_precision) {
+    int sm = 0;
+#ifdef PADDLE_WITH_CUDA
+    sm = platform::GetGPUComputeCapability(platform::GetCurrentDeviceId());
+#endif
+    if (cutlass_can_fuse && cutlass_enable && (is_fp16_precision || sm >= 80)) {
       new_op_desc.SetAttr("use_cudnn", false);
     }
-
     auto* elementwise_add_op_desc = elementwise_add_op->Op();
     auto out_threshold_attr =
         elementwise_add_op_desc->GetNullableAttr("out_threshold");
@@ -146,7 +154,7 @@ void ConvElementwiseAddFusePass::ApplyImpl(ir::Graph* graph) const {
     PADDLE_ENFORCE_NE(
         subgraph.count(x),
         0,
-        platform::errors::NotFound("Detector did not find input x of conv2d."));
+        common::errors::NotFound("Detector did not find input x of conv2d."));
     auto* conv_in_node = subgraph.at(x);
 
     IR_NODE_LINK_TO(conv_in_node, new_conv_op);          // Input
@@ -164,9 +172,7 @@ void ConvElementwiseAddFusePass::ApplyImpl(ir::Graph* graph) const {
   AddStatis(found_conv_eltwise_count);
 }
 
-}  // namespace ir
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework::ir
 
 REGISTER_PASS(conv_elementwise_add_fuse_pass,
               paddle::framework::ir::ConvElementwiseAddFusePass);

@@ -58,7 +58,7 @@ static inline phi::DataType GetPromoteType(
       "float16") {
     if (op_name == "fused_attention") {
       for (size_t i = 0; i < amp_tensors_vector.size(); i++) {
-        if (i != 3 || i != 4 || i != 9 || i != 10) {
+        if (i < 3 || (i > 4 && i < 9) || i > 10) {
           if (GetDataType(amp_tensors_vector[i][0]) == phi::DataType::FLOAT32) {
             dst_type = phi::DataType::FLOAT32;
             return dst_type;
@@ -67,7 +67,7 @@ static inline phi::DataType GetPromoteType(
       }
     } else if (op_name == "fused_feedforward") {
       for (size_t i = 0; i < amp_tensors_vector.size(); i++) {
-        if (i != 7 || i != 8 || i != 9 || i != 10) {
+        if (i < 7 || i > 10) {
           if (GetDataType(amp_tensors_vector[i][0]) == phi::DataType::FLOAT32) {
             dst_type = phi::DataType::FLOAT32;
             return dst_type;
@@ -107,10 +107,9 @@ static inline phi::DataType GetDtypeWithPlace(
       //       dist-tensor in the no-calculation rank should have the right
       //       place.
       is_right_place =
-          (tensor.is_dist_tensor() || paddle::platform::is_gpu_place(place) ||
-           paddle::platform::is_cuda_pinned_place(place) ||
-           paddle::platform::is_xpu_place(place) ||
-           paddle::platform::is_custom_place(place));
+          (tensor.is_dist_tensor() || phi::is_gpu_place(place) ||
+           phi::is_cuda_pinned_place(place) || phi::is_xpu_place(place) ||
+           phi::is_custom_place(place));
       if (is_right_place) {
         break;
       }
@@ -196,11 +195,9 @@ static inline bool NeedCast(const paddle::Tensor& tensor,
   auto data_type = tensor.dtype();
   // Except CPU judgment, other conditions should be consistent with
   // amp_utils.h's judgment
-  if (paddle::platform::is_gpu_place(place) ||
-      paddle::platform::is_cuda_pinned_place(place) ||
-      paddle::platform::is_xpu_place(place) ||
-      paddle::platform::is_custom_place(place) ||
-      paddle::platform::is_cpu_place(place)) {
+  if (phi::is_gpu_place(place) || phi::is_cuda_pinned_place(place) ||
+      phi::is_xpu_place(place) || phi::is_custom_place(place) ||
+      phi::is_cpu_place(place)) {
     // CudaPinnedPlace is added for varbase created by dataloader
     // Cpu place is for different place tensor, when input1 is cpu and input2
     // is gpu
@@ -282,14 +279,8 @@ inline T AmpAutoCast(const std::string& input_name,
                      const phi::DataType& dst_dtype,
                      const std::string& op_name,
                      bool trace_backward = true) {
-  VLOG(6) << "AMP AmpAutoCasts:"
-          << " input(" << input_name << ") dst_dtype("
-          << phi::DataTypeToString(dst_dtype) << ").";
-  if ((op_name == "batch_norm" || op_name == "layer_norm" ||
-       op_name == "sync_batch_norm" || op_name == "weight_only_linear") &&
-      input_name != "x") {
-    return input;
-  }
+  VLOG(6) << "AMP AmpAutoCasts: op_name(" << op_name << ")input(" << input_name
+          << ") dst_dtype(" << phi::DataTypeToString(dst_dtype) << ").";
 
   if (dst_dtype == phi::DataType::FLOAT16) {
     if (op_name == "run_program") {
@@ -301,6 +292,23 @@ inline T AmpAutoCast(const std::string& input_name,
           input_name == "Ln1Scale" || input_name == "Ln1Bias") {
         return input;
       }
+      if (input_name == "ln_scale" || input_name == "ln_bias" ||
+          input_name == "ln_scale_2" || input_name == "ln_bias_2" ||
+          input_name == "ln1_scale" || input_name == "ln1_bias" ||
+          input_name == "ln2_scale" || input_name == "ln2_bias") {
+        return input;
+      }
+    }
+    if ((op_name == "batch_norm" || op_name == "layer_norm" ||
+         op_name == "sync_batch_norm" || op_name == "weight_only_linear") &&
+        input_name != "x") {
+      return input;
+    }
+  } else if (dst_dtype == phi::DataType::BFLOAT16) {
+    if ((op_name == "batch_norm" || op_name == "layer_norm" ||
+         op_name == "sync_batch_norm" || op_name == "weight_only_linear") &&
+        input_name != "x") {
+      return input;
     }
   }
   if (NeedCast(input, dst_dtype)) {

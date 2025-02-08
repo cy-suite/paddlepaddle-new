@@ -1,4 +1,4 @@
-#   Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserved.
+#   Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ from op_test import OpTest
 import paddle
 from paddle import base
 from paddle.base import Program, core, program_guard
-from paddle.pir_utils import test_with_pir_api
 
 paddle.enable_static()
 
@@ -70,9 +69,7 @@ def broadcast_shape(matA, matB):
             Broadshape.append(max(shapeA[idx], shapeB[idx]))
         else:
             raise Exception(
-                'shapeA and shapeB should be broadcasted, but got {} and {}'.format(
-                    shapeA, shapeB
-                )
+                f'shapeA and shapeB should be broadcasted, but got {shapeA} and {shapeB}'
             )
     bsA = Broadshape + list(shapeA[-2:])
     bsB = Broadshape + list(shapeB[-2:])
@@ -170,7 +167,6 @@ class TestCholeskySolveAPI(unittest.TestCase):
         if core.is_compiled_with_cuda():
             self.place.append(paddle.CUDAPlace(0))
 
-    @test_with_pir_api
     def check_static_result(self, place):
         paddle.enable_static()
         with paddle.static.program_guard(
@@ -254,7 +250,6 @@ class TestCholeskySolveOpError(unittest.TestCase):
             )
             self.assertRaises(TypeError, paddle.linalg.cholesky_solve, x1, y1)
 
-    @test_with_pir_api
     def test_errors_2(self):
         paddle.enable_static()
         with program_guard(Program(), Program()):

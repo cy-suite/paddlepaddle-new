@@ -20,14 +20,13 @@
 
 REGISTER_FILE_SYMBOLS(op_compatible_info);
 
-namespace paddle {
-namespace framework {
+namespace paddle::framework {
 
 inline std::vector<int> ConvertStr2Int(const std::string& str_text) {
   auto vec_text = string::split_string<std::string>(str_text, ".");
   PADDLE_ENFORCE(
       (vec_text.size() == 2 || vec_text.size() == 3),
-      platform::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "Input[%s] is not a right version format [1.6 or 1.6.0].", str_text));
 
   std::vector<int> vec_res;
@@ -53,7 +52,7 @@ inline bool CompareVersion(const std::string& str_first,
   // first version id
   PADDLE_ENFORCE_EQ(vec_first_version.size(),
                     vec_second_version.size(),
-                    platform::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Version information size is not equal, the first is "
                         "[%d], the second is [%d].",
                         vec_first_version.size(),
@@ -92,8 +91,6 @@ void OpCompatibleMap::InitOpCompatibleMap() {
                                            OpCompatibleType::definite_not};
   op_compatible_map_["match_matrix_tensor"] = {"1.6.0",
                                                OpCompatibleType::definite_not};
-  op_compatible_map_["multiclass_nms2"] = {"1.6.0",
-                                           OpCompatibleType::definite_not};
   op_compatible_map_["one_hot_v2"] = {"1.6.0", OpCompatibleType::definite_not};
   op_compatible_map_["pull_box_sparse"] = {"1.6.0",
                                            OpCompatibleType::definite_not};
@@ -109,7 +106,6 @@ void OpCompatibleMap::InitOpCompatibleMap() {
   op_compatible_map_["unique"] = {"1.6.0", OpCompatibleType::definite_not};
   op_compatible_map_["unique_with_counts"] = {"1.6.0",
                                               OpCompatibleType::definite_not};
-  op_compatible_map_["var_conv_2d"] = {"1.6.0", OpCompatibleType::definite_not};
 
   op_compatible_map_["reshape2"] = {"1.6.0", OpCompatibleType::possible};
   op_compatible_map_["slice"] = {"1.6.0", OpCompatibleType::possible};
@@ -135,8 +131,6 @@ void OpCompatibleMap::InitOpCompatibleMap() {
       "1.6.0", OpCompatibleType::possible};
   op_compatible_map_["edit_distance"] = {"1.6.0", OpCompatibleType::possible};
   op_compatible_map_["fc"] = {"1.6.0", OpCompatibleType::possible};
-  op_compatible_map_["fused_embedding_seq_pool"] = {"1.6.0",
-                                                    OpCompatibleType::possible};
   op_compatible_map_["group_norm"] = {"1.6.0", OpCompatibleType::possible};
   op_compatible_map_["hash"] = {"1.6.0", OpCompatibleType::possible};
   op_compatible_map_["leaky_relu"] = {"1.6.0", OpCompatibleType::possible};
@@ -185,5 +179,4 @@ OpCompatibleType OpCompatibleMap::IsRequireMiniVersion(
   }
 }
 
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework

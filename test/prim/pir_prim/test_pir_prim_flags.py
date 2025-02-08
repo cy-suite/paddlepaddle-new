@@ -118,7 +118,7 @@ class TestPrimBackwardBlacklistFlags(unittest.TestCase):
     def check_prim(self, net):
         program = net.forward.program_cache.last()[-1][-1].train_program
         if isinstance(
-            program, paddle.jit.dy2static.pir_partial_program.RunableProgram
+            program, paddle.jit.dy2static.pir_partial_program.RunnableProgram
         ):
             program = program.program
         block = program.global_block()
@@ -129,7 +129,7 @@ class TestPrimBackwardBlacklistFlags(unittest.TestCase):
 
     def test_prim_backward_blacklist(self):
         core._set_prim_all_enabled(True)
-        core._set_prim_backward_blacklist("tanh_grad", "exp_grad")
+        core._set_prim_backward_blacklist("pd_op.tanh_grad", "pd_op.exp_grad")
         self.train()
         core._set_prim_all_enabled(False)
 

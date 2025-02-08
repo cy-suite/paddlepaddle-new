@@ -21,7 +21,6 @@ import paddle
 from paddle import base
 from paddle.base import core
 from paddle.framework import in_pir_mode
-from paddle.pir_utils import test_with_pir_api
 
 
 class TestSplitOp(OpTest):
@@ -39,7 +38,7 @@ class TestSplitOp(OpTest):
             self.inputs = {'X': convert_float_to_uint16(x)}
             self.outputs = {
                 'Out': [
-                    ('out%d' % i, convert_float_to_uint16(out[i]))
+                    (f'out{i}', convert_float_to_uint16(out[i]))
                     for i in range(len(out))
                 ]
             }
@@ -48,7 +47,7 @@ class TestSplitOp(OpTest):
             out = np.split(x, [2, 3], axis)
             self.inputs = {'X': x}
             self.outputs = {
-                'Out': [('out%d' % i, out[i]) for i in range(len(out))]
+                'Out': [(f'out{i}', out[i]) for i in range(len(out))]
             }
         self.attrs = {'axis': axis, 'sections': [2, 1, 2]}
 
@@ -91,7 +90,7 @@ class TestSplitWithNumOp(OpTest):
             out = np.split(self.x, self.indices_or_sections, self.axis)
             self.outputs = {
                 'Out': [
-                    ('out%d' % i, convert_float_to_uint16(out[i]))
+                    (f'out{i}', convert_float_to_uint16(out[i]))
                     for i in range(len(out))
                 ]
             }
@@ -99,7 +98,7 @@ class TestSplitWithNumOp(OpTest):
             self.inputs = {'X': self.x}
             out = np.split(self.x, self.indices_or_sections, self.axis)
             self.outputs = {
-                'Out': [('out%d' % i, out[i]) for i in range(len(out))]
+                'Out': [(f'out{i}', out[i]) for i in range(len(out))]
             }
 
     def init_data(self):
@@ -146,7 +145,7 @@ class TestSplitOp_AxisTensor(OpTest):
         self.attrs = {'sections': self.sections, 'num': self.num}
 
         out = np.split(self.x, self.indices_or_sections, self.axis)
-        self.outputs = {'Out': [('out%d' % i, out[i]) for i in range(len(out))]}
+        self.outputs = {'Out': [(f'out{i}', out[i]) for i in range(len(out))]}
 
     def init_data(self):
         self.x = np.random.random((4, 5, 6)).astype(self.dtype)
@@ -193,7 +192,7 @@ class TestSplitOp_SectionsTensor(OpTest):
         }
 
         out = np.split(self.x, self.indices_or_sections, self.axis)
-        self.outputs = {'Out': [('out%d' % i, out[i]) for i in range(len(out))]}
+        self.outputs = {'Out': [(f'out{i}', out[i]) for i in range(len(out))]}
 
     def init_data(self):
         self.x = np.random.random((4, 5, 6)).astype(self.dtype)
@@ -210,7 +209,7 @@ class TestSplitOp_SectionsTensor(OpTest):
         self.op_type = "split"
 
     def test_check_output(self):
-        self.check_output(check_pir=True)
+        self.check_output(check_pir=True, check_symbol_infer=False)
 
     def test_check_grad(self):
         self.check_grad(['X'], ['out0', 'out1', 'out2'], check_pir=True)
@@ -233,7 +232,7 @@ class TestSplitOp_unk_section(OpTest):
         }
 
         out = np.split(self.x, self.indices_or_sections, self.axis)
-        self.outputs = {'Out': [('out%d' % i, out[i]) for i in range(len(out))]}
+        self.outputs = {'Out': [(f'out{i}', out[i]) for i in range(len(out))]}
 
     def init_data(self):
         self.x = np.random.random((4, 5, 6)).astype(self.dtype)
@@ -323,7 +322,7 @@ create_test_bf16(TestSplitWithNumOp)
 
 
 class TestSplitAPI(unittest.TestCase):
-    @test_with_pir_api
+
     def test_api(self):
         with paddle.static.program_guard(paddle.static.Program()):
             input_1 = np.random.random([4, 5, 6]).astype("int32")
@@ -363,7 +362,7 @@ class TestSplitAPI(unittest.TestCase):
 
 
 class TestSplitOpErrorStatic(unittest.TestCase):
-    @test_with_pir_api
+
     def test_errors_with_static(self):
         paddle.enable_static()
         with paddle.static.program_guard(
@@ -430,7 +429,7 @@ class TestSplitOpErrorDynamic(unittest.TestCase):
 
 
 class API_TestSplit(unittest.TestCase):
-    @test_with_pir_api
+
     def test_out(self):
         with base.program_guard(base.Program(), base.Program()):
             data1 = paddle.static.data(
@@ -456,7 +455,7 @@ class API_TestSplit(unittest.TestCase):
 
 
 class API_TestSplit2(unittest.TestCase):
-    @test_with_pir_api
+
     def test_out(self):
         with base.program_guard(base.Program(), base.Program()):
             data1 = paddle.static.data(
@@ -478,7 +477,7 @@ class API_TestSplit2(unittest.TestCase):
 
 
 class API_TestSplit3(unittest.TestCase):
-    @test_with_pir_api
+
     def test_out(self):
         with base.program_guard(base.Program(), base.Program()):
             data = paddle.static.data('data', shape=[-1, 10], dtype='float64')
@@ -493,7 +492,7 @@ class API_TestSplit3(unittest.TestCase):
 
 
 class API_TestSplit4(unittest.TestCase):
-    @test_with_pir_api
+
     def test_out(self):
         with base.program_guard(base.Program(), base.Program()):
             data = paddle.static.data('data', shape=[-1, 10], dtype='float64')
@@ -512,7 +511,7 @@ class API_TestSplit4(unittest.TestCase):
 
 
 class API_TestSplit5(unittest.TestCase):
-    @test_with_pir_api
+
     def test_out(self):
         for use_cuda in (
             [False, True] if core.is_compiled_with_cuda() else [False]
@@ -533,7 +532,7 @@ class API_TestSplit5(unittest.TestCase):
 
 
 class API_TestSplit6(unittest.TestCase):
-    @test_with_pir_api
+
     def test_out(self):
         with base.program_guard(base.Program(), base.Program()):
             data = paddle.static.data('data', shape=[-1, 10], dtype='float64')

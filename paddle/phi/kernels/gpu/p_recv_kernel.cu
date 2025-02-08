@@ -128,6 +128,7 @@ template <typename T, typename Context>
 void PRecvKernel(const Context& dev_ctx,
                  int peer,
                  DataType dtype,
+                 const std::vector<int>& out_shape,
                  bool dynamic_shape,
                  DenseTensor* out) {
 #if defined(PADDLE_WITH_NCCL) || \
@@ -162,7 +163,7 @@ void PRecvArrayKernel(const Context& dev_ctx,
   auto comm_ctx = GetCommContext(dev_ctx, peer);
   gpuStream_t stream = dev_ctx.stream();
   for (size_t idx = 0; idx < out_shape.size(); ++idx) {
-    VLOG(3) << "LodTensorArray: idx(" << idx << ")";
+    VLOG(3) << "DenseTensorArray: idx(" << idx << ")";
     auto out = out_array->at(idx);
     auto out_dims = out.dims();
     dev_ctx.Alloc(&out, dtype);

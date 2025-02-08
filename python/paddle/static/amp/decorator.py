@@ -23,7 +23,7 @@ from paddle.base import (
     program_guard,
     unique_name,
 )
-from paddle.base.framework import in_pir_mode
+from paddle.base.framework import auto_complete_op_role, in_pir_mode
 
 from .amp_nn import check_finite_and_unscale, update_loss_scaling
 from .fp16_lists import AutoMixedPrecisionLists, check_amp_dtype
@@ -34,6 +34,8 @@ from .fp16_utils import (
 )
 from .function_overload import FunctionType, overload
 
+OpRole = core.op_proto_and_checker_maker.OpRole
+
 
 def _set_multi_precision(optimizer, multi_precision):
     if not isinstance(
@@ -41,9 +43,7 @@ def _set_multi_precision(optimizer, multi_precision):
         (paddle.optimizer.Optimizer),
     ):
         raise RuntimeError(
-            "Current AMP training level is O2, optimizer is expected to be paddle.optimizer.Optimizer, but receive {}.".format(
-                type(optimizer)
-            )
+            f"Current AMP training level is O2, optimizer is expected to be paddle.optimizer.Optimizer, but receive {type(optimizer)}."
         )
 
     if multi_precision and hasattr(optimizer, "_multi_precision"):
@@ -230,14 +230,14 @@ class OptimizerWithMixedPrecision:
         # Ensure the data type of learning rate vars is float32 (same as the
         # master parameter dtype)
         if isinstance(self._optimizer._learning_rate, float):
-            self._optimizer._learning_rate_map[
-                default_main_program()
-            ] = paddle.static.create_global_var(
-                name=unique_name.generate("learning_rate"),
-                shape=[1],
-                value=float(self._optimizer._learning_rate),
-                dtype='float32',
-                persistable=True,
+            self._optimizer._learning_rate_map[default_main_program()] = (
+                paddle.static.create_global_var(
+                    name=unique_name.generate("learning_rate"),
+                    shape=[1],
+                    value=float(self._optimizer._learning_rate),
+                    dtype='float32',
+                    persistable=True,
+                )
             )
 
     def backward(
@@ -273,6 +273,8 @@ class OptimizerWithMixedPrecision:
                 self._train_program, startup_program
             ):
                 self._init_amp_var()
+                if self._scaled_loss is None:
+                    self._scaled_loss = loss
                 params_grads = self._optimizer.backward(
                     self._scaled_loss,
                     startup_program,
@@ -485,8 +487,7 @@ class OptimizerWithMixedPrecision:
             for p, g in param_grads:
                 if g not in self._optimizer._master_grads:
                     if self._optimizer._is_dtype_fp16_or_bf16(g.dtype):
-                        master_g = paddle.cast(g, 'float32')
-                        self._optimizer._master_grads[g] = master_g
+                        master_g = self._optimizer._create_master_grad(g)
                         params_master_grads.append((p, master_g))
                     else:
                         params_master_grads.append((p, g))
@@ -632,11 +633,14 @@ class OptimizerWithMixedPrecision:
                     name="find_infinite_scale",
                     float_status=self._float_status,
                 )
+                found_infs.append(found_inf)
 
-        if self._is_distributed or self._use_pure_fp16:
+        if len(found_infs) > 1:
             with self._train_program._optimized_guard([]):
                 all_infs = paddle.concat(found_infs)
                 found_inf = paddle.any(all_infs)
+        else:
+            found_inf = found_infs[0]
 
         return found_inf
 
@@ -738,16 +742,18 @@ class OptimizerWithMixedPrecision:
                 "The decorated optimizer has its own `minimize` method, but it will not be executed."
             )
 
-        scaled_params_grads = self.backward(
-            loss,
-            startup_program=startup_program,
-            parameter_list=parameter_list,
-            no_grad_set=no_grad_set,
-        )
+        with auto_complete_op_role(loss.block.program, op_role=OpRole.Backward):
+            scaled_params_grads = self.backward(
+                loss,
+                startup_program=startup_program,
+                parameter_list=parameter_list,
+                no_grad_set=no_grad_set,
+            )
 
-        optimize_ops = self.apply_optimize(
-            loss, startup_program, scaled_params_grads
-        )
+        with auto_complete_op_role(loss.block.program, op_role=OpRole.Optimize):
+            optimize_ops = self.apply_optimize(
+                loss, startup_program, scaled_params_grads
+            )
 
         return optimize_ops, scaled_params_grads
 

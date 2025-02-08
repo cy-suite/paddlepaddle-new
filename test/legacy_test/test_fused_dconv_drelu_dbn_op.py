@@ -34,7 +34,7 @@ def skip_unit_test():
 skip_msg = "only support with cuda and Ampere or later devices"
 
 
-@skip_check_grad_ci(reason="no grap op")
+@skip_check_grad_ci(reason="no grad op")
 @unittest.skipIf(skip_unit_test(), skip_msg)
 class TestFusedDconvDreluDbnOp(OpTest):
     def setUp(self):
@@ -102,7 +102,7 @@ class TestFusedDconvDreluDbnOp(OpTest):
     def get_feed_map(self, inputs, place):
         feed_map = {}
         for name in inputs:
-            tensor = core.LoDTensor()
+            tensor = core.DenseTensor()
             tensor.set(inputs[name], place)
             feed_map[name] = tensor
         return feed_map

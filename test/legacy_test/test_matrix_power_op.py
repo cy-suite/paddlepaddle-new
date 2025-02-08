@@ -12,15 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import unittest
 
 import numpy as np
 from op_test import OpTest
+from utils import dygraph_guard, static_guard
 
 import paddle
 from paddle import base, static
 from paddle.base import core
-from paddle.pir_utils import test_with_pir_api
 
 paddle.enable_static()
 
@@ -256,7 +257,13 @@ class TestMatrixPowerOpFP32Minus(TestMatrixPowerOpFP32):
 class TestMatrixPowerAPI(unittest.TestCase):
     def setUp(self):
         np.random.seed(123)
-        self.places = [base.CPUPlace()]
+        self.places = []
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not core.is_compiled_with_cuda()
+        ):
+            self.places.append(base.CPUPlace())
         if core.is_compiled_with_cuda():
             self.places.append(base.CUDAPlace(0))
 
@@ -278,7 +285,6 @@ class TestMatrixPowerAPI(unittest.TestCase):
                 fetches[0], np.linalg.matrix_power(input_np, -2), rtol=1e-05
             )
 
-    @test_with_pir_api
     def test_static(self):
         for place in self.places:
             self.check_static_result(place=place)
@@ -297,7 +303,7 @@ class TestMatrixPowerAPI(unittest.TestCase):
 
 
 class TestMatrixPowerAPIError(unittest.TestCase):
-    @test_with_pir_api
+
     def test_errors(self):
         input_np = np.random.random([4, 4]).astype("float64")
 
@@ -328,21 +334,9 @@ class TestMatrixPowerAPIError(unittest.TestCase):
         )
         self.assertRaises(ValueError, paddle.linalg.matrix_power, input, 2)
 
-        # The size of input should not be 0
-        input = paddle.static.data(
-            name="input_4", shape=[1, 1, 0, 0], dtype="float32"
-        )
-        self.assertRaises(ValueError, paddle.linalg.matrix_power, input, 2)
-
-        # The size of input should not be 0
-        input = paddle.static.data(
-            name="input_5", shape=[0, 0], dtype="float32"
-        )
-        self.assertRaises(
-            ValueError, paddle.linalg.matrix_power, input, -956301312
-        )
-
     def test_old_ir_errors(self):
+        if paddle.framework.use_pir_api():
+            return
         # When out is set, the data type must be the same as input.
         input = paddle.static.data(
             name="input_1", shape=[4, 4], dtype="float32"
@@ -353,7 +347,13 @@ class TestMatrixPowerAPIError(unittest.TestCase):
 
 class TestMatrixPowerSingularAPI(unittest.TestCase):
     def setUp(self):
-        self.places = [base.CPUPlace()]
+        self.places = []
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not core.is_compiled_with_cuda()
+        ):
+            self.places.append(base.CPUPlace())
         if core.is_compiled_with_cuda():
             self.places.append(base.CUDAPlace(0))
 
@@ -377,7 +377,6 @@ class TestMatrixPowerSingularAPI(unittest.TestCase):
             except ValueError as ex:
                 print("The mat is singular")
 
-    @test_with_pir_api
     def test_static(self):
         paddle.enable_static()
         for place in self.places:
@@ -395,6 +394,78 @@ class TestMatrixPowerSingularAPI(unittest.TestCase):
                     print("The mat is singular")
                 except ValueError as ex:
                     print("The mat is singular")
+
+
+class TestMatrixPowerEmptyTensor(unittest.TestCase):
+    def _get_places(self):
+        places = []
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not paddle.is_compiled_with_cuda()
+        ):
+            places.append(base.CPUPlace())
+        if paddle.is_compiled_with_cuda():
+            places.append(base.CUDAPlace(0))
+        return places
+
+    def _test_matrix_power_empty_static(self, place):
+        with static_guard():
+            with paddle.static.program_guard(
+                paddle.static.Program(), paddle.static.Program()
+            ):
+                x2 = paddle.static.data(
+                    name='x2', shape=[0, 6], dtype='float32'
+                )
+                x3 = paddle.static.data(
+                    name='x3', shape=[6, 0], dtype='float32'
+                )
+                x4 = paddle.static.data(
+                    name='x4', shape=[0, 0, 2, 3], dtype='float32'
+                )
+                self.assertRaises(TypeError, paddle.linalg.matrix_power, x2)
+                self.assertRaises(TypeError, paddle.linalg.matrix_power, x3)
+                self.assertRaises(TypeError, paddle.linalg.matrix_power, x4)
+
+                x = paddle.static.data(name='x', shape=[0, 0], dtype='float32')
+                y = paddle.linalg.matrix_power(x, 2)
+                x5 = paddle.static.data(
+                    name='x5', shape=[2, 3, 0, 0], dtype='float32'
+                )
+                y5 = paddle.linalg.matrix_power(x5, 2)
+                exe = paddle.static.Executor(place)
+                res = exe.run(
+                    feed={
+                        'x2': np.zeros((0, 6), dtype='float32'),
+                        'x3': np.zeros((6, 0), dtype='float32'),
+                        'x4': np.zeros((0, 0, 2, 3), dtype='float32'),
+                        'x': np.zeros((0, 0), dtype='float32'),
+                        'x5': np.zeros((2, 3, 0, 0), dtype='float32'),
+                    },
+                    fetch_list=[y, y5],
+                )
+                self.assertEqual(res[0].shape, (0, 0))
+                self.assertEqual(res[1].shape, (2, 3, 0, 0))
+
+    def _test_matrix_power_empty_dynamtic(self):
+        with dygraph_guard():
+            x2 = paddle.full((0, 6), 1.0, dtype='float32')
+            x3 = paddle.full((6, 0), 1.0, dtype='float32')
+            x4 = paddle.full((2, 3, 0, 0), 1.0, dtype='float32')
+            x5 = paddle.full((0, 0, 2, 3), 1.0, dtype='float32')
+            self.assertRaises(TypeError, paddle.linalg.matrix_power, x2)
+            self.assertRaises(TypeError, paddle.linalg.matrix_power, x3)
+            self.assertRaises(TypeError, paddle.linalg.matrix_power, x5)
+            x = paddle.full((0, 0), 1.0, dtype='float32')
+            y = paddle.linalg.matrix_power(x, 2)
+            y4 = paddle.linalg.matrix_power(x4, 2)
+            self.assertEqual(y4.shape, [2, 3, 0, 0])
+            self.assertEqual(y.shape, [0, 0])
+
+    def test_matrix_power_empty_tensor(self):
+        for place in self._get_places():
+            self._test_matrix_power_empty_static(place)
+        self._test_matrix_power_empty_dynamtic()
 
 
 if __name__ == "__main__":

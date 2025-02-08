@@ -36,7 +36,7 @@
 
 namespace pir {
 
-// This class reprensents the benefit of a pattern. The most common
+// This class represents the benefit of a pattern. The most common
 // unit to use is the `number of operations` in the pattern.
 class IR_API PatternBenefit {
  public:
@@ -301,6 +301,8 @@ class RewriterBase : public Builder {
   virtual void NotifyOperationRemoved(Operation* op) {}
 
   virtual void NotifyOperationInserted(Operation* op) {}
+
+  virtual void NotifyValueReplaced(Value from, Value to) {}
 
   virtual void StartRootUpdate(Operation* op) {}
 

@@ -124,7 +124,7 @@ def _keep_fp32_input(op, in_name):
 
 # TODO check if bf16 and fp16 still share the same logic
 def _keep_fp32_output(op, out_name):
-    # TODO(lizhiyu02): Support 'custom_white_list' adn 'custom_black_list' in amp_options
+    # TODO(lizhiyu02): Support 'custom_white_list' and 'custom_black_list' in amp_options
     if not op.amp_options.enable:
         return True
     op_type = op.type
@@ -224,9 +224,9 @@ class FP16State:
         Mark amp options info for backward ops according to forward ops
         """
         if is_forward_op(op):
-            self.forward_op_to_amp_options[
-                op.desc.original_id()
-            ] = op.amp_options
+            self.forward_op_to_amp_options[op.desc.original_id()] = (
+                op.amp_options
+            )
         elif is_backward_op(op):
             if op.desc.original_id() in self.grad_op_to_op_map:
                 if (
@@ -272,7 +272,7 @@ class FP16State:
         elif is_backward_op(op) == int(OpRole.Backward):
             if op.desc.original_id() in self.grad_op_to_op_map:
                 fwd_op_id = self.grad_op_to_op_map[op.desc.original_id()]
-                assert fwd_op_id in self._op_fp16_dict, f"{str(op)}"
+                assert fwd_op_id in self._op_fp16_dict, f"{op}"
                 self._op_fp16_dict[op.desc.original_id()] = self._op_fp16_dict[
                     fwd_op_id
                 ]
@@ -289,7 +289,7 @@ class FP16State:
             # var = self.program.global_block().var(var_name)
 
         # NOTE(JZ-LIANG) "array_" is a hack to adopt for ernie3.0 inference, since there is
-        # a trick which make the LOD_TENSOR_ARRAY to the float32 in while block to reset the LOD_TENSOR_ARRAY
+        # a trick which make the DENSE_TENSOR_ARRAY to the float32 in while block to reset the DENSE_TENSOR_ARRAY
         if (
             var is None
             or var.type not in __amp_utils__._valid_types
@@ -433,7 +433,7 @@ class FP16State:
                     for in_var_name in op.input_arg_names:
                         assert (
                             in_var.dtype == block.var(in_var_name).dtype
-                        ), f"{in_var}, {block.var(in_var_name)}, {str(op)}"
+                        ), f"{in_var}, {block.var(in_var_name)}, {op}"
                     out_var.desc.set_dtype(in_var.dtype)
 
             idx += num_cast_ops + 1
@@ -548,7 +548,7 @@ class FP16State:
             out_var = block.var(out_var_name)
             if _keep_fp32_output(op, out_var.name):
                 continue
-            assert out_var.dtype == dst_dtype, f"{str(out_var)}, {dst_dtype}"
+            assert out_var.dtype == dst_dtype, f"{out_var}, {dst_dtype}"
 
         for (
             cast_name,
@@ -562,7 +562,7 @@ class FP16State:
             if slot_name in op.input_names:
                 assert src_name in op.input(
                     slot_name
-                ), f"var: {src_name} not in op's {slot_name}. {str(op)}"
+                ), f"var: {src_name} not in op's {slot_name}. {op}"
                 src_var_dist_attr = grad_op_attr.get_input_dist_attr(src_name)
                 assert src_var_dist_attr is not None
                 op._rename_input(src_name, cast_name)
@@ -576,7 +576,7 @@ class FP16State:
                     continue
                 assert (
                     len(op.output(grad_slot_name)) == 1
-                ), f"[{grad_slot_name}], Current Op: {str(op)}"
+                ), f"[{grad_slot_name}], Current Op: {op}"
                 grad_name = op.output(grad_slot_name)[0]
                 grad = block.var(grad_name)
                 grad_dist_attr = grad_op_attr.get_output_dist_attr(grad_name)
@@ -649,7 +649,7 @@ def _check_and_update_gradient(grads, loss_scaling, name, dist_context):
         ),
         shape=[1],
         dtype='bool',
-        type=core.VarDesc.VarType.LOD_TENSOR,
+        type=core.VarDesc.VarType.DENSE_TENSOR,
         persistable=False,
         stop_gradient=False,
     )
@@ -743,7 +743,7 @@ def _insert_memcopy(block, idx, src_var, dist_context, direction="D2H"):
         ),
         dtype=src_var.dtype,
         shape=src_var.shape,
-        type=core.VarDesc.VarType.LOD_TENSOR,
+        type=core.VarDesc.VarType.DENSE_TENSOR,
         persistable=False,
         stop_gradient=src_var.stop_gradient,
     )
@@ -805,7 +805,7 @@ def cast_startup_program():
             if param_to_dtype.get(output_name, None) == __target_dtype__:
                 assert op.has_attr(
                     'dtype'
-                ), f"initialization op is supported to has dtype attribute but got {str(op)}."
+                ), f"initialization op is supported to has dtype attribute but got {op}."
                 out_var = startup_program.global_block().var(output_name)
                 if out_var.dtype == paddle.float32:
                     out_var.desc.set_dtype(__target_dtype__)

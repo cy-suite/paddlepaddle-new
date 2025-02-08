@@ -7,7 +7,6 @@ paddle_test(ir_builder_test SRCS ir_builder_test.cc)
 paddle_test(ir_program_test SRCS ir_program_test.cc)
 paddle_test(ir_infershape_test SRCS ir_infershape_test.cc)
 paddle_test(scalar_attribute_test SRCS scalar_attribute_test.cc)
-paddle_test(ir_printer_test SRCS ir_printer_test.cc DEPS test_dialect)
 paddle_test(paddle_fatal_test SRCS paddle_fatal_test.cc)
 
 file(
@@ -32,14 +31,9 @@ file(
   ${CMAKE_CURRENT_BINARY_DIR}/while_op_test.prog
   EXPECTED_MD5 290164ae52a496332b0be5829fc93bcd)
 
-copy_if_different(${CMAKE_CURRENT_SOURCE_DIR}/TestParserText.txt
-                  ${CMAKE_CURRENT_BINARY_DIR}/TestParserText.txt)
-
 paddle_test(program_translator_test SRCS program_translator_test.cc)
 
 paddle_test(add_dialect_parser_test SRCS add_dialect_parser_test.cc DEPS gtest)
-
-paddle_test(ir_parser_test SRCS ir_parser_test.cc DEPS gtest)
 
 paddle_test(ir_op_info_test SRCS op_info_test.cc)
 paddle_test(ir_op_yaml_info_parser_test SRCS op_yaml_info_parser_test.cc)

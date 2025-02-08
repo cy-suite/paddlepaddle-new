@@ -58,8 +58,7 @@
 
 namespace py = pybind11;  // NOLINT
 
-namespace paddle {
-namespace pybind {
+namespace paddle::pybind {
 
 static bool PyCheckInteger(PyObject *obj) {
 #if PY_VERSION_HEX < 0x03000000
@@ -264,8 +263,8 @@ void BindAutoParallel(py::module *m) {
                    &ProcessMesh::dim_size))
           .def("empty", &ProcessMesh::empty)
           .def("contains", &ProcessMesh::contains)
-          .def(py::self == py::self)
-          .def(py::self != py::self)
+          .def(py::self == py::self)  // NOLINT
+          .def(py::self != py::self)  // NOLINT
           .def("__copy__",
                [](const ProcessMesh &self) { return ProcessMesh(self); })
           .def(
@@ -298,8 +297,8 @@ void BindAutoParallel(py::module *m) {
       .def_property_readonly("machine_id", &Device::machine_id)
       .def_property_readonly("type", &Device::type)
       .def_property("capability", &Device::capability, &Device::set_capability)
-      .def(py::self == py::self)
-      .def(py::self != py::self)
+      .def(py::self == py::self)  // NOLINT
+      .def(py::self != py::self)  // NOLINT
       .def("__str__", &Device::to_string);
 
   py::class_<LinkCapability>(*m, "LinkCapability")
@@ -317,8 +316,8 @@ void BindAutoParallel(py::module *m) {
       .def_property_readonly("target_id", &Link::target_id)
       .def_property_readonly("type", &Link::type)
       .def_property("capability", &Link::capability, &Link::set_capability)
-      .def(py::self == py::self)
-      .def(py::self != py::self)
+      .def(py::self == py::self)  // NOLINT
+      .def(py::self != py::self)  // NOLINT
       .def("__str__", &Link::to_string);
 
   py::class_<Machine>(*m, "Machine")
@@ -362,8 +361,8 @@ void BindAutoParallel(py::module *m) {
       .def("dim_size",
            static_cast<int64_t (DeviceMesh::*)(const std::string &) const>(
                &DeviceMesh::dim_size))
-      .def(py::self == py::self)
-      .def(py::self != py::self)
+      .def(py::self == py::self)  // NOLINT
+      .def(py::self != py::self)  // NOLINT
       .def("__copy__",
            [](const TensorDistAttr &self) { return TensorDistAttr(self); })
       .def(
@@ -435,8 +434,19 @@ void BindAutoParallel(py::module *m) {
           .def("is_partial", &phi::distributed::Placement::is_partial)
           .def("__hash__", &phi::distributed::Placement::hash)
           .def("__str__", &phi::distributed::Placement::to_string)
-          .def(py::self == py::self)
-          .def(py::self != py::self);
+          .def("__repr__", &phi::distributed::Placement::to_string)
+          .def("__copy__",
+               [](const phi::distributed::Placement &self) {
+                 return phi::distributed::Placement(self);
+               })
+          .def(
+              "__deepcopy__",
+              [](const phi::distributed::Placement &self, py::dict) {
+                return phi::distributed::Placement(self);
+              },
+              py::arg("memo"))
+          .def(py::self == py::self)   // NOLINT
+          .def(py::self != py::self);  // NOLINT
 
   auto Shard = py::class_<phi::distributed::Shard,
                           std::shared_ptr<phi::distributed::Shard>>(
@@ -464,12 +474,24 @@ void BindAutoParallel(py::module *m) {
                    .def("get_dim", &phi::distributed::Shard::get_dim)
                    .def("__hash__", &phi::distributed::Shard::hash)
                    .def("__str__", &phi::distributed::Shard::to_string)
-                   .def(py::self == py::self)
-                   .def(py::self != py::self);
+                   .def("__repr__", &phi::distributed::Shard::to_string)
+                   .def("__copy__",
+                        [](const phi::distributed::Shard &self) {
+                          return phi::distributed::Shard(self);
+                        })
+                   .def(
+                       "__deepcopy__",
+                       [](const phi::distributed::Shard &self, py::dict) {
+                         return phi::distributed::Shard(self);
+                       },
+                       py::arg("memo"))
+                   .def(py::self == py::self)   // NOLINT
+                   .def(py::self != py::self);  // NOLINT
 
-  auto Replicate = py::class_<phi::distributed::Replicate,
-                              std::shared_ptr<phi::distributed::Replicate>>(
-                       *m, "Replicate", Placement, R"DOC(
+  auto Replicate =
+      py::class_<phi::distributed::Replicate,
+                 std::shared_ptr<phi::distributed::Replicate>>(
+          *m, "Replicate", Placement, R"DOC(
                    The `Replicate` describes the tensor placed repeatedly on ProcessMesh.
 
                    Examples:
@@ -484,15 +506,27 @@ void BindAutoParallel(py::module *m) {
                            >>> d_tensor = dist.shard_tensor(a, mesh, [dist.Replicate()])
 
                    )DOC")
-                       .def(py::init<>())
-                       .def("__hash__", &phi::distributed::Replicate::hash)
-                       .def("__str__", &phi::distributed::Replicate::to_string)
-                       .def(py::self == py::self)
-                       .def(py::self != py::self);
+          .def(py::init<>())
+          .def("__hash__", &phi::distributed::Replicate::hash)
+          .def("__str__", &phi::distributed::Replicate::to_string)
+          .def("__repr__", &phi::distributed::Replicate::to_string)
+          .def("__copy__",
+               [](const phi::distributed::Replicate &self) {
+                 return phi::distributed::Replicate(self);
+               })
+          .def(
+              "__deepcopy__",
+              [](const phi::distributed::Replicate &self, py::dict) {
+                return phi::distributed::Replicate(self);
+              },
+              py::arg("memo"))
+          .def(py::self == py::self)   // NOLINT
+          .def(py::self != py::self);  // NOLINT
 
-  auto Partial = py::class_<phi::distributed::Partial,
-                            std::shared_ptr<phi::distributed::Partial>>(
-                     *m, "Partial", Placement, R"DOC(
+  auto Partial =
+      py::class_<phi::distributed::Partial,
+                 std::shared_ptr<phi::distributed::Partial>>(
+          *m, "Partial", Placement, R"DOC(
                  The `Partial` describes `Tensor` across multiple devices, this type of tensor has the same shape but only a fraction of the value, which can be further reduce (e.g. sum/min/max) to obtain dist_tensor, often used as an intermediate representation.
 
                  Parameters:
@@ -510,12 +544,24 @@ void BindAutoParallel(py::module *m) {
                          >>> d_tensor = dist.shard_tensor(a, mesh, [dist.Partial()])
 
                  )DOC")
-                     .def(py::init<phi::ReduceType>(),
-                          py::arg("reduce_type") = phi::ReduceType::kRedSum)
-                     .def("__hash__", &phi::distributed::Partial::hash)
-                     .def("__str__", &phi::distributed::Partial::to_string)
-                     .def(py::self == py::self)
-                     .def(py::self != py::self);
+          .def(py::init<phi::ReduceType>(),
+               py::arg("reduce_type") = phi::ReduceType::kRedSum)
+          .def("reduce_type", &phi::distributed::Partial::get_reduce_type)
+          .def("__hash__", &phi::distributed::Partial::hash)
+          .def("__str__", &phi::distributed::Partial::to_string)
+          .def("__repr__", &phi::distributed::Partial::to_string)
+          .def("__copy__",
+               [](const phi::distributed::Partial &self) {
+                 return phi::distributed::Partial(self);
+               })
+          .def(
+              "__deepcopy__",
+              [](const phi::distributed::Partial &self, py::dict) {
+                return phi::distributed::Partial(self);
+              },
+              py::arg("memo"))
+          .def(py::self == py::self)   // NOLINT
+          .def(py::self != py::self);  // NOLINT
 
   g_placement_shard_pytype = reinterpret_cast<PyTypeObject *>(Shard.ptr());
   g_placement_replicated_pytype =
@@ -565,8 +611,8 @@ void BindAutoParallel(py::module *m) {
              return py::bytes(self.serialize_to_string());
            })
       .def("parse_from_string", &TensorDistAttr::parse_from_string)
-      .def(py::self == py::self)
-      .def(py::self != py::self)
+      .def(py::self == py::self)  // NOLINT
+      .def(py::self != py::self)  // NOLINT
       .def("__copy__",
            [](const TensorDistAttr &self) { return TensorDistAttr(self); })
       .def(
@@ -719,8 +765,8 @@ void BindAutoParallel(py::module *m) {
              return py::bytes(self.serialize_to_string());
            })
       .def("parse_from_string", &OperatorDistAttr::parse_from_string)
-      .def(py::self == py::self)
-      .def(py::self != py::self)
+      .def(py::self == py::self)  // NOLINT
+      .def(py::self != py::self)  // NOLINT
       .def("__copy__",
            [](const OperatorDistAttr &self) { return OperatorDistAttr(self); })
       .def(
@@ -752,6 +798,26 @@ void BindAutoParallel(py::module *m) {
       [](py::handle py_tensor, const TensorDistAttr &dist_attr) {
         auto tensor = CastPyArg2Tensor(py_tensor.ptr(), 0);
         return reshard_ad_function(tensor, dist_attr);
+      },
+      py::return_value_policy::reference);
+
+  m->def(
+      "dtensor_to_local",
+      [](py::handle py_tensor) {
+        auto tensor = CastPyArg2Tensor(py_tensor.ptr(), 0);
+        return dtensor_to_local_ad_function(tensor);
+      },
+      py::return_value_policy::reference);
+
+  m->def(
+      "dtensor_from_local",
+      [](py::handle py_tensor,
+         py::handle py_process_mesh,
+         py::handle py_placements) {
+        auto tensor = CastPyArg2Tensor(py_tensor.ptr(), 0);
+        auto process_mesh = CastPyArg2ProcessMesh(py_process_mesh.ptr(), 1);
+        auto placements = CastPyArg2VectorOfPlacement(py_placements.ptr(), 2);
+        return dtensor_from_local_ad_function(tensor, process_mesh, placements);
       },
       py::return_value_policy::reference);
 
@@ -815,7 +881,7 @@ static void parse_attrs(PyObject *obj,
         CastPyArg2Floats(obj, infer_spmd_string, static_cast<ssize_t>(arg_pos));
     ctx->EmplaceBackAttr(attrs);
   } else {
-    PADDLE_THROW(platform::errors::InvalidArgument(
+    PADDLE_THROW(common::errors::InvalidArgument(
         "%s(): argument (position %d) must be "
         "list of int, float, bool or Tensor, but got %s",
         infer_spmd_string,
@@ -845,7 +911,7 @@ static void parse_attr(PyObject *obj,
         CastPyArg2Float(obj, infer_spmd_string, static_cast<ssize_t>(arg_pos));
     ctx->EmplaceBackAttr(attr);
   } else {  // TODO(ljz) support other types
-    PADDLE_THROW(platform::errors::InvalidArgument(
+    PADDLE_THROW(common::errors::InvalidArgument(
         "%s(): argument (position %d) must be "
         "int, float, bool or Tensor, but got %s",
         infer_spmd_string,
@@ -898,5 +964,4 @@ infer_backward(const phi::distributed::SpmdRule &self, const py::args &args) {
   return self.InferBackward(ctx);
 }
 
-}  // namespace pybind
-}  // namespace paddle
+}  // namespace paddle::pybind

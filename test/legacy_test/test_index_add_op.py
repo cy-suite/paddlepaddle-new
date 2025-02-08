@@ -19,7 +19,6 @@ from op_test import OpTest, convert_float_to_uint16
 
 import paddle
 from paddle.base import core
-from paddle.pir_utils import test_with_pir_api
 
 
 def compute_index_add_ref(
@@ -29,12 +28,13 @@ def compute_index_add_ref(
         axis = axis + len(x_shape)
     if axis != 0:
         outer_loop = np.prod(x_shape[:axis]).astype(int)
-        x_reshape = [outer_loop] + list(x_shape[axis:])
+        x_reshape = [outer_loop, *x_shape[axis:]]
         x_np_reshape = np.reshape(x_np, tuple(x_reshape))
 
         add_value_reshape = [
-            np.prod(add_value_shape[:axis]).astype(int)
-        ] + list(add_value_shape[axis:])
+            np.prod(add_value_shape[:axis]).astype(int),
+            *add_value_shape[axis:],
+        ]
 
         add_value_np_reshape = np.reshape(
             add_value_np, tuple(add_value_reshape)
@@ -65,7 +65,9 @@ class TestIndexAddOp(OpTest):
         self.op_type = "index_add"
         self.init_dtype_type()
         index_np = np.random.randint(
-            low=0, high=self.x_shape[self.axis], size=self.index_size
+            low=-self.x_shape[self.axis],
+            high=self.x_shape[self.axis],
+            size=self.index_size,
         )
         x_np = np.random.random(self.x_shape).astype(self.x_type)
         add_value_np = np.random.random(self.add_value_shape).astype(
@@ -122,7 +124,9 @@ class TestIndexAddBF16Op(OpTest):
         self.op_type = "index_add"
         self.init_dtype_type()
         index_np = np.random.randint(
-            low=0, high=self.x_shape[self.axis], size=self.index_size
+            low=-self.x_shape[self.axis],
+            high=self.x_shape[self.axis],
+            size=self.index_size,
         )
         x_np = np.random.random(self.x_shape).astype(self.x_type)
         add_value_np = np.random.random(self.add_value_shape).astype(
@@ -185,7 +189,8 @@ class TestIndexAddAPI(unittest.TestCase):
         self.index_type = np.int32
 
     def setPlace(self):
-        self.place = ['cpu']
+        self.place = []
+        self.place.append('cpu')
         if paddle.is_compiled_with_cuda():
             self.place.append('gpu')
 
@@ -205,7 +210,9 @@ class TestIndexAddAPI(unittest.TestCase):
             self.x_type
         )
         self.index_np = np.random.randint(
-            low=0, high=self.x_shape[axis], size=self.index_size
+            low=-self.x_shape[axis],
+            high=self.x_shape[axis],
+            size=self.index_size,
         ).astype(self.index_type)
         if self.check_backward:
             self.dout_np = np.random.random(self.x_shape).astype(self.x_type)
@@ -224,10 +231,13 @@ class TestIndexAddAPI(unittest.TestCase):
         return x_grad, add_value_grad.numpy()
 
     def run_imperative(self, device):
-        paddle.device.set_device(device)
-        input_tensor = paddle.to_tensor(self.x_np, stop_gradient=False)
-        index = paddle.to_tensor(self.index_np)
-        add_value = paddle.to_tensor(self.add_value_np, stop_gradient=False)
+        input_tensor = paddle.to_tensor(
+            self.x_np, stop_gradient=False, place=device
+        )
+        index = paddle.to_tensor(self.index_np, place=device)
+        add_value = paddle.to_tensor(
+            self.add_value_np, stop_gradient=False, place=device
+        )
 
         out = paddle.index_add(input_tensor, index, self.axis, add_value)
         ref_out = compute_index_add_ref(
@@ -245,20 +255,26 @@ class TestIndexAddAPI(unittest.TestCase):
 
         if self.check_backward:
             dout_tensor = paddle.to_tensor(self.dout_np)
-            paddle.autograd.backward([out], [dout_tensor], retain_graph=True)
+            (input_tensor_grad,) = paddle.autograd.grad(
+                [out], [input_tensor], dout_tensor
+            )
+            (add_value_grad,) = paddle.autograd.grad(
+                [out], [add_value], dout_tensor
+            )
+
             (
                 ref_x_grad,
                 ref_add_value_grad,
             ) = self.compute_index_add_backward_ref()
             np.testing.assert_allclose(
                 ref_x_grad,
-                input_tensor.grad.numpy(),
+                input_tensor_grad.numpy(),
                 rtol=self.rtol,
                 atol=self.atol,
             )
             np.testing.assert_allclose(
                 ref_add_value_grad,
-                add_value.grad.numpy(),
+                add_value_grad.numpy(),
                 rtol=self.rtol,
                 atol=self.atol,
             )
@@ -298,7 +314,6 @@ class TestIndexAddAPI(unittest.TestCase):
         )
         return res
 
-    @test_with_pir_api
     def test_static(self):
         paddle.enable_static()
         for device in self.place:

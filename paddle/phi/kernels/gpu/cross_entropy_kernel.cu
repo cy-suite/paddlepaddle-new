@@ -73,7 +73,7 @@ struct ExpAddFunctor {
 
 /*
   Cross entropy soft label with dynamic size on axis (log2_elements is
-  varibale).
+  variable).
   - if the input is softmax, compute loss with softmax
   - if the input is log_softmax, compute loss with log_softmax and update
   softmax
@@ -1289,7 +1289,7 @@ void CrossEntropyWithSoftmaxCUDAKernel(const GPUContext& dev_ctx,
       return;
     }
 
-    // if axis is not the last, we need a new impliment
+    // if axis is not the last, we need a new implement
     if (soft_label) {
       auto* logits_data = softmax->data<T>();
       auto* labels_data = labels.data<T>();
@@ -1365,7 +1365,7 @@ void CrossEntropyWithSoftmaxCUDAKernel(const GPUContext& dev_ctx,
                                         d / axis_dim);
   } else {
     if (!numeric_stable_mode) {
-      // CUDNN kernel only suppoer 2-D tensor and perfome softmax on last dim
+      // CUDNN kernel only suppoer 2-D tensor and perform softmax on last dim
       DenseTensor logits_2d(logits);
       logits_2d.Resize({n, d});
       DenseTensor softmax_2d(*softmax);
@@ -1417,8 +1417,8 @@ void CrossEntropyWithSoftmaxKernel(const Context& dev_ctx,
     PADDLE_ENFORCE_EQ(
         dtype,
         phi::CppTypeToDataType<T>::Type(),
-        phi::errors::InvalidArgument("The Input(Label) should be with the "
-                                     "same data type as Input(Logits)."));
+        common::errors::InvalidArgument("The Input(Label) should be with the "
+                                        "same data type as Input(Logits)."));
     CrossEntropyWithSoftmaxCUDAKernel<T, T>(dev_ctx,
                                             logits,
                                             label,

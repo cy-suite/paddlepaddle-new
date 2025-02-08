@@ -37,7 +37,10 @@ Region::Iterator Region::insert(ConstIterator position, Block *block) {
 }
 
 Region::Iterator Region::erase(ConstIterator position) {
-  IR_ENFORCE(position->GetParent() == this, "iterator not own this region.");
+  PADDLE_ENFORCE_EQ(
+      position->GetParent(),
+      this,
+      common::errors::InvalidArgument("iterator not own this region."));
   delete position;
   return blocks_.erase(position);
 }
@@ -54,7 +57,8 @@ void Region::CloneInto(Region &other, IrMapping &ir_mapping) const {
     for (const auto &arg : block.args()) {
       auto new_arg = new_block->AddArg(arg.type());
       ir_mapping.Add(arg, new_arg);
-      for (auto &attr : arg.dyn_cast<BlockArgument>().attributes()) {
+      const BlockArgument &block_arg = arg.dyn_cast<BlockArgument>();
+      for (auto &attr : block_arg.attributes()) {
         new_arg.set_attribute(attr.first, attr.second);
       }
     }
@@ -104,8 +108,8 @@ std::unique_ptr<pir::Block> Region::TakeBack() {
 void Region::TakeBody(Region &&other) {
   clear();
   blocks_.swap(other.blocks_);
-  for (auto iter = blocks_.begin(); iter != blocks_.end(); ++iter) {
-    (*iter)->SetParent(this);
+  for (auto &block : blocks_) {
+    block->SetParent(this);
   }
 }
 
@@ -142,7 +146,9 @@ Program *Region::parent_program() const {
   return parent_ ? parent_->GetParentProgram() : nullptr;
 }
 IrContext *Region::ir_context() const {
-  IR_ENFORCE(parent_, "Region is not attached to a operation.");
+  PADDLE_ENFORCE_NOT_NULL(parent_,
+                          common::errors::InvalidArgument(
+                              "Region is not attached to a operation."));
   return parent_->ir_context();
 }
 }  // namespace pir

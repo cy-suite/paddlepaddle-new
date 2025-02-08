@@ -19,13 +19,11 @@
 #include "paddle/fluid/framework/op_version_registry.h"
 #include "paddle/fluid/platform/enforce.h"
 
-namespace paddle {
-namespace framework {
-namespace ir {
+namespace paddle::framework::ir {
 
 void MapOp2AnotherPass::ApplyImpl(ir::Graph* graph) const {
   PADDLE_ENFORCE_NOT_NULL(
-      graph, platform::errors::InvalidArgument("Graph cannot be nullptr."));
+      graph, common::errors::InvalidArgument("Graph cannot be nullptr."));
   FusePassBase::Init("map_op_to_another_pass", graph);
 
   int found_count = 0;
@@ -52,6 +50,10 @@ void MapOp2AnotherPass::ApplyImpl(ir::Graph* graph) const {
           input_shape[2] == 1 && input_shape[3] == 1) {
         op_desc->SetType(replaced_map[op_type]);
         op_desc->SetAttr("shape", std::vector<int>{0, -1});
+      } else if (start_axis == 2 && stop_axis == 3 && input_shape.size() == 4 &&
+                 input_shape[2] == 1) {
+        op_desc->SetType(replaced_map[op_type]);
+        op_desc->SetAttr("shape", std::vector<int>{0, 0, -1});
       }
     } else if (op_type == "depthwise_conv2d") {
       auto groups = PADDLE_GET_CONST(int, op_desc->GetAttr("groups"));
@@ -74,9 +76,7 @@ void MapOp2AnotherPass::ApplyImpl(ir::Graph* graph) const {
   AddStatis(found_count);
 }
 
-}  // namespace ir
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework::ir
 
 REGISTER_PASS(map_op_to_another_pass, paddle::framework::ir::MapOp2AnotherPass);
 REGISTER_PASS_CAPABILITY(map_op_to_another_pass)

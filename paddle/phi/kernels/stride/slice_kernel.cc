@@ -16,9 +16,12 @@
 
 #include "glog/logging.h"
 
+#include "paddle/common/flags.h"
 #include "paddle/phi/backends/all_context.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/funcs/slice_utils.h"
+
+COMMON_DECLARE_bool(use_stride_kernel);
 
 namespace phi {
 
@@ -31,9 +34,14 @@ void SliceStridedKernel(const Context& ctx,
                         const std::vector<int64_t>& infer_flags,
                         const std::vector<int64_t>& decrease_axis,
                         DenseTensor* out) {
+  if (!FLAGS_use_stride_kernel) {
+    PADDLE_THROW(common::errors::Fatal(
+        "FLAGS_use_stride_kernel is closed. Strided kernel "
+        "be called, something wrong has happened!"));
+  }
   std::vector<int64_t> starts = starts_arr.GetData();
   std::vector<int64_t> ends = ends_arr.GetData();
-  auto in_dims = input.dims();
+  const auto& in_dims = input.dims();
 
   auto new_axes = axes;
   for (auto& item : new_axes) {
@@ -41,7 +49,8 @@ void SliceStridedKernel(const Context& ctx,
       item = std::max(int64_t(0), item + int64_t(in_dims.size()));
     }
   }
-
+  // axis = 0, dim_value = 3, st[0]=0, ed[0]=4
+  // The step seems to be regarded as 1 here
   phi::funcs::CheckAndUpdateSliceAttrs<int64_t>(
       in_dims, new_axes, &starts, &ends, nullptr, nullptr);
 
@@ -54,7 +63,7 @@ void SliceStridedKernel(const Context& ctx,
     output_offset = static_cast<int64_t>(
         output_offset +
         starts[i] * output_stride[new_axes[i]] * SizeOf(out->dtype()));
-    output_dims[new_axes[i]] = ends[i] - starts[i];
+    output_dims[new_axes[i]] = std::abs(ends[i] - starts[i]);
   }
 
   std::vector<uint8_t> decrease_flag(output_dims.size(), 0);
@@ -80,7 +89,8 @@ void SliceStridedKernel(const Context& ctx,
   auto tmp_dim = DDim(output_dims.data(), static_cast<int>(output_dims.size()));
   // if (product(meta.dims) > 0 && meta.dims != tmp_dim) {
   //   PADDLE_THROW(
-  //       phi::errors::Fatal("Slice kernel stride compute diff, infer shape is
+  //       common::errors::Fatal("Slice kernel stride compute diff, infer shape
+  //       is
   //       "
   //                          "%s, but compute is %s.",
   //                          meta.dims,
@@ -95,6 +105,7 @@ void SliceStridedKernel(const Context& ctx,
 }
 
 }  // namespace phi
+
 PD_REGISTER_KERNEL_FOR_ALL_BACKEND_DTYPE(slice,
                                          STRIDED,
                                          phi::SliceStridedKernel) {}

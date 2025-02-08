@@ -26,7 +26,7 @@ namespace phi {
 namespace fusion {
 namespace cutlass_internal {
 
-typedef void (*func)(phi::fusion::cutlass_internal::ConvAllParams);
+typedef bool (*func)(phi::fusion::cutlass_internal::ConvAllParams);
 
 template <typename T, typename Context>
 void FusedConv2dAddActKernel(const Context& ctx,
@@ -51,19 +51,53 @@ void FusedConv2dAddActKernel(const Context& ctx,
   auto in_dims = x.dims();
   auto filter_dims = filter.dims();
   auto out_dims = output->dims();
-  CHECK_EQ(in_dims.size() == 4UL, true);
-  CHECK_EQ(filter_dims.size() == 4UL, true);
-  CHECK_EQ(strides.size() == 2UL, true);
-  CHECK_EQ(dilations.size() == 2UL, true);
+  PADDLE_ENFORCE_EQ(
+      in_dims.size(),
+      4UL,
+      common::errors::InvalidArgument(
+          "The input tensor X's dimensions should be 4, but got %d.",
+          in_dims.size()));
+  PADDLE_ENFORCE_EQ(
+      filter_dims.size(),
+      4UL,
+      common::errors::InvalidArgument(
+          "The input tensor filter's dimensions must be 4, but got %d.",
+          filter_dims.size()));
+  PADDLE_ENFORCE_EQ(
+      strides.size(),
+      2UL,
+      common::errors::InvalidArgument(
+          "The size of strides must be 2, but got %d.", strides.size()));
+  PADDLE_ENFORCE_EQ(
+      dilations.size(),
+      2UL,
+      common::errors::InvalidArgument(
+          "The size of dilations must be 2, but got %d.", dilations.size()));
 
-  CHECK_EQ(padding_algorithm == "EXPLICIT", true);
-  CHECK_EQ(data_format == "NHWC", true);
+  PADDLE_ENFORCE_EQ(padding_algorithm,
+                    "EXPLICIT",
+                    common::errors::InvalidArgument(
+                        "The padding_algorithm must be EXPLICIT, but got %s.",
+                        padding_algorithm));
+  PADDLE_ENFORCE_EQ(
+      data_format,
+      "NHWC",
+      common::errors::InvalidArgument(
+          "The data_format must be NHWC, but got %s.", data_format));
   const int batch = in_dims[0];
   const int ic = in_dims[3];
   const int ih = in_dims[1];
   const int iw = in_dims[2];
 
-  CHECK_EQ(ic == groups * filter_dims[3], true);
+  PADDLE_ENFORCE_EQ(
+      ic,
+      groups * filter_dims[3],
+      common::errors::InvalidArgument(
+          "The last dimension of X (%d) must be equal to "
+          "groups (%d) multiply the last dimension of filter (%d).",
+          ic,
+          groups,
+          filter_dims[3]));
   int pad_h0 = 0;
   int pad_h1 = 0;
   int pad_w0 = 0;
@@ -79,11 +113,11 @@ void FusedConv2dAddActKernel(const Context& ctx,
     pad_w0 = paddings[2];
     pad_w1 = paddings[3];
   } else {
-    PADDLE_THROW(
-        phi::errors::InvalidArgument("Attr paddins in fused_conv2d_add_act "
-                                     "must have 2 or 4 elements, but now have "
-                                     "%u elements.",
-                                     paddings.size()));
+    PADDLE_THROW(common::errors::InvalidArgument(
+        "Attr paddins in fused_conv2d_add_act "
+        "must have 2 or 4 elements, but now have "
+        "%u elements.",
+        paddings.size()));
   }
 
   const int stride_h = strides[0];
@@ -94,7 +128,11 @@ void FusedConv2dAddActKernel(const Context& ctx,
   const int kh = filter_dims[1];
   const int kw = filter_dims[2];
 
-  CHECK_EQ(out_dims.size() == 4UL, true);
+  PADDLE_ENFORCE_EQ(
+      out_dims.size(),
+      4UL,
+      common::errors::InvalidArgument(
+          "The output's dimensions must be 4, but got %d.", out_dims.size()));
   const int oh = out_dims[1];
   const int ow = out_dims[2];
 
@@ -118,7 +156,7 @@ void FusedConv2dAddActKernel(const Context& ctx,
       PADDLE_ENFORCE_GE(
           device_sm_version,
           75,
-          phi::errors::PreconditionNotMet(
+          common::errors::PreconditionNotMet(
               "fused_conv2d_add_act only supports sm >= 75, but got %d.",
               device_sm_version));
     } else if (device_sm_version > 80) {
@@ -161,7 +199,9 @@ void FusedConv2dAddActKernel(const Context& ctx,
 
   void* dlhandler = phi::dynload::GetCutlassConv2dHandle();
   func conv_func = NULL;
-  CHECK_EQ(dlhandler == NULL, false);
+  PADDLE_ENFORCE_NOT_NULL(
+      dlhandler,
+      common::errors::NotFound("Fail to get CutlassConv2d handler."));
 
   // conv2d_depthwise
   if (groups == ic && ic == oc) {
@@ -173,7 +213,10 @@ void FusedConv2dAddActKernel(const Context& ctx,
     params.workspace = tmp_ptr->ptr();
     // cutlass conv2d_depthwise not support residual
     if (residual) {
-      CHECK_EQ(residual->data<T>() == nullptr, true);
+      PADDLE_ENFORCE_EQ(residual->data<T>(),
+                        nullptr,
+                        common::errors::InvalidArgument(
+                            "The pointer of residual's data must be null."));
     }
     if (activation == "relu") {
       conv_func = (func)(dlsym(dlhandler, "Conv2dDepthwiseBiasRelu"));
@@ -184,23 +227,31 @@ void FusedConv2dAddActKernel(const Context& ctx,
     } else if (activation == "swish") {
       conv_func = (func)(dlsym(dlhandler, "Conv2dDepthwiseBiasSilu"));
     } else {
-      PADDLE_THROW(phi::errors::InvalidArgument(
+      PADDLE_THROW(common::errors::InvalidArgument(
           "Cutlass conv2d_depthwise does not support this activation: %s.",
           activation.c_str()));
     }
-    conv_func(params);
+
+    if (!conv_func(params)) {
+      PADDLE_THROW(
+          common::errors::Fatal("no fused_conv2d_add_act cutlass kernel "));
+    }
+
     output->set_layout(DataLayout::NHWC);
     return;
   }
 
   // below: fused_conv2d_add_act && groups == 1
-  CHECK_EQ(groups == 1, true);
+  PADDLE_ENFORCE_EQ(groups,
+                    1,
+                    common::errors::InvalidArgument(
+                        "The groups must be 1, but got %d.", groups));
   if (residual) {
     if (activation == "relu") {
       params.residual = reinterpret_cast<const void*>(residual->data<T>());
       conv_func = (func)(dlsym(dlhandler, "Conv2dBiasAddRelu"));
     } else {
-      PADDLE_THROW(phi::errors::InvalidArgument(
+      PADDLE_THROW(common::errors::InvalidArgument(
           "Cutlass now only support relu activation in a residual block, but "
           "got %s.",
           activation.c_str()));
@@ -217,10 +268,15 @@ void FusedConv2dAddActKernel(const Context& ctx,
   } else if (activation == "sigmoid") {
     conv_func = (func)(dlsym(dlhandler, "Conv2dBiasSigmoid"));
   } else {
-    PADDLE_THROW(phi::errors::InvalidArgument(
+    PADDLE_THROW(common::errors::InvalidArgument(
         "Cutlass does not support this activation: %s.", activation.c_str()));
   }
-  conv_func(params);
+
+  if (!conv_func(params)) {
+    PADDLE_THROW(
+        common::errors::Fatal("no fused_conv2d_add_act cutlass kernel "));
+  }
+
   output->set_layout(DataLayout::NHWC);
 }
 }  // namespace cutlass_internal

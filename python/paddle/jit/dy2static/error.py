@@ -84,9 +84,11 @@ class TraceBackFrame(OriginInfo):
                 self.location.filepath,
                 self.location.lineno,
                 self.function_name,
-                self.source_code.lstrip()
-                if isinstance(self.source_code, str)
-                else self.source_code,
+                (
+                    self.source_code.lstrip()
+                    if isinstance(self.source_code, str)
+                    else self.source_code
+                ),
             )
         )
 
@@ -118,7 +120,11 @@ class TraceBackFrameRange(OriginInfo):
                 hint_msg = '~' * len(self.source_code[-1]) + ' <--- HERE'
                 self.source_code.append(hint_msg)
                 blank_count.append(blank_count[-1])
-        linecache.clearcache()
+        # Note(gouzil): Under jupyter, files are read multiple times,
+        # and we can't actively clean the read cache, which can cause subsequent reads to fail.
+        # It is not possible to modify the contents of the file in the meantime,
+        # so there is no need to clear the cache
+
         # remove top and bottom empty line in source code
         while len(self.source_code) > 0 and not self.source_code[0]:
             self.source_code.pop(0)
@@ -144,9 +150,7 @@ class TraceBackFrameRange(OriginInfo):
     def formatted_message(self):
         msg = (
             ' ' * BLANK_COUNT_BEFORE_FILE_STR
-            + 'File "{}", line {}, in {}\n'.format(
-                self.location.filepath, self.location.lineno, self.function_name
-            )
+            + f'File "{self.location.filepath}", line {self.location.lineno}, in {self.function_name}\n'
         )
         # add empty line after range code
         return msg + '\n'.join(self.source_code)
@@ -225,9 +229,7 @@ class ErrorData:
 
         if is_numpy_api_err and func_str:
             return [
-                "TypeError: Code '{}' called numpy API {}, please use Paddle API to replace it.".format(
-                    error_line, func_str
-                ),
+                f"TypeError: Code '{error_line}' called numpy API {func_str}, please use Paddle API to replace it.",
                 "           values will be changed to variables by dy2static, numpy api can not handle variables",
             ]
         else:
@@ -341,7 +343,7 @@ class ErrorData:
                 for suggestion in self.suggestion_dict[keywords]:
                     suggestion_msg = (
                         ' ' * BLANK_COUNT_BEFORE_FILE_STR * 2
-                        + f'{str(len(revise_suggestions) - 1)}. {suggestion}'
+                        + f'{len(revise_suggestions) - 1}. {suggestion}'
                     )
                     revise_suggestions.append(suggestion_msg)
         return revise_suggestions if len(revise_suggestions) > 2 else []
@@ -439,7 +441,7 @@ class ErrorData:
     def raise_new_exception(self):
         # Raises the origin error if disable dygraph2static error module,
         if int(os.getenv(DISABLE_ERROR_ENV_NAME, DEFAULT_DISABLE_NEW_ERROR)):
-            raise
+            raise self.error_value
 
         new_exception = self.create_exception()
         # NOTE(liym27):

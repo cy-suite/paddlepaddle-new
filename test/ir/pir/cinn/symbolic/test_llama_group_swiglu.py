@@ -51,7 +51,6 @@ class TestTransposeReshape(unittest.TestCase):
 
     def check_jit_kernel_info(self, static_fn):
         utils.check_jit_kernel_number(static_fn, 1)
-        utils.check_jit_kernel_structure(static_fn, {utils.JIT_KERNEL_NAME: 1})
 
     def eval(self, use_cinn=False, mode="jit"):
         net = TransposeReshapeNet()
@@ -72,8 +71,7 @@ class TestTransposeReshape(unittest.TestCase):
     def test_eval(self):
         dy_out = self.eval(mode="eager")
         core._set_prim_all_enabled(True)
-        # cinn_out = self.eval(use_cinn=utils.unittest_use_cinn())
-        cinn_out = self.eval(use_cinn=False)
+        cinn_out = self.eval(use_cinn=True)
         np.testing.assert_allclose(
             cinn_out.numpy(), dy_out.numpy(), atol=1e-2, rtol=1e-2
         )

@@ -19,7 +19,6 @@ import numpy as np
 import paddle
 from paddle import base
 from paddle.base import core
-from paddle.pir_utils import test_with_pir_api
 
 paddle.enable_static()
 
@@ -91,7 +90,7 @@ class TestMaxMinAmaxAminAPI(unittest.TestCase):
         return out
 
     # We check the output between paddle API and numpy in static graph.
-    @test_with_pir_api
+
     def test_static_graph(self):
         def _test_static_graph(func):
             startup_program = base.Program()
@@ -201,7 +200,7 @@ class TestMaxMinAmaxAminAPI6(TestMaxMinAmaxAminAPI):
         self.keepdim = False
 
 
-# test input grad when out is operated like mutiply
+# test input grad when out is operated like multiply
 class TestMaxMinAmaxAminAPI7(TestMaxMinAmaxAminAPI):
     def init_case(self):
         self.x_np = np.array([[[1, 2], [3, 4]], [[5, 6], [7, 8]]]).astype(

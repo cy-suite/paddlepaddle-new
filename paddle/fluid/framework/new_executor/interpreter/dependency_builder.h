@@ -17,6 +17,7 @@
 #include <map>
 #include <vector>
 
+#include "paddle/fluid/framework/new_executor/instruction/instruction_base.h"
 #include "paddle/fluid/framework/new_executor/new_executor_defs.h"
 
 PD_DECLARE_bool(new_executor_sequential_run);
@@ -51,11 +52,18 @@ class DependencyBuilder {
     PADDLE_ENFORCE_GE(
         op_happens_before_->size(),
         0,
-        phi::errors::Unavailable("op_happen_before is not yet built"));
+        common::errors::Unavailable("op_happen_before is not yet built"));
     return op_happens_before_->at(prior_op_idx).at(posterior_op_idx);
   }
 
   void ShareDependencyFrom(const DependencyBuilder& src);
+
+  bool IsSameDeviceContext(size_t op1, size_t op2) const {
+    return &((*instructions_)[op1].DeviceContext()) ==
+           &((*instructions_)[op2].DeviceContext());
+  }
+
+  virtual const std::string& GetInstructionName(size_t op_idx) const;
 
  protected:
   void AddDependencyForCoalesceTensorOp();
@@ -82,7 +90,7 @@ class DependencyBuilder {
 
   // ops_behind_ is the adjacency list about op to its posterior-ops, that is to
   // say, op_behind_[i] == {a, b, c} means op[a], op[b] and op[c] depend on
-  // op[i] directly or indirectly. ops_before_ is the revered adjacency list of
+  // op[i] directly or indirectly. ops_before_ is the reversed adjacency list of
   // ops_behind_.
   std::vector<std::vector<size_t>> ops_before_;
   std::vector<std::vector<size_t>> ops_behind_;
@@ -116,6 +124,13 @@ class PirDependencyBuilder : public DependencyBuilder {
 
   void ShareDependencyFrom(const PirDependencyBuilder& src);
 
+  bool IsSameDeviceContext(size_t op1, size_t op2) const {
+    return &((instructions_)[op1]->DeviceContext()) ==
+           &((instructions_)[op2]->DeviceContext());
+  }
+
+  const std::string& GetInstructionName(size_t op_idx) const override;
+
  private:
   void AddDependencyForCommunicationOp() override;
 
@@ -145,7 +160,7 @@ class DependencyBuilderSimplify {
     PADDLE_ENFORCE_GE(
         op_happens_before_.size(),
         0,
-        phi::errors::Unavailable("op_happen_before is not yet built"));
+        common::errors::Unavailable("op_happen_before is not yet built"));
     return op_happens_before_.at(prior_op_idx).at(posterior_op_idx);
   }
   std::vector<size_t> get_new_executor_order();
@@ -171,7 +186,7 @@ class DependencyBuilderSimplify {
 
   // ops_behind_ is the adjacency list about op to its posterior-ops, that is to
   // say, op_behind_[i] == {a, b, c} means op[a], op[b] and op[c] depend on
-  // op[i] directly or indirectly. ops_before_ is the revered adjacency list of
+  // op[i] directly or indirectly. ops_before_ is the reversed adjacency list of
   // ops_behind_.
   std::vector<std::vector<size_t>> ops_before_;
   std::vector<std::vector<size_t>> ops_behind_;

@@ -12,7 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import sys
+
+import os
+
 import unittest
 
 import gradient_checker
@@ -23,7 +27,6 @@ from op_test import OpTest, convert_float_to_uint16
 import paddle
 from paddle import base
 from paddle.base import core
-from paddle.pir_utils import test_with_pir_api
 
 sys.path.append("../dygraph_to_static")
 from dygraph_to_static_utils import enable_to_static_guard
@@ -503,7 +506,7 @@ class TestTransposeOpBool8D(TestTransposeOpBool):
 
 
 class TestTransposeOpError(unittest.TestCase):
-    @test_with_pir_api
+
     def test_errors(self):
         paddle.enable_static()
         with paddle.static.program_guard(
@@ -540,7 +543,7 @@ class TestTransposeOpError(unittest.TestCase):
 
 
 class TestTransposeApi(unittest.TestCase):
-    @test_with_pir_api
+
     def test_static_out(self):
         paddle.enable_static()
         with paddle.static.program_guard(paddle.static.Program()):
@@ -578,7 +581,7 @@ class TestTransposeApi(unittest.TestCase):
 
 
 class TestTAPI(unittest.TestCase):
-    @test_with_pir_api
+
     def test_static_out(self):
         with base.program_guard(base.Program()):
             data = paddle.static.data(shape=[10], dtype="float64", name="data")
@@ -639,7 +642,6 @@ class TestTAPI(unittest.TestCase):
             z_expected = np.array(np.transpose(np_x))
         self.assertEqual((np_z == z_expected).all(), True)
 
-    @test_with_pir_api
     def test_errors(self):
         with base.program_guard(base.Program()):
             x = paddle.static.data(name='x', shape=[10, 5, 3], dtype='float64')
@@ -651,7 +653,7 @@ class TestTAPI(unittest.TestCase):
 
 
 class TestMoveAxis(unittest.TestCase):
-    @test_with_pir_api
+
     def test_static_moveaxis1(self):
         x_np = np.random.randn(2, 3, 4, 5, 7)
         expected = np.moveaxis(x_np, [0, 4, 3, 2], [1, 3, 2, 0])
@@ -675,7 +677,6 @@ class TestMoveAxis(unittest.TestCase):
         np.testing.assert_array_equal(out.numpy(), expected)
         paddle.enable_static()
 
-    @test_with_pir_api
     def test_static_moveaxis2(self):
         x_np = np.random.randn(2, 3, 5)
         expected = np.moveaxis(x_np, -2, -1)
@@ -708,7 +709,6 @@ class TestMoveAxis(unittest.TestCase):
         self.assertEqual(out.shape, [2, 3])
         paddle.enable_static()
 
-    @test_with_pir_api
     def test_error(self):
         x = paddle.randn([2, 3, 4, 5])
         # src must have the same number with dst
@@ -744,7 +744,6 @@ class TestTransposeDoubleGradCheck(unittest.TestCase):
     def transpose_wrapper(self, x):
         return paddle.transpose(x[0], [1, 0, 2])
 
-    @test_with_pir_api
     @prog_scope()
     def func(self, place):
         # the shape of input variable should be clearly specified, not include -1.
@@ -765,7 +764,13 @@ class TestTransposeDoubleGradCheck(unittest.TestCase):
 
     def test_grad(self):
         paddle.enable_static()
-        places = [base.CPUPlace()]
+        places = []
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not core.is_compiled_with_cuda()
+        ):
+            places.append(base.CPUPlace())
         if core.is_compiled_with_cuda():
             places.append(base.CUDAPlace(0))
         for p in places:
@@ -776,7 +781,6 @@ class TestTransposeTripleGradCheck(unittest.TestCase):
     def transpose_wrapper(self, x):
         return paddle.transpose(x[0], [1, 0, 2])
 
-    @test_with_pir_api
     @prog_scope()
     def func(self, place):
         # the shape of input variable should be clearly specified, not include -1.
@@ -797,7 +801,13 @@ class TestTransposeTripleGradCheck(unittest.TestCase):
 
     def test_grad(self):
         paddle.enable_static()
-        places = [base.CPUPlace()]
+        places = []
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not core.is_compiled_with_cuda()
+        ):
+            places.append(base.CPUPlace())
         if core.is_compiled_with_cuda():
             places.append(base.CUDAPlace(0))
         for p in places:
@@ -822,6 +832,88 @@ class TestTransposeAPI_ZeroDim(unittest.TestCase):
         paddle.enable_static()
 
 
+
+class TestMatrixTransposeApi(unittest.TestCase):
+    def test_static_out(self):
+        paddle.enable_static()
+        with paddle.static.program_guard(paddle.static.Program()):
+            x = paddle.static.data(name='x', shape=[2, 3, 4], dtype='float32')
+            x_trans1 = paddle.matrix_transpose(x)
+            x_trans2 = paddle.linalg.matrix_transpose(x)
+            place = paddle.CPUPlace()
+            exe = paddle.static.Executor(place)
+            x_np = np.random.random([2, 3, 4]).astype("float32")
+            result1, result2 = exe.run(
+                feed={"x": x_np}, fetch_list=[x_trans1, x_trans2]
+            )
+            expected_result = np.transpose(x_np, (0, 2, 1))
+
+            np.testing.assert_array_equal(result1, expected_result)
+            np.testing.assert_array_equal(result2, expected_result)
+
+    def test_dygraph_out(self):
+        paddle.disable_static()
+        x = paddle.randn([2, 3, 4])
+        x_trans1 = paddle.matrix_transpose(x)
+        x_trans2 = paddle.linalg.matrix_transpose(x)
+        x_np = x.numpy()
+        expected_result = np.transpose(x_np, (0, 2, 1))
+
+        np.testing.assert_array_equal(x_trans1.numpy(), expected_result)
+        np.testing.assert_array_equal(x_trans2.numpy(), expected_result)
+        paddle.enable_static()
+
+
+class TestMatrixTransposeAPI_ZeroDim(unittest.TestCase):
+    def test_zero_dim_error(self):
+        paddle.disable_static()
+        x = paddle.rand([])
+        with self.assertRaises(ValueError) as context:
+            out = paddle.matrix_transpose(x)
+        self.assertIn(
+            "Tensor.ndim(0) is required to be greater than or equal to 2",
+            str(context.exception),
+        )
+        paddle.enable_static()
+
+
+class TestMatrixTransposeApiFPPrecision(unittest.TestCase):
+    def setUp(self):
+        paddle.disable_static()
+
+    def check_dtype_transpose(self, dtype):
+        x_np = np.random.random([2, 3, 4]).astype(dtype)
+        x = paddle.to_tensor(x_np)
+        out = paddle.matrix_transpose(x)
+        expected_result = np.transpose(x_np, (0, 2, 1))
+        np.testing.assert_array_equal(out.numpy(), expected_result)
+
+    def test_fp32(self):
+        self.check_dtype_transpose('float32')
+
+    def test_fp64(self):
+        self.check_dtype_transpose('float64')
+
+    def test_fp16(self):
+        if paddle.is_compiled_with_cuda():
+            self.check_dtype_transpose('float16')
+
+    def test_int8(self):
+        self.check_dtype_transpose('int8')
+
+    def test_int16(self):
+        self.check_dtype_transpose('int16')
+
+    def test_int32(self):
+        self.check_dtype_transpose('int32')
+
+    def test_int64(self):
+        self.check_dtype_transpose('int64')
+
+    def tearDown(self):
+        paddle.enable_static()
+
+
 class TestTransposeParamCheck(unittest.TestCase):
     # Currently, Paddle does not support passing a permutation list of length 2
     # for swapping axes in a multi-dimensional tensor. The length of the perm
@@ -843,7 +935,6 @@ class TestTransposeParamCheck(unittest.TestCase):
 
     def test_static(self):
         self._test_func(True)
-
 
 if __name__ == '__main__':
     paddle.enable_static()

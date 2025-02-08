@@ -29,7 +29,7 @@ void MatrixSolveFunctor<Context, T>::operator()(const Context& context,
 #ifndef PADDLE_WITH_HIP
 
   // solve the equation: Ax = B,
-  // use cuBlas cublas<S/D>getrfBatched funcion to performs the LU
+  // use cuBlas cublas<S/D>getrfBatched function to performs the LU
   // factorization of each matrix A,
   // and then use cuBlas cublas<S/D>getriBatched function to solve the
   // equation after LU factorization.
@@ -130,7 +130,7 @@ void MatrixSolveFunctor<Context, T>::operator()(const Context& context,
   for (int i = 0; i < batch_size; ++i) {
     PADDLE_ENFORCE_EQ(info[i],
                       0,
-                      phi::errors::PreconditionNotMet(
+                      common::errors::PreconditionNotMet(
                           "For batch [%d]: U(%d, %d) is zero, singular U. "
                           "Please check the matrix value and change it to a "
                           "non-singular matrix",
@@ -158,7 +158,7 @@ void MatrixSolveFunctor<Context, T>::operator()(const Context& context,
   // check whether BatchedGETRS is executed successfully or not
   PADDLE_ENFORCE_EQ(host_info,
                     0,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "The [%d]'th argument to cublas*getrsBatched had "
                         "an illegal value.",
                         -host_info));

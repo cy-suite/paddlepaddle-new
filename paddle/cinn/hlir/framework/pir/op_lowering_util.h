@@ -17,7 +17,7 @@
 #include <memory>
 #include <queue>
 
-#include "paddle/cinn/hlir/framework/pir/group.h"
+#include "paddle/cinn/hlir/framework/pir/op_lowering_group.h"
 #include "paddle/cinn/ir/schedule/ir_schedule.h"
 #include "paddle/cinn/ir/tensor.h"
 
@@ -25,12 +25,9 @@ namespace cinn {
 namespace hlir {
 namespace framework {
 namespace pir {
-using GroupPtr = std::shared_ptr<Group>;
+using OpLoweringGroupPtr = std::shared_ptr<OpLoweringGroup>;
 
 class PrettyNamer;
-
-std::unordered_map<::pir::Operation*, ::pir::Operation*> BuildVirtualConsumer(
-    const GroupPtr& group);
 
 std::vector<::pir::Value*> GetAllNodeData(::pir::Operation* op);
 
@@ -41,29 +38,11 @@ bool IsConstOp(const ::pir::Operation* op);
 std::vector<::pir::Operation*> GetConsumersInSet(
     ::pir::Operation* op, const std::unordered_set<::pir::Operation*>& ops);
 
-std::vector<::pir::Operation*> TopologicalOrder(
-    const GroupPtr& group,
-    const std::unordered_map<::pir::Operation*, ::pir::Operation*>&
-        virtual_consumers);
-
-std::vector<::pir::Operation*> BFSTopologicalOrderWithPriority(
-    const GroupPtr& group,
-    const std::unordered_map<::pir::Operation*, ::pir::Operation*>&
-        virtual_consumers);
-
 ::pir::Operation* FindGlobalReducer(
     const std::vector<::pir::Operation*>& ops_in_order);
 
 ::pir::Operation* FindNearestReducer(
     ::pir::Operation* op, const std::unordered_set<::pir::Operation*>& ops_set);
-
-bool CanbeInline(::pir::Operation* op,
-                 ::pir::Operation* reducer,
-                 PrettyNamer* pretty_name,
-                 const std::vector<::pir::Operation*> consumers,
-                 const std::unordered_set<::pir::Operation*> masters,
-                 const GroupPtr& group,
-                 const std::unordered_set<::pir::Operation*>& ops_set);
 
 ::pir::Operation* GetMasterToComputeAt(
     ::pir::Operation* op,
@@ -89,22 +68,29 @@ void LoopAssignReduce(
     const std::unordered_map<::pir::Value, ir::Tensor>& tensor_map,
     const std::unordered_map<std::string, ir::Tensor>& tmp_tensor_info);
 
-void LoopComputeAt(
-    ir::IRSchedule& ir_sch,  // NOLINT
-    ::pir::Operation* op,
-    ::pir::Operation* master,
-    PrettyNamer* pretty_name,
-    const GroupPtr& group,
-    const std::unordered_map<::pir::Value, ir::Tensor>& tensor_map,
-    const std::unordered_map<std::string, ir::Tensor>& tmp_tensor_info);
+/**
+ * Unify the temp_space args (inserted by grid reduce) so that all functions in
+ * this group have the same number of arguments.
+ *
+ * For example, if there are 3 functions in this group, whose args are:
+ *   fn_kernel_1(var_0, var_1, S0, S1)
+ *   fn_kernel_2(var_0, var_1, var_1_tmp, semaphore, S0, S1)
+ *   fn_kernel_3(var_0, var_1, var_0_tmp, var_1_tmp, semaphore, S0, S1)
+ *
+ * This method will insert placeholders after the last tensor argument to align
+ * all functions with the longest argument list:
+ *   fn_kernel_1(var_0, var_1, _plchdr_0, _plchdr_1, _plchdr_2, S0, S1)
+ *   fn_kernel_2(var_0, var_1, var_1_tmp, semaphore, _plchdr_0, S0, S1)
+ *   fn_kernel_3(var_0, var_1, var_0_tmp, var_1_tmp, semaphore, S0, S1)
+ */
+void UnifyTempSpaceArgs(std::vector<ir::LoweredFunc>* funcs);
 
-void SyncThreadWithShared(
-    ir::IRSchedule& ir_sch,  // NOLINT
-    const GroupPtr& group,
-    PrettyNamer* pretty_name,
-    const std::unordered_set<::pir::Operation*>& ops_inline,
-    const std::unordered_set<::pir::Operation*>& ops_set,
-    const std::unordered_map<::pir::Value, ir::Tensor>& tensor_map);
+/**
+ * Get a composed list of the temp_space sizes of all functions in this group.
+ * The position with dynamic shape or with multiple shapes is set to -1.
+ */
+std::vector<int64_t> CollectTempSpaceSizes(
+    const std::vector<ir::LoweredFunc>& funcs);
 
 }  // namespace pir
 }  // namespace framework

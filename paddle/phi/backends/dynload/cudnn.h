@@ -19,16 +19,16 @@ limitations under the License. */
 #include <mutex>  // NOLINT
 
 #include "paddle/phi/backends/dynload/dynamic_loader.h"
-#include "paddle/phi/backends/dynload/port.h"
+#include "paddle/phi/common/port.h"
 
 namespace phi {
 namespace dynload {
 
-extern std::once_flag cudnn_dso_flag;
-extern void* cudnn_dso_handle;
+TEST_API extern std::once_flag cudnn_dso_flag;
+TEST_API extern void* cudnn_dso_handle;
 extern bool HasCUDNN();
 
-extern void EnforceCUDNNLoaded(const char* fn_name);
+TEST_API extern void EnforceCUDNNLoaded(const char* fn_name);
 #define DECLARE_DYNAMIC_LOAD_CUDNN_WRAP(__name)                      \
   struct DynLoad__##__name {                                         \
     template <typename... Args>                                      \
@@ -49,6 +49,7 @@ extern void EnforceCUDNNLoaded(const char* fn_name);
  * different cudnn version has different interfaces
  **/
 #define CUDNN_DNN_ROUTINE_EACH(__macro)                    \
+  __macro(cudnnSetCallback);                               \
   __macro(cudnnSetTensor4dDescriptor);                     \
   __macro(cudnnSetTensor4dDescriptorEx);                   \
   __macro(cudnnSetTensorNdDescriptor);                     \
@@ -220,6 +221,7 @@ CUDNN_DNN_ROUTINE_EACH_AFTER_TWO_R7_REMOVED_IN_E9(
 
 #if CUDNN_VERSION >= 90000
 #define CUDNN_DNN_ROUTINE_EACH_R9(__macro) \
+  __macro(cudnnGetLastErrorString);        \
   __macro(cudnnGetRNNWeightSpaceSize);     \
   __macro(cudnnGetRNNTempSpaceSizes);      \
   __macro(cudnnRNNForward);                \

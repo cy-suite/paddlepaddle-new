@@ -19,12 +19,10 @@ import unittest
 import numpy as np
 from dygraph_to_static_utils import (
     Dy2StTestBase,
-    test_legacy_and_pt_and_pir,
 )
 
 import paddle
 import paddle.nn.functional as F
-from paddle.base.framework import use_pir_api
 from paddle.jit.dy2static.transformers.loop_transformer import NameVisitor
 from paddle.utils import gast
 
@@ -43,7 +41,7 @@ def while_loop_dyfunc(x):
 def while_loop_dyfunc_without_tensor(x):
     a = 1
     # There are no tensors in the while condition, which means it's a plain while in python,
-    # so it wont't be transformed to `while_loop` op.
+    # so it won't be transformed to `while_loop` op.
     while not a > 4 and a > 0:
         x = x + 1
         a = a + 1
@@ -242,7 +240,6 @@ class TestNameVisitor(Dy2StTestBase):
 
         self.nested_for_loop_func = nested_for_loop_dyfunc
 
-    @test_legacy_and_pt_and_pir
     def test_loop_vars(self):
         for i in range(len(self.loop_funcs)):
             func = self.loop_funcs[i]
@@ -258,7 +255,6 @@ class TestNameVisitor(Dy2StTestBase):
                     self.assertEqual(loop_var_names, self.loop_var_names[i])
                     self.assertEqual(create_var_names, self.create_var_names[i])
 
-    @test_legacy_and_pt_and_pir
     def test_nested_loop_vars(self):
         func = self.nested_for_loop_func
         test_func = inspect.getsource(func)
@@ -282,16 +278,12 @@ class TestNameVisitor(Dy2StTestBase):
                 self.assertEqual(
                     loop_var_names,
                     self.loop_var_names[i],
-                    msg="loop_var_names : {}, \nexpected loop_var_names : {}".format(
-                        loop_var_names, self.loop_var_names[i]
-                    ),
+                    msg=f"loop_var_names : {loop_var_names}, \nexpected loop_var_names : {self.loop_var_names[i]}",
                 )
                 self.assertEqual(
                     create_var_names,
                     self.create_var_names[i],
-                    msg="i = {}\ncreate_var_names : {}, \nexpected create_var_names : {}".format(
-                        i, create_var_names, self.create_var_names[i]
-                    ),
+                    msg=f"i = {i}\ncreate_var_names : {create_var_names}, \nexpected create_var_names : {self.create_var_names[i]}",
                 )
                 i += 1
 
@@ -327,7 +319,6 @@ class TestTransformWhileLoop(Dy2StTestBase):
         else:
             return ret
 
-    @test_legacy_and_pt_and_pir
     def test_ast_to_func(self):
         static_numpy = self._run_static()
         dygraph_numpy = self._run_dygraph()
@@ -401,7 +392,6 @@ class TestTransformForLoop(Dy2StTestBase):
             ret = self.dyfunc(self.len)
         return ret.numpy()
 
-    @test_legacy_and_pt_and_pir
     def test_ast_to_func(self):
         np.testing.assert_allclose(
             self._run_dygraph(), self._run_static(), rtol=1e-05
@@ -458,7 +448,6 @@ class Net(paddle.nn.Layer):
 
 
 class TestForLoopMeetDict(Dy2StTestBase):
-    @test_legacy_and_pt_and_pir
     def test_start(self):
         net = Net()
         model = paddle.jit.to_static(
@@ -470,10 +459,48 @@ class TestForLoopMeetDict(Dy2StTestBase):
             ],
         )
         temp_dir = tempfile.TemporaryDirectory()
-        # TODO(pir-save-load): Fix this after we support save/load in PIR
-        if not use_pir_api():
-            paddle.jit.save(model, temp_dir.name)
+        paddle.jit.save(model, temp_dir.name)
         temp_dir.cleanup()
+
+
+def loop_with_inner_mutate_list(x):
+    out = 100
+    # a is an UndefinedVar
+    for i in range(x):
+        a = []
+        a.append(x)
+        a.append(x + 1)
+        a.append(None)
+        out += a[0]
+        # After the loop, a is [x, x], which will be flattened to 2 elements
+    return out
+
+
+class TestLoopWithInnerMutateList(Dy2StTestBase):
+    def test_loop_with_inner_mutate_list(self):
+        static_fn = paddle.jit.to_static(loop_with_inner_mutate_list)
+        x = paddle.to_tensor(5)
+        static_res = static_fn(x)
+        dygraph_res = loop_with_inner_mutate_list(x)
+        np.testing.assert_allclose(dygraph_res.numpy(), static_res.numpy())
+
+
+def loop_change_value_to_int():
+    x = paddle.to_tensor(1, dtype='float32')
+    y = paddle.to_tensor(False, dtype='bool')
+    while y:
+        x = 2
+    return x
+
+
+class TestLoopChangeValueToInt(Dy2StTestBase):
+    def test_loop_change_value_to_int(self):
+        static_fn = paddle.jit.to_static(
+            loop_change_value_to_int, full_graph=True
+        )
+        static_res = static_fn()
+        dygraph_res = loop_change_value_to_int()
+        np.testing.assert_allclose(dygraph_res.numpy(), static_res.numpy())
 
 
 if __name__ == '__main__':

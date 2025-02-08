@@ -18,7 +18,6 @@ import numpy as np
 import paddle
 from paddle import base
 from paddle.base import core
-from paddle.pir_utils import test_with_pir_api
 
 
 def quant_helper(
@@ -33,6 +32,10 @@ def quant_helper(
         paddle.clip(quant_value, quant_min_bound, quant_max_bound),
         paddle.int8,
     )
+
+
+def naive_residual_bias_add(x, residual, bias):
+    return x + residual + bias
 
 
 def naive_rms_norm(x, gamma, beta=None, epsilon=1e-5):
@@ -98,7 +101,8 @@ def naive_residual_biasadd_rms_norm_int8(
 
 
 @unittest.skipIf(
-    not core.is_compiled_with_cuda(), "core is not compiled with CUDA "
+    not core.is_compiled_with_cuda() and not paddle.is_compiled_with_rocm(),
+    "core is not compiled with CUDA or ROCM",
 )
 class TestRMSNormOp(unittest.TestCase):
     def setUp(self):
@@ -125,7 +129,7 @@ class TestRMSNormOp(unittest.TestCase):
 
         paddle_rmsnorm_out = paddle.incubate.nn.functional.fused_rms_norm(
             x, gamma, beta, self.epsilon, begin_norm_axis=1
-        )
+        )[0]
         paddle_naive_rmsnorm_out = naive_rms_norm(x, gamma, beta, self.epsilon)
         paddle.enable_static()
         return paddle_rmsnorm_out, paddle_naive_rmsnorm_out
@@ -146,7 +150,7 @@ class TestRMSNormOp(unittest.TestCase):
             quant_round_type=self.quant_round_type,
             quant_max_bound=self.quant_max_bound,
             quant_min_bound=self.quant_min_bound,
-        )
+        )[0]
 
         paddle_naive_rmsnorm_out = naive_rms_norm_int8(
             x,
@@ -179,7 +183,7 @@ class TestRMSNormOp(unittest.TestCase):
             begin_norm_axis=1,
             bias=bias,
             residual=residual,
-        )
+        )[0]
 
         paddle_naive_rmsnorm_out = naive_residual_biasadd_rms_norm(
             x, residual, bias, gamma, beta, self.epsilon
@@ -209,7 +213,7 @@ class TestRMSNormOp(unittest.TestCase):
             quant_round_type=self.quant_round_type,
             quant_max_bound=self.quant_max_bound,
             quant_min_bound=self.quant_min_bound,
-        )
+        )[0]
 
         paddle_naive_rmsnorm_out = naive_residual_biasadd_rms_norm_int8(
             x,
@@ -227,34 +231,43 @@ class TestRMSNormOp(unittest.TestCase):
         return paddle_rmsnorm_out, paddle_naive_rmsnorm_out
 
     def test_rmsnorm_fp16(self):
-        if not paddle.is_compiled_with_cuda():
+        if (
+            not paddle.is_compiled_with_cuda()
+            and not paddle.is_compiled_with_rocm()
+        ):
             return
         paddle_rmsnorm, paddle_naive_rmsnorm = self.check_rmsnorm(
             self.x_np, self.norm_weight_np, self.norm_bias_np, 'float16'
         )
 
         np.testing.assert_allclose(
-            paddle_rmsnorm[0].numpy(),
+            paddle_rmsnorm.numpy(),
             paddle_naive_rmsnorm.numpy(),
             rtol=1e-3,
             atol=1e-3,
         )
 
     def test_rmsnorm_int8(self):
-        if not paddle.is_compiled_with_cuda():
+        if (
+            not paddle.is_compiled_with_cuda()
+            and not paddle.is_compiled_with_rocm()
+        ):
             return
         paddle_rmsnorm, paddle_naive_rmsnorm = self.check_rmsnorm_int8(
             self.x_np, self.norm_weight_np, self.norm_bias_np, 'float16'
         )
         np.testing.assert_allclose(
-            paddle_rmsnorm[0].numpy(),
+            paddle_rmsnorm.numpy(),
             paddle_naive_rmsnorm.numpy(),
             rtol=2,
             atol=2,
         )
 
     def test_residual_bias_add_rmsnorm_fp16(self):
-        if not paddle.is_compiled_with_cuda():
+        if (
+            not paddle.is_compiled_with_cuda()
+            and not paddle.is_compiled_with_rocm()
+        ):
             return
         paddle_rmsnorm, paddle_naive_rmsnorm = self.check_residual_bias_rmsnorm(
             self.x_np,
@@ -266,14 +279,17 @@ class TestRMSNormOp(unittest.TestCase):
         )
 
         np.testing.assert_allclose(
-            paddle_rmsnorm[0].numpy(),
+            paddle_rmsnorm.numpy(),
             paddle_naive_rmsnorm.numpy(),
             rtol=1e-3,
             atol=1e-3,
         )
 
     def test_residual_bias_add_rmsnorm_int8(self):
-        if not paddle.is_compiled_with_cuda():
+        if (
+            not paddle.is_compiled_with_cuda()
+            and not paddle.is_compiled_with_rocm()
+        ):
             return
         (
             paddle_rmsnorm,
@@ -288,7 +304,7 @@ class TestRMSNormOp(unittest.TestCase):
         )
 
         np.testing.assert_allclose(
-            paddle_rmsnorm[0].numpy(),
+            paddle_rmsnorm.numpy(),
             paddle_naive_rmsnorm.numpy(),
             rtol=2,
             atol=2,
@@ -347,7 +363,8 @@ class TestRMSNormOp(unittest.TestCase):
 
 
 @unittest.skipIf(
-    not core.is_compiled_with_cuda(), "core is not compiled with CUDA "
+    not core.is_compiled_with_cuda() and not paddle.is_compiled_with_rocm(),
+    "core is not compiled with CUDA or ROCM",
 )
 class TestRMSNormStaticOp(unittest.TestCase):
     def setUp(self):
@@ -391,7 +408,7 @@ class TestRMSNormStaticOp(unittest.TestCase):
                 beta_static,
                 self.epsilon,
                 begin_norm_axis=1,
-            )
+            )[0]
             exe = base.Executor(self.place)
             out_s = exe.run(
                 feed={
@@ -441,7 +458,7 @@ class TestRMSNormStaticOp(unittest.TestCase):
                 quant_round_type=self.quant_round_type,
                 quant_max_bound=self.quant_max_bound,
                 quant_min_bound=self.quant_min_bound,
-            )
+            )[0]
             exe = base.Executor(self.place)
             out_s = exe.run(
                 feed={
@@ -494,7 +511,7 @@ class TestRMSNormStaticOp(unittest.TestCase):
                 begin_norm_axis=1,
                 bias=bias_static,
                 residual=residual_static,
-            )
+            )[0]
 
             exe = base.Executor(self.place)
             out_s = exe.run(
@@ -509,9 +526,11 @@ class TestRMSNormStaticOp(unittest.TestCase):
             )
         return out_s[0], paddle_naive_rmsnorm_out
 
-    @test_with_pir_api
     def test_rmsnorm_fp16(self):
-        if not paddle.is_compiled_with_cuda():
+        if (
+            not paddle.is_compiled_with_cuda()
+            and not paddle.is_compiled_with_rocm()
+        ):
             return
         paddle_rmsnorm, paddle_naive_rmsnorm = self.check_rmsnorm(
             self.x_np, self.norm_weight_np, self.norm_bias_np, 'float16'
@@ -524,9 +543,11 @@ class TestRMSNormStaticOp(unittest.TestCase):
             atol=1e-3,
         )
 
-    @test_with_pir_api
     def test_residual_bias_add_rmsnorm_fp16(self):
-        if not paddle.is_compiled_with_cuda():
+        if (
+            not paddle.is_compiled_with_cuda()
+            and not paddle.is_compiled_with_rocm()
+        ):
             return
         paddle_rmsnorm, paddle_naive_rmsnorm = self.check_residual_bias_rmsnorm(
             self.x_np,
@@ -544,9 +565,11 @@ class TestRMSNormStaticOp(unittest.TestCase):
             atol=1e-3,
         )
 
-    @test_with_pir_api
     def test_rmsnorm_int8(self):
-        if not paddle.is_compiled_with_cuda():
+        if (
+            not paddle.is_compiled_with_cuda()
+            and not paddle.is_compiled_with_rocm()
+        ):
             return
         paddle_rmsnorm, paddle_naive_rmsnorm = self.check_rmsnorm_int8(
             self.x_np, self.norm_weight_np, self.norm_bias_np, 'float16'
@@ -556,6 +579,263 @@ class TestRMSNormStaticOp(unittest.TestCase):
             paddle_naive_rmsnorm.numpy(),
             rtol=2,
             atol=2,
+        )
+
+
+@unittest.skipIf(
+    not core.supports_avx512f() or not core.is_compiled_with_avx(),
+    "machine is not support AVX or is not compiled with AVX",
+)
+class TestRMSNormOpCPU(unittest.TestCase):
+    def setUp(self):
+        import os
+
+        os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+        np.random.seed(20)
+        batch = 32
+        cols = 256
+        self.x_np = np.random.random([batch, cols])
+        self.residual_np = np.random.random([batch, cols])
+        self.bias_np = np.random.random([cols])
+
+        self.norm_weight_np = np.random.random([cols])
+        self.norm_bias_np = np.random.random([cols])
+        self.epsilon = 1e-6
+
+    def check_rmsnorm(self, x_np, gamma_np, beta_np, dtype):
+        paddle.disable_static()
+        x = paddle.to_tensor(x_np.astype(dtype))
+        gamma = paddle.to_tensor(gamma_np.astype(dtype))
+        beta = paddle.to_tensor(beta_np.astype(dtype))
+
+        paddle_rmsnorm_out = paddle.incubate.nn.functional.fused_rms_norm(
+            x, gamma, beta, self.epsilon, begin_norm_axis=1
+        )[0]
+        paddle_naive_rmsnorm_out = naive_rms_norm(x, gamma, beta, self.epsilon)
+        paddle.enable_static()
+        return paddle_rmsnorm_out, paddle_naive_rmsnorm_out
+
+    def check_residual_bias_rmsnorm(
+        self, x_np, gamma_np, beta_np, residual_np, bias_np, dtype
+    ):
+        paddle.disable_static()
+        x = paddle.to_tensor(x_np.astype(dtype))
+        gamma = paddle.to_tensor(gamma_np.astype(dtype))
+        beta = paddle.to_tensor(beta_np.astype(dtype))
+        residual = paddle.to_tensor(residual_np.astype(dtype))
+        bias = paddle.to_tensor(bias_np.astype(dtype))
+
+        paddle_rmsnorm_out = paddle.incubate.nn.functional.fused_rms_norm(
+            x,
+            gamma,
+            beta,
+            self.epsilon,
+            begin_norm_axis=1,
+            bias=bias,
+            residual=residual,
+        )
+
+        paddle_naive_rmsnorm_out = naive_residual_biasadd_rms_norm(
+            x, residual, bias, gamma, beta, self.epsilon
+        )
+
+        paddle_naive_residual_out = naive_residual_bias_add(x, residual, bias)
+        paddle.enable_static()
+        return (
+            paddle_rmsnorm_out,
+            paddle_naive_rmsnorm_out,
+            paddle_naive_residual_out,
+        )
+
+    def test_rmsnorm(self):
+        paddle_rmsnorm, paddle_naive_rmsnorm = self.check_rmsnorm(
+            self.x_np, self.norm_weight_np, self.norm_bias_np, 'float32'
+        )
+        np.testing.assert_allclose(
+            paddle_rmsnorm.numpy(),
+            paddle_naive_rmsnorm.numpy(),
+            rtol=1e-3,
+            atol=1e-3,
+        )
+
+    def test_residual_bias_add_rmsnorm(self):
+        (
+            paddle_rmsnorm,
+            paddle_naive_rmsnorm,
+            paddle_naive_residual_out,
+        ) = self.check_residual_bias_rmsnorm(
+            self.x_np,
+            self.norm_weight_np,
+            self.norm_bias_np,
+            self.residual_np,
+            self.bias_np,
+            'float32',
+        )
+
+        np.testing.assert_allclose(
+            paddle_rmsnorm[0].numpy(),
+            paddle_naive_rmsnorm.numpy(),
+            rtol=1e-3,
+            atol=1e-3,
+        )
+        np.testing.assert_allclose(
+            paddle_rmsnorm[1].numpy(),
+            paddle_naive_residual_out.numpy(),
+            rtol=1e-3,
+            atol=1e-3,
+        )
+
+
+@unittest.skipIf(
+    not core.supports_avx512f() or not core.is_compiled_with_avx(),
+    "machine is not support AVX or is not compiled with AVX",
+)
+class TestRMSNormStaticOpCPU(unittest.TestCase):
+    def setUp(self):
+        import os
+
+        os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
+        np.random.seed(20)
+        self.batch = 32
+        self.cols = 256
+        self.x_np = np.random.random([self.batch, 256])
+        self.norm_weight_np = np.random.random([256])
+        self.norm_bias_np = np.random.random([256])
+        self.residual_np = np.random.random([self.batch, 256])
+        self.bias_np = np.random.random([256])
+        self.epsilon = 1e-6
+        self.place = paddle.CPUPlace()
+
+    def check_rmsnorm(self, x_np, gamma_np, beta_np, dtype):
+        paddle.disable_static()
+        x = paddle.to_tensor(x_np.astype(dtype))
+        gamma = paddle.to_tensor(gamma_np.astype(dtype))
+        beta = paddle.to_tensor(beta_np.astype(dtype))
+
+        paddle_naive_rmsnorm_out = naive_rms_norm(x, gamma, beta, self.epsilon)
+        paddle.enable_static()
+
+        with paddle.static.program_guard(paddle.static.Program()):
+            x_static = paddle.static.data(
+                name="x_static", shape=[self.batch, self.cols], dtype=dtype
+            )
+            gamma_static = paddle.static.data(
+                name="gamma_static", shape=[self.cols], dtype=dtype
+            )
+            beta_static = paddle.static.data(
+                name="beta_static", shape=[self.cols], dtype=dtype
+            )
+            outs = paddle.incubate.nn.functional.fused_rms_norm(
+                x_static,
+                gamma_static,
+                beta_static,
+                self.epsilon,
+                begin_norm_axis=1,
+            )[0]
+            exe = base.Executor(self.place)
+            out_s = exe.run(
+                feed={
+                    "x_static": x_np.astype(dtype),
+                    "gamma_static": gamma_np.astype(dtype),
+                    "beta_static": beta_np.astype(dtype),
+                },
+                fetch_list=[outs],
+            )
+        return out_s[0], paddle_naive_rmsnorm_out
+
+    def check_residual_bias_rmsnorm(
+        self, x_np, gamma_np, beta_np, residual_np, bias_np, dtype
+    ):
+        paddle.disable_static()
+        x = paddle.to_tensor(x_np.astype(dtype))
+        gamma = paddle.to_tensor(gamma_np.astype(dtype))
+        beta = paddle.to_tensor(beta_np.astype(dtype))
+        residual = paddle.to_tensor(residual_np.astype(dtype))
+        bias = paddle.to_tensor(bias_np.astype(dtype))
+
+        paddle_naive_rmsnorm_out = naive_residual_biasadd_rms_norm(
+            x, residual, bias, gamma, beta, self.epsilon
+        )
+        paddle.enable_static()
+
+        with paddle.static.program_guard(paddle.static.Program()):
+            x_static = paddle.static.data(
+                name="x_static", shape=[self.batch, self.cols], dtype=dtype
+            )
+            residual_static = paddle.static.data(
+                name="residual_static",
+                shape=[self.batch, self.cols],
+                dtype=dtype,
+            )
+            bias_static = paddle.static.data(
+                name="bias_static", shape=[self.cols], dtype=dtype
+            )
+            gamma_static = paddle.static.data(
+                name="gamma_static", shape=[self.cols], dtype=dtype
+            )
+            beta_static = paddle.static.data(
+                name="beta_static", shape=[self.cols], dtype=dtype
+            )
+            outs = paddle.incubate.nn.functional.fused_rms_norm(
+                x_static,
+                gamma_static,
+                beta_static,
+                self.epsilon,
+                begin_norm_axis=1,
+                bias=bias_static,
+                residual=residual_static,
+            )[0]
+
+            exe = base.Executor(self.place)
+            out_s = exe.run(
+                feed={
+                    "x_static": x_np.astype(dtype),
+                    "gamma_static": gamma_np.astype(dtype),
+                    "beta_static": beta_np.astype(dtype),
+                    "residual_static": residual_np.astype(dtype),
+                    "bias_static": bias_np.astype(dtype),
+                },
+                fetch_list=[outs],
+            )
+        return out_s[0], paddle_naive_rmsnorm_out
+
+    def test_rmsnorm(self):
+        if (
+            not paddle.is_compiled_with_cuda()
+            and not paddle.is_compiled_with_rocm()
+        ):
+            return
+        paddle_rmsnorm, paddle_naive_rmsnorm = self.check_rmsnorm(
+            self.x_np, self.norm_weight_np, self.norm_bias_np, 'float32'
+        )
+
+        np.testing.assert_allclose(
+            paddle_rmsnorm,
+            paddle_naive_rmsnorm.numpy(),
+            rtol=1e-3,
+            atol=1e-3,
+        )
+
+    def test_residual_bias_add_rmsnorm(self):
+        if (
+            not paddle.is_compiled_with_cuda()
+            and not paddle.is_compiled_with_rocm()
+        ):
+            return
+        paddle_rmsnorm, paddle_naive_rmsnorm = self.check_residual_bias_rmsnorm(
+            self.x_np,
+            self.norm_weight_np,
+            self.norm_bias_np,
+            self.residual_np,
+            self.bias_np,
+            'float32',
+        )
+
+        np.testing.assert_allclose(
+            paddle_rmsnorm,
+            paddle_naive_rmsnorm.numpy(),
+            rtol=1e-3,
+            atol=1e-3,
         )
 
 

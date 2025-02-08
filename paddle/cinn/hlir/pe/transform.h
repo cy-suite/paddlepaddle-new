@@ -61,12 +61,6 @@ std::vector<ir::Tensor> Matmul(
     float alpha = 1,
     const std::string& name = UniqName("T_Transform_Matmul_out"));
 
-// realized by sharing buffer
-ir::Tensor Reshape(const ir::Tensor& A,
-                   const std::vector<int>& new_shape,
-                   poly::StageMap stages,
-                   const std::string& name);
-
 ir::Tensor Concat(const ir::Tensor& A,
                   const ir::Tensor& B,
                   int axis = 0,
@@ -185,9 +179,9 @@ ir::Tensor Slice(const ir::Tensor& A,
                  const std::string& output_name);
 
 ir::Tensor SliceSymbolic(const ir::Tensor& A,
-                         const std::vector<int>& starts,
+                         const std::vector<Expr>& starts,
                          const std::vector<int>& axes,
-                         const std::vector<int>& strides,
+                         const std::vector<Expr>& strides,
                          const std::vector<int>& decrease_axis,
                          const std::vector<Expr>& output_shape,
                          const std::string& output_name);
@@ -212,8 +206,8 @@ ir::Tensor SliceAssign(
 /**
  * @brief Perform meta op Split
  * @param A The input tensor
- * @param axis split axis
  * @param output_shapes The output sub-tensors shape
+ * @param axis split axis
  * @param output_name the name of the output tensor
  */
 ir::Tensor Gather(const ir::Tensor& x,
@@ -223,10 +217,23 @@ ir::Tensor Gather(const ir::Tensor& x,
                   const std::string& name = UniqName("T_Transform_Gather_out"));
 
 /**
+ * @brief Perform meta op Split
+ * @param A The input tensor
+ * @param axis split axis
+ * @param output_shapes The output sub-tensors shape
+ * @param output_name the name of the output tensor
+ */
+ir::Tensor Gather(const ir::Tensor& x,
+                  const ir::Tensor& index,
+                  int axis,
+                  const std::vector<Expr>& output_shape,
+                  const std::string& name = UniqName("T_Transform_Gather_out"));
+
+/**
  * @brief Perform meta op ScatterAssign
  * @param input The input tensor
  * @param assign The assign tensor
- * @param indexs The indexs tensor
+ * @param index The index tensor
  * @param output_name the name of the output tensor
  */
 ir::Tensor ScatterAssign(
@@ -241,7 +248,7 @@ ir::Tensor ScatterAssign(
  * @brief Perform meta op ScatterAdd
  * @param input The input tensor
  * @param updates The updates tensor
- * @param indexs The indexs tensor
+ * @param index The index tensor
  * @param output_name the name of the output tensor
  */
 ir::Tensor ScatterAdd(const ir::Tensor& input,

@@ -22,13 +22,14 @@ from paddle import base
 from paddle.autograd.ir_backward import grad
 from paddle.base import Program, core, program_guard
 from paddle.base.backward import append_backward
-from paddle.pir_utils import test_with_pir_api
 
 
 class TestWhereOp(OpTest):
     def setUp(self):
         self.op_type = 'where'
+        self.prim_op_type = 'prim'
         self.python_api = paddle.where
+        self.public_python_api = paddle.where
         self.check_cinn = True
         self.init_config()
         self.inputs = {'Condition': self.cond, 'X': self.x, 'Y': self.y}
@@ -39,7 +40,11 @@ class TestWhereOp(OpTest):
 
     def test_check_grad(self):
         self.check_grad(
-            ['X', 'Y'], 'Out', check_cinn=self.check_cinn, check_pir=True
+            ['X', 'Y'],
+            'Out',
+            check_cinn=self.check_cinn,
+            check_pir=True,
+            check_prim_pir=True,
         )
 
     def init_config(self):
@@ -71,8 +76,10 @@ class TestWhereFP16OP(TestWhereOp):
 class TestWhereBF16OP(OpTest):
     def setUp(self):
         self.op_type = 'where'
+        self.prim_op_type = 'prim'
         self.dtype = np.uint16
         self.python_api = paddle.where
+        self.public_python_api = paddle.where
         self.check_cinn = True
         self.init_config()
         self.inputs = {
@@ -99,6 +106,7 @@ class TestWhereBF16OP(OpTest):
             numeric_grad_delta=0.05,
             check_cinn=self.check_cinn,
             check_pir=True,
+            check_prim_pir=True,
         )
 
     def init_config(self):
@@ -138,21 +146,26 @@ class TestWhereAPI(unittest.TestCase):
                     paddle.static.Program(), paddle.static.Program()
                 ):
                     cond = paddle.static.data(
-                        name='cond', shape=[-1] + self.shape, dtype='bool'
+                        name='cond', shape=[-1, *self.shape], dtype='bool'
                     )
-                    cond.desc.set_need_check_feed(False)
+                    if not paddle.framework.use_pir_api():
+                        cond.desc.set_need_check_feed(False)
                     x = paddle.static.data(
-                        name='x', shape=[-1] + self.shape, dtype='float32'
+                        name='x', shape=[-1, *self.shape], dtype='float32'
                     )
-                    x.desc.set_need_check_feed(False)
+                    if not paddle.framework.use_pir_api():
+                        x.desc.set_need_check_feed(False)
                     y = paddle.static.data(
-                        name='y', shape=[-1] + self.shape, dtype='float32'
+                        name='y', shape=[-1, *self.shape], dtype='float32'
                     )
-                    y.desc.set_need_check_feed(False)
+                    if not paddle.framework.use_pir_api():
+                        y.desc.set_need_check_feed(False)
                     x.stop_gradient = x_stop_gradient
-                    x.desc.set_need_check_feed(False)
+                    if not paddle.framework.use_pir_api():
+                        x.desc.set_need_check_feed(False)
                     y.stop_gradient = y_stop_gradient
-                    y.desc.set_need_check_feed(False)
+                    if not paddle.framework.use_pir_api():
+                        y.desc.set_need_check_feed(False)
                     result = paddle.where(cond, x, y)
                     result.stop_gradient = False
                     append_backward(paddle.mean(result))
@@ -163,29 +176,46 @@ class TestWhereAPI(unittest.TestCase):
                             base.CUDAPlace(0) if use_cuda else base.CPUPlace()
                         )
                         exe = base.Executor(place)
-                        fetch_list = [result, result.grad_name]
-                        if x_stop_gradient is False:
-                            fetch_list.append(x.grad_name)
-                        if y_stop_gradient is False:
-                            fetch_list.append(y.grad_name)
-                        out = exe.run(
-                            paddle.static.default_main_program(),
-                            feed={'cond': self.cond, 'x': self.x, 'y': self.y},
-                            fetch_list=fetch_list,
-                        )
-                        np.testing.assert_array_equal(out[0], self.out)
-                        if x_stop_gradient is False:
-                            np.testing.assert_array_equal(
-                                out[2], self.ref_x_backward(out[1])
+                        if paddle.framework.use_pir_api():
+                            fetch_list = [result]
+                            out = exe.run(
+                                paddle.static.default_main_program(),
+                                feed={
+                                    'cond': self.cond,
+                                    'x': self.x,
+                                    'y': self.y,
+                                },
+                                fetch_list=fetch_list,
                             )
-                            if y.stop_gradient is False:
+                            np.testing.assert_array_equal(out[0], self.out)
+                        else:
+                            fetch_list = [result, result.grad_name]
+                            if x_stop_gradient is False:
+                                fetch_list.append(x.grad_name)
+                            if y_stop_gradient is False:
+                                fetch_list.append(y.grad_name)
+                            out = exe.run(
+                                paddle.static.default_main_program(),
+                                feed={
+                                    'cond': self.cond,
+                                    'x': self.x,
+                                    'y': self.y,
+                                },
+                                fetch_list=fetch_list,
+                            )
+                            np.testing.assert_array_equal(out[0], self.out)
+                            if x_stop_gradient is False:
                                 np.testing.assert_array_equal(
-                                    out[3], self.ref_y_backward(out[1])
+                                    out[2], self.ref_x_backward(out[1])
                                 )
-                        elif y.stop_gradient is False:
-                            np.testing.assert_array_equal(
-                                out[2], self.ref_y_backward(out[1])
-                            )
+                                if y.stop_gradient is False:
+                                    np.testing.assert_array_equal(
+                                        out[3], self.ref_y_backward(out[1])
+                                    )
+                            elif y.stop_gradient is False:
+                                np.testing.assert_array_equal(
+                                    out[2], self.ref_y_backward(out[1])
+                                )
 
     def test_pir_api(self, use_cuda=False):
         for x_stop_gradient in [False, True]:
@@ -241,15 +271,20 @@ class TestWhereAPI(unittest.TestCase):
                                 out[1], self.ref_y_backward(out[1])
                             )
 
-    @test_with_pir_api
     def test_api_broadcast(self, use_cuda=False):
         main_program = paddle.static.Program()
         with paddle.static.program_guard(main_program):
             x = paddle.static.data(name='x', shape=[-1, 4, 1], dtype='float32')
             y = paddle.static.data(name='y', shape=[-1, 4, 2], dtype='float32')
-            x_i = np.array([[0.9383, 0.1983, 3.2, 1.2]]).astype('float32')
-            y_i = np.array([[1.0, 1.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]]).astype(
-                'float32'
+            x_i = (
+                np.array([[0.9383, 0.1983, 3.2, 1.2]])
+                .astype('float32')
+                .reshape([1, 4, 1])
+            )
+            y_i = (
+                np.array([[1.0, 1.0, 1.0, 1.0], [1.0, 1.0, 1.0, 1.0]])
+                .astype('float32')
+                .reshape([1, 4, 2])
             )
             result = paddle.where((x > 1), x=x, y=y)
             for use_cuda in [False, True]:
@@ -266,7 +301,6 @@ class TestWhereAPI(unittest.TestCase):
                     out[0], np.where((x_i > 1), x_i, y_i)
                 )
 
-    @test_with_pir_api
     def test_scalar(self):
         main_program = paddle.static.Program()
         with paddle.static.program_guard(main_program):
@@ -373,56 +407,48 @@ class TestWhereAPI(unittest.TestCase):
                     np.testing.assert_array_equal(out[0], expect)
                     self.assertEqual(out[0].dtype, expect.dtype)
 
-    @test_with_pir_api
     def test_static_api_broadcast_1(self):
         cond_shape = [2, 4]
         a_shape = [2, 2, 4]
         b_shape = [2, 2, 4]
         self.__test_where_with_broadcast_static(cond_shape, a_shape, b_shape)
 
-    @test_with_pir_api
     def test_static_api_broadcast_2(self):
         cond_shape = [2, 1]
         a_shape = [2, 2, 4]
         b_shape = [2, 2, 4]
         self.__test_where_with_broadcast_static(cond_shape, a_shape, b_shape)
 
-    @test_with_pir_api
     def test_static_api_broadcast_3(self):
         cond_shape = [2, 2, 1]
         a_shape = [2, 2, 4]
         b_shape = [2, 2, 4]
         self.__test_where_with_broadcast_static(cond_shape, a_shape, b_shape)
 
-    @test_with_pir_api
     def test_static_api_broadcast_4(self):
         cond_shape = [2, 1, 4]
         a_shape = [2, 2, 4]
         b_shape = [2, 2, 4]
         self.__test_where_with_broadcast_static(cond_shape, a_shape, b_shape)
 
-    @test_with_pir_api
     def test_static_api_broadcast_5(self):
         cond_shape = [3, 2, 2, 4]
         a_shape = [2, 2, 4]
         b_shape = [2, 2, 4]
         self.__test_where_with_broadcast_static(cond_shape, a_shape, b_shape)
 
-    @test_with_pir_api
     def test_static_api_broadcast_6(self):
         cond_shape = [2, 2, 4]
         a_shape = [2, 2, 1]
         b_shape = [2, 2, 1]
         self.__test_where_with_broadcast_static(cond_shape, a_shape, b_shape)
 
-    @test_with_pir_api
     def test_static_api_broadcast_7(self):
         cond_shape = [2, 2, 4]
         a_shape = [2, 1, 4]
         b_shape = [2, 1, 4]
         self.__test_where_with_broadcast_static(cond_shape, a_shape, b_shape)
 
-    @test_with_pir_api
     def test_static_api_broadcast_8(self):
         cond_shape = [3, 2, 2, 4]
         a_shape = [2, 2, 1]
@@ -755,36 +781,119 @@ class TestWhereDygraphAPI(unittest.TestCase):
     def test_where_condition(self):
         data = np.array([[True, False], [False, True]])
         with program_guard(Program(), Program()):
-            x = paddle.static.data(name='x', shape=[(-1), 2], dtype='float32')
-            x.desc.set_need_check_feed(False)
+            x = paddle.static.data(name='x', shape=[(-1), 2], dtype='bool')
+            if not paddle.framework.use_pir_api():
+                x.desc.set_need_check_feed(False)
             y = paddle.where(x)
             self.assertEqual(type(y), tuple)
             self.assertEqual(len(y), 2)
             z = paddle.concat(list(y), axis=1)
             exe = base.Executor(base.CPUPlace())
             (res,) = exe.run(
-                feed={'x': data}, fetch_list=[z.name], return_numpy=False
+                feed={'x': data}, fetch_list=[z], return_numpy=False
             )
         expect_out = np.array([[0, 0], [1, 1]])
         np.testing.assert_allclose(expect_out, np.array(res), rtol=1e-05)
         data = np.array([True, True, False])
         with program_guard(Program(), Program()):
-            x = paddle.static.data(name='x', shape=[(-1)], dtype='float32')
-            x.desc.set_need_check_feed(False)
+            x = paddle.static.data(name='x', shape=[(-1)], dtype='bool')
+            if not paddle.framework.use_pir_api():
+                x.desc.set_need_check_feed(False)
             y = paddle.where(x)
             self.assertEqual(type(y), tuple)
             self.assertEqual(len(y), 1)
             z = paddle.concat(list(y), axis=1)
             exe = base.Executor(base.CPUPlace())
             (res,) = exe.run(
-                feed={'x': data}, fetch_list=[z.name], return_numpy=False
+                feed={'x': data}, fetch_list=[z], return_numpy=False
             )
         expect_out = np.array([[0], [1]])
         np.testing.assert_allclose(expect_out, np.array(res), rtol=1e-05)
 
 
+class TestWhereDygraphAPIBroadcast(unittest.TestCase):
+    def test_broadcast_scalar(self):
+        with base.dygraph.guard():
+            x_i = np.random.randn(4, 5, 6).astype('float64')
+            y_i = -1.0
+            cond_i = np.random.randn(1, 1, 6).astype('bool')
+            x = paddle.to_tensor(x_i)
+            y = paddle.to_tensor(y_i)
+            cond = paddle.to_tensor(cond_i)
+            out = paddle.where(cond, x, y)
+            np.testing.assert_array_equal(
+                out.numpy(), np.where(cond_i, x_i, y_i)
+            )
+
+    def test_broadcast_to_x(self):
+        with base.dygraph.guard():
+            x_i = np.random.randn(4, 5, 6).astype('float64')
+            y_i = np.random.randn(1, 5, 6).astype('float64')
+            cond_i = np.random.randn(1, 1, 6).astype('bool')
+            x = paddle.to_tensor(x_i)
+            y = paddle.to_tensor(y_i)
+            cond = paddle.to_tensor(cond_i)
+            out = paddle.where(cond, x, y)
+            np.testing.assert_array_equal(
+                out.numpy(), np.where(cond_i, x_i, y_i)
+            )
+
+    def test_broadcast_to_y(self):
+        with base.dygraph.guard():
+            x_i = np.random.randn(1, 5, 6).astype('float64')
+            y_i = np.random.randn(4, 5, 6).astype('float64')
+            cond_i = np.random.randn(1, 1, 6).astype('bool')
+            x = paddle.to_tensor(x_i)
+            y = paddle.to_tensor(y_i)
+            cond = paddle.to_tensor(cond_i)
+            out = paddle.where(cond, x, y)
+            np.testing.assert_array_equal(
+                out.numpy(), np.where(cond_i, x_i, y_i)
+            )
+
+    def test_broadcast_to_cond(self):
+        with base.dygraph.guard():
+            x_i = np.random.randn(1, 1, 6).astype('float64')
+            y_i = np.random.randn(1, 5, 1).astype('float64')
+            cond_i = np.random.randn(4, 5, 6).astype('bool')
+            x = paddle.to_tensor(x_i)
+            y = paddle.to_tensor(y_i)
+            cond = paddle.to_tensor(cond_i)
+            out = paddle.where(cond, x, y)
+            np.testing.assert_array_equal(
+                out.numpy(), np.where(cond_i, x_i, y_i)
+            )
+
+    def test_can_not_broadcast(self):
+        with base.dygraph.guard():
+            x_i = np.random.randn(1, 1, 6).astype('float64')
+            y_i = np.random.randn(1, 5, 3).astype('float64')
+            cond_i = np.random.randn(4, 5, 6).astype('bool')
+            x = paddle.to_tensor(x_i)
+            y = paddle.to_tensor(y_i)
+            cond = paddle.to_tensor(cond_i)
+
+            with self.assertRaises(ValueError):
+                _ = paddle.where(cond, x, y)
+
+
+class TestWhereDygraphAPIDtypePromotion(unittest.TestCase):
+    def test_dtype_auto_promotion_float(self):
+        with base.dygraph.guard():
+            x_i = np.random.randn(4, 5, 6).astype('float32')
+            y_i = np.random.randn(4, 5, 6).astype('float64')
+            cond_i = np.random.randn(4, 5, 6).astype('bool')
+            x = paddle.to_tensor(x_i)
+            y = paddle.to_tensor(y_i)
+            cond = paddle.to_tensor(cond_i)
+            out = paddle.where(cond, x, y)
+            self.assertEqual(out.dtype, y.dtype)
+            np.testing.assert_array_equal(
+                out.numpy(), np.where(cond_i, x_i, y_i)
+            )
+
+
 class TestWhereOpError(unittest.TestCase):
-    @test_with_pir_api
     def test_errors(self):
         with paddle.static.program_guard(
             paddle.static.Program(), paddle.static.Program()
@@ -805,15 +914,23 @@ class TestWhereOpError(unittest.TestCase):
             self.assertRaises(TypeError, test_Value)
 
             def test_type():
-                x = paddle.static.data(name='x', shape=[-1, 4], dtype='bool')
-                x.desc.set_need_check_feed(False)
-                y = paddle.static.data(name='y', shape=[-1, 4], dtype='float16')
-                y.desc.set_need_check_feed(False)
-                cond = paddle.static.data(
-                    name='cond', shape=[-1, 4], dtype='int32'
-                )
-                cond.desc.set_need_check_feed(False)
-                paddle.where(cond, x, y)
+                with paddle.pir_utils.OldIrGuard():
+                    x = paddle.static.data(
+                        name='x', shape=[-1, 4], dtype='bool'
+                    )
+                    if not paddle.framework.use_pir_api():
+                        x.desc.set_need_check_feed(False)
+                    y = paddle.static.data(
+                        name='y', shape=[-1, 4], dtype='float16'
+                    )
+                    if not paddle.framework.use_pir_api():
+                        y.desc.set_need_check_feed(False)
+                    cond = paddle.static.data(
+                        name='cond', shape=[-1, 4], dtype='int32'
+                    )
+                    if not paddle.framework.use_pir_api():
+                        cond.desc.set_need_check_feed(False)
+                    paddle.where(cond, x, y)
 
             self.assertRaises(TypeError, test_type)
 
@@ -824,6 +941,37 @@ class TestWhereOpError(unittest.TestCase):
             cond = cond_tmp < 0.3
             a = paddle.rand(cond_shape)
             self.assertRaises(ValueError, paddle.where, cond, a)
+
+
+class TestWhereDygraphAPINonBoolCondition(unittest.TestCase):
+    def test_condition_with_wrong_dtype(self):
+        with base.dygraph.guard():
+            cond = paddle.to_tensor([True, False])
+
+            for dtype in [
+                paddle.int64,
+                paddle.int32,
+                paddle.float32,
+                paddle.float64,
+            ]:
+                cond_wrong_dtype = cond.to(dtype)
+                with self.assertRaises(ValueError):
+                    paddle.where(cond_wrong_dtype, 1, 0)
+
+    def test_condition_inplace_with_wrong_dtype(self):
+        with base.dygraph.guard():
+            cond = paddle.to_tensor([True, False])
+
+            x = paddle.zeros_like(cond).astype("float32")
+            for dtype in [
+                paddle.int64,
+                paddle.int32,
+                paddle.float32,
+                paddle.float64,
+            ]:
+                cond_wrong_dtype = cond.to(dtype)
+                with self.assertRaises(ValueError):
+                    x = x.where_(cond_wrong_dtype, x, x)
 
 
 if __name__ == "__main__":

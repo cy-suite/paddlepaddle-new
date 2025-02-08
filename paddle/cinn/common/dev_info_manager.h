@@ -20,11 +20,12 @@
 #include "paddle/cinn/common/macros.h"
 #include "paddle/cinn/common/nvgpu_dev_info.h"
 #include "paddle/cinn/common/target.h"
+#include "paddle/common/enforce.h"
 
 namespace cinn {
 namespace common {
 
-template <Target::Arch arch>
+template <typename arch>
 struct GetDevType {
   using DevType = DevInfoBase;
 };
@@ -32,11 +33,11 @@ struct GetDevType {
 // Extra device should be added here
 class NVGPUDevInfo;
 template <>
-struct GetDevType<Target::Arch::NVGPU> {
+struct GetDevType<NVGPUArch> {
   using DevType = NVGPUDevInfo;
 };
 
-template <Target::Arch arch>
+template <typename arch>
 class DevInfoMgr final {
  private:
   explicit DevInfoMgr(int device_num = 0) : device_num_(device_num) {
@@ -54,11 +55,17 @@ class DevInfoMgr final {
   using RetType = typename GetDevType<arch>::DevType;
 
   const RetType* operator->() const {
-    CHECK(!std::is_void<RetType>()) << "Current device can't be recognized!\n";
+    PADDLE_ENFORCE_EQ(!std::is_void<RetType>(),
+                      true,
+                      ::common::errors::InvalidArgument(
+                          "Current device can't be recognized!"));
     return dynamic_cast<const RetType*>(impl_.get());
   }
   RetType* operator->() {
-    CHECK(!std::is_void<RetType>()) << "Current device can't be recognized!\n";
+    PADDLE_ENFORCE_EQ(!std::is_void<RetType>(),
+                      true,
+                      ::common::errors::InvalidArgument(
+                          "Current device can't be recognized!"));
     return dynamic_cast<RetType*>(impl_.get());
   }
 };

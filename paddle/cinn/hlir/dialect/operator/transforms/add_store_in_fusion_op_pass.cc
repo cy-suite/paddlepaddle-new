@@ -33,37 +33,11 @@ class AddYieldStoreInFusionOpPattern
   bool MatchAndRewrite(::pir::YieldOp op,
                        pir::PatternRewriter& rewriter) const override {
     for (auto i = 0; i < op->num_operands(); ++i) {
-      if (auto reshape_op = op->operand_source(i)
-                                .defining_op()
-                                ->dyn_cast<cinn::dialect::ReshapeOp>()) {
-        auto pre_name = reshape_op.operand_source(0).defining_op()->name();
-
-        if (op->operand_source(i).use_count() > 1) {
-          continue;
-        }
-
-        if ((pre_name != "cinn_op.reduce_sum") &&
-            (pre_name != "cinn_op.reduce_max")) {
-          auto new_full = rewriter.Build<cinn::dialect::YieldStoreOp>(
-              op->operand_source(i).defining_op()->operand_source(0),
-              op->operand_source(i).type());
-
-          op->operand(i).set_source(new_full.result(0));
-          if (reshape_op->result(0).use_count() == 0) {
-            rewriter.EraseOp(reshape_op);
-          }
-          continue;
-        }
-      }
-
-      if (op->operand_source(i).use_count() == 1) {
-        continue;
-      }
-
-      auto new_full = rewriter.Build<cinn::dialect::YieldStoreOp>(
+      rewriter.SetInsertionPointAfter(op->operand_source(i).defining_op());
+      auto store_op = rewriter.Build<cinn::dialect::YieldStoreOp>(
           op->operand_source(i), op->operand_source(i).type());
-
-      op->operand(i).set_source(new_full.result(0));
+      auto original_base = op->operand_source(i);
+      op->operand(i).set_source(store_op.result(0));
     }
 
     return true;
@@ -91,13 +65,6 @@ class AddStoreInFusionOpPass : public pir::Pass {
       for (auto& block : op->region(i)) {
         for (auto& op : block) {
           if (op.isa<cinn::dialect::FusionOp>()) {
-            auto fusion_op = op.dyn_cast<cinn::dialect::FusionOp>();
-            if (fusion_op.GetOperators().size() == 2 &&
-                fusion_op.GetOperators()
-                    .front()
-                    ->isa<cinn::dialect::ReshapeOp>()) {
-              continue;
-            }
             auto [_, num_rewrites] =
                 pir::ApplyPatternsGreedily(&op, patterns_, cfg);
             AddStatistics(num_rewrites);

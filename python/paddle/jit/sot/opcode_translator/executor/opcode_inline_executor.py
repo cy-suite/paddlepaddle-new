@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 from ...profiler import event_register
 from ...utils import BreakGraphError, log
 from ..instruction_utils import Instruction
-from .guard import StringifyExpression, union_free_vars
+from .guard import StringifiedExpression, union_free_vars
 from .opcode_executor import OpcodeExecutorBase, Stop
 from .tracker import ConstTracker, DanglingTracker, DummyTracker, Tracker
 from .variables import (
@@ -67,16 +67,16 @@ class FunctionGlobalTracker(Tracker):
         codegen.gen_load_const(self.name)
         codegen.gen_subscribe()
 
-    def trace_value_from_frame(self) -> StringifyExpression:
+    def trace_value_from_frame(self) -> StringifiedExpression:
         """
         Trace the value of the function global variable from the frame.
 
         Returns:
-            StringifyExpression: The traced value of the function global variable.
+            StringifiedExpression: The traced value of the function global variable.
 
         """
         fn_tracer = self.fn.tracker.trace_value_from_frame()
-        return StringifyExpression(
+        return StringifiedExpression(
             f"{{}}.__globals__['{self.name}']",
             [fn_tracer],
             union_free_vars(fn_tracer.free_vars),
@@ -124,7 +124,7 @@ class FunctionClosureTracker(Tracker):
 
         """
         fn_tracer = self.fn.tracker.trace_value_from_frame()
-        return StringifyExpression(
+        return StringifiedExpression(
             f"{{}}.__closure__[{self.idx}].cell_contents",
             [fn_tracer],
             union_free_vars(fn_tracer.free_vars),
@@ -163,7 +163,8 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         self._fn_var = fn_variable
         self.return_value: VariableBase | None = None
         self._fn_value = fn_variable.value
-        super().__init__(fn_variable.get_code(), fn_variable.graph)
+        self._code_var = fn_variable.get_code()
+        super().__init__(self._code_var.value, fn_variable.graph)
         self._name = "Inline"
         self._prepare_locals(*args, **kwargs)
         self._prepare_closure()
@@ -273,6 +274,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         """
         Execute the inline call of the function.
         """
+        self._graph.add_global_guarded_variable(self._code_var)
         self.run()
         assert self.return_value is not None
         return self.return_value
@@ -319,7 +321,8 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
                 self._lasti = self.indexof(instr.jump_to)
                 if sys.version_info >= (3, 12):
                     assert self._instructions[self._lasti].opname == "END_FOR"
-                    self._lasti += 1
+                    skip_n_instrs = 2 if sys.version_info >= (3, 13) else 1
+                    self._lasti += skip_n_instrs
 
         else:
             self._graph.remove_global_guarded_variable(iterator)

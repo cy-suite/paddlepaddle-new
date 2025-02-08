@@ -15,17 +15,19 @@
 #pragma once
 
 #include "paddle/phi/common/reduce_type.h"
+#include "paddle/phi/core/distributed/auto_parallel/placement_types.h"
 #include "paddle/phi/core/distributed/auto_parallel/process_mesh.h"
 #include "paddle/pir/include/core/attribute.h"
+#include "paddle/pir/include/core/builtin_attribute.h"
 #include "paddle/pir/include/core/builtin_attribute_storage.h"
 #include "paddle/pir/include/core/utils.h"
 #include "paddle/utils/flat_hash_map.h"
-
 namespace paddle {
 namespace dialect {
 class ProcessMeshAttrStorage;
 class TensorDistAttrStorage;
 class OperationDistAttrStorage;
+class PlacementsAttrStorage;
 
 class ProcessMeshAttribute : public pir::AttrBase<ProcessMeshAttribute,
                                                   pir::Attribute,
@@ -60,6 +62,24 @@ class ProcessMeshAttribute : public pir::AttrBase<ProcessMeshAttribute,
                                   const std::vector<int64_t>& shape,
                                   const std::vector<int64_t>& process_ids,
                                   const std::vector<std::string>& dim_names);
+
+  static std::string name() { return "a_process_mesh"; }
+};
+
+class PlacementsAttribute : public pir::AttrBase<PlacementsAttribute,
+                                                 pir::Attribute,
+                                                 PlacementsAttrStorage> {
+ public:
+  using Base::Base;
+  const phi::distributed::Placements& placements() const;
+
+  size_t hash() const;
+  std::string to_string() const;
+
+  static std::string name() { return "a_placements"; }
+
+  static PlacementsAttribute get(
+      pir::IrContext* ctx, const phi::distributed::Placements& placements);
 };
 
 class TensorDistAttribute : public pir::AttrBase<TensorDistAttribute,
@@ -69,27 +89,40 @@ class TensorDistAttribute : public pir::AttrBase<TensorDistAttribute,
   using Base::Base;
   ProcessMeshAttribute process_mesh_attr() const;
   const std::vector<int64_t>& dims_mapping() const;
+  std::optional<PlacementsAttribute> placements_attr() const;
 
   // return vector of mesh dims on which the this tensor is partial on
   std::set<int64_t> partial_dims() const;
 
   const flat_hash_map<int64_t, phi::ReduceType>& partial_status() const;
 
+  phi::distributed::Placements placements() const;
+
+  // construct a new attribute with new mesh attribute.
+  TensorDistAttribute CopyWithNewMesh(ProcessMeshAttribute mesh) const {
+    return get(ir_context(), mesh, dims_mapping(), partial_status());
+  }
+
   static TensorDistAttribute get(
       pir::IrContext* ctx,
       ProcessMeshAttribute mesh,
       const std::vector<int64_t>& dims_mapping,
-      const flat_hash_map<int64_t, phi::ReduceType>& partial_status);
+      const flat_hash_map<int64_t, phi::ReduceType>& partial_status = {},
+      const std::optional<PlacementsAttribute>& placements = std::nullopt);
   static TensorDistAttribute get(
       pir::IrContext* ctx,
       const phi::distributed::ProcessMesh& mesh,
       const std::vector<int64_t>& dims_mapping,
-      const flat_hash_map<int64_t, phi::ReduceType>& partial_status) {
+      const flat_hash_map<int64_t, phi::ReduceType>& partial_status = {},
+      const std::optional<PlacementsAttribute>& placements = std::nullopt) {
     return get(ctx,
                ProcessMeshAttribute::get(ctx, mesh),
                dims_mapping,
-               partial_status);
+               partial_status,
+               placements);
   }
+
+  static std::string name() { return "a_tensor_dist"; }
 };
 
 class OperationDistAttribute : public pir::AttrBase<OperationDistAttribute,
@@ -99,35 +132,40 @@ class OperationDistAttribute : public pir::AttrBase<OperationDistAttribute,
   using Base::Base;
   ProcessMeshAttribute process_mesh_attr() const;
 
-  const std::vector<TensorDistAttribute>& operand_dist_attrs() const;
-  TensorDistAttribute operand_dist_attr(uint32_t index) const;
-  uint32_t num_operand_dist_attrs() const;
+  const std::vector<Attribute>& operands() const;
+  pir::Attribute operand(uint32_t index) const { return operands().at(index); }
+  uint32_t num_operands() const;
 
-  const std::vector<TensorDistAttribute>& result_dist_attrs() const;
-  TensorDistAttribute result_dist_attr(uint32_t index) const;
-  uint32_t num_result_dist_attrs() const;
+  const std::vector<Attribute>& results() const;
 
-  static OperationDistAttribute get(
-      pir::IrContext* ctx,
-      ProcessMeshAttribute mesh,
-      const std::vector<TensorDistAttribute>& operand_dist_attrs,
-      const std::vector<TensorDistAttribute>& result_dist_attrs);
+  pir::Attribute result(uint32_t index) const { return results().at(index); }
 
-  static OperationDistAttribute get(
-      pir::IrContext* ctx,
-      const phi::distributed::ProcessMesh& mesh,
-      const std::vector<TensorDistAttribute>& operand_dist_attrs,
-      const std::vector<TensorDistAttribute>& result_dist_attrs) {
-    return get(ctx,
-               ProcessMeshAttribute::get(ctx, mesh),
-               operand_dist_attrs,
-               result_dist_attrs);
+  uint32_t num_results() const;
+
+  int64_t chunk_id() const;
+
+  static OperationDistAttribute get(pir::IrContext* ctx,
+                                    ProcessMeshAttribute mesh,
+                                    const std::vector<Attribute>& operands,
+                                    const std::vector<Attribute>& results,
+                                    const int64_t& chunk_id = -1);
+
+  static OperationDistAttribute get(pir::IrContext* ctx,
+                                    const phi::distributed::ProcessMesh& mesh,
+                                    const std::vector<Attribute>& operands,
+                                    const std::vector<Attribute>& results,
+                                    const int64_t& chunk_id = -1) {
+    return get(
+        ctx, ProcessMeshAttribute::get(ctx, mesh), operands, results, chunk_id);
   }
+
+  static std::string name() { return "a_op_dist"; }
 };
 
 }  // namespace dialect
 }  // namespace paddle
 
 IR_DECLARE_EXPLICIT_TYPE_ID(paddle::dialect::ProcessMeshAttribute)
+IR_DECLARE_EXPLICIT_TYPE_ID(paddle::dialect::PlacementsAttribute)
 IR_DECLARE_EXPLICIT_TYPE_ID(paddle::dialect::TensorDistAttribute)
 IR_DECLARE_EXPLICIT_TYPE_ID(paddle::dialect::OperationDistAttribute)

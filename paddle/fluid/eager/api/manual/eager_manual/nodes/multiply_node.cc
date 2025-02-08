@@ -21,7 +21,6 @@
 #include "paddle/fluid/eager/utils.h"
 #include "paddle/fluid/framework/op_registry.h"
 #include "paddle/fluid/imperative/tracer.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
 #include "paddle/fluid/prim/api/all.h"
 #include "paddle/fluid/prim/api/composite_backward/composite_backward_api.h"
 #include "paddle/fluid/prim/utils/utils.h"
@@ -30,6 +29,10 @@
 #include "paddle/phi/api/backward/sparse_bw_api.h"
 #include "paddle/phi/api/include/sparse_api.h"
 #include "paddle/phi/api/lib/api_custom_impl.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
+
+using egr::ConvertAllInputsToDistTensor;
+using egr::InputsContainDistTensor;
 
 COMMON_DECLARE_bool(check_nan_inf);
 
@@ -41,6 +44,17 @@ MultiplyGradNode::operator()(
     bool is_new_grad) {
   VLOG(3) << "Running AD API GRAD: "
           << "multiply_grad";
+  // This 'Local_XXXGradNode' record event is different with
+  // 'Global_XXXGradNode' event.
+  // * 'Local_XXXGradNode' will only cover execution time of this function.
+  // * 'Global_XXXGradNode' will not only cover execution time of this function,
+  // but also include gradient
+  //    accumulation when the output(s) of corresponding forward OP are shared
+  //    by other OP(s), which may have extra accumulation overhead than
+  //    'Local_XXXGradNode'.
+  phi::RecordEvent node_execution_inner(
+      "Local_MultiplyGradNode", phi::TracerEventType::OperatorInner, 1);
+
   // Fill Zero For GradIn Tensors
   const auto& input_metas = this->InputMeta();
   egr::EagerUtils::FillZeroForEmptyGradInput(&grads[0][0], input_metas[0][0]);
@@ -53,6 +67,14 @@ MultiplyGradNode::operator()(
   auto y = egr::EagerUtils::RecoverTensorWrapper(&this->y_);
   auto& grad_out = hooked_grads[0][0];
   auto& axis = this->axis_;
+
+  // Convert All Inputs to DistTensor if Necessary
+  const phi::distributed::ProcessMesh* mesh = nullptr;
+  bool inputs_contain_dist_tensor = InputsContainDistTensor(&mesh, grad_out);
+  if (inputs_contain_dist_tensor) {
+    ConvertAllInputsToDistTensor(mesh, x, y);
+  }
+
   // Prepare Grad function call
 
   const auto& out_metas = OutputMeta();
@@ -75,9 +97,9 @@ MultiplyGradNode::operator()(
   bool trace_backward = egr::Controller::Instance().HasGrad() && create_graph;
 
   // Set DistAttr of Out Tensor for semi-auto parallel
-  if (IsRunAutoParallel()) {
+  if (IsRunAutoParallel() || inputs_contain_dist_tensor) {
     egr::EagerUtils::SetGradOutputDistAttr(
-        out_metas, {0, 1}, api_output_0, api_output_1);
+        out_metas, {0, 1}, *mesh, api_output_0, api_output_1);
   }
 
   // Inplace Check
@@ -162,9 +184,9 @@ MultiplyGradNode::operator()(
 
   if (!paddle::prim::PrimCommonUtils::IsEagerPrimEnabled() || need_skip) {
     if (trace_backward) {
-      paddle::platform::RecordEvent node_creation_record_event(
+      phi::RecordEvent node_creation_record_event(
           "multiply_grad node_creation",
-          paddle::platform::TracerEventType::OperatorInner,
+          phi::TracerEventType::OperatorInner,
           1);
 
       // Node Construction
@@ -245,6 +267,17 @@ MultiplyDoubleGradNode::operator()(
     bool is_new_grad) {
   VLOG(3) << "Running AD API GRAD: "
           << "multiply_double_grad";
+  // This 'Local_XXXGradNode' record event is different with
+  // 'Global_XXXGradNode' event.
+  // * 'Local_XXXGradNode' will only cover execution time of this function.
+  // * 'Global_XXXGradNode' will not only cover execution time of this function,
+  // but also include gradient
+  //    accumulation when the output(s) of corresponding forward OP are shared
+  //    by other OP(s), which may have extra accumulation overhead than
+  //    'Local_XXXGradNode'.
+  phi::RecordEvent node_execution_inner(
+      "Local_MultiplyDoubleGradNode", phi::TracerEventType::OperatorInner, 1);
+
   // Fill Zero For GradIn Tensors
   const auto& input_metas = this->InputMeta();
   egr::EagerUtils::FillZeroForEmptyOptionalGradInput(&grads[0][0],
@@ -314,7 +347,7 @@ MultiplyDoubleGradNode::operator()(
   // Inplace Strategy
 
   if (trace_backward) {
-    VLOG(6) << "No Inplace should happend for wrappered input: "
+    VLOG(6) << "No Inplace should happened for wrapped input: "
                "{inplace_grad_input_str}";
   } else {
     if (api_output_2 != nullptr && can_be_inplaced) {
@@ -435,7 +468,7 @@ MultiplyDoubleGradNode::operator()(
 
   if (need_skip) {
     if (trace_backward) {
-      PADDLE_THROW(phi::errors::Unavailable(
+      PADDLE_THROW(common::errors::Unavailable(
           "The Op multiply_double_grad doesn't have any grad"
           "op. If you don't intend calculating higher order"
           "derivatives, please set `create_graph`to False."));
@@ -505,6 +538,17 @@ MultiplyGradNode::operator()(
     bool is_new_grad) {
   VLOG(3) << "Running AD API GRAD: "
           << "multiply_grad";
+  // This 'Local_XXXGradNode' record event is different with
+  // 'Global_XXXGradNode' event.
+  // * 'Local_XXXGradNode' will only cover execution time of this function.
+  // * 'Global_XXXGradNode' will not only cover execution time of this function,
+  // but also include gradient
+  //    accumulation when the output(s) of corresponding forward OP are shared
+  //    by other OP(s), which may have extra accumulation overhead than
+  //    'Local_XXXGradNode'.
+  phi::RecordEvent node_execution_inner(
+      "Local_MultiplyGradNode", phi::TracerEventType::OperatorInner, 1);
+
   // Fill Zero For GradIn Tensors
   const auto& input_metas = this->InputMeta();
   egr::EagerUtils::FillZeroForEmptyGradInput(&grads[0][0], input_metas[0][0]);
@@ -598,7 +642,7 @@ MultiplyGradNode::operator()(
 
   // Create Grad Node
   if (trace_backward) {
-    PADDLE_THROW(phi::errors::Unavailable(
+    PADDLE_THROW(common::errors::Unavailable(
         "The Op multiply_grad doesn't have any grad"
         "op. If you don't intend calculating higher order"
         "derivatives, please set `create_graph`to False."));

@@ -23,6 +23,7 @@
 
 namespace pir {
 class Type;
+class UndefinedType;
 class UInt8Type;
 class Int8Type;
 class Int16Type;
@@ -35,6 +36,8 @@ class IndexType;
 class BoolType;
 class Complex64Type;
 class Complex128Type;
+class Float8E4M3FNType;
+class Float8E5M2Type;
 class StrAttribute;
 class BoolAttribute;
 class FloatAttribute;
@@ -107,10 +110,18 @@ class Builder {
 
   /// Set the insertion point to the end of the specified block.
   void SetInsertionPointToBlockEnd(Block *block) {
-    IR_ENFORCE(block != nullptr, "argument of block is nullptr");
+    PADDLE_ENFORCE_NOT_NULL(
+        block,
+        common::errors::PreconditionNotMet("argument of block is nullptr"));
     set_insertion_point(block, block->end());
   }
+  /// Set/Get the op_role
+  void set_op_role(int op_role) { op_role_ = op_role; }
+  int op_role() const { return op_role_; }
 
+  /// Set/Get the chunk_id
+  void set_chunk_id(int chunk_id) { chunk_id_ = chunk_id; }
+  int chunk_id() const { return chunk_id_; }
   IrContext *ir_context() const { return context_; }
 
   Block *block() const { return insertion_point_.first; }
@@ -126,12 +137,13 @@ class Builder {
                           const std::vector<Type> &output_types,
                           pir::OpInfo op_info);
 
-  Operation *Insert(Operation *op);
+  IR_API Operation *Insert(Operation *op);
 
   /// Create an operation of specific op type at the current insertion point.
   template <typename OpTy, typename... Args>
   OpTy Build(Args &&...args);
 
+  IR_API UndefinedType undefined_type();
   IR_API BoolType bool_type();
   IR_API UInt8Type uint8_type();
   IR_API Int8Type int8_type();
@@ -144,6 +156,8 @@ class Builder {
   IR_API Float64Type float64_type();
   IR_API Complex64Type complex64_type();
   IR_API Complex128Type complex128_type();
+  IR_API Float8E4M3FNType float8e4m3fn_type();
+  IR_API Float8E5M2Type float8e5m2_type();
 
   IR_API StrAttribute str_attr(const std::string &value);
   IR_API BoolAttribute bool_attr(bool value);
@@ -164,6 +178,11 @@ class Builder {
   InsertionPoint insertion_point_;
 
   bool forbid_insert_without_position_;
+
+  // by now the op_role is used by autoparallel for distinguish the op in fw,
+  // bw, opt region.
+  int op_role_ = -1;
+  int chunk_id_ = -1;
 };
 
 template <typename OpTy, typename... Args>
@@ -173,5 +192,21 @@ OpTy Builder::Build(Args &&...args) {
   Operation *op = Build(std::move(argument));
   return OpTy(op);
 }
+
+class BuilderAttrGuard {
+ public:
+  BuilderAttrGuard(std::shared_ptr<Builder> builder, int op_role, int chunk_id);
+
+  ~BuilderAttrGuard();
+
+  // forbid copy and operator=
+  BuilderAttrGuard(const BuilderAttrGuard &guard) = delete;
+  BuilderAttrGuard &operator=(const BuilderAttrGuard &guard) = delete;
+
+ private:
+  std::shared_ptr<Builder> builder_;
+  int pre_op_role_ = -1;
+  int pre_chunk_id_ = -1;
+};
 
 }  // namespace pir

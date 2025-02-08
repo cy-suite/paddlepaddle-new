@@ -334,22 +334,22 @@ static void GatherBilinearGrad(const CPUContext& ctx,
   DenseTensor d_w, d_e, d_n, d_s;
   DenseTensor v_wn, v_en, v_ws, v_es;
 
-  AllNeigbors<T>(ctx,
-                 input,
-                 grid_x,  // grid_x
-                 grid_y,  // grid_y
-                 &x_w,
-                 &x_e,
-                 &y_n,
-                 &y_s,
-                 &d_w,
-                 &d_e,
-                 &d_n,
-                 &d_s,
-                 &v_wn,
-                 &v_en,
-                 &v_ws,
-                 &v_es);
+  AllNeighbors<T>(ctx,
+                  input,
+                  grid_x,  // grid_x
+                  grid_y,  // grid_y
+                  &x_w,
+                  &x_e,
+                  &y_n,
+                  &y_s,
+                  &d_w,
+                  &d_e,
+                  &d_n,
+                  &d_s,
+                  &v_wn,
+                  &v_en,
+                  &v_ws,
+                  &v_es);
 
   // gather output grad value to input grad by corner point coords and weight
   GatherOutputGradToInputGrad<T>(output_grad, input_grad, x_w, y_n, d_e, d_s);
@@ -437,31 +437,31 @@ static void Gather3DBilinearGrad(const CPUContext& ctx,
   DenseTensor d_w, d_e, d_n, d_s, d_t, d_b;
   DenseTensor v_twn, v_ten, v_tws, v_tes, v_bwn, v_ben, v_bws, v_bes;
 
-  All3DNeigbors<T>(ctx,
-                   input,
-                   grid_x,
-                   grid_y,
-                   grid_z,
-                   &x_w,
-                   &x_e,
-                   &y_n,
-                   &y_s,
-                   &z_t,
-                   &z_b,
-                   &d_w,
-                   &d_e,
-                   &d_n,
-                   &d_s,
-                   &d_t,
-                   &d_b,
-                   &v_twn,
-                   &v_ten,
-                   &v_tws,
-                   &v_tes,
-                   &v_bwn,
-                   &v_ben,
-                   &v_bws,
-                   &v_bes);
+  All3DNeighbors<T>(ctx,
+                    input,
+                    grid_x,
+                    grid_y,
+                    grid_z,
+                    &x_w,
+                    &x_e,
+                    &y_n,
+                    &y_s,
+                    &z_t,
+                    &z_b,
+                    &d_w,
+                    &d_e,
+                    &d_n,
+                    &d_s,
+                    &d_t,
+                    &d_b,
+                    &v_twn,
+                    &v_ten,
+                    &v_tws,
+                    &v_tes,
+                    &v_bwn,
+                    &v_ben,
+                    &v_bws,
+                    &v_bes);
   // gather output grad value to input grad by corner point coords and weight
   Gather3DOutputGradToInputGrad<T>(
       output_grad, input_grad, x_w, y_n, z_t, d_e, d_s, d_b);
@@ -559,7 +559,7 @@ static void Gather3DBilinearGrad(const CPUContext& ctx,
     grid_grad_x_t = grid_grad_x_t * grid_x_scale_t;
     grid_grad_y_t = grid_grad_y_t * grid_y_scale_t;
     grid_grad_z_t = grid_grad_z_t * grid_z_scale_t;
-    // gather grid_grad [x, y, z] in 4rd Dim
+    // gather grid_grad [x, y, z] in 4th Dim
     T* grid_grad_data = grid_grad->data<T>();
     T* grid_grad_x_data = grid_grad_x.data<T>();
     T* grid_grad_y_data = grid_grad_y.data<T>();

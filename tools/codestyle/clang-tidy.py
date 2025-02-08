@@ -166,9 +166,9 @@ def get_tidy_invocation(
         os.close(handle)
         start.append(name)
     for arg in extra_arg:
-        start.append('-extra-arg=%s' % arg)
+        start.append(f'-extra-arg={arg}')
     for arg in extra_arg_before:
-        start.append('-extra-arg-before=%s' % arg)
+        start.append(f'-extra-arg-before={arg}')
     start.append('-p=' + build_path)
     if quiet:
         start.append('-quiet')
@@ -469,6 +469,20 @@ def main():
 
 
 if __name__ == '__main__':
+    if os.getenv("SKIP_CLANG_TIDY_CHECK", "").lower() in [
+        'y',
+        'yes',
+        't',
+        'true',
+        'on',
+        '1',
+    ]:
+        print(
+            "SKIP_CLANG_TIDY_CHECK is set, skip clang-tidy check.",
+            file=sys.stderr,
+        )
+        sys.exit(0)
+
     target_version = "15.0.2"
     try:
         out = subprocess.check_output(['clang-tidy', '--version'], shell=True)
@@ -479,13 +493,15 @@ if __name__ == '__main__':
                 file=sys.stderr,
             )
             subprocess.check_output(
-                'pip install --no-cache clang-tidy=="15.0.2.1"', shell=True
+                'pip install --no-cache clang-tidy=="15.0.2.1"',
+                shell=True,
             )
     except:
         print(
             "clang-tidy not found, attempting auto-install...", file=sys.stderr
         )
         subprocess.check_output(
-            'pip install --no-cache clang-tidy=="15.0.2.1"', shell=True
+            'pip install --no-cache clang-tidy=="15.0.2.1"',
+            shell=True,
         )
     main()

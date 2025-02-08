@@ -28,14 +28,23 @@
 #include "paddle/fluid/pir/dialect/operator/ir/op_onednn_dialect.h"
 #endif
 
-namespace paddle {
-namespace dialect {
+namespace paddle::dialect {
 bool HaveOpToMultiKernelsMap(std::string op_name) {
-  return op_to_multi_kernels_map.find(op_name) != op_to_multi_kernels_map.end();
+  for (const auto& map :
+       {&op_to_multi_kernels_map, &sp_op_to_multi_kernels_map}) {
+    if (map->find(op_name) != map->end()) {
+      return true;
+    }
+  }
+  return false;
 }
 
 const std::vector<PdOpSig>& LegacyOpToPdOpsMapping(std::string op_name) {
   return op_to_multi_kernels_map[op_name];
+}
+
+const std::vector<PdOpSig>& SparseOpToPdOpsMapping(std::string op_name) {
+  return sp_op_to_multi_kernels_map[op_name];
 }
 
 #ifdef PADDLE_WITH_DNNL
@@ -44,11 +53,9 @@ bool IsOneDNNOnlyOp(std::string op_name) {
 }
 #endif
 
-}  // namespace dialect
-}  // namespace paddle
+}  // namespace paddle::dialect
 
-namespace paddle {
-namespace translator {
+namespace paddle::translator {
 
 pir::Operation* InsertSliceOperationForTarget(
     pir::IrContext* ctx,
@@ -95,7 +102,7 @@ std::vector<std::string> CheckUnregisteredOperationInBlock(
     OpTranscriber general_handler;
     try {
       general_handler.LookUpOpInfo(ctx, *op);
-    } catch (pir::IrNotMetException& e) {
+    } catch (common::enforce::EnforceNotMet& e) {
       unregistered_ops.push_back(op->Type());
     }
   }
@@ -119,5 +126,4 @@ std::vector<std::string> CheckUnregisteredOperation(
   return unregistered_ops;
 }
 
-}  // namespace translator
-}  // namespace paddle
+}  // namespace paddle::translator

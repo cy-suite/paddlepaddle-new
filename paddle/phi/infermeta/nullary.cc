@@ -41,18 +41,23 @@ void AssignValueInferMeta(const std::vector<int>& shape,
   out->set_dtype(dtype);
 }
 
+void CommInitAllInferMeta(const std::vector<int>& devices, int ring_id) {}
+
 void CreateArrayInferMeta(DataType dtype, MetaTensor* out) {
   out->set_dtype(dtype);
 }
 
-void CreateInferMeta(const IntArray& shape, DataType dtype, MetaTensor* out) {
-  if (!shape.FromTensor()) {
+void CreateInferMeta(const IntArray& shape,
+                     DataType dtype,
+                     MetaTensor* out,
+                     MetaConfig config) {
+  if (config.is_runtime || !shape.FromTensor()) {
     const auto& data = shape.GetData();
     for (size_t i = 0; i < data.size(); ++i) {
       PADDLE_ENFORCE_GE(
           data[i],
           0,
-          phi::errors::InvalidArgument(
+          common::errors::InvalidArgument(
               "Each value of attribute 'shape' is expected to be no less "
               "than 0. But received: shape[%u] = %d; shape = [%s].",
               i,
@@ -123,17 +128,56 @@ void GaussianInferMeta(const IntArray& shape,
   out->set_layout(DataLayout::NCHW);
 }
 
-void PartialRecvInferMeta(int ring_id,
-                          int peer,
+void PartialRecvInferMeta(int peer,
                           DataType dtype,
                           const std::vector<int>& out_shape,
-                          bool use_calc_stream,
                           int num,
                           int id,
                           MetaTensor* out) {
+  PADDLE_ENFORCE_GE(
+      peer,
+      0,
+      common::errors::InvalidArgument(
+          "The peer (%d) for partial_recv op must be non-negative.", peer));
+  PADDLE_ENFORCE_GE(num,
+                    1,
+                    common::errors::InvalidArgument(
+                        "The num (%d) for partial_send op must >=1", num));
+  PADDLE_ENFORCE_EQ(
+      (id >= 0 && id < num),
+      true,
+      common::errors::InvalidArgument(
+          "The id (%d) for partial_send op must >=0 and <num (%d)", id, num));
+  PADDLE_ENFORCE_GE(out_shape.size(),
+                    1,
+                    common::errors::InvalidArgument(
+                        "The size of the output shape must be greater than 0 "
+                        "but the value given is %d.",
+                        out_shape.size()));
+
+  for (size_t i = 0; i < out_shape.size(); ++i) {
+    PADDLE_ENFORCE_GE(out_shape[i],
+                      1,
+                      common::errors::InvalidArgument(
+                          "The shape attribute for partial_recv must be set "
+                          "explicitly, but the %dth element is %d which "
+                          "is less than 1.",
+                          i,
+                          out_shape[i]));
+  }
+  auto out_dims = common::make_ddim(out_shape);
+  int64_t numel = common::product(out_dims);
+  PADDLE_ENFORCE_EQ(
+      (numel % num),
+      0,
+      common::errors::InvalidArgument(
+          "The output numel (%d) must be divisible by num(%d)", numel, num));
+
   out->set_dims(common::make_ddim(out_shape));
   out->set_dtype(dtype);
 }
+
+void LoadInferMeta(MetaTensor* out, MetaConfig config) {}
 
 void RandpermInferMeta(int n, DataType dtype, MetaTensor* out) {
   out->set_dims(common::make_ddim({n}));
@@ -172,13 +216,37 @@ void RandintInferMeta(
   out->set_dtype(dtype);
 }
 
-void PRecvInferMeta(int peer, DataType dtype, MetaTensor* out) {
+void PRecvInferMeta(const int peer,
+                    DataType dtype,
+                    const std::vector<int>& out_shape,
+                    const bool dynamic_shape,
+                    MetaTensor* out) {
   PADDLE_ENFORCE_GE(
       peer,
       0,
       errors::InvalidArgument(
           "The peer (%d) for p_recv op must be non-negative.", peer));
-  // auto data_type = phi::TransToPhiDataType(dtype);
+
+  if (!dynamic_shape) {
+    PADDLE_ENFORCE_GE(out_shape.size(),
+                      1,
+                      errors::InvalidArgument(
+                          "The size of the output shape must be greater than 0 "
+                          "but the value given is %d.",
+                          out_shape.size()));
+    for (size_t i = 0; i < out_shape.size(); ++i) {
+      PADDLE_ENFORCE_GE(out_shape[i],
+                        1,
+                        errors::InvalidArgument(
+                            "The shape attribute for p_recv must be set "
+                            "explicitly, but the %dth element is %d which "
+                            "is less than 1. Or dynamic_shape should be "
+                            "set to True for both p_send and p_recv.",
+                            i,
+                            out_shape[i]));
+    }
+    out->set_dims(common::make_ddim(out_shape));
+  }
   out->set_dtype(dtype);
 }
 
@@ -231,14 +299,13 @@ void RecvV2InferMeta(const int ring_id,
       errors::InvalidArgument(
           "The ring_id (%d) for recv_v2 op must be non-negative.", ring_id));
 
-  PADDLE_ENFORCE_GE(out_shape.size(),
-                    1,
-                    errors::InvalidArgument(
-                        "The size of the output shape must be greater than 0 "
-                        "but the value given is %d.",
-                        out_shape.size()));
-
   if (!dynamic_shape) {
+    PADDLE_ENFORCE_GE(out_shape.size(),
+                      1,
+                      errors::InvalidArgument(
+                          "The size of the output shape must be greater than 0 "
+                          "but the value given is %d.",
+                          out_shape.size()));
     for (size_t i = 0; i < out_shape.size(); ++i) {
       PADDLE_ENFORCE_GE(out_shape[i],
                         1,
@@ -264,6 +331,8 @@ void TruncatedGaussianRandomInferMeta(const std::vector<int>& shape,
                                       float mean,
                                       float std,
                                       int seed,
+                                      float a,
+                                      float b,
                                       DataType dtype,
                                       MetaTensor* out) {
   auto out_dims = common::make_ddim(shape);

@@ -144,4 +144,82 @@ TEST(Simplify, NestSymbolicMulAddUnit) {
   ASSERT_TRUE((simplified_dim_expr.Has<std::string>()));
   ASSERT_TRUE((simplified_dim_expr == sym));
 }
+
+TEST(Simplify, ConstantMaxMin) {
+  List<DimExpr> max_lists{DimExpr(4), DimExpr(6)};
+  DimExpr dim_expr1{Max<DimExpr>{max_lists}};
+
+  DimExpr simplified_dim_expr1 = SimplifyDimExpr(dim_expr1);
+  ASSERT_TRUE((simplified_dim_expr1.Has<std::int64_t>()));
+  ASSERT_EQ((simplified_dim_expr1.Get<std::int64_t>()), 6);
+
+  List<DimExpr> min_lists{DimExpr(2), DimExpr(3)};
+  DimExpr dim_expr2{Min<DimExpr>{min_lists}};
+
+  DimExpr simplified_dim_expr2 = SimplifyDimExpr(dim_expr2);
+  ASSERT_TRUE((simplified_dim_expr2.Has<std::int64_t>()));
+  ASSERT_EQ((simplified_dim_expr2.Get<std::int64_t>()), 2);
+}
+
+TEST(Simplify, FoldBroadcast) {
+  DimExpr sym0{"S0"};
+  DimExpr sym1{"S1"};
+  DimExpr mul{Mul<DimExpr>{{sym0, sym1}}};
+  DimExpr broadcast0{Broadcast<DimExpr>{{mul, sym0}}};
+  DimExpr broadcast1{Broadcast<DimExpr>{{sym1, mul}}};
+  DimExpr simplify_broadcast0 = SimplifyDimExpr(broadcast0);
+  DimExpr simplify_broadcast1 = SimplifyDimExpr(broadcast1);
+
+  DimExpr add{Add<DimExpr>{{sym0, sym1}}};
+  DimExpr broadcast2{Broadcast<DimExpr>{{add, sym0}}};
+  DimExpr broadcast3{Broadcast<DimExpr>{{sym1, add}}};
+  DimExpr simplify_broadcast2 = SimplifyDimExpr(broadcast2);
+  DimExpr simplify_broadcast3 = SimplifyDimExpr(broadcast3);
+
+  ASSERT_TRUE(simplify_broadcast0 == mul);
+  ASSERT_TRUE(simplify_broadcast1 == mul);
+  ASSERT_TRUE(simplify_broadcast2 == add);
+  ASSERT_TRUE(simplify_broadcast3 == add);
+}
+
+TEST(Simplify, FoldRedundantBroadcast) {
+  DimExpr S0{"S0"};
+  DimExpr S1{"S1"};
+  DimExpr bc{Broadcast<DimExpr>{{S0, S0, S1, S1}}};
+  DimExpr simplify_bc = SimplifyDimExpr(bc);
+  ASSERT_TRUE((simplify_bc == Broadcast<DimExpr>{{S0, S1}}));
+}
+
+TEST(Simplify, Case1) {
+  // Mul(Broadcast(S11, S8), Broadcast(S10, S13, S4, S7), Broadcast(S12, S3, S6,
+  // S9), 1 / (S0), 16, 1 / (49))
+  DimExpr S11{"S11"};
+  DimExpr S8{"S8"};
+  DimExpr mul_op1 = Broadcast<DimExpr>{{S11, S8}};
+
+  DimExpr S10{"S10"};
+  DimExpr S13{"S13"};
+  DimExpr S4{"S4"};
+  DimExpr S7{"S7"};
+  DimExpr mul_op2 = Broadcast<DimExpr>{{S10, S13, S4, S7}};
+
+  DimExpr S12{"S12"};
+  DimExpr S3{"S3"};
+  DimExpr S6{"S6"};
+  DimExpr S9{"S9"};
+  DimExpr mul_op3 = Broadcast<DimExpr>{{S12, S3, S6, S9}};
+
+  DimExpr S0{"S0"};
+  DimExpr mul_op4 = Reciprocal<DimExpr>(S0);
+
+  DimExpr mul_op5 = DimExpr(16);
+
+  DimExpr mul_op6 = Reciprocal<DimExpr>(DimExpr(49));
+
+  List<DimExpr> mul_list{mul_op1, mul_op2, mul_op3, mul_op4, mul_op5, mul_op6};
+  DimExpr dim_expr{Mul<DimExpr>{mul_list}};
+
+  ASSERT_TRUE((SimplifyDimExpr(dim_expr)) == dim_expr);
+}
+
 }  // namespace symbol::test

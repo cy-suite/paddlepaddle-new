@@ -22,8 +22,10 @@
 #include <unordered_set>
 #include <vector>
 
+#include "paddle/common/ddim.h"
 #include "paddle/fluid/pir/dialect/operator/ir/api_builder.h"
 #include "paddle/fluid/pir/dialect/operator/ir/control_flow_op.h"
+#include "paddle/fluid/pir/dialect/operator/ir/manual_pylayer_op.h"
 #include "paddle/fluid/pir/utils/general_functions.h"
 #include "paddle/fluid/platform/enforce.h"
 #include "paddle/phi/common/data_type.h"
@@ -33,6 +35,8 @@
 #include "paddle/pir/include/core/program.h"
 #include "paddle/pir/include/core/value.h"
 #include "paddle/pir/include/dialect/control_flow/ir/cf_op.h"
+
+#include "paddle/fluid/pybind/python_callable_registry.h"
 
 namespace py = pybind11;
 using paddle::dialect::ApiBuilder;
@@ -48,8 +52,8 @@ using pir::Builder;
 using pir::CombineOp;
 using pir::Operation;
 using pir::Program;
-using pir::Region;
 using pir::StackCreateOp;
+using pir::TuplePopOp;
 using pir::TuplePushOp;
 using pir::Type;
 using pir::Value;
@@ -88,10 +92,8 @@ void BindIfOp(py::module* m) {
 
 void BindPyLayerOp(py::module* m) {
   m->def("build_pylayer_op", [](const std::vector<Value>& inputs) {
-    auto inputs_combine_op =
-        ApiBuilder::Instance().GetBuilder()->Build<pir::CombineOp>(inputs);
     return ApiBuilder::Instance().GetBuilder()->Build<PyLayerOp>(
-        inputs_combine_op.out(), std::vector<Type>{});
+        inputs, std::vector<Type>{}, -1);
   });
   py::class_<PyLayerOp> pylayer_op(*m, "PyLayerOp", R"DOC(
     TODO(MarioLulab): Add some docs for pd_op.pylayer
@@ -101,14 +103,27 @@ void BindPyLayerOp(py::module* m) {
            &PyLayerOp::forward_block,
            return_value_policy::reference)
       .def("update_output", &PyLayerOp::UpdateOutput)
+      .def("update_input", &PyLayerOp::UpdateInput)
       .def(
           "as_operation", &PyLayerOp::operation, return_value_policy::reference)
-      .def("results", [](PyLayerOp& self) -> py::list {
-        py::list op_list;
-        for (uint32_t i = 0; i < self->num_results(); i++) {
-          op_list.append(self.result(i));
-        }
-        return op_list;
+      .def("id",
+           [](PyLayerOp& self) -> uint64_t { return self.operation()->id(); })
+      .def("results",
+           [](PyLayerOp& self) -> py::list {
+             py::list op_list;
+             for (uint32_t i = 0; i < self->num_results(); i++) {
+               op_list.append(self.result(i));
+             }
+             return op_list;
+           })
+      .def("register_backward_function", [](PyLayerOp& self, py::object func) {
+        uint64_t unique_id = self.operation()->id();
+        VLOG(2) << "register backward function for op id: " << unique_id;
+        paddle::pybind::PythonCallableRegistrar::GetInstance().Register(
+            unique_id, func);
+        self.operation()->set_attribute(
+            "backward_function_id",
+            pir::Int32Attribute::get(pir::IrContext::Instance(), unique_id));
       });
 }
 
@@ -130,7 +145,8 @@ void BindWhileOp(py::module* m) {
       .def("block_arguments",
            &WhileOp::block_args,
            return_value_policy::reference)
-      .def("optimize_update", &PyWhileOp::OptimizeUpdate);
+      .def("optimize_update", &PyWhileOp::OptimizeUpdate)
+      .def("add_extra_input", &PyWhileOp::AddExtraInput);
 }
 
 void BindAssertOp(py::module* m) {
@@ -148,9 +164,57 @@ void BindAssertOp(py::module* m) {
       "as_operation", &AssertOp::operation, return_value_policy::reference);
 }
 
+void BindTuplePopOp(py::module* m) {
+  py::class_<TuplePopOp> tuple_pop_op(*m, "TuplePopOp", R"DOC(
+    TuplePopOp in python api.
+  )DOC");
+  tuple_pop_op
+      .def("as_operation",
+           &TuplePopOp::operation,
+           return_value_policy::reference)
+      .def("pop_all_values",
+           [](TuplePopOp& self) -> py::list {
+             py::list res;
+             for (size_t i = 0; i < self.num_results(); ++i) {
+               res.append(self.result(i));
+             }
+             return res;
+           })
+      .def(
+          "tuple_size", &TuplePopOp::tuple_size, return_value_policy::reference)
+      .def("outlet_element",
+           &TuplePopOp::outlet_element,
+           return_value_policy::reference);
+}
+
+void BuildPipeForPyLayer(Block* block, const std::vector<pir::Value>& values) {
+  PADDLE_ENFORCE_NOT_NULL(
+      block,
+      common::errors::InvalidArgument(
+          "The block used to hook local value can't be nullptr"));
+  auto& builder = *(ApiBuilder::Instance().GetBuilder());
+  Program* program = block->parent_program();
+  PADDLE_ENFORCE_NOT_NULL(
+      program,
+      common::errors::InvalidArgument(
+          "The block used to hook local value must belong to a program"));
+
+  auto original_position = builder.insertion_point();
+
+  builder.SetInsertionPointToStart(program->block());
+  auto inlet = builder.Build<StackCreateOp>().inlet();
+  auto iter = block->end();
+  if (!block->empty() && block->back().isa<YieldOp>()) {
+    --iter;
+  }
+  builder.set_insertion_point(block, iter);
+  builder.Build<TuplePushOp>(inlet, values);
+  builder.set_insertion_point(original_position);
+}
+
 Value BuildHasElementsOp(Operation& fwd_op) {  // NOLINT
   PADDLE_ENFORCE(fwd_op.isa<WhileOp>(),
-                 phi::errors::PreconditionNotMet(
+                 common::errors::PreconditionNotMet(
                      "param op of BuildHasElementsOp must be while op."));
   auto fwdop = fwd_op.dyn_cast<WhileOp>();
   TuplePushOp push_op;
@@ -159,7 +223,7 @@ Value BuildHasElementsOp(Operation& fwd_op) {  // NOLINT
       push_op = iter->dyn_cast<TuplePushOp>();
       PADDLE_ENFORCE_EQ(push_op.container().use_empty(),
                         false,
-                        phi::errors::InvalidArgument(
+                        common::errors::InvalidArgument(
                             "The last container in forward while op must used "
                             "after construct while_grad op"));
       break;
@@ -175,13 +239,13 @@ Value BuildHasElementsOp(Operation& fwd_op) {  // NOLINT
 void BuildPipeForBlock(Block* block) {
   PADDLE_ENFORCE_NOT_NULL(
       block,
-      paddle::platform::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "The block used to hook local value can't be nullptr"));
   auto& builder = *(ApiBuilder::Instance().GetBuilder());
   Program* program = block->parent_program();
   PADDLE_ENFORCE_NOT_NULL(
       program,
-      paddle::platform::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "The block used to hook local value must belong to a program"));
 
   auto original_position = builder.insertion_point();
@@ -208,23 +272,22 @@ void BuildPipeForBlock(Block* block) {
 
 }  // namespace
 
-namespace paddle {
-namespace pybind {
+namespace paddle::pybind {
 PyIfOp::PyIfOp(IfOp if_op) : IfOp(if_op) {
   PADDLE_ENFORCE_NOT_NULL(
       if_op,
-      paddle::platform::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "The if_op used to construct PyIfOp can't be nullptr"));
 }
 
 void PyIfOp::UpdateOutput() {
   PADDLE_ENFORCE_NOT_NULL(
       operation_,
-      paddle::platform::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "The if_op in PyIfOp used to update output can't be nullptr"));
   auto block = parent();
   PADDLE_ENFORCE_NOT_NULL(block,
-                          paddle::platform::errors::InvalidArgument(
+                          common::errors::InvalidArgument(
                               "The parent block of if_op which used to update "
                               "output can't be nullptr"));
   Block::Iterator iter = **this;
@@ -239,36 +302,80 @@ void PyIfOp::UpdateOutput() {
 PyWhileOp::PyWhileOp(WhileOp while_op) : WhileOp(while_op) {
   PADDLE_ENFORCE_NOT_NULL(
       operation_,
-      paddle::platform::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "The while_op used to construct PyWhileOp can't be nullptr"));
+}
+
+void PyWhileOp::AddExtraInput(const pir::Value& value) {
+  extra_inputs_.push_back(value);
 }
 
 std::vector<Value> PyWhileOp::OptimizeUpdate() {
   PADDLE_ENFORCE_NOT_NULL(operation_,
-                          paddle::platform::errors::InvalidArgument(
+                          common::errors::InvalidArgument(
                               "The while_op in PyWhileOp used to remove unused "
                               "loop vars can't be nullptr"));
   auto parent_block = parent();
   PADDLE_ENFORCE_NOT_NULL(
       parent_block,
-      paddle::platform::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "The parent block of while_op which used to remove "
           "unused loop vars can't be nullptr"));
 
-  operation_->Verify();
+  // Skip verify if operation has extra inputs
+  if (extra_inputs_.empty()) {
+    operation_->Verify();
+  }
   auto& body_block = body();
   auto yield_op = body_block.back().dyn_cast<YieldOp>();
   auto operand_num = operation_->num_operands();
-  bool no_change = true;
+
+  PADDLE_ENFORCE_EQ(
+      operand_num - 1 + extra_inputs_.size(),
+      body_block.args().size(),
+      common::errors::InvalidArgument("The number of operands in while_op and "
+                                      "the number of args in body block "
+                                      "should be equal."));
+  bool no_change = extra_inputs_.empty();
   std::vector<size_t> index_vec;
   std::vector<Value> res, new_input, new_yield_val{yield_op.operand_source(0)};
   for (uint32_t i = 0; i < num_results(); ++i) {
     res.push_back(result(i));
   }
   for (size_t operand_index = 1u, arg_index = 0u; operand_index < operand_num;
+       ++operand_index, ++arg_index) {
+    if (!body_block.arg(arg_index).type().isa<pir::DenseTensorType>()) {
+      continue;
+    }
+
+    auto l_type =
+        body_block.arg(arg_index).type().dyn_cast<pir::DenseTensorType>();
+    auto r_type = yield_op.operand_source(operand_index)
+                      .type()
+                      .dyn_cast<pir::DenseTensorType>();
+    if (l_type.dims().size() == r_type.dims().size() &&
+        l_type.dims() != r_type.dims()) {
+      VLOG(4) << "while op input " << operand_index
+              << " has dynamic shape, origin shape is: " << l_type.dims()
+              << "new shape is: " << r_type.dims();
+      auto dim = common::ComputeCompatibleDim(l_type.dims(), r_type.dims());
+      auto new_type = pir::DenseTensorType::get(operation_->ir_context(),
+                                                l_type.dtype(),
+                                                dim,
+                                                l_type.data_layout(),
+                                                l_type.lod(),
+                                                l_type.offset());
+      body_block.arg(arg_index).set_type(new_type);
+      yield_op.operand_source(operand_index).set_type(new_type);
+      result(arg_index).set_type(new_type);
+      VLOG(4) << "change shape as: " << new_type.dims();
+    }
+  }
+
+  for (size_t operand_index = 1u, arg_index = 0u; operand_index < operand_num;
        ++operand_index) {
+    operand_source(operand_index).set_type(body_block.arg(arg_index).type());
     if (yield_op.operand_source(operand_index) == body_block.arg(arg_index)) {
-      operand_source(operand_index).set_type(body_block.arg(arg_index).type());
       body_block.arg(arg_index).ReplaceAllUsesWith(
           operand_source(operand_index));
       body_block.EraseArg(arg_index);
@@ -281,6 +388,12 @@ std::vector<Value> PyWhileOp::OptimizeUpdate() {
       ++arg_index;
     }
   }
+  for (size_t extra_input_idx = 0u; extra_input_idx < extra_inputs_.size();
+       ++extra_input_idx) {
+    new_input.push_back(extra_inputs_[extra_input_idx]);
+    new_yield_val.push_back(
+        yield_op.operand_source(operand_num + extra_input_idx));
+  }
   if (no_change) return res;
   Block::Iterator iter = **this;
   Builder builder(ir_context(), false);
@@ -292,8 +405,13 @@ std::vector<Value> PyWhileOp::OptimizeUpdate() {
   builder.SetInsertionPointToBlockEnd(&body_block);
   builder.Build<YieldOp>(new_yield_val);
   operation_->Verify();
-  for (size_t result_index = 0; result_index < num_results(); ++result_index) {
+  for (size_t result_index = 0;
+       result_index < num_results() - extra_inputs_.size();
+       ++result_index) {
     res[index_vec[result_index]] = result(result_index);
+  }
+  for (size_t i = 0; i < extra_inputs_.size(); ++i) {
+    res.push_back(result(num_results() - extra_inputs_.size() + i));
   }
   return res;
 }
@@ -304,6 +422,7 @@ void BindControlFlowApi(py::module* m) {
   m->def("get_used_external_value",
          [](const Block& block) { return pir::GetUsedExternalValue(block); });
   m->def("build_pipe_for_block", BuildPipeForBlock);
+  m->def("build_pipe_for_pylayer", BuildPipeForPyLayer);
   m->def("cf_has_elements", BuildHasElementsOp);
   m->def("cf_yield", [](py::list inputs) {
     std::vector<Value> input_values;
@@ -316,7 +435,7 @@ void BindControlFlowApi(py::module* m) {
   BindWhileOp(m);
   BindAssertOp(m);
   BindPyLayerOp(m);
+  BindTuplePopOp(m);
 }
 
-}  // namespace pybind
-}  // namespace paddle
+}  // namespace paddle::pybind

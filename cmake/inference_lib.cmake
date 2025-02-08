@@ -114,17 +114,17 @@ function(copy_part_of_third_party TARGET DST)
     endif()
   endif()
 
-  if(WITH_MKLDNN)
-    set(dst_dir "${DST}/third_party/install/mkldnn")
+  if(WITH_ONEDNN)
+    set(dst_dir "${DST}/third_party/install/onednn")
     if(WIN32)
       copy(
         ${TARGET}
-        SRCS ${MKLDNN_INC_DIR} ${MKLDNN_SHARED_LIB} ${MKLDNN_LIB}
+        SRCS ${ONEDNN_INC_DIR} ${ONEDNN_SHARED_LIB} ${ONEDNN_LIB}
         DSTS ${dst_dir} ${dst_dir}/lib ${dst_dir}/lib)
     else()
       copy(
         ${TARGET}
-        SRCS ${MKLDNN_INC_DIR} ${MKLDNN_SHARED_LIB}
+        SRCS ${ONEDNN_INC_DIR} ${ONEDNN_SHARED_LIB}
         DSTS ${dst_dir} ${dst_dir}/lib)
       if(WITH_STRIP)
         add_custom_command(
@@ -150,6 +150,20 @@ function(copy_part_of_third_party TARGET DST)
       DSTS ${dst_dir}/include ${dst_dir})
   endif()
 
+  if(WITH_OPENVINO)
+    set(dst_dir "${DST}/third_party/install/openvino")
+    copy(
+      ${TARGET}
+      SRCS ${OPENVINO_INC_DIR} ${OPENVINO_LIB_DIR}
+      DSTS ${dst_dir} ${dst_dir})
+
+    set(dst_dir "${DST}/third_party/install/tbb")
+    copy(
+      ${TARGET}
+      SRCS ${TBB_INC_DIR} ${TBB_LIB_DIR}
+      DSTS ${dst_dir} ${dst_dir})
+  endif()
+
   set(dst_dir "${DST}/third_party/install/gflags")
   copy(
     ${TARGET}
@@ -168,6 +182,12 @@ function(copy_part_of_third_party TARGET DST)
     SRCS ${UTF8PROC_INSTALL_DIR}/include ${UTF8PROC_LIBRARIES}
     DSTS ${dst_dir} ${dst_dir}/lib)
 
+  set(dst_dir "${DST}/third_party/install/yaml-cpp")
+  copy(
+    ${TARGET}
+    SRCS ${YAML_INSTALL_DIR}/include ${YAML_LIBRARIES}
+    DSTS ${dst_dir} ${dst_dir}/lib)
+
   if(WITH_CRYPTO)
     set(dst_dir "${DST}/third_party/install/cryptopp")
     copy(
@@ -181,6 +201,22 @@ function(copy_part_of_third_party TARGET DST)
     ${TARGET}
     SRCS ${XXHASH_INCLUDE_DIR} ${XXHASH_LIBRARIES}
     DSTS ${dst_dir} ${dst_dir}/lib)
+
+  if(WITH_FLASHATTN)
+    set(dst_dir "${DST}/third_party/install/flashattn")
+    copy(
+      ${TARGET}
+      SRCS ${FLASHATTN_INCLUDE_DIR} ${FLASHATTN_LIBRARIES}
+      DSTS ${dst_dir} ${dst_dir}/lib)
+  endif()
+
+  if(WITH_FLASHATTN_V3)
+    set(dst_dir "${DST}/third_party/install/flashattn")
+    copy(
+      ${TARGET}
+      SRCS ${FLASHATTN_INCLUDE_DIR} ${FLASHATTN_V3_LIBRARIES}
+      DSTS ${dst_dir} ${dst_dir}/lib)
+  endif()
 
   if(NOT PROTOBUF_FOUND OR WIN32)
     set(dst_dir "${DST}/third_party/install/protobuf")
@@ -272,17 +308,25 @@ else()
     DSTS ${PADDLE_INFERENCE_INSTALL_DIR}/paddle/include
          ${PADDLE_INFERENCE_INSTALL_DIR}/paddle/lib)
   if(WITH_SHARED_PHI)
-    set(paddle_phi_lib ${PADDLE_BINARY_DIR}/paddle/phi/libphi.*)
+    set(paddle_phi_libs ${PADDLE_BINARY_DIR}/paddle/phi/libphi*)
     copy(
       inference_lib_dist
-      SRCS ${paddle_phi_lib}
+      SRCS ${paddle_phi_libs}
       DSTS ${PADDLE_INFERENCE_INSTALL_DIR}/paddle/lib)
+    if(WITH_GPU OR WITH_ROCM)
+      set(paddle_phi_kernel_gpu_lib
+          ${PADDLE_BINARY_DIR}/paddle/phi/libphi_gpu.*)
+      copy(
+        inference_lib_dist
+        SRCS ${paddle_phi_kernel_gpu_lib}
+        DSTS ${PADDLE_INFERENCE_INSTALL_DIR}/paddle/lib)
+    endif()
   endif()
 endif()
 
 copy(
   inference_lib_dist
-  SRCS ${CMAKE_BINARY_DIR}/paddle/fluid/framework/framework.pb.h
+  SRCS ${CMAKE_BINARY_DIR}/paddle/phi/core/framework/framework.pb.h
   DSTS ${PADDLE_INFERENCE_INSTALL_DIR}/paddle/include/internal)
 copy(
   inference_lib_dist
@@ -356,10 +400,6 @@ copy(
 
 copy(
   inference_lib_dist
-  SRCS ${PADDLE_SOURCE_DIR}/paddle/pir/include/core/parser/*.h
-  DSTS ${PADDLE_INFERENCE_INSTALL_DIR}/paddle/include/paddle/pir/core/parser/)
-copy(
-  inference_lib_dist
   SRCS ${PADDLE_SOURCE_DIR}/paddle/pir/include/core/*.h
   DSTS ${PADDLE_INFERENCE_INSTALL_DIR}/paddle/include/paddle/pir/core/)
 copy(
@@ -376,6 +416,11 @@ copy(
   inference_lib_dist
   SRCS ${PADDLE_SOURCE_DIR}/paddle/pir/include/dialect/shape/utils/*.h
   DSTS ${PADDLE_INFERENCE_INSTALL_DIR}/paddle/include/paddle/pir/dialect/shape/utils/
+)
+copy(
+  inference_lib_dist
+  SRCS ${PADDLE_SOURCE_DIR}/paddle/pir/include/dialect/shape/interface/infer_symbolic_shape/*.h
+  DSTS ${PADDLE_INFERENCE_INSTALL_DIR}/paddle/include/paddle/pir/dialect/shape/interface/infer_symbolic_shape/
 )
 copy(
   inference_lib_dist

@@ -27,13 +27,13 @@
 #include "paddle/cinn/ir/ir_base.h"
 #include "paddle/cinn/ir/ir_mutator.h"
 #include "paddle/cinn/ir/op/ir_operators.h"
-#include "paddle/cinn/ir/schedule/ir_schedule_error.h"
+#include "paddle/cinn/ir/schedule/ir_schedule.h"
 #include "paddle/cinn/ir/tensor.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
 #include "paddle/cinn/optim/replace_var_with_expr.h"
 #include "paddle/cinn/utils/random_engine.h"
 #include "paddle/cinn/utils/string.h"
-
+#include "paddle/common/enforce.h"
 namespace cinn {
 namespace ir {
 struct IterRange;
@@ -66,6 +66,13 @@ Tensor GetReadTensor(const Expr& block, int index);
 int GetLoopExtent(const Expr& loop);
 
 /**
+ * \brief Given a For node, return its extent as int.
+ * @param loop The given For node
+ * @return The extent of For node
+ */
+int GetLoopExtent(const ir::stmt::For loop);
+
+/**
  * \brief Given a vector of Exprs, return whether they contain a var with
  * specific name.
  * @param exprs The given vector of Exprs
@@ -78,7 +85,7 @@ bool ContainVar(const std::vector<Expr>& exprs, const std::string& var_name);
  * \brief Given a _LoweredFunc_, set its cuda_axis_info based on its func_body.
  * @param lowered_func A pointer to the given _LoweredFunc_
  */
-void SetCudaAxisInfo(Expr* lowered_func);
+void SetCudaAxisInfo(ir::LoweredFunc lowered_func);
 
 /*!
  * \brief Check if a Expr node contains a ScheduleBlockRealize node.
@@ -205,7 +212,7 @@ Expr MakeCacheBlock(const std::vector<IterRange>& buffer_ranges,
                     DeviceAPI device_api);
 
 /**
- * Fidn cache tensor block's insertion point in the whole AST(root).
+ * Find cache tensor block's insertion point in the whole AST(root).
  * @param root The whole AST.
  * @param info The information of cache block.
  * @param is_write Are we inserting a write cache tensor or a read cache tensor.
@@ -390,7 +397,11 @@ struct RfMutator : public ir::IRMutator<> {
       : rf_loop_(rf_loop), rf_axis_(rf_axis) {}
   void operator()(Expr* expr) {
     auto* rf_for = rf_loop_.As<For>();
-    CHECK(rf_for);
+    PADDLE_ENFORCE_NOT_NULL(
+        rf_for,
+        ::common::errors::InvalidArgument(
+            "Failed to cast rf_loop_ to For type. The rf_loop_ "
+            "object is not of type For or is null."));
     old_rf_loop_var_ = rf_for->loop_var;
     new_rf_loop_var_ = Var("rf_" + old_rf_loop_var_->name);
     IRMutator::Visit(expr, expr);
@@ -401,24 +412,52 @@ struct RfMutator : public ir::IRMutator<> {
   void Visit(const ScheduleBlockRealize* op, Expr* expr) override {
     // modify iter_vars and iter_values
     auto* node = expr->As<ScheduleBlockRealize>();
-    CHECK(node);
+    PADDLE_ENFORCE_NOT_NULL(
+        node,
+        ::common::errors::InvalidArgument(
+            "Failed to cast expr to ScheduleBlockRealize. The expr object is "
+            "not of type ScheduleBlockRealize or is null."));
     auto* schedule_block = node->schedule_block.As<ScheduleBlock>();
-    CHECK(schedule_block);
+    PADDLE_ENFORCE_NOT_NULL(
+        schedule_block,
+        ::common::errors::InvalidArgument(
+            "Failed to cast node->schedule_block to ScheduleBlock. The "
+            "schedule_block object is not of type ScheduleBlock or is null."));
     old_output_name_ = schedule_block->name;
     find_tensor_ = false;
     auto& block_vars = schedule_block->iter_vars;
     auto& iter_values = node->iter_values;
-    CHECK(old_rf_loop_var_.defined());
-    CHECK(new_rf_loop_var_.defined());
-    CHECK_EQ(iter_values.size(), block_vars.size());
+    PADDLE_ENFORCE_EQ(old_rf_loop_var_.defined(),
+                      true,
+                      ::common::errors::InvalidArgument(
+                          "Old RF loop variable is not defined. Please ensure "
+                          "old_rf_loop_var_ is properly initialized."));
+
+    PADDLE_ENFORCE_EQ(new_rf_loop_var_.defined(),
+                      true,
+                      ::common::errors::InvalidArgument(
+                          "New RF loop variable is not defined. Please ensure "
+                          "new_rf_loop_var_ is properly initialized."));
+    PADDLE_ENFORCE_EQ(
+        iter_values.size(),
+        block_vars.size(),
+        ::common::errors::InvalidArgument(
+            "The size of iter_values and block_vars should be the same."));
     int rf_index = -1;
     for (int i = 0; i < iter_values.size(); ++i) {
       // substitute the old rfactor loop var to new rfactor loop var
       if (ContainVar({iter_values[i]}, old_rf_loop_var_->name)) {
-        CHECK_EQ(rf_index, -1)
-            << "only one block var can bind the rfactor loop var";
-        CHECK(iter_values[i].As<_Var_>())
-            << "rfactor loop var not support composite bindings";
+        PADDLE_ENFORCE_EQ(
+            rf_index,
+            -1,
+            ::common::errors::InvalidArgument(
+                "only one block var can bind the rfactor loop var"));
+        PADDLE_ENFORCE_NOT_NULL(
+            iter_values[i].As<_Var_>(),
+            ::common::errors::NotFound(
+                "Rfactor loop var not support composite bindings. The variable "
+                "at index %d cannot be cast to the expected type.",
+                i));
         rf_index = i;
         optim::ReplaceVarWithExpr(
             &iter_values[i], old_rf_loop_var_, new_rf_loop_var_);
@@ -433,26 +472,45 @@ struct RfMutator : public ir::IRMutator<> {
       block_vars.push_back(new_rf_itervar_);
     }
     IRMutator::Visit(&node->schedule_block, &node->schedule_block);
-    CHECK(find_tensor_)
-        << "not find the store tensor with the schedule block name "
-        << old_output_name_;
+    PADDLE_ENFORCE_EQ(
+        find_tensor_,
+        true,
+        ::common::errors::InvalidArgument(
+            "Can not find the store tensor with the schedule block name %s.",
+            old_output_name_.c_str()));
     schedule_block->name = "rf_" + old_output_name_;
   }
 
   void Visit(const Load* op, Expr* expr) override {
     // insert the new rfactor indice if not exist
     auto* node = expr->As<Load>();
-    CHECK(node);
+    PADDLE_ENFORCE_NOT_NULL(
+        node,
+        ::common::errors::NotFound(
+            "The expression could not be cast to a Load node."));
     auto* tensor = node->tensor.As<_Tensor_>();
-    CHECK(tensor);
+    PADDLE_ENFORCE_NOT_NULL(tensor,
+                            ::common::errors::NotFound(
+                                "The tensor in the Load node could not be cast "
+                                "to the expected _Tensor_ type."));
     if (tensor->name == "rf_" + old_output_name_) {
       int size = node->indices.size();
-      CHECK_LE(rf_axis_, size)
-          << "rf_axis should not be greater than indice size " << size;
-      CHECK(new_rf_itervar_.defined());
-      CHECK(!ContainVar(node->indices, new_rf_itervar_->name))
-          << "original output tensor " << old_output_name_
-          << " should not have the new rfactor index " << new_rf_itervar_;
+      PADDLE_ENFORCE_LE(rf_axis_,
+                        size,
+                        ::common::errors::InvalidArgument(
+                            "rf_axis should not be greater than indice size"));
+      PADDLE_ENFORCE_EQ(
+          new_rf_itervar_.defined(),
+          true,
+          ::common::errors::InvalidArgument(
+              "The new rfactor iteration variable must be defined."));
+      PADDLE_ENFORCE_EQ(!ContainVar(node->indices, new_rf_itervar_->name),
+                        true,
+                        ::common::errors::InvalidArgument(
+                            "Original output tensor %s should not "
+                            "have the new rfactor index %s.",
+                            old_output_name_.c_str(),
+                            new_rf_itervar_->name.c_str()));
       node->indices.insert(node->indices.begin() + rf_axis_, new_rf_itervar_);
     }
   }
@@ -460,31 +518,56 @@ struct RfMutator : public ir::IRMutator<> {
   void Visit(const Store* op, Expr* expr) override {
     // insert the new rfactor indice if not exist
     auto* node = expr->As<Store>();
-    CHECK(node);
+    PADDLE_ENFORCE_NOT_NULL(
+        node,
+        ::common::errors::NotFound(
+            "The expression could not be cast to a Store node."));
     auto* tensor = node->tensor.As<_Tensor_>();
-    CHECK(tensor);
+    PADDLE_ENFORCE_NOT_NULL(
+        tensor,
+        ::common::errors::NotFound(
+            "The tensor in the Store node could not be cast "
+            "to the expected _Tensor_ type."));
     if (tensor->name == old_output_name_) {
       find_tensor_ = true;
       tensor->name = "rf_" + tensor->name;
       int size = node->indices.size();
-      CHECK_LE(rf_axis_, size)
-          << "rf_axis should not be greater than indice size " << size;
-      CHECK(!ContainVar(node->indices, new_rf_itervar_->name))
-          << "original output tensor " << old_output_name_
-          << " should not have the new rfactor index " << new_rf_itervar_;
+      PADDLE_ENFORCE_LE(rf_axis_,
+                        size,
+                        ::common::errors::InvalidArgument(
+                            "rf_axis should not be greater than indice size"));
+      PADDLE_ENFORCE_EQ(!ContainVar(node->indices, new_rf_itervar_->name),
+                        true,
+                        ::common::errors::InvalidArgument(
+                            "Original output tensor %s should not "
+                            "have the new rfactor index %s.",
+                            old_output_name_.c_str(),
+                            new_rf_itervar_->name.c_str()));
       node->indices.insert(node->indices.begin() + rf_axis_, new_rf_itervar_);
       auto* rf_for = rf_loop_.As<For>();
-      CHECK(rf_for);
-      CHECK(is_zero(rf_for->min)) << "rfactor loop's min should be zero";
-      auto extent = cinn::common::AutoSimplify(rf_for->extent);
+      PADDLE_ENFORCE_NOT_NULL(
+          rf_for,
+          ::common::errors::InvalidArgument(
+              "Failed to cast rf_loop_ to For type. The rf_loop_ "
+              "object is not of type For or is null."));
+      PADDLE_ENFORCE_EQ(
+          is_zero(rf_for->min),
+          true,
+          ::common::errors::InvalidArgument(
+              "The rfactor loop's minimum value should be zero."));
+      auto extent = optim::ArithSimplify(rf_for->extent);
       auto& shape = tensor->shape;
       auto& domain = tensor->domain;
-      CHECK_LE(rf_axis_, shape.size())
-          << "rf_axis should not be greater than tensor shape size "
-          << shape.size();
-      CHECK_LE(rf_axis_, domain.size())
-          << "rf_axis should not be greater than tensor domain size "
-          << domain.size();
+      PADDLE_ENFORCE_LE(
+          rf_axis_,
+          shape.size(),
+          ::common::errors::InvalidArgument(
+              "rf_axis should not be greater than tensor shape size"));
+      PADDLE_ENFORCE_LE(
+          rf_axis_,
+          domain.size(),
+          ::common::errors::InvalidArgument(
+              "rf_axis should not be greater than tensor domain size"));
       shape.insert(shape.begin() + rf_axis_, extent);
       domain.insert(domain.begin() + rf_axis_, extent);
       if (tensor->buffer.defined()) {
@@ -500,10 +583,17 @@ struct RfMutator : public ir::IRMutator<> {
 
   void Visit(const For* op, Expr* expr) override {
     auto* node = expr->As<For>();
-    CHECK(node);
+    PADDLE_ENFORCE_NOT_NULL(
+        node,
+        ::common::errors::NotFound(
+            "The expression could not be cast to a For node."));
     depth++;
     auto* rf_for = rf_loop_.As<For>();
-    CHECK(rf_for);
+    PADDLE_ENFORCE_NOT_NULL(
+        rf_for,
+        ::common::errors::InvalidArgument(
+            "Failed to cast rf_loop_ to For type. The rf_loop_ "
+            "object is not of type For or is null."));
     // erase the original rfactor forloop
     if (node->loop_var->name == old_rf_loop_var_->name) {
       auto body = node->body.As<Block>();
@@ -583,9 +673,9 @@ struct LoopReconstructor : public ir::IRMutator<> {
         Var var(var_name, Int(32));
         loop_vars.push_back(var);
         loop_extents.push_back(range.extent);
-        iter_values.push_back(cinn::common::AutoSimplify(range.min) + var);
+        iter_values.push_back(optim::ArithSimplify(range.min) + var);
       } else {
-        iter_values.push_back(cinn::common::AutoSimplify(range.min));
+        iter_values.push_back(optim::ArithSimplify(range.min));
       }
     }
     auto schedule_block_node =
@@ -662,16 +752,25 @@ struct FinalMutator : public ir::IRMutator<> {
       : rf_loop_(rf_loop), rf_axis_(rf_axis), new_rf_tensor_(new_rf_tensor) {}
   void operator()(Expr* expr) {
     auto* rf_for = rf_loop_.As<For>();
-    CHECK(rf_for);
+    PADDLE_ENFORCE_NOT_NULL(
+        rf_for,
+        ::common::errors::InvalidArgument(
+            "Failed to cast rf_loop_ to For type. The rf_loop_ "
+            "object is not of type For or is null."));
     old_rf_loop_var_ = rf_for->loop_var;
     IRMutator::Visit(expr, expr);
   }
 
   void Visit(const ScheduleBlockRealize* op, Expr* expr) override {
     auto* node = expr->As<ScheduleBlockRealize>();
-    CHECK(node);
+    PADDLE_ENFORCE_NOT_NULL(
+        node,
+        ::common::errors::NotFound(
+            "The ScheduleBlockRealize node cannot be null."));
     auto* schedule_block = node->schedule_block.As<ScheduleBlock>();
-    CHECK(schedule_block);
+    PADDLE_ENFORCE_NOT_NULL(schedule_block,
+                            ::common::errors::NotFound(
+                                "The ScheduleBlock pointer cannot be null."));
     auto& iter_vars = schedule_block->iter_vars;
     auto& iter_values = node->iter_values;
     output_name_ = schedule_block->name;
@@ -680,8 +779,11 @@ struct FinalMutator : public ir::IRMutator<> {
       for (int i = 0; i < iter_values.size(); ++i) {
         if (ContainVar({iter_values[i]}, old_rf_loop_var_->name)) {
           // record the rfactor loop var's block var
-          CHECK(iter_values[i].As<_Var_>())
-              << "not support complex reduce bindings: " << iter_values[i];
+          PADDLE_ENFORCE_NOT_NULL(iter_values[i].As<_Var_>(),
+                                  ::common::errors::NotFound(
+                                      "Can not support complex reduce bindings "
+                                      "of iteration values at position %d.",
+                                      i));
           old_rf_iter_var_ = iter_vars[i];
           break;
         }
@@ -693,8 +795,10 @@ struct FinalMutator : public ir::IRMutator<> {
     for (auto it = iter_values.begin(); it != iter_values.end(); ++it) {
       for (auto erase_var : erase_reduce_loopvars_) {
         if (ContainVar({*it}, erase_var)) {
-          CHECK((*it).As<_Var_>())
-              << "not support complex reduce bindings: " << *it;
+          PADDLE_ENFORCE_NOT_NULL(
+              (*it).As<_Var_>(),
+              ::common::errors::NotFound(
+                  "Not support complex reduce bindings: %s", *it));
           iter_vars.erase(it - iter_values.begin() + iter_vars.begin());
           iter_values.erase(it);
           --it;
@@ -707,28 +811,40 @@ struct FinalMutator : public ir::IRMutator<> {
   // currently only support reduce_sum, reduce_mul, reduce_min and reduce_max
   void Visit(const Add* op, Expr* expr) override {
     auto* node = expr->As<Add>();
-    CHECK(node);
+    PADDLE_ENFORCE_NOT_NULL(
+        node,
+        ::common::errors::NotFound(
+            "The expression could not be cast to an Add node."));
     auto& oper_b = node->b();
     oper_b = Load::Make(new_rf_tensor_, new_rf_indice_);
   }
 
   void Visit(const Mul* op, Expr* expr) override {
     auto* node = expr->As<Mul>();
-    CHECK(node);
+    PADDLE_ENFORCE_NOT_NULL(
+        node,
+        ::common::errors::NotFound(
+            "The expression could not be cast to a Mul node."));
     auto& oper_b = node->b();
     oper_b = Load::Make(new_rf_tensor_, new_rf_indice_);
   }
 
   void Visit(const Min* op, Expr* expr) override {
     auto* node = expr->As<Min>();
-    CHECK(node);
+    PADDLE_ENFORCE_NOT_NULL(
+        node,
+        ::common::errors::NotFound(
+            "The expression could not be cast to a Min node."));
     auto& oper_b = node->b();
     oper_b = Load::Make(new_rf_tensor_, new_rf_indice_);
   }
 
   void Visit(const Max* op, Expr* expr) override {
     auto* node = expr->As<Max>();
-    CHECK(node);
+    PADDLE_ENFORCE_NOT_NULL(
+        node,
+        ::common::errors::NotFound(
+            "The expression could not be cast to a Max node."));
     auto& oper_b = node->b();
     oper_b = Load::Make(new_rf_tensor_, new_rf_indice_);
   }
@@ -736,17 +852,34 @@ struct FinalMutator : public ir::IRMutator<> {
   void Visit(const Store* op, Expr* expr) override {
     // insert the new rfactor indice if not exist
     auto* node = expr->As<Store>();
-    CHECK(node);
+    PADDLE_ENFORCE_NOT_NULL(
+        node,
+        ::common::errors::NotFound(
+            "The expression could not be cast to a Store node."));
     auto* tensor = node->tensor.As<_Tensor_>();
-    CHECK(tensor);
-    CHECK_EQ(tensor->name, output_name_)
-        << "store name should be same with the schedule block name";
+    PADDLE_ENFORCE_NOT_NULL(
+        tensor,
+        ::common::errors::NotFound(
+            "The tensor in the Store node could not be cast "
+            "to the expected _Tensor_ type."));
+    PADDLE_ENFORCE_EQ(
+        tensor->name,
+        output_name_,
+        ::common::errors::InvalidArgument(
+            "store name should be same with the schedule block name"));
     if (!visit_init_block_) {
       new_rf_indice_ = node->indices;
-      CHECK_LE(rf_axis_, new_rf_indice_.size())
-          << "rf_axis_ should not be greater than tensor indice size "
-          << new_rf_indice_.size();
-      CHECK(old_rf_iter_var_.defined());
+      PADDLE_ENFORCE_LE(
+          rf_axis_,
+          new_rf_indice_.size(),
+          ::common::errors::InvalidArgument(
+              "rf_axis_ should not be greater than tensor indice size"));
+      PADDLE_ENFORCE_EQ(
+          old_rf_iter_var_.defined(),
+          true,
+          ::common::errors::InvalidArgument(
+              "Old RF iter variable is not defined. Please ensure "
+              "old_rf_iter_var_ is properly initialized."));
       new_rf_indice_.insert(new_rf_indice_.begin() + rf_axis_,
                             old_rf_iter_var_);
       IRMutator::Visit(&node->value, &node->value);
@@ -755,7 +888,10 @@ struct FinalMutator : public ir::IRMutator<> {
 
   void Visit(const For* op, Expr* expr) override {
     auto* node = expr->As<For>();
-    CHECK(node);
+    PADDLE_ENFORCE_NOT_NULL(
+        node,
+        ::common::errors::NotFound(
+            "The expression could not be cast to a For node."));
     auto* rf_for = rf_loop_.As<For>();
     // erase the reduce forloops after the init block except the rfactor loop
     if (visit_init_block_ && node->loop_var->name != old_rf_loop_var_->name) {
@@ -803,47 +939,6 @@ struct ChangeBodyToBlock : public ir::IRMutator<> {
     }
     IRMutator::Visit(expr, op);
   }
-};
-
-struct CacheReadRewriter : public ir::IRMutator<> {
- public:
-  static Expr Rewrite(const Expr& root, CacheBlockInfo* info) {
-    CacheReadRewriter rewriter(root, info);
-    Expr new_root = ir::ir_utils::IRCopy(root);
-    rewriter(&new_root);
-    return new_root;
-  }
-
-  void operator()(Expr* expr) { IRMutator::Visit(expr, expr); }
-
- private:
-  explicit CacheReadRewriter(const Expr& root, CacheBlockInfo* info)
-      : root_(root), info_(info) {}
-
-  void Visit(const ir::Block* expr, Expr* op) override {
-    if (*op == info_->loc_block) {
-      IRMutator::Visit(expr, op);
-      op->As<Block>()->stmts.insert(
-          op->As<Block>()->stmts.begin() + info_->loc_pos, info_->cache_block);
-    } else {
-      IRMutator::Visit(expr, op);
-    }
-  }
-
-  void Visit(const ir::Load* expr, Expr* op) override {
-    if (expr->tensor == Expr(info_->read_tensor)) {
-      IRMutator::Visit(expr, op);
-      op->As<Load>()->tensor = Expr(info_->write_tensor);
-    } else {
-      IRMutator::Visit(expr, op);
-    }
-  }
-
- private:
-  /*! \brief The parent scope of the insertion */
-  const Expr& root_;
-  /*! \brief The info for inserting cache stage */
-  CacheBlockInfo* info_;
 };
 
 struct CacheWriteRewriter : public ir::IRMutator<> {
@@ -1089,7 +1184,9 @@ struct FindLoopsVisitor {
   explicit FindLoopsVisitor(const Expr& block) : block_(block) {}
 
   std::vector<Expr> operator()(const Expr* expr) {
-    CHECK(block_.As<ir::ScheduleBlockRealize>());
+    PADDLE_ENFORCE_NOT_NULL(
+        block_.As<ir::ScheduleBlockRealize>(),
+        ::common::errors::NotFound("The ScheduleBlockRealize cannot be null."));
     visit_end = false;
     Visit(expr);
     return result;
@@ -1103,8 +1200,7 @@ struct FindLoopsVisitor {
       Visit(&(expr->As<ir::For>()->body));
       father_loops.pop_back();
     } else if (expr->As<ir::ScheduleBlockRealize>()) {
-      if (!expr->As<ir::ScheduleBlockRealize>()->iter_values.empty() &&
-          (*expr == block_)) {
+      if (*expr == block_) {
         result = father_loops;
         visit_end = true;
         return;
@@ -1183,27 +1279,43 @@ struct FindBlockParent : public ir::IRMutator<> {
 };
 
 // The struct used to create all stmts after rfactor transformation.
-struct RfCreater : public ir::IRMutator<> {
+struct RfCreator : public ir::IRMutator<> {
  public:
-  RfCreater(const Expr& root, const Expr& rf_loop, const int& rf_axis)
+  RfCreator(const Expr& root, const Expr& rf_loop, const int& rf_axis)
       : root_(root), rf_loop_(rf_loop), rf_axis_(rf_axis) {}
   void operator()(Expr* expr) { IRMutator::Visit(expr, expr); }
 
   Expr CreateRfAllStmts() {
     auto root_realize = root_.As<ScheduleBlockRealize>();
-    CHECK(root_realize);
+    PADDLE_ENFORCE_NOT_NULL(
+        root_realize,
+        ::common::errors::NotFound(
+            "The ScheduleBlockRealize node cannot be null."));
     auto root_block = root_realize->schedule_block.As<ScheduleBlock>();
-    CHECK(root_block);
+    PADDLE_ENFORCE_NOT_NULL(
+        root_block,
+        ::common::errors::NotFound(
+            "The ScheduleBlock of ScheduleBlockRealize cannot be null."));
     Expr root_loop = ir::ir_utils::IRCopy(root_block->body);
     if (auto block = root_loop.As<Block>()) {
-      CHECK_EQ(block->stmts.size(), 1U)
-          << "rfactor root should only have one block stmt";
+      PADDLE_ENFORCE_EQ(block->stmts.size(),
+                        1U,
+                        ::common::errors::InvalidArgument(
+                            "rfactor root should only have one block stmt"));
       root_loop = block->stmts[0];
     }
     auto* root_for = root_loop.As<For>();
-    CHECK(root_for);
+    PADDLE_ENFORCE_NOT_NULL(
+        root_for,
+        ::common::errors::InvalidArgument(
+            "Failed to cast rf_loop_ to For type. The rf_loop_ "
+            "object is not of type For or is null."));
     auto rf_for = rf_loop_.As<For>();
-    CHECK(rf_for);
+    PADDLE_ENFORCE_NOT_NULL(
+        rf_for,
+        ::common::errors::InvalidArgument(
+            "Failed to cast rf_loop_ to For type. The rf_loop_ "
+            "object is not of type For or is null."));
     // create new rfactor forloops
     Expr new_rf_forloop = ir::ir_utils::IRCopy(root_loop);
     RfMutator rf_mutator(rf_loop_, rf_axis_);
@@ -1226,6 +1338,9 @@ struct RfCreater : public ir::IRMutator<> {
   Expr rf_loop_;
   int rf_axis_;
 };
+
+// Judge the `For` node of input `expr` hold dynamic `extent` or not.
+bool ContainDynamicShape(const Expr& expr);
 
 }  // namespace ir
 }  // namespace cinn

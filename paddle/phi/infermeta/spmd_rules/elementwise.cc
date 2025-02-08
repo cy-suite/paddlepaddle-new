@@ -21,8 +21,7 @@ limitations under the License. */
 #include "paddle/phi/core/distributed/auto_parallel/utils.h"
 #include "paddle/phi/infermeta/spmd_rules/utils.h"
 
-namespace phi {
-namespace distributed {
+namespace phi::distributed {
 
 using phi::distributed::auto_parallel::str_join;
 
@@ -87,7 +86,7 @@ SpmdInfo ElementwiseUnaryInferSpmd(const DistMetaTensor& x) {
   std::vector<int64_t> x_dims_mapping = x_dist_attr_src.dims_mapping();
   PADDLE_ENFORCE_EQ(x_ndim,
                     x_dims_mapping.size(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "ElementwiseUnary, The Tensor X's rank [%d] and X's "
                         "dims_mapping size [%d] are not matched.",
                         x_ndim,
@@ -124,6 +123,10 @@ SpmdInfo ElementwiseUnaryInferSpmd(const DistMetaTensor& x) {
   return {{x_dst_dist_attr}, {out_dist_attr}};
 }
 
+SpmdInfo AssignInferSpmd(const DistMetaTensor& x) {
+  return {{x.dist_attr()}, {x.dist_attr()}};
+}
+
 // NOTE(lizhiyu): This function is only for `cast` right now to support partial
 // propagation
 SpmdInfo ElementwiseUnaryWithPartialInferSpmd(const DistMetaTensor& x) {
@@ -134,7 +137,7 @@ SpmdInfo ElementwiseUnaryWithPartialInferSpmd(const DistMetaTensor& x) {
   std::vector<int64_t> x_dims_mapping = x_dist_attr_src.dims_mapping();
   PADDLE_ENFORCE_EQ(x_ndim,
                     x_dims_mapping.size(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "ElementwiseUnary, The Tensor X's rank [%d] and X's "
                         "dims_mapping size [%d] are not matched.",
                         x_ndim,
@@ -185,7 +188,7 @@ SpmdInfo ElementwiseUnaryInferSpmdReverse(const DistMetaTensor& x,
   PADDLE_ENFORCE_EQ(
       out_ndim,
       out_dims_mapping.size(),
-      phi::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "ElementwiseUnaryReverse, The Tensor Out's rank [%d] and X's "
           "dims_mapping size [%d] are not matched.",
           out_ndim,
@@ -193,7 +196,7 @@ SpmdInfo ElementwiseUnaryInferSpmdReverse(const DistMetaTensor& x,
   PADDLE_ENFORCE_EQ(
       out_ndim,
       x_ndim,
-      phi::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "ElementwiseUnaryReverse, The Tensor Out's rank [%d] and X's "
           "rank [%d] are not matched.",
           out_ndim,
@@ -242,14 +245,14 @@ SpmdInfo ElementwiseBinaryInferSpmd(const DistMetaTensor& x,
   std::vector<int64_t> y_dims_mapping = y_dist_attr_src.dims_mapping();
   PADDLE_ENFORCE_EQ(x_ndim,
                     x_dims_mapping.size(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "ElementwiseBinary, The Tensor X's rank [%d] and X's "
                         "dims_mapping size [%d] are not matched.",
                         x_ndim,
                         x_dims_mapping.size()));
   PADDLE_ENFORCE_EQ(y_ndim,
                     y_dims_mapping.size(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "ElementwiseBinary, The Tensor Y's rank [%d] and Y's "
                         "dims_mapping size [%d] are not matched.",
                         y_ndim,
@@ -314,7 +317,7 @@ SpmdInfo ElementwiseBinaryInferSpmdReverse(const DistMetaTensor& x,
   PADDLE_ENFORCE_EQ(
       out_ndim,
       out_dims_mapping.size(),
-      phi::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "ElementwiseBinaryReverse, The Tensor Out's rank [%d] and Out's "
           "dims_mapping size [%d] are not matched.",
           out_ndim,
@@ -322,7 +325,7 @@ SpmdInfo ElementwiseBinaryInferSpmdReverse(const DistMetaTensor& x,
   PADDLE_ENFORCE_EQ(
       out_ndim,
       max_ndim,
-      phi::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "ElementwiseBinaryReverse, The Tensor Out's rank [%d] and the "
           "max rank of inputs [%d] are not matched.",
           out_ndim,
@@ -365,14 +368,17 @@ SpmdInfo ElementwiseBinaryInferSpmdReverse(const DistMetaTensor& x,
 
 SpmdInfo ElementwiseUnaryGradInferSpmd(const DistMetaTensor& x,
                                        const DistMetaTensor& out_grad) {
-  return {{out_grad.dist_attr(), out_grad.dist_attr()}, {out_grad.dist_attr()}};
+  auto dist_attr = CopyTensorDistAttrForOutput(out_grad.dist_attr());
+  dist_attr.set_dims_mapping(out_grad.dist_attr().dims_mapping());
+  return {{dist_attr, dist_attr}, {dist_attr}};
 }
 
 SpmdInfo ElementwiseUnaryGradInferSpmd(const DistMetaTensor& x,
                                        const DistMetaTensor& out,
                                        const DistMetaTensor& out_grad) {
-  return {{out_grad.dist_attr(), out_grad.dist_attr(), out_grad.dist_attr()},
-          {out_grad.dist_attr()}};
+  auto dist_attr = CopyTensorDistAttrForOutput(out_grad.dist_attr());
+  dist_attr.set_dims_mapping(out_grad.dist_attr().dims_mapping());
+  return {{dist_attr, dist_attr, dist_attr}, {dist_attr}};
 }
 
 bool DimsNotEqualOrHasBroadcastDim(const DistMetaTensor& x,
@@ -417,25 +423,25 @@ SpmdInfo ElementwiseBinaryGradInferSpmd(const DistMetaTensor& x,
   TensorDistAttr x_grad_dist_attr = out_grad_dist_attr;
   TensorDistAttr y_grad_dist_attr = out_grad_dist_attr;
 
-  PADDLE_ENFORCE_GE(
-      out_grad.dims().size(),
-      x.dims().size(),
-      phi::errors::InvalidArgument("If being broadcast, the dims of out_grad "
-                                   "must larger or equal to the inputs."
-                                   "But we get the rank of output as [%d] and "
-                                   "the rank of input as [%d].",
-                                   out_grad.dims().size(),
-                                   x.dims().size()));
+  PADDLE_ENFORCE_GE(out_grad.dims().size(),
+                    x.dims().size(),
+                    common::errors::InvalidArgument(
+                        "If being broadcast, the dims of out_grad "
+                        "must larger or equal to the inputs."
+                        "But we get the rank of output as [%d] and "
+                        "the rank of input as [%d].",
+                        out_grad.dims().size(),
+                        x.dims().size()));
 
-  PADDLE_ENFORCE_GE(
-      out_grad.dims().size(),
-      y.dims().size(),
-      phi::errors::InvalidArgument("If being broadcast, the dims of out_grad "
-                                   "must larger or equal to the inputs."
-                                   "But we get the rank of output as [%d] and "
-                                   "the rank of input as [%d].",
-                                   out_grad.dims().size(),
-                                   y.dims().size()));
+  PADDLE_ENFORCE_GE(out_grad.dims().size(),
+                    y.dims().size(),
+                    common::errors::InvalidArgument(
+                        "If being broadcast, the dims of out_grad "
+                        "must larger or equal to the inputs."
+                        "But we get the rank of output as [%d] and "
+                        "the rank of input as [%d].",
+                        out_grad.dims().size(),
+                        y.dims().size()));
   // The backward rule of elementwise follows the principle: the dist_attr
   // of input should equal to out_grad.
   // Caution the special case when the inputs calculate together with different
@@ -528,5 +534,4 @@ SpmdInfo ElementwiseBinaryGradInferSpmd(const DistMetaTensor& x,
   info.first.emplace(info.first.begin() + 2, out_grad.dist_attr());
   return info;
 }
-}  // namespace distributed
-}  // namespace phi
+}  // namespace phi::distributed

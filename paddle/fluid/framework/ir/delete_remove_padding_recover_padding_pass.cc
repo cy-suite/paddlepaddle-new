@@ -18,10 +18,7 @@
 
 #include "paddle/fluid/framework/op_version_registry.h"
 
-namespace paddle {
-namespace framework {
-namespace ir {
-namespace patterns {
+namespace paddle::framework::ir::patterns {
 
 void RecoverPadding::operator()() {
   // Create nodes for recover_padding.
@@ -38,11 +35,12 @@ void RecoverPadding::operator()() {
   recover_padding_op->LinksFrom({recover_padding_input})
       .LinksTo({recover_padding_out});
 }
-}  // namespace patterns
+}  // namespace paddle::framework::ir::patterns
+namespace paddle::framework::ir {
 
 void DeleteRemovePaddingRecoverPaddingPass::ApplyImpl(ir::Graph *graph) const {
   PADDLE_ENFORCE_NOT_NULL(
-      graph, platform::errors::PreconditionNotMet("graph should not be null."));
+      graph, common::errors::PreconditionNotMet("graph should not be null."));
   FusePassBase::Init(name_scope_, graph);
   int found_subgraph_count = 0;
 
@@ -66,8 +64,8 @@ void DeleteRemovePaddingRecoverPaddingPass::ApplyImpl(ir::Graph *graph) const {
     std::unordered_set<const Node *> del_node_set;
 
     bool delete_recover_padding = true;
-    for (size_t i = 0; i < recover_padding_out->outputs.size();
-         ++i) {  // NOLINT
+    for (size_t i = 0; i < recover_padding_out->outputs.size();  // NOLINT
+         ++i) {
       if (recover_padding_out->outputs[i]->Name() ==
           "remove_padding") {  // op_node
         auto *remove_padding_out_node =
@@ -94,9 +92,7 @@ void DeleteRemovePaddingRecoverPaddingPass::ApplyImpl(ir::Graph *graph) const {
   AddStatis(found_subgraph_count);
 }
 
-}  // namespace ir
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework::ir
 
 REGISTER_PASS(delete_remove_padding_recover_padding_pass,
               paddle::framework::ir::DeleteRemovePaddingRecoverPaddingPass);

@@ -16,6 +16,7 @@
 
 #include <string>
 #include "paddle/cinn/common/integer_set.h"
+#include "paddle/cinn/ir/group_schedule/config/group_tile_config.h"
 #include "paddle/cinn/ir/ir.h"
 #include "paddle/cinn/ir/schedule/ir_schedule.h"
 #include "paddle/cinn/ir/schedule_block_graph.h"
@@ -42,7 +43,11 @@ struct IterativeSpaceInfo {
   // total rb extent
   ir::Expr total_rb_extent;
   // original loop order with same iteration order as the memory order
-  std::vector<ir::Expr> memory_consistent_order_space;
+  std::vector<std::pair<std::string, ir::Expr>> memory_consistent_order_space;
+  // memory consistent order space info with merging continuous same type
+  // [S: 16, S: a, R: 32] -> [S: 16 * a, R: 32]
+  std::vector<std::pair<std::string, ir::Expr>>
+      memory_consistent_order_homogeneous_merged_space;
   // index that transform from memory consistent order to rb last order
   // for example:
   // the memory consistent order axis is [A, B, C], and the B axis is reduce，
@@ -61,59 +66,42 @@ struct IterativeSpaceInfo {
       ss << "<" << std::get<0>(axis) << ", AxisType = ["
          << static_cast<int>(std::get<1>(axis)) << "]>  ";
     }
+    ss << "\n[memory_consistent_order_space]: [";
+    for (const auto& item : memory_consistent_order_space) {
+      ss << item.first << "(" << item.second << "), ";
+    }
+    ss << "] ";
+    ss << "\n[memory_consistent_order_homogeneous_merged_space]: [";
+    for (const auto& item : memory_consistent_order_homogeneous_merged_space) {
+      ss << item.first << "(" << item.second << "), ";
+    }
+    ss << "] ";
     return ss.str();
   }
 };
 
-struct BucketInfo {
-  int sp_lower_bound = 0;
-  int sp_upper_bound = UINT_MAX;
-  int rb_lower_bound = 0;
-  int rb_upper_bound = UINT_MAX;
-};
-
-struct GroupTileInfo {
-  GroupTileInfo() {}
-
-  std::vector<int64_t> reduce_axis_;
-  int64_t data_rank;
-
-  int64_t block_num{-1};
-  int64_t warp_num;
-  int64_t spatial_inner_num;
-  int64_t reduce_numel;
-  int64_t reduce_inner_num;
-  int64_t reduce_block;
-
-  bool is_reduce_all{false};
-
-  std::set<std::string> reduce_tensor_names;
-  std::set<std::string> temp_var_names;
-
-  std::set<std::string> shared_var_names;
-  std::set<std::string> direct_output_var_names;
-  std::vector<std::string> thread_sync_before_names;
-
-  ReduceMethod reduce_method{NoneReduceMethod()};
-
-  std::unordered_map<std::string, BroadcastInfo> broadcast_info;
-  std::unordered_map<std::string, BroadcastInfo> broadcast_to_elementwise;
-};
-
 struct ScheduleContext {
-  // TODO(BiynXu): Unify fields with similar meanings
   std::unordered_set<std::string> output_names;
   Target target;
+  // TODO(liangshuhao): this struct is deprecated and will be removed later.
   IterativeSpaceInfo iter_space_info;
   BucketInfo bucket_info;
-  // Will tile information be modified during the schedule process?
-  // If so, it is necessary to store a separate copy for each context
-  std::shared_ptr<GroupTileInfo> group_tile_info;
+  ScheduleConfig config;
 };
 
 class ScheduleTactic {
  public:
-  virtual void Init(ScheduleContext* context) = 0;
+  // Attribute key to record which tile tactic has been applied on a graph.
+  // Exactly one tile tactic is applied on a graph during scheduling.
+  static constexpr char* kTileMethod = "tile_method";
+
+  virtual void Init(ScheduleContext* context) {
+    PADDLE_THROW(::common::errors::Unimplemented(
+        "ScheduleTactic subclass must implement one of the Init method."));
+  }
+  virtual void Init(ScheduleContext* context, ir::IRSchedule* sch) {
+    Init(context);
+  }
 
   virtual void Apply(ir::IRSchedule* sch, const std::string& block_id) = 0;
 

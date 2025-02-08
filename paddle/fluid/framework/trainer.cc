@@ -16,8 +16,7 @@ limitations under the License. */
 
 #include "io/fs.h"
 
-namespace paddle {
-namespace framework {
+namespace paddle::framework {
 
 void TrainerBase::SetScope(Scope* root_scope) { root_scope_ = root_scope; }
 
@@ -67,7 +66,7 @@ void TrainerBase::DumpWork(int tid) {
     VLOG(3) << "dump field mode overwrite";
     fp = fs_open_write(path, &err_no, dump_converter_);
   }
-  while (1) {
+  while (true) {
     std::string out_str;
     if (!queue_->Get(out_str)) {
       break;
@@ -95,5 +94,4 @@ void TrainerBase::FinalizeDumpEnv() {
   queue_.reset();
 }
 
-}  // end namespace framework
-}  // end namespace paddle
+}  // namespace paddle::framework

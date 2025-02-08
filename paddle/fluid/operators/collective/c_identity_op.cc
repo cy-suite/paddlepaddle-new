@@ -15,10 +15,9 @@ limitations under the License. */
 #include "paddle/fluid/framework/infershape_utils.h"
 #include "paddle/fluid/framework/op_registry.h"
 
+#include "paddle/phi/common/reduce_type.h"
 #include "paddle/phi/infermeta/unary.h"
-
-namespace paddle {
-namespace operators {
+namespace paddle::operators {
 
 class CIdentityOp : public framework::OperatorWithKernel {
  public:
@@ -31,9 +30,9 @@ class CIdentityOp : public framework::OperatorWithKernel {
     PADDLE_ENFORCE_GE(
         ring_id,
         0,
-        platform::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The ring_id (%d) for c_identity must be non-negative.", ring_id));
-    framework::DDim dim = ctx->GetInputDim("X");
+    phi::DDim dim = ctx->GetInputDim("X");
     ctx->SetOutputDim("Out", dim);
   }
 
@@ -72,14 +71,14 @@ class CIdentityOpGradMaker : public framework::SingleGradOpMaker<T> {
 
  protected:
   void Apply(GradOpPtr<T> retv) const override {
-    retv->SetType("c_allreduce_sum");
-    retv->SetInput("X", this->OutputGrad("Out"));
-    retv->SetOutput("Out", this->InputGrad("X"));
+    retv->SetType("all_reduce");
+    retv->SetInput("x", this->OutputGrad("Out"));
+    retv->SetOutput("out", this->InputGrad("X"));
     retv->SetAttrMap(this->Attrs());
+    retv->SetAttr("reduce_type", static_cast<int>(phi::ReduceType::kRedSum));
   }
 };
-}  // namespace operators
-}  // namespace paddle
+}  // namespace paddle::operators
 
 namespace ops = paddle::operators;
 

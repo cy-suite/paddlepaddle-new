@@ -14,7 +14,6 @@
 
 import os
 
-import paddle
 from paddle.base import core
 from paddle.incubate.optimizer import PipelineOptimizer
 from paddle.static import (
@@ -132,9 +131,7 @@ class ShardingOptimizer(MetaOptimizerBase):
             self._forward_remain_anchors = []
         else:
             raise NotImplementedError(
-                "the sharding segment strategy [{}] is not implemented".format(
-                    str(segment_strategy)
-                )
+                f"the sharding segment strategy [{segment_strategy}] is not implemented"
             )
         self._sharding_segment_strategy = segment_strategy
 
@@ -168,20 +165,12 @@ class ShardingOptimizer(MetaOptimizerBase):
             )
             assert (
                 global_world_size == mp_degree * sharding_degree * dp_degree
-            ), "global work size [{}], mp_degree [{}], sharding_degree [{}], dp_degree [{}].".format(
-                global_world_size, mp_degree, sharding_degree, dp_degree
-            )
+            ), f"global work size [{global_world_size}], mp_degree [{mp_degree}], sharding_degree [{sharding_degree}], dp_degree [{dp_degree}]."
         else:
             assert (
                 global_world_size
                 == mp_degree * sharding_degree * pp_degree * dp_degree
-            ), "global work size [{}], mp_degree [{}], sharding_degree [{}], pp_degree [{}], dp_degree [{}].".format(
-                global_world_size,
-                mp_degree,
-                sharding_degree,
-                pp_degree,
-                dp_degree,
-            )
+            ), f"global work size [{global_world_size}], mp_degree [{mp_degree}], sharding_degree [{sharding_degree}], pp_degree [{pp_degree}], dp_degree [{dp_degree}]."
 
         # FIXME (JZ-LIANG) deprecated hybrid_dp
         if sharding_configs["hybrid_dp"]:
@@ -337,7 +326,7 @@ class ShardingOptimizer(MetaOptimizerBase):
                 ]
             else:
                 main_program = program_list[self.pp_rank]
-            with open("main_%d" % self.role_maker._worker_index(), 'w') as f:
+            with open(f"main_{self.role_maker._worker_index()}", 'w') as f:
                 f.writelines(str(main_program))
             main_block = main_program.global_block()
             new_params_grads = []
@@ -354,7 +343,7 @@ class ShardingOptimizer(MetaOptimizerBase):
 
         if self.pp_degree > 1:
             pp_optimizer._rename_gradient_var_name(main_block)
-            with open("main_%d" % self.role_maker._worker_index(), 'w') as f:
+            with open(f"main_{self.role_maker._worker_index()}", 'w') as f:
                 f.writelines(str(main_program))
 
         return optimize_ops, params_grads
@@ -655,12 +644,10 @@ class ShardingOptimizer(MetaOptimizerBase):
         main_block = self._main_program.global_block()
         startup_block = self._startup_program.global_block()
         with open(
-            "start_sharding_%d" % self.role_maker._worker_index(), 'w'
+            f"start_sharding_{self.role_maker._worker_index()}", 'w'
         ) as f:
             f.writelines(str(startup_block.program))
-        with open(
-            "main_sharding_%d" % self.role_maker._worker_index(), 'w'
-        ) as f:
+        with open(f"main_sharding_{self.role_maker._worker_index()}", 'w') as f:
             f.writelines(str(main_block.program))
 
     def minimize_impl(
@@ -717,11 +704,6 @@ class ShardingOptimizer(MetaOptimizerBase):
         self._recreate_not_persist_param_as_var()
 
         self._dump_program_for_debug()
-        use_new_comm = paddle.get_flags("FLAGS_dynamic_static_unified_comm")[
-            "FLAGS_dynamic_static_unified_comm"
-        ]
-        if not use_new_comm:
-            self._wait()
         return optimize_ops, params_grads
 
     def _init_pair_comm(self, pair, ring_id):
@@ -962,9 +944,7 @@ class ShardingOptimizer(MetaOptimizerBase):
                 var2broadcast_time, key=var2broadcast_time.get, reverse=True
             ):
                 logger.info(
-                    "Sharding broadcast: [{}] times [{}]".format(
-                        var2broadcast_time[varname], varname
-                    )
+                    f"Sharding broadcast: [{var2broadcast_time[varname]}] times [{varname}]"
                 )
             for idx_ in range(len(self._segments)):
                 logger.info(f"segment [{idx_}] :")
@@ -1476,24 +1456,16 @@ class ShardingOptimizer(MetaOptimizerBase):
         )
         assert (
             self.global_word_size % self.mp_degree == 0
-        ), "global_word_size: {} should be divisible to the mp_degree: {}".format(
-            self.global_word_size, self.mp_degree
-        )
+        ), f"global_word_size: {self.global_word_size} should be divisible to the mp_degree: {self.mp_degree}"
         assert (
             self.global_word_size % self.sharding_degree == 0
-        ), "global_word_size: {} should be divisible to the sharding_degree: {}".format(
-            self.global_word_size, self.sharding_degree
-        )
+        ), f"global_word_size: {self.global_word_size} should be divisible to the sharding_degree: {self.sharding_degree}"
         assert (
             self.global_word_size % self.pp_degree == 0
-        ), "global_word_size: {} should be divisible to the pp_degree: {}".format(
-            self.global_word_size, self.pp_degree
-        )
+        ), f"global_word_size: {self.global_word_size} should be divisible to the pp_degree: {self.pp_degree}"
         assert (
             self.global_word_size % self.dp_degree == 0
-        ), "global_word_size: {} should be divisible to the dp_degree: {}".format(
-            self.global_word_size, self.dp_degree
-        )
+        ), f"global_word_size: {self.global_word_size} should be divisible to the dp_degree: {self.dp_degree}"
 
         # mp group
         if self.mp_degree > 1:
@@ -1508,9 +1480,7 @@ class ShardingOptimizer(MetaOptimizerBase):
             assert self.current_endpoint in self.mp_group_endpoints
             assert (
                 len(self.mp_group_endpoints) == self.mp_degree
-            ), "num of mp worker in group is [{}], but mp group size is [{}]".format(
-                len(self.mp_group_endpoints), self.mp_degree
-            )
+            ), f"num of mp worker in group is [{len(self.mp_group_endpoints)}], but mp group size is [{self.mp_degree}]"
         else:
             self.mp_degree = 1
             self.mp_ring_id = -1
@@ -1600,12 +1570,7 @@ class ShardingOptimizer(MetaOptimizerBase):
             assert (
                 self.global_word_size
                 == self.mp_degree * self.sharding_degree * self.dp_degree
-            ), "global work size [{}], mp_degree [{}], sharding_degree [{}], dp_degree [{}].".format(
-                self.global_word_size,
-                self.mp_degree,
-                self.sharding_degree,
-                self.dp_degree,
-            )
+            ), f"global work size [{self.global_word_size}], mp_degree [{self.mp_degree}], sharding_degree [{self.sharding_degree}], dp_degree [{self.dp_degree}]."
             local_pp_degree = 1
         else:
             assert (
@@ -1614,13 +1579,7 @@ class ShardingOptimizer(MetaOptimizerBase):
                 * self.sharding_degree
                 * self.pp_degree
                 * self.dp_degree
-            ), "mp_degree: [{}], sharding_degree: [{}], pp_degree: [{}], dp_degree: [{}]; BUT global nrank: [{}]".format(
-                self.mp_degree,
-                self.sharding_degree,
-                self.pp_degree,
-                self.dp_degree,
-                self.global_word_size,
-            )
+            ), f"mp_degree: [{self.mp_degree}], sharding_degree: [{self.sharding_degree}], pp_degree: [{self.pp_degree}], dp_degree: [{self.dp_degree}]; BUT global nrank: [{self.global_word_size}]"
 
         if self.dp_degree > 1:
             self.dp_ring_id = 2
@@ -1748,7 +1707,7 @@ class ShardingOptimizer(MetaOptimizerBase):
         # offload and optimize_cast will insert broadcast op
         broadcast_params = set()
         for op in startup_block.ops:
-            if op.type == 'c_broadcast':
+            if op.type == 'broadcast':
                 broadcast_params.add(op.desc.output_arg_names()[0])
 
         for param in params_name:
@@ -1764,13 +1723,12 @@ class ShardingOptimizer(MetaOptimizerBase):
 
             for ring in rings:
                 startup_block.append_op(
-                    type='c_broadcast',
-                    inputs={'X': param},
-                    outputs={'Out': param},
+                    type='broadcast',
+                    inputs={'x': param},
+                    outputs={'out': param},
                     attrs={
                         'ring_id': ring,
                         'root': 0,
-                        'use_calc_stream': True,
                         OP_ROLE_KEY: OpRole.Forward,
                     },
                 )
@@ -1788,9 +1746,7 @@ class ShardingOptimizer(MetaOptimizerBase):
             persistable_grad_name = grad_name + '@GradientMerge'
             assert (
                 grad_name not in self._grad2merged_grad
-            ), "grad [{}] already in grad2merged_grad, maybe you meet sharing weight case !".format(
-                grad_name
-            )
+            ), f"grad [{grad_name}] already in grad2merged_grad, maybe you meet sharing weight case !"
             self._grad2merged_grad[grad_name] = persistable_grad_name
             grad_var = main_block.var(grad_name)
             # create var
@@ -2239,4 +2195,4 @@ class ThreadShardingOptimizer(ShardingOptimizer):
                 },
             )
         else:
-            block.append_op(type='c_comm_init_all', attrs={'ring_id': ring_id})
+            block.append_op(type='comm_init_all', attrs={'ring_id': ring_id})

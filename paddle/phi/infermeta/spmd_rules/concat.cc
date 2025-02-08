@@ -22,20 +22,19 @@ limitations under the License. */
 #include "paddle/phi/infermeta/spmd_rules/elementwise.h"
 #include "paddle/phi/infermeta/spmd_rules/utils.h"
 
-namespace phi {
-namespace distributed {
+namespace phi::distributed {
 
 std::tuple<std::string, std::string> FillConcatNotation(int64_t n_axis,
                                                         int64_t concat_axis) {
   PADDLE_ENFORCE_GT(
       n_axis,
       concat_axis,
-      phi::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "n_axis [%d] and concat_axis[%d] not match", n_axis, concat_axis));
   static const std::string alphabet = "abcdefghijlopqrstuvwxyz";
   PADDLE_ENFORCE_GT(alphabet.size(),
                     static_cast<size_t>(n_axis),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "alphabet.size() [%d]; n_axis [%d] is too large",
                         alphabet.size(),
                         n_axis));
@@ -50,7 +49,7 @@ SpmdInfo ConcatInferSpmd(const std::vector<DistMetaTensor>& x, int axis) {
   /*
 # paddle.concat requires all tensors must either have the same shape (except
 # in the concatenating dimension) or be "empty". "Empty" here strictly means
-# tensor.shape is torch.Size([0]). When tensor.ndim > 1, it will be treated
+# tensor.ndim == 0. When tensor.ndim > 0, it will be treated
 # as a non-empty tensor and the shape must match on non-cat dimensions.
  */
 
@@ -159,5 +158,4 @@ SpmdInfo ConcatGradInferSpmdDynamic(const std::vector<DistMetaTensor>& x,
   return {{input_attrs, output_grad_attr}, {inputs_grad}};
 }
 
-}  // namespace distributed
-}  // namespace phi
+}  // namespace phi::distributed

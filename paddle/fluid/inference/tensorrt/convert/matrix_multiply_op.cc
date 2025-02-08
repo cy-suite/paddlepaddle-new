@@ -12,9 +12,7 @@ limitations under the License. */
 #include "paddle/fluid/inference/tensorrt/convert/op_converter.h"
 #include "paddle/phi/common/data_type.h"
 
-namespace paddle {
-namespace inference {
-namespace tensorrt {
+namespace paddle::inference::tensorrt {
 
 /*
  * After trt_map_ops_to_matrix_multiply_pass(mul, matmul, matmul_v2 ->
@@ -116,11 +114,11 @@ class MatrixMultiplyOpConverter : public OpConverter {
         before_shape_tensors.push_back(
             GetEleTensorOfShape(input_shape_tensor, i));
       }
-      nvinfer1::ITensor* producted = Add1DConstantLayer(1);
+      nvinfer1::ITensor* produced = Add1DConstantLayer(1);
       for (int i = x_num_col_dims; i < x_rank; ++i) {
-        producted = Prod(producted, GetEleTensorOfShape(input_shape_tensor, i));
+        produced = Prod(produced, GetEleTensorOfShape(input_shape_tensor, i));
       }
-      before_shape_tensors.push_back(producted);
+      before_shape_tensors.push_back(produced);
       nvinfer1::ITensor* before_shape_tensor = Concat(before_shape_tensors);
       auto* reshape_before_layer =
           TRT_ENGINE_ADD_LAYER(engine_, Shuffle, *input1);
@@ -148,7 +146,7 @@ class MatrixMultiplyOpConverter : public OpConverter {
     PADDLE_ENFORCE_EQ(
         y_num_col_dims,
         y_rank - 1,
-        platform::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The matrix_multiply op'y_num_col_dims should be equal "
             "to y'rank - 1, but got y_num_col_dims = %d, and y_rank = %d",
             y_num_col_dims,
@@ -266,8 +264,6 @@ class MatrixMultiplyOpConverter : public OpConverter {
   }
 };
 
-}  // namespace tensorrt
-}  // namespace inference
-}  // namespace paddle
+}  // namespace paddle::inference::tensorrt
 
 REGISTER_TRT_OP_CONVERTER(matrix_multiply, MatrixMultiplyOpConverter);

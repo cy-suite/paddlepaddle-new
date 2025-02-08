@@ -11,11 +11,22 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
+from __future__ import annotations
+
 import inspect
 import sys
 import warnings
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    TypeVar,
+    overload,
+)
 
 import decorator
+from typing_extensions import ParamSpec
 
 import paddle
 from paddle.base import core, framework
@@ -26,17 +37,39 @@ from ..framework import _get_paddle_place
 from ..wrapped_decorator import signature_safe_contextmanager, wrap_decorator
 from .tracer import Tracer
 
+if TYPE_CHECKING:
+    from collections import OrderedDict
+    from collections.abc import Generator, Sequence
+    from contextlib import AbstractContextManager
+    from types import TracebackType
+
+    from typing_extensions import Self
+
+    from paddle import Tensor
+    from paddle._typing import PlaceLike
+
 __all__ = []
+
+_InputT = ParamSpec("_InputT")
+_RetT = TypeVar("_RetT")
 
 NON_PERSISTABLE_VAR_NAME_SUFFIX = "__non_persistable"
 
 
-def in_to_static_mode():
+def in_to_static_mode() -> bool:
     """
     Return a bool value that indicates whether running code under `@to_static`
 
     """
     return global_var._in_to_static_mode_
+
+
+def in_sot_simulation_mode() -> bool:
+    """
+    Return a bool value that indicates whether running code under SOT simulation context.
+
+    """
+    return global_var._in_sot_simulation_mode_
 
 
 # TODO(Aurelius84): Need to remove this alias after clean usage in PaddleX
@@ -60,8 +93,10 @@ def to_static_unsupport_argument_warning(
             )
 
 
-def _switch_to_static_graph_(func):
-    def __impl__(*args, **kwargs):
+def _switch_to_static_graph_(
+    func: Callable[_InputT, _RetT]
+) -> Callable[_InputT, _RetT]:
+    def __impl__(*args: _InputT.args, **kwargs: _InputT.kwargs) -> _RetT:
         with framework._dygraph_guard(None):
             return func(*args, **kwargs)
 
@@ -72,7 +107,9 @@ switch_to_static_graph = wrap_decorator(_switch_to_static_graph_)
 
 
 @signature_safe_contextmanager
-def _to_static_mode_guard_(is_to_static=True):
+def to_static_mode_guard(
+    is_to_static: bool = True,
+) -> Generator[None, None, None]:
     global global_var
     original_val = global_var._in_to_static_mode_
     global_var._in_to_static_mode_ = is_to_static
@@ -83,20 +120,22 @@ def _to_static_mode_guard_(is_to_static=True):
 
 
 @signature_safe_contextmanager
-def program_desc_tracing_guard(enable):
-    tracer = framework._dygraph_tracer()
-    if tracer:
-        original_val = tracer._enable_program_desc_tracing
-        tracer._enable_program_desc_tracing = enable
+def sot_simulation_mode_guard(
+    is_sot_simulation: bool = True,
+) -> Generator[None, None, None]:
+    global global_var
+    original_val = global_var._in_sot_simulation_mode_
+    global_var._in_sot_simulation_mode_ = is_sot_simulation
     try:
         yield
     finally:
-        if tracer:
-            tracer._enable_program_desc_tracing = original_val
+        global_var._in_sot_simulation_mode_ = original_val
 
 
 @signature_safe_contextmanager
-def param_guard(parameters):
+def param_guard(
+    parameters: OrderedDict[str, Tensor]
+) -> Generator[None, None, None]:
     # Note: parameters is a reference of self._parameters or self._buffers
     if in_to_static_mode() and not paddle.in_dynamic_mode() and parameters:
         try:
@@ -120,7 +159,7 @@ def _convert_into_variable(tensor):
     """
     if paddle.framework.use_pir_api():
         return paddle.pir.core._convert_into_value(tensor)
-    if isinstance(tensor, core.eager.Tensor):
+    if isinstance(tensor, paddle.Tensor):
         # Check whether has been created before.
         new_var = tensor.block._find_var_recursive(tensor.name)
         if new_var is not None:
@@ -138,7 +177,10 @@ def _convert_into_variable(tensor):
             # But if its shape is empty while created from `create_variable()`, we consider this buffer
             # non-persistable. See case of `dropout_state` in lstm api.
             is_persistable = True
-            if tensor.name.endswith(NON_PERSISTABLE_VAR_NAME_SUFFIX):
+            # NOTE(SigureMo): Why do not use `tensor.name.endswith(NON_PERSISTABLE_VAR_NAME_SUFFIX)`?
+            # Because the tensor maybe copied, the name of the tensor will be appended with a new suffix.
+            # Such as `lstm_0.dropout_state__non_persistable_deepcopy_204`
+            if NON_PERSISTABLE_VAR_NAME_SUFFIX in tensor.name:
                 is_persistable = False
 
             new_var = tensor._to_static_var(
@@ -158,7 +200,7 @@ def _convert_into_variable(tensor):
         return tensor
 
 
-def enabled():
+def enabled() -> bool:
     """
     This function checks whether the program runs in dynamic graph mode or not.
     You can enable dynamic graph mode with :ref:`api_paddle_disable_static` api,
@@ -187,7 +229,7 @@ def enabled():
     return framework.in_dygraph_mode()
 
 
-def enable_dygraph(place=None):
+def enable_dygraph(place: PlaceLike | None = None) -> None:
     """
 
     .. note::
@@ -230,7 +272,7 @@ def enable_dygraph(place=None):
         CleanupFuncRegistrar.register(disable_dygraph)
 
 
-def disable_dygraph():
+def disable_dygraph() -> None:
     """
 
     .. note::
@@ -264,17 +306,23 @@ def disable_dygraph():
 
 
 @signature_safe_contextmanager
-def _switch_tracer_mode_guard_(is_train=True):
-    tracer = framework._dygraph_tracer()
-    if tracer:
-        has_grad = tracer._has_grad
-        tracer._has_grad = is_train
-        try:
-            yield
-        finally:
-            tracer._has_grad = has_grad
-    else:
+def _switch_tracer_mode_guard_(
+    is_train: bool = True,
+) -> Generator[None, None, None]:
+    has_grad = core._has_grad()
+    core._set_has_grad(is_train)
+    try:
         yield
+    finally:
+        core._set_has_grad(has_grad)
+
+
+@overload
+def no_grad(func: None = ...) -> AbstractContextManager: ...
+
+
+@overload
+def no_grad(func: Callable[_InputT, _RetT]) -> Callable[_InputT, _RetT]: ...
 
 
 def no_grad(func=None):
@@ -324,16 +372,16 @@ def no_grad(func=None):
             >>> test_layer()
 
     """
-    if in_to_static_mode():
-        warnings.warn(
-            "paddle.no_grad is only supported for inference model, and not supported for training under @to_static."
-        )
     if func is None:
         return _switch_tracer_mode_guard_(is_train=False)
     else:
 
         @decorator.decorator
-        def __impl__(func, *args, **kwargs):
+        def __impl__(
+            func: Callable[_InputT, _RetT],
+            *args: _InputT.args,
+            **kwargs: _InputT.kwargs,
+        ) -> _RetT:
             with _switch_tracer_mode_guard_(is_train=False):
                 return func(*args, **kwargs)
 
@@ -343,7 +391,9 @@ def no_grad(func=None):
 class _DecoratorContextManager:
     """Allow a context manager to be used as a decorator"""
 
-    def __call__(self, func):
+    def __call__(
+        self, func: Callable[_InputT, _RetT]
+    ) -> Callable[_InputT, _RetT]:
         @decorator.decorator
         def _decorate_function(func, *args, **kwargs):
             with self:
@@ -360,18 +410,23 @@ class _DecoratorContextManager:
         else:
             return _decorate_function(func)
 
-    def __enter__(self):
+    def __enter__(self) -> Any:
         raise NotImplementedError
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> bool:
         raise NotImplementedError
 
-    def clone(self):
+    def clone(self) -> Self:
         # override this method if your children class takes __init__ parameters
         return self.__class__()
 
 
-def is_grad_enabled():
+def is_grad_enabled() -> bool:
     """
     Returns whether current dygraph gradient calculation mode is enabled.
 
@@ -395,14 +450,11 @@ def is_grad_enabled():
             >>> paddle.is_grad_enabled()
             False
     """
-    tracer = framework._dygraph_tracer()
-    return tracer._has_grad if tracer else False
+    return core._has_grad()
 
 
-def _set_grad_enabled(mode):
-    tracer = framework._dygraph_tracer()
-    if tracer:
-        tracer._has_grad = mode
+def _set_grad_enabled(mode: bool) -> None:
+    core._set_has_grad(mode)
 
 
 class set_grad_enabled(_DecoratorContextManager):
@@ -437,18 +489,17 @@ class set_grad_enabled(_DecoratorContextManager):
             True
     """
 
-    def __init__(self, mode):
+    def __init__(self, mode) -> None:
         self.prev = is_grad_enabled()
         _set_grad_enabled(mode)
         self.mode = mode
 
-    def __enter__(self):
-        ...
+    def __enter__(self) -> None: ...
 
-    def __exit__(self, *args):
+    def __exit__(self, *args: object) -> None:
         _set_grad_enabled(self.prev)
 
-    def clone(self):
+    def clone(self) -> Self:
         return self.__class__(self.mode)
 
 
@@ -500,11 +551,11 @@ class no_grad_(_DecoratorContextManager):
             >>> test_layer()
     """
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         self.prev = is_grad_enabled()
         _set_grad_enabled(False)
 
-    def __exit__(self, *args):
+    def __exit__(self, *args: object) -> None:
         _set_grad_enabled(self.prev)
 
 
@@ -548,16 +599,16 @@ class enable_grad(_DecoratorContextManager):
             >>> assert(z.stop_gradient == False)
     """
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         self.prev = is_grad_enabled()
         _set_grad_enabled(True)
 
-    def __exit__(self, *args):
+    def __exit__(self, *args: object) -> None:
         _set_grad_enabled(self.prev)
 
 
 @signature_safe_contextmanager
-def guard(place=None):
+def guard(place: PlaceLike | None = None) -> Generator[None, None, None]:
     """
     :api_attr: imperative
 
@@ -606,15 +657,15 @@ def guard(place=None):
 
 @framework.non_static_only
 def grad(
-    outputs,
-    inputs,
-    grad_outputs=None,
-    retain_graph=None,
-    create_graph=False,
-    only_inputs=True,
-    allow_unused=False,
-    no_grad_vars=None,
-):
+    outputs: Tensor | Sequence[Tensor],
+    inputs: Tensor | Sequence[Tensor],
+    grad_outputs: Tensor | Sequence[Tensor | None] | None = None,
+    retain_graph: bool | None = None,
+    create_graph: bool = False,
+    only_inputs: bool = True,
+    allow_unused: bool = False,
+    no_grad_vars: Tensor | Sequence[Tensor] | set[Tensor] | None = None,
+) -> list[Tensor]:
     '''
     .. note::
         **This API is ONLY available in imperative mode.**
@@ -622,12 +673,12 @@ def grad(
     This API computes the sum of gradients of `outputs` with respect to each `inputs` .
 
     Parameters:
-        outputs (Tensor|list(Tensor)|tuple(Tensor)): the output Tensor or
+        outputs (Tensor|list[Tensor]|tuple[Tensor]): the output Tensor or
             Tensor list/tuple of the graph to compute gradients.
-        inputs (Tensor|list(Tensor)|tuple(Tensor)): the input Tensor or
+        inputs (Tensor|list[Tensor]|tuple[Tensor]): the input Tensor or
             Tensor list/tuple of the graph to compute gradients. The returned
             values of this API are the gradients of `inputs` .
-        grad_outputs (Tensor|list(Tensor|None)|tuple(Tensor|None), optional):
+        grad_outputs (Tensor|list[Tensor|None]|tuple[Tensor|None], optional):
             initial gradient values of `outputs` . If `grad_outputs` is None,
             the initial gradient values of `outputs` would be Tensors filled with 1;
             if `grad_outputs` is not None, it must have the same length as `outputs` ,
@@ -635,7 +686,7 @@ def grad(
             be: (1) a Tensor filled with 1 when the i-th element of `grad_outputs`
             is None; (2) the i-th element of `grad_outputs` when the i-th element of
             `grad_outputs` is a Tensor. Default None.
-        retain_graph (bool, optional): whether to retain the forward graph which
+        retain_graph (bool|None, optional): whether to retain the forward graph which
             is used to calculate the gradient. When it is True, the graph would
             be retained, in which way users can calculate backward twice for the
             same graph. When it is False, the graph would be freed. Default None,
@@ -655,7 +706,7 @@ def grad(
             `inputs` are unreachable in the graph (i.e., their gradients are None),
             error would be raised if allow_unused=False, or None would be returned as
             their gradients if allow_unused=True. Default False.
-        no_grad_vars (Tensor|list(Tensor)|tuple(Tensor)|set(Tensor), optional):
+        no_grad_vars (Tensor|list[Tensor]|tuple[Tensor]|set[Tensor], optional):
             the Tensors whose gradients are not needed to compute. Default None.
 
     Returns:
@@ -676,10 +727,11 @@ def grad(
             ...
             ...     # Since y = x * x, dx = 2 * x
             ...     dx = paddle.grad(
-            ...             outputs=[y],
-            ...             inputs=[x],
-            ...             create_graph=create_graph,
-            ...             retain_graph=True)[0]
+            ...         outputs=[y],
+            ...         inputs=[x],
+            ...         create_graph=create_graph,
+            ...         retain_graph=True
+            ...     )[0]
             ...
             ...     z = y + dx
             ...

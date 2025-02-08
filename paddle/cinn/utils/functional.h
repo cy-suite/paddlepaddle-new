@@ -18,11 +18,12 @@
 
 #include <algorithm>
 #include <functional>
+#include <set>
 #include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
-
+#include "paddle/common/enforce.h"
 namespace cinn {
 namespace utils {
 
@@ -138,6 +139,11 @@ inline uint64_t HashCombine(uint64_t seed, const T &value) {
 std::vector<int> GetPositiveAxes(const std::vector<int> &axes, int rank);
 
 int GetPositiveAxes(int axes, int rank);
+
+template <typename T>
+std::set<T> VectorToSet(const std::vector<T> &vec) {
+  return std::set<T>(vec.begin(), vec.end());
+}
 
 }  // namespace utils
 }  // namespace cinn

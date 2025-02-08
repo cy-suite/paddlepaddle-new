@@ -19,6 +19,7 @@
 
 #include "paddle/cinn/ir/buffer.h"
 #include "paddle/cinn/ir/ir_base.h"
+#include "paddle/cinn/ir/stmt.h"
 
 namespace cinn {
 namespace ir {
@@ -78,8 +79,6 @@ class LoweredFunc : public IrNodeRef {
   LoweredFunc() = default;
   explicit LoweredFunc(IrNode* n) : IrNodeRef(n) {}
 
-  operator Expr() const { return Expr(ptr()); }
-
   const _LoweredFunc_* operator->() const;
   _LoweredFunc_* operator->();
 };
@@ -114,13 +113,35 @@ struct CudaAxisInfo {
 std::ostream& operator<<(std::ostream& os, const CudaAxisInfo& x);
 
 /**
+ * A struct representing a temporary global buffer (allocated on the heap) that
+ * is used as staging space during kernel execution.
+ */
+struct TempSpaceInfo {
+  TempSpaceInfo() = default;
+  TempSpaceInfo(const Expr& size, int arg_idx, bool need_zero_init = false)
+      : size_(size), arg_idx_(arg_idx), need_zero_init_(need_zero_init) {}
+
+  Expr size() const { return size_; }
+  int arg_idx() const { return arg_idx_; }
+  bool need_zero_init() const { return need_zero_init_; }
+
+ private:
+  // size of the space in bytes
+  Expr size_;
+  // index in the function's argument list
+  int arg_idx_;
+  // whether this space need to be zero-initialized
+  bool need_zero_init_;
+};
+
+/**
  * Definition of a lowered function. Note that, it should be functional.
  *
  * Arguments of the function:
  *
  * both the input and output arguments, the output arguments are in the tail.
  */
-struct _LoweredFunc_ : ExprNode<_LoweredFunc_> {
+struct _LoweredFunc_ : public IrNode {
   //! The name of this function.
   std::string name;
 
@@ -131,8 +152,18 @@ struct _LoweredFunc_ : ExprNode<_LoweredFunc_> {
   //! function's argument list, but will be used in the body.
   std::vector<Buffer> temp_bufs;
 
+  //! Temporary global buffers. These buffers will appear in the function's
+  //! argument list.
+  std::vector<TempSpaceInfo> temp_spaces;
+
+  //! Number of output tensors that appear in the function's argument list.
+  //! This number doesn't include temp_spaces.
+  int num_output_tensors;
+
+  // TODO(Hongqing-work): remove expr body after update all the backend passes.
   //! Body of this function.
   Expr body;
+  stmt::BlockRef body_block;
 
   DeviceAPI device_api{DeviceAPI::UNK};
 
@@ -142,7 +173,7 @@ struct _LoweredFunc_ : ExprNode<_LoweredFunc_> {
    * The output buffer will be resized to the size required, we leave all the
    * expression here. The allocation and deallocation expressions will insert
    * into the head and tail of the function's body. It supports lazy
-   * allocation/deallocation if the corresponding intristic methods support.
+   * allocation/deallocation if the corresponding intrinsic methods support.
    *
    * Currently, we assume that all the input and output buffers should locate in
    * heap, no other memory type is allowed.
@@ -162,6 +193,11 @@ struct _LoweredFunc_ : ExprNode<_LoweredFunc_> {
                           const Expr& body,
                           const std::vector<ir::Buffer>& temp_bufs);
 
+  static LoweredFunc Make(const std::string& name,
+                          const std::vector<Argument>& args,
+                          const stmt::BlockRef& body,
+                          const std::vector<ir::Buffer>& temp_bufs);
+
   // A simple version of the make function method,
   // regardless of the argument buffer information and IO information of
   // Argument, after building the function to optimize the buffer through pass
@@ -169,21 +205,32 @@ struct _LoweredFunc_ : ExprNode<_LoweredFunc_> {
                           const std::vector<Argument>& args,
                           const Expr& body);
 
+  static LoweredFunc Make(const std::string& name,
+                          const std::vector<Argument>& args,
+                          const stmt::BlockRef& body);
+
   bool is_gpu_host() const { return cuda_axis_info.valid(); }
 
   void Verify() const override {}
 
+  IrNodeTy node_type() const override { return _node_type_; }
+
   std::vector<Expr*> expr_fields() override;
   std::vector<const Expr*> expr_fields() const override;
 
-  static const IrNodeTy _node_type_ = IrNodeTy::_LoweredFunc_;
+  static const IrNodeTy _node_type_ = IrNodeTy::LoweredFunc;
 
+  //! Prepare the assumptions that a gpu axis should be less than its
+  //! corresponding dim size, e.g. threadIdx.x < blockDim.x.
+  std::vector<ir::stmt::StmtRef> PrepareAxisRangeAssumptionStmts() const;
   std::vector<Expr> PrepareCreateTempBufferExprs() const;
   //! Prepare the expressions for `alloc_tmp_buffer_exprs`.
   std::vector<Expr> PrepareAllocTempBufferExprs() const;
+  std::vector<ir::stmt::StmtRef> PrepareAllocTempBufferStmts() const;
   std::vector<Expr> PrepareDeallocTempBufferExprs() const;
+  std::vector<ir::stmt::StmtRef> PrepareDeallocTempBufferStmts() const;
   std::vector<Expr> CudaPrepareAllocTempBufferExprs() const;
-  std::vector<Expr> CudaAliasVarExprs() const;
+  std::vector<ir::stmt::StmtRef> CudaAliasVarStmts() const;
   void PrepareBufferCastExprs(bool with_expr_gen_tensor = true);
   void PrepareCudaAxisInfoFromBody();
 

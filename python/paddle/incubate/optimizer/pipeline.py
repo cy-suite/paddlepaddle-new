@@ -55,8 +55,8 @@ class PipelineOptimizer:
 
             >>> paddle.enable_static()
             >>> with base.device_guard("gpu:0"):
-            ...     x = paddle.static.data(name='x', shape=[-1, 1], dtype='int64', lod_level=0)
-            ...     y = paddle.static.data(name='y', shape=[-1, 1], dtype='int64', lod_level=0)
+            ...     x = paddle.static.data(name='x', shape=[-1, 1], dtype='int64')
+            ...     y = paddle.static.data(name='y', shape=[-1, 1], dtype='int64')
             ...     data_loader = base.io.DataLoader.from_generator(
             ...         feed_list=[x, y],
             ...         capacity=64,
@@ -165,15 +165,17 @@ class PipelineOptimizer:
             offset += 1
         block._insert_op(
             op_idx + 1 + offset,
-            type='c_allreduce_max'
-            if op.type == "reduce_any"
-            else 'c_allreduce_sum',
-            inputs={'X': temp_var if op.type == "reduce_any" else out_var},
-            outputs={'Out': temp_var if op.type == "reduce_any" else out_var},
+            type='all_reduce',
+            inputs={'x': temp_var if op.type == "reduce_any" else out_var},
+            outputs={'out': temp_var if op.type == "reduce_any" else out_var},
             attrs={
                 'ring_id': self.global_ring_id,
                 self._op_role_key: self._op_role.Optimize,
-                'use_calc_stream': True,
+                'reduce_type': (
+                    paddle.distributed.ReduceOp.MAX
+                    if op.type == "reduce_any"
+                    else paddle.distributed.ReduceOp.SUM
+                ),
             },
         )
         offset += 1
@@ -481,13 +483,13 @@ class PipelineOptimizer:
         if device:
             assert device[0:3] == 'gpu', (
                 "Now, only gpu devices are "
-                "supported in pipeline parallemism."
+                "supported in pipeline parallelism."
             )
         return device
 
     def _add_op_device_attr_for_op(self, op, idx, block):
         """
-        Add op_device attrribute for ops that have not that attribute set.
+        Add op_device attribute for ops that have not that attribute set.
         We use "gpu:all" to represent the op should be put on all
         sub-programs, such as lr-related ops. Note that: "gpu:all"
         is only used by pipeline as an indicator.
@@ -609,7 +611,7 @@ class PipelineOptimizer:
 
     def _add_op_device_attr(self, block):
         """
-        Add op_device attrribute for ops in block that have
+        Add op_device attribute for ops in block that have
         not that attribute set.
         """
         for idx, op in enumerate(list(block.ops)):
@@ -660,9 +662,7 @@ class PipelineOptimizer:
             op_role = op.attr(self._op_role_key)
             assert (
                 int(op_role) in valid_op_role_value
-            ), "op_role {} for op {} must be one of {}".format(
-                op_role, op.type, valid_op_role_value
-            )
+            ), f"op_role {op_role} for op {op.type} must be one of {valid_op_role_value}"
 
             assert op.has_attr(
                 self._op_device_key
@@ -752,16 +752,12 @@ class PipelineOptimizer:
                     if is_forward:
                         assert prev_id < cur_id, (
                             "In forward, send/recv can only be passed forward, but now "
-                            "prev_stage={} great than cur_stage={}, please check op_device of op={}".format(
-                                prev_id, cur_id, op
-                            )
+                            f"prev_stage={prev_id} great than cur_stage={cur_id}, please check op_device of op={op}"
                         )
                     elif is_backward:
                         assert prev_id > cur_id, (
                             "In backward, send/recv can only be passed backward, but now "
-                            "prev_stage={} less than cur_stage={}, please check op_device of op={}".format(
-                                prev_id, cur_id, op
-                            )
+                            f"prev_stage={prev_id} less than cur_stage={cur_id}, please check op_device of op={op}"
                         )
 
                 def _insert_send_recv(cur_id, prev_id):
@@ -895,9 +891,11 @@ class PipelineOptimizer:
                         )
                         block._insert_op_without_sync(
                             index=index + extra_index_info['index'],
-                            type='send_v2'
-                            if not use_mp or is_param
-                            else 'partial_send',
+                            type=(
+                                'send_v2'
+                                if not use_mp or is_param
+                                else 'partial_send'
+                            ),
                             inputs={'X': var},
                             attrs={
                                 self._op_device_key: prev_dev,
@@ -936,9 +934,11 @@ class PipelineOptimizer:
                             extra_index_info['index'] += 1
                         block._insert_op_without_sync(
                             index=index + extra_index_info['index'],
-                            type='recv_v2'
-                            if not use_mp or is_param
-                            else 'partial_recv',
+                            type=(
+                                'recv_v2'
+                                if not use_mp or is_param
+                                else 'partial_recv'
+                            ),
                             outputs={'Out': [var]},
                             attrs={
                                 'out_shape': var_shape,
@@ -1011,7 +1011,7 @@ class PipelineOptimizer:
             if op.type == 'cast' or op.type == "c_sync_comm_stream":
                 continue
             # append "MERGED" to the names of parameter gradients,
-            # and mofify the op_role_var attribute (by rename_arg func).
+            # and modify the op_role_var attribute (by rename_arg func).
             for name in in_out_names:
                 if core.grad_var_suffix() not in name:
                     continue

@@ -1,9 +1,10 @@
 set(api_yaml_path
-    "${PADDLE_SOURCE_DIR}/paddle/phi/api/yaml/ops.yaml,${PADDLE_SOURCE_DIR}/paddle/phi/api/yaml/legacy_ops.yaml,${PADDLE_SOURCE_DIR}/paddle/phi/api/yaml/sparse_ops.yaml,${PADDLE_SOURCE_DIR}/paddle/phi/api/yaml/fused_ops.yaml"
+    "${PADDLE_SOURCE_DIR}/paddle/phi/ops/yaml/ops.yaml,${PADDLE_SOURCE_DIR}/paddle/phi/ops/yaml/inconsistent/dygraph_ops.yaml,${PADDLE_SOURCE_DIR}/paddle/phi/ops/yaml/sparse_ops.yaml,${PADDLE_SOURCE_DIR}/paddle/phi/ops/yaml/fused_ops.yaml"
 )
 set(backward_yaml_path
-    "${PADDLE_SOURCE_DIR}/paddle/phi/api/yaml/backward.yaml,${PADDLE_SOURCE_DIR}/paddle/phi/api/yaml/legacy_backward.yaml,${PADDLE_SOURCE_DIR}/paddle/phi/api/yaml/sparse_backward.yaml,${PADDLE_SOURCE_DIR}/paddle/phi/api/yaml/fused_backward.yaml"
+    "${PADDLE_SOURCE_DIR}/paddle/phi/ops/yaml/backward.yaml,${PADDLE_SOURCE_DIR}/paddle/phi/ops/yaml/inconsistent/dygraph_backward.yaml,${PADDLE_SOURCE_DIR}/paddle/phi/ops/yaml/sparse_backward.yaml,${PADDLE_SOURCE_DIR}/paddle/phi/ops/yaml/fused_backward.yaml"
 )
+
 set(tmp_forwards_cc_path
     "${PADDLE_SOURCE_DIR}/paddle/fluid/eager/api/generated/eager_generated/forwards/tmp_dygraph_functions.cc"
 )
@@ -30,7 +31,7 @@ set(nodes_h_path
 )
 # StringTensor only needs forward api
 set(fwd_api_yaml_path
-    "${PADDLE_SOURCE_DIR}/paddle/phi/api/yaml/strings_ops.yaml")
+    "${PADDLE_SOURCE_DIR}/paddle/phi/ops/yaml/strings_ops.yaml")
 
 message("Final State Eager CodeGen")
 add_custom_target(
@@ -67,7 +68,7 @@ add_custom_target(
   COMMAND
     "${PYTHON_EXECUTABLE}"
     "${PADDLE_SOURCE_DIR}/paddle/fluid/eager/auto_code_generator/generator/python_c_gen.py"
-    "--api_yaml_path=${api_yaml_path},${fwd_api_yaml_path}"
+    "--api_yaml_path=${api_yaml_path},${fwd_api_yaml_path},${backward_yaml_path}"
     "--source_path=${tmp_python_c_source_path}"
     "--header_path=${tmp_python_c_header_path}"
   COMMAND ${CMAKE_COMMAND} -E copy_if_different ${tmp_python_c_source_path}

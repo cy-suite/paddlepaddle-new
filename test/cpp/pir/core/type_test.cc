@@ -249,13 +249,62 @@ TEST(type_test, custom_type_dialect) {
   EXPECT_EQ(dialect_integer1, dialect_integer2);
 }
 
+TEST(type_test, sparse_coo) {
+  pir::IrContext *ctx = pir::IrContext::Instance();
+  ctx->GetOrRegisterDialect<paddle::dialect::OperatorDialect>();
+  pir::Type fp32_dtype = pir::Float32Type::get(ctx);
+  common::DDim dims = {4, 4};
+  common::DDim non_zero_dims = {4, 1};
+  common::DataLayout data_layout = common::DataLayout::NCHW;
+  pir::LegacyLoD lod = {{0, 1, 2}};
+  size_t offset = 0;
+  pir::DenseTensorType none_zero_indices = pir::DenseTensorType::get(
+      ctx, fp32_dtype, dims, data_layout, lod, offset);
+  pir::DenseTensorType none_zero_elements = pir::DenseTensorType::get(
+      ctx, fp32_dtype, dims, data_layout, lod, offset);
+  bool coalesced = false;
+  paddle::dialect::SparseCooTensorTypeStorage storage1(fp32_dtype,
+                                                       dims,
+                                                       non_zero_dims,
+                                                       data_layout,
+                                                       none_zero_indices,
+                                                       none_zero_elements,
+                                                       coalesced);
+  auto storage2 = std::make_tuple(fp32_dtype,
+                                  dims,
+                                  non_zero_dims,
+                                  data_layout,
+                                  none_zero_indices,
+                                  none_zero_elements,
+                                  coalesced);
+  pir::Type pir_type =
+      paddle::dialect::SparseCooTensorType::get(ctx,
+                                                fp32_dtype,
+                                                dims,
+                                                non_zero_dims,
+                                                data_layout,
+                                                none_zero_indices,
+                                                none_zero_elements,
+                                                coalesced);
+  EXPECT_TRUE(storage1 == storage2);
+  EXPECT_EQ(pir_type.isa<paddle::dialect::SparseCooTensorType>(), true);
+  paddle::dialect::SparseCooTensorType sparse_coo_tensor_type =
+      pir_type.dyn_cast<paddle::dialect::SparseCooTensorType>();
+  EXPECT_EQ(sparse_coo_tensor_type.dims(), dims);
+  EXPECT_EQ(sparse_coo_tensor_type.non_zero_dims(), non_zero_dims);
+  EXPECT_EQ(sparse_coo_tensor_type.data_layout(), data_layout);
+  EXPECT_EQ(sparse_coo_tensor_type.non_zero_indices(), none_zero_indices);
+  EXPECT_EQ(sparse_coo_tensor_type.non_zero_elements(), none_zero_elements);
+  EXPECT_EQ(sparse_coo_tensor_type.coalesced(), coalesced);
+}
+
 TEST(type_test, pd_op_dialect) {
   pir::IrContext *ctx = pir::IrContext::Instance();
   ctx->GetOrRegisterDialect<paddle::dialect::OperatorDialect>();
   pir::Type fp32_dtype = pir::Float32Type::get(ctx);
   phi::DDim dims = {2, 2};
   phi::DataLayout data_layout = phi::DataLayout::NCHW;
-  phi::LoD lod = {{0, 1, 2}};
+  phi::LegacyLoD lod = {{0, 1, 2}};
   size_t offset = 0;
   paddle::dialect::SelectedRowsType select_rows_dtype =
       paddle::dialect::SelectedRowsType::get(
@@ -267,6 +316,51 @@ TEST(type_test, pd_op_dialect) {
   EXPECT_EQ(select_rows_dtype.offset(), offset);
 }
 
+TEST(type_test, sparse_csr) {
+  pir::IrContext *ctx = pir::IrContext::Instance();
+  ctx->GetOrRegisterDialect<paddle::dialect::OperatorDialect>();
+  pir::Type fp32_dtype = pir::Float32Type::get(ctx);
+  common::DDim dims = {4, 4};
+  common::DataLayout data_layout = common::DataLayout::NCHW;
+  pir::LegacyLoD lod = {{0, 1, 2}};
+  size_t offset = 0;
+  pir::DenseTensorType non_zero_crows = pir::DenseTensorType::get(
+      ctx, fp32_dtype, dims, data_layout, lod, offset);
+  pir::DenseTensorType non_zero_cols = pir::DenseTensorType::get(
+      ctx, fp32_dtype, dims, data_layout, lod, offset);
+  pir::DenseTensorType non_zero_elements = pir::DenseTensorType::get(
+      ctx, fp32_dtype, dims, data_layout, lod, offset);
+  paddle::dialect::SparseCsrTensorTypeStorage storage1(fp32_dtype,
+                                                       dims,
+                                                       data_layout,
+                                                       non_zero_crows,
+                                                       non_zero_cols,
+                                                       non_zero_elements);
+  auto storage2 = std::make_tuple(fp32_dtype,
+                                  dims,
+                                  data_layout,
+                                  non_zero_crows,
+                                  non_zero_cols,
+                                  non_zero_elements);
+  pir::Type pir_type =
+      paddle::dialect::SparseCsrTensorType::get(ctx,
+                                                fp32_dtype,
+                                                dims,
+                                                data_layout,
+                                                non_zero_crows,
+                                                non_zero_cols,
+                                                non_zero_elements);
+  EXPECT_TRUE(storage1 == storage2);
+  EXPECT_EQ(pir_type.isa<paddle::dialect::SparseCsrTensorType>(), true);
+  paddle::dialect::SparseCsrTensorType sparse_csr_tensor_type =
+      pir_type.dyn_cast<paddle::dialect::SparseCsrTensorType>();
+  EXPECT_EQ(sparse_csr_tensor_type.dims(), dims);
+  EXPECT_EQ(sparse_csr_tensor_type.data_layout(), data_layout);
+  EXPECT_EQ(sparse_csr_tensor_type.non_zero_crows(), non_zero_crows);
+  EXPECT_EQ(sparse_csr_tensor_type.non_zero_cols(), non_zero_cols);
+  EXPECT_EQ(sparse_csr_tensor_type.non_zero_elements(), non_zero_elements);
+}
+
 TEST(type_test, type_util) {
   pir::IrContext *ctx = pir::IrContext::Instance();
   ctx->GetOrRegisterDialect<paddle::dialect::OperatorDialect>();
@@ -275,7 +369,7 @@ TEST(type_test, type_util) {
   phi::DDim dims1 = {2, 2};
   phi::DDim dims2 = {2, 2, 3};
   phi::DataLayout data_layout = phi::DataLayout::NCHW;
-  phi::LoD lod = {{0, 1, 2}};
+  phi::LegacyLoD lod = {{0, 1, 2}};
   size_t offset = 0;
 
   paddle::dialect::SelectedRowsType select_rows_dtype1 =

@@ -30,8 +30,8 @@
 #include "paddle/fluid/distributed/the_one_ps.pb.h"
 #include "paddle/fluid/framework/channel.h"
 #include "paddle/fluid/framework/scope.h"
-#include "paddle/fluid/platform/device_context.h"
-#include "paddle/fluid/platform/place.h"
+#include "paddle/phi/common/place.h"
+#include "paddle/phi/core/platform/device_context.h"
 
 namespace google {
 namespace protobuf {
@@ -100,7 +100,8 @@ class PSServer {
       int msg_type UNUSED,
       int to_pserver_id UNUSED,
       const std::string &msg UNUSED) {
-    LOG(FATAL) << "NotImplementError: PSServer::send_pserver2pserver_msg";
+    PADDLE_THROW(common::errors::Unimplemented(
+        "NotImplementError: PSServer::send_pserver2pserver_msg"));
     std::promise<int32_t> promise;
     std::future<int> fut = promise.get_future();
     promise.set_value(-1);
@@ -108,8 +109,8 @@ class PSServer {
   }
 
   typedef std::function<int32_t(int, int, const std::string &)> MsgHandlerFunc;
-  virtual int RegistePServer2PServerMsgHandler(int msg_type,
-                                               MsgHandlerFunc handler) {
+  virtual int RegisterPServer2PServerMsgHandler(int msg_type,
+                                                MsgHandlerFunc handler) {
     _msg_handler_map[msg_type] = handler;
     return 0;
   }
@@ -130,7 +131,8 @@ class PSServer {
   virtual int32_t ReceiveFromPServer(int msg_type UNUSED,
                                      int pserver_id UNUSED,
                                      const std::string &msg UNUSED) {
-    LOG(FATAL) << "NotImplementError::PSServer::ReceiveFromPServer";
+    PADDLE_THROW(common::errors::Unimplemented(
+        "NotImplementError::PSServer::ReceiveFromPServer"));
     return -1;
   }
 
@@ -148,7 +150,7 @@ class PSServer {
 
  protected:
   std::shared_ptr<framework::Scope> scope_;
-  platform::Place place_ = platform::CPUPlace();
+  phi::Place place_ = phi::CPUPlace();
 };
 
 REGISTER_PSCORE_REGISTERER(PSServer);

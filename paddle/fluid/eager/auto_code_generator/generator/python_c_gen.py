@@ -26,7 +26,15 @@ from codegen_utils import (
 #########################
 # Global Configurations #
 #########################
-skipped_forward_api_names = set()
+skipped_forward_api_names = {
+    "scale_grad",
+    "push_gpups_sparse",
+    "embedding_grad",
+    "multiply_grad",
+    "cudnn_lstm_grad",
+    "conv2d_grad",
+    "pull_sparse_v2_grad",
+}
 
 
 def SkipAPIGeneration(forward_api_name):
@@ -69,28 +77,28 @@ def FindParsingFunctionFromAttributeType(atype):
 # Refactored Functions #
 ########################
 PARSE_PYTHON_C_TENSORS_TEMPLATE = (
-    "    auto {} = {}(\"{}\", \"{}\", args, {}, {});\n"
+    '    auto {} = {}("{}", "{}", args, {}, {});\n'
 )
 
 PARSE_PYTHON_C_TENSOR_REF_TEMPLATE = (
-    "    auto& {} = {}(\"{}\", \"{}\", args, {}, {});\n"
+    '    auto& {} = {}("{}", "{}", args, {}, {});\n'
 )
 
 CONVERT_TO_DISTTENSOR_AND_PARSE_PYTHON_C_TENSORS_TEMPLATE = (
-    "    {} = {}(\"{}\", \"{}\", args, {}, {}, mesh);\n"
+    '    {} = {}("{}", "{}", args, {}, {}, mesh);\n'
 )
 
 CONVERT_INPUT_TENSORS_TO_DIST_TENSOR_WITH_SINGLE_TENSOR_TEMPLATE = """
     const phi::distributed::ProcessMesh* mesh = nullptr;
-    if (InputsContainDistTensor(&mesh{input_names})) {{
-      ConvertAllInputsToDistTensor(mesh{input_single_tensor_names});
+    if (egr::InputsContainDistTensor(&mesh{input_names})) {{
+      egr::ConvertAllInputsToDistTensor(mesh{input_single_tensor_names});
       {optional_and_vector_convert_code}
     }}
 """
 
 CONVERT_INPUT_TENSORS_TO_DIST_TENSOR_WITHOUT_SINGLE_TENSOR_TEMPLATE = """
     const phi::distributed::ProcessMesh* mesh = nullptr;
-    if (InputsContainDistTensor(&mesh{input_names})) {{
+    if (egr::InputsContainDistTensor(&mesh{input_names})) {{
       {optional_and_vector_convert_code}
     }}
 """
@@ -100,7 +108,9 @@ PARSE_PYTHON_C_ARGS_TEMPLATE = """    PyObject* {}_obj = PyTuple_GET_ITEM(args, 
 """
 
 
-RECORD_EVENT_TEMPLATE = "paddle::platform::RecordEvent {}(\"{} {}\", paddle::platform::TracerEventType::UserDefined, 1);"
+RECORD_EVENT_TEMPLATE = (
+    'phi::RecordEvent {}("{} {}", phi::TracerEventType::UserDefined, 1);'
+)
 
 
 RETURN_INPLACE_PYOBJECT_TEMPLATE = """
@@ -140,35 +150,35 @@ PyObject * eager_api_{}(PyObject *self, PyObject *args, PyObject *kwargs) {{
 }}
 """
 
-NOAMP_DYGRAPH_FUNCTION_TEMPLATE = "decltype({}({})) out = {}({});"
+NOAMP_DYGRAPH_FUNCTION_TEMPLATE = "decltype({}({})) ad_func_out = {}({});"
 
 
 FUNCTION_SET_DEVICE_TEMPLATE = """{}
     SetPythonStack();
-    if (paddle::platform::is_gpu_place(place)) {{
+    if (phi::is_gpu_place(place)) {{
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
       phi::backends::gpu::SetDeviceId(place.device);
       VLOG(4) <<"CurrentDeviceId: " << phi::backends::gpu::GetCurrentDeviceId() << " from " << (int)place.device;
 #else
-      PADDLE_THROW(paddle::platform::errors::PreconditionNotMet(
+      PADDLE_THROW(common::errors::PreconditionNotMet(
         "PaddlePaddle should compile with GPU if use CUDAPlace."));
 #endif
     }}
-    if (paddle::platform::is_custom_place(place)) {{
+    if (phi::is_custom_place(place)) {{
 #if defined(PADDLE_WITH_CUSTOM_DEVICE)
       phi::DeviceManager::SetDevice(place);
       VLOG(4) <<"CurrentDeviceId: " << phi::DeviceManager::GetDevice(place.GetDeviceType()) << " from " << (int)place.device;
 #else
-      PADDLE_THROW(paddle::platform::errors::PreconditionNotMet(
+      PADDLE_THROW(common::errors::PreconditionNotMet(
         "PaddlePaddle should compile with CUSTOM_DEVICE if use CustomPlace."));
 #endif
     }}
-    if (paddle::platform::is_xpu_place(place)) {{
+    if (phi::is_xpu_place(place)) {{
 #if defined(PADDLE_WITH_XPU)
       phi::backends::xpu::SetXPUDeviceId(place.device);
       VLOG(4) <<"CurrentDeviceId: " << phi::backends::xpu::GetXPUCurrentDeviceId() << " from " << (int)place.device;
 #else
-      PADDLE_THROW(paddle::platform::errors::PreconditionNotMet(
+      PADDLE_THROW(common::errors::PreconditionNotMet(
         "PaddlePaddle should compile with XPU if use XPUPlace."));
 #endif
     }}
@@ -177,7 +187,7 @@ FUNCTION_SET_DEVICE_TEMPLATE = """{}
 FUNCTION_NAME_TEMPLATE = "{}{}{}"
 
 
-PYTHON_C_FUNCTION_REG_TEMPLATE = "  {{\"{}{}\", (PyCFunction)(void(*)(void)) {}eager_api_{}, METH_VARARGS | METH_KEYWORDS, \"C++ interface function for {} in dygraph.\"}},\n"
+PYTHON_C_FUNCTION_REG_TEMPLATE = '  {{"{}{}", (PyCFunction)(void(*)(void)) {}eager_api_{}, METH_VARARGS | METH_KEYWORDS, "C++ interface function for {} in dygraph."}},\n'
 
 
 PYTHON_C_WRAPPER_TEMPLATE = """
@@ -187,10 +197,11 @@ PYTHON_C_WRAPPER_TEMPLATE = """
 #include "paddle/phi/backends/device_manager.h"
 #include "paddle/fluid/pybind/eager_utils.h"
 #include "paddle/fluid/pybind/exception.h"
-#include "paddle/fluid/platform/profiler/event_tracing.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 #include "paddle/fluid/pybind/op_function_common.h"
 #include "paddle/fluid/eager/api/generated/eager_generated/forwards/dygraph_functions.h"
 #include "paddle/fluid/eager/api/manual/eager_manual/dygraph_forward_api.h"
+#include "paddle/fluid/eager/utils.h"
 #include "paddle/fluid/pybind/eager_custom_python_api.h"
 #include "paddle/fluid/pybind/eager.h"
 #include "paddle/fluid/pybind/eager_op_function.h"
@@ -205,11 +216,11 @@ static PyMethodDef EagerFinalStateMethods[] = {{
 
 void BindFinalStateEagerOpFunctions(pybind11::module *module) {{
   if (PyModule_AddFunctions(module->ptr(), EagerFinalStateMethods) < 0) {{
-    PADDLE_THROW(platform::errors::Fatal ("Add functions to core.eager.ops failed!"));
+    PADDLE_THROW(common::errors::Fatal ("Add functions to core.eager.ops failed!"));
   }}
 
   if (PyModule_AddFunctions(module->ptr(), CustomEagerFinalStateMethods) < 0) {{
-    PADDLE_THROW(platform::errors::Fatal ("Add functions to core.eager.ops failed!"));
+    PADDLE_THROW(common::errors::Fatal ("Add functions to core.eager.ops failed!"));
   }}
 }}
 
@@ -499,7 +510,7 @@ class PythonCSingleFunctionGenerator(FunctionGeneratorBase):
             "::", namespace, GetForwardFunctionName(forward_api_name)
         )
 
-        return_str = "    return ToPyObject(out);"
+        return_str = "    return ToPyObject(ad_func_out);"
 
         # Generate Record Event for performance profiling
         pythonc_record_event_str = RECORD_EVENT_TEMPLATE.format(
@@ -567,7 +578,7 @@ class PythonCSingleFunctionGenerator(FunctionGeneratorBase):
                     inplace_args_pos_map[inplace_input],
                 )
             return_str += (
-                "    return ToPyObject(out, args, inplace_var_idx_map);"
+                "    return ToPyObject(ad_func_out, args, inplace_var_idx_map);"
             )
 
             # Generate Python-C Function Definition
@@ -606,7 +617,7 @@ class PythonCSingleFunctionGenerator(FunctionGeneratorBase):
                 )
                 # Generate Python-C Function Registration
                 self.python_c_function_reg_str = python_c_inplace_func_reg_str
-            else:
+            elif "backward_op" not in self.forward_api_contents:
                 self.python_c_function_str += python_c_inplace_func_str
                 self.python_c_function_declare_str += (
                     python_c_function_declare_str
@@ -659,6 +670,10 @@ class PythonCGenerator(GeneratorBase):
 
         forward_api_list = self.forward_api_list
         for forward_api_content in forward_api_list:
+            if "backward_op" in forward_api_content and forward_api_content[
+                "backward_op"
+            ].endswith(('double_grad', 'triple_grad', 'grad_grad', '_grad_')):
+                continue
             f_generator = PythonCSingleFunctionGenerator(
                 forward_api_content, namespace
             )

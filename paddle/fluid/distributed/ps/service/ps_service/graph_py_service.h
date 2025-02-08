@@ -38,7 +38,7 @@
 #include "paddle/fluid/framework/scope.h"
 #include "paddle/fluid/framework/tensor_util.h"
 #include "paddle/fluid/framework/variable.h"
-#include "paddle/fluid/platform/place.h"
+#include "paddle/phi/common/place.h"
 #include "paddle/phi/kernels/funcs/math_function.h"
 #include "paddle/utils/string/printf.h"
 
@@ -211,7 +211,7 @@ class GraphPyClient : public GraphPyService {
   int client_id;
   std::shared_ptr<::paddle::distributed::GraphBrpcClient> worker_ptr;
   std::thread* client_thread;
-  bool stoped_ = false;
+  bool stopped_ = false;
 };
 }  // namespace distributed
 }  // namespace paddle

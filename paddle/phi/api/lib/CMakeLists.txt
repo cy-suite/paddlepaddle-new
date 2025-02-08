@@ -1,24 +1,24 @@
-set(api_gen_base ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/generator/api_base.py)
+set(api_gen_base ${CMAKE_SOURCE_DIR}/paddle/phi/api/generator/api_base.py)
 
 # forward api file
-set(api_gen_file ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/generator/api_gen.py)
-set(api_yaml_file ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/ops.yaml)
+set(api_gen_file ${CMAKE_SOURCE_DIR}/paddle/phi/api/generator/api_gen.py)
+set(api_yaml_file ${CMAKE_SOURCE_DIR}/paddle/phi/ops/yaml/ops.yaml)
 set(legacy_api_yaml_file
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/legacy_ops.yaml)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/ops/yaml/inconsistent/dygraph_ops.yaml)
 set(api_header_file ${CMAKE_SOURCE_DIR}/paddle/phi/api/include/api.h)
 set(api_source_file ${CMAKE_SOURCE_DIR}/paddle/phi/api/lib/api.cc)
 set(api_header_file_tmp ${api_header_file}.tmp)
 set(api_source_file_tmp ${api_source_file}.tmp)
 # dist forward api file
 set(dist_api_gen_file
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/generator/dist_api_gen.py)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/api/generator/dist_api_gen.py)
 
 # backward api file
 set(bw_api_gen_file
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/generator/backward_api_gen.py)
-set(bw_api_yaml_file ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/backward.yaml)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/api/generator/backward_api_gen.py)
+set(bw_api_yaml_file ${CMAKE_SOURCE_DIR}/paddle/phi/ops/yaml/backward.yaml)
 set(legacy_bw_api_yaml_file
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/legacy_backward.yaml)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/ops/yaml/inconsistent/dygraph_backward.yaml)
 set(bw_api_header_file
     ${CMAKE_SOURCE_DIR}/paddle/phi/api/backward/backward_api.h)
 set(bw_api_source_file ${CMAKE_SOURCE_DIR}/paddle/phi/api/lib/backward_api.cc)
@@ -26,11 +26,11 @@ set(bw_api_header_file_tmp ${bw_api_header_file}.tmp)
 set(bw_api_source_file_tmp ${bw_api_source_file}.tmp)
 # dist backward api file
 set(dist_bw_api_gen_file
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/generator/dist_bw_api_gen.py)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/api/generator/dist_bw_api_gen.py)
 
 # dygraph(intermediate) api file
 set(im_api_gen_file
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/generator/intermediate_api_gen.py)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/api/generator/intermediate_api_gen.py)
 set(dygraph_api_header_file
     ${CMAKE_SOURCE_DIR}/paddle/phi/api/lib/dygraph_api.h)
 set(dygraph_api_source_file
@@ -39,7 +39,7 @@ set(dygraph_api_header_file_tmp ${dygraph_api_header_file}.tmp)
 set(dygraph_api_source_file_tmp ${dygraph_api_source_file}.tmp)
 
 # fused_op forward api file
-set(fused_api_yaml_file ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/fused_ops.yaml)
+set(fused_api_yaml_file ${CMAKE_SOURCE_DIR}/paddle/phi/ops/yaml/fused_ops.yaml)
 set(fused_api_header_file
     ${CMAKE_SOURCE_DIR}/paddle/phi/api/include/fused_api.h)
 set(fused_api_source_file ${CMAKE_SOURCE_DIR}/paddle/phi/api/lib/fused_api.cc)
@@ -48,9 +48,9 @@ set(fused_api_source_file_tmp ${fused_api_source_file}.tmp)
 
 # fused_op backward api file
 set(fused_bw_api_gen_file
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/generator/backward_api_gen.py)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/api/generator/backward_api_gen.py)
 set(fused_bw_api_yaml_file
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/fused_backward.yaml)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/ops/yaml/fused_backward.yaml)
 set(fused_bw_api_header_file
     ${CMAKE_SOURCE_DIR}/paddle/phi/api/backward/fused_backward_api.h)
 set(fused_bw_api_source_file
@@ -60,9 +60,9 @@ set(fused_bw_api_source_file_tmp ${fused_bw_api_source_file}.tmp)
 
 # sparse api file
 set(sparse_api_gen_file
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/generator/sparse_api_gen.py)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/api/generator/sparse_api_gen.py)
 set(sparse_api_yaml_file
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/sparse_ops.yaml)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/ops/yaml/sparse_ops.yaml)
 set(sparse_api_header_file
     ${CMAKE_SOURCE_DIR}/paddle/phi/api/include/sparse_api.h)
 set(sparse_api_source_file ${CMAKE_SOURCE_DIR}/paddle/phi/api/lib/sparse_api.cc)
@@ -71,9 +71,9 @@ set(sparse_api_source_file_tmp ${sparse_api_source_file}.tmp)
 
 # sparse bw api file
 set(sparse_bw_api_gen_file
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/generator/sparse_bw_api_gen.py)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/api/generator/sparse_bw_api_gen.py)
 set(sparse_bw_api_yaml_file
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/sparse_backward.yaml)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/ops/yaml/sparse_backward.yaml)
 set(sparse_bw_api_header_file
     ${CMAKE_SOURCE_DIR}/paddle/phi/api/backward/sparse_bw_api.h)
 set(sparse_bw_api_source_file
@@ -83,9 +83,9 @@ set(sparse_bw_api_source_file_tmp ${sparse_bw_api_source_file}.tmp)
 
 # strings api file
 set(strings_api_gen_file
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/generator/strings_api_gen.py)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/api/generator/strings_api_gen.py)
 set(strings_api_yaml_file
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/strings_ops.yaml)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/ops/yaml/strings_ops.yaml)
 set(strings_api_header_file
     ${CMAKE_SOURCE_DIR}/paddle/phi/api/include/strings_api.h)
 set(strings_api_source_file
@@ -95,7 +95,7 @@ set(strings_api_source_file_tmp ${strings_api_source_file}.tmp)
 
 # wrapped infermeta file
 set(wrapped_infermeta_gen_file
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/generator/wrapped_infermeta_gen.py)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/api/generator/wrapped_infermeta_gen.py)
 set(wrapped_infermeta_header_file
     ${CMAKE_SOURCE_DIR}/paddle/phi/infermeta/generated.h)
 set(wrapped_infermeta_source_file
@@ -103,9 +103,9 @@ set(wrapped_infermeta_source_file
 
 # tensor and tensor operants file
 set(tensor_api_yaml_path
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/tensor_operants.yaml)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/api/lib/tensor_operants.yaml)
 set(tensor_gen_file
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/generator/tensor_operants_gen.py)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/api/generator/tensor_operants_gen.py)
 set(operants_base_file
     ${CMAKE_SOURCE_DIR}/paddle/phi/api/include/operants_base.h)
 set(tensor_api_source_file ${CMAKE_SOURCE_DIR}/paddle/phi/api/lib/tensor_api.cc)
@@ -135,8 +135,9 @@ if(WITH_DISTRIBUTE)
   execute_process(
     COMMAND
       ${PYTHON_EXECUTABLE} ${dist_api_gen_file} --api_yaml_path
-      ${api_yaml_file} ${legacy_api_yaml_file} --api_header_path
-      ${api_header_file_tmp} --api_source_path ${api_source_file_tmp})
+      ${api_yaml_file} ${legacy_api_yaml_file} ${bw_api_yaml_file}
+      ${legacy_bw_api_yaml_file} --api_header_path ${api_header_file_tmp}
+      --api_source_path ${api_source_file_tmp})
 
   # generate dist backward api
   execute_process(
@@ -150,8 +151,9 @@ else()
   execute_process(
     COMMAND
       ${PYTHON_EXECUTABLE} ${api_gen_file} --api_yaml_path ${api_yaml_file}
-      ${legacy_api_yaml_file} --api_header_path ${api_header_file_tmp}
-      --api_source_path ${api_source_file_tmp})
+      ${legacy_api_yaml_file} ${bw_api_yaml_file} ${legacy_bw_api_yaml_file}
+      --api_header_path ${api_header_file_tmp} --api_source_path
+      ${api_source_file_tmp})
 
   # generate backward api
   execute_process(
@@ -167,8 +169,8 @@ if(WITH_DISTRIBUTE)
   execute_process(
     COMMAND
       ${PYTHON_EXECUTABLE} ${dist_api_gen_file} --api_yaml_path
-      ${fused_api_yaml_file} --is_fused_ops_yaml --api_header_path
-      ${fused_api_header_file_tmp} --api_source_path
+      ${fused_api_yaml_file} ${fused_bw_api_yaml_file} --is_fused_ops_yaml
+      --api_header_path ${fused_api_header_file_tmp} --api_source_path
       ${fused_api_source_file_tmp})
 
   # generate fused_op backward api
@@ -183,8 +185,8 @@ else()
   execute_process(
     COMMAND
       ${PYTHON_EXECUTABLE} ${api_gen_file} --api_yaml_path
-      ${fused_api_yaml_file} --is_fused_ops_yaml --api_header_path
-      ${fused_api_header_file_tmp} --api_source_path
+      ${fused_api_yaml_file} ${fused_bw_api_yaml_file} --is_fused_ops_yaml
+      --api_header_path ${fused_api_header_file_tmp} --api_source_path
       ${fused_api_source_file_tmp})
 
   # generate fused_op backward api
@@ -200,8 +202,9 @@ endif()
 execute_process(
   COMMAND
     ${PYTHON_EXECUTABLE} ${sparse_api_gen_file} --api_yaml_path
-    ${sparse_api_yaml_file} --api_header_path ${sparse_api_header_file_tmp}
-    --api_source_path ${sparse_api_source_file_tmp})
+    ${sparse_api_yaml_file} ${sparse_bw_api_yaml_file} --api_header_path
+    ${sparse_api_header_file_tmp} --api_source_path
+    ${sparse_api_source_file_tmp})
 
 # generate backward sparse api
 execute_process(
@@ -223,7 +226,8 @@ if(WITH_DISTRIBUTE)
   execute_process(
     COMMAND
       ${PYTHON_EXECUTABLE} ${im_api_gen_file} --api_yaml_path ${api_yaml_file}
-      ${legacy_api_yaml_file} --sparse_api_yaml_path ${sparse_api_yaml_file}
+      ${bw_api_yaml_file} ${legacy_api_yaml_file} ${legacy_bw_api_yaml_file}
+      --sparse_api_yaml_path ${sparse_api_yaml_file} ${sparse_bw_api_yaml_file}
       --dygraph_api_header_path ${dygraph_api_header_file_tmp}
       --dygraph_api_source_path ${dygraph_api_source_file_tmp}
       --gen_dist_branch)
@@ -231,7 +235,8 @@ else()
   execute_process(
     COMMAND
       ${PYTHON_EXECUTABLE} ${im_api_gen_file} --api_yaml_path ${api_yaml_file}
-      ${legacy_api_yaml_file} --sparse_api_yaml_path ${sparse_api_yaml_file}
+      ${bw_api_yaml_file} ${legacy_api_yaml_file} ${legacy_bw_api_yaml_file}
+      --sparse_api_yaml_path ${sparse_api_yaml_file} ${sparse_bw_api_yaml_file}
       --dygraph_api_header_path ${dygraph_api_header_file_tmp}
       --dygraph_api_source_path ${dygraph_api_source_file_tmp})
 endif()
@@ -239,7 +244,7 @@ endif()
 # generate tensor and tensor operants file
 message("create or copy auto-generated tensor files")
 execute_process(
-  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/paddle/phi/api/yaml/generator
+  WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}/paddle/phi/api/generator
   COMMAND
     ${PYTHON_EXECUTABLE} ${tensor_gen_file} --api_yaml_path ${api_yaml_file}
     ${legacy_api_yaml_file} --operants_base_path ${operants_base_file_tmp}

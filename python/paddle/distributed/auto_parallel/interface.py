@@ -11,9 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from __future__ import annotations
 
 from functools import reduce
-from typing import List, Tuple
 
 import numpy as np
 
@@ -43,7 +43,7 @@ def shard_tensor(x, process_mesh=None, shard_spec=None):
             current process mesh cannot be found. Default: None.
         shard_spec (list, optional): a list to describe the sharding mapping between `x` and `process_mesh`,
             which means the dimension `i` of `x` is split across the dimension `shard_spec[i]` of `process_mesh`,
-            where `None` means that tensor dimension is not split. For example, given a tensor wih
+            where `None` means that tensor dimension is not split. For example, given a tensor with
             the shape [6, 12] and a process mesh with the shape [2, 3] and the dimension names ["x", "y"]:
                 If `shard_spec=["x", "y"]`, each shard of the tensor will have a shape [3, 4];
                 If `shard_spec=["y", "x"]`, each shard of the tensor will have a shape [2, 6];
@@ -102,9 +102,7 @@ def shard_tensor(x, process_mesh=None, shard_spec=None):
     if shard_spec is not None:
         assert verify_shard_spec(
             shard_spec, tensor_shape, process_mesh
-        ), "For tensor {}, shard_spec {} is invalid with tensor_shape {} and process_mesh {}.".format(
-            serial_tensor.name, shard_spec, tensor_shape, process_mesh
-        )
+        ), f"For tensor {serial_tensor.name}, shard_spec {shard_spec} is invalid with tensor_shape {tensor_shape} and process_mesh {process_mesh}."
         dist_tensor.dist_attr.dims_mapping = convert_to_dims_mapping(
             shard_spec, process_mesh
         )
@@ -218,6 +216,9 @@ def recompute(op):
             self._op = op
 
         def __call__(self, *args, **kwargs):
+            block = paddle.static.default_main_program().global_block()
+            rc_begin_id = len(block.ops)
+
             with paddle.static.name_scope(
                 f'/auto_parallel/rc_{_g_recompute_idx}'
             ):
@@ -229,6 +230,13 @@ def recompute(op):
                     )
                 else:
                     output = self._op(*args, **kwargs)
+
+            if paddle.framework.in_pir_mode():
+                block = paddle.static.default_main_program().global_block()
+                rc_end_id = len(block.ops)
+                for idx in range(rc_begin_id, rc_end_id):
+                    rc_op = block.ops[idx]
+                    rc_op.set_int_attr("fwd_recompute_id", _g_recompute_idx)
 
             return output
 
@@ -304,9 +312,7 @@ def fetch(tensor, name=None, logging=False):
         tensor = tensor
     else:
         raise TypeError(
-            "Only support fetch `Variable` or `str`[`Variable`'s name], but got `{}`".format(
-                type(tensor)
-            )
+            f"Only support fetch `Variable` or `str`[`Variable`'s name], but got `{type(tensor)}`"
         )
     add_to_collection(CollectionNames.FETCHES, tensor, name)
     if logging:
@@ -316,12 +322,55 @@ def fetch(tensor, name=None, logging=False):
 _g_mesh = None
 
 
-def get_mesh():
+def get_mesh() -> paddle.distributed.ProcessMesh:
+    """
+    Get the global mesh set by set_mesh.
+
+    Returns:
+        mesh (paddle.distributed.ProcessMesh): the global mesh.
+
+    Examples:
+        .. code-block:: python
+
+            >>> import paddle
+            >>> import paddle.distributed as dist
+            >>> mesh = dist.ProcessMesh([[[0, 1], [2, 3]], [[4, 5], [6, 7]]], dim_names=["dp", "mp", "pp"])
+            >>> # doctest: +REQUIRES(env:DISTRIBUTED)
+            >>> dist.auto_parallel.set_mesh(mesh)
+            >>> mesh = dist.auto_parallel.get_mesh()
+            >>> # This case need to be executed in multi-card environment
+            >>> # python -m paddle.distributed.launch --gpus=0,1,2,3,4,5,6,7 {test_case}.py
+    """
     global _g_mesh
     return _g_mesh
 
 
-def create_mesh(mesh_dims: List[Tuple[str, int]]):
+def set_mesh(mesh: paddle.distributed.ProcessMesh) -> None:
+    """
+    Set the global mesh.
+
+    Args:
+        mesh (paddle.distributed.ProcessMesh): global mesh to be set.
+
+    Returns:
+        None
+
+    Examples:
+        .. code-block:: python
+
+            >>> import paddle
+            >>> import paddle.distributed as dist
+            >>> mesh = dist.ProcessMesh([[[0, 1], [2, 3]], [[4, 5], [6, 7]]], dim_names=["dp", "mp", "pp"])
+            >>> # doctest: +REQUIRES(env:DISTRIBUTED)
+            >>> dist.auto_parallel.set_mesh(mesh)
+            >>> # This case need to be executed in multi-card environment
+            >>> # python -m paddle.distributed.launch --gpus=0,1,2,3,4,5,6,7 {test_case}.py
+    """
+    global _g_mesh
+    _g_mesh = mesh
+
+
+def create_mesh(mesh_dims: list[tuple[str, int]]):
     """
     Create a global process_mesh for auto parallel.
 

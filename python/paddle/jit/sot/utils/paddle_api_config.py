@@ -22,11 +22,19 @@ def is_inplace_api(func):
     return func in inplace_apis
 
 
-def get_tensor_methods():
+def get_variable_methods():
     return [
         member_name
         for member_name, member in inspect.getmembers(paddle.static.Variable)
         if inspect.isfunction(member)
+    ]
+
+
+def get_value_methods():
+    return [
+        member_name
+        for member_name, member in inspect.getmembers(paddle.pir.Value)
+        if inspect.isfunction(member) or inspect.ismethoddescriptor(member)
     ]
 
 
@@ -40,6 +48,16 @@ def get_paddle_api():
         paddle.fft,
         paddle.vision.ops,
         paddle.metric,
+        paddle.geometric,
+    ]
+    distributed_apis = [
+        paddle.distributed.shard_tensor,
+        paddle.distributed.reshard,
+        paddle.distributed.unshard_dtensor,
+        paddle.distributed.auto_parallel.api.dtensor_to_local,
+        paddle.distributed.auto_parallel.api.dtensor_from_local,
+        paddle.distributed.auto_parallel.api.moe_global_mesh_tensor,
+        paddle.distributed.auto_parallel.api.moe_sub_mesh_tensors,
     ]
     special_paddle_apis = [paddle.tensor.fill_constant]
     non_operator_related_apis = [
@@ -69,12 +87,26 @@ def get_paddle_api():
                 paddle_api_list.append(fn)
     return list(
         set(special_paddle_apis)
+        | set(distributed_apis)
         | set(static_apis)
         | set(paddle_api_list) - set(non_operator_related_apis)
     )
 
 
-paddle_tensor_methods = get_tensor_methods()
+def create_tensor_methods_getter():
+    value_methods = get_value_methods()
+    variable_methods = get_variable_methods()
+
+    def _get_tensor_methods():
+        if paddle.framework.use_pir_api():
+            return value_methods
+        else:
+            return variable_methods
+
+    return _get_tensor_methods
+
+
+get_tensor_methods = create_tensor_methods_getter()
 paddle_api_list = get_paddle_api()
 
 # TODO(Aurelius84): It seems that we use it to judge 'in_paddle_module()'.
@@ -107,3 +139,28 @@ def is_break_graph_tensor_methods(method_name):
 
 def add_break_graph_apis(apis: list):
     break_graph_set.update(apis)
+
+
+def is_directly_run_api(api):
+    from .utils import hashable
+
+    if not hashable(api):
+        return False
+    NATIVE_CODE_PURE_FUNCTIONS = {
+        paddle.base.libpaddle.is_compiled_with_avx,
+        paddle.base.libpaddle.is_compiled_with_cuda,
+        paddle.base.libpaddle.is_compiled_with_cudnn_frontend,
+        paddle.base.libpaddle.is_compiled_with_rocm,
+        paddle.base.libpaddle.is_compiled_with_custom_device,
+        paddle.base.libpaddle.is_compiled_with_ipu,
+        paddle.base.libpaddle.is_compiled_with_xpu,
+        paddle.base.libpaddle.is_compiled_with_mkldnn,
+        paddle.base.libpaddle.is_compiled_with_nccl,
+        paddle.base.libpaddle.is_compiled_with_mpi,
+        paddle.base.libpaddle.is_compiled_with_mpi_aware,
+        paddle.base.libpaddle.is_compiled_with_cinn,
+        paddle.base.libpaddle.is_compiled_with_distribute,
+        paddle.base.libpaddle.is_compiled_with_brpc,
+        paddle.base.libpaddle.is_compiled_with_dist,
+    }
+    return api in NATIVE_CODE_PURE_FUNCTIONS

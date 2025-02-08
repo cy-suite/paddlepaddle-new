@@ -23,22 +23,44 @@
 #include <algorithm>
 #include "paddle/fluid/eager/api/all.h"
 #include "paddle/fluid/eager/api/generated/eager_generated/forwards/dygraph_functions.h"
+#include "paddle/fluid/eager/utils.h"
 #include "paddle/fluid/framework/convert_utils.h"
 #include "paddle/fluid/framework/scope_guard.h"
-#include "paddle/fluid/operators/common_infer_shape_functions.h"
-#include "paddle/fluid/operators/utils.h"
 #include "paddle/fluid/pybind/tensor_py.h"
 #include "paddle/phi/common/data_type.h"
 #include "paddle/phi/core/compat/convert_utils.h"
 #include "paddle/phi/core/dense_tensor.h"
+#include "paddle/phi/kernels/funcs/common_infer_shape_functions.h"
+#include "paddle/phi/kernels/funcs/strided_slice.h"
 #include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
+
+using egr::ConvertAllInputsToDistTensor;
+using egr::InputsContainDistTensor;
 
 namespace py = pybind11;
 
 namespace paddle {
 namespace pybind {
+
+template <typename T>
+inline T GetDenseTensorValue(const phi::DenseTensor* x) {
+  T value = static_cast<T>(0);
+  if (!(x->place().GetType() == phi::AllocationType::CPU)) {
+    phi::DenseTensor cpu_x;
+    framework::TensorCopy(*x, phi::CPUPlace(), &cpu_x);
+#if defined(PADDLE_WITH_CUSTOM_DEVICE)
+    phi::DeviceContextPool& pool = phi::DeviceContextPool::Instance();
+    const phi::DeviceContext* dev_ctx = pool.Get(x->place());
+    dev_ctx->Wait();
+#endif
+    value = cpu_x.data<T>()[0];
+  } else {
+    value = x->data<T>()[0];
+  }
+  return value;
+}
 
 static Py_ssize_t GetSliceIndexFromPyObject(PyObject* obj);
 // Slice related methods
@@ -63,17 +85,17 @@ static Py_ssize_t GetSliceIndexFromTensor(const phi::DenseTensor& tensor) {
   if (tensor.numel() == 1) {
     if (framework::TransToProtoVarType(tensor.type()) ==
         framework::proto::VarType::INT32) {
-      return static_cast<Py_ssize_t>(operators::GetValue<int32_t>(&tensor));
+      return static_cast<Py_ssize_t>(GetDenseTensorValue<int32_t>(&tensor));
     } else if (framework::TransToProtoVarType(tensor.type()) ==
                framework::proto::VarType::INT64) {
-      return static_cast<Py_ssize_t>(operators::GetValue<int64_t>(&tensor));
+      return static_cast<Py_ssize_t>(GetDenseTensorValue<int64_t>(&tensor));
     } else {
-      PADDLE_THROW(platform::errors::InvalidArgument(
+      PADDLE_THROW(common::errors::InvalidArgument(
           "Currently, the type of tensor in slice indices only allows "
           "int32 and int64, please check the type of index tensor."));
     }
   } else {
-    PADDLE_THROW(platform::errors::InvalidArgument(
+    PADDLE_THROW(common::errors::InvalidArgument(
         "Currently, tensor in slice indices only allows 1 element, "
         "but received %d.",
         tensor.numel()));
@@ -103,7 +125,7 @@ static int _PySlice_GetIndices(PySliceObject* r,
     } else if (PyCheckTensor(r->step)) {
       *step = GetSliceIndexFromPyObject(r->step);
     } else {
-      PADDLE_THROW(platform::errors::InvalidArgument(
+      PADDLE_THROW(common::errors::InvalidArgument(
           "Currently, slice indices only allows None, integers, "
           "tensor(int) and numpy(int) in slice item, but received %s.",
           std::string(Py_TYPE(r->step)->tp_name)));
@@ -117,30 +139,32 @@ static int _PySlice_GetIndices(PySliceObject* r,
     } else if (PyCheckTensor(r->start)) {
       *start = GetSliceIndexFromPyObject(r->start);
     } else {
-      PADDLE_THROW(platform::errors::InvalidArgument(
+      PADDLE_THROW(common::errors::InvalidArgument(
           "Currently, slice indices only allows None, integers, "
           "tensor(int) and numpy(int) in slice item, but received %s.",
           std::string(Py_TYPE(r->start)->tp_name)));
     }
-    if (*start < 0) *start += length;
-    *start = std::max(*start, static_cast<Py_ssize_t>(0));
   }
   if (r->stop == Py_None) {
-    *stop = *step < 0 ? -1 : length;
+    *stop = *step < 0 ? -length - 1 : length;
   } else {
     if (PyCheckInteger(r->stop) || IsNumpyType(r->stop)) {
       *stop = PyLong_AsLong(r->stop);
     } else if (PyCheckTensor(r->stop)) {
       *stop = GetSliceIndexFromPyObject(r->stop);
     } else {
-      PADDLE_THROW(platform::errors::InvalidArgument(
+      PADDLE_THROW(common::errors::InvalidArgument(
           "Currently, slice indices only allows None, integers, "
           "tensor(int) and numpy(int) in slice item, but received %s.",
           std::string(Py_TYPE(r->stop)->tp_name)));
     }
-    if (0 < *step && *stop < 0) *stop += length;
-    *stop = std::min(*stop, length);
   }
+
+  // normalize start and stop
+  bool dummy_zero_dim_out = false;
+  phi::funcs::normalize_interval(
+      *start, *stop, *step, length, start, stop, &dummy_zero_dim_out);
+  // return value below seems to be useless...
   if (*stop > length) return -1;
   if (*start >= length) return -1;
   if (*step == 0) return -1;
@@ -172,7 +196,7 @@ static void ParseIndex(const paddle::Tensor& tensor,
   PADDLE_ENFORCE_EQ(
       tensor.defined(),
       true,
-      platform::errors::InvalidArgument("tensor has not been defined"));
+      common::errors::InvalidArgument("tensor has not been defined"));
   const auto& shape = tensor.dims();
   const int rank = shape.size();
   const int size = PyTuple_GET_SIZE(index);
@@ -190,7 +214,7 @@ static void ParseIndex(const paddle::Tensor& tensor,
   }
   PADDLE_ENFORCE_LE(ell_count,
                     1,
-                    platform::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "An index can only have a single ellipsis ('...')"));
 
   // deal with indexing_item
@@ -208,13 +232,13 @@ static void ParseIndex(const paddle::Tensor& tensor,
 
       PADDLE_ENFORCE(
           0 <= start && start < dim_len,
-          platform::errors::OutOfRange("The starting index %d of slice is out "
-                                       "of bounds in tensor %d-th axis, it "
-                                       "shound be in the range of [%d, %d).",
-                                       s_t,
-                                       current_dim,
-                                       -dim_len,
-                                       dim_len));
+          common::errors::OutOfRange("The starting index %d of slice is out "
+                                     "of bounds in tensor %d-th axis, it "
+                                     "shound be in the range of [%d, %d).",
+                                     s_t,
+                                     current_dim,
+                                     -dim_len,
+                                     dim_len));
 
       slice_axes->push_back(current_dim);
       slice_starts->push_back(start);
@@ -268,14 +292,14 @@ static void ParseIndex(const paddle::Tensor& tensor,
           PADDLE_ENFORCE_EQ(
               slice_tensor.is_dense_tensor(),
               true,
-              platform::errors::InvalidArgument(
+              common::errors::InvalidArgument(
                   "Now, Tensor in indexing only support DenseTensor."));
           Py_ssize_t s_t = GetSliceIndexFromTensor(
               (*static_cast<phi::DenseTensor*>(slice_tensor.impl().get())));
           auto start = s_t < 0 ? s_t + dim_len : s_t;
 
           PADDLE_ENFORCE(0 <= start && start < dim_len,
-                         platform::errors::OutOfRange(
+                         common::errors::OutOfRange(
                              "The starting index %d of slice is out "
                              "of bounds in tensor %d-th axis, it "
                              "shound be in the range of [%d, %d).",
@@ -304,7 +328,7 @@ static void ParseIndex(const paddle::Tensor& tensor,
         if (slice_tensor.dtype() == phi::DataType::BOOL) {
           PADDLE_ENFORCE_EQ(slice_tensor.shape()[0],
                             dim_len,
-                            platform::errors::OutOfRange(
+                            common::errors::OutOfRange(
                                 "The shape of boolean index %d did not match"
                                 "indexed tensor %d along axis %d.",
                                 slice_tensor.shape()[0],
@@ -319,7 +343,7 @@ static void ParseIndex(const paddle::Tensor& tensor,
       }
 
     } else {
-      PADDLE_THROW(platform::errors::InvalidArgument(
+      PADDLE_THROW(common::errors::InvalidArgument(
           "Currently, Tensor.__indices__() only allows indexing "
           "by Boolean, Integers, Slices, Ellipsis, None, Tuples of these types "
           "and List / Tensor of Bool and Integers, but received "
@@ -330,12 +354,12 @@ static void ParseIndex(const paddle::Tensor& tensor,
   }
 
   // valid_index is the number of dimensions exclude None index
-  const int valid_indexs = size - none_axes->size() - ell_count;
-  PADDLE_ENFORCE_EQ(valid_indexs <= rank,
+  const int valid_indices = size - none_axes->size() - ell_count;
+  PADDLE_ENFORCE_EQ(valid_indices <= rank,
                     true,
-                    platform::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "Too many indices (%d) for tensor of dimension %d.",
-                        valid_indexs,
+                        valid_indices,
                         rank));
 }
 
@@ -467,7 +491,7 @@ static paddle::Tensor dealWithAdvancedIndex(
 static paddle::Tensor getValueForBoolTensor(const paddle::Tensor& tensor,
                                             const paddle::Tensor& bool_index) {
   PADDLE_ENFORCE(bool_index.shape().size() <= tensor.shape().size(),
-                 platform::errors::InvalidArgument(
+                 common::errors::InvalidArgument(
                      "The dims of bool index doesn't match indexed array, "
                      "the dims of bool index except to be equal or less "
                      "than %d, but received %d}.",
@@ -479,7 +503,7 @@ static paddle::Tensor getValueForBoolTensor(const paddle::Tensor& tensor,
     PADDLE_ENFORCE_EQ(
         bool_index.shape()[i],
         tensor_shape[i],
-        platform::errors::OutOfRange(
+        common::errors::OutOfRange(
             "The dimension of bool index doesn't match indexed array along "
             "dimension %d, the target dimension is %d, but received %d",
             i,
@@ -518,8 +542,8 @@ static void ParseBoolAndBroadcastIndices(
           common::make_ddim((*advanced_index)[i].shape());
       if (current_shape != common_shape) {
         need_broadcast = true;
-        common_shape = operators::details::BroadcastTwoDims(
-            current_shape, common_shape, -1);
+        common_shape =
+            phi::funcs::BroadcastTwoDims(current_shape, common_shape, -1);
       }
     }
 
@@ -549,7 +573,7 @@ static paddle::Tensor dealWithValues(const paddle::Tensor& tensor,
     paddle::Tensor value_tensor_tmp(
         std::make_shared<phi::DenseTensor>(),
         egr::Controller::Instance().GenerateUniqueName());
-    py::object value_obj_tmp(py::handle(value_obj), true);
+    py::object value_obj_tmp = py::reinterpret_borrow<py::object>(value_obj);
     py::object value = value_obj_tmp;
     if (tensor.dtype() == phi::DataType::FLOAT32) {
       if (!py::isinstance<py::array_t<float>>(value_obj_tmp)) {
@@ -582,7 +606,7 @@ static paddle::Tensor dealWithValues(const paddle::Tensor& tensor,
             value_obj_tmp);
       }
     } else {
-      PADDLE_THROW(platform::errors::InvalidArgument(
+      PADDLE_THROW(common::errors::InvalidArgument(
           "When assign a numpy.np value to a paddle.Tensor, "
           "the data type of the paddle.Tensor must be bool, "
           "float32, float64, complex64, complex128, int32 or int64, "
@@ -595,7 +619,7 @@ static paddle::Tensor dealWithValues(const paddle::Tensor& tensor,
         false);
     value_tensor = value_tensor_tmp;
   } else {
-    py::object value_obj_tmp(py::handle(value_obj), true);
+    py::object value_obj_tmp = py::reinterpret_borrow<py::object>(value_obj);
     // convert the value to self data type
     if (py::isinstance<py::float_>(value_obj_tmp) ||
         py::isinstance<py::int_>(value_obj_tmp) ||
@@ -622,7 +646,7 @@ static paddle::Tensor dealWithValues(const paddle::Tensor& tensor,
         values->push_back(value_obj_tmp.cast<std::complex<double>>());
       }
     } else {
-      PADDLE_THROW(platform::errors::InvalidArgument(
+      PADDLE_THROW(common::errors::InvalidArgument(
           "Value type error. The assign value allows "
           "Tensor, numpy.ndarray, integer, float, complex or bool, "
           "but received %s.",

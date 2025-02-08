@@ -19,7 +19,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "paddle/fluid/distributed/common/afs_warpper.h"
+#include "paddle/fluid/distributed/common/afs_wrapper.h"
 #include "paddle/fluid/distributed/common/registerer.h"
 #include "paddle/fluid/distributed/ps/thirdparty/round_robin.h"
 #include "paddle/fluid/distributed/the_one_ps.pb.h"
@@ -187,6 +187,10 @@ class ValueAccessor {
   virtual robin_hood::unordered_set<float>* GetSaveFilteredSlots() {
     return nullptr;
   }
+
+  virtual void SetDayId(int day_id) {}
+  virtual void UpdateTimeDecay(float* value, bool is_update_seen_day) {}
+
 #define DEFINE_GET_INDEX(class, field) \
   virtual int get_##field##_index() { return class ::field##_index(); }
 

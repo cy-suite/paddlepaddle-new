@@ -23,12 +23,10 @@ void CSplitKernel(const Context& ctx,
                   const DenseTensor& x,
                   int rank,
                   int nranks,
-                  int ring_id,
-                  bool use_calc_stream,
                   bool use_model_parallel,
                   DenseTensor* out) {
-  PADDLE_THROW(
-      phi::errors::Unavailable("Do not support c_split for cpu kernel now."));
+  PADDLE_THROW(common::errors::Unavailable(
+      "Do not support c_split for cpu kernel now."));
 }
 }  // namespace phi
 

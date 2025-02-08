@@ -193,7 +193,7 @@ class PyFileGen:
             if inp in self.SIR.non_param_symbol:
                 meta = self.SIR.symbol_meta_map[inp]
                 forward_definition.append(
-                    f"    {self.name_gener(inp)},    # {str(meta)}"
+                    f"    {self.name_gener(inp)},    # {meta}"
                 )
         forward_definition.append("):")
 
@@ -211,7 +211,7 @@ class PyFileGen:
     def create_inputs(self):
         create_paddle_inputs = self.new_root("def create_paddle_inputs():")
         self.new_root("\n")
-        craete_numpy_inputs = self.new_root("def create_numpy_inputs():")
+        create_numpy_inputs = self.new_root("def create_numpy_inputs():")
 
         paddle_inputs = ["inputs = ("]
         numpy_inputs = ["inputs = ("]
@@ -239,9 +239,7 @@ class PyFileGen:
                         f"    paddle.randint(low=0, high=2, shape={shape_str}, dtype=paddle.int32).cast(paddle.bool),"
                     )
                     numpy_inputs.append(
-                        "    np.random.randint(low=0, high=2, size={}, dtype='int').astype('bool'),".format(
-                            shape_str
-                        )
+                        f"    np.random.randint(low=0, high=2, size={shape_str}, dtype='int').astype('bool'),"
                     )
                 else:
                     paddle_inputs.append(
@@ -259,7 +257,7 @@ class PyFileGen:
         numpy_inputs.append("return inputs")
 
         create_paddle_inputs.add_sub(*paddle_inputs)
-        craete_numpy_inputs.add_sub(*numpy_inputs)
+        create_numpy_inputs.add_sub(*numpy_inputs)
 
     def create_test(self):
         test_class = self.new_root("class TestLayer(unittest.TestCase):")
@@ -320,13 +318,13 @@ class PyFileGen:
 
         def search(outputs, path, result):
             if isinstance(outputs, (list, tuple)):
-                search_sequnce(outputs, path, result)
+                search_sequence(outputs, path, result)
             elif isinstance(outputs, dict):
                 search_dict(outputs, path, result)
             elif isinstance(outputs, Symbol):
                 result.append(self.name_gener(outputs) + " = " + "".join(path))
 
-        def search_sequnce(outputs, path, result):
+        def search_sequence(outputs, path, result):
             for idx, out in enumerate(outputs):
                 path.append(f"[{idx}]")
                 search(out, path, result)
@@ -356,7 +354,7 @@ class PyFileGen:
         else:
             compute_code = f"out = {api_str}({input_str})"
             unpack_codes = self.create_unpack_output_string(stmt.outputs)
-            return [compute_code] + unpack_codes
+            return [compute_code, *unpack_codes]
 
     def create_method_stmt(self, stmt):
         args, kwargs = stmt.inputs
@@ -369,7 +367,7 @@ class PyFileGen:
         else:
             compute_code = f"out = {method_str}({input_str})"
             unpack_codes = self.create_unpack_output_string(stmt.outputs)
-            return [compute_code] + unpack_codes
+            return [compute_code, *unpack_codes]
 
 
 def export(SIR, path):

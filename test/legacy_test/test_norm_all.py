@@ -31,6 +31,17 @@ def p_norm_python_api(
         return _C_ops.p_norm(x, p, axis, epsilon, keepdim, as_vector)
 
 
+def norm_public_python_api(
+    x, p=2.0, axis=-1, epsilon=1e-12, keepdim=False, as_vector=False
+):
+    return paddle.linalg.norm(
+        x,
+        p,
+        axis,
+        keepdim,
+    )
+
+
 def np_linalg_vector_norm(x, axis, porder, keepdims=False):
     x_shape = list(x.shape)
 
@@ -175,8 +186,14 @@ class TestPnormOp(OpTest):
     def setUp(self):
         self.op_type = "p_norm"
         self.python_api = p_norm_python_api
+        self.public_python_api = norm_public_python_api
+        self.prim_op_type = "comp"
         self.init_test_case()
         self.init_dtype()
+        self.fw_comp_atol = 1e-6
+        self.fw_comp_rtol = 1e-6
+        self.rev_comp_atol = 1e-6
+        self.rev_comp_rtol = 1e-6
         x = (np.random.random(self.shape) + 0.5).astype(self.dtype)
         norm = np_linalg_norm(x, self.axis, self.porder, self.keepdim)
         self.inputs = {'X': x}
@@ -191,10 +208,10 @@ class TestPnormOp(OpTest):
         self.gradient = self.calc_gradient()
 
     def test_check_output(self):
-        self.check_output()
+        self.check_output(check_prim_pir=True)
 
     def test_check_grad(self):
-        self.check_grad(['X'], 'Out')
+        self.check_grad(['X'], 'Out', check_prim_pir=True)
 
     def init_test_case(self):
         self.shape = [2, 3, 4, 5]
@@ -257,7 +274,7 @@ class TestPnormOp2(TestPnormOp):
         self.dtype = "float32"
 
     def test_check_grad(self):
-        self.check_grad(['X'], 'Out')
+        self.check_grad(['X'], 'Out', check_prim_pir=True)
 
 
 class TestPnormOp3(TestPnormOp):
@@ -273,7 +290,9 @@ class TestPnormOp3(TestPnormOp):
         self.dtype = "float32"
 
     def test_check_grad(self):
-        self.check_grad(['X'], 'Out', user_defined_grads=self.gradient)
+        self.check_grad(
+            ['X'], 'Out', user_defined_grads=self.gradient, check_prim_pir=True
+        )
 
 
 class TestPnormOp4(TestPnormOp):
@@ -289,7 +308,9 @@ class TestPnormOp4(TestPnormOp):
         self.dtype = "float32"
 
     def test_check_grad(self):
-        self.check_grad(['X'], 'Out', user_defined_grads=self.gradient)
+        self.check_grad(
+            ['X'], 'Out', user_defined_grads=self.gradient, check_prim_pir=True
+        )
 
 
 class TestPnormOp5(TestPnormOp):
@@ -321,7 +342,9 @@ class TestPnormOp6(TestPnormOp):
         self.dtype = "float32"
 
     def test_check_grad(self):
-        self.check_grad(['X'], 'Out', user_defined_grads=self.gradient)
+        self.check_grad(
+            ['X'], 'Out', user_defined_grads=self.gradient, check_prim_pir=True
+        )
 
 
 def create_test_fp16_class(parent, max_relative_error=2e-3):
@@ -367,7 +390,9 @@ create_test_fp16_class(TestPnormOp6)
 class TestPnormBF16Op(OpTest):
     def setUp(self):
         self.op_type = "p_norm"
+        self.prim_op_type = "comp"
         self.python_api = p_norm_python_api
+        self.public_python_api = norm_public_python_api
         self.init_test_case()
         self.x = (np.random.random(self.shape) + 0.5).astype(np.float32)
         self.norm = np_linalg_norm(self.x, self.axis, self.porder, self.keepdim)
@@ -384,7 +409,7 @@ class TestPnormBF16Op(OpTest):
 
     def test_check_output(self):
         place = core.CUDAPlace(0)
-        self.check_output_with_place(place, atol=1e-3)
+        self.check_output_with_place(place, atol=1e-3, check_prim_pir=True)
 
     def test_check_grad(self):
         place = core.CUDAPlace(0)
@@ -393,6 +418,7 @@ class TestPnormBF16Op(OpTest):
             ['X'],
             'Out',
             user_defined_grads=self.gradient,
+            check_prim_pir=True,
         )
 
     def init_test_case(self):
@@ -577,7 +603,7 @@ def check_linalg_vector_static(
         )
         place = base.CPUPlace()
         exe = base.Executor(place)
-        np_input = (np.random.rand(*shape_x) + 1.0).astype(dtype)
+        np_input = np.array(np.random.rand(*shape_x) + 1.0).astype(dtype)
         expected_result = np_linalg_vector_norm(
             np_input, porder=p, axis=axis, keepdims=keep_dim
         ).astype(dtype)
@@ -590,7 +616,7 @@ def check_linalg_vector_static(
 def check_linalg_vector_dygraph(
     self, p, axis, shape_x, dtype, keep_dim, check_dim=False
 ):
-    x_numpy = (np.random.random(shape_x) + 1.0).astype(dtype)
+    x_numpy = np.array(np.random.random(shape_x) + 1.0).astype(dtype)
     expected_result = np_linalg_vector_norm(
         x_numpy, porder=p, axis=axis, keepdims=keep_dim
     )
@@ -880,6 +906,51 @@ class API_NormTest(unittest.TestCase):
                 axis=[0, 1, 2],
                 shape_x=[2, 3, 4],
                 dtype="float64",
+                keep_dim=keep,
+                check_dim=True,
+            )
+            check_linalg_vector_static(
+                self,
+                p=2,
+                axis=None,
+                shape_x=[],
+                dtype="float64",
+                keep_dim=keep,
+                check_dim=True,
+            )
+            check_linalg_vector_static(
+                self,
+                p=np.inf,
+                axis=None,
+                shape_x=[],
+                dtype="complex64",
+                keep_dim=keep,
+                check_dim=True,
+            )
+            check_linalg_vector_static(
+                self,
+                p=-np.inf,
+                axis=[0, 1, 2, 3],
+                shape_x=[1, 14, 5, 14],
+                dtype="complex128",
+                keep_dim=keep,
+                check_dim=True,
+            )
+            check_linalg_vector_static(
+                self,
+                p=np.inf,
+                axis=2,
+                shape_x=[1, 14, 5, 14],
+                dtype="complex128",
+                keep_dim=keep,
+                check_dim=True,
+            )
+            check_linalg_vector_static(
+                self,
+                p=0,
+                axis=[1, 3],
+                shape_x=[1, 14, 5, 14],
+                dtype="complex128",
                 keep_dim=keep,
                 check_dim=True,
             )
@@ -1211,6 +1282,51 @@ class API_NormTest(unittest.TestCase):
                 keep_dim=keep,
                 check_dim=True,
             )
+            check_linalg_vector_dygraph(
+                self,
+                p=2,
+                axis=None,
+                shape_x=(),
+                dtype="float64",
+                keep_dim=keep,
+                check_dim=True,
+            )
+            check_linalg_vector_dygraph(
+                self,
+                p=np.inf,
+                axis=None,
+                shape_x=[],
+                dtype="complex64",
+                keep_dim=keep,
+                check_dim=True,
+            )
+            check_linalg_vector_dygraph(
+                self,
+                p=-np.inf,
+                axis=[0, 1, 2, 3],
+                shape_x=[1, 14, 5, 14],
+                dtype="complex128",
+                keep_dim=keep,
+                check_dim=True,
+            )
+            check_linalg_vector_dygraph(
+                self,
+                p=np.inf,
+                axis=2,
+                shape_x=[1, 14, 5, 14],
+                dtype="complex128",
+                keep_dim=keep,
+                check_dim=True,
+            )
+            check_linalg_vector_dygraph(
+                self,
+                p=0,
+                axis=[1, 3],
+                shape_x=[1, 14, 5, 14],
+                dtype="complex128",
+                keep_dim=keep,
+                check_dim=True,
+            )
             check_linalg_matrix_dygraph(
                 self,
                 p=-np.inf,
@@ -1251,17 +1367,24 @@ class API_NormTest(unittest.TestCase):
         paddle.enable_static()
 
     def test_name(self):
-        paddle.enable_static()
-        with base.program_guard(base.Program()):
-            x = paddle.static.data(name="x", shape=[10, 10], dtype="float32")
-            y_1 = paddle.norm(x, p='fro', axis=[-2, -1], name='frobenius_name')
-            y_2 = paddle.norm(x, p=2, name='pnorm_name')
-            y_3 = paddle.norm(x, p='nuc', axis=[0, 1], name='nuclear_name')
-            y_4 = paddle.norm(x, p=2, axis=[0, 1], name='p_matrix_norm_name')
-            self.assertEqual(('frobenius_name' in y_1.name), True)
-            self.assertEqual(('pnorm_name' in y_2.name), True)
-            self.assertEqual(('nuclear_name' in y_3.name), True)
-            self.assertEqual(('p_matrix_norm_name' in y_4.name), True)
+        if not paddle.framework.use_pir_api():
+            paddle.enable_static()
+            with base.program_guard(base.Program()):
+                x = paddle.static.data(
+                    name="x", shape=[10, 10], dtype="float32"
+                )
+                y_1 = paddle.norm(
+                    x, p='fro', axis=[-2, -1], name='frobenius_name'
+                )
+                y_2 = paddle.norm(x, p=2, name='pnorm_name')
+                y_3 = paddle.norm(x, p='nuc', axis=[0, 1], name='nuclear_name')
+                y_4 = paddle.norm(
+                    x, p=2, axis=[0, 1], name='p_matrix_norm_name'
+                )
+                self.assertEqual(('frobenius_name' in y_1.name), True)
+                self.assertEqual(('pnorm_name' in y_2.name), True)
+                self.assertEqual(('nuclear_name' in y_3.name), True)
+                self.assertEqual(('p_matrix_norm_name' in y_4.name), True)
 
     def test_errors(self):
         paddle.enable_static()

@@ -24,11 +24,11 @@ rem -------clean up environment-----------
 set work_dir=%cd%
 if not defined cache_dir set cache_dir=%work_dir:Paddle=cache%
 if not exist %cache_dir%\tools (
-    cd /d cache_dir
+    cd /d %cache_dir%
     python -m pip install wget
     python -c "import wget;wget.download('https://paddle-ci.gz.bcebos.com/window_requirement/tools.zip')"
     tar xf tools.zip
-    cd /d work_dir
+    cd /d %work_dir%
 )
 taskkill /f /im cmake.exe /t 2>NUL
 taskkill /f /im ninja.exe /t 2>NUL
@@ -73,6 +73,8 @@ if not defined WITH_UNITY_BUILD set WITH_UNITY_BUILD=OFF
 if not defined NEW_RELEASE_ALL set NEW_RELEASE_ALL=ON
 if not defined NEW_RELEASE_PYPI set NEW_RELEASE_PYPI=OFF
 if not defined NEW_RELEASE_JIT set NEW_RELEASE_JIT=OFF
+if not defined WITH_CPP_TEST set WITH_CPP_TEST=ON
+if not defined WITH_NIGHTLY_BUILD set WITH_NIGHTLY_BUILD=OFF
 
 rem variable to control pipeline process
 if not defined WITH_TPCACHE set WITH_TPCACHE=OFF
@@ -81,11 +83,18 @@ if not defined WITH_SCCACHE set WITH_SCCACHE=OFF
 if not defined INFERENCE_DEMO_INSTALL_DIR set INFERENCE_DEMO_INSTALL_DIR=%cache_dir:\=/%/inference_demo
 if not defined LOG_LEVEL set LOG_LEVEL=normal
 if not defined PRECISION_TEST set PRECISION_TEST=OFF
+if not defined WIN_UNITTEST_LEVEL set WIN_UNITTEST_LEVEL=2
+rem LEVEL 0: For unittests unrelated to CUDA/TRT or unittests without GPU memory, only run on
+rem          PR-CI-Windows-Infernece(CUDA 11.2), skip them on PR-CI-Windows(CUDA 12.0)
+rem LEVEL 1: For unittests unrelated to CUDA/TRT, only run on PR-CI-Windows-Infernece(CUDA 11.2),
+rem          skip them on PR-CI-Windows(CUDA 12.0)
+rem LEVEL 2: run all test
 if not defined NIGHTLY_MODE set NIGHTLY_MODE=OFF
 if not defined retry_times set retry_times=1
-if not defined PYTHON_ROOT set PYTHON_ROOT=C:\Python37
+if not defined PYTHON_ROOT set PYTHON_ROOT=C:\Python38
 if not defined BUILD_DIR set BUILD_DIR=build
 if not defined TEST_INFERENCE set TEST_INFERENCE=ON
+if not defined WITH_PIP_CUDA_LIBRARIES set WITH_PIP_CUDA_LIBRARIES=OFF
 
 set task_name=%1
 set UPLOAD_TP_FILE=OFF
@@ -192,7 +201,7 @@ if "%WITH_SCCACHE%"=="ON" (
     sccache --stop-server 2> NUL
     del %SCCACHE_ROOT%\sccache_log.txt
 
-    :: Localy storage on windows
+    :: Locally storage on windows
     if not exist %SCCACHE_ROOT% mkdir %SCCACHE_ROOT%
     set SCCACHE_DIR=%SCCACHE_ROOT%\.cache
 
@@ -243,11 +252,12 @@ set MSVC_STATIC_CRT=OFF
 set ON_INFER=ON
 set WITH_TENSORRT=ON
 set WITH_INFERENCE_API_TEST=OFF
+set WIN_UNITTEST_LEVEL=0
 if not defined CUDA_ARCH_NAME set CUDA_ARCH_NAME=Auto
 
 call :cmake || goto cmake_error
 call :build || goto build_error
-call :test_whl_pacakage || goto test_whl_pacakage_error
+call :test_whl_package || goto test_whl_package_error
 call :test_unit || goto test_unit_error
 call :test_inference || goto test_inference_error
 goto:success
@@ -263,7 +273,7 @@ if not defined CUDA_ARCH_NAME set CUDA_ARCH_NAME=Auto
 
 call :cmake || goto cmake_error
 call :build || goto build_error
-call :test_whl_pacakage || goto test_whl_pacakage_error
+call :test_whl_package || goto test_whl_package_error
 call :test_unit || goto test_unit_error
 goto:success
 
@@ -281,7 +291,7 @@ if not defined CUDA_ARCH_NAME set CUDA_ARCH_NAME=Auto
 
 call :cmake || goto cmake_error
 call :build || goto build_error
-call :test_whl_pacakage || goto test_whl_pacakage_error
+call :test_whl_package || goto test_whl_package_error
 call :test_unit || goto test_unit_error
 ::call :test_inference || goto test_inference_error
 ::call :test_inference_ut || goto test_inference_ut_error
@@ -292,11 +302,12 @@ rem ------Build windows avx whl package------
 :CASE_build_avx_whl
 set WITH_AVX=ON
 set ON_INFER=ON
+set WITH_PIP_CUDA_LIBRARIES=ON
 if not defined CUDA_ARCH_NAME set CUDA_ARCH_NAME=All
 
 call :cmake || goto cmake_error
 call :build || goto build_error
-call :test_whl_pacakage || goto test_whl_pacakage_error
+call :test_whl_package || goto test_whl_package_error
 goto:success
 
 rem ------Build windows no-avx whl package------
@@ -307,7 +318,7 @@ if not defined CUDA_ARCH_NAME set CUDA_ARCH_NAME=All
 
 call :cmake || goto cmake_error
 call :build || goto build_error
-call :test_whl_pacakage || goto test_whl_pacakage_error
+call :test_whl_package || goto test_whl_package_error
 goto:success
 
 rem ------Build windows inference library------
@@ -367,7 +378,7 @@ if "%WITH_GPU%"=="ON" (
     if "!cuda_version!"=="12.0" (
         set "PATH=C:\Program Files (x86)\Windows Kits\10\bin\10.0.19041.0\x64;%PATH%"
     )
-) 
+)
 echo %PATH%
 rem CUDA_TOOLKIT_ROOT_DIR in cmake must use / rather than \
 set TENSORRT_ROOT=%TENSORRT_ROOT:\=/%
@@ -375,6 +386,8 @@ set CUDA_TOOLKIT_ROOT_DIR=%CUDA_TOOLKIT_ROOT_DIR:\=/%
 
 rem install ninja if GENERATOR is Ninja
 if %GENERATOR% == "Ninja" (
+    rem Set the default generator for cmake to Ninja
+    setx CMAKE_GENERATOR Ninja
     pip install ninja
     if %errorlevel% NEQ 0 (
         echo pip install ninja failed!
@@ -490,6 +503,14 @@ echo %task_name%|findstr build >nul && (
 )
 
 :cmake_impl
+if "%WITH_TESTING%"=="ON" (
+    cd /d %work_dir%\%BUILD_DIR%
+    rem whether to run cpp test
+    python -m pip install PyGithub
+    python %work_dir%\tools\check_only_change_python_files.py
+    if exist %work_dir%\%BUILD_DIR%\only_change_python_file.txt set WITH_CPP_TEST=OFF
+    echo WITH_CPP_TEST: %WITH_CPP_TEST%
+)
 cd /d %work_dir%\%BUILD_DIR%
 echo cmake .. -G %GENERATOR% -DCMAKE_BUILD_TYPE=Release -DWITH_AVX=%WITH_AVX% -DWITH_GPU=%WITH_GPU% -DWITH_MKL=%WITH_MKL% ^
 -DWITH_TESTING=%WITH_TESTING% -DWITH_PYTHON=%WITH_PYTHON% -DPYTHON_EXECUTABLE=%PYTHON_EXECUTABLE% -DON_INFER=%ON_INFER% ^
@@ -498,7 +519,9 @@ echo cmake .. -G %GENERATOR% -DCMAKE_BUILD_TYPE=Release -DWITH_AVX=%WITH_AVX% -D
 -DWITH_TENSORRT=%WITH_TENSORRT% -DTENSORRT_ROOT="%TENSORRT_ROOT%" -DMSVC_STATIC_CRT=%MSVC_STATIC_CRT% ^
 -DWITH_UNITY_BUILD=%WITH_UNITY_BUILD% -DCUDA_ARCH_NAME=%CUDA_ARCH_NAME% -DCUDA_ARCH_BIN=%CUDA_ARCH_BIN% -DCUB_PATH=%THIRD_PARTY_HOME%/cub ^
 -DCUDA_TOOLKIT_ROOT_DIR="%CUDA_TOOLKIT_ROOT_DIR%" -DNEW_RELEASE_ALL=%NEW_RELEASE_ALL% -DNEW_RELEASE_PYPI=%NEW_RELEASE_PYPI% ^
--DNEW_RELEASE_JIT=%NEW_RELEASE_JIT% -DWITH_ONNXRUNTIME=%WITH_ONNXRUNTIME%
+-DNEW_RELEASE_JIT=%NEW_RELEASE_JIT% -DWITH_ONNXRUNTIME=%WITH_ONNXRUNTIME% -DWITH_CPP_TEST=%WITH_CPP_TEST% ^
+-DWIN_UNITTEST_LEVEL=%WIN_UNITTEST_LEVEL% -DWITH_NIGHTLY_BUILD=%WITH_NIGHTLY_BUILD% -DWITH_PIP_CUDA_LIBRARIES=%WITH_PIP_CUDA_LIBRARIES% ^
+-DWITH_SCCACHE=%WITH_SCCACHE% >> %work_dir%\win_cmake.sh
 
 echo cmake .. -G %GENERATOR% -DCMAKE_BUILD_TYPE=Release -DWITH_AVX=%WITH_AVX% -DWITH_GPU=%WITH_GPU% -DWITH_MKL=%WITH_MKL% ^
 -DWITH_TESTING=%WITH_TESTING% -DWITH_PYTHON=%WITH_PYTHON% -DPYTHON_EXECUTABLE=%PYTHON_EXECUTABLE% -DON_INFER=%ON_INFER% ^
@@ -507,7 +530,9 @@ echo cmake .. -G %GENERATOR% -DCMAKE_BUILD_TYPE=Release -DWITH_AVX=%WITH_AVX% -D
 -DWITH_TENSORRT=%WITH_TENSORRT% -DTENSORRT_ROOT="%TENSORRT_ROOT%" -DMSVC_STATIC_CRT=%MSVC_STATIC_CRT% ^
 -DWITH_UNITY_BUILD=%WITH_UNITY_BUILD% -DCUDA_ARCH_NAME=%CUDA_ARCH_NAME% -DCUDA_ARCH_BIN=%CUDA_ARCH_BIN% -DCUB_PATH=%THIRD_PARTY_HOME%/cub ^
 -DCUDA_TOOLKIT_ROOT_DIR="%CUDA_TOOLKIT_ROOT_DIR%" -DNEW_RELEASE_ALL=%NEW_RELEASE_ALL% -DNEW_RELEASE_PYPI=%NEW_RELEASE_PYPI% ^
--DNEW_RELEASE_JIT=%NEW_RELEASE_JIT% -DWITH_ONNXRUNTIME=%WITH_ONNXRUNTIME% >> %work_dir%\win_cmake.sh
+-DNEW_RELEASE_JIT=%NEW_RELEASE_JIT% -DWITH_ONNXRUNTIME=%WITH_ONNXRUNTIME% -DWITH_CPP_TEST=%WITH_CPP_TEST% ^
+-DWIN_UNITTEST_LEVEL=%WIN_UNITTEST_LEVEL% -DWITH_NIGHTLY_BUILD=%WITH_NIGHTLY_BUILD% -DWITH_PIP_CUDA_LIBRARIES=%WITH_PIP_CUDA_LIBRARIES% ^
+-DWITH_SCCACHE=%WITH_SCCACHE%>> %work_dir%\win_cmake.sh
 
 cmake .. -G %GENERATOR% -DCMAKE_BUILD_TYPE=Release -DWITH_AVX=%WITH_AVX% -DWITH_GPU=%WITH_GPU% -DWITH_MKL=%WITH_MKL% ^
 -DWITH_TESTING=%WITH_TESTING% -DWITH_PYTHON=%WITH_PYTHON% -DPYTHON_EXECUTABLE=%PYTHON_EXECUTABLE% -DON_INFER=%ON_INFER% ^
@@ -516,7 +541,9 @@ cmake .. -G %GENERATOR% -DCMAKE_BUILD_TYPE=Release -DWITH_AVX=%WITH_AVX% -DWITH_
 -DWITH_TENSORRT=%WITH_TENSORRT% -DTENSORRT_ROOT="%TENSORRT_ROOT%" -DMSVC_STATIC_CRT=%MSVC_STATIC_CRT% ^
 -DWITH_UNITY_BUILD=%WITH_UNITY_BUILD% -DCUDA_ARCH_NAME=%CUDA_ARCH_NAME% -DCUDA_ARCH_BIN=%CUDA_ARCH_BIN% -DCUB_PATH=%THIRD_PARTY_HOME%/cub ^
 -DCUDA_TOOLKIT_ROOT_DIR="%CUDA_TOOLKIT_ROOT_DIR%" -DNEW_RELEASE_ALL=%NEW_RELEASE_ALL% -DNEW_RELEASE_PYPI=%NEW_RELEASE_PYPI% ^
--DNEW_RELEASE_JIT=%NEW_RELEASE_JIT% -DWITH_ONNXRUNTIME=%WITH_ONNXRUNTIME%
+-DNEW_RELEASE_JIT=%NEW_RELEASE_JIT% -DWITH_ONNXRUNTIME=%WITH_ONNXRUNTIME% -DWITH_CPP_TEST=%WITH_CPP_TEST% ^
+-DWIN_UNITTEST_LEVEL=%WIN_UNITTEST_LEVEL% -DWITH_NIGHTLY_BUILD=%WITH_NIGHTLY_BUILD% -DWITH_PIP_CUDA_LIBRARIES=%WITH_PIP_CUDA_LIBRARIES% ^
+-DWITH_SCCACHE=%WITH_SCCACHE%
 goto:eof
 
 :cmake_error
@@ -631,7 +658,7 @@ echo Build Paddle failed, will exit!
 exit /b 7
 
 rem ---------------------------------------------------------------------------------------------
-:test_whl_pacakage
+:test_whl_package
 @ECHO OFF
 echo    ========================================
 echo    Step 3. Test pip install whl package ...
@@ -643,14 +670,55 @@ for /F %%# in ('wmic os get localdatetime^|findstr 20') do set end=%%#
 set end=%end:~4,10%
 call :timestamp "%start%" "%end%" "Build"
 
-%cache_dir%\tools\busybox64.exe du -h -d 0 %cd%\paddle\fluid\pybind\libpaddle.dll > paddle_dll_size.txt
-set /p paddledllsize=< paddle_dll_size.txt
-for /F %%i in ("%paddledllsize%") do echo "Windows libpaddle.dll Size: %%i"
+rem Record the exact size of dll and whl files and save them to disk D
+set dll_file=%cd%\paddle\fluid\pybind\libpaddle.dll
+for /F "tokens=1-5" %%a in ('dir "%dll_file%"') do (
+    echo "%%e" | findstr  "libpaddle.dll" >nul
+    if !errorlevel! equ 0 (
+        set dllsize=%%d
+        goto dll_break
+    )
+    echo "%%d" | findstr  "libpaddle.dll" >nul
+    if !errorlevel! equ 0 (
+        set dllsize=%%c
+        goto dll_break
+    )
+)
+:dll_break
+echo Windows libpaddle.dll Size: %dllsize% bytes
+set dllsize_folder=D:\record\dll_size
+if not exist "%dllsize_folder%" (
+    mkdir %dllsize_folder%
+)
+if exist "%dllsize_folder%\%AGILE_PULL_ID%.txt" (
+    del "%dllsize_folder%\%AGILE_PULL_ID%.txt"
+)
+echo %dllsize% > %dllsize_folder%\%AGILE_PULL_ID%.txt
 
-%cache_dir%\tools\busybox64.exe du -h -d 0 %cd%\python\dist > whl_size.txt
-set /p whlsize=< whl_size.txt
-for /F %%i in ("%whlsize%") do echo "Windows PR whl Size: %%i"
-for /F %%i in ("%whlsize%") do echo ipipe_log_param_Windows_PR_whl_Size: %%i
+set whl_folder=%cd%\python\dist
+for /F "tokens=1-5" %%a in ('dir "%whl_folder%"') do (
+    echo "%%e" | findstr  ".whl" >nul
+    if !errorlevel! equ 0 (
+        set whlsize=%%d
+        goto whl_break
+    )
+    echo "%%d" | findstr  ".whl" >nul
+    if !errorlevel! equ 0 (
+        set whlsize=%%c
+        goto whl_break
+    )
+)
+:whl_break
+echo Windows PR whl Size: %whlsize% bytes
+echo ipipe_log_param_Windows_PR_whl_Size: %whlsize% bytes
+set whlsize_folder=D:\record\whl_size
+if not exist "%whlsize_folder%" (
+    mkdir %whlsize_folder%
+)
+if exist "%whlsize_folder%\%AGILE_PULL_ID%.txt" (
+    del "%whlsize_folder%\%AGILE_PULL_ID%.txt"
+)
+echo %whlsize% > %whlsize_folder%\%AGILE_PULL_ID%.txt
 
 dir /s /b python\dist\*.whl > whl_file.txt
 set /p PADDLE_WHL_FILE_WIN=< whl_file.txt
@@ -672,7 +740,7 @@ set CUDA_VISIBLE_DEVICES=0
 python %work_dir%\paddle\scripts\installation_validate.py
 goto:eof
 
-:test_whl_pacakage_error
+:test_whl_package_error
 ::echo 1 > %cache_dir%\error_code.txt
 ::type %cache_dir%\error_code.txt
 echo Test import paddle failed, will exit!
@@ -699,13 +767,13 @@ dir %THIRD_PARTY_PATH:/=\%\install\openblas\lib
 dir %THIRD_PARTY_PATH:/=\%\install\openblas\bin
 dir %THIRD_PARTY_PATH:/=\%\install\zlib\bin
 dir %THIRD_PARTY_PATH:/=\%\install\mklml\lib
-dir %THIRD_PARTY_PATH:/=\%\install\mkldnn\lib
+dir %THIRD_PARTY_PATH:/=\%\install\onednn\lib
 dir %THIRD_PARTY_PATH:/=\%\install\warpctc\bin
 dir %THIRD_PARTY_PATH:/=\%\install\onnxruntime\lib
 
 set PATH=%THIRD_PARTY_PATH:/=\%\install\openblas\lib;%THIRD_PARTY_PATH:/=\%\install\openblas\bin;^
 %THIRD_PARTY_PATH:/=\%\install\zlib\bin;%THIRD_PARTY_PATH:/=\%\install\mklml\lib;^
-%THIRD_PARTY_PATH:/=\%\install\mkldnn\lib;%THIRD_PARTY_PATH:/=\%\install\warpctc\bin;^
+%THIRD_PARTY_PATH:/=\%\install\onednn\lib;%THIRD_PARTY_PATH:/=\%\install\warpctc\bin;^
 %THIRD_PARTY_PATH:/=\%\install\onnxruntime\lib;%THIRD_PARTY_PATH:/=\%\install\paddle2onnx\lib;^
 %work_dir%\%BUILD_DIR%\paddle\fluid\inference;%work_dir%\%BUILD_DIR%\paddle\fluid\pybind;%work_dir%\%BUILD_DIR%\paddle\fluid\inference\capi_exp;%work_dir%\%BUILD_DIR%\paddle\ir;^
 %PATH%
@@ -747,7 +815,7 @@ setlocal enabledelayedexpansion
 :: for /F %%# in ('cmd /C nvidia-smi -L ^|find "GPU" /C') do set CUDA_DEVICE_COUNT=%%#
 set CUDA_DEVICE_COUNT=1
 
-:: For hypothesis tests(mkldnn op and inference pass), we set use 'ci' profile
+:: For hypothesis tests(onednn op and inference pass), we set use 'ci' profile
 set HYPOTHESIS_TEST_PROFILE=ci
 
 %cache_dir%\tools\busybox64.exe bash %work_dir%\tools\windows\run_unittests.sh %NIGHTLY_MODE% %PRECISION_TEST% %WITH_GPU%
@@ -759,7 +827,7 @@ echo    ========================================
 echo    Running CPU unit tests in parallel way ...
 echo    ========================================
 
-:: For hypothesis tests(mkldnn op and inference pass), we set use 'ci' profile
+:: For hypothesis tests(onednn op and inference pass), we set use 'ci' profile
 set HYPOTHESIS_TEST_PROFILE=ci
 %cache_dir%\tools\busybox64.exe bash %work_dir%\tools\windows\run_unittests.sh %NIGHTLY_MODE% %PRECISION_TEST% %WITH_GPU%
 

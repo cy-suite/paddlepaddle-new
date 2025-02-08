@@ -25,8 +25,7 @@
 #include "paddle/phi/infermeta/spmd_rules/reshape.h"
 #include "paddle/phi/infermeta/spmd_rules/utils.h"
 
-namespace phi {
-namespace distributed {
+namespace phi::distributed {
 
 using phi::distributed::auto_parallel::str_join;
 
@@ -94,15 +93,15 @@ SpmdInfo UnsqueezeInferSpmd(const DistMetaTensor& x,
   // Step0: Verify input args based on unsqueeze logic
   auto x_shape = common::vectorize(x.dims());
   int x_ndim = static_cast<int>(x_shape.size());
-  auto x_dist_attr_src = x.dist_attr();
-  std::vector<int64_t> x_dims_mapping = x_dist_attr_src.dims_mapping();
+  const auto& x_dist_attr_src = x.dist_attr();
+  const std::vector<int64_t>& x_dims_mapping = x_dist_attr_src.dims_mapping();
   PADDLE_ENFORCE_EQ(
       x_ndim,
       x_dims_mapping.size(),
-      phi::errors::InvalidArgument("The Tensor X's rank [%d] and X's "
-                                   "dims_mapping size [%d] are not matched.",
-                                   x_ndim,
-                                   x_dims_mapping.size()));
+      common::errors::InvalidArgument("The Tensor X's rank [%d] and X's "
+                                      "dims_mapping size [%d] are not matched.",
+                                      x_ndim,
+                                      x_dims_mapping.size()));
 
   // Step1: Build the transformation from
   // the original shape to the target shape
@@ -153,8 +152,7 @@ SpmdInfo UnsqueezeInferSpmd(const DistMetaTensor& x,
           << "]\n Out dims_mapping: [" << str_join(dims_mapping_vec[1])
           << "]\n\n";
 
-  return {{x_dist_attr_dst},
-          {out_dist_attr, CreateUnsqueezeXshape(x_dist_attr_dst)}};
+  return {{x_dist_attr_dst}, {out_dist_attr}};
 }
 
 SpmdInfo UnsqueezeInferSpmdReverse(const DistMetaTensor& x,
@@ -165,15 +163,16 @@ SpmdInfo UnsqueezeInferSpmdReverse(const DistMetaTensor& x,
   int x_ndim = static_cast<int>(x_shape.size());
   auto out_shape = common::vectorize(out.dims());
   int out_ndim = static_cast<int>(out_shape.size());
-  auto out_dist_attr_src = out.dist_attr();
-  std::vector<int64_t> out_dims_mapping = out_dist_attr_src.dims_mapping();
+  const auto& out_dist_attr_src = out.dist_attr();
+  const std::vector<int64_t>& out_dims_mapping =
+      out_dist_attr_src.dims_mapping();
   PADDLE_ENFORCE_EQ(
       out_ndim,
       out_dims_mapping.size(),
-      phi::errors::InvalidArgument("The Tensor Out's rank [%d] and Out's "
-                                   "dims_mapping size [%d] are not matched.",
-                                   out_ndim,
-                                   out_dims_mapping.size()));
+      common::errors::InvalidArgument("The Tensor Out's rank [%d] and Out's "
+                                      "dims_mapping size [%d] are not matched.",
+                                      out_ndim,
+                                      out_dims_mapping.size()));
 
   // Step1: Build the transformation from the output shape
   // to original shape. This function infers the dims mapping
@@ -225,18 +224,31 @@ SpmdInfo UnsqueezeInferSpmdReverse(const DistMetaTensor& x,
           << "dims_mapping_dst: [" << str_join(dims_mapping_vec[0]) << "]";
   VLOG(4) << "X dims_mapping: [" << str_join(dims_mapping_vec[1]) << "]\n\n";
 
-  return {{x_dist_attr},
-          {out_dist_attr_dst, CreateUnsqueezeXshape(x_dist_attr)}};
+  return {{x_dist_attr}, {out_dist_attr_dst}};
 }
 
-SpmdInfo UnsqueezeGradInferSpmd(const DistMetaTensor& xshape,
+SpmdInfo UnsqueezeGradInferSpmd(const DistMetaTensor& x,
                                 const DistMetaTensor& out_grad,
                                 const IntArray& axis) {
+  auto shape = phi::vectorize(x.dims());
+  const auto& spmd = ReshapeInferSpmd(out_grad, shape);
+  return {{x.dist_attr(), spmd.first[0]}, {spmd.second[0]}};
+}
+
+SpmdInfo UnsqueezeWithXShapeInferSpmd(const DistMetaTensor& x,
+                                      const std::vector<int64_t>& axis) {
+  const auto& spmd = UnsqueezeInferSpmd(x, axis);
+  const auto& x_dist_attr = PADDLE_GET_CONST(TensorDistAttr, spmd.first[0]);
+  return {{x_dist_attr}, {spmd.second[0], CreateUnsqueezeXshape(x_dist_attr)}};
+}
+
+SpmdInfo UnsqueezeWithXShapeGradInferSpmd(const DistMetaTensor& xshape,
+                                          const DistMetaTensor& out_grad,
+                                          const IntArray& axis) {
   auto shape = phi::vectorize(xshape.dims());
   shape = std::vector<int64_t>(shape.begin() + 1, shape.end());
   const auto& spmd = ReshapeInferSpmd(out_grad, shape);
   return {{xshape.dist_attr(), spmd.first[0]}, {spmd.second[0]}};
 }
 
-}  // namespace distributed
-}  // namespace phi
+}  // namespace phi::distributed

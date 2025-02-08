@@ -251,9 +251,9 @@ class Collective:
 
             ring_id = (ring_id + 1) % self.nrings
             block.append_op(
-                type='c_broadcast',
-                inputs={'X': param},
-                outputs={'Out': param},
+                type='broadcast',
+                inputs={'x': param},
+                outputs={'out': param},
                 attrs={
                     'ring_id': ring_id,
                     'root': 0,
@@ -513,7 +513,7 @@ class SingleProcessMultiThread(GradAllReduce):
 
     def _transpile_startup_program(self):
         block = self.startup_program.global_block()
-        block.append_op(type='c_comm_init_all', attrs={'ring_id': 0})
+        block.append_op(type='comm_init_all', attrs={'ring_id': 0})
 
 
 class MultiThread(GradAllReduce):
@@ -534,7 +534,7 @@ class MultiThread(GradAllReduce):
             print("begin to _transpile_startup_program for multi-node")
             print("current_endpoint: ", self.current_endpoint)
             print("total endpoints: ", self.endpoints)
-            print("rank: %d, ring_id: %d" % (self.rank, self.nrings))
+            print(f"rank: {self.rank}, ring_id: {self.nrings}")
             for ring_id in range(self.nrings):
                 self._init_communicator(
                     self.startup_program,
@@ -553,7 +553,7 @@ class MultiThread(GradAllReduce):
                 )
                 block = self.startup_program.global_block()
                 block.append_op(
-                    type='c_comm_init_all',
+                    type='comm_init_all',
                     attrs={
                         'devices': list(
                             map(
@@ -566,7 +566,7 @@ class MultiThread(GradAllReduce):
             else:
                 print("begin to _transpile_startup_program for single-node")
                 block = self.startup_program.global_block()
-                block.append_op(type='c_comm_init_all', attrs={'ring_id': 0})
+                block.append_op(type='comm_init_all', attrs={'ring_id': 0})
 
     def _transpile_main_program(self):
         self._insert_scale_loss_grad_ops()
@@ -611,7 +611,7 @@ class MultiThread(GradAllReduce):
                     param = block.vars[op_role_var[i]]
                     new_grad_var = block.create_var(
                         name=op_role_var[i] + "_allgather",
-                        shape=[self.allgather_ranks] + list(param.shape),
+                        shape=[self.allgather_ranks, *list(param.shape)],
                         persistable=False,
                         dtype=core.VarDesc.VarType.FP32,
                         stop_gradient=True,
@@ -631,14 +631,14 @@ class MultiThread(GradAllReduce):
                         )
                         offset += 1
 
-                    # As we search ops reversely, we should insert c_allgather
+                    # As we search ops reversely, we should insert all_gather
                     # op in the same way to keep the ring_id alternate
                     ring_id = (ring_id + 1) % self.nrings
                     block._insert_op(
                         offset,
-                        type='c_allgather',
-                        inputs={'X': grad},
-                        outputs={'Out': new_grad_var},
+                        type='all_gather',
+                        inputs={'x': grad},
+                        outputs={'out': new_grad_var},
                         attrs={
                             'nranks': self.allgather_ranks,
                             'ring_id': ring_id,

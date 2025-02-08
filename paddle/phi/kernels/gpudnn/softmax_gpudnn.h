@@ -28,7 +28,7 @@ limitations under the License. */
 #include "paddle/phi/backends/gpu/gpu_dnn.h"
 
 #define MATRIX_SOFTMAX_ALIGN_BYTES 16
-#define MATRIX_SOFTMAX_THREAHOLD 100000
+#define MATRIX_SOFTMAX_THRESHOLD 100000
 
 namespace phi {
 
@@ -773,7 +773,7 @@ void SwitchWarpSoftmaxForward(const IndexType blocks,
     SOFTMAX_WARP_FORWARD_CASE(8, AccT);
     SOFTMAX_WARP_FORWARD_CASE(9, AccT);
     default:
-      PADDLE_THROW(phi::errors::Unimplemented(
+      PADDLE_THROW(common::errors::Unimplemented(
           "Unsupported softmax dim: element_count=%d, log2_element_count=%d!",
           element_count,
           log2_element_count));
@@ -815,7 +815,7 @@ void SwitchWarpSoftmaxBackward(const int blocks,
     SOFTMAX_WARP_BACKWARD_CASE(8, AccT);
     SOFTMAX_WARP_BACKWARD_CASE(9, AccT);
     default:
-      // PADDLE_THROW(phi::errors::Unimplemented(
+      // PADDLE_THROW(common::errors::Unimplemented(
       //     "Unsupported softmax dim: element_count=%d,
       //     log2_element_count=%d!", element_count, log2_element_count));
       break;
@@ -1301,7 +1301,12 @@ void SoftmaxForwardCUDAKernelDriverImpl(const GPUContext& dev_ctx,
                                                            dim_log2);
       }
     } else {
-      LaunchSoftmaxForwardCudnnKernel<T>(dev_ctx, x, axis, LogMode, out);
+      if (dim >= MATRIX_SOFTMAX_THRESHOLD) {
+        LaunchKeMatrixSoftmaxForwardKernel<T, IndexType, LogMode>(
+            dev_ctx, out_data, x.data<T>(), N, dim);
+      } else {
+        LaunchSoftmaxForwardCudnnKernel<T>(dev_ctx, x, axis, LogMode, out);
+      }
     }
   } else {
     LaunchNormalSoftmaxForward<T, LogMode>(

@@ -24,8 +24,7 @@
 
 REGISTER_FILE_SYMBOLS(kernel_dialect);
 
-namespace paddle {
-namespace dialect {
+namespace paddle::dialect {
 
 void PrintKernelType(pir::Type type, std::ostream &os) {
   if (type.isa<AllocatedDenseTensorType>()) {
@@ -60,6 +59,24 @@ void PrintKernelType(pir::Type type, std::ostream &os) {
     os << "tensor_array<";
     tensor_array_type.dtype().Print(os);
     os << ">";
+  } else if (type.isa<AllocatedSparseCooTensorType>()) {
+    AllocatedSparseCooTensorType sparse_coo_tensor_type =
+        type.dyn_cast<AllocatedSparseCooTensorType>();
+
+    os << phi::AllocationTypeStr(sparse_coo_tensor_type.place().GetType())
+       << "_";
+    os << "sparse_coo_tensor_type<";
+    sparse_coo_tensor_type.dtype().Print(os);
+    os << ">";
+  } else if (type.isa<AllocatedSparseCsrTensorType>()) {
+    AllocatedSparseCsrTensorType sparse_csr_tensor_type =
+        type.dyn_cast<AllocatedSparseCsrTensorType>();
+
+    os << phi::AllocationTypeStr(sparse_csr_tensor_type.place().GetType())
+       << "_";
+    os << "sparse_csr_tensor_type<";
+    sparse_csr_tensor_type.dtype().Print(os);
+    os << ">";
   }
 }
 
@@ -78,6 +95,8 @@ KernelDialect::KernelDialect(pir::IrContext *context)
 void KernelDialect::initialize() {
   RegisterTypes<paddle::dialect::AllocatedDenseTensorType,
                 paddle::dialect::AllocatedSelectedRowsType,
+                paddle::dialect::AllocatedSparseCooTensorType,
+                paddle::dialect::AllocatedSparseCsrTensorType,
                 paddle::dialect::AllocatedDenseTensorArrayType>();
   RegisterOps<dialect::PhiKernelOp, dialect::LegacyKernelOp>();
   RegisterAttributes<paddle::dialect::KernelAttribute>();
@@ -92,16 +111,16 @@ void KernelDialect::PrintAttribute(pir::Attribute attr,
   PrintKernelAttribute(attr, os);
 }
 
-pir::OpPrintFn KernelDialect::PrintOperation(pir::Operation *op) const {
-  if (op->dyn_cast<PhiKernelOp>() || op->dyn_cast<LegacyKernelOp>()) {
-    return [](pir::Operation *op, pir::IrPrinter &printer) {
+pir::OpPrintFn KernelDialect::PrintOperation(const pir::Operation &op) const {
+  if (op.dyn_cast<PhiKernelOp>() || op.dyn_cast<LegacyKernelOp>()) {
+    return [](const pir::Operation &op, pir::IrPrinter &printer) {
       auto &os = printer.os;
       printer.PrintOpResult(op);
       os << " =";
-      if (auto phi_kernel_op = op->dyn_cast<PhiKernelOp>()) {
+      if (auto phi_kernel_op = op.dyn_cast<PhiKernelOp>()) {
         std::string kernel_name = phi_kernel_op.kernel_name();
-        if (op->attributes().count("is_inplace") != 0 &&
-            op->attributes()
+        if (op.attributes().count("is_inplace") != 0 &&
+            op.attributes()
                 .at("is_inplace")
                 .dyn_cast<pir::BoolAttribute>()
                 .data()) {
@@ -109,10 +128,10 @@ pir::OpPrintFn KernelDialect::PrintOperation(pir::Operation *op) const {
         }
         os << " \"" << kernel_name << "(phi_kernel)\"";
       } else {
-        auto legacy_kernel_op = op->dyn_cast<LegacyKernelOp>();
+        auto legacy_kernel_op = op.dyn_cast<LegacyKernelOp>();
         std::string kernel_name = legacy_kernel_op.kernel_name();
-        if (op->attributes().count("is_inplace") != 0 &&
-            op->attributes()
+        if (op.attributes().count("is_inplace") != 0 &&
+            op.attributes()
                 .at("is_inplace")
                 .dyn_cast<pir::BoolAttribute>()
                 .data()) {
@@ -149,15 +168,16 @@ void CustomKernelDialect::PrintAttribute(pir::Attribute attr,
   PrintKernelAttribute(attr, os);
 }
 
-pir::OpPrintFn CustomKernelDialect::PrintOperation(pir::Operation *op) const {
-  return [](pir::Operation *op, pir::IrPrinter &printer) {
+pir::OpPrintFn CustomKernelDialect::PrintOperation(
+    const pir::Operation &op) const {
+  return [](const pir::Operation &op, pir::IrPrinter &printer) {
     auto &os = printer.os;
     printer.PrintOpResult(op);
     os << " =";
-    auto custom_kernel_op = op->dyn_cast<CustomKernelOp>();
+    auto custom_kernel_op = op.dyn_cast<CustomKernelOp>();
     std::string kernel_name = custom_kernel_op.kernel_name();
-    if (op->attributes().count("is_inplace") != 0 &&
-        op->attributes()
+    if (op.attributes().count("is_inplace") != 0 &&
+        op.attributes()
             .at("is_inplace")
             .dyn_cast<pir::BoolAttribute>()
             .data()) {
@@ -193,16 +213,17 @@ void OneDNNKernelDialect::PrintAttribute(pir::Attribute attr,
   PrintKernelAttribute(attr, os);
 }
 
-pir::OpPrintFn OneDNNKernelDialect::PrintOperation(pir::Operation *op) const {
-  if (op->dyn_cast<PhiKernelOp>() || op->dyn_cast<LegacyKernelOp>()) {
-    return [](pir::Operation *op, pir::IrPrinter &printer) {
+pir::OpPrintFn OneDNNKernelDialect::PrintOperation(
+    const pir::Operation &op) const {
+  if (op.dyn_cast<PhiKernelOp>() || op.dyn_cast<LegacyKernelOp>()) {
+    return [](const pir::Operation &op, pir::IrPrinter &printer) {
       auto &os = printer.os;
       printer.PrintOpResult(op);
       os << " =";
-      if (auto phi_kernel_op = op->dyn_cast<PhiKernelOp>()) {
+      if (auto phi_kernel_op = op.dyn_cast<PhiKernelOp>()) {
         std::string kernel_name = phi_kernel_op.kernel_name();
-        if (op->attributes().count("is_inplace") != 0 &&
-            op->attributes()
+        if (op.attributes().count("is_inplace") != 0 &&
+            op.attributes()
                 .at("is_inplace")
                 .dyn_cast<pir::BoolAttribute>()
                 .data()) {
@@ -210,10 +231,10 @@ pir::OpPrintFn OneDNNKernelDialect::PrintOperation(pir::Operation *op) const {
         }
         os << " \"" << kernel_name << "(phi_kernel)\"";
       } else {
-        auto legacy_kernel_op = op->dyn_cast<LegacyKernelOp>();
+        auto legacy_kernel_op = op.dyn_cast<LegacyKernelOp>();
         std::string kernel_name = legacy_kernel_op.kernel_name();
-        if (op->attributes().count("is_inplace") != 0 &&
-            op->attributes()
+        if (op.attributes().count("is_inplace") != 0 &&
+            op.attributes()
                 .at("is_inplace")
                 .dyn_cast<pir::BoolAttribute>()
                 .data()) {
@@ -233,8 +254,7 @@ pir::OpPrintFn OneDNNKernelDialect::PrintOperation(pir::Operation *op) const {
 }
 #endif
 
-}  // namespace dialect
-}  // namespace paddle
+}  // namespace paddle::dialect
 
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::KernelDialect)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::CustomKernelDialect)

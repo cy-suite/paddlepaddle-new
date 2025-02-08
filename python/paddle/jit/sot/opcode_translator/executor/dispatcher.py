@@ -36,9 +36,10 @@ def format_type(type_: type[Any] | tuple[type[Any], ...]) -> str:
 
 def format_param(param: Parameter) -> str:
     kind = param.kind
-    # TODO: support VAR_KEYWORD
     if kind == inspect.Parameter.VAR_POSITIONAL:
         return f"*{format_type(param.type)}"
+    elif kind == inspect.Parameter.VAR_KEYWORD:
+        return f"**{format_type(param.type)}"
     else:
         return format_type(param.type)
 
@@ -108,6 +109,11 @@ class Parameter:
         if self.kind == inspect.Parameter.VAR_POSITIONAL:
             is_tuple = isinstance(arg, tuple)
             return is_tuple and all(isinstance(a, self.type) for a in arg)
+        elif self.kind == inspect.Parameter.VAR_KEYWORD:
+            is_dict = isinstance(arg, dict)
+            return is_dict and all(
+                isinstance(a, self.type) for a in arg.values()
+            )
         else:
             return isinstance(arg, self.type)
 
@@ -225,9 +231,11 @@ class Dispatcher:
             handler: The handler function.
         """
         _parameters = tuple(
-            Parameter.from_str(parameter)
-            if isinstance(parameter, str)
-            else parameter
+            (
+                Parameter.from_str(parameter)
+                if isinstance(parameter, str)
+                else parameter
+            )
             for parameter in parameters
         )
         if fn not in cls.handlers:

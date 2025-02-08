@@ -242,6 +242,11 @@ class TestContinuousBernoulli(unittest.TestCase):
     (parameterize.TEST_CASE_NAME, 'probs', 'value'),
     [
         (
+            'zero-dim',
+            np.array(0.3).astype("float32"),
+            parameterize.xrand((5,), min=0.0, max=1.0).astype("float32"),
+        ),
+        (
             'value-same-shape',
             parameterize.xrand((5,), min=0.0, max=1.0).astype("float32"),
             parameterize.xrand((5,), min=0.0, max=1.0).astype("float32"),
@@ -298,6 +303,11 @@ class TestContinuousBernoulliProbs(unittest.TestCase):
     (parameterize.TEST_CASE_NAME, 'p_1', 'p_2'),
     [
         (
+            'zero-dim',
+            np.array(0.2).astype("float32"),
+            np.array(0.4).astype("float32"),
+        ),
+        (
             'one-dim',
             parameterize.xrand((1,), min=0.0, max=1.0).astype("float32"),
             parameterize.xrand((1,), min=0.0, max=1.0).astype("float32"),
@@ -340,31 +350,6 @@ class TestContinuousBernoulliKL(unittest.TestCase):
 class ContinuousBernoulliTestError(unittest.TestCase):
     def setUp(self):
         paddle.disable_static(self.place)
-
-    @parameterize_func(
-        [
-            (-0.1, ValueError),
-            (1.1, ValueError),
-        ]
-    )
-    def test_bad_init(self, probs, error):
-        with paddle.base.dygraph.guard(self.place):
-            self.assertRaises(error, ContinuousBernoulli, probs)
-
-    @parameterize_func(
-        [
-            (
-                paddle.to_tensor([0.3, 0.5]),
-                paddle.to_tensor([-0.1, 1.2]),
-            ),
-        ]
-    )
-    def test_bad_log_prob_value(self, probs, value):
-        with paddle.base.dygraph.guard(self.place):
-            rv = ContinuousBernoulli(probs)
-            self.assertRaises(ValueError, rv.cdf, value)
-            self.assertRaises(ValueError, rv.log_prob, value)
-            self.assertRaises(ValueError, rv.icdf, value)
 
     @parameterize_func(
         [

@@ -17,9 +17,7 @@
 #include "paddle/fluid/framework/ir/seqpool_cvm_concat_fuse_pass.h"
 #include "paddle/fluid/framework/op_proto_maker.h"
 
-namespace paddle {
-namespace framework {
-namespace ir {
+namespace paddle::framework::ir {
 
 void SetOp(ProgramDesc* prog,
            const std::string& type,
@@ -118,7 +116,7 @@ TEST(SeqPoolCVMConcatFusePass, basic) {
                                            "m",
                                            "n"})) {
     auto* var = prog.MutableBlock(0)->Var(v);
-    var->SetType(proto::VarType::LOD_TENSOR);
+    var->SetType(proto::VarType::DENSE_TENSOR);
   }
 
   SetOp(&prog,
@@ -190,7 +188,7 @@ TEST(SeqPoolCVMConcatFusePass, advanced) {
   for (auto& v : std::vector<std::string>(
            {"a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k"})) {
     auto* var = prog.MutableBlock(0)->Var(v);
-    var->SetType(proto::VarType::LOD_TENSOR);
+    var->SetType(proto::VarType::DENSE_TENSOR);
   }
 
   SetOp(&prog,
@@ -231,7 +229,7 @@ ProgramDesc BuildProgramDesc(int num_inputs_of_concat) {
   ProgramDesc prog;
   auto new_var = [&](const std::string& name) {
     auto* var = prog.MutableBlock(0)->Var(name);
-    var->SetType(proto::VarType::LOD_TENSOR);
+    var->SetType(proto::VarType::DENSE_TENSOR);
   };
   std::vector<std::string> concat_inputs;
   new_var("cvm_in");
@@ -275,8 +273,6 @@ TEST(SeqPoolCVMConcatFusePass, more_inputs) {
   }
 }
 
-}  // namespace ir
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework::ir
 
 USE_PASS(seqpool_cvm_concat_fuse_pass);

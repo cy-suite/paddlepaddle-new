@@ -171,11 +171,7 @@ def init_comm(profile_ctx):
     genv = _get_global_env()
     genv = dist_env
     print(
-        "current process rank: {}, device_id: {}, ip: {}.".format(
-            genv.rank,
-            genv.device_id,
-            genv.current_endpoint,
-        )
+        f"current process rank: {genv.rank}, device_id: {genv.device_id}, ip: {genv.current_endpoint}."
     )
 
     # init nccl comm
@@ -250,7 +246,7 @@ def profiler(args):
             if eval_step >= args.profile_start_step:
                 duration += end_time - start_time
 
-            print("step: %d, loss_print: %f" % (eval_step, loss[0]))
+            print(f"step: {eval_step}, loss_print: {loss[0]:f}")
             eval_step += 1
 
         avg_tput = (

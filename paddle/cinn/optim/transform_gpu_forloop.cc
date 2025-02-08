@@ -22,44 +22,41 @@
 
 #include "paddle/cinn/backends/cuda_util.h"
 #include "paddle/cinn/common/cas.h"
+#include "paddle/cinn/common/integer_set.h"
 #include "paddle/cinn/common/ir_util.h"
 #include "paddle/cinn/ir/ir.h"
 #include "paddle/cinn/ir/ir_mutator.h"
 #include "paddle/cinn/ir/ir_printer.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
+#include "paddle/cinn/ir/utils/stmt_converter.h"
 #include "paddle/cinn/optim/eliminate_common_factor_of_local_index.h"
 #include "paddle/cinn/optim/ir_simplify.h"
+#include "paddle/cinn/optim/longlong2int_pass.h"
 #include "paddle/cinn/optim/replace_var_with_expr.h"
 #include "paddle/cinn/optim/resize_buffer.h"
 #include "paddle/cinn/optim/update_buffer_axis_pass.h"
+#include "paddle/cinn/pass/pass_manager.h"
 #include "paddle/cinn/poly/isl_utils.h"
 #include "paddle/cinn/poly/stage.h"
 #include "paddle/cinn/runtime/intrinsic.h"
 #include "paddle/cinn/utils/string.h"
+#include "paddle/common/enforce.h"
 
+PD_DECLARE_bool(cinn_longlong2int);
 namespace cinn {
 namespace optim {
 
-/**
- * 1. Determine the grid and block dimensions.
- * It takes the domains like `[0, 20]` or `[0, min(20, M/2)]`, the domain should
- * have a integer right bound.
- *
- * 2. Replace the grid/thread iterators with something like `threadIdx.x`,
- * `threadIdx.y`.
- *
- * 3. Remove the forloops owning the gpu axis.
- *   1. if the extent is an IntImm, just remove this forloop.
- *   2. if the extent is a Min, replace the forloop with an IfThenElse, with
- * forloop's condition, new check will add (if the min of forloop is not zero).
- *
- * @param expr The expression to mutate.
- */
-void RemoveGpuForloopsAxis(Expr *expr) {
+void RemoveGpuForLoops(ir::LoweredFunc fn) {
   struct Mutator : public ir::IRMutator<Expr *> {
-    void operator()(Expr *expr) { ir::IRMutator<>::Visit(expr, expr); }
+    using ir::IRMutator<>::Visit;
+    void operator()(ir::Expr *expr) { ir::IRMutator<>::Visit(expr, expr); }
+
+    explicit Mutator(const ir::CudaAxisInfo &cuda_axis_info)
+        : cuda_axis_info_(cuda_axis_info) {}
 
    private:
+    ir::CudaAxisInfo cuda_axis_info_;
+
     void Visit(const ir::For *op, Expr *expr) override {
       switch (op->for_type()) {
         case ir::ForType::GPUBlock:
@@ -86,17 +83,42 @@ void RemoveGpuForloopsAxis(Expr *expr) {
     }
 
     bool NeedToReplaceForloopWithIfThenElse(const ir::For *n) const {
+      // If the loop doesn't start from 0.
+      if (n->min != cinn::common::make_const(0)) {
+        return true;
+      }
+
+      // Get dim_size from the functions's cuda_axis_info as pre-condition.
+      ir::Expr dim_size;
+      switch (n->bind_info().for_type) {
+        case ir::ForType::GPUThread:
+          dim_size = cuda_axis_info_.block_dim(n->bind_info().offset);
+          break;
+        case ir::ForType::GPUBlock:
+          dim_size = cuda_axis_info_.grid_dim(n->bind_info().offset);
+          break;
+      }
+      if (!dim_size.defined()) {
+        return true;
+      }
+
+      // If we can prove the loop's extent >= dim_size, then it's safe not
+      // to add the IfThenElse guard.
+      common::cas_intervals_t var_intervals =
+          common::CollectVarIntervalsOfExprs({n->extent, dim_size});
+      common::SymbolicExprAnalyzer analyzer{var_intervals};
+      std::optional<bool> proved_ge = analyzer.ProveGE(n->extent, dim_size);
+      if (proved_ge.value_or(false)) {
+        return false;
+      }
       return true;
     }
 
     void ReplaceForloopWithIfThenElse(Expr *expr) {
       auto *for_n = expr->As<ir::For>();
-      auto *poly_for_n = expr->As<ir::PolyFor>();
-      CHECK(for_n || poly_for_n);
 
       Expr condition;
-
-      auto condition_append = [&](Expr new_cond) {
+      const auto AppendCondition = [&](Expr new_cond) {
         if (condition.defined()) {
           condition = ir::And::Make(condition, new_cond);
         } else {
@@ -104,45 +126,46 @@ void RemoveGpuForloopsAxis(Expr *expr) {
         }
       };
 
-      if (for_n) {
-        // for(i, 2, 100);
-        //        ^
-        if (for_n->min != cinn::common::make_const(0)) {
-          condition_append(ir::GE::Make(for_n->loop_var, for_n->min));
-        }
-
-        // for(i, 2, min(M/2, 20)
-        //            ^
-        condition_append(ir::LT::Make(for_n->loop_var, for_n->extent));
-      } else {
-        if (poly_for_n->init != cinn::common::make_const(0)) {
-          condition_append(
-              ir::GE::Make(poly_for_n->iterator, poly_for_n->init));
-        }
-
-        condition_append(poly_for_n->condition);
+      // for(i, 2, 100);
+      //        ^
+      if (for_n->min != cinn::common::make_const(0)) {
+        AppendCondition(ir::GE::Make(for_n->loop_var, for_n->min));
       }
+      // for(i, 2, min(M/2, 20)
+      //            ^
+      AppendCondition(ir::LT::Make(for_n->loop_var, for_n->extent));
 
-      CHECK(condition.defined());
+      PADDLE_ENFORCE_EQ(condition.defined(),
+                        true,
+                        ::common::errors::InvalidArgument(
+                            "Condition is not defined, please check."));
 
-      VLOG(3) << "GPU replacing\n" << *expr;
-      VLOG(3) << "\nto\n";
-      auto if_n = ir::IfThenElse::Make(condition, for_n->body);
-      VLOG(3) << if_n;
-      *expr = if_n;
+      *expr = ir::IfThenElse::Make(condition, for_n->body);
     }
 
     void Visit(const ir::PolyFor *op, Expr *expr) override {
       const auto msg =
           "PolyFor is not allowed for GPU, only For nodes are allowed";
-      CHECK(op->for_type() != ir::ForType::GPUBlock) << msg;
-      CHECK(op->for_type() != ir::ForType::GPUThread) << msg;
-      CHECK(op->for_type() != ir::ForType::GPULane) << msg;
+      PADDLE_ENFORCE_EQ(
+          op->for_type() != ir::ForType::GPUBlock,
+          true,
+          ::common::errors::InvalidArgument(
+              "PolyFor is not allowed for GPU, only For nodes are allowed."));
+      PADDLE_ENFORCE_EQ(
+          op->for_type() != ir::ForType::GPUThread,
+          true,
+          ::common::errors::InvalidArgument(
+              "PolyFor is not allowed for GPU, only For nodes are allowed."));
+      PADDLE_ENFORCE_EQ(
+          op->for_type() != ir::ForType::GPULane,
+          true,
+          ::common::errors::InvalidArgument(
+              "PolyFor is not allowed for GPU, only For nodes are allowed."));
     }
   };
 
-  Mutator mutator;
-  mutator(expr);
+  Mutator mutator(fn->cuda_axis_info);
+  mutator(&fn->body);
 }
 
 /**
@@ -150,9 +173,10 @@ void RemoveGpuForloopsAxis(Expr *expr) {
  * this is the problem of isl AST output, drop it to make it run in all the
  * threads.
  */
-void CudaSyncThreadsDropIfThenElse(Expr *expr) {
+void CudaSyncThreadsDropIfThenElse(ir::LoweredFunc fn) {
   struct Mutator : public ir::IRMutator<> {
-    void operator()(Expr *expr) { ir::IRMutator<>::Visit(expr, expr); }
+    using ir::IRMutator<>::Visit;
+    void operator()(ir::LoweredFunc fn) { Visit(fn.As<ir::_LoweredFunc_>()); }
 
     void Visit(const ir::IfThenElse *op, Expr *expr) override {
       blocked_statement_stack.push_back(expr);
@@ -177,7 +201,7 @@ void CudaSyncThreadsDropIfThenElse(Expr *expr) {
     std::vector<ir::Expr *> blocked_statement_stack;
   };
 
-  Mutator()(expr);
+  Mutator()(fn);
 }
 
 class RestructureVarNodes : public ir::IRMutator<> {
@@ -214,7 +238,10 @@ class ReplaceIndexToBindExpr : public ir::IRMutator<> {
   void Visit(const ir::ScheduleBlockRealize *op, Expr *expr) override {
     ir::ScheduleBlockRealize *schedule_block_realize =
         expr->As<ir::ScheduleBlockRealize>();
-    CHECK(schedule_block_realize->schedule_block.As<ir::ScheduleBlock>());
+    PADDLE_ENFORCE_NOT_NULL(
+        schedule_block_realize->schedule_block.As<ir::ScheduleBlock>(),
+        ::common::errors::InvalidArgument(
+            "The type of schedule block realize should be ScheduleBlock!"));
     std::vector<ir::Expr> iter_values = schedule_block_realize->iter_values;
     ir::Expr body =
         schedule_block_realize->schedule_block.As<ir::ScheduleBlock>()->body;
@@ -222,7 +249,13 @@ class ReplaceIndexToBindExpr : public ir::IRMutator<> {
         schedule_block_realize->schedule_block.As<ir::ScheduleBlock>()
             ->iter_vars;
 
-    CHECK_EQ(iter_values.size(), iter_vars.size());
+    PADDLE_ENFORCE_EQ(iter_values.size(),
+                      iter_vars.size(),
+                      ::common::errors::InvalidArgument(
+                          "The size of iter values and iter vars is not equal,"
+                          "where iter values:%d but iter vars:%d.",
+                          iter_values.size(),
+                          iter_vars.size()));
     for (int idx = 0; idx < iter_values.size(); ++idx) {
       ReplaceVarWithExpr(&body, iter_vars[idx], iter_values[idx]);
     }
@@ -237,7 +270,9 @@ class ReplaceLoopVarToGpu : public ir::IRMutator<> {
  private:
   void Visit(const ir::For *op, Expr *expr) override {
     auto for_ir = expr->As<ir::For>();
-    CHECK(for_ir);
+    PADDLE_ENFORCE_NOT_NULL(for_ir,
+                            ::common::errors::InvalidArgument(
+                                "The type of expression should be For!"));
 
     auto bind_info = for_ir->bind_info();
 
@@ -261,7 +296,7 @@ class ReplaceLoopVarToGpu : public ir::IRMutator<> {
     ir::IRMutator<>::Visit(&for_ir->body, &for_ir->body);
   }
   void Visit(const ir::PolyFor *op, Expr *expr) override {
-    LOG(FATAL) << "Unkown PolyFor!";
+    PADDLE_THROW(::common::errors::InvalidArgument("Unknown PolyFor!"));
   }
 };
 
@@ -367,7 +402,7 @@ class LocalAxisVisitor : public ir::IRMutator<> {
                                              "threadIdx.z"};
 };
 
-class ReplaceVarToZero : public ir::IRMutator<> {
+class ReplaceUnitVarToZero : public ir::IRMutator<> {
  public:
   void operator()(ir::Expr *expr) { ir::IRMutator<>::Visit(expr, expr); }
 
@@ -406,7 +441,9 @@ class ReplaceVarToZero : public ir::IRMutator<> {
   }
 
   void Visit(const ir::For *op, Expr *expr) override {
-    CHECK(expr->As<ir::For>());
+    PADDLE_ENFORCE_NOT_NULL(expr->As<ir::For>(),
+                            ::common::errors::InvalidArgument(
+                                "The type of expression should be For!"));
     auto for_ir = expr->As<ir::For>();
     auto var_name = for_ir->loop_var->name;
     auto extent_i = for_ir->extent;
@@ -420,39 +457,60 @@ class ReplaceVarToZero : public ir::IRMutator<> {
 };
 
 void OptimizeExprGPU(Expr *expr) {
-  VLOG(2) << "Before Optimize Expr:\n" << *expr;
+  VLOG(4) << "Before Optimize Expr:\n" << *expr;
 
-  // copy var nodes to prevent one modification leading to multiple changes
+  // Make independent copies for each load/store's indices to prevent cross
+  // modification in later passes.
   RestructureVarNodes restructure_var_nodes;
   restructure_var_nodes(expr);
 
-  // replace var to bind expr
+  // Replace iter_vars used in ScheduleBlocks to their corresponding iter_values
+  // in ScheduleBlockRealizes.
   ReplaceIndexToBindExpr replace_index_to_bind_expr;
   replace_index_to_bind_expr(expr);
 
   // resize buffer axis
-  UpdateBufferAxisPass(expr);
+  BlockPassManager pass_manager;
+  ir::stmt::BlockRef _block = ir::ConvertExprBlockToStmtBlock(*expr);
+  pass_manager.AddPass(optim::CreateUpdateBufferAxisPass());
+  pass_manager.Run(_block);
+  ir::Expr new_expr = ir::ConvertStmtBlockToExprBlock(_block);
+  *expr = new_expr;
 
-  // replace var name with block/thread
+  // Replace variables bound on block/thread to the actual blockIdx/threadIdx.
   ReplaceLoopVarToGpu replace_loop_var_to_gpu;
   replace_loop_var_to_gpu(expr);
 
-  // update shared buffer axis
+  // Replace blockIdx in shared memory's indices to zero, because shared memory
+  // cannot be accessed from another block.
   SharedAxisVisitor shared_axis_visitor;
   shared_axis_visitor(expr);
 
-  // update local buffer axis
+  // Replace blockIdx/threadIdx in local buffer's indices to zero, because local
+  // buffers cannot be accessed from another block/thread.
   LocalAxisVisitor local_axis_visitor;
   local_axis_visitor(expr);
 
-  EliminateCommonFactorOfLocalIndex(expr);
+  // Replace variables that are in range [0, 1) to zero.
+  ReplaceUnitVarToZero replace_unit_var_to_zero;
+  replace_unit_var_to_zero(expr);
+  VLOG(10) << "After ReplaceUnitVarToZero: \n" << *expr;
+  ir::stmt::BlockRef func_body = ir::ConvertExprBlockToStmtBlock(*expr);
+  EliminateCommonFactorOfLocalIndex(func_body);
+  *expr = ir::ConvertStmtBlockToExprBlock(func_body);
+  VLOG(10) << "After EliminateCommonFactorOfLocalIndex: \n" << *expr;
 
   ResizeBufferToMaxVarRange(expr);
 
-  ReplaceVarToZero replace_var_to_zero;
-  replace_var_to_zero(expr);
+  if (FLAGS_cinn_longlong2int) {
+    ir::stmt::BlockRef block = ir::ConvertExprBlockToStmtBlock(*expr);
+    VLOG(10) << "Before CastLonglong2Int: \n" << block;
+    TryCastLonglong2Int(block);
+    VLOG(10) << "After CastLonglong2Int: \n" << block;
+    *expr = ir::ConvertStmtBlockToExprBlock(block);
+  }
 
-  VLOG(2) << "After Optimize Expr: \n" << *expr;
+  VLOG(4) << "After Optimize Expr: \n" << *expr;
 }
 
 }  // namespace optim

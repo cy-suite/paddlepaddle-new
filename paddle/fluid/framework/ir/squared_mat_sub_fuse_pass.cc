@@ -18,9 +18,7 @@
 
 #include "paddle/fluid/framework/op_version_registry.h"
 
-namespace paddle {
-namespace framework {
-namespace ir {
+namespace paddle::framework::ir {
 
 PDNode* BuildSquaredMatSubPattern(PDPattern* pattern,
                                   const std::string& name_scope) {
@@ -314,19 +312,18 @@ static int BuildFusion(Graph* graph,
                           const PDPattern& pat) -> Node* {
     PADDLE_ENFORCE_GT(subgraph.count(pat.RetrieveNode(name)),
                       0,
-                      platform::errors::NotFound(
-                          "Pattern has no node called %s.", name.c_str()));
+                      common::errors::NotFound("Pattern has no node called %s.",
+                                               name.c_str()));
     Node* p = subgraph.at(pat.RetrieveNode(name));
     PADDLE_ENFORCE_NOT_NULL(
-        p,
-        platform::errors::NotFound("Subgraph has no node %s.", name.c_str()));
+        p, common::errors::NotFound("Subgraph has no node %s.", name.c_str()));
     return p;
   };
 
   int fusion_count{0};
   auto handler = [&](const GraphPatternDetector::subgraph_t& subgraph,
                      Graph* g) {
-    LOG(INFO) << "handle sqaure mat sub fuse";
+    LOG(INFO) << "handle square mat sub fuse";
     if (!pass->IsAcceptable(subgraph, g)) {
       LOG(WARNING) << "Pass in op compat failed.";
       return;
@@ -489,9 +486,7 @@ void SquaredMatSubFusePass::ApplyImpl(ir::Graph* graph) const {
   AddStatis(fusion_count);
 }
 
-}  // namespace ir
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework::ir
 
 REGISTER_PASS(squared_mat_sub_fuse_pass,
               paddle::framework::ir::SquaredMatSubFusePass);

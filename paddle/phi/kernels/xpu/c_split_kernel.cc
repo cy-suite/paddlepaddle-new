@@ -24,27 +24,25 @@ void CSplitKernel(const Context& dev_ctx,
                   const DenseTensor& x,
                   int rank,
                   int nranks,
-                  int ring_id,
-                  bool use_calc_stream,
                   bool use_model_parallel,
                   DenseTensor* out) {
   using XPUType = typename XPUTypeTrait<T>::Type;
 
   PADDLE_ENFORCE_GE(rank,
                     0,
-                    phi::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "The value of rank (%d) for c_split must be "
                         "greater than or equal to 0.",
                         rank));
   PADDLE_ENFORCE_GE(nranks,
                     2,
-                    phi::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "The value of nranks (%d) for c_split must be "
                         "greater than or equal to 2.",
                         nranks));
   PADDLE_ENFORCE_LT(rank,
                     nranks,
-                    phi::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "The value of rank (%d) for c_split must be "
                         "less than that of nranks (%d).",
                         rank,

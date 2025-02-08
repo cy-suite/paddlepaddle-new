@@ -36,6 +36,7 @@ PD_DECLARE_bool(enable_cudnn_frontend);
   __macro(cudnnCreateFilterDescriptor);    \
   __macro(cudnnDestroyFilterDescriptor);   \
   __macro(cudnnGetStream);                 \
+  __macro(cudnnGetErrorString);            \
   __macro(cudnnGetVersion);                \
   __macro(cudnnReorderFilterAndBias);      \
   __macro(cudnnSetFilterNdDescriptor);
@@ -43,6 +44,13 @@ PD_DECLARE_bool(enable_cudnn_frontend);
 namespace cudnn_frontend {
 CUDNN_FRONTEND_APPLY_EACH(CUDNN_FRONTEND_OVERRIDE_SYMBOL);
 }  // namespace cudnn_frontend
+
+#if CUDNN_VERSION >= 90000
+#define CUDNN_FRONTEND_APPLY_EACH_V9(__macro) __macro(cudnnGetLastErrorString);
+namespace cudnn_frontend {
+CUDNN_FRONTEND_APPLY_EACH_V9(CUDNN_FRONTEND_OVERRIDE_SYMBOL);
+}  // namespace cudnn_frontend
+#endif
 
 // clang-format off
 #include <cudnn_frontend.h>                                        // NOLINT

@@ -21,18 +21,18 @@
 #include <vector>
 
 #include "paddle/common/enforce.h"
+#include "paddle/common/errors.h"
 #include "paddle/fluid/framework/scope.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_attribute.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_dialect.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_type.h"
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
-#include "paddle/fluid/pir/transforms/constant_folding_pass.h"
-#include "paddle/fluid/pir/transforms/dead_code_elimination_pass.h"
-#include "paddle/fluid/pir/transforms/fusion/conv2d_add_act_fuse_pass.h"
-#include "paddle/fluid/pir/transforms/fusion/conv2d_add_fuse_pass.h"
-#include "paddle/fluid/pir/transforms/fusion/conv2d_bn_fuse_pass.h"
+#include "paddle/fluid/pir/transforms/general/constant_folding_pass.h"
+#include "paddle/fluid/pir/transforms/general/dead_code_elimination_pass.h"
+#include "paddle/fluid/pir/transforms/gpu/conv2d_add_act_fuse_pass.h"
+#include "paddle/fluid/pir/transforms/gpu/conv2d_add_fuse_pass.h"
+#include "paddle/fluid/pir/transforms/gpu/conv2d_bn_fuse_pass.h"
 #include "paddle/fluid/pir/utils/general_functions.h"
-#include "paddle/fluid/platform/errors.h"
 #include "paddle/pir/include/core/builder.h"
 #include "paddle/pir/include/core/builtin_attribute.h"
 #include "paddle/pir/include/core/builtin_dialect.h"
@@ -84,12 +84,12 @@ void Operation1::VerifySig() {
   auto &attributes = this->attributes();
   if (attributes.count("op2_attr1") == 0 ||
       (!attributes.at("op2_attr1").isa<pir::StrAttribute>())) {
-    PADDLE_THROW(paddle::platform::errors::InvalidArgument(
+    PADDLE_THROW(common::errors::InvalidArgument(
         "Type of attribute: parameter_name is not right."));
   }
   if (attributes.count("op2_attr2") == 0 ||
       (!attributes.at("op2_attr2").isa<pir::StrAttribute>())) {
-    PADDLE_THROW(paddle::platform::errors::InvalidArgument(
+    PADDLE_THROW(common::errors::InvalidArgument(
         "Type of attribute: parameter_name is not right."));
   }
 }
@@ -218,8 +218,10 @@ class RedundantTransposeFusePattern
     auto prev_trans_op = prev_op->dyn_cast<paddle::dialect::TransposeOp>();
     if (prev_trans_op) {
       std::vector<int> axis_first = GetAxis(prev_trans_op);
-      IR_ENFORCE(axis_first.size() == axis_last.size(),
-                 "transpose op's perm rank should be same.");
+      PADDLE_ENFORCE_EQ(axis_first.size(),
+                        axis_last.size(),
+                        common::errors::InvalidArgument(
+                            "transpose op's perm rank should be same."));
       auto new_perm = GetPerm(axis_first, axis_last);
       rewriter.set_insertion_point(op);
       auto new_transpose_op = rewriter.Build<paddle::dialect::TransposeOp>(
@@ -406,8 +408,8 @@ TEST(pattern_rewrite, Patterns) {
   std::unique_ptr<pir::Pass> constant_folding_pass =
       pir::CreateConstantFoldingPass();
   phi::Place place = phi::CPUPlace();
-  constant_folding_pass->SetNotOwned(pir::kPlaceAttr, &place);
-  constant_folding_pass->Set(pir::kParamScopeAttr,
+  constant_folding_pass->SetNotOwned(pir::Pass::kPlaceAttr, &place);
+  constant_folding_pass->Set(pir::Pass::kParamScopeAttr,
                              new paddle::framework::Scope());
   pm.AddPass(std::move(constant_folding_pass));
   pm.AddPass(pir::CreateDeadCodeEliminationPass());
@@ -422,8 +424,10 @@ TEST(pattern_rewrite, Patterns) {
   //     },
   //     true,
   //     true));
-
-  CHECK_EQ(pm.Run(&program), true);
+  PADDLE_ENFORCE_EQ(pm.Run(&program),
+                    true,
+                    common::errors::ExecutionTimeout(
+                        "Sorry, the for program test is timeout."));
   EXPECT_EQ(program.block()->size(), 17u);
 }
 
@@ -435,16 +439,15 @@ void BuildConstantFoldingProgram(pir::Program *program,
   pir::Type fp32_dtype = pir::Float32Type::get(ctx);
   phi::DDim dims = {2, 2};
   phi::DataLayout data_layout = phi::DataLayout::NCHW;
-  phi::LoD lod = {{0, 1, 2}};
+  phi::LegacyLoD lod = {{0, 1, 2}};
   size_t offset = 0;
   pir::Type dense_tensor_dtype = paddle::dialect::DenseTensorType::get(
       ctx, fp32_dtype, dims, data_layout, lod, offset);
 
   phi::DenseTensorMeta meta(
       phi::DataType::FLOAT32, dims, data_layout, lod, offset);
-  paddle::platform::DeviceContext *dev_ctx =
-      paddle::platform::DeviceContextPool::Instance().Get(
-          paddle::platform::CPUPlace());
+  phi::DeviceContext *dev_ctx =
+      phi::DeviceContextPool::Instance().Get(phi::CPUPlace());
 
   auto op1 = builder.Build<pir::ConstantTensorOp>("a", dense_tensor_dtype);
   auto op2 = builder.Build<pir::ConstantTensorOp>("b", dense_tensor_dtype);
@@ -484,13 +487,16 @@ TEST(constant_folding, ConstantFolding) {
   std::unique_ptr<pir::Pass> constant_folding_pass =
       pir::CreateConstantFoldingPass();
   phi::Place place = phi::CPUPlace();
-  constant_folding_pass->SetNotOwned(pir::kPlaceAttr, &place);
-  constant_folding_pass->SetNotOwned(pir::kParamScopeAttr, &scope);
+  constant_folding_pass->SetNotOwned(pir::Pass::kPlaceAttr, &place);
+  constant_folding_pass->SetNotOwned(pir::Pass::kParamScopeAttr, &scope);
   pm.AddPass(std::move(constant_folding_pass));
   pm.AddPass(pir::CreateDeadCodeEliminationPass());
   pm.EnableIRPrinting();
 
-  CHECK_EQ(pm.Run(&program), true);
+  PADDLE_ENFORCE_EQ(pm.Run(&program),
+                    true,
+                    common::errors::ExecutionTimeout(
+                        "Sorry, the test for program is timeout."));
   EXPECT_EQ(program.block()->size(), 2u);
 }
 
@@ -507,15 +513,18 @@ TEST(constant_folding, ConstantFolding_Train) {
   std::unique_ptr<pir::Pass> constant_folding_pass =
       pir::CreateConstantFoldingPass();
   phi::Place place = phi::CPUPlace();
-  constant_folding_pass->SetNotOwned(pir::kPlaceAttr, &place);
-  constant_folding_pass->SetNotOwned(pir::kParamScopeAttr, &scope);
+  constant_folding_pass->SetNotOwned(pir::Pass::kPlaceAttr, &place);
+  constant_folding_pass->SetNotOwned(pir::Pass::kParamScopeAttr, &scope);
   constant_folding_pass->Set("train_mode", new bool(true));
 
   pm.AddPass(std::move(constant_folding_pass));
   pm.AddPass(pir::CreateDeadCodeEliminationPass());
   pm.EnableIRPrinting();
 
-  CHECK_EQ(pm.Run(&program), true);
+  PADDLE_ENFORCE_EQ(pm.Run(&program),
+                    true,
+                    common::errors::ExecutionTimeout(
+                        "Sorry, the test for program is timeout."));
   EXPECT_EQ(program.block()->size(), 4u);
 }
 
@@ -576,14 +585,17 @@ TEST(constant_folding, ConstantFolding_Combine) {
   std::unique_ptr<pir::Pass> constant_folding_pass =
       pir::CreateConstantFoldingPass();
   phi::Place place = phi::CPUPlace();
-  constant_folding_pass->SetNotOwned(pir::kPlaceAttr, &place);
-  constant_folding_pass->Set(pir::kParamScopeAttr,
+  constant_folding_pass->SetNotOwned(pir::Pass::kPlaceAttr, &place);
+  constant_folding_pass->Set(pir::Pass::kParamScopeAttr,
                              new paddle::framework::Scope());
   pm.AddPass(std::move(constant_folding_pass));
   pm.AddPass(pir::CreateDeadCodeEliminationPass());
   pm.EnableIRPrinting();
 
-  CHECK_EQ(pm.Run(&program), true);
+  PADDLE_ENFORCE_EQ(pm.Run(&program),
+                    true,
+                    common::errors::ExecutionTimeout(
+                        "Sorry, the test for program is timeout."));
   EXPECT_EQ(program.block()->size(), 2u);
 }
 
@@ -617,13 +629,16 @@ TEST(constant_folding, ConstantFolding_MultiOutput) {
   std::unique_ptr<pir::Pass> constant_folding_pass =
       pir::CreateConstantFoldingPass();
   phi::Place place = phi::CPUPlace();
-  constant_folding_pass->SetNotOwned(pir::kPlaceAttr, &place);
-  constant_folding_pass->Set(pir::kParamScopeAttr,
+  constant_folding_pass->SetNotOwned(pir::Pass::kPlaceAttr, &place);
+  constant_folding_pass->Set(pir::Pass::kParamScopeAttr,
                              new paddle::framework::Scope());
   pm.AddPass(std::move(constant_folding_pass));
   pm.AddPass(pir::CreateDeadCodeEliminationPass());
   pm.EnableIRPrinting();
 
-  CHECK_EQ(pm.Run(&program), true);
+  PADDLE_ENFORCE_EQ(pm.Run(&program),
+                    true,
+                    common::errors::ExecutionTimeout(
+                        "Sorry, the test for program is timeout."));
   EXPECT_EQ(program.block()->size(), 4u);
 }

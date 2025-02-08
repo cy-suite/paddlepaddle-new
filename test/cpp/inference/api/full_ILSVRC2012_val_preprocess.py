@@ -96,9 +96,7 @@ def download_concat(cache_folder, zip_path):
 def print_processbar(done_percentage):
     done_filled = done_percentage * '='
     empty_filled = (100 - done_percentage) * ' '
-    sys.stdout.write(
-        "\r[%s%s]%d%%" % (done_filled, empty_filled, done_percentage)
-    )
+    sys.stdout.write(f"\r[{done_filled}{empty_filled}]{done_percentage}%")
     sys.stdout.flush()
 
 
@@ -165,9 +163,7 @@ def run_convert():
     ):
         if os.path.exists(output_file):
             sys.stderr.write(
-                "\n\nThe existing binary file[{}] is broken. Start to generate new one...\n\n".format(
-                    output_file
-                )
+                f"\n\nThe existing binary file[{output_file}] is broken. Start to generate new one...\n\n"
             )
             os.remove(output_file)
         if retry < try_limit:
@@ -229,9 +225,7 @@ def convert_Imagenet_local2bin(args):
         )
         if os.path.getsize(bin_file_path) == target_size:
             print(
-                "Success! The user data output binary file can be found at: {}".format(
-                    bin_file_path
-                )
+                f"Success! The user data output binary file can be found at: {bin_file_path}"
             )
         else:
             print("Conversion failed!")

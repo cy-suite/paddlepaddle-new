@@ -72,19 +72,21 @@ class TestLayerNormSPMDRule(unittest.TestCase):
             self.attrs['epsilon'],
             self.attrs['begin_norm_axis'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(len(result_dist_attrs), 2)
-        self.assertEqual(len(infered_input_dist_attrs), 3)
-        self.assertEqual(len(infered_output_dist_attrs), 3)
+        self.assertEqual(len(inferred_input_dist_attrs), 3)
+        self.assertEqual(len(inferred_output_dist_attrs), 3)
 
-        self.assertEqual(infered_input_dist_attrs[0].dims_mapping, [1, -1, -1])
-        self.assertEqual(infered_input_dist_attrs[1].dims_mapping, [-1])
-        self.assertEqual(infered_input_dist_attrs[2].dims_mapping, [-1])
-        self.assertEqual(infered_output_dist_attrs[0].dims_mapping, [1, -1, -1])
-        self.assertEqual(infered_output_dist_attrs[1].dims_mapping, [1, -1])
-        self.assertEqual(infered_output_dist_attrs[2].dims_mapping, [1, -1])
+        self.assertEqual(inferred_input_dist_attrs[0].dims_mapping, [1, -1, -1])
+        self.assertEqual(inferred_input_dist_attrs[1].dims_mapping, [-1])
+        self.assertEqual(inferred_input_dist_attrs[2].dims_mapping, [-1])
+        self.assertEqual(
+            inferred_output_dist_attrs[0].dims_mapping, [1, -1, -1]
+        )
+        self.assertEqual(inferred_output_dist_attrs[1].dims_mapping, [1, -1])
+        self.assertEqual(inferred_output_dist_attrs[2].dims_mapping, [1, -1])
 
         # ijk[1, 0, -1],k[0],k[0] -->
         # [1, 0, -1], [-1], [-1] (inputs)
@@ -101,19 +103,19 @@ class TestLayerNormSPMDRule(unittest.TestCase):
             self.attrs['epsilon'],
             self.attrs['begin_norm_axis'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(len(result_dist_attrs), 2)
-        self.assertEqual(len(infered_input_dist_attrs), 3)
-        self.assertEqual(len(infered_output_dist_attrs), 3)
+        self.assertEqual(len(inferred_input_dist_attrs), 3)
+        self.assertEqual(len(inferred_output_dist_attrs), 3)
 
-        self.assertEqual(infered_input_dist_attrs[0].dims_mapping, [1, 0, -1])
-        self.assertEqual(infered_input_dist_attrs[1].dims_mapping, [-1])
-        self.assertEqual(infered_input_dist_attrs[2].dims_mapping, [-1])
-        self.assertEqual(infered_output_dist_attrs[0].dims_mapping, [1, 0, -1])
-        self.assertEqual(infered_output_dist_attrs[1].dims_mapping, [1, 0])
-        self.assertEqual(infered_output_dist_attrs[2].dims_mapping, [1, 0])
+        self.assertEqual(inferred_input_dist_attrs[0].dims_mapping, [1, 0, -1])
+        self.assertEqual(inferred_input_dist_attrs[1].dims_mapping, [-1])
+        self.assertEqual(inferred_input_dist_attrs[2].dims_mapping, [-1])
+        self.assertEqual(inferred_output_dist_attrs[0].dims_mapping, [1, 0, -1])
+        self.assertEqual(inferred_output_dist_attrs[1].dims_mapping, [1, 0])
+        self.assertEqual(inferred_output_dist_attrs[2].dims_mapping, [1, 0])
 
         # ijk[0, -1, -1],y[-1],y[1] -->
         # ijk[0, -1, -1],y[-1],y[-1], (inputs)
@@ -136,19 +138,81 @@ class TestLayerNormSPMDRule(unittest.TestCase):
             self.attrs['epsilon'],
             self.attrs['begin_norm_axis'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(len(result_dist_attrs), 2)
-        self.assertEqual(len(infered_input_dist_attrs), 3)
-        self.assertEqual(len(infered_output_dist_attrs), 3)
+        self.assertEqual(len(inferred_input_dist_attrs), 3)
+        self.assertEqual(len(inferred_output_dist_attrs), 3)
 
-        self.assertEqual(infered_input_dist_attrs[0].dims_mapping, [0, -1, -1])
-        self.assertEqual(infered_input_dist_attrs[1].dims_mapping, [-1])
-        self.assertEqual(infered_input_dist_attrs[2].dims_mapping, [-1])
-        self.assertEqual(infered_output_dist_attrs[0].dims_mapping, [0, -1, -1])
-        self.assertEqual(infered_output_dist_attrs[1].dims_mapping, [0])
-        self.assertEqual(infered_output_dist_attrs[2].dims_mapping, [0])
+        self.assertEqual(inferred_input_dist_attrs[0].dims_mapping, [0, -1, -1])
+        self.assertEqual(inferred_input_dist_attrs[1].dims_mapping, [-1])
+        self.assertEqual(inferred_input_dist_attrs[2].dims_mapping, [-1])
+        self.assertEqual(
+            inferred_output_dist_attrs[0].dims_mapping, [0, -1, -1]
+        )
+        self.assertEqual(inferred_output_dist_attrs[1].dims_mapping, [0])
+        self.assertEqual(inferred_output_dist_attrs[2].dims_mapping, [0])
+
+    def test_infer_forward_without_bias(self):
+        # ijk[1, -1, -1], k[-1], k[-1] -->
+        # ijk[1, -1, -1], k[-1], k[-1], (inputs)
+        # ijk[1, -1, -1], ij[1, -1], ij[1, -1],(outputs)
+        # begin_norm_axis=2
+        self.x_spec.set_dims_mapping([1, -1, -1])
+        self.bias_spec = DistTensorSpec([0], TensorDistAttr())
+        self.scale_spec.set_dims_mapping([-1])
+
+        result_dist_attrs = self.rule.infer_forward(
+            self.x_spec,
+            self.scale_spec,
+            self.bias_spec,
+            self.attrs['epsilon'],
+            self.attrs['begin_norm_axis'],
+        )
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
+
+        self.assertEqual(len(result_dist_attrs), 2)
+        self.assertEqual(len(inferred_input_dist_attrs), 3)
+        self.assertEqual(len(inferred_output_dist_attrs), 3)
+
+        self.assertEqual(inferred_input_dist_attrs[0].dims_mapping, [1, -1, -1])
+        self.assertEqual(inferred_input_dist_attrs[1].dims_mapping, [-1])
+        self.assertEqual(inferred_input_dist_attrs[2].dims_mapping, [-1])
+        self.assertEqual(
+            inferred_output_dist_attrs[0].dims_mapping, [1, -1, -1]
+        )
+        self.assertEqual(inferred_output_dist_attrs[1].dims_mapping, [1, -1])
+        self.assertEqual(inferred_output_dist_attrs[2].dims_mapping, [1, -1])
+
+        # ijk[1, 0, -1],k[0],k[0] -->
+        # [1, 0, -1], [-1], [-1] (inputs)
+        # [1, 0, -1], [1, 0], [1, 0] (outputs)
+        self.x_spec.set_dims_mapping([1, 0, -1])
+        self.scale_spec = DistTensorSpec([0], TensorDistAttr())
+        self.bias_spec.set_dims_mapping([0])
+
+        result_dist_attrs = self.rule.infer_forward(
+            self.x_spec,
+            self.scale_spec,
+            self.bias_spec,
+            self.attrs['epsilon'],
+            self.attrs['begin_norm_axis'],
+        )
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
+
+        self.assertEqual(len(result_dist_attrs), 2)
+        self.assertEqual(len(inferred_input_dist_attrs), 3)
+        self.assertEqual(len(inferred_output_dist_attrs), 3)
+
+        self.assertEqual(inferred_input_dist_attrs[0].dims_mapping, [1, 0, -1])
+        self.assertEqual(inferred_input_dist_attrs[1].dims_mapping, [-1])
+        self.assertEqual(inferred_input_dist_attrs[2].dims_mapping, [-1])
+        self.assertEqual(inferred_output_dist_attrs[0].dims_mapping, [1, 0, -1])
+        self.assertEqual(inferred_output_dist_attrs[1].dims_mapping, [1, 0])
+        self.assertEqual(inferred_output_dist_attrs[2].dims_mapping, [1, 0])
 
     def test_infer_backward(self):
         # [1, -1, -1], [1, -1], [1, -1] (outputs) -->
@@ -177,19 +241,21 @@ class TestLayerNormSPMDRule(unittest.TestCase):
             self.attrs['epsilon'],
             self.attrs['begin_norm_axis'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(len(result_dist_attrs), 2)
-        self.assertEqual(len(infered_input_dist_attrs), 3)
-        self.assertEqual(len(infered_output_dist_attrs), 3)
+        self.assertEqual(len(inferred_input_dist_attrs), 3)
+        self.assertEqual(len(inferred_output_dist_attrs), 3)
 
-        self.assertEqual(infered_input_dist_attrs[0].dims_mapping, [1, -1, -1])
-        self.assertEqual(infered_input_dist_attrs[1].dims_mapping, [-1])
-        self.assertEqual(infered_input_dist_attrs[2].dims_mapping, [-1])
-        self.assertEqual(infered_output_dist_attrs[0].dims_mapping, [1, -1, -1])
-        self.assertEqual(infered_output_dist_attrs[1].dims_mapping, [1, -1])
-        self.assertEqual(infered_output_dist_attrs[2].dims_mapping, [1, -1])
+        self.assertEqual(inferred_input_dist_attrs[0].dims_mapping, [1, -1, -1])
+        self.assertEqual(inferred_input_dist_attrs[1].dims_mapping, [-1])
+        self.assertEqual(inferred_input_dist_attrs[2].dims_mapping, [-1])
+        self.assertEqual(
+            inferred_output_dist_attrs[0].dims_mapping, [1, -1, -1]
+        )
+        self.assertEqual(inferred_output_dist_attrs[1].dims_mapping, [1, -1])
+        self.assertEqual(inferred_output_dist_attrs[2].dims_mapping, [1, -1])
 
         # [0, -1, -1], [0, -1], [0, -1] (outputs) -->
         # [0, -1, -1], [-1], [-1], (inputs)
@@ -221,19 +287,21 @@ class TestLayerNormSPMDRule(unittest.TestCase):
             self.attrs['epsilon'],
             self.attrs['begin_norm_axis'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(len(result_dist_attrs), 2)
-        self.assertEqual(len(infered_input_dist_attrs), 3)
-        self.assertEqual(len(infered_output_dist_attrs), 3)
+        self.assertEqual(len(inferred_input_dist_attrs), 3)
+        self.assertEqual(len(inferred_output_dist_attrs), 3)
 
-        self.assertEqual(infered_input_dist_attrs[0].dims_mapping, [0, -1, -1])
-        self.assertEqual(infered_input_dist_attrs[1].dims_mapping, [-1])
-        self.assertEqual(infered_input_dist_attrs[2].dims_mapping, [-1])
-        self.assertEqual(infered_output_dist_attrs[0].dims_mapping, [0, -1, -1])
-        self.assertEqual(infered_output_dist_attrs[1].dims_mapping, [0, -1])
-        self.assertEqual(infered_output_dist_attrs[2].dims_mapping, [0, -1])
+        self.assertEqual(inferred_input_dist_attrs[0].dims_mapping, [0, -1, -1])
+        self.assertEqual(inferred_input_dist_attrs[1].dims_mapping, [-1])
+        self.assertEqual(inferred_input_dist_attrs[2].dims_mapping, [-1])
+        self.assertEqual(
+            inferred_output_dist_attrs[0].dims_mapping, [0, -1, -1]
+        )
+        self.assertEqual(inferred_output_dist_attrs[1].dims_mapping, [0, -1])
+        self.assertEqual(inferred_output_dist_attrs[2].dims_mapping, [0, -1])
 
         # [-1, -1, -1], [0, -1], [-1, 1] (outputs) -->
         # [0, 1, -1], [-1], [-1], (inputs)
@@ -265,19 +333,19 @@ class TestLayerNormSPMDRule(unittest.TestCase):
             self.attrs['epsilon'],
             self.attrs['begin_norm_axis'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(len(result_dist_attrs), 2)
-        self.assertEqual(len(infered_input_dist_attrs), 3)
-        self.assertEqual(len(infered_output_dist_attrs), 3)
+        self.assertEqual(len(inferred_input_dist_attrs), 3)
+        self.assertEqual(len(inferred_output_dist_attrs), 3)
 
-        self.assertEqual(infered_input_dist_attrs[0].dims_mapping, [0, 1, -1])
-        self.assertEqual(infered_input_dist_attrs[1].dims_mapping, [-1])
-        self.assertEqual(infered_input_dist_attrs[2].dims_mapping, [-1])
-        self.assertEqual(infered_output_dist_attrs[0].dims_mapping, [0, 1, -1])
-        self.assertEqual(infered_output_dist_attrs[1].dims_mapping, [0, 1])
-        self.assertEqual(infered_output_dist_attrs[2].dims_mapping, [0, 1])
+        self.assertEqual(inferred_input_dist_attrs[0].dims_mapping, [0, 1, -1])
+        self.assertEqual(inferred_input_dist_attrs[1].dims_mapping, [-1])
+        self.assertEqual(inferred_input_dist_attrs[2].dims_mapping, [-1])
+        self.assertEqual(inferred_output_dist_attrs[0].dims_mapping, [0, 1, -1])
+        self.assertEqual(inferred_output_dist_attrs[1].dims_mapping, [0, 1])
+        self.assertEqual(inferred_output_dist_attrs[2].dims_mapping, [0, 1])
 
         # [-1, 1, -1], [-1, -1], [-1, -1] (outputs) -->
         # [-1, 1, -1], [-1], [-1], (inputs)
@@ -309,19 +377,21 @@ class TestLayerNormSPMDRule(unittest.TestCase):
             self.attrs['epsilon'],
             self.attrs['begin_norm_axis'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(len(result_dist_attrs), 2)
-        self.assertEqual(len(infered_input_dist_attrs), 3)
-        self.assertEqual(len(infered_output_dist_attrs), 3)
+        self.assertEqual(len(inferred_input_dist_attrs), 3)
+        self.assertEqual(len(inferred_output_dist_attrs), 3)
 
-        self.assertEqual(infered_input_dist_attrs[0].dims_mapping, [-1, 1, -1])
-        self.assertEqual(infered_input_dist_attrs[1].dims_mapping, [-1])
-        self.assertEqual(infered_input_dist_attrs[2].dims_mapping, [-1])
-        self.assertEqual(infered_output_dist_attrs[0].dims_mapping, [-1, 1, -1])
-        self.assertEqual(infered_output_dist_attrs[1].dims_mapping, [-1, 1])
-        self.assertEqual(infered_output_dist_attrs[2].dims_mapping, [-1, 1])
+        self.assertEqual(inferred_input_dist_attrs[0].dims_mapping, [-1, 1, -1])
+        self.assertEqual(inferred_input_dist_attrs[1].dims_mapping, [-1])
+        self.assertEqual(inferred_input_dist_attrs[2].dims_mapping, [-1])
+        self.assertEqual(
+            inferred_output_dist_attrs[0].dims_mapping, [-1, 1, -1]
+        )
+        self.assertEqual(inferred_output_dist_attrs[1].dims_mapping, [-1, 1])
+        self.assertEqual(inferred_output_dist_attrs[2].dims_mapping, [-1, 1])
 
         # [1, -1, -1], [0, -1], [-1, -1] (outputs) --> error
         # begin_norm_axis=2
@@ -383,19 +453,19 @@ class TestLayerNormSPMDRule(unittest.TestCase):
             self.attrs['epsilon'],
             self.attrs['begin_norm_axis'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(len(result_dist_attrs), 2)
-        self.assertEqual(len(infered_input_dist_attrs), 3)
-        self.assertEqual(len(infered_output_dist_attrs), 3)
+        self.assertEqual(len(inferred_input_dist_attrs), 3)
+        self.assertEqual(len(inferred_output_dist_attrs), 3)
 
-        self.assertEqual(infered_input_dist_attrs[0].dims_mapping, [0, 1, -1])
-        self.assertEqual(infered_input_dist_attrs[1].dims_mapping, [-1])
-        self.assertEqual(infered_input_dist_attrs[2].dims_mapping, [-1])
-        self.assertEqual(infered_output_dist_attrs[0].dims_mapping, [0, 1, -1])
-        self.assertEqual(infered_output_dist_attrs[1].dims_mapping, [0, 1])
-        self.assertEqual(infered_output_dist_attrs[2].dims_mapping, [0, 1])
+        self.assertEqual(inferred_input_dist_attrs[0].dims_mapping, [0, 1, -1])
+        self.assertEqual(inferred_input_dist_attrs[1].dims_mapping, [-1])
+        self.assertEqual(inferred_input_dist_attrs[2].dims_mapping, [-1])
+        self.assertEqual(inferred_output_dist_attrs[0].dims_mapping, [0, 1, -1])
+        self.assertEqual(inferred_output_dist_attrs[1].dims_mapping, [0, 1])
+        self.assertEqual(inferred_output_dist_attrs[2].dims_mapping, [0, 1])
 
         # [0, 1, -1], [-1, -1], [-1, -1] (outputs) -->
         # [0, 1, -1], [-1], [-1] (inputs)
@@ -427,19 +497,19 @@ class TestLayerNormSPMDRule(unittest.TestCase):
             self.attrs['epsilon'],
             self.attrs['begin_norm_axis'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(len(result_dist_attrs), 2)
-        self.assertEqual(len(infered_input_dist_attrs), 3)
-        self.assertEqual(len(infered_output_dist_attrs), 3)
+        self.assertEqual(len(inferred_input_dist_attrs), 3)
+        self.assertEqual(len(inferred_output_dist_attrs), 3)
 
-        self.assertEqual(infered_input_dist_attrs[0].dims_mapping, [0, 1, -1])
-        self.assertEqual(infered_input_dist_attrs[1].dims_mapping, [-1])
-        self.assertEqual(infered_input_dist_attrs[2].dims_mapping, [-1])
-        self.assertEqual(infered_output_dist_attrs[0].dims_mapping, [0, 1, -1])
-        self.assertEqual(infered_output_dist_attrs[1].dims_mapping, [0, 1])
-        self.assertEqual(infered_output_dist_attrs[2].dims_mapping, [0, 1])
+        self.assertEqual(inferred_input_dist_attrs[0].dims_mapping, [0, 1, -1])
+        self.assertEqual(inferred_input_dist_attrs[1].dims_mapping, [-1])
+        self.assertEqual(inferred_input_dist_attrs[2].dims_mapping, [-1])
+        self.assertEqual(inferred_output_dist_attrs[0].dims_mapping, [0, 1, -1])
+        self.assertEqual(inferred_output_dist_attrs[1].dims_mapping, [0, 1])
+        self.assertEqual(inferred_output_dist_attrs[2].dims_mapping, [0, 1])
 
         # [0, -1, -1], [-1, 1], [-1, -1] (outputs) -->
         # [0, 1, -1], [-1], [-1], (inputs)
@@ -471,19 +541,19 @@ class TestLayerNormSPMDRule(unittest.TestCase):
             self.attrs['epsilon'],
             self.attrs['begin_norm_axis'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(len(result_dist_attrs), 2)
-        self.assertEqual(len(infered_input_dist_attrs), 3)
-        self.assertEqual(len(infered_output_dist_attrs), 3)
+        self.assertEqual(len(inferred_input_dist_attrs), 3)
+        self.assertEqual(len(inferred_output_dist_attrs), 3)
 
-        self.assertEqual(infered_input_dist_attrs[0].dims_mapping, [0, 1, -1])
-        self.assertEqual(infered_input_dist_attrs[1].dims_mapping, [-1])
-        self.assertEqual(infered_input_dist_attrs[2].dims_mapping, [-1])
-        self.assertEqual(infered_output_dist_attrs[0].dims_mapping, [0, 1, -1])
-        self.assertEqual(infered_output_dist_attrs[1].dims_mapping, [0, 1])
-        self.assertEqual(infered_output_dist_attrs[2].dims_mapping, [0, 1])
+        self.assertEqual(inferred_input_dist_attrs[0].dims_mapping, [0, 1, -1])
+        self.assertEqual(inferred_input_dist_attrs[1].dims_mapping, [-1])
+        self.assertEqual(inferred_input_dist_attrs[2].dims_mapping, [-1])
+        self.assertEqual(inferred_output_dist_attrs[0].dims_mapping, [0, 1, -1])
+        self.assertEqual(inferred_output_dist_attrs[1].dims_mapping, [0, 1])
+        self.assertEqual(inferred_output_dist_attrs[2].dims_mapping, [0, 1])
 
 
 if __name__ == "__main__":

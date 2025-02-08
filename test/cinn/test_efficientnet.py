@@ -19,10 +19,10 @@ import time
 import unittest
 
 import numpy as np
-from cinn.common import DefaultHostTarget, DefaultNVGPUTarget
-from cinn.frontend import Interpreter
 
 from paddle import base
+from paddle.cinn.common import DefaultHostTarget, DefaultNVGPUTarget
+from paddle.cinn.frontend import Interpreter
 
 enable_gpu = sys.argv.pop()
 model_dir = sys.argv.pop()
@@ -76,8 +76,7 @@ class TestLoadEfficientNetModel(unittest.TestCase):
         end5 = time.perf_counter()
 
         print(
-            "Repeat %d times, average Executor.run() time is: %.3f ms"
-            % (repeat, (end5 - end4) * 1000 / repeat)
+            f"Repeat {repeat} times, average Executor.run() time is: {(end5 - end4) * 1000 / repeat:.3f} ms"
         )
         a_t.from_numpy(x_data, self.target)
         out.from_numpy(np.zeros(out.shape(), dtype='float32'), self.target)
@@ -105,7 +104,7 @@ class TestLoadEfficientNetModel(unittest.TestCase):
 
     def test_model(self):
         self.apply_test()
-        # self.target.arch = Target.Arch.NVGPU
+        # self.target.arch = Target.NVGPUArch()
         # self.apply_test()
 
 

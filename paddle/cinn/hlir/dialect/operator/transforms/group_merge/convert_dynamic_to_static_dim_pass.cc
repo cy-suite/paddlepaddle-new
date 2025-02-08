@@ -104,35 +104,29 @@ class DynamicToStaticConverter {
   }
 
   bool Convert() {
-    if (!IsSymbolFullyInfered()) {
-      return false;
-    }
     bool updated = false;
     VisitEachValue(fusion_op_, [&](pir::Value value) {
       updated |= UpdateValueShape(value);
     });
-    shape_analysis_->Init();
+    shape_analysis_->InitInferContext();
     return updated;
   }
 
  private:
-  bool IsSymbolFullyInfered() {
-    bool is_infered = true;
-    VisitEachValue(fusion_op_, [&](pir::Value value) {
-      if (!shape_analysis_->HasShapeOrDataForValue(value)) {
-        is_infered = false;
-      }
-    });
-    return is_infered;
-  }
-
   DimExpr4SymbolName InitDimExpr4SymbolName() {
     const auto* map = GetGlobalDynamicToStaticDimMap();
-    CHECK(map->has_value());
+    PADDLE_ENFORCE_EQ(
+        map->has_value(),
+        true,
+        ::common::errors::InvalidArgument("The map must have a value."));
     return
         [map](
             const std::string& symbol_name) -> std::optional<symbol::DimExpr> {
-          CHECK(map->value().find(symbol_name) != map->value().end());
+          PADDLE_ENFORCE_NE(map->value().find(symbol_name),
+                            map->value().end(),
+                            ::common::errors::InvalidArgument(
+                                "The symbol '%s' must be present in the map.",
+                                symbol_name.c_str()));
           return map->value().at(symbol_name);
         };
   }
@@ -170,7 +164,10 @@ class DynamicToStaticConverter {
     VisitEachDimExpr(dynamic_shapes, [&](const symbol::DimExpr& dim_expr) {
       const auto& static_shape = symbol::SimplifyDimExpr(
           cinn::dialect::SubstituteDimExpr(dim_expr, DimExpr4SymbolName_));
-      CHECK(static_shape.Has<std::int64_t>());
+      PADDLE_ENFORCE_EQ(static_shape.Has<std::int64_t>(),
+                        true,
+                        ::common::errors::InvalidArgument(
+                            "The static_shape must have an int64_t type."));
       static_shapes.push_back(static_shape.Get<std::int64_t>());
     });
     return static_shapes;
@@ -178,16 +175,39 @@ class DynamicToStaticConverter {
 
   bool UpdateValueShape(pir::Value value) {
     bool update = false;
-    CHECK(shape_analysis_->HasShapeOrDataForValue(value));
     const auto& origin_shape = GetOriginValueShape(value);
     const auto& target_shape = GetTargetValueShape(value);
-    CHECK_EQ(origin_shape.size(), target_shape.size());
+    PADDLE_ENFORCE_EQ(
+        origin_shape.size(),
+        target_shape.size(),
+        ::common::errors::InvalidArgument(
+            "The size of origin shape and target shape is not equal,"
+            "where the size of origin shape:%d but the size of target "
+            "shape:%d.",
+            origin_shape.size(),
+            target_shape.size()));
     for (std::size_t i = 0; i < origin_shape.size(); ++i) {
       if (origin_shape.at(i) == -1) {
-        CHECK_GT(target_shape.at(i), 0);
+        PADDLE_ENFORCE_GT(target_shape.at(i),
+                          0,
+                          ::common::errors::InvalidArgument(
+                              "The size of target shape is incorrect."
+                              "Expected size is larger than 0, but receive %d.",
+                              target_shape.at(i)));
         update = true;
       } else {
-        CHECK(origin_shape.at(i) == target_shape.at(i));
+        PADDLE_ENFORCE_EQ(
+            origin_shape.at(i),
+            target_shape.at(i),
+            ::common::errors::InvalidArgument(
+                "The shape at index %d must be equal in both origin_shape and "
+                "target_shape, but got origin_shape[%d] = %d and "
+                "target_shape[%d] = %d.",
+                i,
+                i,
+                origin_shape.at(i),
+                i,
+                target_shape.at(i)));
       }
     }
     if (update) {

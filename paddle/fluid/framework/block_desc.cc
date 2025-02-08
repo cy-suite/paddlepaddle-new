@@ -19,8 +19,7 @@ limitations under the License. */
 #include "paddle/fluid/framework/operator.h"
 #include "paddle/fluid/framework/program_desc.h"
 
-namespace paddle {
-namespace framework {
+namespace paddle::framework {
 
 VarDesc *BlockDesc::Var(const std::string &name) {
   auto it = vars_.find(name);
@@ -269,7 +268,7 @@ void BlockDesc::SetForwardBlockID(int32_t forward_block_id) {
   PADDLE_ENFORCE_EQ(
       desc_->has_forward_block_idx(),
       false,
-      platform::errors::PreconditionNotMet(
+      common::errors::PreconditionNotMet(
           "Block %d's parent block ID has been set to %d, cannot be set to %d.",
           desc_->idx(),
           desc_->forward_block_idx(),
@@ -283,7 +282,7 @@ BlockDesc *BlockDesc::ForwardBlock() const {
 
 void BlockDesc::MoveFrom(BlockDesc *block) {
   PADDLE_ENFORCE_NOT_NULL(
-      block, platform::errors::InvalidArgument("Block must be provided."));
+      block, common::errors::InvalidArgument("Block must be provided."));
   if (this == block) {
     return;
   }
@@ -320,7 +319,7 @@ void BlockDesc::MoveFrom(BlockDesc *block) {
         std::vector<framework::BlockDesc *> old_block_desc;
         // NOTE(GhostScreaming): don't use program->proto()->blocks_size(),
         // previous assignment of new Variable in vars_ use std::move,
-        // which makes 'var_ptr' which holded by 'block' a nullptr.
+        // which makes 'var_ptr' which held by 'block' a nullptr.
         // block->Program()->proto() will calls Flush() at first,
         // a null var_ptr will cause segmentation fault.
         int block_size = static_cast<int>(program->Size());
@@ -385,5 +384,4 @@ bool BlockDesc::NeedUpdate(bool include_subs) {
   return need;
 }
 
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework

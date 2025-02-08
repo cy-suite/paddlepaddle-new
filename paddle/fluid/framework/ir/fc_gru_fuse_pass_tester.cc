@@ -14,11 +14,7 @@
 
 #include "paddle/fluid/framework/ir/fc_gru_fuse_pass_tester.h"
 
-namespace paddle {
-namespace framework {
-namespace ir {
-
-namespace fc_gru_test {
+namespace paddle::framework::ir::fc_gru_test {
 TEST(FcGruFusePass, basic) {
   std::unique_ptr<ir::Graph> graph = PrepareGraph();
   auto pass = PassRegistry::Instance().Get("fc_gru_fuse_pass");
@@ -35,24 +31,21 @@ TEST(FcGruFusePass, basic) {
 
   PADDLE_ENFORCE_EQ(num_nodes_before,
                     num_nodes_after + 6,
-                    platform::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "The number of nodes before and after "
                         "the fuse does not meet expectations"));
   PADDLE_ENFORCE_EQ(
       num_fuse_gru_nodes_after,
       2,
-      platform::errors::PreconditionNotMet("The number of gru nodes before the "
-                                           "fuse does not meet expectations"));
+      common::errors::PreconditionNotMet("The number of gru nodes before the "
+                                         "fuse does not meet expectations"));
   PADDLE_ENFORCE_EQ(num_gru_nodes_before,
                     num_fuse_gru_nodes_after,
-                    platform::errors::PreconditionNotMet(
+                    common::errors::PreconditionNotMet(
                         "The number of fusion_gru nodes does not meet "
                         "expectations after fuse"));
 }
 
-}  // namespace fc_gru_test
-}  // namespace ir
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework::ir::fc_gru_test
 
 USE_PASS(fc_gru_fuse_pass);

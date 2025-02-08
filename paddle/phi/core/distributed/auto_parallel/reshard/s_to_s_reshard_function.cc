@@ -25,8 +25,7 @@
 #include "paddle/phi/kernels/reshape_kernel.h"
 #include "paddle/phi/kernels/transpose_kernel.h"
 
-namespace phi {
-namespace distributed {
+namespace phi::distributed {
 
 bool SToSReshardFunction::IsSuitable(const DistTensor& in,
                                      const TensorDistAttr& out_dist_attr) {
@@ -94,16 +93,21 @@ void SToSReshardFunction::Eval(phi::DeviceContext* dev_ctx,
     RESHARD_FUNCTOR(
         dev_ctx, Reshape, dtype, out_transpose, pre_shape_vec, &in_all_to_all);
   } else {
-    in_all_to_all.ShareDataWith(in.value());
+    in_all_to_all.ShareDataNoCheckWith(in.value());
   }
 
   // 2. use all to all to switch data to other ranks
+#if defined(PADDLE_WITH_XPU)
+  PADDLE_THROW(
+      ::common::errors::Unimplemented("Not supported AllToAll on xpu yet."));
+#else
   RESHARD_FUNCTOR_WITH_COMM(dev_ctx,
                             AllToAll,
                             dtype,
                             in_process_ids,
                             in_all_to_all,
                             GetMutableTensor(out));
+#endif
 
   // 3. postprocess, reshape and transpose the output tensor
   if (in_split_axis != 0) {
@@ -180,7 +184,7 @@ void SToSReshardFunctionCrossMesh::Eval(DeviceContext* dev_ctx,
     SToSReshardFunction s_to_s_func;
     PADDLE_ENFORCE(
         s_to_s_func.IsSuitable(tmp_result, out_dist_attr),
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "Invoke the s to s reshard function is not valid from %s to %s.",
             tmp_result.dist_attr(),
             out_dist_attr));
@@ -191,5 +195,4 @@ void SToSReshardFunctionCrossMesh::Eval(DeviceContext* dev_ctx,
   }
 }
 
-}  // namespace distributed
-}  // namespace phi
+}  // namespace phi::distributed

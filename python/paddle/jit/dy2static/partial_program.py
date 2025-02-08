@@ -23,11 +23,10 @@ from paddle.base import backward, core, framework, program_guard
 from paddle.base.compiler import BuildStrategy
 from paddle.base.data_feeder import check_type, convert_dtype
 from paddle.base.dygraph.base import switch_to_static_graph
-from paddle.base.framework import _apply_pass, get_flags
+from paddle.base.framework import get_flags
 from paddle.optimizer.lr import LRScheduler
 
 from . import logging_utils
-from .export_subgraph import SubGraphRole, pir_exporter
 from .utils import (
     RETURN_NO_VALUE_MAGIC_NUM,
     backend_guard,
@@ -81,11 +80,9 @@ class NestSequence:
                     warning_types.add(type(var))
             if warning_types:
                 logging_utils.warn(
-                    "Output of traced function contains non-tensor type values: {}. "
+                    f"Output of traced function contains non-tensor type values: {list(warning_types)}. "
                     "Currently, We don't support to update them while training and will return "
-                    "what we first saw. Please try to return them as tensor.".format(
-                        list(warning_types)
-                    )
+                    "what we first saw. Please try to return them as tensor."
                 )
 
     @property
@@ -138,14 +135,11 @@ class ProgramInfo:
 
 
 class PartialProgramLayerHook:
-    def before_append_backward(self, forward_program):
-        ...
+    def before_append_backward(self, forward_program): ...
 
-    def after_append_backward(self, whole_program, backward_start_idx):
-        ...
+    def after_append_backward(self, whole_program, backward_start_idx): ...
 
-    def after_infer(self, infer_program):
-        ...
+    def after_infer(self, infer_program): ...
 
 
 class PartialProgramLayer:
@@ -157,7 +151,7 @@ class PartialProgramLayer:
         **1. This is a very low level API. Users should not use this API
              directly. Please use `partial_program_from(concrete_program)`
              to create it.
-        **2. LoDTensorArray is not currently supported in the output.
+        **2. DenseTensorArray is not currently supported in the output.
 
     Args:
         main_program(Program): The main program that contains ops need to be executed.
@@ -219,7 +213,6 @@ class PartialProgramLayer:
         self._out_var_descs = [
             self._outputs[var_id].desc for var_id in self._outputs.var_ids
         ]
-        self._debug_name = None
 
     def __call__(self, inputs):
         """
@@ -241,7 +234,7 @@ class PartialProgramLayer:
                 program_id=self.program_id, use_scope_cache=True
             ),
             self._cuda_graph_vec,
-            *attrs
+            *attrs,
         )
 
         restored_nest_out = self._restore_out(out_vars)
@@ -268,7 +261,7 @@ class PartialProgramLayer:
                 program_id=self.program_id, use_scope_cache=True
             ),
             self._cuda_graph_vec,
-            *attrs
+            *attrs,
         )
 
         return out_vars
@@ -444,9 +437,6 @@ class PartialProgramLayer:
     @LazyInitialized
     def _train_program_id(self):
         program_id = paddle.utils._hash_with_id(self._train_program, self)
-        core._set_cached_executor_build_strategy(
-            program_id, self._build_strategy
-        )
         return program_id
 
     @LazyInitialized
@@ -456,9 +446,6 @@ class PartialProgramLayer:
     @LazyInitialized
     def _train_amp_program_id(self):
         program_id = paddle.utils._hash_with_id(self._train_amp_program, self)
-        core._set_cached_executor_build_strategy(
-            program_id, self._build_strategy
-        )
         return program_id
 
     @LazyInitialized
@@ -469,9 +456,6 @@ class PartialProgramLayer:
     def _train_pure_fp16_program_id(self):
         program_id = paddle.utils._hash_with_id(
             self._train_pure_fp16_program, self
-        )
-        core._set_cached_executor_build_strategy(
-            program_id, self._build_strategy
         )
         return program_id
 
@@ -531,14 +515,11 @@ class PartialProgramLayer:
             infer_program = self._infer_pure_fp16_program
         else:
             infer_program = self._infer_program
-        # NOTE(Aurelius84): Export forward_program for SubGraphChecker,
-        # see export_subgraph for detail.
-        pir_exporter(self, infer_program, SubGraphRole.Infer)
         return infer_program
 
     @property
     def forward_program(self):
-        forward_program, role = None, None
+        forward_program = None
         if self.training:
             if _in_amp_guard():
                 progs = self._train_amp_forward_backward_program
@@ -605,7 +586,7 @@ class PartialProgramLayer:
             if exist a op whose inputs is var, then return True
             """
             if not isinstance(var, framework.Variable) or var.type not in [
-                core.VarDesc.VarType.LOD_TENSOR,
+                core.VarDesc.VarType.DENSE_TENSOR,
                 core.VarDesc.VarType.SELECTED_ROWS,
             ]:
                 return False
@@ -822,15 +803,15 @@ class PartialProgramLayer:
     @switch_to_static_graph
     def _build_infer_program(self, infer_program, forward_end_op_index):
         forward_skip_vars = self._parse_skip_gc_vars(infer_program)
-        builded_infer_program = add_build_strategy_for(
+        built_infer_program = add_build_strategy_for(
             infer_program,
             0,
             forward_end_op_index,
             self._build_strategy,
             forward_skip_vars,
         )
-        self._apply_inplace_pass(builded_infer_program, None)
-        return builded_infer_program
+        self._apply_inplace_pass(built_infer_program, None)
+        return built_infer_program
 
     @switch_to_static_graph
     def _get_forward_backward_program_form(
@@ -847,7 +828,7 @@ class PartialProgramLayer:
         backward_skip_vars = self._parse_skip_gc_vars(
             whole_program
         ) + self._grad_var_names.get('param', [])
-        backward_builded_program = add_build_strategy_for(
+        backward_built_program = add_build_strategy_for(
             whole_program,
             backward_start_op_index,
             backward_end_op_index,
@@ -856,9 +837,9 @@ class PartialProgramLayer:
         )
 
         forward_skip_vars = self._parse_skip_gc_vars(
-            whole_program, backward_builded_program
+            whole_program, backward_built_program
         )
-        forward_builded_program = add_build_strategy_for(
+        forward_built_program = add_build_strategy_for(
             whole_program,
             0,
             forward_end_op_index,
@@ -866,27 +847,9 @@ class PartialProgramLayer:
             forward_skip_vars,
         )
 
-        self._apply_inplace_pass(
-            forward_builded_program, backward_builded_program
-        )
+        self._apply_inplace_pass(forward_built_program, backward_built_program)
 
-        # NOTE(Aurelius84): Export forward/backward program for SubGraphChecker,
-        # see export_subgraph for detail.
-        pir_exporter(
-            self,
-            forward_builded_program,
-            SubGraphRole.Forward,
-            set(),
-            set(forward_skip_vars),
-        )
-        pir_exporter(
-            self,
-            backward_builded_program,
-            SubGraphRole.Backward,
-            set(forward_skip_vars),
-            set(backward_skip_vars),
-        )
-        return [forward_builded_program, backward_builded_program]
+        return [forward_built_program, backward_built_program]
 
     def _apply_inplace_pass(self, forward_program, backward_program):
         attr_types = {
@@ -907,28 +870,28 @@ class PartialProgramLayer:
                 "mem_opt_skip_vars": forward_mem_opt_skip_vars,
                 "for_partial_block": True,
             }
-            if not (self._in_pir_pt_mode or self._enable_pir_in_executor):
-                _apply_pass(
-                    forward_program,
-                    empty_startup_program,
-                    "buffer_shared_inplace_pass",
-                    attrs,
-                    attr_types,
-                )
+            # if not (self._in_pir_pt_mode or self._enable_pir_in_executor):
+            #     _apply_pass(
+            #         forward_program,
+            #         empty_startup_program,
+            #         "buffer_shared_inplace_pass",
+            #         attrs,
+            #         attr_types,
+            #     )
         if backward_program:
             attrs = {
                 "use_cuda": use_cuda,
                 "mem_opt_skip_vars": backward_mem_opt_skip_vars,
                 "for_partial_block": True,
             }
-            if not (self._in_pir_pt_mode or self._enable_pir_in_executor):
-                _apply_pass(
-                    backward_program,
-                    empty_startup_program,
-                    "buffer_shared_inplace_pass",
-                    attrs,
-                    attr_types,
-                )
+            # if not (self._in_pir_pt_mode or self._enable_pir_in_executor):
+            #     _apply_pass(
+            #         backward_program,
+            #         empty_startup_program,
+            #         "buffer_shared_inplace_pass",
+            #         attrs,
+            #         attr_types,
+            #     )
 
     @LazyInitialized
     def _inout_var_names(self):
@@ -1088,10 +1051,10 @@ class PartialProgramLayer:
 
     def _set_grad_type(self, params, train_program):
         # NOTE: if user set sparse gradient mode, the param's gradient
-        # will be SelectedRows, not LoDTensor. But tracer will just
-        # set param grad Tensor by forward Tensor(LoDTensor)
+        # will be SelectedRows, not DenseTensor. But tracer will just
+        # set param grad Tensor by forward Tensor(DenseTensor)
         # If we don't change grad_var type here, RunProgramOp need
-        # transform SelectedRows to LoDTensor forcibly, it may not
+        # transform SelectedRows to DenseTensor forcibly, it may not
         # be user wanted result.
         for param in params:
             grad_name = param.name + core.grad_var_suffix()
@@ -1110,8 +1073,7 @@ class PartialProgramLayer:
         """
         if not isinstance(self._params, (list, tuple)):
             raise TypeError(
-                "Type of self._params in PartialProgramLayer should be list or tuple, but received %s."
-                % type(self._params)
+                f"Type of self._params in PartialProgramLayer should be list or tuple, but received {type(self._params)}."
             )
 
         param_and_buffer_names_set = set()
@@ -1119,9 +1081,7 @@ class PartialProgramLayer:
             # self._params contains parameters and buffers with persistable=True.
             if not isinstance(var, core.eager.Tensor):
                 raise TypeError(
-                    'Type of self._params[{}] in PartialProgramLayer should be Parameter or Variable, but received {}.'.format(
-                        i, type(var)
-                    )
+                    f'Type of self._params[{i}] in PartialProgramLayer should be Parameter or Variable, but received {type(var)}.'
                 )
             param_and_buffer_names_set.add(var.name)
 
@@ -1131,12 +1091,11 @@ class PartialProgramLayer:
                     if name not in param_and_buffer_names_set:
                         raise ValueError(
                             "\n\tWe don't support to define layer with parameters in the function decorated by `@to_static`."
-                            "\n\tBut we found parameter(%s) was created in the decorated function."
+                            f"\n\tBut we found parameter({name}) was created in the decorated function."
                             "\n"
                             "\n\tRevise suggestion: "
                             "\n\t\t1. Please ensure all your sublayers are inherited from nn.Layer."
                             "\n\t\t2. Please use nn.ParameterList and nn.LayerList as container instead of using a native Python container such as List"
-                            % name
                         )
 
     def _valid_vars(self, vars):
@@ -1155,7 +1114,7 @@ def partial_program_from(concrete_program, from_method=False):
         inputs,
         concrete_program.outputs,
         concrete_program.parameters,
-        **concrete_program.kwargs
+        **concrete_program.kwargs,
     )
 
 
@@ -1175,19 +1134,17 @@ def add_build_strategy_for(
             core.Scope(), framework._current_expected_place()
         )
         ir_graph = framework.IrGraph(compiled_program._graph)
-        builded_program = ir_graph.to_program()
+        built_program = ir_graph.to_program()
         if hasattr(compiled_program._program, 'lr_scheduler'):
-            builded_program.lr_scheduler = (
-                compiled_program._program.lr_scheduler
-            )
+            built_program.lr_scheduler = compiled_program._program.lr_scheduler
     else:
         # can't just create a new program, we need copy the vardesc.
-        builded_program = paddle.static.Program()
+        built_program = paddle.static.Program()
         for var in program.block(0).vars.values():
-            builded_program.block(0)._clone_variable(var, False)
+            built_program.block(0)._clone_variable(var, False)
 
     # set back the parent_idx of blocks
-    for origin, current in zip(program.blocks, builded_program.blocks):
+    for origin, current in zip(program.blocks, built_program.blocks):
         current.desc.set_parent_idx(origin.desc.parent)
 
-    return builded_program
+    return built_program

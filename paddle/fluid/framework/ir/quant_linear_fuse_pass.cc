@@ -22,8 +22,7 @@ namespace {
 template <typename T1, typename T2>
 void ConvertTensorType(phi::DenseTensor* tensor) {
   auto* dev_ctx = static_cast<phi::CPUContext*>(
-      paddle::platform::DeviceContextPool::Instance().Get(
-          paddle::platform::CPUPlace()));
+      phi::DeviceContextPool::Instance().Get(phi::CPUPlace()));
   phi::DenseTensor tmp_tensor;
   tmp_tensor.set_type(phi::CppTypeToDataType<T2>::Type());
   tmp_tensor.Resize(tensor->dims());
@@ -34,14 +33,11 @@ void ConvertTensorType(phi::DenseTensor* tensor) {
     tmp_data[i] = static_cast<T2>(data[i]);
   }
   tensor->clear();
-  paddle::framework::TensorCopySync(
-      tmp_tensor, paddle::platform::CPUPlace(), tensor);
+  paddle::framework::TensorCopySync(tmp_tensor, phi::CPUPlace(), tensor);
 }
 }  // namespace
 
-namespace paddle {
-namespace framework {
-namespace ir {
+namespace paddle::framework::ir {
 
 #define GET_IR_NODE(node__) GET_IR_NODE_FROM_SUBGRAPH(node__, node__, pattern);
 #define GET_NODES                                 \
@@ -158,7 +154,7 @@ QuantLinearFusePass::QuantLinearFusePass() {
 // if have relu after elementwise_add, then fuse relu into quant_linear op.
 void QuantLinearFusePass::ApplyImpl(ir::Graph* graph) const {
   PADDLE_ENFORCE_NOT_NULL(
-      graph, platform::errors::InvalidArgument("Graph cannot be nullptr."));
+      graph, common::errors::InvalidArgument("Graph cannot be nullptr."));
 
   FusePassBase::Init("quant_linear_fuse_pattern", graph);
 
@@ -177,7 +173,7 @@ int QuantLinearFusePass::ApplyQuantLinearFusePattern(Graph* graph,
 
   auto* scope = param_scope();
   PADDLE_ENFORCE_NOT_NULL(scope,
-                          platform::errors::InvalidArgument(
+                          common::errors::InvalidArgument(
                               "Scope in QuantLinearFusePass should not be "
                               "null."));
 
@@ -198,11 +194,10 @@ int QuantLinearFusePass::ApplyQuantLinearFusePattern(Graph* graph,
     const phi::DenseTensor& input_scale_tensor =
         scope->GetVar(quantize_linear_op_scale->Name())
             ->Get<phi::DenseTensor>();
-    PADDLE_ENFORCE_EQ(
-        paddle::platform::is_cpu_place(input_scale_tensor.place()),
-        true,
-        platform::errors::InvalidArgument(
-            "Input scale tensor's place should be CPU."));
+    PADDLE_ENFORCE_EQ(phi::is_cpu_place(input_scale_tensor.place()),
+                      true,
+                      common::errors::InvalidArgument(
+                          "Input scale tensor's place should be CPU."));
 
     float input_scale = NAN;
     if (input_scale_tensor.dtype() == phi::DataType::FLOAT32) {
@@ -213,8 +208,8 @@ int QuantLinearFusePass::ApplyQuantLinearFusePattern(Graph* graph,
           input_scale_tensor.data<phi::dtype::float16>();
       input_scale = static_cast<float>(input_scale_data[0]);
     } else {
-      PADDLE_THROW(platform::errors::Unimplemented(
-          "Unsupport type. The type of 'Scale' in quantize_linear op is "
+      PADDLE_THROW(common::errors::Unimplemented(
+          "Unsupported type. The type of 'Scale' in quantize_linear op is "
           "expected to be float32 or float16, but the current type is %d",
           input_scale_tensor.dtype()));
     }
@@ -231,11 +226,10 @@ int QuantLinearFusePass::ApplyQuantLinearFusePattern(Graph* graph,
     const phi::DenseTensor& weight_scale_tensor =
         scope->FindVar(weight_dequantize_linear_op_scale->Name())
             ->Get<phi::DenseTensor>();
-    PADDLE_ENFORCE_EQ(
-        paddle::platform::is_cpu_place(weight_scale_tensor.place()),
-        true,
-        platform::errors::InvalidArgument(
-            "weight_scale tensor's place should be CPU."));
+    PADDLE_ENFORCE_EQ(phi::is_cpu_place(weight_scale_tensor.place()),
+                      true,
+                      common::errors::InvalidArgument(
+                          "weight_scale tensor's place should be CPU."));
     const float* weight_scale_data = weight_scale_tensor.data<float>();
 
     std::vector<float> scale_weights(weight_tensor->dims()[1], 1.0f);
@@ -318,9 +312,7 @@ int QuantLinearFusePass::ApplyQuantLinearFusePattern(Graph* graph,
   return found_count;
 }
 
-}  // namespace ir
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework::ir
 
 REGISTER_PASS(quant_linear_fuse_pass,
               paddle::framework::ir::QuantLinearFusePass);

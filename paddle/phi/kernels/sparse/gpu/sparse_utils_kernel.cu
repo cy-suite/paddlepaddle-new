@@ -50,7 +50,7 @@ __global__ void GetNonZeroNums(const T* dense_data,
                                const int rows,
                                const int cols,
                                int* non_zero_num,
-                               int* temp_indexs) {
+                               int* temp_indices) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   __shared__ int counter;
   if (threadIdx.x == 0) counter = 0;
@@ -64,7 +64,7 @@ __global__ void GetNonZeroNums(const T* dense_data,
       atomicAdd(&counter, 1);
       index = i;
     }
-    temp_indexs[i] = index;
+    temp_indices[i] = index;
   }
   __syncthreads();
   if (threadIdx.x == 0) {
@@ -78,12 +78,12 @@ __global__ void GetNonZeroElementsAndIndices(const T* dense_data,
                                              const int64_t cols,
                                              const int64_t* x_dims,
                                              const int non_zero_num,
-                                             const int* indexs,
+                                             const int* sparse_indices,
                                              int64_t* indices,
                                              T* sparse_data) {
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   for (int i = tid; i < non_zero_num; i += gridDim.x * blockDim.x) {
-    int64_t sparse_index = indexs[i];
+    int64_t sparse_index = sparse_indices[i];
     int64_t x_index = sparse_index;
     for (int64_t j = sparse_dim - 1; j >= 0; j--) {
       indices[j * non_zero_num + i] = sparse_index % x_dims[j];
@@ -105,10 +105,10 @@ void DenseToCooKernel(const Context& dev_ctx,
   const auto& x_dims = x.dims();
   PADDLE_ENFORCE_LE(sparse_dim,
                     x_dims.size(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "sparse_dim must be less than the size of x.dims()"));
   PADDLE_ENFORCE_GT(
-      sparse_dim, 0, phi::errors::InvalidArgument("sparse_dim must be >0"));
+      sparse_dim, 0, common::errors::InvalidArgument("sparse_dim must be >0"));
   auto dims_2d = flatten_to_2d(x_dims, sparse_dim);
   const int rows = dims_2d[0];
   const int cols = dims_2d[1];
@@ -121,22 +121,22 @@ void DenseToCooKernel(const Context& dev_ctx,
       nums_ptr, 0, sizeof(int), dev_ctx.stream());
   auto config = phi::backends::gpu::GetGpuLaunchConfig1D(dev_ctx, rows, 1);
 
-  DenseTensor temp_indexs = phi::Empty<int32_t>(dev_ctx, {rows});
-  int* temp_indexs_ptr = temp_indexs.data<int>();
+  DenseTensor temp_indices = phi::Empty<int32_t>(dev_ctx, {rows});
+  int* temp_indices_ptr = temp_indices.data<int>();
 
   GetNonZeroNums<<<config.block_per_grid.x,
                    config.thread_per_block.x,
                    0,
                    dev_ctx.stream()>>>(
-      x_data, rows, cols, nums_ptr, temp_indexs_ptr);
+      x_data, rows, cols, nums_ptr, temp_indices_ptr);
 
 #ifdef PADDLE_WITH_HIP
   thrust::remove(thrust::hip::par.on(dev_ctx.stream()),
 #else
   thrust::remove(thrust::cuda::par.on(dev_ctx.stream()),
 #endif
-                 temp_indexs_ptr,
-                 temp_indexs_ptr + rows,
+                 temp_indices_ptr,
+                 temp_indices_ptr + rows,
                  -1);
 
   // 2. copy non_zero_num to host, copy x_dims to device
@@ -163,7 +163,7 @@ void DenseToCooKernel(const Context& dev_ctx,
   values.Resize(values_dims);
   T* sparse_data = dev_ctx.template Alloc<T>(&values);
 
-  // 3. calc indices by indexs and get values by indexs
+  // 3. calc indices by indices and get values by indices
   if (non_zero_num > 0) {
     config = phi::backends::gpu::GetGpuLaunchConfig1D(dev_ctx, non_zero_num, 1);
     GetNonZeroElementsAndIndices<<<config.block_per_grid.x,
@@ -174,7 +174,7 @@ void DenseToCooKernel(const Context& dev_ctx,
                                                        cols,
                                                        d_x_dims.data<int64_t>(),
                                                        non_zero_num,
-                                                       temp_indexs_ptr,
+                                                       temp_indices_ptr,
                                                        indices_data,
                                                        sparse_data);
   }
@@ -275,9 +275,9 @@ void CsrToCooGPUKernel(const GPUContext& dev_ctx,
 
   if (batches > 1) {
 #ifdef PADDLE_WITH_HIP
-    PADDLE_THROW(
-        phi::errors::Unimplemented("'rocsparse_csr2coo' only supports batches "
-                                   "with a value of 1 currently."));
+    PADDLE_THROW(common::errors::Unimplemented(
+        "'rocsparse_csr2coo' only supports batches "
+        "with a value of 1 currently."));
 #else
     auto config = phi::backends::gpu::GetGpuLaunchConfig1D(dev_ctx, batches, 1);
     GetBatchSizes<IntT><<<config.block_per_grid.x, config.thread_per_block.x>>>(
@@ -405,7 +405,7 @@ void CooToCsrGPUKernel(const GPUContext& dev_ctx,
   bool valid = x_dims.size() == 2 || x_dims.size() == 3;
   PADDLE_ENFORCE_EQ(valid,
                     true,
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "SparseCsrTensor only support 2-D or 3-D matrix"));
   const int64_t non_zero_num = x.nnz();
 
@@ -589,7 +589,9 @@ PD_REGISTER_KERNEL(dense_to_coo,
                    int8_t,
                    int16_t,
                    int,
-                   int64_t) {}
+                   int64_t,
+                   phi::dtype::complex<float>,
+                   phi::dtype::complex<double>) {}
 
 PD_REGISTER_KERNEL(csr_to_coo,
                    GPU,
@@ -603,7 +605,9 @@ PD_REGISTER_KERNEL(csr_to_coo,
                    int16_t,
                    int,
                    int64_t,
-                   bool) {}
+                   bool,
+                   phi::dtype::complex<float>,
+                   phi::dtype::complex<double>) {}
 
 PD_REGISTER_KERNEL(coo_to_csr,
                    GPU,
@@ -617,7 +621,9 @@ PD_REGISTER_KERNEL(coo_to_csr,
                    int16_t,
                    int,
                    int64_t,
-                   bool) {}
+                   bool,
+                   phi::dtype::complex<float>,
+                   phi::dtype::complex<double>) {}
 
 PD_REGISTER_KERNEL(dense_to_csr,
                    GPU,
@@ -630,7 +636,9 @@ PD_REGISTER_KERNEL(dense_to_csr,
                    int8_t,
                    int16_t,
                    int,
-                   int64_t) {}
+                   int64_t,
+                   phi::dtype::complex<float>,
+                   phi::dtype::complex<double>) {}
 
 PD_REGISTER_KERNEL(coo_to_dense,
                    GPU,
@@ -644,7 +652,9 @@ PD_REGISTER_KERNEL(coo_to_dense,
                    int16_t,
                    int,
                    int64_t,
-                   bool) {}
+                   bool,
+                   phi::dtype::complex<float>,
+                   phi::dtype::complex<double>) {}
 
 PD_REGISTER_KERNEL(csr_to_dense,
                    GPU,
@@ -658,7 +668,9 @@ PD_REGISTER_KERNEL(csr_to_dense,
                    int16_t,
                    int,
                    int64_t,
-                   bool) {}
+                   bool,
+                   phi::dtype::complex<float>,
+                   phi::dtype::complex<double>) {}
 
 PD_REGISTER_KERNEL(values_coo,
                    GPU,
@@ -672,7 +684,9 @@ PD_REGISTER_KERNEL(values_coo,
                    int16_t,
                    int,
                    int64_t,
-                   bool) {
+                   bool,
+                   phi::dtype::complex<float>,
+                   phi::dtype::complex<double>) {
   kernel->InputAt(0).SetDataLayout(phi::DataLayout::SPARSE_COO);
 }
 
@@ -688,7 +702,9 @@ PD_REGISTER_KERNEL(values_csr,
                    int16_t,
                    int,
                    int64_t,
-                   bool) {
+                   bool,
+                   phi::dtype::complex<float>,
+                   phi::dtype::complex<double>) {
   kernel->InputAt(0).SetDataLayout(phi::DataLayout::SPARSE_CSR);
 }
 
@@ -717,4 +733,6 @@ PD_REGISTER_KERNEL(sparse_coo_tensor,
                    uint8_t,
                    int16_t,
                    int,
-                   int64_t) {}
+                   int64_t,
+                   phi::dtype::complex<float>,
+                   phi::dtype::complex<double>) {}

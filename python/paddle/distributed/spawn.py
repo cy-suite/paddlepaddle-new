@@ -12,11 +12,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 import multiprocessing
 import os
 import signal
 import sys
 import warnings
+from typing import TYPE_CHECKING, Any, Literal, TypedDict
 
 # deprecated module import
 # (TODO: GhostScreaming) It will be removed later.
@@ -39,6 +42,18 @@ from paddle.distributed.utils.launch_utils import (
     get_host_name_ip,
 )
 from paddle.framework import set_flags
+
+if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+
+    from typing_extensions import NotRequired, Unpack
+
+    class _SpawnOptions(TypedDict):
+        start_method: NotRequired[Literal['spawn', 'fork', 'forkserver']]
+        gpus: NotRequired[str | None]
+        xpus: NotRequired[str | None]
+        ips: NotRequired[str]
+
 
 __all__ = []
 
@@ -89,15 +104,13 @@ def _options_valid_check(options):
         if key not in supported_options:
             if key in deprecated_options:
                 warnings.warn(
-                    "The config option (%s) of `paddle.distributed.spawn` is deprecated. "
-                    "Please use the latest config options stated in the `spawn` API documentation."
-                    % key,
+                    f"The config option ({key}) of `paddle.distributed.spawn` is deprecated. "
+                    "Please use the latest config options stated in the `spawn` API documentation.",
                     DeprecationWarning,
                 )
             else:
                 raise ValueError(
-                    "The config option (%s) of `paddle.distributed.spawn` is not supported."
-                    % key
+                    f"The config option ({key}) of `paddle.distributed.spawn` is not supported."
                 )
 
 
@@ -189,11 +202,10 @@ def _get_subprocess_env_list(nprocs, options):
         if args.selected_devices is None:
             if len(env_devices_list) < nprocs:
                 raise RuntimeError(
-                    "the number of visible devices(%d) is less than the number "
-                    "of spawn processes(%d), please ensure that the correct "
+                    f"the number of visible devices({len(env_devices_list)}) is less than the number "
+                    f"of spawn processes({nprocs}), please ensure that the correct "
                     "`nprocs` argument is passed or the environment variable "
                     "`CUDA_VISIBLE_DEVICES` is correctly configured."
-                    % (len(env_devices_list), nprocs)
                 )
             args.selected_devices = ",".join(
                 [str(env_devices_list[x]) for x in range(0, nprocs)]
@@ -202,10 +214,9 @@ def _get_subprocess_env_list(nprocs, options):
             selected_device_list = args.selected_devices.split(',')
             if len(selected_device_list) != nprocs:
                 raise ValueError(
-                    "The number of selected devices(%s) is not equal to "
-                    "the number of spawn processes(%d), please ensure that the "
+                    f"The number of selected devices({len(selected_device_list)}) is not equal to "
+                    f"the number of spawn processes({nprocs}), please ensure that the "
                     "correct `nprocs` and `gpus` arguments are passed."
-                    % (len(selected_device_list), nprocs)
                 )
             for card_id in selected_device_list:
                 if card_id not in env_devices_list:
@@ -230,11 +241,10 @@ def _get_subprocess_env_list(nprocs, options):
         if args.selected_devices is None:
             if len(env_devices_list) < nprocs:
                 raise RuntimeError(
-                    "the number of visible devices(%d) is less than the number "
-                    "of spawn processes(%d), please ensure that the correct "
+                    f"the number of visible devices({len(env_devices_list)}) is less than the number "
+                    f"of spawn processes({nprocs}), please ensure that the correct "
                     "`nprocs` argument is passed or the environment variable "
                     "`XPU_VISIBLE_DEVICES` is correctly configured."
-                    % (len(env_devices_list), nprocs)
                 )
             args.selected_devices = ",".join(
                 [str(env_devices_list[x]) for x in range(0, nprocs)]
@@ -243,10 +253,9 @@ def _get_subprocess_env_list(nprocs, options):
             selected_device_list = args.selected_devices.split(',')
             if len(selected_device_list) != nprocs:
                 raise ValueError(
-                    "The number of selected devices(%s) is not equal to "
-                    "the number of spawn processes(%d), please ensure that the "
+                    f"The number of selected devices({len(selected_device_list)}) is not equal to "
+                    f"the number of spawn processes({nprocs}), please ensure that the "
                     "correct `nprocs` and `xpus` arguments are passed."
-                    % (len(selected_device_list), nprocs)
                 )
             for card_id in selected_device_list:
                 if card_id not in env_devices_list:
@@ -288,11 +297,10 @@ def _get_subprocess_env_list(nprocs, options):
 
         if len(env_devices_list) < nprocs:
             raise RuntimeError(
-                "the number of visible devices(%d) is less than the number "
-                "of spawn processes(%d), please ensure that the correct "
+                f"the number of visible devices({len(env_devices_list)}) is less than the number "
+                f"of spawn processes({nprocs}), please ensure that the correct "
                 "`nprocs` argument is passed or the environment variable "
-                "`FLAGS_selected_%ss` is correctly configured."
-                % (len(env_devices_list), nprocs, custom_device_name)
+                f"`FLAGS_selected_{custom_device_name}s` is correctly configured."
             )
         args.selected_devices = ",".join(
             [str(env_devices_list[x]) for x in range(0, nprocs)]
@@ -428,26 +436,31 @@ class MultiprocessContext:
             if exitcode < 0:
                 name = signal.Signals(-exitcode).name
                 raise Exception(
-                    "Process %d terminated with signal %s."
-                    % (error_index, name)
+                    f"Process {error_index} terminated with signal {name}."
                 )
             else:
                 raise Exception(
-                    "Process %d terminated with exit code %d."
-                    % (error_index, exitcode)
+                    f"Process {error_index} terminated with exit code {exitcode}."
                 )
 
         original_trace = self.error_queues[error_index].get()
         msg = (
             "\n\n----------------------------------------------\n"
-            "Process %d terminated with the following error:\n"
-            "----------------------------------------------\n\n" % error_index
+            f"Process {error_index} terminated with the following error:\n"
+            "----------------------------------------------\n\n"
         )
         msg += original_trace
         raise Exception(msg)
 
 
-def spawn(func, args=(), nprocs=-1, join=True, daemon=False, **options):
+def spawn(
+    func: Callable[..., None],
+    args: Iterable[Any] = (),
+    nprocs: int = -1,
+    join: bool = True,
+    daemon: bool = False,
+    **options: Unpack[_SpawnOptions],
+) -> MultiprocessContext:
     """
     Start multiple processes with ``spawn`` method for parallel training.
 
@@ -510,7 +523,7 @@ def spawn(func, args=(), nprocs=-1, join=True, daemon=False, **options):
             ...     process_group = group.process_group if group else None
             ...     # 2. create data parallel layer & optimizer
             ...     layer = LinearNet()
-            ...     dp_layer = paddle.DataParallel(layer, group = process_group)
+            ...     dp_layer = paddle.DataParallel(layer, group = process_group)  # type: ignore[arg-type]
             ...     loss_fn = nn.MSELoss()
             ...     adam = opt.Adam(
             ...         learning_rate=0.001, parameters=dp_layer.parameters())

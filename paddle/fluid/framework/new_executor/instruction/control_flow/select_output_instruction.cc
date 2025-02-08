@@ -17,15 +17,17 @@
 #include "paddle/fluid/framework/new_executor/new_executor_defs.h"
 #include "paddle/fluid/framework/new_executor/pir_adaptor/pir_adaptor_util.h"
 
-namespace paddle {
-namespace framework {
+namespace paddle::framework {
 
 SelectOutputInstruction::SelectOutputInstruction(
     size_t id,
-    const platform::Place &place,
+    const phi::Place &place,
     ::pir::Operation *op,
     ValueExecutionInfo *value_exe_info)
-    : InstructionBase(id, place), op_(op) {
+    : InstructionBase(id, place),
+      op_(op),
+      type_(OpFuncType::kCpuSync),
+      outputs_() {
   VLOG(6) << "construct select_output instruction";
 
   std::unordered_map<pir::Value, std::vector<int>> inputs;
@@ -49,21 +51,21 @@ inline int GetBranchNumber(const phi::DenseTensor &mask) {
   PADDLE_ENFORCE_EQ(
       mask.numel(),
       1,
-      phi::errors::Fatal("The numel of Input(Mask) in SelectInputOp or "
-                         "SelectOutputOp must be 1. "
-                         "But received %d, and it's shape is [%s].",
-                         mask.numel(),
-                         mask.dims()));
-  if (platform::is_cpu_place(mask.place())) {
+      common::errors::Fatal("The numel of Input(Mask) in SelectInputOp or "
+                            "SelectOutputOp must be 1. "
+                            "But received %d, and it's shape is [%s].",
+                            mask.numel(),
+                            mask.dims()));
+  if (phi::is_cpu_place(mask.place())) {
     return mask.data<int>()[0];
   }
-  // when platform::is_gpu_place(mask.place()) is true
+  // when phi::is_gpu_place(mask.place()) is true
   std::unique_ptr<phi::DenseTensor> cpu_mask{new phi::DenseTensor()};
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP) || \
     defined(PADDLE_WITH_CUSTOM_DEVICE) || defined(PADDLE_WITH_XPU)
-  framework::TensorCopySync(mask, platform::CPUPlace(), cpu_mask.get());
+  framework::TensorCopySync(mask, phi::CPUPlace(), cpu_mask.get());
 #else
-  PADDLE_THROW(phi::errors::Fatal(
+  PADDLE_THROW(common::errors::Fatal(
       "This version of PaddlePaddle does NOT support GPU, "
       "but got GPU tensor 'Mask' in SelectInputOp or SelectOutputOp. "
       "Please compile PaddlePaddle WITH_GPU first."));
@@ -75,9 +77,9 @@ class AssignFunctor {
  public:
   explicit AssignFunctor(Variable *out) : out_(out) {}
 
-  void operator()(const phi::DenseTensor &lod_tensor) const {
+  void operator()(const phi::DenseTensor &dense_tensor) const {
     auto &out_tensor = *out_->GetMutable<phi::DenseTensor>();
-    copy_tensor(lod_tensor, &out_tensor);
+    copy_tensor(dense_tensor, &out_tensor);
   }
 
   void operator()(const phi::TensorArray &array) const {
@@ -102,17 +104,17 @@ class AssignFunctor {
     PADDLE_ENFORCE_EQ(
         true,
         false,
-        platform::errors::PermissionDenied(
+        common::errors::PermissionDenied(
             "Not support type for assign op with type %s", typeid(T).name()));
   }
 
  private:
-  void copy_tensor(const phi::DenseTensor &lod_tensor,
+  void copy_tensor(const phi::DenseTensor &dense_tensor,
                    phi::DenseTensor *out) const {
-    if (!lod_tensor.IsInitialized()) return;
+    if (!dense_tensor.IsInitialized()) return;
     auto &out_tensor = *out;
-    TensorCopy(lod_tensor, lod_tensor.place(), &out_tensor);
-    out_tensor.set_lod(lod_tensor.lod());
+    TensorCopy(dense_tensor, dense_tensor.place(), &out_tensor);
+    out_tensor.set_lod(dense_tensor.lod());
   }
 
   Variable *out_;
@@ -125,7 +127,7 @@ void SelectOutputInstruction::Run() {
   PADDLE_ENFORCE_LE(
       output_branch,
       outputs_.size(),
-      phi::errors::Fatal(
+      common::errors::Fatal(
           "Input 'Mask' in SelectInputOp is invalid. "
           "'Mask' must be less than the size of output vector 'X'. "
           "But received Mask = %d, Out's size = %d.",
@@ -135,5 +137,4 @@ void SelectOutputInstruction::Run() {
   VisitVarType(*input_, AssignFunctor(selected));
 }
 
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework

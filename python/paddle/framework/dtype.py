@@ -35,9 +35,13 @@ def bind_vartype():
     global float64
     global float16
     global bfloat16
+    global float8_e4m3fn
+    global float8_e5m2
     global complex64
     global complex128
     global bool
+    global pstring
+    global raw
 
     dtype = VarDesc.VarType
     dtype.__qualname__ = "dtype"
@@ -53,11 +57,15 @@ def bind_vartype():
     float64 = VarDesc.VarType.FP64
     float16 = VarDesc.VarType.FP16
     bfloat16 = VarDesc.VarType.BF16
+    float8_e4m3fn = VarDesc.VarType.FP8_E4M3FN
+    float8_e5m2 = VarDesc.VarType.FP8_E5M2
 
     complex64 = VarDesc.VarType.COMPLEX64
     complex128 = VarDesc.VarType.COMPLEX128
 
     bool = VarDesc.VarType.BOOL
+    pstring = VarDesc.VarType.STRING
+    raw = VarDesc.VarType.RAW
 
     paddle.dtype = dtype
     paddle.uint8 = uint8
@@ -70,10 +78,14 @@ def bind_vartype():
     paddle.float64 = float64
     paddle.float16 = float16
     paddle.bfloat16 = bfloat16
+    paddle.float8_e4m3fn = float8_e4m3fn
+    paddle.float8_e5m2 = float8_e5m2
 
     paddle.complex64 = complex64
     paddle.complex128 = complex128
     paddle.bool = bool
+    paddle.pstring = pstring
+    paddle.raw = raw
 
 
 def bind_datatype():
@@ -87,9 +99,13 @@ def bind_datatype():
     global float64
     global float16
     global bfloat16
+    global float8_e4m3fn
+    global float8_e5m2
     global complex64
     global complex128
     global bool
+    global pstring
+    global raw
 
     dtype = DataType
     dtype.__qualname__ = "dtype"
@@ -105,11 +121,15 @@ def bind_datatype():
     float64 = DataType.FLOAT64
     float16 = DataType.FLOAT16
     bfloat16 = DataType.BFLOAT16
+    float8_e4m3fn = DataType.FLOAT8_E4M3FN
+    float8_e5m2 = DataType.FLOAT8_E5M2
 
     complex64 = DataType.COMPLEX64
     complex128 = DataType.COMPLEX128
 
     bool = DataType.BOOL
+    pstring = DataType.PSTRING
+    raw = DataType.ALL_DTYPE  # refer to TransToPhiDataType
 
     paddle.dtype = dtype
     paddle.uint8 = uint8
@@ -122,10 +142,14 @@ def bind_datatype():
     paddle.float64 = float64
     paddle.float16 = float16
     paddle.bfloat16 = bfloat16
+    paddle.float8_e4m3fn = float8_e4m3fn
+    paddle.float8_e5m2 = float8_e5m2
 
     paddle.complex64 = complex64
     paddle.complex128 = complex128
     paddle.bool = bool
+    paddle.pstring = pstring
+    paddle.raw = raw
 
 
 enable_pir_api = framework.get_flags("FLAGS_enable_pir_api")[
@@ -174,7 +198,9 @@ def iinfo(dtype):
             uint8
 
     """
-    if dtype in _NUMPY_DTYPE_2_PADDLE_DTYPE:
+    if isinstance(dtype, paddle.pir.core.DataType):
+        dtype = paddle.base.framework.paddle_type_to_proto_type[dtype]
+    elif dtype in _NUMPY_DTYPE_2_PADDLE_DTYPE:
         dtype = _NUMPY_DTYPE_2_PADDLE_DTYPE[dtype]
     return core_iinfo(dtype)
 

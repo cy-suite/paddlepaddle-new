@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import math
+import os
 import unittest
 
 import numpy as np
@@ -228,7 +229,13 @@ class TestPSROIPoolDynamicFunctionAPI(unittest.TestCase):
             )
             np.testing.assert_allclose(out, expect_out, rtol=1e-05)
 
-        places = ['cpu']
+        places = []
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not paddle.base.core.is_compiled_with_cuda()
+        ):
+            places.append('cpu')
         if paddle.base.core.is_compiled_with_cuda():
             places.append('gpu')
         for place in places:
@@ -284,7 +291,13 @@ class TestPSROIPoolDynamicClassAPI(unittest.TestCase):
             np.testing.assert_allclose(out, expect_out, rtol=1e-05)
 
         paddle.disable_static()
-        places = ['cpu']
+        places = []
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not paddle.base.core.is_compiled_with_cuda()
+        ):
+            places.append('cpu')
         if paddle.base.core.is_compiled_with_cuda():
             places.append('gpu')
         for place in places:
@@ -362,9 +375,7 @@ class TestPSROIPoolStaticAPI(unittest.TestCase):
             name='x', shape=[2, 490, 28, 28]
         )
         self.x = np.random.random([2, 490, 28, 28]).astype(np.float32)
-        self.boxes_placeholder = paddle.static.data(
-            name='boxes', shape=[3, 4], lod_level=1
-        )
+        self.boxes_placeholder = paddle.static.data(name='boxes', shape=[3, 4])
         self.boxes = np.array(
             [[1, 5, 8, 10], [4, 2, 6, 7], [12, 12, 19, 21]]
         ).astype(np.float32)
@@ -375,13 +386,19 @@ class TestPSROIPoolStaticAPI(unittest.TestCase):
         out = paddle.vision.ops.psroi_pool(
             self.x_placeholder,
             self.boxes_placeholder,
-            self.boxes_num,
+            paddle.to_tensor(self.boxes_num),
             output_size,
         )
         expect_out = calc_psroi_pool(
             self.x, self.boxes, self.boxes_num, 10, 1.0, 7, 7
         )
-        places = [paddle.CPUPlace()]
+        places = []
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not paddle.base.core.is_compiled_with_cuda()
+        ):
+            places.append(paddle.CPUPlace())
         if paddle.base.core.is_compiled_with_cuda():
             places.append(paddle.CUDAPlace(0))
         for place in places:
@@ -392,7 +409,7 @@ class TestPSROIPoolStaticAPI(unittest.TestCase):
             (out_res,) = exe.run(
                 paddle.static.default_main_program(),
                 feed={'x': self.x, 'boxes': boxes_lod_data},
-                fetch_list=[out.name],
+                fetch_list=[out],
             )
             np.testing.assert_allclose(out_res, expect_out, rtol=1e-05)
 
@@ -427,7 +444,13 @@ class TestPSROIPoolStaticAPI_NOLOD(unittest.TestCase):
                 expect_out = calc_psroi_pool(
                     self.x, self.boxes, self.boxes_num, 10, 1.0, 7, 7
                 )
-                places = [paddle.CPUPlace()]
+                places = []
+                if (
+                    os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+                    in ['1', 'true', 'on']
+                    or not paddle.base.core.is_compiled_with_cuda()
+                ):
+                    places.append(paddle.CPUPlace())
                 if paddle.base.core.is_compiled_with_cuda():
                     places.append(paddle.CUDAPlace(0))
                 for place in places:

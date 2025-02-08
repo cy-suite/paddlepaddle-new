@@ -34,9 +34,7 @@ PD_BUILD_OP(custom_op)
         "bools_attr: std::vector<bool>",
     });
 
-namespace paddle {
-namespace inference {
-namespace tensorrt {
+namespace paddle::inference::tensorrt {
 
 TEST(CustomPluginCreater, StaticShapePlugin) {
   framework::ProgramDesc prog;
@@ -108,12 +106,16 @@ TEST(CustomPluginCreater, StaticShapePlugin) {
 
   framework::Scope scope;
 
-  tensorrt::plugin::TrtPluginRegistry::Global()->RegistToTrt();
+  tensorrt::plugin::TrtPluginRegistry::Global()->RegisterToTrt();
 
   auto &custom_plugin_tell = OpTeller::Global().GetCustomPluginTeller();
 
   framework::OpDesc custom_op(*op_desc, nullptr);
-  CHECK_EQ((*custom_plugin_tell)(custom_op, false, false), true);
+  PADDLE_ENFORCE_EQ(
+      (*custom_plugin_tell)(custom_op, false, true),
+      true,
+      common::errors::InvalidArgument(
+          "(*custom_plugin_tell)(custom_op, false, true) is False."));
 
   OpTeller::Global().SetOpConverterType(&custom_op,
                                         OpConverterType::CustomPluginCreater);
@@ -190,12 +192,16 @@ TEST(CustomPluginCreater, DynamicShapePlugin) {
 
   framework::Scope scope;
 
-  tensorrt::plugin::TrtPluginRegistry::Global()->RegistToTrt();
+  tensorrt::plugin::TrtPluginRegistry::Global()->RegisterToTrt();
 
   auto &custom_plugin_tell = OpTeller::Global().GetCustomPluginTeller();
 
   framework::OpDesc custom_op(*op_desc, nullptr);
-  CHECK_EQ((*custom_plugin_tell)(custom_op, false, true), true);
+  PADDLE_ENFORCE_EQ(
+      (*custom_plugin_tell)(custom_op, false, true),
+      true,
+      common::errors::InvalidArgument(
+          "(*custom_plugin_tell)(custom_op, false, true) is False."));
 
   OpTeller::Global().SetOpConverterType(&custom_op,
                                         OpConverterType::CustomPluginCreater);
@@ -204,8 +210,6 @@ TEST(CustomPluginCreater, DynamicShapePlugin) {
   converter.ConvertBlock(
       *block->Proto(), {}, scope, engine_.get() /*TensorRTEngine*/);
 }
-}  // namespace tensorrt
-}  // namespace inference
-}  // namespace paddle
+}  // namespace paddle::inference::tensorrt
 
 USE_TRT_CONVERTER(custom_plugin_creater)

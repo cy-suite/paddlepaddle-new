@@ -13,8 +13,11 @@
 // limitations under the License.
 
 #include <limits>
+#include <set>
+#include "paddle/phi/common/complex.h"
 #include "paddle/phi/core/enforce.h"
 #include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/kernels/full_kernel.h"
 #include "paddle/phi/kernels/gpu/reduce.h"
 #include "paddle/phi/kernels/legacy/reduce_max_kernel.h"
 #include "paddle/phi/kernels/prod_kernel.h"
@@ -28,6 +31,9 @@
 #ifndef PADDLE_WITH_XPU_KP
 #include "paddle/phi/kernels/funcs/eigen/common.h"
 #endif
+
+using complex64 = ::phi::dtype::complex<float>;
+using complex128 = ::phi::dtype::complex<double>;
 
 namespace phi {
 
@@ -174,7 +180,7 @@ void ReduceSumEigen(const KPDevice& dev_ctx,
   }
   auto eigen_reduce_dim =
       EigenDim<ReducedDimSize>::From(common::make_ddim(*reduce_dims));
-  // Caculate
+  // Calculate
   eigen_out_tensor.device(*dev_ctx.eigen_device()) =
       eigen_x_tensor.sum(eigen_reduce_dim);
   out->Resize(origin_out_dims);
@@ -193,10 +199,65 @@ void SumRawKernel(const Context& dev_ctx,
   if (out_dtype == DataType::UNDEFINED && out->dtype() != x.dtype()) {
     out_dtype = out->dtype();
   }
+  if (x.numel() == 0) {
+    auto x_dims = x.dims();
+    std::vector<int> out_dims;
+    if (reduce_all) {
+      if (keep_dim) {
+        out_dims.resize(x_dims.size(), 1);
+      } else {
+        out_dims = std::vector<int>();
+      }
+    } else {
+      std::set<int> reduce_dims;
+      auto dims_vec = dims.GetData();
+      for (auto dim : dims_vec) {
+        PADDLE_ENFORCE_GE(dim,
+                          -x_dims.size(),
+                          common::errors::InvalidArgument(
+                              "The dimension index is out of range, "
+                              "expected index >= %d, but received %d.",
+                              -x_dims.size(),
+                              dim));
+        PADDLE_ENFORCE_LT(dim,
+                          x_dims.size(),
+                          common::errors::InvalidArgument(
+                              "The dimension index is out of range, "
+                              "expected index < %d, but received %d.",
+                              x_dims.size(),
+                              dim));
+        if (dim < 0) {
+          dim += x_dims.size();
+        }
+        reduce_dims.insert(dim);
+      }
+      if (keep_dim) {
+        out_dims.resize(x_dims.size());
+        for (int i = 0; i < x_dims.size(); ++i) {
+          if (reduce_dims.count(i)) {
+            out_dims[i] = 1;
+          } else {
+            out_dims[i] = x_dims[i];
+          }
+        }
+      } else {
+        for (int i = 0; i < x_dims.size(); ++i) {
+          if (!reduce_dims.count(i)) {
+            out_dims.push_back(x_dims[i]);
+          }
+        }
+      }
+    }
+    out->Resize(phi::make_ddim(out_dims));
+    dev_ctx.template Alloc<T>(out);
+    FullKernel<T, Context>(
+        dev_ctx, out_dims, 0, phi::CppTypeToDataType<T>::Type(), out);
+    return;
+  }
   if (x.numel() > std::numeric_limits<int32_t>::max()) {
 #ifndef PADDLE_WITH_XPU_KP
     if (out_dtype != phi::DataType::UNDEFINED && out_dtype != x.dtype()) {
-      PADDLE_THROW(phi::errors::Fatal(
+      PADDLE_THROW(common::errors::Fatal(
           "If Input.numel() > INT32_MAX, reduce_sum kernel uses EigenTensor "
           "sum for reduce_sum function. As a result, input dtype should be "
           "the same as out dtype"));
@@ -234,7 +295,7 @@ void SumRawKernel(const Context& dev_ctx,
       CALL_EIGEN_REDUCE_SUM_KERNEL(4);
       CALL_EIGEN_REDUCE_SUM_KERNEL(5);
       default:
-        PADDLE_THROW(phi::errors::Fatal(
+        PADDLE_THROW(common::errors::Fatal(
             "If Input.numel() > INT32_MAX, reduce_sum kernel uses EigenTensor "
             "sum for reduce_sum function. As a result, its dim should be <= "
             "5."));
@@ -242,14 +303,31 @@ void SumRawKernel(const Context& dev_ctx,
     }
 #undef CALL_EIGEN_REDUCE_SUM_KERNEL
 #else
-    PADDLE_THROW(phi::errors::Fatal(
+    PADDLE_THROW(common::errors::Fatal(
         "If Input.numel() > INT32_MAX, reduce_sum kernel uses EigenTensor "
         "sum for reduce_sum function. Such case is only supported on GPU "
         "now."));
 #endif
   } else {
-    phi::Reduce<T, kps::AddFunctor, kps::IdentityFunctor>(
-        dev_ctx, x, reduce_all, dims.GetData(), keep_dim, out_dtype, out);
+    if (x.dtype() == phi::DataType::BFLOAT16 &&
+        out_dtype == phi::DataType::FLOAT32) {
+      std::vector<int> reduce_dims = phi::funcs::details::GetReduceDim(
+          dims.GetData(), x.dims().size(), reduce_all);
+
+      phi::funcs::ReduceKernel<
+          phi::dtype::bfloat16,
+          float,
+          kps::AddFunctor,
+          kps::IdentityFunctor<phi::dtype::bfloat16, float>>(
+          dev_ctx,
+          x,
+          out,
+          kps::IdentityFunctor<phi::dtype::bfloat16, float>(),
+          reduce_dims);
+    } else {
+      phi::Reduce<T, kps::AddFunctor, kps::IdentityFunctor>(
+          dev_ctx, x, reduce_all, dims.GetData(), keep_dim, out_dtype, out);
+    }
   }
 }
 }  // namespace phi
@@ -290,7 +368,9 @@ PD_REGISTER_KERNEL(all_raw,
                    double,
                    int,
                    int64_t,
-                   bool) {
+                   bool,
+                   complex64,
+                   complex128) {
   kernel->OutputAt(0).SetDataType(phi::DataType::BOOL);
 }
 
@@ -320,7 +400,9 @@ PD_REGISTER_KERNEL(any_raw,
                    double,
                    int,
                    int64_t,
-                   bool) {
+                   bool,
+                   complex64,
+                   complex128) {
   kernel->OutputAt(0).SetDataType(phi::DataType::BOOL);
 }
 
@@ -333,7 +415,9 @@ PD_REGISTER_KERNEL(max,
                    int,
                    int64_t,
                    phi::dtype::float16,
-                   phi::dtype::bfloat16) {}
+                   phi::dtype::bfloat16,
+                   phi::dtype::float8_e4m3fn,
+                   phi::dtype::float8_e5m2) {}
 
 PD_REGISTER_KERNEL(mean_raw,
                    KPS,
@@ -388,5 +472,7 @@ PD_REGISTER_KERNEL(prod,
                    int,
                    int64_t,
                    phi::dtype::float16,
-                   phi::dtype::bfloat16) {}
+                   phi::dtype::bfloat16,
+                   phi::dtype::complex<float>,
+                   phi::dtype::complex<double>) {}
 #endif

@@ -38,42 +38,10 @@
 // the abstract path of this header file will be changed.
 #include "paddle_api.h"           // NOLINT
 #include "paddle_pass_builder.h"  // NOLINT
-#ifdef PADDLE_WITH_DNNL
-#include "paddle_mkldnn_quantizer_config.h"  // NOLINT
-#endif
 
 namespace paddle {
 
 class AnalysisPredictor;
-struct MkldnnQuantizerConfig;
-
-struct LiteNNAdapterConfig {
-  bool use_nnadapter{false};
-  std::string nnadapter_model_cache_dir;
-  std::map<std::string, std::vector<char>> nnadapter_model_cache_buffers;
-  std::vector<std::string> nnadapter_device_names;
-  std::string nnadapter_context_properties;
-  std::string nnadapter_subgraph_partition_config_path;
-  std::string nnadapter_subgraph_partition_config_buffer;
-
-  LiteNNAdapterConfig& SetDeviceNames(const std::vector<std::string>& names);
-
-  LiteNNAdapterConfig& SetContextProperties(const std::string& properties);
-
-  LiteNNAdapterConfig& SetModelCacheDir(const std::string& dir);
-
-  LiteNNAdapterConfig& SetModelCacheBuffers(
-      const std::string& model_cache_token,
-      const std::vector<char>& model_cache_buffer);
-
-  LiteNNAdapterConfig& SetSubgraphPartitionConfigPath(const std::string& path);
-
-  LiteNNAdapterConfig& SetSubgraphPartitionConfigBuffer(
-      const std::string& buffer);
-
-  LiteNNAdapterConfig& Enable();
-  LiteNNAdapterConfig& Disable();
-};
 
 struct PD_INFER_DECL XpuConfig {
   // Select which xpu device to run model.
@@ -152,54 +120,6 @@ struct PD_INFER_DECL XpuConfig {
   std::map<std::string, int> quant_post_dynamic_weight_methods;
 };
 
-struct DistConfig {
-  bool use_dist_model() const { return use_dist_model_; }
-  void EnableDistModel(bool use_dist_model) {
-    use_dist_model_ = use_dist_model;
-  }
-
-  std::vector<std::string> trainer_endpoints() const {
-    return trainer_endpoints_;
-  }
-
-  std::string current_endpoint() const { return current_endpoint_; }
-
-  void SetEndpoints(const std::vector<std::string>& trainer_endpoints,
-                    const std::string& current_endpoint) {
-    trainer_endpoints_ = trainer_endpoints;
-    current_endpoint_ = current_endpoint;
-  }
-
-  int64_t nranks() const { return nranks_; }
-
-  int64_t rank() const { return rank_; }
-
-  void SetRanks(int64_t nranks, int64_t rank) {
-    nranks_ = nranks;
-    rank_ = rank;
-  }
-
-  std::string comm_init_config() const { return comm_init_config_; }
-
-  void SetCommInitConfig(const std::string& comm_init_config) {
-    comm_init_config_ = comm_init_config;
-  }
-
-  void SetCarrierId(const std::string& carrier_id) { carrier_id_ = carrier_id; }
-
-  std::string carrier_id() const { return carrier_id_; }
-
- protected:
-  // DistModel Inference related
-  bool use_dist_model_{false};  // whether use DistModel or not
-  std::vector<std::string> trainer_endpoints_{};  // all trainers' endpoints
-  std::string current_endpoint_{};                // current trainer's endpoint
-  int64_t nranks_{1};               // total ranks (number of trainers)
-  int64_t rank_{0};                 // rank
-  std::string comm_init_config_{};  // converter config path
-  std::string carrier_id_{"inference"};
-};
-
 ///
 /// \brief configuration manager for AnalysisPredictor.
 /// \since 1.7.0
@@ -231,11 +151,13 @@ struct PD_INFER_DECL AnalysisConfig {
   ///
   /// \brief Construct a new AnalysisConfig from a combined model.
   ///
-  /// \param[in] prog_file model file path of the combined model.
-  /// \param[in] params_file params file path of the combined model.
+  /// \param[in] prog_file_or_model_dir model file path of the combined model or
+  /// the directory path containing the model. \param[in]
+  /// params_file_or_model_prefix params file path of the combined model or the
+  /// model prefix.
   ///
-  explicit AnalysisConfig(const std::string& prog_file,
-                          const std::string& params_file);
+  explicit AnalysisConfig(const std::string& prog_file_or_model_dir,
+                          const std::string& params_file_or_model_prefix);
   ///
   /// \brief Precision of inference.
   ///
@@ -257,11 +179,13 @@ struct PD_INFER_DECL AnalysisConfig {
   /// \brief Set the combined model with two specific paths for program and
   /// parameters.
   ///
-  /// \param prog_file_path model file path of the combined model.
-  /// \param params_file_path params file path of the combined model.
+  /// \param prog_file_path_or_model_dir_path model file path of the combined
+  /// model or the directory path containing the model. \param
+  /// params_file_path_or_model_prefix params file path of the combined model or
+  /// the model prefix.
   ///
-  void SetModel(const std::string& prog_file_path,
-                const std::string& params_file_path);
+  void SetModel(const std::string& prog_file_path_or_model_dir_path,
+                const std::string& params_file_path_or_model_prefix);
   ///
   /// \brief Set the model file path of a combined model.
   ///
@@ -519,12 +443,6 @@ struct PD_INFER_DECL AnalysisConfig {
   ///
   bool use_onnxruntime() const { return use_onnxruntime_; }
   ///
-  /// \brief A boolean state telling whether the Lite OpenCL is turned on.
-  ///
-  /// \return bool Whether the Lite OpenCL is turned on.
-  ///
-  bool use_opencl() const { return use_opencl_; }
-  ///
   /// \brief A boolean state telling whether the ONNXRuntime Optimization is
   /// turned on.
   ///
@@ -650,6 +568,21 @@ struct PD_INFER_DECL AnalysisConfig {
   /// \return bool Whether to specify the inputs' names.
   ///
   bool specify_input_name() const { return specify_input_name_; }
+
+  ///
+  /// \brief Turn on the OpenVINO engine.
+  /// The OpenVINO engine will accelerate some subgraphs in the original Fluid
+  /// computation graph. In some models such as resnet50, GoogleNet and so on,
+  /// it gains significant performance acceleration.
+  ///
+  void EnableOpenVINOEngine(Precision inference_precision);
+
+  ///
+  /// \brief A boolean state telling whether the OpenVINO engine is used.
+  ///
+  /// \return bool Whether the OpenVINO engine is used.
+  ///
+  bool openvino_engine_enabled() const;
 
   ///
   /// \brief Turn on the TensorRT engine.
@@ -923,43 +856,6 @@ struct PD_INFER_DECL AnalysisConfig {
   ///
   void UseOptimizedModel(bool x = true) { use_optimized_model_ = x; }
 
-  void EnableDlnne(
-      int min_subgraph_size = 3,
-      int max_batch_size = 1,
-      bool use_static_batch = false,
-      std::string weight_share_mode = "0",
-      std::unordered_set<std::string> disable_nodes_by_outputs = {},
-      std::map<std::string, std::vector<int64_t>> input_dict = {},
-      bool use_calib_mode = false,
-      Precision precision_mode = Precision::kFloat32);
-
-  bool dlnne_enabled() const { return use_dlnne_; }
-
-  ///
-  /// \brief Turn on the usage of Lite sub-graph engine.
-  ///
-  /// \param precision_mode Precision used in Lite sub-graph engine.
-  /// \param passes_filter Set the passes used in Lite sub-graph engine.
-  /// \param ops_filter Operators not supported by Lite.
-  ///
-  void EnableLiteEngine(Precision precision_mode = Precision::kFloat32,
-                        bool zero_copy = false,
-                        const std::vector<std::string>& passes_filter = {},
-                        const std::vector<std::string>& ops_filter = {});
-
-  ///
-  /// \brief Turn on the usage of Lite sub-graph engine with opencl.
-  ///
-  void EnableOpenCL();
-
-  ///
-  /// \brief A boolean state indicating whether the Lite sub-graph engine is
-  /// used.
-  ///
-  /// \return bool whether the Lite sub-graph engine is used.
-  ///
-  bool lite_engine_enabled() const { return use_lite_; }
-
   ///
   /// \brief Control whether to debug IR graph analysis phase.
   /// This will generate DOT files for visualizing the computation graph after
@@ -967,22 +863,22 @@ struct PD_INFER_DECL AnalysisConfig {
   ///
   /// \param x whether to debug IR graph analysis phase.
   ///
-  void SwitchIrDebug(int x = true);
+  void SwitchIrDebug(int x = true, const std::vector<std::string>& passes = {});
 
   ///
-  /// \brief Turn on MKLDNN.
+  /// \brief Turn on OneDNN.
   ///
   ///
   void EnableMKLDNN();
 
   ///
-  /// \brief Turn down MKLDNN.
+  /// \brief Turn down OneDNN.
   ///
   ///
   void DisableMKLDNN();
 
   ///
-  /// \brief Set the cache capacity of different input shapes for MKLDNN.
+  /// \brief Set the cache capacity of different input shapes for OneDNN.
   /// Default value 0 means not caching any shape.
   /// Please see MKL-DNN Data Caching Design Document:
   /// https://github.com/PaddlePaddle/FluidDoc/blob/develop/doc/fluid/design/mkldnn/caching/caching.md
@@ -991,9 +887,9 @@ struct PD_INFER_DECL AnalysisConfig {
   ///
   void SetMkldnnCacheCapacity(int capacity);
   ///
-  /// \brief A boolean state telling whether to use the MKLDNN.
+  /// \brief A boolean state telling whether to use the OneDNN.
   ///
-  /// \return bool Whether to use the MKLDNN.
+  /// \return bool Whether to use the OneDNN.
   ///
   bool mkldnn_enabled() const { return use_mkldnn_; }
 
@@ -1021,7 +917,7 @@ struct PD_INFER_DECL AnalysisConfig {
   ///
   NativeConfig ToNativeConfig() const;
   ///
-  /// \brief Specify the operator type list to use MKLDNN acceleration.
+  /// \brief Specify the operator type list to use OneDNN acceleration.
   ///
   /// \param op_list The operator type list.
   ///
@@ -1030,47 +926,41 @@ struct PD_INFER_DECL AnalysisConfig {
   }
 
   ///
-  /// \brief Turn on MKLDNN quantization.
-  ///
-  ///
-  void EnableMkldnnQuantizer();
-
-  ///
-  /// \brief Turn on MKLDNN int8.
+  /// \brief Turn on OneDNN int8.
   ///
   /// \param op_list The operator type list.
   ///
   void EnableMkldnnInt8(const std::unordered_set<std::string>& op_list = {});
 
   ///
-  /// \brief A boolean state telling whether to use the MKLDNN Int8.
+  /// \brief A boolean state telling whether to use the OneDNN Int8.
   ///
-  /// \return bool Whether to use the MKLDNN Int8.
+  /// \return bool Whether to use the OneDNN Int8.
   ///
   bool mkldnn_int8_enabled() const { return use_mkldnn_int8_; }
 
   ///
-  /// \brief Turn on MKLDNN bfloat16.
+  /// \brief Turn on OneDNN bfloat16.
   ///
   ///
   void EnableMkldnnBfloat16();
 
   ///
-  /// \brief Turn off MKLDNN fc passes.
+  /// \brief Turn off OneDNN fc passes.
   ///
   void DisableMkldnnFcPasses();
 
   ///
-  /// \brief A boolean state telling whether to disable the MKLDNN Fc passes.
+  /// \brief A boolean state telling whether to disable the OneDNN Fc passes.
   ///
-  /// \return bool Whether to disable the MKLDNN Fc passes.
+  /// \return bool Whether to disable the OneDNN Fc passes.
   ///
   bool mkldnn_fc_passes_disabled() const { return disable_mkldnn_fc_passes_; }
 
   ///
-  /// \brief A boolean state telling whether to use the MKLDNN Bfloat16.
+  /// \brief A boolean state telling whether to use the OneDNN Bfloat16.
   ///
-  /// \return bool Whether to use the MKLDNN Bfloat16.
+  /// \return bool Whether to use the OneDNN Bfloat16.
   ///
   bool mkldnn_bfloat16_enabled() const { return use_mkldnn_bfloat16_; }
 
@@ -1089,20 +979,6 @@ struct PD_INFER_DECL AnalysisConfig {
   /// \return bool Whether the thread local CUDA stream is enabled.
   ///
   bool thread_local_stream_enabled() const { return thread_local_stream_; }
-
-  ///
-  /// \brief A boolean state telling whether the MKLDNN quantization is enabled.
-  ///
-  /// \return bool Whether the MKLDNN quantization is enabled.
-  ///
-  bool mkldnn_quantizer_enabled() const { return use_mkldnn_quantizer_; }
-
-  ///
-  /// \brief Get MKLDNN quantizer config.
-  ///
-  /// \return MkldnnQuantizerConfig* MKLDNN quantizer config.
-  ///
-  MkldnnQuantizerConfig* mkldnn_quantizer_config() const;
 
   ///
   /// \brief Specify the memory buffer of program and parameter.
@@ -1191,20 +1067,11 @@ struct PD_INFER_DECL AnalysisConfig {
   /// stream to the thread, and this behavior may be changed in the future.
   ///
   void EnableGpuMultiStream();
-  void PartiallyRelease();
 
   ///
   /// \brief Print the summary of config.
   ///
   std::string Summary();
-
-  LiteNNAdapterConfig& NNAdapter() { return nnadapter_config_; }
-
-  void SetDistConfig(const DistConfig& dist_config) {
-    dist_config_ = dist_config;
-  }
-
-  const DistConfig& dist_config() const { return dist_config_; }
 
   ///
   /// \brief Set a list of operators that do not support mixed precision. This
@@ -1239,7 +1106,36 @@ struct PD_INFER_DECL AnalysisConfig {
   ///
   bool cinn_enabled() const;
 
-  void EnableCustomPasses(const std::vector<std::string>& passes);
+  ///
+  /// \brief Set the custom passes list .
+  ///
+  /// \param passes The custom passes list.
+  /// \param custom_pass_only Custom pass run mode. The default is false,
+  /// which means that paddle pass will run after custom pass.
+  ///
+  void EnableCustomPasses(const std::vector<std::string>& passes,
+                          bool custom_pass_only = false);
+
+  ///
+  /// \brief Delete a pass to prevent it to optimizing the model.
+  ///
+  /// \param pass_name The pass's name to be deleted.
+  ///
+  void DeletePass(const std::string& pass_name);
+
+  ///
+  /// \brief Set pir Optimization level.
+  /// \param opt_level The optimization level
+  /// The optimization Level in range [0,4], Default 2.
+  /// Higher optimization level allows the predictor to apply more passes.
+  /// If 0, Only basic pass support.
+  /// If 1, Additional support for functional pass.
+  /// If 2, Additional support the fusion logical pass,maybe affect precision
+  /// and speed.
+  /// If 3, support layout pass, etc.
+  /// If 4, add the radicaloptimization, maybe affect precision, etc.
+  ///
+  void SetOptimizationLevel(int opt_level);
 
  protected:
   // Update the config.
@@ -1283,6 +1179,10 @@ struct PD_INFER_DECL AnalysisConfig {
 
   // Padding related
   bool use_fc_padding_{true};
+
+  // OpenVINO related.
+  bool use_openvino_{false};
+  Precision openvino_inference_precision_{Precision::kFloat32};
 
   // TensorRT related.
   bool use_tensorrt_{false};
@@ -1337,17 +1237,6 @@ struct PD_INFER_DECL AnalysisConfig {
   bool collect_shape_range_info_{false};
   std::string shape_range_info_path_;
 
-  // dlnne related.
-  bool use_dlnne_{false};
-  int dlnne_min_subgraph_size_{3};
-  int dlnne_max_batchsize_{1};
-  std::unordered_set<std::string> dlnne_disable_nodes_by_outputs_;
-  bool dlnne_use_static_batch_{true};
-  std::string dlnne_weight_share_mode_;
-  std::map<std::string, std::vector<int64_t>> dlnne_input_shape_dict_{};
-  bool dlnne_use_calib_mode_{false};
-  Precision dlnne_precision_mode_{Precision::kFloat32};
-
   // memory reuse related.
   bool enable_memory_optim_{false};
   bool trt_engine_memory_sharing_{true};
@@ -1384,31 +1273,15 @@ struct PD_INFER_DECL AnalysisConfig {
 
   mutable std::unique_ptr<PassStrategy> pass_builder_;
 
-  bool use_lite_{false};
-  std::vector<std::string> lite_passes_filter_;
-  std::vector<std::string> lite_ops_filter_;
-  Precision lite_precision_mode_;
-  bool lite_zero_copy_;
-
   // CINN compiler related.
   bool use_cinn_{false};
 
   // XPU related.
   bool use_xpu_{false};
   XpuConfig xpu_config_;
-  bool xpu_lite_l3_locked_{false};
-  bool xpu_lite_enable_multi_stream_{false};
 
-  // LITE OPENCL SETTINGS
-  bool use_opencl_{false};
-
-  // NNAdapter related
-  LiteNNAdapterConfig nnadapter_config_;
-
-  // mkldnn related.
+  // onednn related.
   int mkldnn_cache_capacity_{10};
-  bool use_mkldnn_quantizer_{false};
-  std::shared_ptr<MkldnnQuantizerConfig> mkldnn_quantizer_config_;
   bool use_mkldnn_bfloat16_{false};
   std::unordered_set<std::string> bfloat16_enabled_op_types_;
   bool use_mkldnn_int8_{false};
@@ -1457,9 +1330,6 @@ struct PD_INFER_DECL AnalysisConfig {
   std::string opt_cache_dir_;
   friend class paddle_infer::experimental::InternalUtils;
 
-  // fleet exe related
-  DistConfig dist_config_{};
-
   // jit engine related
   // NOTE(Aureliue84): In case of Predictor in JITLayer, program is from outer
   // which means Predictor should apply optimization by calling
@@ -1468,8 +1338,11 @@ struct PD_INFER_DECL AnalysisConfig {
   bool skip_load_params_{false};
 
   bool use_pir_{false};
-
   std::vector<std::string> custom_passes_;
+  bool custom_pass_only_{false};
+  int pm_opt_level_{2};
+  std::vector<std::string> ir_debug_passes_;
+  std::vector<std::string> deleted_passes_;
 };
 
 }  // namespace paddle

@@ -120,7 +120,7 @@ class RNNDescriptors {
     last_c_desc_.descriptor<T>(dims_hx, strides_hx);
 
     // ------------------- cudnn dropout descriptors ---------------------
-    size_t state_size;
+    size_t state_size = 0;
     bool is_initialized = dropout_state->initialized();
 #ifdef PADDLE_WITH_HIP
     if (!is_initialized) {
@@ -235,7 +235,7 @@ class RNNDescriptors {
     PADDLE_ENFORCE_EQ(
         weights_size_,
         sizeof(T) * weight_numel_,
-        phi::errors::InvalidArgument(
+        common::errors::InvalidArgument(
             "The cudnn rnn and setting weight size should be same."));
     // ------------------- cudnn weight descriptors ---------------------
     auto layout = phi::backends::gpu::DataLayout::kNCHW;

@@ -23,7 +23,7 @@
 #include "paddle/phi/common/scalar.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/core/visit_type.h"
-#include "paddle/phi/kernels/impl/full_whit_tensor_kernel_impl.h"
+#include "paddle/phi/kernels/impl/full_with_tensor_kernel_impl.h"
 
 namespace phi {
 
@@ -35,10 +35,9 @@ void FullKernel(const Context& dev_ctx,
                 DenseTensor* out) {
   using XPUInTDType = typename XPUTypeTrait<T>::Type;
   out->Resize(common::make_ddim(shape.GetData()));
-  int numel = out->numel();
   dev_ctx.template Alloc<T>(out);
-  auto out_data = reinterpret_cast<XPUInTDType*>(out->data<T>());
-  if (numel > 0) {
+  if (out->numel() > 0) {
+    auto out_data = reinterpret_cast<XPUInTDType*>(out->data<T>());
     int r = xpu::constant(dev_ctx.x_context(),
                           out_data,
                           out->numel(),
@@ -54,40 +53,40 @@ void FullLikeKernel(const Context& dev_ctx,
                     DataType dtype,
                     DenseTensor* out) {
   dev_ctx.template Alloc<T>(out);
-  auto value = val.to<double>();
-  using XPUInTDType = typename XPUTypeTrait<T>::Type;
-  using CommonType = typename std::common_type<
-      float,
-      typename std::conditional<std::is_same<T, phi::dtype::float16>::value,
-                                float,
-                                T>::type>::type;
-
-  auto common_type_value = static_cast<CommonType>(value);
-  bool is_out_range = true;
-  if (std::isinf(value) || std::isnan(value)) {
-    is_out_range = false;
-  }
-  if ((common_type_value >=
-       static_cast<CommonType>(std::numeric_limits<T>::lowest())) &&
-      (common_type_value <=
-       static_cast<CommonType>(std::numeric_limits<T>::max()))) {
-    is_out_range = false;
-  }
-
-  PADDLE_ENFORCE_EQ(
-      is_out_range,
-      false,
-      phi::errors::InvalidArgument(
-          "The filled value is out of range for target type, "
-          "current kernel type is %s, the range should between %f "
-          "and %f, but now value is %f.",
-          typeid(T).name(),
-          static_cast<CommonType>(std::numeric_limits<T>::lowest()),
-          static_cast<CommonType>(std::numeric_limits<T>::max()),
-          static_cast<float>(value)));
-
-  auto out_data = reinterpret_cast<XPUInTDType*>(out->data<T>());
   if (out->numel() > 0) {
+    auto value = val.to<double>();
+    using XPUInTDType = typename XPUTypeTrait<T>::Type;
+    using CommonType = typename std::common_type<
+        float,
+        typename std::conditional<std::is_same<T, phi::dtype::float16>::value,
+                                  float,
+                                  T>::type>::type;
+
+    auto common_type_value = static_cast<CommonType>(value);
+    bool is_out_range = true;
+    if (std::isinf(value) || std::isnan(value)) {
+      is_out_range = false;
+    }
+    if ((common_type_value >=
+         static_cast<CommonType>(std::numeric_limits<T>::lowest())) &&
+        (common_type_value <=
+         static_cast<CommonType>(std::numeric_limits<T>::max()))) {
+      is_out_range = false;
+    }
+
+    PADDLE_ENFORCE_EQ(
+        is_out_range,
+        false,
+        common::errors::InvalidArgument(
+            "The filled value is out of range for target type, "
+            "current kernel type is %s, the range should between %f "
+            "and %f, but now value is %f.",
+            typeid(T).name(),
+            static_cast<CommonType>(std::numeric_limits<T>::lowest()),
+            static_cast<CommonType>(std::numeric_limits<T>::max()),
+            static_cast<float>(value)));
+
+    auto out_data = reinterpret_cast<XPUInTDType*>(out->data<T>());
     int r = xpu::constant(dev_ctx.x_context(),
                           out_data,
                           out->numel(),
@@ -106,7 +105,7 @@ void FullBatchSizeLikeKernel(const Context& dev_ctx,
                              int out_batch_size_dim,
                              DenseTensor* out) {
   if (x.lod().size() && x_batch_size_dim == 0) {
-    // set the correct batch size for the LoDTensor.
+    // set the correct batch size for the DenseTensor.
     auto odims = out->dims();
     odims[out_batch_size_dim] = static_cast<int>(x.lod().back().size()) - 1;
     FullKernel<T, Context>(dev_ctx, common::vectorize(odims), val, dtype, out);
@@ -154,7 +153,8 @@ PD_REGISTER_KERNEL(full_batch_size_like,
                    int,
                    int64_t,
                    bool,
-                   phi::dtype::float16) {
+                   phi::dtype::float16,
+                   phi::dtype::bfloat16) {
   kernel->InputAt(0).SetBackend(phi::Backend::ALL_BACKEND);
 }
 
@@ -171,5 +171,4 @@ PD_REGISTER_KERNEL(full_with_tensor,
                    bool,
                    phi::dtype::float16) {
   kernel->InputAt(0).SetBackend(phi::Backend::CPU);
-  kernel->InputAt(1).SetBackend(phi::Backend::CPU);
 }

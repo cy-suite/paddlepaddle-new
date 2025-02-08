@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include "paddle/fluid/pir/dialect/operator/ir/op_type.h"
+#include "paddle/fluid/pir/dialect/operator/utils/utils.h"
 #include "paddle/phi/core/allocator.h"
 #include "paddle/phi/core/tensor_base.h"
 #include "paddle/phi/core/tensor_meta.h"
@@ -21,7 +23,7 @@
 namespace paddle {
 namespace dialect {
 
-using LoD = std::vector<std::vector<size_t>>;
+using LegacyLoD = std::vector<std::vector<size_t>>;
 
 class IrSelectedRows
     : public phi::TensorBase,
@@ -32,7 +34,7 @@ class IrSelectedRows
   IrSelectedRows(phi::DataType dtype,
                  const phi::DDim& dims,
                  phi::DataLayout layout,
-                 const LoD& lod,
+                 LegacyLoD lod,
                  size_t offset = 0);
 
   IrSelectedRows(IrSelectedRows&& other) = default;
@@ -64,13 +66,18 @@ class IrSelectedRows
 
   void SetLayout(phi::DataLayout layout) { layout_ = layout; }
 
-  const LoD& lod() const noexcept { return lod_; }
+  const LegacyLoD& lod() const noexcept { return lod_; }
 
-  void SetLod(LoD lod) { lod_ = lod; }
+  void SetLod(LegacyLoD lod) { lod_ = lod; }
 
   size_t offset() const noexcept { return offset_; }
 
   bool valid() const noexcept override { return true; }
+
+  bool has_allocation() const override {
+    PADDLE_THROW(::common::errors::Unavailable(
+        "`has_allocation` is only available at runtime"));
+  }
 
   bool initialized() const override { return true; }
 
@@ -83,9 +90,18 @@ class IrSelectedRows
   phi::DDim dims_;
   phi::DataType dtype_{phi::DataType::FLOAT32};
   phi::DataLayout layout_{phi::DataLayout::ANY};
-  LoD lod_;
+  LegacyLoD lod_;
   size_t offset_{0};
 };
+
+inline SelectedRowsType CvtToSelectedRowsType(const IrSelectedRows& ir_tensor) {
+  return SelectedRowsType::get(pir::IrContext::Instance(),
+                               TransToIrDataType(ir_tensor.dtype()),
+                               ir_tensor.dims(),
+                               ir_tensor.layout(),
+                               ir_tensor.lod(),
+                               ir_tensor.offset());
+}
 
 }  // namespace dialect
 }  // namespace paddle

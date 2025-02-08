@@ -16,15 +16,21 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from paddle.jit.sot.opcode_translator.executor.variables.base import (
+    VariableBase,
+)
+
 from ....utils import BreakGraphError, FallbackError
-from ..pycode_generator import PyCodeGen
 from ..tracker import ConstTracker, DummyTracker
-from .base import VariableBase, VariableFactory
+from .base import VariableFactory
 from .basic import ConstantVariable
 from .container import ContainerVariable, TupleVariable
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from ..function_graph import FunctionGraph
+    from ..pycode_generator import PyCodeGen
     from ..tracker import Tracker
 
 
@@ -39,14 +45,28 @@ class IterVariable(VariableBase):
         super().__init__(graph, tracker)
         self.hold = obj
 
-    def make_stringify_guard(self):
-        return self.hold.make_stringify_guard()
+    def make_stringified_guard(self):
+        return self.hold.make_stringified_guard()
 
     def next(self):
         raise NotImplementedError(f"Can not simulate `next` for {type(self)}")
 
     def get_iter(self):
         return self
+
+    def flatten_inner_vars(self) -> list[VariableBase]:
+        return [
+            var
+            for item_list in (
+                self.hold.get_wrapped_items()
+                if isinstance(self.hold, (ContainerVariable, IterVariable))
+                else [self.hold]
+            )
+            for item in (
+                item_list if isinstance(item_list, list) else [item_list]
+            )
+            for var in item.flatten_inner_vars()
+        ]
 
 
 class SequenceIterVariable(IterVariable):
@@ -75,7 +95,7 @@ class SequenceIterVariable(IterVariable):
             self.idx += 1
             return val
         else:
-            raise StopIteration()
+            raise StopIteration
 
     def to_list(self) -> list:
         if self.has_side_effect():
@@ -189,7 +209,9 @@ class ZipVariable(SequenceIterVariable):
 
     @staticmethod
     def from_iterator(
-        value: list[VariableBase], graph: FunctionGraph | None, tracker: Tracker
+        value: Sequence[VariableBase],
+        graph: FunctionGraph | None,
+        tracker: Tracker,
     ):
         assert isinstance(value, (list, tuple))
         zip_targets = []

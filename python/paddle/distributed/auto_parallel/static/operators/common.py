@@ -14,8 +14,10 @@
 
 import abc
 import logging
+import warnings
 
 import paddle
+import paddle.distributed as dist
 from paddle.base.log_helper import get_logger
 from paddle.distributed.fleet.meta_optimizers.common import OP_ROLE_KEY, OpRole
 
@@ -336,9 +338,7 @@ def find_distributed_operator_impl_container(dist_op):
             )
 
     _logger.debug(
-        "Op [{}] Complete DistAttr using {}".format(
-            op_type, type(dist_op_impl_container).__name__
-        )
+        f"Op [{op_type}] Complete DistAttr using {type(dist_op_impl_container).__name__}"
     )
     return dist_op_impl_container
 
@@ -364,6 +364,14 @@ def is_parameter_related(varname, block, dist_context=None):
         var = serial_program.global_block()._find_var_recursive(varname)
         if var is None:
             return False
+    # NOTE(liym27): when Y_var is not a parameter, but Y_var is resharded by a parameter.
+    elif "reshard_api" in varname:
+        for op in block.ops:
+            if op.type == "assign" and varname in op.output("Out"):
+                in_varname = op.input("X")[0]
+                var = block._find_var_recursive(in_varname)
+                if var is not None and var.is_parameter:
+                    return True
     return var.is_parameter
 
 
@@ -555,9 +563,7 @@ def sync_and_scale_gradients(dist_ctx, op, groups, allreduce_var_names):
             dims_mapping = op_dist_attr.get_output_dims_mapping(grad_var.name)
             assert (
                 dims_mapping is not None
-            ), "Unexpected: dims_mapping of output [{}] of op [{}] is None".format(
-                grad_var.name, op_dist_attr.op_type
-            )
+            ), f"Unexpected: dims_mapping of output [{grad_var.name}] of op [{op_dist_attr.op_type}] is None"
             # NOTE auxiliary op's dist attr should follow dist_op not dist_tensor
             for new_op in added_ops:
                 new_op_attr = OperatorDistAttr()
@@ -592,9 +598,7 @@ def get_partial_groups(dist_ctx, op, out_grad_names, rank):
         else:
             assert (
                 partial_dims == var_dist_attr._partial_dims()
-            ), "Partial dims of outputs {} of op [{}] is not consistent".format(
-                out_grad_names, op.type
-            )
+            ), f"Partial dims of outputs {out_grad_names} of op [{op.type}] is not consistent"
 
     partial_dims = list(partial_dims)
     partial_dims.sort()
@@ -666,14 +670,16 @@ def is_data_parallel_scale_op(op):
 
 
 def is_data_parallel_reduce_op(op):
+    is_allreduce_op = op.type in [
+        "c_allreduce_sum",
+        "c_allreduce_avg",
+    ]
+    is_reduce_op = op.type == "reduce" and op.desc.attr("reduce_type") in [
+        dist.ReduceOp.SUM,
+        dist.ReduceOp.AVG,
+    ]
     return (
-        op.type
-        in [
-            "c_allreduce_sum",
-            "c_allreduce_avg",
-            "c_reduce_sum",
-            "c_reduce_avg",
-        ]
+        (is_allreduce_op or is_reduce_op)
         and op.desc.has_attr("op_namescope")
         and ParallelMode.DataParallel in op.desc.attr("op_namescope")
     )
@@ -711,8 +717,8 @@ def merge_forward_backward_dims_mapping(fw_results, bw_results):
     flatten_bw_outputs = paddle.utils.flatten(bw_results[1])
     ninputs = len(flatten_fw_inputs)
     noutputs = len(flatten_fw_outputs)
-    infered_input_dims_mappings = []
-    infered_output_dims_mappings = []
+    inferred_input_dims_mappings = []
+    inferred_output_dims_mappings = []
 
     for i in range(ninputs):
         compatible_dims_mapping = compute_compatible_dims_mapping(
@@ -721,7 +727,7 @@ def merge_forward_backward_dims_mapping(fw_results, bw_results):
                 flatten_bw_inputs[i].dims_mapping,
             ]
         )
-        infered_input_dims_mappings.append(compatible_dims_mapping)
+        inferred_input_dims_mappings.append(compatible_dims_mapping)
 
     for i in range(noutputs):
         compatible_dims_mapping = compute_compatible_dims_mapping(
@@ -730,50 +736,43 @@ def merge_forward_backward_dims_mapping(fw_results, bw_results):
                 flatten_bw_outputs[i].dims_mapping,
             ]
         )
-        infered_output_dims_mappings.append(compatible_dims_mapping)
-    return infered_input_dims_mappings, infered_output_dims_mappings
+        inferred_output_dims_mappings.append(compatible_dims_mapping)
+    return inferred_input_dims_mappings, inferred_output_dims_mappings
 
 
 def update_op_dims_mapping(
     dist_op, input_arg_names, output_arg_names, fw_results, bw_results
 ):
     (
-        infered_input_dims_mappings,
-        infered_output_dims_mappings,
+        inferred_input_dims_mappings,
+        inferred_output_dims_mappings,
     ) = merge_forward_backward_dims_mapping(fw_results, bw_results)
 
     op_dist_attr = dist_op.dist_attr
     changed = False
-    assert len(input_arg_names) == len(
-        infered_input_dims_mappings
-    ), "dims mapping is NOT Match, infered [{}], original: [{}]; dist op: [{}]".format(
-        len(infered_input_dims_mappings), len(input_arg_names), str(dist_op)
-    )
-    assert len(output_arg_names) == len(
-        infered_output_dims_mappings
-    ), "dims mapping is NOT Match, infered [{}], original: [{}]; dist op: [{}]".format(
-        len(infered_output_dims_mappings), len(output_arg_names), str(dist_op)
-    )
+    if len(input_arg_names) != len(inferred_input_dims_mappings):
+        warnings.warn(
+            f"dims mapping is NOT Match, inferred [{len(inferred_input_dims_mappings)}], original: [{len(input_arg_names)}]; dist op: [{dist_op}]"
+        )
+    if len(output_arg_names) != len(inferred_output_dims_mappings):
+        warnings.warn(
+            f"dims mapping is NOT Match, inferred [{len(inferred_output_dims_mappings)}], original: [{len(output_arg_names)}]; dist op: [{dist_op}]"
+        )
 
     for i in range(len(input_arg_names)):
         original_dims_mapping = op_dist_attr.get_input_dims_mapping(
             input_arg_names[i]
         )
-        infered_dims_mapping = infered_input_dims_mappings[i]
-        if (infered_dims_mapping is not None) and (
-            original_dims_mapping != infered_dims_mapping
+        inferred_dims_mapping = inferred_input_dims_mappings[i]
+        if (inferred_dims_mapping is not None) and (
+            original_dims_mapping != inferred_dims_mapping
         ):
             _logger.debug(
-                "Changed: Op [{}], name [{}], Original [{}], Infered [{}]".format(
-                    dist_op.serial_op.type,
-                    input_arg_names[i],
-                    original_dims_mapping,
-                    infered_dims_mapping,
-                )
+                f"Changed: Op [{dist_op.serial_op.type}], name [{input_arg_names[i]}], Original [{original_dims_mapping}], Inferred [{inferred_dims_mapping}]"
             )
             changed = True
             op_dist_attr.set_input_dims_mapping(
-                input_arg_names[i], infered_dims_mapping
+                input_arg_names[i], inferred_dims_mapping
             )
         # TODO support partial for inputs
 
@@ -781,21 +780,16 @@ def update_op_dims_mapping(
         original_dims_mapping = op_dist_attr.get_output_dims_mapping(
             output_arg_names[i]
         )
-        infered_dims_mapping = infered_output_dims_mappings[i]
-        if (infered_dims_mapping is not None) and (
-            original_dims_mapping != infered_dims_mapping
+        inferred_dims_mapping = inferred_output_dims_mappings[i]
+        if (inferred_dims_mapping is not None) and (
+            original_dims_mapping != inferred_dims_mapping
         ):
             _logger.debug(
-                "Changed: Op [{}], name [{}], Original [{}], Infered [{}]".format(
-                    dist_op.serial_op.type,
-                    output_arg_names[i],
-                    original_dims_mapping,
-                    infered_dims_mapping,
-                )
+                f"Changed: Op [{dist_op.serial_op.type}], name [{output_arg_names[i]}], Original [{original_dims_mapping}], Inferred [{inferred_dims_mapping}]"
             )
             changed = True
             op_dist_attr.set_output_dims_mapping(
-                output_arg_names[i], infered_dims_mapping
+                output_arg_names[i], inferred_dims_mapping
             )
 
         # NOTE in partial stage-I, we infer partial for output in infer_forward only
@@ -808,7 +802,7 @@ def update_op_dims_mapping(
             != output_dist_attr._partial_dims()
         ):
             # _logger.info(
-            #     "Changed: Op [{}], tensor name [{}], Original partial on [{}], Infered partial on [{}]".format(
+            #     "Changed: Op [{}], tensor name [{}], Original partial on [{}], Inferred partial on [{}]".format(
             #         dist_op.serial_op.type,
             #         output_arg_names[i],
             #         output_dist_attr._partial_dims(),

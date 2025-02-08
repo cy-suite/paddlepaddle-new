@@ -21,30 +21,9 @@ limitations under the License. */
 #include "paddle/phi/core/distributed/auto_parallel/utils.h"
 #include "paddle/phi/infermeta/spmd_rules/utils.h"
 
-namespace phi {
-namespace distributed {
+namespace phi::distributed {
 
 using phi::distributed::auto_parallel::str_join;
-
-void LogInputDistAttr(const std::string& name,
-                      const std::vector<int64_t>& shape,
-                      const TensorDistAttr& src_dist_attr,
-                      const TensorDistAttr& dst_dist_attr) {
-  VLOG(4) << name << " shape: [" << str_join(shape) << "] "
-          << "src_dims_mapping: [" << str_join(src_dist_attr.dims_mapping())
-          << "] "
-          << "dst_dims_mapping: [" << str_join(dst_dist_attr.dims_mapping())
-          << "] "
-          << "src_partial: " << src_dist_attr.partial_status_string()
-          << " dst_partial: " << dst_dist_attr.partial_status_string();
-}
-
-void LogOutputDistAttr(const std::string& name,
-                       const TensorDistAttr& dst_dist_attr) {
-  VLOG(4) << name << " dims mapping: ["
-          << str_join(dst_dist_attr.dims_mapping()) << "] "
-          << "partial: " << dst_dist_attr.partial_status_string();
-}
 
 SpmdInfo LayerNormInferSpmd(const DistMetaTensor& x,
                             const DistMetaTensor& scale,
@@ -66,14 +45,14 @@ SpmdInfo LayerNormInferSpmd(const DistMetaTensor& x,
   PADDLE_ENFORCE_EQ(
       scale_ndim,
       1,
-      phi::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "The ndim of scale in layer_norm should be 1, but got [%d].",
           scale_ndim));
 
   PADDLE_ENFORCE_EQ(
       bias_ndim,
       1,
-      phi::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "The ndim of bias in layer_norm should be 1, but got [%d].",
           bias_ndim));
 
@@ -196,20 +175,20 @@ SpmdInfo LayerNormInferSpmdReverse(const DistMetaTensor& x,
   PADDLE_ENFORCE_EQ(
       out_ndim,
       out_dims_mapping.size(),
-      phi::errors::InvalidArgument("The Tensor Out's rank [%d] and Out's "
-                                   "dims_mapping size [%d] are not matched.",
-                                   out_ndim,
-                                   out_dims_mapping.size()));
+      common::errors::InvalidArgument("The Tensor Out's rank [%d] and Out's "
+                                      "dims_mapping size [%d] are not matched.",
+                                      out_ndim,
+                                      out_dims_mapping.size()));
   PADDLE_ENFORCE_EQ(
       mean_ndim,
       mean_dims_mapping.size(),
-      phi::errors::InvalidArgument("The Tensor Mean's rank [%d] and Mean's "
-                                   "dims_mapping size [%d] are not matched.",
-                                   mean_ndim,
-                                   mean_dims_mapping.size()));
+      common::errors::InvalidArgument("The Tensor Mean's rank [%d] and Mean's "
+                                      "dims_mapping size [%d] are not matched.",
+                                      mean_ndim,
+                                      mean_dims_mapping.size()));
   PADDLE_ENFORCE_EQ(variance_ndim,
                     variance_dims_mapping.size(),
-                    phi::errors::InvalidArgument(
+                    common::errors::InvalidArgument(
                         "The Tensor Variance's rank [%d] and Variance's "
                         "dims_mapping size [%d] are not matched.",
                         variance_ndim,
@@ -241,10 +220,9 @@ SpmdInfo LayerNormInferSpmdReverse(const DistMetaTensor& x,
   // tensor's dims mapping the same as output tensor's dims mapping.
   // step2.1 merge dims mappings of output, mean, variance.
   std::vector<std::pair<std::string, std::vector<int64_t>>> axes_sharding_info;
-  axes_sharding_info.emplace_back(std::make_pair(out_axes, out_dims_mapping));
-  axes_sharding_info.emplace_back(std::make_pair(mean_axes, mean_dims_mapping));
-  axes_sharding_info.emplace_back(
-      std::make_pair(variance_axes, variance_dims_mapping));
+  axes_sharding_info.emplace_back(out_axes, out_dims_mapping);
+  axes_sharding_info.emplace_back(mean_axes, mean_dims_mapping);
+  axes_sharding_info.emplace_back(variance_axes, variance_dims_mapping);
   std::unordered_map<std::string, int64_t> axis_to_dim_map =
       ShardingMergeForTensors(axes_sharding_info);
 
@@ -335,33 +313,33 @@ SpmdInfo LayerNormGradInferSpmd(const DistMetaTensor& x,
   PADDLE_ENFORCE_GE(
       x_shape.size(),
       begin_norm_axis,
-      phi::errors::InvalidArgument(
+      common::errors::InvalidArgument(
           "The Tensor x's rank [%d] and begin_norm_axis [%d] are not matched.",
           x_shape.size(),
           begin_norm_axis));
   PADDLE_ENFORCE_EQ(
       x_shape.size(),
       out_grad_shape.size(),
-      phi::errors::InvalidArgument("The Tensor x's rank [%d] and Tensor "
-                                   "out_grad's rank [%d] are not matched.",
-                                   x_shape.size(),
-                                   out_grad_shape.size()));
+      common::errors::InvalidArgument("The Tensor x's rank [%d] and Tensor "
+                                      "out_grad's rank [%d] are not matched.",
+                                      x_shape.size(),
+                                      out_grad_shape.size()));
 
   PADDLE_ENFORCE_EQ(
       scale_shape.size(),
       bias_shape.size(),
-      phi::errors::InvalidArgument("The Tensor scale's rank [%d] and Tensor "
-                                   "bias's rank [%d] are not matched.",
-                                   scale_shape.size(),
-                                   bias_shape.size()));
+      common::errors::InvalidArgument("The Tensor scale's rank [%d] and Tensor "
+                                      "bias's rank [%d] are not matched.",
+                                      scale_shape.size(),
+                                      bias_shape.size()));
 
   PADDLE_ENFORCE_EQ(
       mean_shape.size(),
       variance_shape.size(),
-      phi::errors::InvalidArgument("The Tensor mean's rank [%d] and Tensor "
-                                   "variance's rank [%d] are not matched.",
-                                   mean_shape.size(),
-                                   variance_shape.size()));
+      common::errors::InvalidArgument("The Tensor mean's rank [%d] and Tensor "
+                                      "variance's rank [%d] are not matched.",
+                                      mean_shape.size(),
+                                      variance_shape.size()));
 
   // 2、align sharding
   TensorDistAttr x_dist_attr;
@@ -384,12 +362,38 @@ SpmdInfo LayerNormGradInferSpmd(const DistMetaTensor& x,
     std::string align_annotation;
     std::tie(annotations, align_annotation) =
         BuildLayerNormGradEinsum(x_shape.size(), begin_norm_axis);
-    AlignDimsSharding(
-        &dist_attrs, shapes, annotations, {}, align_annotation, false);
+
+    // Sharding Propagation
+    std::vector<std::pair<std::string, std::vector<int64_t>>>
+        axes_sharding_info;
+    auto x_dims_mapping = dist_attrs[0].dims_mapping();
+    auto out_grad_dims_mapping = dist_attrs[3].dims_mapping();
+    std::fill(
+        x_dims_mapping.begin() + begin_norm_axis, x_dims_mapping.end(), -1);
+    std::fill(out_grad_dims_mapping.begin() + begin_norm_axis,
+              out_grad_dims_mapping.end(),
+              -1);
+    axes_sharding_info.emplace_back(annotations[0], x_dims_mapping);
+    axes_sharding_info.emplace_back(annotations[1],
+                                    dist_attrs[1].dims_mapping());
+    axes_sharding_info.emplace_back(annotations[2],
+                                    dist_attrs[2].dims_mapping());
+    axes_sharding_info.emplace_back(annotations[3], out_grad_dims_mapping);
+    std::unordered_map<std::string, int64_t> axis_to_dim_map =
+        ShardingMergeForTensors(axes_sharding_info);
+
     x_dist_attr = std::move(dist_attrs[0]);
+    x_dist_attr.set_dims_mapping(
+        GetDimsMappingForAxes(annotations[0], axis_to_dim_map));
     mean_dist_attr = std::move(dist_attrs[1]);
+    mean_dist_attr.set_dims_mapping(
+        GetDimsMappingForAxes(annotations[1], axis_to_dim_map));
     variance_dist_attr = std::move(dist_attrs[2]);
+    variance_dist_attr.set_dims_mapping(
+        GetDimsMappingForAxes(annotations[2], axis_to_dim_map));
     out_grad_dist_attr = std::move(dist_attrs[3]);
+    out_grad_dist_attr.set_dims_mapping(
+        GetDimsMappingForAxes(annotations[3], axis_to_dim_map));
   } else {
     x_dist_attr = GetReplicatedDistAttr(dist_attrs[0]);
     mean_dist_attr = GetReplicatedDistAttr(dist_attrs[1]);
@@ -440,5 +444,31 @@ SpmdInfo LayerNormGradInferSpmd(const DistMetaTensor& x,
       {x_grad_dist_attr, scale_grad_dist_attr, bias_grad_dist_attr});
 }
 
-}  // namespace distributed
-}  // namespace phi
+SpmdInfo FastLnInferSpmd(const DistMetaTensor& x,
+                         const DistMetaTensor& scale,
+                         const DistMetaTensor& bias,
+                         float epsilon) {
+  int begin_norm_axis = x.dims().size() - 1;
+  VLOG(4) << "FastLnInferSpmd call LayerNormInferSpmd with begin_norm_axis="
+          << begin_norm_axis;
+  return LayerNormInferSpmd(x, scale, bias, epsilon, begin_norm_axis);
+}
+
+SpmdInfo FastLnGradInferSpmd(const DistMetaTensor& x,
+                             const DistMetaTensor& scale,
+                             const DistMetaTensor& mean,
+                             const DistMetaTensor& invvar,
+                             const DistMetaTensor& y_grad,
+                             float epsilon) {
+  int begin_norm_axis = x.dims().size() - 1;
+  const DistMetaTensor& bias(scale);  // bias is not used in FastLnGrad
+  VLOG(4)
+      << "FastLnGradInferSpmd call LayerNormGradInferSpmd with begin_norm_axis="
+      << begin_norm_axis << ", the input 'bias' will be ignored.";
+  SpmdInfo spmd_info = LayerNormGradInferSpmd(
+      x, scale, bias, mean, invvar, y_grad, epsilon, begin_norm_axis);
+  spmd_info.first.erase(spmd_info.first.begin() + 2);  // remove bias_dist_attr
+  return spmd_info;
+}
+
+}  // namespace phi::distributed

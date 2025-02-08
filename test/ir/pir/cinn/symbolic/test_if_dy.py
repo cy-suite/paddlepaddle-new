@@ -12,9 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import sys
 import unittest
 from os.path import dirname
+
+os.environ['FLAGS_cinn_new_group_scheduler'] = '1'
+os.environ['FLAGS_prim_enable_dynamic'] = 'true'
 
 import numpy as np
 
@@ -38,7 +42,7 @@ class IfSubgraph(nn.Layer):
     def forward(self, x):
         if x.shape[-1] > 1:
             x = self.exp_sub(x)
-        x = paddle.nn.functional.relu(x)
+        x = paddle.sin(x)
         return x
 
 
@@ -53,13 +57,13 @@ class TestIfSubgraph(unittest.TestCase):
         self.x.stop_gradient = False
 
     def check_jit_kernel_info(self, static_fn):
-        utils.check_jit_kernel_number(static_fn, 2)
+        utils.check_jit_kernel_number(static_fn, 3)
         utils.check_jit_kernel_structure(
             static_fn,
             {
                 'if_0': {utils.JIT_KERNEL_NAME: 1},
                 'else_0': {},
-                utils.JIT_KERNEL_NAME: 1,
+                utils.JIT_KERNEL_NAME: 2,
             },
         )
 
@@ -83,5 +87,5 @@ class TestIfSubgraph(unittest.TestCase):
         )
 
 
-# if __name__ == '__main__':
-#     unittest.main()
+if __name__ == '__main__':
+    unittest.main()

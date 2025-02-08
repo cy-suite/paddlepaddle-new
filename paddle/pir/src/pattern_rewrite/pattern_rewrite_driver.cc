@@ -53,6 +53,9 @@ class GreedyPatternRewriteDriver : public pir::PatternRewriter {
         }
       }
     }
+    if (config.value_replaced_hook) {
+      value_replaced_hook_fn_ = config.value_replaced_hook;
+    }
   }
 
   std::pair<bool, int64_t> Simplify() {
@@ -115,13 +118,14 @@ class GreedyPatternRewriteDriver : public pir::PatternRewriter {
     return num_rewrites;
   }
 
-  // TODO(wilber): OpResult support GetUsers method.
   void NotifyRootReplaced(pir::Operation* op,
                           const std::vector<pir::Value>& replacement) override {
-    //   for (uint32_t i = 0; i < op->num_results(); ++i) {
-    //     auto res = op->GetResultByIndex(i);
-    //   }
-    // }
+    for (uint32_t i = 0; i < op->num_results(); ++i) {
+      auto result = op->result(i);
+      for (auto it = result.use_begin(); it != result.use_end(); ++it) {
+        AddToWorklist(it->owner());
+      }
+    }
   }
 
   void FinalizeRootUpdate(pir::Operation* op) override { AddToWorklist(op); }
@@ -153,6 +157,12 @@ class GreedyPatternRewriteDriver : public pir::PatternRewriter {
     if (config_.strict_mode == pir::GreedyRewriteStrictness::ExistingAndNewOps)
       strict_mode_filtered_ops_.insert(op);
     AddToWorklist(op);
+  }
+
+  void NotifyValueReplaced(pir::Value from, pir::Value to) override {
+    if (value_replaced_hook_fn_) {
+      value_replaced_hook_fn_(from, to);
+    }
   }
 
   /// Add the given operation to the worklist.
@@ -206,6 +216,7 @@ class GreedyPatternRewriteDriver : public pir::PatternRewriter {
   std::unordered_set<pir::Operation*> strict_mode_filtered_ops_;
   pir::Region& region_;
   pir::PatternApplicator matcher_;
+  pir::VALUE_REPLACED_HOOK_FUNC value_replaced_hook_fn_ = nullptr;
 };
 
 }  // namespace
@@ -220,7 +231,7 @@ std::pair<bool, int64_t> ApplyPatternsGreedily(
 
   GreedyPatternRewriteDriver driver(region.ir_context(), patterns, config);
   auto [converged, num_rewrites] = driver.Simplify();
-  if (!converged) {
+  if (!converged && config.max_iterations != 1) {
     LOG(WARNING) << "The pattern rewrite did not converge after scanning "
                  << config.max_iterations << " times";
   }

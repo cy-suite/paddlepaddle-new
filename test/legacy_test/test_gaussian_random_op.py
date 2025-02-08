@@ -87,9 +87,7 @@ class TestGaussianRandomFP16Op(OpTest):
         self.std = 2.0
 
     def test_check_output(self):
-        self.check_output_with_place_customized(
-            self.verify_output, place=core.CUDAPlace(0), check_pir=True
-        )
+        self.check_output_customized(self.verify_output, check_pir=True)
 
     def verify_output(self, outs):
         self.assertEqual(outs[0].shape, (123, 92))
@@ -140,9 +138,7 @@ class TestGaussianRandomBF16Op(OpTest):
         self.std = 2.0
 
     def test_check_output(self):
-        self.check_output_with_place_customized(
-            self.verify_output, place=core.CUDAPlace(0), check_pir=True
-        )
+        self.check_output_customized(self.verify_output, check_pir=True)
 
     def verify_output(self, outs):
         outs = convert_uint16_to_float(outs)
@@ -388,6 +384,69 @@ class TestStandardNormalDtype(unittest.TestCase):
         test_default_fp64()
         test_default_fp32()
 
+    def test_complex_dtype(self):
+        def test_complex64():
+            out = paddle.tensor.random.standard_normal(
+                [2, 3], dtype='complex64'
+            )
+            self.assertEqual(out.dtype, paddle.complex64)
+
+        def test_complex128():
+            out = paddle.tensor.random.standard_normal(
+                [2, 3], dtype='complex128'
+            )
+            self.assertEqual(out.dtype, paddle.complex128)
+
+        test_complex64()
+        test_complex128()
+
+
+class TestComplexRandnAPI(unittest.TestCase):
+    def test_dygraph(self):
+        place = (
+            paddle.CUDAPlace(0)
+            if core.is_compiled_with_cuda()
+            else paddle.CPUPlace()
+        )
+        with base.dygraph.guard(place):
+            for dtype in ['complex64', 'complex128']:
+                out = paddle.randn([5000, 2], dtype=dtype)
+                mean = out.numpy().mean()
+                np.testing.assert_allclose(
+                    0.0 + 0.0j, mean, rtol=0.02, atol=0.02
+                )
+                var = out.numpy().var()
+                var_real = out.numpy().real.var()
+                var_imag = out.numpy().imag.var()
+                np.testing.assert_allclose(var, 1.0, rtol=0.02, atol=0.02)
+                np.testing.assert_allclose(var_real, 0.5, rtol=0.02, atol=0.02)
+                np.testing.assert_allclose(var_imag, 0.5, rtol=0.02, atol=0.02)
+
+    def test_static(self):
+        place = (
+            paddle.CUDAPlace(0)
+            if core.is_compiled_with_cuda()
+            else paddle.CPUPlace()
+        )
+        with paddle_static_guard():
+            for dtype in ['complex64', 'complex128']:
+                main_program = paddle.static.Program()
+                with paddle.static.program_guard(main_program):
+                    out = paddle.randn([5000, 2], dtype=dtype)
+                    exe = paddle.static.Executor(place)
+                    ret = exe.run(fetch_list=[out])
+
+                mean = ret[0].mean()
+                np.testing.assert_allclose(
+                    0.0 + 0.0j, mean, rtol=0.02, atol=0.02
+                )
+                var = ret[0].var()
+                var_real = ret[0].real.var()
+                var_imag = ret[0].imag.var()
+                np.testing.assert_allclose(var, 1.0, rtol=0.02, atol=0.02)
+                np.testing.assert_allclose(var_real, 0.5, rtol=0.02, atol=0.02)
+                np.testing.assert_allclose(var_imag, 0.5, rtol=0.02, atol=0.02)
+
 
 class TestRandomValue(unittest.TestCase):
     def test_fixed_random_number(self):
@@ -399,8 +458,8 @@ class TestRandomValue(unittest.TestCase):
         if "V100" not in paddle.device.cuda.get_device_name():
             return
 
-        def _check_random_value(dtype, expect, expect_mean, expect_std):
-            x = paddle.randn([32, 3, 1024, 1024], dtype=dtype)
+        def _check_random_value(shape, dtype, expect, expect_mean, expect_std):
+            x = paddle.randn(shape, dtype=dtype)
             actual = x.numpy()
             np.testing.assert_allclose(
                 actual[2, 1, 512, 1000:1010], expect, rtol=1e-05
@@ -428,7 +487,9 @@ class TestRandomValue(unittest.TestCase):
             -0.0000053026194133403266873214888799115129813799285329878330230713
         )
         expect_std = 0.99999191058126390974081232343451119959354400634765625
-        _check_random_value(paddle.float64, expect, expect_mean, expect_std)
+        _check_random_value(
+            [32, 3, 1024, 1024], paddle.float64, expect, expect_mean, expect_std
+        )
 
         expect = [
             -0.7988942,
@@ -444,7 +505,57 @@ class TestRandomValue(unittest.TestCase):
         ]
         expect_mean = -0.00004762359094456769526004791259765625
         expect_std = 0.999975681304931640625
-        _check_random_value(paddle.float32, expect, expect_mean, expect_std)
+        _check_random_value(
+            [32, 3, 1024, 1024], paddle.float32, expect, expect_mean, expect_std
+        )
+
+        # test randn in large shape
+        expect = [
+            -1.4770278,
+            -0.637431,
+            -0.41728288,
+            0.31339037,
+            -1.7627009,
+            0.4061812,
+            1.0679497,
+            0.03405872,
+            -0.7271235,
+            -0.42642546,
+        ]
+
+        expect_mean = 0.0000010386128224126878194510936737060547
+        expect_std = 1.00000822544097900390625
+        _check_random_value(
+            [4, 2, 60000, 12000],
+            paddle.float32,
+            expect,
+            expect_mean,
+            expect_std,
+        )
+
+        # test randn with seed 0 in large shape
+        paddle.seed(0)
+        expect = [
+            -1.7653463,
+            0.5957617,
+            0.45865676,
+            -0.3061651,
+            0.17204928,
+            -1.7802757,
+            -0.10731091,
+            1.042362,
+            0.70476884,
+            0.2720365,
+        ]
+        expect_mean = -0.0000002320642948916429304517805576324463
+        expect_std = 1.00001156330108642578125
+        _check_random_value(
+            [4, 2, 60000, 12000],
+            paddle.float32,
+            expect,
+            expect_mean,
+            expect_std,
+        )
 
 
 if __name__ == "__main__":

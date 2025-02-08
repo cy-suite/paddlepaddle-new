@@ -14,8 +14,7 @@
 
 #include "paddle/fluid/pir/dialect/kernel/ir/kernel_type.h"
 
-namespace paddle {
-namespace dialect {
+namespace paddle::dialect {
 
 pir::Type AllocatedDenseTensorType::prim_type() {
   return storage()->dense_tensor_type_;
@@ -37,7 +36,7 @@ phi::DataLayout AllocatedDenseTensorType::data_layout() const {
   return storage()->dense_tensor_type_.data_layout();
 }
 
-const phi::LoD& AllocatedDenseTensorType::lod() const {
+const phi::LegacyLoD& AllocatedDenseTensorType::lod() const {
   return storage()->dense_tensor_type_.lod();
 }
 
@@ -65,7 +64,7 @@ phi::DataLayout AllocatedSelectedRowsType::data_layout() const {
   return storage()->selected_rows_type_.data_layout();
 }
 
-const phi::LoD& AllocatedSelectedRowsType::lod() const {
+const phi::LegacyLoD& AllocatedSelectedRowsType::lod() const {
   return storage()->selected_rows_type_.lod();
 }
 
@@ -73,6 +72,75 @@ size_t AllocatedSelectedRowsType::offset() const {
   return storage()->selected_rows_type_.offset();
 }
 
+// AllocatedSparseCooTensorType
+pir::Type AllocatedSparseCooTensorType::prim_type() {
+  return storage()->sparsecoo_tensor_type_;
+}
+
+const phi::Place& AllocatedSparseCooTensorType::place() const {
+  return storage()->place_;
+}
+
+const pir::Type AllocatedSparseCooTensorType::dtype() const {
+  return storage()->sparsecoo_tensor_type_.dtype();
+}
+
+const phi::DDim& AllocatedSparseCooTensorType::dims() const {
+  return storage()->sparsecoo_tensor_type_.dims();
+}
+const phi::DDim& AllocatedSparseCooTensorType::non_zero_dims() const {
+  return storage()->sparsecoo_tensor_type_.non_zero_dims();
+}
+phi::DataLayout AllocatedSparseCooTensorType::data_layout() const {
+  return storage()->sparsecoo_tensor_type_.data_layout();
+}
+
+pir::DenseTensorType AllocatedSparseCooTensorType::non_zero_indices() const {
+  return storage()->sparsecoo_tensor_type_.non_zero_indices();
+}
+
+pir::DenseTensorType AllocatedSparseCooTensorType::non_zero_elements() const {
+  return storage()->sparsecoo_tensor_type_.non_zero_elements();
+}
+
+bool AllocatedSparseCooTensorType::coalesced() const {
+  return storage()->sparsecoo_tensor_type_.coalesced();
+}
+
+// AllocatedSparseCsrTensorType
+pir::Type AllocatedSparseCsrTensorType::prim_type() {
+  return storage()->sparsecsr_tensor_type_;
+}
+
+const phi::Place& AllocatedSparseCsrTensorType::place() const {
+  return storage()->place_;
+}
+
+pir::Type AllocatedSparseCsrTensorType::dtype() const {
+  return storage()->sparsecsr_tensor_type_.dtype();
+}
+
+const phi::DDim& AllocatedSparseCsrTensorType::dims() const {
+  return storage()->sparsecsr_tensor_type_.dims();
+}
+
+phi::DataLayout AllocatedSparseCsrTensorType::data_layout() const {
+  return storage()->sparsecsr_tensor_type_.data_layout();
+}
+
+pir::DenseTensorType AllocatedSparseCsrTensorType::non_zero_crows() const {
+  return storage()->sparsecsr_tensor_type_.non_zero_crows();
+}
+
+pir::DenseTensorType AllocatedSparseCsrTensorType::non_zero_cols() const {
+  return storage()->sparsecsr_tensor_type_.non_zero_cols();
+}
+
+pir::DenseTensorType AllocatedSparseCsrTensorType::non_zero_elements() const {
+  return storage()->sparsecsr_tensor_type_.non_zero_elements();
+}
+
+// AllocatedDenseTensorArrayType
 pir::Type AllocatedDenseTensorArrayType::prim_type() {
   return storage()->dense_tensor_array_type_;
 }
@@ -93,9 +161,10 @@ const phi::DataLayout& AllocatedDenseTensorArrayType::data_layout() const {
   return storage()->dense_tensor_array_type_.data_layout();
 }
 
-}  // namespace dialect
-}  // namespace paddle
+}  // namespace paddle::dialect
 
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::AllocatedDenseTensorType)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::AllocatedSelectedRowsType)
+IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::AllocatedSparseCooTensorType)
+IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::AllocatedSparseCsrTensorType)
 IR_DEFINE_EXPLICIT_TYPE_ID(paddle::dialect::AllocatedDenseTensorArrayType)

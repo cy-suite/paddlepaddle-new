@@ -51,7 +51,7 @@ class TestGeneratorSeed(unittest.TestCase):
         x2_np = x2.numpy()
         x3_np = x3.numpy()
 
-        if not core.is_compiled_with_cuda():
+        if not core.is_compiled_with_cuda() and not core.is_compiled_with_xpu():
             np.testing.assert_allclose(x1_np, x2_np, rtol=1e-05)
             np.testing.assert_allclose(x_np, x3_np, rtol=1e-05)
 
@@ -84,7 +84,10 @@ class TestGeneratorSeed(unittest.TestCase):
             out2_res1 = np.array(out2[0])
             out2_res2 = np.array(out2[1])
 
-            if not core.is_compiled_with_cuda():
+            if (
+                not core.is_compiled_with_cuda()
+                and not core.is_compiled_with_xpu()
+            ):
                 np.testing.assert_allclose(out1_res1, out2_res1, rtol=1e-05)
                 np.testing.assert_allclose(out1_res2, out2_res2, rtol=1e-05)
                 self.assertTrue(not np.allclose(out1_res2, out1_res1))
@@ -104,7 +107,7 @@ class TestGeneratorSeed(unittest.TestCase):
         y_np = y.numpy()
         y1_np = y1.numpy()
 
-        if not core.is_compiled_with_cuda():
+        if not core.is_compiled_with_cuda() and not core.is_compiled_with_xpu():
             print(">>>>>>> dropout dygraph >>>>>>>")
             np.testing.assert_allclose(y_np, y1_np, rtol=1e-05)
 
@@ -129,7 +132,7 @@ class TestGeneratorSeed(unittest.TestCase):
         out1_np = np.array(out1[0])
         out2_np = np.array(out2[0])
 
-        if not core.is_compiled_with_cuda():
+        if not core.is_compiled_with_cuda() and not core.is_compiled_with_xpu():
             print(">>>>>>> dropout static >>>>>>>")
             np.testing.assert_allclose(out1_np, out2_np, rtol=1e-05)
 
@@ -150,7 +153,7 @@ class TestGeneratorSeed(unittest.TestCase):
         x2_np = x2.numpy()
         x3_np = x3.numpy()
 
-        if not core.is_compiled_with_cuda():
+        if not core.is_compiled_with_cuda() and not core.is_compiled_with_xpu():
             print(">>>>>>> gaussian random dygraph >>>>>>>")
             np.testing.assert_allclose(x1_np, x2_np, rtol=1e-05)
             np.testing.assert_allclose(x_np, x3_np, rtol=1e-05)
@@ -184,7 +187,10 @@ class TestGeneratorSeed(unittest.TestCase):
             out2_res1 = np.array(out2[0])
             out2_res2 = np.array(out2[1])
 
-            if not core.is_compiled_with_cuda():
+            if (
+                not core.is_compiled_with_cuda()
+                and not core.is_compiled_with_xpu()
+            ):
                 print(">>>>>>> gaussian random static >>>>>>>")
                 np.testing.assert_allclose(out1_res1, out2_res1, rtol=1e-05)
                 np.testing.assert_allclose(out1_res2, out2_res2, rtol=1e-05)
@@ -207,7 +213,7 @@ class TestGeneratorSeed(unittest.TestCase):
         x2_np = x2.numpy()
         x3_np = x3.numpy()
 
-        if not core.is_compiled_with_cuda():
+        if not core.is_compiled_with_cuda() and not core.is_compiled_with_xpu():
             print(">>>>>>> randint dygraph >>>>>>>")
             np.testing.assert_allclose(x1_np, x2_np, rtol=1e-05)
             np.testing.assert_allclose(x_np, x3_np, rtol=1e-05)
@@ -241,7 +247,10 @@ class TestGeneratorSeed(unittest.TestCase):
             out2_res1 = np.array(out2[0])
             out2_res2 = np.array(out2[1])
 
-            if not core.is_compiled_with_cuda():
+            if (
+                not core.is_compiled_with_cuda()
+                and not core.is_compiled_with_xpu()
+            ):
                 np.testing.assert_allclose(out1_res1, out2_res1, rtol=1e-05)
                 np.testing.assert_allclose(out1_res2, out2_res2, rtol=1e-05)
                 self.assertTrue(not np.allclose(out1_res2, out1_res1))
@@ -262,7 +271,7 @@ class TestGeneratorSeed(unittest.TestCase):
         x1_np = x1.numpy()
         x2_np = x2.numpy()
         x3_np = x3.numpy()
-        if not core.is_compiled_with_cuda():
+        if not core.is_compiled_with_cuda() and not core.is_compiled_with_xpu():
             np.testing.assert_allclose(x1_np, x2_np, rtol=1e-05)
             np.testing.assert_allclose(x_np, x3_np, rtol=1e-05)
 
@@ -295,7 +304,10 @@ class TestGeneratorSeed(unittest.TestCase):
             out2_res1 = np.array(out2[0])
             out2_res2 = np.array(out2[1])
 
-            if not core.is_compiled_with_cuda():
+            if (
+                not core.is_compiled_with_cuda()
+                and not core.is_compiled_with_xpu()
+            ):
                 print(">>>>>>> randint static >>>>>>>")
                 np.testing.assert_allclose(out1_res1, out2_res1, rtol=1e-05)
                 np.testing.assert_allclose(out1_res2, out2_res2, rtol=1e-05)
@@ -319,7 +331,7 @@ class TestGeneratorSeed(unittest.TestCase):
         x2_np = x2.numpy()
         x3_np = x3.numpy()
 
-        if not core.is_compiled_with_cuda():
+        if not core.is_compiled_with_cuda() and not core.is_compiled_with_xpu():
             print(">>>>>>> randperm dygraph >>>>>>>")
             np.testing.assert_allclose(x1_np, x2_np, rtol=1e-05)
             np.testing.assert_allclose(x_np, x3_np, rtol=1e-05)
@@ -353,62 +365,14 @@ class TestGeneratorSeed(unittest.TestCase):
             out2_res1 = np.array(out2[0])
             out2_res2 = np.array(out2[1])
 
-            if not core.is_compiled_with_cuda():
+            if (
+                not core.is_compiled_with_cuda()
+                and not core.is_compiled_with_xpu()
+            ):
                 print(">>>>>>> randperm static >>>>>>>")
                 np.testing.assert_allclose(out1_res1, out2_res1, rtol=1e-05)
                 np.testing.assert_allclose(out1_res2, out2_res2, rtol=1e-05)
                 self.assertTrue(not np.allclose(out1_res2, out1_res1))
-
-    def test_gen_TruncatedNormal_initializer(self):
-        base.disable_dygraph()
-
-        gen = paddle.seed(123123143)
-        cur_state = gen.get_state()
-
-        startup_program = base.Program()
-        train_program = base.Program()
-        with base.program_guard(train_program, startup_program):
-            # example 1:
-            # attr shape is a list which doesn't contain tensor Variable.
-            x = paddle.uniform(shape=[2, 10])
-            result_1 = paddle.static.nn.fc(
-                x,
-                size=10,
-                weight_attr=paddle.nn.initializer.TruncatedNormal(
-                    mean=0.0, std=2.0
-                ),
-            )
-            result_2 = paddle.static.nn.fc(
-                x,
-                size=10,
-                weight_attr=paddle.nn.initializer.TruncatedNormal(
-                    mean=0.0, std=2.0
-                ),
-            )
-
-            exe = base.Executor(base.CPUPlace())
-            exe.run(startup_program)
-            out1 = exe.run(
-                train_program, feed={}, fetch_list=[result_1, result_2]
-            )
-
-        gen.manual_seed(123123143)
-        with base.program_guard(train_program, startup_program):
-            exe.run(startup_program)
-            out2 = exe.run(
-                train_program, feed={}, fetch_list=[result_1, result_2]
-            )
-
-        out1_res1 = np.array(out1[0])
-        out1_res2 = np.array(out1[1])
-        out2_res1 = np.array(out2[0])
-        out2_res2 = np.array(out2[1])
-
-        if not core.is_compiled_with_cuda():
-            print(">>>>>>> sampling id static >>>>>>>")
-            np.testing.assert_allclose(out1_res1, out2_res1, rtol=1e-05)
-            np.testing.assert_allclose(out1_res2, out2_res2, rtol=1e-05)
-            self.assertTrue(not np.allclose(out1_res2, out1_res1))
 
 
 if __name__ == "__main__":

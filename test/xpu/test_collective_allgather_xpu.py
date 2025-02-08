@@ -32,8 +32,13 @@ class TestCollectiveAllgatherAPI(TestDistBase):
         "run test when having at least 2 XPUs.",
     )
     def test_allgather(self):
-        support_types = get_xpu_op_support_types('c_allgather')
+        support_types = get_xpu_op_support_types('all_gather')
+        # TODO(lijin23): The XPU all_gather does support float64 and bool,
+        # but the split kernel corresponding with it does not.
+        # To be removed when the XDNN api supports float64.
         for dtype in support_types:
+            if dtype in ["float64", "bool"]:
+                continue
             self.check_with_place(
                 "collective_allgather_api.py", "allgather", dtype=dtype
             )
@@ -43,8 +48,10 @@ class TestCollectiveAllgatherAPI(TestDistBase):
         "run test when having at least 2 XPUs.",
     )
     def test_allgather_dygraph(self):
-        support_types = get_xpu_op_support_types('c_allgather')
+        support_types = get_xpu_op_support_types('all_gather')
         for dtype in support_types:
+            if dtype in ["float64", "bool"]:
+                continue
             self.check_with_place(
                 "collective_allgather_api_dygraph.py",
                 "allgather",

@@ -18,9 +18,7 @@
 #include "paddle/fluid/framework/operator.h"
 #include "paddle/phi/core/kernel_factory.h"
 
-namespace paddle {
-namespace framework {
-namespace ir {
+namespace paddle::framework::ir {
 
 void FuseOptimizerOpPass::ApplyImpl(ir::Graph *graph) const {
   ir::Graph &result = *graph;
@@ -42,11 +40,11 @@ void FuseOptimizerOpPass::ApplyImpl(ir::Graph *graph) const {
       PADDLE_ENFORCE_EQ(
           grad_name.size(),
           static_cast<size_t>(1),
-          platform::errors::InvalidArgument(
+          common::errors::InvalidArgument(
               "The %s operator has multiple gradient input. Expected "
               "it to only have one gradient input.",
               fuse_op_type));
-      if (IsLoDTensorType(GetTypeOfVar(vars_info, grad_name[0]))) {
+      if (IsDenseTensorType(GetTypeOfVar(vars_info, grad_name[0]))) {
         opt_nodes.emplace_back(node);
       }
       ++opt_ops_num;
@@ -107,12 +105,12 @@ void FuseOptimizerOpPass::ApplyImpl(ir::Graph *graph) const {
     PADDLE_ENFORCE_EQ(
         fused_var_set.count(fused_var_name),
         0,
-        platform::errors::AlreadyExists(
-            "The fused variable(%s) already exists.", fused_var_name));
+        common::errors::AlreadyExists("The fused variable(%s) already exists.",
+                                      fused_var_name));
     // FIXME(wangxi). update persistable
     details::VariableInfo var_info;
     var_info.name_ = fused_var_name;
-    var_info.type_ = proto::VarType::LOD_TENSOR;
+    var_info.type_ = proto::VarType::DENSE_TENSOR;
     var_info.persistable_ = false;
     fused_var_set.insert({fused_var_name, var_info});
     fused_vars_name.emplace(var_name, fused_var_name);
@@ -127,7 +125,7 @@ void FuseOptimizerOpPass::ApplyImpl(ir::Graph *graph) const {
         result.Get<details::ParamsAndGrads>(details::kParamsAndDenseGrads);
     PADDLE_ENFORCE_LE(params_and_dense_grads.size(),
                       aux_var_map.at(kGrad).size(),
-                      platform::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "The number of dense gradients(%d) should be "
                           "little than optimizer ops(%d).",
                           params_and_dense_grads.size(),
@@ -151,15 +149,15 @@ void FuseOptimizerOpPass::ApplyImpl(ir::Graph *graph) const {
     // some gradient's name maybe changed.
     if (new_grad_idx.empty()) {
       if (!result.Has(details::kFusedGrads)) {
-        PADDLE_THROW(platform::errors::PreconditionNotMet(
+        PADDLE_THROW(common::errors::PreconditionNotMet(
             "The coalesce_grad_tensor_pass should "
             "be called before this pass."));
       }
       auto &fused_grad = result.Get<details::FusedGrads>(details::kFusedGrads);
-      PADDLE_ENFORCE_NE(fused_grad.size(),
-                        0,
-                        platform::errors::NotFound(
-                            "The fused gradient should not be empty."));
+      PADDLE_ENFORCE_NE(
+          fused_grad.size(),
+          0,
+          common::errors::NotFound("The fused gradient should not be empty."));
       if (fused_grad.size() > 1) {
         // Note(chenweihang): Because the dtype of those gradients is not
         //   unified,so the number of fused gradients is more than one,
@@ -172,7 +170,7 @@ void FuseOptimizerOpPass::ApplyImpl(ir::Graph *graph) const {
       PADDLE_ENFORCE_EQ(
           iter != fused_vars.end(),
           true,
-          platform::errors::NotFound("Not found the fused gradient variable."));
+          common::errors::NotFound("Not found the fused gradient variable."));
       fused_vars_name[kGrad] = fused_grad.front();
 
       // Sort the parameters and auxiliary variables according
@@ -285,7 +283,8 @@ bool FuseOptimizerOpPass::HasVarDepsBetweenOps(
 
 bool FuseOptimizerOpPass::OpWithKernelSupportCPUAndGPU(
     const std::string &op_type) const {
-  if (op_type == "c_sync_calc_stream" || op_type == "c_sync_comm_stream") {
+  if (op_type == "c_sync_calc_stream" || op_type == "c_sync_comm_stream" ||
+      op_type == "sync_calc_stream" || op_type == "sync_comm_stream") {
     return true;
   }
   bool support_cpu = false;
@@ -295,9 +294,9 @@ bool FuseOptimizerOpPass::OpWithKernelSupportCPUAndGPU(
       kernel_factory.SelectKernelMap(phi::TransToPhiKernelName(op_type));
   bool has_op_kernel = !kernel_key_map.empty() ? true : false;
   for (auto &kernel : kernel_key_map) {
-    if (platform::is_gpu_place(phi::TransToPhiPlace(kernel.first.backend()))) {
+    if (phi::is_gpu_place(phi::TransToPhiPlace(kernel.first.backend()))) {
       support_gpu = true;
-    } else if (platform::is_cpu_place(
+    } else if (phi::is_cpu_place(
                    phi::TransToPhiPlace(kernel.first.backend()))) {
       support_cpu = true;
     }
@@ -310,9 +309,9 @@ bool FuseOptimizerOpPass::OpWithKernelSupportCPUAndGPU(
     if (it != all_kernels.end()) {
       has_op_kernel = true;
       for (auto &kernel_pair : it->second) {
-        if (platform::is_cpu_place(kernel_pair.first.place_)) {
+        if (phi::is_cpu_place(kernel_pair.first.place_)) {
           support_cpu = true;
-        } else if (platform::is_gpu_place(kernel_pair.first.place_)) {
+        } else if (phi::is_gpu_place(kernel_pair.first.place_)) {
           support_gpu = true;
         }
       }
@@ -388,20 +387,20 @@ void FuseOptimizerOpPass::FuseGradientsToContinuousSpace(
     PADDLE_ENFORCE_EQ(
         iter != vars_info.end(),
         true,
-        platform::errors::NotFound("The gradient variable %s is not found.",
-                                   grad_var_name));
+        common::errors::NotFound("The gradient variable %s is not found.",
+                                 grad_var_name));
     PADDLE_ENFORCE_EQ(
         !iter->second.empty(),
         true,
-        platform::errors::NotFound("The gradient var node %s is not found.",
-                                   grad_var_name));
+        common::errors::NotFound("The gradient var node %s is not found.",
+                                 grad_var_name));
     PADDLE_ENFORCE_NOT_NULL(
         iter->second.front()->Var(),
-        platform::errors::InvalidArgument("The gradient var(%s) node is null.",
-                                          grad_var_name));
-    PADDLE_ENFORCE_EQ(IsLoDTensorType(iter->second.front()->Var()->GetType()),
+        common::errors::InvalidArgument("The gradient var(%s) node is null.",
+                                        grad_var_name));
+    PADDLE_ENFORCE_EQ(IsDenseTensorType(iter->second.front()->Var()->GetType()),
                       true,
-                      platform::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "Currently the gradient(%s) type only should be "
                           "phi::DenseTensor when "
                           "fusing optimizer ops.",
@@ -433,10 +432,10 @@ FuseOptimizerOpPass::GetVarInfo(const Graph &result) const {
   return vars;
 }
 
-bool FuseOptimizerOpPass::IsLoDTensorType(
+bool FuseOptimizerOpPass::IsDenseTensorType(
     const proto::VarType::Type &type) const {
-  // Current only support LOD_TENSOR.
-  return type == proto::VarType::LOD_TENSOR;
+  // Current only support DENSE_TENSOR.
+  return type == proto::VarType::DENSE_TENSOR;
 }
 
 const VarDesc *FuseOptimizerOpPass::GetVarDescFromVarsInfo(
@@ -445,14 +444,14 @@ const VarDesc *FuseOptimizerOpPass::GetVarDescFromVarsInfo(
   auto grad_iter = vars_info.find(var_name);
   PADDLE_ENFORCE_EQ(grad_iter != vars_info.end(),
                     true,
-                    platform::errors::NotFound(
+                    common::errors::NotFound(
                         "The gradient variable %s is not found.", var_name));
   PADDLE_ENFORCE_EQ(!grad_iter->second.empty(),
                     true,
-                    platform::errors::NotFound(
+                    common::errors::NotFound(
                         "The gradient var node %s is not found.", var_name));
   PADDLE_ENFORCE_NOT_NULL(grad_iter->second.front()->Var(),
-                          platform::errors::InvalidArgument(
+                          common::errors::InvalidArgument(
                               "The gradient var(%s) node is null.", var_name));
   return grad_iter->second.front()->Var();
 }
@@ -502,7 +501,7 @@ void FuseOptimizerOpPass::SortParametersAndAuxVars(
   PADDLE_ENFORCE_NE(
       aux_var_map->count(kGrad),
       static_cast<size_t>(0),
-      platform::errors::NotFound("The gradient variable doesn‘t exist."));
+      common::errors::NotFound("The gradient variable doesn‘t exist."));
   auto &grad_vec = aux_var_map->at(kGrad);
 
   std::vector<size_t> grad_sort_idx;
@@ -513,7 +512,7 @@ void FuseOptimizerOpPass::SortParametersAndAuxVars(
     PADDLE_ENFORCE_EQ(
         iter != grad_vec.end(),
         true,
-        platform::errors::NotFound(
+        common::errors::NotFound(
             "Parameter@Grad(%s) is not found in gradient vector.", p_g.second));
     auto idx = std::distance(grad_vec.begin(), iter);
     grad_sort_idx.emplace_back(idx);
@@ -554,7 +553,7 @@ void FuseOptimizerOpPass::GetFusingVarNamesMap(
       auto arg_names = node->Op()->Input(var_n);
       PADDLE_ENFORCE_EQ(arg_names.size(),
                         static_cast<size_t>(1),
-                        platform::errors::InvalidArgument(
+                        common::errors::InvalidArgument(
                             "The input variable of optimizer to be fused is "
                             "invalid. Excepted %s only has one %s input.",
                             node->Op()->Type(),
@@ -609,14 +608,14 @@ void FuseOptimizerOpPass::InsertInputAndOutputForFusedOpNode(
                                  ir::Node *ctr_var_node) {
     PADDLE_ENFORCE_EQ(ctr_var_node->inputs.size(),
                       1,
-                      platform::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "The control var(%s) node has multiple inputs.",
                           ctr_var_node->Name()));
     if (ctr_var_node->inputs.front() == fused_opt_node) {
       PADDLE_ENFORCE_GT(
           ctr_var_node->outputs.size(),
           0,
-          platform::errors::InvalidArgument(
+          common::errors::InvalidArgument(
               "The control var(%s) node has no output.", ctr_var_node->Name()));
       auto output_ops = ctr_var_node->outputs;
       output_ops.erase(std::remove_if(output_ops.begin(),
@@ -688,6 +687,4 @@ void FuseOptimizerOpPass::InsertInputAndOutputForFusedOpNode(
     graph->RemoveNode(ctrl_var_node);
   }
 }
-}  // namespace ir
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework::ir

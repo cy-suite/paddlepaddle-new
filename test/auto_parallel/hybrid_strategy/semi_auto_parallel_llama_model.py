@@ -11,10 +11,9 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+from __future__ import annotations
 
 import math
-from typing import Optional, Tuple
 
 import paddle
 import paddle.distributed as dist
@@ -27,36 +26,30 @@ try:
 except:
     flash_attention = None
 
-_global_mesh = None
 
-
-def set_global_mesh(mesh):
-    global _global_mesh
-    _global_mesh = mesh
-
-
-def is_pp_enable(mesh):
-    return "pp" in mesh.dim_names
+def is_pp_enable():
+    global_mesh = dist.auto_parallel.get_mesh()
+    return "pp" in global_mesh.dim_names
 
 
 def get_mesh(pp_idx=None):
-    global _global_mesh
-    mesh = _global_mesh
-    assert _global_mesh is not None, "_global_mesh is not initialized!"
+    global_mesh = dist.auto_parallel.get_mesh()
+    assert global_mesh is not None, "global_mesh is not initialized!"
     if pp_idx is None:
+        return global_mesh
+    if is_pp_enable():
+        mesh = global_mesh.get_mesh_with_dim("pp")[pp_idx]
         return mesh
-    if is_pp_enable(mesh):
-        mesh = _global_mesh.get_mesh_with_dim("pp")[pp_idx]
-    return mesh
+    else:
+        return global_mesh
 
 
 def global_mesh_starts_with_pp():
-    global _global_mesh
-    mesh = _global_mesh
-    if is_pp_enable(mesh):
-        return _global_mesh.get_mesh_with_dim("pp")
+    global_mesh = dist.auto_parallel.get_mesh()
+    if is_pp_enable():
+        return global_mesh.get_mesh_with_dim("pp")
     else:
-        return mesh
+        return global_mesh
 
 
 class LlamaRotaryEmbedding(nn.Layer):
@@ -178,14 +171,14 @@ class LlamaAttentionAuto(nn.Layer):
     def forward(
         self,
         hidden_states,
-        position_ids: Optional[Tuple[paddle.Tensor]] = None,
-        past_key_value: Optional[Tuple[paddle.Tensor]] = None,
-        attention_mask: Optional[paddle.Tensor] = None,
+        position_ids: tuple[paddle.Tensor] | None = None,
+        past_key_value: tuple[paddle.Tensor] | None = None,
+        attention_mask: paddle.Tensor | None = None,
         output_attentions: bool = False,
         use_cache: bool = False,
-        alibi: Optional[paddle.Tensor] = None,
-    ) -> Tuple[
-        paddle.Tensor, Optional[paddle.Tensor], Optional[Tuple[paddle.Tensor]]
+        alibi: paddle.Tensor | None = None,
+    ) -> tuple[
+        paddle.Tensor, paddle.Tensor | None, tuple[paddle.Tensor] | None
     ]:
         """Input shape: Batch x Time x Channel"""
         # [bs, seq_len, num_head * head_dim] -> [seq_len / n, bs, num_head * head_dim] (n is model parallelism)
@@ -309,7 +302,7 @@ class LlamaAttentionAuto(nn.Layer):
 
 
 class LlamaMLPAuto(nn.Layer):
-    def __init__(self, config, ipp: Optional[int] = None):
+    def __init__(self, config, ipp: int | None = None):
         super().__init__()
         self.hidden_size = config.hidden_size
         self.intermediate_size = config.intermediate_size
@@ -377,7 +370,7 @@ class LlamaDecoderLayerAuto(nn.Layer):
         self,
         config,
         layerwise_recompute: bool = False,
-        ipp: Optional[int] = None,
+        ipp: int | None = None,
     ):
         super().__init__()
         self.config = config
@@ -391,12 +384,12 @@ class LlamaDecoderLayerAuto(nn.Layer):
     def forward(
         self,
         hidden_states: paddle.Tensor,
-        position_ids: Optional[Tuple[paddle.Tensor]] = None,
-        attention_mask: Optional[paddle.Tensor] = None,
-        output_attentions: Optional[bool] = False,
-        past_key_value: Optional[Tuple[paddle.Tensor]] = None,
-        use_cache: Optional[bool] = False,
-        alibi: Optional[paddle.Tensor] = None,
+        position_ids: tuple[paddle.Tensor] | None = None,
+        attention_mask: paddle.Tensor | None = None,
+        output_attentions: bool = False,
+        past_key_value: tuple[paddle.Tensor] | None = None,
+        use_cache: bool = False,
+        alibi: paddle.Tensor | None = None,
     ):
         # [bs * seq_len, embed_dim] -> [seq_len * bs / n, embed_dim] (sequence_parallel)
         residual = hidden_states
@@ -493,12 +486,11 @@ class LlamaModelAuto(nn.Layer):
         )
 
         def get_layer_pp_info(layer_index):
-            global _global_mesh
-            mesh = _global_mesh
-            if is_pp_enable(mesh) is False:
+            if is_pp_enable() is False:
                 return None, False
             else:
-                pp_degree = mesh.get_dim_size("pp")
+                global_mesh = dist.auto_parallel.get_mesh()
+                pp_degree = global_mesh.get_dim_size("pp")
                 layer_per_stage = math.ceil(
                     config.num_hidden_layers / pp_degree
                 )
@@ -633,16 +625,18 @@ class LlamaModelAuto(nn.Layer):
             mesh,
             [dist.Replicate() for _ in range(len(mesh._shape))],
         )
-
-        if position_ids is None:
+        if not hasattr(self.config, "sep_parallel_degree"):
+            self.config.sep_parallel_degree = -1
+        if position_ids is None and self.config.sep_parallel_degree > 1:
             position_ids = paddle.arange(seq_length, dtype="int64").expand(
                 (batch_size, seq_length)
             )
-        position_ids = dist.shard_tensor(
-            position_ids,
-            mesh,
-            [dist.Replicate() for _ in range(len(mesh._shape))],
-        )
+        if position_ids is not None:
+            position_ids = dist.shard_tensor(
+                position_ids,
+                mesh,
+                [dist.Replicate() for _ in range(len(mesh._shape))],
+            )
 
         if self.config.use_flash_attention:
             is_casual = is_casual_mask(attention_mask)
@@ -665,21 +659,30 @@ class LlamaModelAuto(nn.Layer):
                 past_key_values[idx] if past_key_values is not None else None
             )
 
-            if not is_pp_enable(get_mesh()):
+            if not is_pp_enable():
                 position_ids_input = position_ids
                 attention_mask_input = attention_mask
-            elif idx in self.next_pp_stage_indexes:
+            else:
                 ipp = decoder_layer.ipp
-                position_ids_input = dist.reshard(
-                    position_ids,
-                    get_mesh(ipp),
-                    [dist.Replicate(), dist.Replicate()],
+                if position_ids is not None:
+                    position_ids_input = dist.reshard(
+                        position_ids,
+                        get_mesh(ipp),
+                        [dist.Replicate(), dist.Replicate()],
+                    )
+                else:
+                    position_ids_input = position_ids
+                attention_mask_input = (
+                    dist.reshard(
+                        attention_mask,
+                        get_mesh(ipp),
+                        [dist.Replicate(), dist.Replicate()],
+                    )
+                    if attention_mask is not None
+                    else None
                 )
-                attention_mask_input = dist.reshard(
-                    attention_mask,
-                    get_mesh(ipp),
-                    [dist.Replicate(), dist.Replicate()],
-                )
+
+            if idx in self.next_pp_stage_indexes:
                 hidden_states = dist.reshard(
                     hidden_states,
                     get_mesh(ipp),

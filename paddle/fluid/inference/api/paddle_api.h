@@ -158,7 +158,7 @@ struct PD_INFER_DECL PaddleTensor {
   std::vector<int> shape;
   PaddleBuf data;  ///<  blob of data.
   PaddleDType dtype;
-  std::vector<std::vector<size_t>> lod;  ///<  Tensor+LoD equals LoDTensor
+  std::vector<std::vector<size_t>> lod;  ///<  Tensor+LoD equals DenseTensor
 };
 
 /// \brief Represents an n-dimensional array of values.
@@ -523,6 +523,7 @@ class PD_INFER_DECL InternalUtils {
 
   static void SyncStream(paddle_infer::Predictor* pred);
   static void SyncStream(cudaStream_t stream);
+  static void SyncStream(hipStream_t stream);
   template <typename T>
   static void CopyFromCpuWithIoStream(paddle_infer::Tensor* t,
                                       const T* data,

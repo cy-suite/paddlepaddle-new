@@ -32,9 +32,8 @@
 #include "paddle/cinn/common/context.h"
 #include "paddle/cinn/common/type.h"
 #include "paddle/cinn/hlir/framework/op.h"
-#include "paddle/cinn/hlir/framework/visualize_helper.h"
 #include "paddle/cinn/utils/string.h"
-
+#include "paddle/common/enforce.h"
 namespace cinn {
 namespace auto_schedule {
 
@@ -70,8 +69,8 @@ void AutoTuner::Initialize(const Config& config,
     auto&& task = tasks_[i];
     task.Initialize(shape_dict, dtype_dict, op_lowerer_.get());
     // Register the initial ModuleExpr corresponding to the task
-    task_registry->Regist(task.serialized_key,
-                          ir::ModuleExpr(task.GetLoweredFuncBodyExprs()));
+    task_registry->Register(task.serialized_key,
+                            ir::ModuleExpr(task.GetLoweredFuncBodyExprs()));
     VLOG(3) << "Add a task, id:" << i << ", serialized_key:\n"
             << task.serialized_key;
   }
@@ -144,9 +143,10 @@ void PrintResult(const TuningResult& result) {
 }
 
 TuningResult AutoTuner::Tune(const TuningOptions& options) {
-  CHECK_GT(options.num_tuning_rounds, 0) << "Invalid config";
-  VLOG(3) << "Begin tuning with round num=" << options.num_tuning_rounds
-          << ", tasks size=" << tasks_.size();
+  PADDLE_ENFORCE_GT(options.num_tuning_rounds,
+                    0,
+                    ::common::errors::InvalidArgument(
+                        "The num_tuning_rounds should be greater than 0."));
 
   TuningResult result;
   result.subgraphs.resize(tasks_.size());

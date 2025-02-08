@@ -183,7 +183,7 @@ struct PDNode {
         type_(type) {
     PADDLE_ENFORCE_NOT_NULL(
         teller_,
-        platform::errors::NotFound("invalid teller is set, teller is null"));
+        common::errors::NotFound("invalid teller is set, teller is null"));
   }
 
   PDNode(PDNode&& other) = default;
@@ -223,7 +223,7 @@ struct PDNode {
  * and Variable Nodes can be ruled in PDNode.assert_more(...).
  *
  * PDPattern can record the general patterns, such as the pattern represents
- *   - Op in CPU -> Op in GPU -> Op in CPU, to findout the IO abnormal place.
+ *   - Op in CPU -> Op in GPU -> Op in CPU, to find out the IO abnormal place.
  *   - Ops whose inputs and outputs share the same variables
  */
 class PDPattern {
@@ -280,7 +280,7 @@ class PDPattern {
  *    detector.mutable_pattern().AddEdge(node0, node1);
  *    // Create an handler, to define the behavior of treating the filtered
  *    // subgraphs that comply with the patterns.
- *    GraphPatternDetector::handle_t handler = some labmda
+ *    GraphPatternDetector::handle_t handler = some lambda
  *    // Execute the detector.
  *    detector(&graph, handler);
  */
@@ -458,15 +458,15 @@ static std::string UniqueKey(const std::string& repr) {
 // var: variable.
 // arg: the argument declared by PATTERN_DECL_NODE in a pattern definition.
 // pat: the pattern object.
-#define GET_IR_NODE_FROM_SUBGRAPH(var, arg, pat)                               \
-  PADDLE_ENFORCE_NE(subgraph.count(pat.arg##_n()),                             \
-                    0UL,                                                       \
-                    platform::errors::NotFound("Node not found for PDNode %s", \
-                                               pat.arg##_repr()));             \
-  Node* var = subgraph.at(pat.arg##_n());                                      \
-  PADDLE_ENFORCE_NOT_NULL(var,                                                 \
-                          platform::errors::NotFound(                          \
-                              "node %s not exists in the sub-graph", #arg));
+#define GET_IR_NODE_FROM_SUBGRAPH(var, arg, pat)                             \
+  PADDLE_ENFORCE_NE(subgraph.count(pat.arg##_n()),                           \
+                    0UL,                                                     \
+                    common::errors::NotFound("Node not found for PDNode %s", \
+                                             pat.arg##_repr()));             \
+  Node* var = subgraph.at(pat.arg##_n());                                    \
+  PADDLE_ENFORCE_NOT_NULL(                                                   \
+      var,                                                                   \
+      common::errors::NotFound("node %s not exists in the sub-graph", #arg));
 
 // The base class of all the patterns.
 struct PatternBase {
@@ -776,7 +776,7 @@ struct BatchNormActGrad : public PatternBase {
   PATTERN_DECL_NODE(batch_norm_grad);
   // declare variable node's name
   PATTERN_DECL_NODE(act_out);
-  PATTERN_DECL_NODE(d_itermediate_out);
+  PATTERN_DECL_NODE(d_intermediate_out);
   PATTERN_DECL_NODE(bn_x);
   PATTERN_DECL_NODE(bn_scale);
   PATTERN_DECL_NODE(bn_bias);
@@ -918,7 +918,7 @@ struct ActElewiseAdd : public PatternBase {
 // the act is inplace.
 // op: elementwise_add_grad + act_grad
 // named nodes: elementwise_add_grad, act_grad
-//              act_out, act_out_g, ele_y, d_itermediate_out, d_ele_x, d_ele_y
+//              act_out, act_out_g, ele_y, d_intermediate_out, d_ele_x, d_ele_y
 struct ElewiseAddActInplaceGrad : public PatternBase {
   ElewiseAddActInplaceGrad(PDPattern* pattern, const std::string& name_scope)
       : PatternBase(pattern, name_scope, "elewise_add_act_grad1") {}
@@ -932,7 +932,7 @@ struct ElewiseAddActInplaceGrad : public PatternBase {
   PATTERN_DECL_NODE(ele_add_grad);
   // declare variable node's name
   PATTERN_DECL_NODE(act_out);
-  PATTERN_DECL_NODE(d_itermediate_out);
+  PATTERN_DECL_NODE(d_intermediate_out);
   PATTERN_DECL_NODE(d_ele_x);
   PATTERN_DECL_NODE(d_ele_y);
   PATTERN_DECL_NODE(ele_y);
@@ -998,10 +998,6 @@ struct DotProductAttention : public PatternBase {
   PATTERN_DECL_NODE(attn_v_transpose);
   PATTERN_DECL_NODE(attn_q_scale);
   PATTERN_DECL_NODE(attn_qk_matmul);
-  PATTERN_DECL_NODE(attn_mask_cast1);
-  PATTERN_DECL_NODE(attn_mask_scale1);
-  PATTERN_DECL_NODE(attn_mask_scale2);
-  PATTERN_DECL_NODE(attn_mask_cast2);
   PATTERN_DECL_NODE(attn_mask_eleadd);
   PATTERN_DECL_NODE(attn_softmax);
   PATTERN_DECL_NODE(attn_dropout);
@@ -1021,10 +1017,6 @@ struct DotProductAttention : public PatternBase {
   PATTERN_DECL_NODE(attn_q_scale_out);
   PATTERN_DECL_NODE(attn_qk_matmul_out);
   PATTERN_DECL_NODE(attn_mask);
-  PATTERN_DECL_NODE(attn_mask_cast1_out);
-  PATTERN_DECL_NODE(attn_mask_scale1_out);
-  PATTERN_DECL_NODE(attn_mask_scale2_out);
-  PATTERN_DECL_NODE(attn_mask_cast2_out);
   PATTERN_DECL_NODE(attn_mask_eleadd_out);
   PATTERN_DECL_NODE(attn_softmax_out);
   PATTERN_DECL_NODE(attn_dropout_out);
@@ -2628,6 +2620,17 @@ struct BNAddActConvGrad : public PatternBase {
   PATTERN_DECL_NODE(d_bn2_x);
   PATTERN_DECL_NODE(d_bn2_scale);
   PATTERN_DECL_NODE(d_bn2_bias);
+};
+
+struct SparseConvOptimPartern : public PatternBase {
+  SparseConvOptimPartern(PDPattern* pattern, const std::string& name_scope)
+      : PatternBase(pattern, name_scope, "sparse_conv_optim_partern") {}
+
+  void operator()();
+  PATTERN_DECL_NODE(sp_conv3d_x);
+  PATTERN_DECL_NODE(sp_conv3d_kernel);
+  PATTERN_DECL_NODE(sp_conv3d_op);
+  PATTERN_DECL_NODE(sp_conv3d_out);
 };
 
 }  // namespace patterns

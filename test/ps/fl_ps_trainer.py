@@ -112,9 +112,7 @@ def fl_ps_train():
             inputs, config, "python dataset_generator_A.py"
         )
         print(
-            "base.default_main_program: {}".format(
-                base.default_main_program()._heter_pipeline_opt
-            )
+            f"base.default_main_program: {base.default_main_program()._heter_pipeline_opt}"
         )
         for epoch in range(epoch_num):
             # A 方和 B 方如果要以文件粒度 shuffle 时，则需要固定同一个种子
@@ -128,8 +126,7 @@ def fl_ps_train():
             )
             end_time = time.time()
             print(
-                "trainer epoch %d finished, use time=%d\n"
-                % ((epoch), end_time - start_time)
+                f"trainer epoch {epoch} finished, use time={end_time - start_time}\n"
             )
         exe.close()
         _runtime_handle._stop_worker()
@@ -146,9 +143,7 @@ def fl_ps_train():
             inputs, config, "python dataset_generator_B.py", "heter_worker"
         )
         print(
-            "base.default_main_program: {}".format(
-                base.default_main_program()._heter_pipeline_opt
-            )
+            f"base.default_main_program: {base.default_main_program()._heter_pipeline_opt}"
         )
         for epoch in range(epoch_num):
             dataset.set_filelist(file_list)

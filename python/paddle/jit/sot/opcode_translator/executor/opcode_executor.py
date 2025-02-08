@@ -17,27 +17,29 @@ from __future__ import annotations
 import dis
 import functools
 import inspect
+import opcode
 import operator
 import sys
 import traceback
 import types
 from dataclasses import dataclass
 from itertools import chain
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
-import opcode
-
+import paddle
 from paddle.jit.utils import OrderedSet
 
 from ...profiler import EventGuard, event_register
 from ...psdb import NO_BREAKGRAPH_CODES
 from ...utils import (
     ENV_MIN_GRAPH_SIZE,
+    ENV_SOT_FORCE_FALLBACK_SIR_IDS,
     BreakGraphError,
     FallbackError,
     InnerError,
     SotUndefinedVar,
     get_static_function,
+    is_comprehensive_name,
     log,
     log_do,
 )
@@ -49,7 +51,12 @@ from ..instruction_utils import (
     calc_stack_effect,
     get_instructions,
 )
-from ..instruction_utils.opcode_info import RETURN, JumpDirection, PopJumpCond
+from ..instruction_utils.opcode_info import (
+    NEED_TO_BOOL,
+    RETURN,
+    JumpDirection,
+    PopJumpCond,
+)
 from .dispatch_functions import (
     operator_BAD,
     operator_exception_match,
@@ -62,11 +69,15 @@ from .dispatcher import Dispatcher
 from .function_graph import FunctionGraph
 from .instr_flag import (
     CALL_FUNCTION_EX_FLAG as CFE,
+    CONVERT_VALUE_FLAG as CV,
     FORMAT_VALUE_FLAG as FV,
     MAKE_FUNCTION_FLAG as MF,
     IntrinsicsUnaryFunctions,
 )
-from .pycode_generator import PyCodeGen
+from .pycode_generator import (
+    ResumeFunctionCreator,
+    ResumeFunctionType,
+)
 from .tracker import (
     CellTracker,
     ConstTracker,
@@ -82,18 +93,25 @@ from .variables import (
     ContainerVariable,
     DictVariable,
     GlobalVariable,
+    IterVariable,
     ListVariable,
     MethodVariable,
     NullVariable,
+    RangeVariable,
     SequenceIterVariable,
     SliceVariable,
+    SymbolicVariable,
     TensorVariable,
     TupleVariable,
+    UserCodeVariable,
     UserDefinedFunctionVariable,
     UserDefinedGeneratorFunctionVariable,
     VariableBase,
     VariableFactory,
 )
+
+if TYPE_CHECKING:
+    from .function_graph import CompileGraphResult
 
 SUPPORT_COMPARE_OP = {
     ">": operator.gt,
@@ -109,6 +127,9 @@ SUPPORT_COMPARE_OP = {
     "exception match": operator_exception_match,
     "BAD": operator_BAD,
 }
+
+# In Python 3.13, the method layout is changed, and a NULL will be pushed after the value.
+CALL_METHOD_LAYOUT_NULL_AFTER_VALUE = sys.version_info >= (3, 13)
 
 
 @dataclass
@@ -203,7 +224,7 @@ def pop_jump_if_op_wrapper(fns: list[Callable[[Any], Any]]):
                     fn, graph=self._graph, tracker=DanglingTracker()
                 )(res)
 
-            assert isinstance(res, ConstantVariable)
+            assert isinstance(res, (ConstantVariable, SymbolicVariable))
             is_jump = res.get_py_value()
             assert isinstance(is_jump, bool)
             if is_jump:
@@ -301,6 +322,34 @@ def fallback_when_occur_error(fn: Callable):
     return inner
 
 
+def parse_force_fallback_sir_ids() -> set[int]:
+    ids_string = ENV_SOT_FORCE_FALLBACK_SIR_IDS.get()
+    if not ids_string:
+        return set()
+    ids = set()
+    for comma_sep_part in ids_string.split(","):
+        comma_sep_part = comma_sep_part.strip()
+        range_parts = comma_sep_part.split("-")
+        if len(range_parts) == 1:
+            ids.add(int(comma_sep_part))
+        else:
+            ids |= set(range(int(range_parts[0]), int(range_parts[1]) + 1))
+    return ids
+
+
+def need_fallback(compile_graph_result: CompileGraphResult) -> bool:
+    graph_fn, (statement_ir, _, _) = compile_graph_result
+
+    assert statement_ir.name[:4] == "SIR_"
+    sir_id = int(statement_ir.name[4:])
+    if (
+        graph_fn.graph_size() < ENV_MIN_GRAPH_SIZE.get()
+        or sir_id in parse_force_fallback_sir_ids()
+    ):
+        return True
+    return False
+
+
 class OpcodeExecutorBase:
     """
     Base class for executing opcode instructions.
@@ -363,9 +412,9 @@ class OpcodeExecutorBase:
         self.new_code: types.CodeType | None = self.empty_code
         self.guard_fn = None
         self._name = "Executor"
-        self._call_shape: tuple[
-            str, ...
-        ] | None = None  # store kwnames for Python 3.11+
+        self._call_shape: tuple[str, ...] | None = (
+            None  # store kwnames for Python 3.11 and 3.12
+        )
         self._prepare_virtual_env()
         self.stop_state = None
 
@@ -405,7 +454,7 @@ class OpcodeExecutorBase:
             NotImplementedError: If the method is not implemented.
 
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def transform(self):
         """
@@ -415,7 +464,7 @@ class OpcodeExecutorBase:
             NotImplementedError: If the method is not implemented.
 
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def find_space_of_var_name(self, name):
         code = self._graph.pycode_gen._origin_code
@@ -516,10 +565,16 @@ class OpcodeExecutorBase:
         for current_simulator in OpcodeExecutorBase.call_stack:
             code = current_simulator._code
             current_line = current_simulator._current_line
+            file = inspect.getfile(code)
+            if file.startswith("<") and file.endswith(">"):
+                message_lines.append(
+                    f'{indent}  File "{file}", line {current_line}'
+                )
+                continue
             lines, start = inspect.getsourcelines(code)
             real_name = code.co_name
             message_lines.append(
-                f"{indent}  File \"{code.co_filename}\", line {current_line}, in {real_name}"
+                f'{indent}  File "{code.co_filename}", line {current_line}, in {real_name}'
             )
             if current_line != -1:
                 message_lines.append(
@@ -716,22 +771,6 @@ class OpcodeExecutorBase:
 
     def binary_subscr_operation(self, key, container, opname):
         assert isinstance(key, VariableBase)
-        # TODO(xiongkun): getitem / getattr support key and attr as variable.
-        if isinstance(key, TensorVariable) and isinstance(
-            container, TensorVariable
-        ):
-            # NOTE(xiongkun): tensor[tensor] should support.
-            output = self._graph.call_tensor_method(
-                "__getitem__", container, key
-            )
-            self.stack.push(output)
-            return
-
-        if isinstance(key, TensorVariable):
-            raise BreakGraphError(
-                f"Key is a TensorVariable in {opname}, {container}[{key}]"
-            )
-
         result = BuiltinVariable(
             operator.getitem, self._graph, DanglingTracker()
         )(container, key)
@@ -825,7 +864,7 @@ class OpcodeExecutorBase:
         if sys.version_info >= (3, 11):
             push_null = namei & 1
             namei >>= 1
-        if push_null:
+        if push_null and not CALL_METHOD_LAYOUT_NULL_AFTER_VALUE:
             self.stack.push(NullVariable())
         name = self._code.co_names[namei]
         if name in self._globals.keys():
@@ -835,6 +874,8 @@ class OpcodeExecutorBase:
         else:
             raise InnerError(f"{name} not in globals and builtins")
         self.stack.push(value)
+        if push_null and CALL_METHOD_LAYOUT_NULL_AFTER_VALUE:
+            self.stack.push(NullVariable())
 
     def load_method(self, method_name):
         method_name_var = ConstantVariable.wrap_literal(
@@ -846,7 +887,9 @@ class OpcodeExecutorBase:
             getattr, graph=self._graph, tracker=DanglingTracker()
         )(obj, method_name_var)
 
-        if isinstance(method, MethodVariable) and "__getattr__" not in dir(
+        if isinstance(
+            method, MethodVariable
+        ) and not paddle.base.libpaddle.has_custom_getattro(
             method.bound_instance.get_py_type()
         ):
             # bound method or the class override the __getattr__
@@ -855,8 +898,11 @@ class OpcodeExecutorBase:
             self.stack.push(obj)
         else:
             # unbound method, push the dummy and the function
-            self.stack.push(NullVariable())
+            if not CALL_METHOD_LAYOUT_NULL_AFTER_VALUE:
+                self.stack.push(NullVariable())
             self.stack.push(method)
+            if CALL_METHOD_LAYOUT_NULL_AFTER_VALUE:
+                self.stack.push(NullVariable())
 
     def LOAD_METHOD(self, instr: Instruction):
         method_name = self._code.co_names[instr.arg]
@@ -930,20 +976,15 @@ class OpcodeExecutorBase:
 
     def store_subscr_operation(self, key, container, value, opname):
         assert isinstance(key, VariableBase)
-        self._graph.add_global_guarded_variable(key)
-        if isinstance(key, TensorVariable):
-            raise BreakGraphError(
-                f"Key is a TensorVariable in {opname}, {container}[{key}] = {value}"
-            )
-        # TODO(xiongkun): support tensor[tensor] = tensor, dy2static is not the same with dygraph.
-        container[key.get_py_value()] = value
+        BuiltinVariable(operator.setitem, self._graph, DanglingTracker())(
+            container, key, value
+        )
         value.debug_name = f"{container.debug_name}[{key.debug_name}]"
 
     def DELETE_SUBSCR(self, instr: Instruction):
         key = self.stack.pop()
         container = self.stack.pop()
         assert isinstance(key, VariableBase)
-        self._graph.add_global_guarded_variable(key)
         BuiltinVariable(operator.delitem, self._graph, DanglingTracker())(
             container, key
         )
@@ -1036,7 +1077,8 @@ class OpcodeExecutorBase:
         assert map_size + 1 <= len(
             self.stack
         ), f"OpExecutor want BUILD_CONST_KEY_MAP with size {map_size} + 1, but current stack do not have enough elems."
-        keys = self.stack.pop().get_items()
+        keys = self.stack.pop().get_wrapped_items()
+        keys = list(keys) if isinstance(keys, tuple) else keys
         assert len(keys) == map_size
         values = self.stack.pop_n(map_size)
         self.stack.push(self.build_map(keys, values))
@@ -1048,8 +1090,11 @@ class OpcodeExecutorBase:
 
         retval = []
         for item in unpack_values:
-            assert isinstance(item, (TupleVariable, ListVariable))
-            retval.extend(item.get_wrapped_items())
+            if not isinstance(
+                item, (TupleVariable, ListVariable, RangeVariable)
+            ):
+                raise BreakGraphError(f"{type(item)} not support unpack")
+            retval.extend(item.get_iter().to_list())
 
         if instr.opname in {
             "BUILD_TUPLE_UNPACK_WITH_CALL",
@@ -1063,12 +1108,15 @@ class OpcodeExecutorBase:
             )
         )
 
+    @call_break_graph_decorator(push_n=1)
     def BUILD_TUPLE_UNPACK_WITH_CALL(self, instr: Instruction):
         self.build_seq_unpack(instr)
 
+    @call_break_graph_decorator(push_n=1)
     def BUILD_TUPLE_UNPACK(self, instr: Instruction):
         self.build_seq_unpack(instr)
 
+    @call_break_graph_decorator(push_n=1)
     def BUILD_LIST_UNPACK(self, instr: Instruction):
         self.build_seq_unpack(instr)
 
@@ -1140,12 +1188,15 @@ class OpcodeExecutorBase:
         assert isinstance(instr.arg, int)
         self._call_shape = self._co_consts[instr.arg].get_py_value()
 
-    def call(self, instr: Instruction):
+    def call_impl_py312_minus(
+        self,
+        instr: Instruction,
+    ):
         assert isinstance(instr.arg, int)
         assert instr.arg + 2 <= len(self.stack)
         is_method = not isinstance(self.stack.peek[instr.arg + 2], NullVariable)
         total_args = instr.arg + int(is_method)
-        kwnames = self._call_shape if self._call_shape is not None else []
+        kwnames = self._call_shape if self._call_shape is not None else ()
         n_kwargs = len(kwnames)
         n_positional_args = total_args - n_kwargs
         kwargs_list = self.stack.pop_n(n_kwargs)
@@ -1158,11 +1209,63 @@ class OpcodeExecutorBase:
         self.stack.push(fn(*args, **kwargs))
         self._call_shape = None
 
-    CALL = (
-        call_break_graph_decorator(push_n=1)(call)
-        if sys.version_info >= (3, 12)
-        else call
-    )
+    def call_impl_py313_plus(
+        self,
+        num_args: int,
+        kwnames_getter: Callable[[OpcodeExecutorBase], tuple[str, ...]],
+    ):
+        kwnames = kwnames_getter(self)
+        assert num_args + 2 <= len(self.stack)
+        args = self.stack.pop_n(num_args)
+        self_or_null = self.stack.pop()
+        callable = self.stack.pop()
+
+        if not isinstance(self_or_null, NullVariable):
+            args = [self_or_null, *args]
+        if isinstance(self_or_null, NullVariable) and isinstance(
+            callable, MethodVariable
+        ):
+            unbound_method = callable.fn
+            self_var = callable.bound_instance
+            args = [self_var, *args]
+            callable = unbound_method
+
+        n_positional_args = len(args) - len(kwnames)
+        kwargs_list = args[n_positional_args:]
+        args = args[:n_positional_args]
+        kwargs = dict(zip(kwnames, kwargs_list))
+        self.stack.push(callable(*args, **kwargs))
+
+    if sys.version_info >= (3, 13):
+
+        @call_break_graph_decorator(push_n=1)
+        def CALL(self, instr: Instruction):
+            assert isinstance(instr.arg, int)
+
+            self.call_impl_py313_plus(instr.arg, lambda exe: ())
+
+    elif sys.version_info >= (3, 12):
+
+        @call_break_graph_decorator(push_n=1)
+        def CALL(self, instr: Instruction):
+            self.call_impl_py312_minus(instr)
+
+    else:
+
+        def CALL(self, instr: Instruction):
+            self.call_impl_py312_minus(instr)
+
+    @call_break_graph_decorator(push_n=1)
+    def CALL_KW(self, instr: Instruction):
+        assert isinstance(instr.arg, int)
+
+        def get_kwnames(exe: OpcodeExecutorBase):
+            kwnames_var = exe.stack.pop()
+            assert isinstance(kwnames_var, TupleVariable)
+            kwnames = kwnames_var.get_py_value()
+            return kwnames
+
+        self.call_impl_py313_plus(instr.arg, get_kwnames)
 
     @call_break_graph_decorator(push_n=1)
     def CALL_FUNCTION(self, instr: Instruction):
@@ -1212,8 +1315,14 @@ class OpcodeExecutorBase:
         assert isinstance(args_variable, (TupleVariable, ListVariable))
         args = args_variable.get_wrapped_items()
 
+        if sys.version_info >= (3, 11) and CALL_METHOD_LAYOUT_NULL_AFTER_VALUE:
+            null = self.stack.pop()
+            assert isinstance(null, NullVariable)
         fn = self.stack.pop()
-        if sys.version_info >= (3, 11):
+        if (
+            sys.version_info >= (3, 11)
+            and not CALL_METHOD_LAYOUT_NULL_AFTER_VALUE
+        ):
             null = self.stack.pop()
             assert isinstance(null, NullVariable)
         ret = fn(*args, **kwargs)
@@ -1229,7 +1338,7 @@ class OpcodeExecutorBase:
         if isinstance(method, NullVariable):
             method = self_var
         else:
-            args = [self_var] + args
+            args = [self_var, *args]
         self.stack.push(method(*args))
 
     @call_break_graph_decorator(
@@ -1241,6 +1350,10 @@ class OpcodeExecutorBase:
             # Python 3.12 use lower 4 bits to store the inline cache `jump mask`
             # see https://github.com/python/cpython/pull/100924
             cmp_op_index >>= 4
+        # in python3.13, the offset is 5
+        if sys.version_info >= (3, 13):
+            cmp_op_index >>= 1
+        # TODO 3.13 modified the behavior related to TO_BOOL, needs further modification
         op = dis.cmp_op[cmp_op_index]
         right, left = self.stack.pop(), self.stack.pop()
         self.stack.push(
@@ -1248,6 +1361,13 @@ class OpcodeExecutorBase:
                 SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
             )(left, right)
         )
+
+    def TO_BOOL(self, instr: Instruction):
+        # we don't do anything in TO_BOOL, we simply check if the bytecode is legal
+        next_instr = self._instructions[self._lasti]
+        assert (
+            next_instr.opname in NEED_TO_BOOL
+        ), f"The bytecode is illegal! The opcode following TO_BOOL must be in ['POP_JUMP_IF_TRUE', 'POP_JUMP_IF_FALSE', 'UNARY_NOT'], the next instruction now is {next_instr.opname}"
 
     @call_break_graph_decorator(push_n=1)
     def IS_OP(self, instr: Instruction):
@@ -1265,6 +1385,7 @@ class OpcodeExecutorBase:
         if sys.version_info < (3, 11):
             fn_name = self.stack.pop()
         codeobj = self.stack.pop()
+
         if sys.version_info >= (3, 11):
             # MAKE_FUNCTION behavior actually changed in 3.11, see
             # https://github.com/python/cpython/pull/93189/
@@ -1277,7 +1398,94 @@ class OpcodeExecutorBase:
 
         related_list = [fn_name, codeobj]
 
+        # the function has no default values in 3.13
+        if sys.version_info >= (3, 13):
+            if len(codeobj.get_py_value().co_freevars) > 0:
+                self.stack.push(
+                    UserCodeVariable(
+                        codeobj, self._graph, DummyTracker([codeobj])
+                    )
+                )
+            else:
+                self.push_new_fn_on_stack(
+                    codeobj.get_py_value(),
+                    global_dict,
+                    fn_name.get_py_value(),
+                    (),
+                    (),
+                    related_list,
+                    (),
+                )
+            return
+
         flag = instr.arg
+        closure, related_list, kw_defaults, default_args = (
+            self.attach_new_attribute(flag, related_list)
+        )
+        self.push_new_fn_on_stack(
+            codeobj.get_py_value(),
+            global_dict,
+            fn_name.get_py_value(),
+            default_args,
+            closure,
+            related_list,
+            kw_defaults,
+        )
+
+    def SET_FUNCTION_ATTRIBUTE(self, instr: Instruction):
+        origin_func = self.stack.pop()
+        flag = instr.arg
+
+        if isinstance(origin_func, UserCodeVariable):
+            origin_codeobj = origin_func.codeobj
+            fn_name = ConstantVariable(
+                origin_codeobj.value.co_qualname,
+                self._graph,
+                DummyTracker([origin_codeobj]),
+            )
+            related_list = [fn_name, origin_codeobj]
+            closure, related_list, kw_defaults, default_args = (
+                self.attach_new_attribute(flag, related_list)
+            )
+            self.push_new_fn_on_stack(
+                origin_codeobj.get_py_value(),
+                self._globals.get_value(),
+                fn_name.get_py_value(),
+                default_args,
+                closure,
+                related_list,
+                kw_defaults,
+            )
+            return
+
+        # The object we manipulate must be a functionVariable
+        assert isinstance(
+            origin_func,
+            (UserDefinedGeneratorFunctionVariable, UserDefinedFunctionVariable),
+        ), f"The object we manipulate must be a function object. But now got {type(origin_func)}"
+        origin_func_val = origin_func.get_py_value()
+        related_list = [origin_func]
+        closure, related_list, kw_defaults, default_args = (
+            self.attach_new_attribute(flag, related_list)
+        )
+        new_closure = closure if closure else origin_func_val.__closure__
+        new_kw_defaults = (
+            kw_defaults if kw_defaults else origin_func_val.__kwdefaults__
+        )
+        new_default_args = (
+            default_args if default_args else origin_func_val.__defaults__
+        )
+        self.push_new_fn_on_stack(
+            origin_func_val.__code__,
+            origin_func_val.__globals__,
+            origin_func_val.__name__,
+            new_default_args,
+            new_closure,
+            related_list,
+            new_kw_defaults,
+        )
+
+    def attach_new_attribute(self, flag, related_list):
         if flag & MF.MF_HAS_CLOSURE:
             # closure should be a tuple of Variables
             closure_variable = self.stack.pop()
@@ -1294,10 +1502,14 @@ class OpcodeExecutorBase:
             # can not set annotation in python env, skip it
             related_list.append(self.stack.pop())
 
+        # although types.FunctionType doesn't support dictionary parameters, we can still bind the dictionary with the function
+        # dynamically after creating the function object.
+        kw_defaults = ()
         if flag & MF.MF_HAS_KWDEFAULTS:
-            raise FallbackError(
-                "Found need func_kwdefaults when MAKE_FUNCTION."
-            )
+            kw_default_args_variable = self.stack.pop()
+            assert isinstance(kw_default_args_variable, DictVariable)
+            related_list.append(kw_default_args_variable)
+            kw_defaults = kw_default_args_variable.get_wrapped_items()
 
         if flag & MF.MF_HAS_DEFAULTS:
             '''
@@ -1314,13 +1526,29 @@ class OpcodeExecutorBase:
         else:
             default_args = ()
 
+        return closure, related_list, kw_defaults, default_args
+
+    def push_new_fn_on_stack(
+        self,
+        codeobj,
+        global_dict,
+        fn_name,
+        default_args,
+        closure,
+        related_list,
+        kw_defaults,
+    ):
         new_fn = types.FunctionType(
-            codeobj.get_py_value(),
+            codeobj,
             global_dict,
-            fn_name.get_py_value(),
+            fn_name,
             default_args,
             closure,
         )
+
+        if kw_defaults:
+            new_fn.__kwdefaults__ = kw_defaults
+
         # new_fn is created for which is binded with Variables
         # so new_fn.__module__ is a ConstantVariable
         # can not use VariableFactory.from_value
@@ -1505,7 +1733,7 @@ class OpcodeExecutorBase:
         if isinstance(value, ConstantVariable):
             result = value.get_py_value()
             if convert_fn is not None:
-                result = getattr(result, convert_fn)(result)
+                result = getattr(result, convert_fn)()
 
             if not isinstance(result, str) or fmt_spec != "":
                 result = format(result, fmt_spec)
@@ -1513,6 +1741,70 @@ class OpcodeExecutorBase:
             self.stack.push(
                 ConstantVariable(result, self._graph, DummyTracker([value]))
             )
+        else:
+            raise FallbackError(f"Do not support format {type(value)} now")
+
+    def CONVERT_VALUE(self, instr: Instruction):
+        value = self.stack.pop()
+        flag = instr.arg
+        if flag == CV.CV_STR:
+            convert_fn = "__str__"
+        elif flag == CV.CV_REPR:
+            convert_fn = "__repr__"
+        elif flag == CV.CV_ASCII:
+            convert_fn = "__ascii__"
+        else:
+            raise InnerError(
+                f"Unexpected conversion flag {flag} in {instr.opname}"
+            )
+        if isinstance(value, ConstantVariable):
+            result = value.get_py_value()
+            result = getattr(result, convert_fn)()
+            self.stack.push(
+                ConstantVariable(result, self._graph, DummyTracker([value]))
+            )
+        else:
+            raise FallbackError(
+                f"Do not support format {type(value)} now in {instr.opname} now"
+            )
+
+    def FORMAT_WITH_SPEC(self, instr: Instruction):
+        # unlike the former FORMAT_VALUE, the FORMAT_WITH_SPEC opcode has no parameter flag.
+        raw_spec = self.stack.pop()
+        value = self.stack.pop()
+        if isinstance(value, ConstantVariable) and isinstance(
+            raw_spec, ConstantVariable
+        ):
+            spec = raw_spec.get_py_value()
+            result = value.get_py_value()
+            result = format(result, spec)
+            if result is None:
+                raise InnerError(
+                    f"The format operation failed in {instr.opname}"
+                )
+            self.stack.push(
+                ConstantVariable(
+                    result, self._graph, DummyTracker([raw_spec, value])
+                )
+            )
+        else:
+            raise FallbackError(
+                f"Do not support format {type(value)} or {type(spec)} in {instr.opname} now"
+            )
+
+    def FORMAT_SIMPLE(self, instr: Instruction):
+        value = self.stack.pop()
+
+        if isinstance(value, ConstantVariable) and isinstance(value, str):
+            self.stack.push(value)
+
+        elif isinstance(value, ConstantVariable):
+            result = value.get_py_value()
+            result = format(result, "")
+            self.stack.push(
+                ConstantVariable(result, self._graph, DummyTracker([value]))
+            )
+            return
         else:
             raise FallbackError(f"Do not support format {type(value)} now")
 
@@ -1553,6 +1845,7 @@ class OpcodeExecutorBase:
             self.stack.peek[instr.arg], key, value
         )
 
+    @call_break_graph_decorator(push_n=0)
     def LIST_EXTEND(self, instr: Instruction):
         list_value = self.stack.pop()
         assert isinstance(instr.arg, int)
@@ -1701,13 +1994,24 @@ class OpcodeExecutor(OpcodeExecutorBase):
             self._lasti = self.indexof(instr.jump_to)
             if sys.version_info >= (3, 12):
                 assert self._instructions[self._lasti].opname == "END_FOR"
-                self._lasti += 1
+                # NOTE(SigureMo): From Python 3.12, END_FOR indicates the end of the for loop.
+                # But it's never executed, so we need to skip it.
+                # In Python 3.12, it equivalent to POP_TOP + POP_TOP (in one instruction)
+                # In Python 3.13, it equivalent to POP_TOP, and it common with other POP_TOP
+                skip_n_instrs = 2 if sys.version_info >= (3, 13) else 1
+                self._lasti += skip_n_instrs
         except BreakGraphError as e:
             log(3, f"[BreakGraph] FOR_ITER sim for loop failed for: {e}\n")
             if backup_iter_idx:
                 iterator.idx = backup_iter_idx
             self._graph.remove_global_guarded_variable(iterator)
             self.stack.push(iterator)
+            if is_comprehensive_name(self._code.co_name):
+                # NOTE(SigureMo): The loop body of comprehensive will access the
+                # value out of the loop, so we simply fallback it now.
+                raise FallbackError(
+                    "Comprehensive for loop break graph is not supported."
+                )
             self._break_graph_when_for_loop(iterator, instr)
             return Stop(state="BreakGraph")
 
@@ -1723,18 +2027,18 @@ class OpcodeExecutor(OpcodeExecutorBase):
         return self.compile_return(ret_const)
 
     def compile_return(self, ret_val):
-        compile_fn = self._graph.get_compiled_fn(ret_val)
-        if compile_fn.graph_size() < ENV_MIN_GRAPH_SIZE.get():
+        compile_graph_result = self._graph.compile_graph(ret_val)
+        if need_fallback(compile_graph_result):
             self.new_code = None
         else:
-            self._graph.start_compile(ret_val)
+            self._graph.compile_function(compile_graph_result, [ret_val])
             self._graph.pycode_gen.gen_return()
             self.new_code = self._graph.pycode_gen.gen_pycode()
         self.guard_fn = self._graph.guard_fn
         return Stop(state="Return")
 
     def get_compute_fn_and_update_changed_vars(
-        self, restore_names, stack, end_idx
+        self, restore_names, stack, end_idx, extra_store_vars
     ):
         """
         this function will:
@@ -1749,27 +2053,29 @@ class OpcodeExecutor(OpcodeExecutorBase):
             restore_names: the names used in resume functions.
             end_idx: instruction index where simulation get break.
             stack: current stack
+            extra_store_vars: for iterator, we need store the holder if it is a Tensor
         """
-        store_vars = list(OrderedSet(stack))
-        store_var_info = {var.id: None for var in stack}
+        store_vars = list(OrderedSet(list(stack) + extra_store_vars))
+        store_var_info = {var.id: [] for var in stack}
 
         for name in restore_names:
             _var = self.get_var(name, allow_undefined=True)
             if _var is SotUndefinedVar():
                 continue
-            if _var not in stack:
+            if _var not in store_vars:
                 store_vars.append(_var)
-            store_var_info[_var.id] = name
+            store_var_info.setdefault(_var.id, [])
+            store_var_info[_var.id].append(name)
 
-        compile_fn = self._graph.get_compiled_fn(*store_vars)
+        compile_graph_result = self._graph.compile_graph(*store_vars)
 
-        if compile_fn.graph_size() < ENV_MIN_GRAPH_SIZE.get():
+        if need_fallback(compile_graph_result):
             return self._graph._restore_origin_opcode(
                 list(stack), store_var_info, end_idx
             )
         else:
             return self._graph._build_compile_fn_with_name_store(
-                store_vars, store_var_info
+                compile_graph_result, store_vars, store_var_info
             )
 
     @fallback_when_occur_error
@@ -1789,9 +2095,12 @@ class OpcodeExecutor(OpcodeExecutorBase):
         true_fn_start_index = cur_index + 1
         false_fn_start_index = self.indexof(instr.jump_to)
         stack_size_after_if = len(self.stack) - 1
+        null_indices = self._calc_null_indices(1)
 
         # 2. create true_fn and false_fn
-        def create_if_branch_fn(start_idx, input_var_names, is_pop_jump_branch):
+        def create_if_branch_fn(
+            start_idx, input_var_names, is_pop_jump_branch, null_indices
+        ):
             # JUMP_IF_* maybe jump to the RETURN_VALUE, we should skip this case
             # We shouldn't skip POP_JUMP_* case, because it will cause the stack size to be incorrect
             if (
@@ -1799,15 +2108,23 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 and not is_pop_jump_branch
             ):
                 return None
-            pycode_gen = PyCodeGen(self._frame)
+            cache_key = (ResumeFunctionType.IF_RESUME, self._code, start_idx)
+            resume_fn_creator = ResumeFunctionCreator(self._frame)
+            if (
+                maybe_resume_fn := resume_fn_creator.lookup(cache_key)
+            ) is not None:
+                return maybe_resume_fn
+            pycode_gen = resume_fn_creator.codegen
             origin_instrs = get_instructions(pycode_gen._origin_code)
-            pycode_gen.set_function_inputs(
-                input_var_names, stack_size=stack_size_after_if
+            resume_fn_creator.set_inputs(
+                input_var_names,
+                stack_size=stack_size_after_if,
+                null_indices=null_indices,
             )
             pycode_gen.extend_instrs(origin_instrs[start_idx:])
             # the resume_fn contains return code, so we don't need set output here
             # global vars are updated correctly, and need local vars will return
-            resume_fn = pycode_gen.create_function()
+            resume_fn = resume_fn_creator.generate(cache_key=cache_key)
             return resume_fn
 
         true_fn_read_names, _ = analysis_used_names(
@@ -1821,6 +2138,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
             start_idx=true_fn_start_index,
             input_var_names=true_fn_input_var_names,
             is_pop_jump_branch=False,
+            null_indices=null_indices,
         )
 
         false_fn_read_names, _ = analysis_used_names(
@@ -1834,9 +2152,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
             start_idx=false_fn_start_index,
             input_var_names=false_fn_input_var_names,
             is_pop_jump_branch=instr.opname.startswith("POP_JUMP"),
+            null_indices=null_indices,
         )
 
-        # 4. setup vars which is created in loop as Undefind
+        # 4. setup vars which is created in loop as Undefined
         for name in true_fn_input_var_names[:-1]:
             if not self.has_var(name):
                 self._graph.pycode_gen.gen_load_const(SotUndefinedVar())
@@ -1849,11 +2168,16 @@ class OpcodeExecutor(OpcodeExecutorBase):
         # 4. compile codes before if
         update_var_names = list(true_fn_read_names | false_fn_read_names)
         var_loader = self.get_compute_fn_and_update_changed_vars(
-            update_var_names, self.stack, cur_index
+            update_var_names, self.stack, cur_index, []
         )
 
-        # 5. create if sturcture and call true_fn and false_fn
+        # 5. create if structure and call true_fn and false_fn
         var_loader.load(result)
+
+        # in 3.13, we have to copy the original 'TO_BOOL' to make the generated bytecode valid.
+        if self._need_insert_to_bool(cur_index):
+            self._graph.pycode_gen.add_instr('TO_BOOL')
+
         if_code = self._graph.pycode_gen.add_instr(instr.opname)
 
         assert true_fn is not None
@@ -1861,7 +2185,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self._graph.pycode_gen.gen_load_object(
             true_fn, true_fn.__code__.co_name
         )
-        for stack_arg in list(self.stack)[:-1]:
+        for i, stack_arg in enumerate(list(self.stack)[:-1]):
+            if i in null_indices:
+                continue
             var_loader.load(stack_arg)
 
         for name in true_fn_input_var_names:
@@ -1876,7 +2202,10 @@ class OpcodeExecutor(OpcodeExecutorBase):
             false_start_code = self._graph.pycode_gen.gen_load_object(
                 false_fn, false_fn.__code__.co_name
             )
-            for stack_arg in list(self.stack)[:-1]:
+            null_indices = []
+            for i, stack_arg in enumerate(list(self.stack)[:-1]):
+                if i in null_indices:
+                    continue
                 var_loader.load(stack_arg)
             for name in false_fn_input_var_names:
                 var_loader.load(self.get_var(name, allow_undefined=True))
@@ -1923,6 +2252,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         stack_effect = calc_stack_effect(call_instr)
         pop_n = push_n - stack_effect
         stack_size_after_call = len(self.stack) - pop_n + push_n
+        null_indices = self._calc_null_indices(pop_n)
 
         # 2. create resume function
         read_names, _ = analysis_used_names(self._instructions, next_index)
@@ -1931,34 +2261,48 @@ class OpcodeExecutor(OpcodeExecutorBase):
             read_names, (Space.locals, Space.cells)
         )
 
-        def create_resume_fn():
+        def create_resume_fn(null_indices):
             if self._instructions[next_index].opname == "RETURN_VALUE":
                 return None
-            pycode_gen = PyCodeGen(self._frame)
+            cache_key = (ResumeFunctionType.CALL_RESUME, self._code, next_index)
+            resume_fn_creator = ResumeFunctionCreator(self._frame)
+            if (
+                maybe_resume_fn := resume_fn_creator.lookup(cache_key)
+            ) is not None:
+                return maybe_resume_fn
+            pycode_gen = resume_fn_creator.codegen
             origin_instrs = get_instructions(pycode_gen._origin_code)
-            pycode_gen.set_function_inputs(
-                input_var_names, stack_size=stack_size_after_call
+            resume_fn_creator.set_inputs(
+                input_var_names,
+                stack_size=stack_size_after_call,
+                null_indices=null_indices,
             )
             pycode_gen.extend_instrs(origin_instrs[next_index:])
             # the resume_fn contains return code, so we don't need set output here
             # global vars are updated correctly, and need local vars will return
-            resume_fn = pycode_gen.create_function()
+            resume_fn = resume_fn_creator.generate(cache_key=cache_key)
             return resume_fn
 
-        resume_fn = create_resume_fn()
+        resume_fn = create_resume_fn(null_indices=null_indices)
 
         # 3. compile sub graph before call
         var_loader = self.get_compute_fn_and_update_changed_vars(
-            read_names, self.stack, cur_index
+            read_names, self.stack, cur_index, []
         )
 
         # 4. recover stack
-        for stack_arg in self.stack:
+        for i, stack_arg in enumerate(self.stack):
+            if i in null_indices:
+                continue
             var_loader.load(stack_arg)
 
         # 5. run the break CALL with origin python
-        # NOTE(SigureMo): In Python 3.11，we need generate KW_NAMES if the call shape is not None.
+        # NOTE(SigureMo): In Python 3.11 and 3.12，we need generate KW_NAMES if the call shape is not None.
         self._graph.pycode_gen.gen_kw_names(self._call_shape)
+        # in 3.13, We have to copy the original 'TO_BOOL' to make the generated bytecode valid.
+        if self._need_insert_to_bool(cur_index):
+            self._graph.pycode_gen.add_instr('TO_BOOL')
+
         self._graph.pycode_gen.extend_instrs(
             self._instructions[cur_index:next_index]
         )
@@ -1972,17 +2316,15 @@ class OpcodeExecutor(OpcodeExecutorBase):
             # In Python 3.11+, NULL + resume_fn should be shifted together.
             shift_n = 2 if sys.version_info >= (3, 11) else 1
             self._graph.pycode_gen.gen_shift_n(
-                shift_n, stack_size_after_call + shift_n
+                shift_n, stack_size_after_call - len(null_indices) + shift_n
             )
             for name in input_var_names:
                 var_loader.load(self.get_var(name, allow_undefined=True))
             self._graph.pycode_gen.gen_call_function(
                 argc=resume_fn.__code__.co_argcount,
             )
-
         # gen RETURN_VALUE
         self._graph.pycode_gen.gen_return()
-
         self.new_code = self._graph.pycode_gen.gen_pycode()
         self.guard_fn = self._graph.guard_fn
 
@@ -1995,7 +2337,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         for_iter_idx = self.indexof(for_iter)
         loop_body_start_idx = for_iter_idx + 1
         loop_body_end_idx = self.indexof(for_iter.jump_to)
-        curent_stack = 1
+        current_stack = 1
 
         while True:
             if loop_body_start_idx >= len(self._instructions):
@@ -2003,25 +2345,39 @@ class OpcodeExecutor(OpcodeExecutorBase):
             cur_instr = self._instructions[loop_body_start_idx]
             # do not consider jump instr
             stack_effect = calc_stack_effect(cur_instr, jump=False)
-            curent_stack += stack_effect
+            current_stack += stack_effect
             loop_body_start_idx += 1
-            if curent_stack == 0:
+            if current_stack == 0:
                 break
 
         # 2. create loop body function
         loop_body_read_names, loop_body_write_names = analysis_used_names(
             self._instructions, loop_body_start_idx, loop_body_end_idx
         )
-        loop_body_inputs = self._find_names_in_space(
-            loop_body_read_names | loop_body_write_names,
-            (Space.locals, Space.cells),
-        ) + ["_break_flag"]
-        loop_body_outputs = list(loop_body_write_names) + ["_break_flag"]
+        loop_body_inputs = [
+            *self._find_names_in_space(
+                loop_body_read_names | loop_body_write_names,
+                (Space.locals, Space.cells),
+            ),
+            "_break_flag",
+        ]
+        loop_body_outputs = [*list(loop_body_write_names), "_break_flag"]
 
         def create_loop_body():
-            pycode_gen = PyCodeGen(self._frame)
+            cache_key = (
+                ResumeFunctionType.LOOP_BODY_RESUME,
+                self._code,
+                loop_body_start_idx,
+                loop_body_end_idx,
+            )
+            resume_fn_creator = ResumeFunctionCreator(self._frame)
+            if (
+                maybe_resume_fn := resume_fn_creator.lookup(cache_key)
+            ) is not None:
+                return maybe_resume_fn
+            pycode_gen = resume_fn_creator.codegen
 
-            pycode_gen.set_function_inputs(loop_body_inputs, stack_size=0)
+            resume_fn_creator.set_inputs(loop_body_inputs, stack_size=0)
 
             origin_instrs = get_instructions(pycode_gen._origin_code)
             for_iter = origin_instrs[for_iter_idx]
@@ -2056,8 +2412,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
                     instr.jump_to = nop_for_break
 
             # outputs is the same as inputs
-            pycode_gen.set_function_outputs(loop_body_outputs)
-            loop_body_fn = pycode_gen.create_function()
+            resume_fn_creator.set_outputs(loop_body_outputs)
+            loop_body_fn = resume_fn_creator.generate(cache_key=cache_key)
 
             log(
                 3,
@@ -2080,27 +2436,38 @@ class OpcodeExecutor(OpcodeExecutorBase):
         def create_after_loop_fn():
             if self._instructions[loop_body_end_idx].opname == "RETURN_VALUE":
                 return None
-            pycode_gen = PyCodeGen(self._frame)
+            cache_key = (
+                ResumeFunctionType.AFTER_LOOP_RESUME,
+                self._code,
+                loop_body_end_idx,
+            )
+            resume_fn_creator = ResumeFunctionCreator(self._frame)
+            if (
+                maybe_resume_fn := resume_fn_creator.lookup(cache_key)
+            ) is not None:
+                return maybe_resume_fn
+            pycode_gen = resume_fn_creator.codegen
             origin_instrs = get_instructions(pycode_gen._origin_code)
             resume_fn_end_idx = loop_body_end_idx
 
             # skip resume END_FOR in python3.12
             if sys.version_info >= (3, 12):
                 assert origin_instrs[loop_body_end_idx].opname == "END_FOR"
-                resume_fn_end_idx += 1
+                skip_n_instrs = 2 if sys.version_info >= (3, 13) else 1
+                resume_fn_end_idx += skip_n_instrs
 
-            pycode_gen.set_function_inputs(
+            resume_fn_creator.set_inputs(
                 after_loop_fn_inputs, stack_size=len(self.stack) - 1
             )
             pycode_gen.extend_instrs(origin_instrs[resume_fn_end_idx:])
             # the resume_fn contains return code, so we don't need set output here
             # global vars are updated correctly, and need local vars will return
-            after_loop_fn = pycode_gen.create_function()
+            after_loop_fn = resume_fn_creator.generate(cache_key=cache_key)
             return after_loop_fn
 
         after_loop_fn = create_after_loop_fn()
 
-        # 4. setup vars which is created in loop as Undefind
+        # 4. setup vars which is created in loop as Undefined
         for name in loop_body_inputs[:-1]:
             if not self.has_var(name):
                 self._graph.pycode_gen.gen_load_const(SotUndefinedVar())
@@ -2111,9 +2478,23 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 self._graph.pycode_gen.gen_store(name, self._code)
 
         # 5. compile sub graph before for-loop
-        update_names = list(loop_body_read_names | after_loop_read_names)
+        update_names = list(
+            OrderedSet(loop_body_inputs[:-1]) | after_loop_read_names
+        )
+        extra_store_vars = (
+            [
+                item
+                for item in iterator.flatten_inner_vars()
+                if isinstance(item, (TensorVariable, SymbolicVariable))
+            ]
+            if isinstance(iterator, IterVariable)
+            else []
+        )
         var_loader = self.get_compute_fn_and_update_changed_vars(
-            update_names, self.stack, self.indexof(for_iter)
+            update_names,
+            self.stack,
+            self.indexof(for_iter),
+            extra_store_vars,
         )
 
         # 6. prepare a new loop and call loop body
@@ -2159,6 +2540,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         if sys.version_info >= (3, 12):
             end_for = self._graph.pycode_gen.add_instr("END_FOR")
+            if sys.version_info >= (3, 13):
+                self._graph.pycode_gen.gen_pop_top()
 
         nop = self._graph.pycode_gen.add_instr("NOP")
 
@@ -2202,17 +2585,31 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         # why add write_names as input? check case in test/sot/test_12_for_loop.py
         # test_for_without_zero_iter
-        input_var_names = self._find_names_in_space(
-            read_names | write_names, (Space.locals, Space.cells)
-        ) + [iterator.id]
-        output_var_names = list(write_names) + [iterator.id]
+        input_var_names = [
+            *self._find_names_in_space(
+                read_names | write_names, (Space.locals, Space.cells)
+            ),
+            iterator.id,
+        ]
+        output_var_names = [*list(write_names), iterator.id]
 
         # 2. create inline call loop fn
         def create_inline_call_fn():
-            pycode_gen = PyCodeGen(self._frame)
+            cache_key = (
+                ResumeFunctionType.LOOP_BODY_INLINE_CALL,
+                self._code,
+                start_idx,
+                end_idx,
+            )
+            resume_fn_creator = ResumeFunctionCreator(self._frame)
+            if (
+                maybe_resume_fn := resume_fn_creator.lookup(cache_key)
+            ) is not None:
+                return maybe_resume_fn
+            pycode_gen = resume_fn_creator.codegen
             origin_instrs = get_instructions(pycode_gen._origin_code)
 
-            pycode_gen.set_function_inputs(input_var_names, stack_size=0)
+            resume_fn_creator.set_inputs(input_var_names, stack_size=0)
 
             # 2.1. load iter, it is a input of loop fn
             pycode_gen.gen_load_fast(iterator.id)
@@ -2234,6 +2631,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
             if sys.version_info >= (3, 12):
                 end_for = pycode_gen.add_instr("END_FOR")
+                if sys.version_info >= (3, 13):
+                    pycode_gen.gen_pop_top()
             nop_for_break = pycode_gen.add_instr("NOP")
 
             # 2.4. relocate jumps
@@ -2251,8 +2650,8 @@ class OpcodeExecutor(OpcodeExecutorBase):
             if sys.version_info >= (3, 12):
                 for_iter_instr.jump_to = end_for
 
-            pycode_gen.set_function_outputs(output_var_names)
-            inline_call_fn = pycode_gen.create_function()
+            resume_fn_creator.set_outputs(output_var_names)
+            inline_call_fn = resume_fn_creator.generate(cache_key=cache_key)
 
             log(
                 3,
@@ -2287,3 +2686,31 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
         for name, var in zip(output_var_names[:-1], ret[slice_variable]):
             self.set_var(name, var)
+
+    def _calc_null_indices(self, pop_n):
+        return [
+            i
+            for i, stack_arg in enumerate(self.stack)
+            if (
+                i < len(self.stack) - pop_n
+                and isinstance(stack_arg, NullVariable)
+                and CALL_METHOD_LAYOUT_NULL_AFTER_VALUE
+            )
+        ]
+
+    def _has_to_bool_prefix(self, cur_index):
+        if sys.version_info < (3, 13):
+            return False
+        prefix_instr = self._instructions[cur_index - 1]
+        if prefix_instr.opname == "TO_BOOL":
+            return True
+        if prefix_instr.opname == "COMPARE_OP" and prefix_instr.arg & 0b10000:
+            return True
+        return False
+
+    def _need_insert_to_bool(self, cur_index):
+        current_instr = self._instructions[cur_index]
+        return (
+            current_instr.opname in NEED_TO_BOOL
+            and self._has_to_bool_prefix(cur_index)
+        )

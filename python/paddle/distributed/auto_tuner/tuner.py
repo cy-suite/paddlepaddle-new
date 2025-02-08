@@ -53,7 +53,7 @@ class AutoTuner:
 
             self.algo = CustomizeSearch(tuner_cfg)
         else:
-            raise NotImplementedError()
+            raise NotImplementedError
 
         self.history_cfgs = []
         self.resume_cfgs = []
@@ -137,6 +137,10 @@ class AutoTuner:
         if self.tuner_cfg.get("refined_recompute", None):
             for rr in self.tuner_cfg["refined_recompute"]:
                 keys_to_compare.append(rr)
+
+        if self.tuner_cfg.get("custom_search_dim", None):
+            for key in self.tuner_cfg["custom_search_dim"]:
+                keys_to_compare.append(key)
 
         for cfg in self.resume_cfgs:
             ret_is_same = True

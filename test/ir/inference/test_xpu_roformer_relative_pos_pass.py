@@ -20,7 +20,13 @@ import numpy as np
 from auto_scan_test import PassAutoScanTest
 from program_config import OpConfig, ProgramConfig, TensorConfig
 
+from paddle.base import core
 
+
+@unittest.skipIf(
+    core.get_xpu_device_version(0) == core.XPUVersion.XPU3,
+    "Unsupported on XPU3",
+)
 class TestRoformerRelativePosXPUPass(PassAutoScanTest):
     def sample_predictor_configs(self, program_config):
         config = self.create_inference_config(use_xpu=True)
@@ -55,7 +61,7 @@ class TestRoformerRelativePosXPUPass(PassAutoScanTest):
         # Here we will compose a program
         # Still has some risks that the program is invalid or cause bug while running
         # Use function `is_program_valid` to filter the invalid programs before running
-        # Use function `add_skip_pass_case` to ignore the programs even if they cause bug while runing
+        # Use function `add_skip_pass_case` to ignore the programs even if they cause bug while running
         split_op = OpConfig(
             "split",
             inputs={"X": ["x"]},

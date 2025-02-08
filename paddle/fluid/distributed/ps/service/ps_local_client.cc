@@ -15,8 +15,7 @@
 #include "paddle/fluid/distributed/ps/service/ps_local_client.h"
 #include "paddle/fluid/distributed/ps/table/table.h"
 
-namespace paddle {
-namespace distributed {
+namespace paddle::distributed {
 int32_t PsLocalClient::Initialize() {
   const auto& downpour_param = _config.server_param().downpour_server_param();
   TableManager::Instance().Initialize();
@@ -66,11 +65,7 @@ int32_t PsLocalClient::Initialize() {
                                            const std::string& mode) {
   auto* table_ptr = GetTable(table_id);
   table_ptr->Flush();
-#ifdef PADDLE_WITH_GPU_GRAPH
-  table_ptr->Save_v2(epoch, mode);
-#else
   table_ptr->Save(epoch, mode);
-#endif
   return done();
 }
 
@@ -115,7 +110,7 @@ int32_t PsLocalClient::Initialize() {
   PADDLE_ENFORCE_EQ(
       shard_buffer_remain,
       region_buffer.size() * sizeof(float),
-      platform::errors::PreconditionNotMet("pull dense size error."));
+      common::errors::PreconditionNotMet("pull dense size error."));
   size_t index = 0;
   while (shard_buffer_remain > 0 && region_idx < region_num) {
     auto& region = regions[region_idx];
@@ -210,7 +205,7 @@ int32_t PsLocalClient::Initialize() {
     PADDLE_ENFORCE_LE(
         offset + data_num,
         data_size,
-        platform::errors::PreconditionNotMet(
+        common::errors::PreconditionNotMet(
             "invalid dense size, cur pos[%d] data_num[%d] size[%d]",
             offset,
             data_num,
@@ -261,11 +256,18 @@ int32_t PsLocalClient::Initialize() {
   return done();
 }
 
-::std::future<int32_t> PsLocalClient::PrintTableStat(uint32_t table_id) {
+::std::future<int32_t> PsLocalClient::PrintTableStat(uint32_t table_id,
+                                                     uint16_t pass_id,
+                                                     size_t threshold) {
   auto* table_ptr = GetTable(table_id);
   std::pair<int64_t, int64_t> ret = table_ptr->PrintTableStat();
   VLOG(0) << "table id: " << table_id << ", feasign size: " << ret.first
           << ", mf size: " << ret.second;
+  // > 50亿，40%内存
+  if (static_cast<size_t>(ret.first) > threshold) {
+    VLOG(0) << "run cache table";
+    table_ptr->CacheTable(pass_id);
+  }
   return done();
 }
 
@@ -322,5 +324,11 @@ int32_t PsLocalClient::Initialize() {
   table_ptr->Push(table_context);
   return done();
 }
-}  // namespace distributed
-}  // namespace paddle
+
+::std::future<int32_t> PsLocalClient::SetDayId(size_t table_id, int day_id) {
+  auto* table_ptr = GetTable(table_id);
+  table_ptr->SetDayId(day_id);
+  return done();
+}
+
+}  // namespace paddle::distributed

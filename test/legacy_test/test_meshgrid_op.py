@@ -1,4 +1,4 @@
-#   Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved.
+# Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ from op_test import OpTest, convert_float_to_uint16
 import paddle
 from paddle import base
 from paddle.base import core
-from paddle.pir_utils import test_with_pir_api
 
 
 def meshgrid_wrapper(x):
@@ -42,12 +41,28 @@ class TestMeshgridOp(OpTest):
         self.dtype = np.float64
 
     def test_check_output(self):
-        self.check_output(check_prim=True, check_pir=True)
+        if self.dtype == np.complex64 or self.dtype == np.complex128:
+            self.check_output(check_pir=True)
+        else:
+            self.check_output(
+                check_prim=True, check_pir=True, check_prim_pir=True
+            )
 
     def test_check_grad(self):
-        self.check_grad(
-            ['x0'], ['out0', 'out1'], check_prim=True, check_pir=True
-        )
+        if self.dtype == np.complex64 or self.dtype == np.complex128:
+            self.check_grad(
+                ['x0'],
+                ['out0', 'out1'],
+                check_pir=True,
+            )
+        else:
+            self.check_grad(
+                ['x0'],
+                ['out0', 'out1'],
+                check_prim=True,
+                check_pir=True,
+                check_prim_pir=True,
+            )
 
     def init_inputs_and_outputs(self):
         self.shape = self.get_x_shape()
@@ -61,10 +76,8 @@ class TestMeshgridOp(OpTest):
             out_reshape[i] = self.shape[i]
             out_temp = np.reshape(ins[i], out_reshape)
             outs.append(np.broadcast_to(out_temp, self.shape))
-        self.inputs = {'X': [('x%d' % i, ins[i]) for i in range(len(ins))]}
-        self.outputs = {
-            'Out': [('out%d' % i, outs[i]) for i in range(len(outs))]
-        }
+        self.inputs = {'X': [(f'x{i}', ins[i]) for i in range(len(ins))]}
+        self.outputs = {'Out': [(f'out{i}', outs[i]) for i in range(len(outs))]}
 
     def get_x_shape(self):
         return [100, 200]
@@ -85,6 +98,22 @@ class TestMeshgridOp2Fp16(TestMeshgridOp):
 
     def init_data_type(self):
         self.dtype = np.float16
+
+
+class TestMeshgridOp2Complex64(TestMeshgridOp):
+    def get_x_shape(self):
+        return [100, 300]
+
+    def init_data_type(self):
+        self.dtype = np.complex64
+
+
+class TestMeshgridOp2Complex128(TestMeshgridOp):
+    def get_x_shape(self):
+        return [100, 300]
+
+    def init_data_type(self):
+        self.dtype = np.complex128
 
 
 @unittest.skipIf(
@@ -110,13 +139,13 @@ class TestMeshgridOpBFP16OP(TestMeshgridOp):
             outs.append(np.broadcast_to(out_temp, self.shape))
         self.inputs = {
             'X': [
-                ('x%d' % i, convert_float_to_uint16(ins[i]))
+                (f'x{i}', convert_float_to_uint16(ins[i]))
                 for i in range(len(ins))
             ]
         }
         self.outputs = {
             'Out': [
-                ('out%d' % i, convert_float_to_uint16(outs[i]))
+                (f'out{i}', convert_float_to_uint16(outs[i]))
                 for i in range(len(outs))
             ]
         }
@@ -125,7 +154,9 @@ class TestMeshgridOpBFP16OP(TestMeshgridOp):
         self.enable_cinn = False
 
     def test_check_output(self):
-        self.check_output_with_place(place=paddle.CUDAPlace(0), check_pir=True)
+        self.check_output_with_place(
+            place=paddle.CUDAPlace(0), check_pir=True, check_prim_pir=True
+        )
 
     def test_check_grad(self):
         self.check_grad_with_place(
@@ -134,11 +165,12 @@ class TestMeshgridOpBFP16OP(TestMeshgridOp):
             ['out0', 'out1'],
             check_prim=True,
             check_pir=True,
+            check_prim_pir=True,
         )
 
 
 class TestMeshgridOp3(unittest.TestCase):
-    @test_with_pir_api
+
     def test_api(self):
         input_1 = np.random.randint(
             0,
@@ -176,7 +208,7 @@ class TestMeshgridOp3(unittest.TestCase):
 
 
 class TestMeshgridOp4(unittest.TestCase):
-    @test_with_pir_api
+
     def test_list_input(self):
         input_1 = np.random.randint(
             0,
@@ -214,7 +246,7 @@ class TestMeshgridOp4(unittest.TestCase):
 
 
 class TestMeshgridOp5(unittest.TestCase):
-    @test_with_pir_api
+
     def test_tuple_input(self):
         input_1 = np.random.randint(
             0,
@@ -329,6 +361,70 @@ class TestMeshgridOp8(unittest.TestCase):
             np.testing.assert_array_equal(res_4.shape, [100, 200])
 
 
+class TestMeshgridOpComplexStatic(unittest.TestCase):
+
+    def test_tuple_input(self):
+        input_1 = np.random.randint(
+            0,
+            100,
+            [
+                100,
+            ],
+        ).astype('complex64')
+        input_2 = np.random.randint(
+            0,
+            100,
+            [
+                200,
+            ],
+        ).astype('complex64')
+
+        out_1 = np.reshape(input_1, [100, 1])
+        out_1 = np.broadcast_to(out_1, [100, 200])
+        out_2 = np.reshape(input_2, [1, 200])
+        out_2 = np.broadcast_to(out_2, [100, 200])
+
+        with paddle.static.program_guard(paddle.static.Program()):
+            x = paddle.static.data(shape=[100], dtype='complex64', name='x')
+            y = paddle.static.data(shape=[200], dtype='complex64', name='y')
+
+            exe = base.Executor(place=base.CPUPlace())
+            grid_x, grid_y = paddle.tensor.meshgrid((x, y))
+            res_1, res_2 = exe.run(
+                paddle.static.default_main_program(),
+                feed={'x': input_1, 'y': input_2},
+                fetch_list=[grid_x, grid_y],
+            )
+        np.testing.assert_array_equal(res_1, out_1)
+        np.testing.assert_array_equal(res_2, out_2)
+
+
+class TestMeshgridOpComplexDygraph(unittest.TestCase):
+    def test_api_with_dygraph_tuple_input(self):
+        input_3 = np.random.randint(
+            0,
+            100,
+            [
+                100,
+            ],
+        ).astype('complex64')
+        input_4 = np.random.randint(
+            0,
+            100,
+            [
+                200,
+            ],
+        ).astype('complex64')
+
+        with base.dygraph.guard():
+            tensor_3 = paddle.to_tensor(input_3)
+            tensor_4 = paddle.to_tensor(input_4)
+            res_3, res_4 = paddle.tensor.meshgrid((tensor_3, tensor_4))
+
+            np.testing.assert_array_equal(res_3.shape, [100, 200])
+            np.testing.assert_array_equal(res_4.shape, [100, 200])
+
+
 class TestMeshGrid_ZeroDim(TestMeshgridOp):
     def init_inputs_and_outputs(self):
         self.shape = self.get_x_shape()
@@ -342,10 +438,8 @@ class TestMeshGrid_ZeroDim(TestMeshgridOp):
             out_reshape[i] = self.shape[i]
             out_temp = np.reshape(ins[i], out_reshape)
             outs.append(np.broadcast_to(out_temp, self.shape))
-        self.inputs = {'X': [('x%d' % i, ins[i]) for i in range(len(ins))]}
-        self.outputs = {
-            'Out': [('out%d' % i, outs[i]) for i in range(len(outs))]
-        }
+        self.inputs = {'X': [(f'x{i}', ins[i]) for i in range(len(ins))]}
+        self.outputs = {'Out': [(f'out{i}', outs[i]) for i in range(len(outs))]}
 
     def get_x_shape(self):
         return [1, 2, 3]
@@ -396,6 +490,66 @@ class TestMeshgridEager(unittest.TestCase):
                 (tensor_2.grad.numpy() == tensor_eager_2.grad.numpy()).all(),
                 True,
             )
+
+
+class TestMeshgridEmptyTensor(unittest.TestCase):
+    def _get_places(self):
+        places = [base.CPUPlace()]
+        if paddle.is_compiled_with_cuda():
+            places.append(base.CUDAPlace(0))
+        return places
+
+    def _generate_inputs(self, shapes):
+        return [np.random.random(shape).astype('float64') for shape in shapes]
+
+    def _test_with_shapes(self, shapes, expected_shapes, place=None):
+        inputs = self._generate_inputs(shapes)
+
+        if place is None:  # Dygraph mode
+            with base.dygraph.guard():
+                tensors = [paddle.to_tensor(inp) for inp in inputs]
+                results = paddle.meshgrid(tensors)
+        else:  # Static mode
+            with paddle.static.program_guard(paddle.static.Program()):
+                data_tensors = [
+                    paddle.static.data(
+                        shape=shape, dtype='float64', name=f'x{i}'
+                    )
+                    for i, shape in enumerate(shapes)
+                ]
+                exe = base.Executor(place=place)
+                grid_results = paddle.tensor.meshgrid(data_tensors)
+                feed_dict = {f'x{i}': inp for i, inp in enumerate(inputs)}
+                results = exe.run(
+                    paddle.static.default_main_program(),
+                    feed=feed_dict,
+                    fetch_list=grid_results,
+                )
+
+        for result, expected_shape in zip(results, expected_shapes):
+            np.testing.assert_array_equal(result.shape, expected_shape)
+
+    def test_api_with_dygraph_empty_tensor_input(self):
+        self._test_with_shapes([(100,), (0,)], [[100, 0], [100, 0]])
+
+    def _test_api_with_static_empty_tensor_input(self, place):
+        self._test_with_shapes([(100,), (0,)], [[100, 0], [100, 0]], place)
+
+    def test_api_with_static_empty_tensor_input(self):
+        for place in self._get_places():
+            self._test_api_with_static_empty_tensor_input(place)
+
+
+class TestMeshgridEmptyTensor2(TestMeshgridEmptyTensor):
+    def test_api_with_dygraph_empty_tensor_input(self):
+        self._test_with_shapes(
+            [(0,), (0,), (0,)], [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+        )
+
+    def _test_api_with_static_empty_tensor_input(self, place):
+        self._test_with_shapes(
+            [(0,), (0,), (0,)], [[0, 0, 0], [0, 0, 0], [0, 0, 0]], place
+        )
 
 
 if __name__ == '__main__':

@@ -13,6 +13,9 @@
 # limitations under the License.
 
 import os
+
+os.environ['FLAGS_enable_pir_api'] = '0'
+
 import unittest
 
 import paddle
@@ -71,9 +74,7 @@ class TestPSMinimize(unittest.TestCase):
         is_sparse = True
 
         # query
-        q = paddle.static.data(
-            name="1", shape=[-1, 1], dtype="int64", lod_level=1
-        )
+        q = paddle.static.data(name="1", shape=[-1, 1], dtype="int64")
         # embedding
         q_emb = paddle.static.nn.sparse_embedding(
             input=q,
@@ -103,9 +104,7 @@ class TestPSMinimize(unittest.TestCase):
         # label data
         label = paddle.static.data(name="label", shape=[-1, 1], dtype="int64")
         # pt
-        pt = paddle.static.data(
-            name="2", shape=[-1, 1], dtype="int64", lod_level=1
-        )
+        pt = paddle.static.data(name="2", shape=[-1, 1], dtype="int64")
         # embedding
         pt_emb = paddle.static.nn.sparse_embedding(
             input=pt,
@@ -134,9 +133,7 @@ class TestPSMinimize(unittest.TestCase):
             bias_attr=base.ParamAttr(name="__fc_b__"),
         )
         # nt
-        nt = paddle.static.data(
-            name="3", shape=[-1, 1], dtype="int64", lod_level=1
-        )
+        nt = paddle.static.data(name="3", shape=[-1, 1], dtype="int64")
         # embedding
         nt_emb = paddle.static.nn.sparse_embedding(
             input=nt,
@@ -182,9 +179,9 @@ class TestPSMinimize(unittest.TestCase):
         sparse_config['sparse_compress_in_save'] = True
         sparse_config['sparse_shard_num'] = 67
         # sparse_config['sparse_accessor_class'] = "DownpourCtrAccessor"
-        sparse_config[
-            'sparse_accessor_class'
-        ] = "DownpourCtrDymfAccessor"  # for variable embedding
+        sparse_config['sparse_accessor_class'] = (
+            "DownpourCtrDymfAccessor"  # for variable embedding
+        )
         sparse_config['sparse_learning_rate'] = 0.05  # sparse_lr
         sparse_config['sparse_initial_g2sum'] = 3
         sparse_config['sparse_initial_range'] = 0.02  # init_range
@@ -203,23 +200,23 @@ class TestPSMinimize(unittest.TestCase):
         sparse_config['embed_sparse_optimizer'] = "adagrad"  # op_type
         sparse_config['embed_sparse_learning_rate'] = 0.05  # sparse_lr
         sparse_config['embed_sparse_initial_range'] = 0
-        sparse_config[
-            'embed_sparse_beta1_decay_rate'
-        ] = 0.9  # args.beta1_decay_rate
-        sparse_config[
-            'embed_sparse_beta2_decay_rate'
-        ] = 0.999  # args.beta2_decay_rate
+        sparse_config['embed_sparse_beta1_decay_rate'] = (
+            0.9  # args.beta1_decay_rate
+        )
+        sparse_config['embed_sparse_beta2_decay_rate'] = (
+            0.999  # args.beta2_decay_rate
+        )
         sparse_config['embed_sparse_weight_bounds'] = [-10.0, 10.0]
 
         sparse_config['embedx_sparse_optimizer'] = "adagrad"  # op_type
         sparse_config['embedx_sparse_learning_rate'] = 0.05  # sparse_lr
         sparse_config['embedx_sparse_initial_range'] = 0.02  # init_range
-        sparse_config[
-            'embedx_sparse_beta1_decay_rate'
-        ] = 0.9  # args.beta1_decay_rate
-        sparse_config[
-            'embedx_sparse_beta2_decay_rate'
-        ] = 0.999  # args.beta2_decay_rate
+        sparse_config['embedx_sparse_beta1_decay_rate'] = (
+            0.9  # args.beta1_decay_rate
+        )
+        sparse_config['embedx_sparse_beta2_decay_rate'] = (
+            0.999  # args.beta2_decay_rate
+        )
         sparse_config['embedx_sparse_weight_bounds'] = [-10.0, 10.0]
         # sparse_config['nodeid_slot'] = nodeid_slot
         # sparse_config['feature_learning_rate'] = feature_lr
@@ -232,12 +229,12 @@ class TestPSMinimize(unittest.TestCase):
         os.environ["PADDLE_PORT"] = "36001"
         os.environ["PADDLE_TRAINER_ID"] = "0"
         os.environ["PADDLE_TRAINERS_NUM"] = "2"
-        os.environ[
-            "PADDLE_TRAINER_ENDPOINTS"
-        ] = "127.0.0.1:36001,127.0.0.2:36001"
-        os.environ[
-            "PADDLE_PSERVERS_IP_PORT_LIST"
-        ] = "127.0.0.1:36002,127.0.0.2:36002"
+        os.environ["PADDLE_TRAINER_ENDPOINTS"] = (
+            "127.0.0.1:36001,127.0.0.2:36001"
+        )
+        os.environ["PADDLE_PSERVERS_IP_PORT_LIST"] = (
+            "127.0.0.1:36002,127.0.0.2:36002"
+        )
         os.environ["TRAINING_ROLE"] = "TRAINER"
         os.environ["FLAGS_selected_gpus"] = "0"
 

@@ -19,14 +19,15 @@ from __future__ import annotations
 
 import unittest
 
-from test_case_base import TestCaseBase
+from test_case_base import (
+    TestCaseBase,
+    test_instruction_translator_cache_context,
+    test_with_faster_guard,
+)
 
 import paddle
 from paddle.jit import sot
 from paddle.jit.sot import symbolic_translate
-from paddle.jit.sot.opcode_translator.executor.executor_cache import (
-    OpcodeExecutorCache,
-)
 from paddle.jit.sot.utils import strict_mode_guard
 
 
@@ -164,6 +165,7 @@ class TestForLoop(TestCaseBase):
         a = paddle.to_tensor(1)
         self.assert_results(for_list_1, a)
 
+    @test_with_faster_guard
     def test_list_with_fallback(self):
         a = paddle.to_tensor(1)
         self.assert_results(for_list_2, a)
@@ -193,6 +195,7 @@ class TestForLoop(TestCaseBase):
         paddle_output = for_break(a, gener())
         self.assert_nest_match(sym_output, paddle_output)
 
+    @test_with_faster_guard
     def test_for_continue(self):
         a = paddle.to_tensor(1)
         sym_output = symbolic_translate(for_continue)(a, gener())
@@ -204,6 +207,7 @@ class TestForLoop(TestCaseBase):
     #     a = [1, 2, 3]
     #     self.assert_results(for_enumerate_var_with_nested_range, a)
 
+    @test_with_faster_guard
     def test_create_var_in_loop(self):
         x = paddle.to_tensor(1, dtype="float32")
         a = [1, 2, 3]
@@ -216,6 +220,7 @@ class TestForLoop(TestCaseBase):
     def test_create_var_in_loop_with_same_name_as_global(self):
         self.assert_results(for_tmp_var_with_same_name_as_global_var)
 
+    @test_with_faster_guard
     def test_for_without_zero_iter(self):
         self_res_dict = {}
         output = paddle.to_tensor(2)
@@ -224,6 +229,7 @@ class TestForLoop(TestCaseBase):
     def test_reconstruct_range_iter(self):
         self.assert_results(for_reconstruct_range_iter)
 
+    @test_with_faster_guard
     def test_layer_list(self):
         layers = paddle.nn.LayerList()
         for i in range(5):
@@ -251,6 +257,7 @@ def for_enumerate_cache(func_list, x):
 
 
 class TestEnumerateCache(TestCaseBase):
+    @test_with_faster_guard
     def test_run(self):
         func_list = [
             paddle.nn.Linear(10, 10),
@@ -259,9 +266,10 @@ class TestEnumerateCache(TestCaseBase):
             paddle.randn([5, 10]),
         ]
 
-        out = symbolic_translate(for_enumerate_cache)(func_list, x)
-        out = symbolic_translate(for_enumerate_cache)(func_list, x)
-        self.assert_nest_match(OpcodeExecutorCache().translate_count, 1)
+        with test_instruction_translator_cache_context() as ctx:
+            out = symbolic_translate(for_enumerate_cache)(func_list, x)
+            out = symbolic_translate(for_enumerate_cache)(func_list, x)
+            self.assertEqual(ctx.translate_count, 1)
 
 
 # after_loop_fn need zzz, and zzz is created as UndefinedVar when generating loop body
@@ -291,8 +299,67 @@ class TestUndefinedVarInRiskyCodes(TestCaseBase):
     def test_undefined_var_case_0(self):
         self.assert_results(undefined_var_case_0)
 
+    @test_with_faster_guard
     def test_undefined_var_case_1(self):
         self.assert_results(undefined_var_case_1)
+
+
+def comp_with_fallback(x):
+    paddle.jit.sot.psdb.fallback()
+    y = [len(t) for t in x]
+    return paddle.to_tensor(y)
+
+
+class TestListCompWithFallback(TestCaseBase):
+    @strict_mode_guard(False)
+    def test_list_comp_with_fallback(self):
+        x = [paddle.randn([4, 6])]
+        self.assert_results(comp_with_fallback, x)
+
+
+def for_arange(x):
+    for i in paddle.arange(0, 5):
+        x = x + i
+    return x
+
+
+class TestArange(TestCaseBase):
+    def test_arange(self):
+        x = paddle.to_tensor(1)
+        self.assert_results(for_arange, x)
+
+
+def for_break_with_load_same_consts(x: paddle.Tensor):
+    y = None
+    z = None
+    for i in [1, 2, 3]:
+        if y is None:
+            y = i
+        if z is None:
+            z = i
+        x += y + z
+        sot.psdb.breakgraph()
+    return x
+
+
+class TestForBreakWithLoadSameConsts(TestCaseBase):
+    def test_for_break_with_load_same_consts(self):
+        x = paddle.to_tensor(1)
+        self.assert_results(for_break_with_load_same_consts, x)
+
+
+def for_break_with_write_pre_defined_name(x: paddle.Tensor):
+    y = None
+    for i in [1, 2, 3]:
+        y = i
+        sot.psdb.breakgraph()
+    return x + 1
+
+
+class TestForBreakWithWritePreDefinedName(TestCaseBase):
+    def test_for_break_with_write_pre_defined_name(self):
+        x = paddle.to_tensor(1)
+        self.assert_results(for_break_with_write_pre_defined_name, x)
 
 
 if __name__ == "__main__":

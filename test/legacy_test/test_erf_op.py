@@ -17,11 +17,12 @@ import unittest
 import numpy as np
 from op_test import OpTest, convert_float_to_uint16
 from scipy.special import erf
-from utils import static_guard
 
 import paddle
 import paddle.base.dygraph as dg
-from paddle import base
+from paddle import base, static
+
+paddle.enable_static()
 
 
 class TestErfOp(OpTest):
@@ -44,7 +45,7 @@ class TestErfOp(OpTest):
         return "float64"
 
     def test_check_output(self):
-        self.check_output(check_pir=True)
+        self.check_output(check_pir=True, check_symbol_infer=False)
 
     def test_check_grad(self):
         self.check_grad(['X'], 'Out', check_prim=True, check_pir=True)
@@ -64,27 +65,37 @@ class TestErfOp_ZeroDim(TestErfOp):
 
 
 class TestErfLayer(unittest.TestCase):
-    def _test_case(self, place):
-        x = np.random.uniform(-1, 1, size=(11, 17)).astype(np.float64)
-        y_ref = erf(x)
+    def setUp(self):
+        self.x = np.random.uniform(-1, 1, size=(11, 17)).astype(np.float64)
+        self.y = erf(self.x)
+
+    def _test_dygraph(self, place):
         with dg.guard(place) as g:
-            x_var = paddle.to_tensor(x)
+            x_var = paddle.to_tensor(self.x)
             y_var = paddle.erf(x_var)
             y_test = y_var.numpy()
-        np.testing.assert_allclose(y_ref, y_test, rtol=1e-05)
+        np.testing.assert_allclose(self.y, y_test, rtol=1e-05)
 
-    def test_case(self):
-        with static_guard():
-            self._test_case(base.CPUPlace())
-            if base.is_compiled_with_cuda():
-                self._test_case(base.CUDAPlace(0))
+    def test_dygraph(self):
+        self._test_dygraph(base.CPUPlace())
+        if base.is_compiled_with_cuda():
+            self._test_dygraph(base.CUDAPlace(0))
 
-    def test_name(self):
-        with static_guard():
-            with base.program_guard(base.Program()):
-                x = paddle.static.data('x', [3, 4])
-                y = paddle.erf(x, name='erf')
-                self.assertTrue('erf' in y.name)
+    def _test_static(self, place):
+        mp, sp = static.Program(), static.Program()
+        with static.program_guard(mp, sp):
+            x = static.data("x", shape=[11, 17], dtype="float64")
+            y = paddle.erf(x)
+
+        exe = static.Executor(place)
+        exe.run(sp)
+        [y_np] = exe.run(mp, feed={"x": self.x}, fetch_list=[y])
+        np.testing.assert_allclose(self.y, y_np, rtol=1e-05)
+
+    def test_static(self):
+        self._test_static(base.CPUPlace())
+        if base.is_compiled_with_cuda():
+            self._test_static(base.CUDAPlace(0))
 
 
 class TestErfFP16OP(OpTest):
@@ -101,7 +112,7 @@ class TestErfFP16OP(OpTest):
         self.outputs = {'Out': y_ref}
 
     def test_check_output(self):
-        self.check_output(check_pir=True)
+        self.check_output(check_pir=True, check_symbol_infer=False)
 
     def test_check_grad(self):
         self.check_grad(
@@ -135,7 +146,9 @@ class TestErfBF16OP(OpTest):
 
     def test_check_output(self):
         place = paddle.base.core.CUDAPlace(0)
-        self.check_output_with_place(place, check_pir=True)
+        self.check_output_with_place(
+            place, check_pir=True, check_symbol_infer=False
+        )
 
     def test_check_grad(self):
         place = paddle.base.core.CUDAPlace(0)

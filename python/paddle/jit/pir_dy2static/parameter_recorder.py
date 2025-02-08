@@ -45,18 +45,12 @@ class ParametersRecorder:
                 dtype=dtype,
                 shape=tensor.shape,
                 type=tensor.type,
+                name=tensor.name,
                 initializer=non_used_initializer,
+                trainable=(not tensor.stop_gradient),
+                placements=tensor.placements,
+                process_mesh=tensor.process_mesh,
             )
-
-            if tensor.placements is not None:  # import for shard tensor api
-                import paddle.distributed as dist
-
-                value = dist.shard_tensor(
-                    value,
-                    tensor.process_mesh,
-                    tensor.placements,
-                    stop_gradient=value.stop_gradient,
-                )
 
             if isinstance(tensor, paddle.Tensor):
                 params.add(tensor)
@@ -116,7 +110,11 @@ class InplaceMap:
         self.params_dict = checkpoint
 
     def save_checkpoint(self):
-        return dict(self.params_dict.items())
+        ckeckpoint = {}
+        for program_id, params in self.params_dict.items():
+            new_params = dict(params.items())
+            ckeckpoint[program_id] = new_params
+        return ckeckpoint
 
 
 _global_parameter_recorder = ParametersRecorder()

@@ -44,16 +44,16 @@ class TestReshapeSPMDRule(unittest.TestCase):
         result_dist_attrs = self.rule.infer_forward(
             self.x_dist_tensor_spec, self.attrs['shape']
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
-        self.assertEqual(len(infered_input_dist_attrs), 1)
-        self.assertEqual(len(infered_output_dist_attrs), 1)
+        self.assertEqual(len(inferred_input_dist_attrs), 1)
+        self.assertEqual(len(inferred_output_dist_attrs), 1)
         self.assertEqual(
-            infered_input_dist_attrs[0].dims_mapping, [0, -1, 1, -1]
+            inferred_input_dist_attrs[0].dims_mapping, [0, -1, 1, -1]
         )
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [-1, 0, 1, -1, -1]
+            inferred_output_dist_attrs[0].dims_mapping, [-1, 0, 1, -1, -1]
         )
 
         # shape: [6, 12, 48, 24] --> [1, 72, 48, 4, 6]
@@ -62,14 +62,14 @@ class TestReshapeSPMDRule(unittest.TestCase):
         result_dist_attrs = self.rule.infer_forward(
             self.x_dist_tensor_spec, self.attrs['shape']
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(
-            infered_input_dist_attrs[0].dims_mapping, [-1, -1, -1, -1]
+            inferred_input_dist_attrs[0].dims_mapping, [-1, -1, -1, -1]
         )
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [-1, -1, -1, -1, -1]
+            inferred_output_dist_attrs[0].dims_mapping, [-1, -1, -1, -1, -1]
         )
 
         # shape: [6, 12, 48, 24] --> [1, 72, 48, 4, 6]
@@ -78,14 +78,14 @@ class TestReshapeSPMDRule(unittest.TestCase):
         result_dist_attrs = self.rule.infer_forward(
             self.x_dist_tensor_spec, self.attrs['shape']
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(
-            infered_input_dist_attrs[0].dims_mapping, [1, -1, -1, 0]
+            inferred_input_dist_attrs[0].dims_mapping, [1, -1, -1, 0]
         )
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [-1, 1, -1, 0, -1]
+            inferred_output_dist_attrs[0].dims_mapping, [-1, 1, -1, 0, -1]
         )
 
         # shape: [6, 12, 48, 24] --> [3, 24, 6, 8, 24]
@@ -96,14 +96,14 @@ class TestReshapeSPMDRule(unittest.TestCase):
         result_dist_attrs = self.rule.infer_forward(
             self.x_dist_tensor_spec, self.attrs['shape']
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(
-            infered_input_dist_attrs[0].dims_mapping, [-1, -1, -1, -1]
+            inferred_input_dist_attrs[0].dims_mapping, [-1, -1, -1, -1]
         )
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [-1, -1, -1, -1, -1]
+            inferred_output_dist_attrs[0].dims_mapping, [-1, -1, -1, -1, -1]
         )
 
         # shape: [6, 12, 48, 24] --> [3, 24, 6, 8, 24]
@@ -113,14 +113,14 @@ class TestReshapeSPMDRule(unittest.TestCase):
         result_dist_attrs = self.rule.infer_forward(
             self.x_dist_tensor_spec, self.attrs['shape']
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(
-            infered_input_dist_attrs[0].dims_mapping, [1, -1, -1, 0]
+            inferred_input_dist_attrs[0].dims_mapping, [1, -1, -1, 0]
         )
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [1, -1, -1, -1, 0]
+            inferred_output_dist_attrs[0].dims_mapping, [1, -1, -1, -1, 0]
         )
 
         # shape: [6, 12, 48, 24] --> [3, 24, 6, -1, 24]
@@ -131,14 +131,14 @@ class TestReshapeSPMDRule(unittest.TestCase):
         result_dist_attrs = self.rule.infer_forward(
             self.x_dist_tensor_spec, self.attrs['shape']
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(
-            infered_input_dist_attrs[0].dims_mapping, [-1, -1, 0, 1]
+            inferred_input_dist_attrs[0].dims_mapping, [-1, -1, 0, 1]
         )
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [-1, -1, 0, -1, 1]
+            inferred_output_dist_attrs[0].dims_mapping, [-1, -1, 0, -1, 1]
         )
 
         # shape: [6, 12, 48, 24] --> [1, 72, 0, 4, 6]
@@ -148,14 +148,14 @@ class TestReshapeSPMDRule(unittest.TestCase):
         result_dist_attrs = self.rule.infer_forward(
             self.x_dist_tensor_spec, self.attrs['shape']
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(
-            infered_input_dist_attrs[0].dims_mapping, [1, -1, -1, 0]
+            inferred_input_dist_attrs[0].dims_mapping, [1, -1, -1, 0]
         )
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [-1, 1, -1, 0, -1]
+            inferred_output_dist_attrs[0].dims_mapping, [-1, 1, -1, 0, -1]
         )
 
         # shape: [6, 12, 48, 24] --> [6, 12, 48, 24]
@@ -165,14 +165,14 @@ class TestReshapeSPMDRule(unittest.TestCase):
         result_dist_attrs = self.rule.infer_forward(
             self.x_dist_tensor_spec, self.attrs['shape']
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(
-            infered_input_dist_attrs[0].dims_mapping, [-1, -1, 0, 1]
+            inferred_input_dist_attrs[0].dims_mapping, [-1, -1, 0, 1]
         )
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [-1, -1, 0, 1]
+            inferred_output_dist_attrs[0].dims_mapping, [-1, -1, 0, 1]
         )
 
         # shape: [6, 12, 48, 24] --> [72, 3, 16, 24]
@@ -182,14 +182,14 @@ class TestReshapeSPMDRule(unittest.TestCase):
         result_dist_attrs = self.rule.infer_forward(
             self.x_dist_tensor_spec, self.attrs['shape']
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(
-            infered_input_dist_attrs[0].dims_mapping, [0, -1, 1, -1]
+            inferred_input_dist_attrs[0].dims_mapping, [0, -1, 1, -1]
         )
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [0, 1, -1, -1]
+            inferred_output_dist_attrs[0].dims_mapping, [0, 1, -1, -1]
         )
 
         # shape: [6, 12, 48, 24] --> [72, 3, 16, 24]
@@ -199,14 +199,14 @@ class TestReshapeSPMDRule(unittest.TestCase):
         result_dist_attrs = self.rule.infer_forward(
             self.x_dist_tensor_spec, self.attrs['shape']
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(
-            infered_input_dist_attrs[0].dims_mapping, [1, -1, -1, -1]
+            inferred_input_dist_attrs[0].dims_mapping, [1, -1, -1, -1]
         )
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [1, -1, -1, -1]
+            inferred_output_dist_attrs[0].dims_mapping, [1, -1, -1, -1]
         )
 
         # shape: [1, 72, 48, 4, 6] --> [6, 12, 48, 24]
@@ -217,14 +217,14 @@ class TestReshapeSPMDRule(unittest.TestCase):
         result_dist_attrs = self.rule.infer_forward(
             self.x_dist_tensor_spec, self.attrs['shape']
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(
-            infered_input_dist_attrs[0].dims_mapping, [-1, 1, -1, 0, -1]
+            inferred_input_dist_attrs[0].dims_mapping, [-1, 1, -1, 0, -1]
         )
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [1, -1, -1, 0]
+            inferred_output_dist_attrs[0].dims_mapping, [1, -1, -1, 0]
         )
 
         # shape: [8, 1024, 3072] --> [0, 0, -1, 192]
@@ -235,12 +235,12 @@ class TestReshapeSPMDRule(unittest.TestCase):
         result_dist_attrs = self.rule.infer_forward(
             self.x_dist_tensor_spec, self.attrs['shape']
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
-        self.assertEqual(infered_input_dist_attrs[0].dims_mapping, [0, 1, -1])
+        self.assertEqual(inferred_input_dist_attrs[0].dims_mapping, [0, 1, -1])
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [0, 1, -1, -1]
+            inferred_output_dist_attrs[0].dims_mapping, [0, 1, -1, -1]
         )
 
         # shape: [-1, -1, 3072] --> [0, 0, -1, 192]
@@ -251,12 +251,12 @@ class TestReshapeSPMDRule(unittest.TestCase):
         result_dist_attrs = self.rule.infer_forward(
             self.x_dist_tensor_spec, self.attrs['shape']
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
-        self.assertEqual(infered_input_dist_attrs[0].dims_mapping, [0, 1, -1])
+        self.assertEqual(inferred_input_dist_attrs[0].dims_mapping, [0, 1, -1])
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [0, 1, -1, -1]
+            inferred_output_dist_attrs[0].dims_mapping, [0, 1, -1, -1]
         )
 
         # shape: [-1, -1, 3072] --> [0, 0, -1, 192]
@@ -267,12 +267,12 @@ class TestReshapeSPMDRule(unittest.TestCase):
         result_dist_attrs = self.rule.infer_forward(
             self.x_dist_tensor_spec, self.attrs['shape']
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
-        self.assertEqual(infered_input_dist_attrs[0].dims_mapping, [0, -1, -1])
+        self.assertEqual(inferred_input_dist_attrs[0].dims_mapping, [0, -1, -1])
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [0, -1, -1, -1]
+            inferred_output_dist_attrs[0].dims_mapping, [0, -1, -1, -1]
         )
 
         # shape: [-1, -1, 3072] --> [0, 0, -1, 192]
@@ -283,12 +283,28 @@ class TestReshapeSPMDRule(unittest.TestCase):
         result_dist_attrs = self.rule.infer_forward(
             self.x_dist_tensor_spec, self.attrs['shape']
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
-        self.assertEqual(infered_input_dist_attrs[0].dims_mapping, [1, -1, 0])
+        self.assertEqual(inferred_input_dist_attrs[0].dims_mapping, [1, -1, 0])
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [1, -1, 0, -1]
+            inferred_output_dist_attrs[0].dims_mapping, [1, -1, 0, -1]
+        )
+
+        # shape: [1, 2048, 12288] --> [0, 0, 6, 2048]
+        # dims_mapping: [0, -1, 1] --> [0, -1, 1], [0, -1, 1, -1]
+        self.x_dist_tensor_spec.shape = [1, 2048, 12288]
+        self.attrs["shape"] = [0, 0, 6, 2048]
+        self.x_dist_tensor_spec.set_dims_mapping([0, -1, 1])
+        result_dist_attrs = self.rule.infer_forward(
+            self.x_dist_tensor_spec, self.attrs['shape']
+        )
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
+
+        self.assertEqual(inferred_input_dist_attrs[0].dims_mapping, [0, -1, 1])
+        self.assertEqual(
+            inferred_output_dist_attrs[0].dims_mapping, [0, -1, 1, -1]
         )
 
         # shape: [6, 12, 48, 24] --> [3, 24, 6, -1, -1]
@@ -317,16 +333,16 @@ class TestReshapeSPMDRule(unittest.TestCase):
             self.output_dist_tensor_spec,
             self.attrs['shape'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
-        self.assertEqual(len(infered_input_dist_attrs), 1)
-        self.assertEqual(len(infered_output_dist_attrs), 1)
+        self.assertEqual(len(inferred_input_dist_attrs), 1)
+        self.assertEqual(len(inferred_output_dist_attrs), 1)
         self.assertEqual(
-            infered_input_dist_attrs[0].dims_mapping, [0, -1, 1, -1]
+            inferred_input_dist_attrs[0].dims_mapping, [0, -1, 1, -1]
         )
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [-1, 0, 1, -1, -1]
+            inferred_output_dist_attrs[0].dims_mapping, [-1, 0, 1, -1, -1]
         )
 
         # shape: [6, 12, 48, 24] --> [1, 72, 48, 4, 6] (input --> output)
@@ -338,14 +354,14 @@ class TestReshapeSPMDRule(unittest.TestCase):
             self.output_dist_tensor_spec,
             self.attrs['shape'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(
-            infered_input_dist_attrs[0].dims_mapping, [-1, -1, -1, -1]
+            inferred_input_dist_attrs[0].dims_mapping, [-1, -1, -1, -1]
         )
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [-1, -1, -1, -1, -1]
+            inferred_output_dist_attrs[0].dims_mapping, [-1, -1, -1, -1, -1]
         )
 
         # shape: [6, 12, 48, 24] --> [1, 72, 48, 4, 6] (input --> output)
@@ -357,14 +373,14 @@ class TestReshapeSPMDRule(unittest.TestCase):
             self.output_dist_tensor_spec,
             self.attrs['shape'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(
-            infered_input_dist_attrs[0].dims_mapping, [1, -1, -1, 0]
+            inferred_input_dist_attrs[0].dims_mapping, [1, -1, -1, 0]
         )
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [-1, 1, -1, 0, -1]
+            inferred_output_dist_attrs[0].dims_mapping, [-1, 1, -1, 0, -1]
         )
 
         # shape: [6, 12, 48, 24] --> [3, 24, 6, 8, 24] (input --> output)
@@ -377,14 +393,14 @@ class TestReshapeSPMDRule(unittest.TestCase):
             self.output_dist_tensor_spec,
             self.attrs['shape'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(
-            infered_input_dist_attrs[0].dims_mapping, [1, -1, -1, 0]
+            inferred_input_dist_attrs[0].dims_mapping, [1, -1, -1, 0]
         )
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [1, -1, -1, -1, 0]
+            inferred_output_dist_attrs[0].dims_mapping, [1, -1, -1, -1, 0]
         )
 
         # shape: [6, 12, 48, 24] --> [3, 24, 6, 8, 24] (input --> output)
@@ -397,14 +413,14 @@ class TestReshapeSPMDRule(unittest.TestCase):
             self.output_dist_tensor_spec,
             self.attrs['shape'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(
-            infered_input_dist_attrs[0].dims_mapping, [-1, -1, 0, 1]
+            inferred_input_dist_attrs[0].dims_mapping, [-1, -1, 0, 1]
         )
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [-1, -1, 0, -1, 1]
+            inferred_output_dist_attrs[0].dims_mapping, [-1, -1, 0, -1, 1]
         )
 
         # shape: [6, 12, 48, 24] --> [6, 12, 48, 24] (input --> output)
@@ -416,14 +432,14 @@ class TestReshapeSPMDRule(unittest.TestCase):
             self.output_dist_tensor_spec,
             self.attrs['shape'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(
-            infered_input_dist_attrs[0].dims_mapping, [-1, -1, 0, 1]
+            inferred_input_dist_attrs[0].dims_mapping, [-1, -1, 0, 1]
         )
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [-1, -1, 0, 1]
+            inferred_output_dist_attrs[0].dims_mapping, [-1, -1, 0, 1]
         )
 
         # shape: [6, 12, 48, 24] --> [72, 3, 16, 24] (input --> output)
@@ -435,14 +451,14 @@ class TestReshapeSPMDRule(unittest.TestCase):
             self.output_dist_tensor_spec,
             self.attrs['shape'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(
-            infered_input_dist_attrs[0].dims_mapping, [0, -1, 1, -1]
+            inferred_input_dist_attrs[0].dims_mapping, [0, -1, 1, -1]
         )
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [0, 1, -1, -1]
+            inferred_output_dist_attrs[0].dims_mapping, [0, 1, -1, -1]
         )
 
         # shape: [6, 12, 48, 24] --> [72, 3, 16, 24] (input --> output)
@@ -454,14 +470,14 @@ class TestReshapeSPMDRule(unittest.TestCase):
             self.output_dist_tensor_spec,
             self.attrs['shape'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(
-            infered_input_dist_attrs[0].dims_mapping, [1, -1, -1, -1]
+            inferred_input_dist_attrs[0].dims_mapping, [1, -1, -1, -1]
         )
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [1, -1, -1, -1]
+            inferred_output_dist_attrs[0].dims_mapping, [1, -1, -1, -1]
         )
 
         # shape: [6, 12, 48, 24] --> [1, 72, 48, 4, 6] (input --> output)
@@ -473,14 +489,14 @@ class TestReshapeSPMDRule(unittest.TestCase):
             self.output_dist_tensor_spec,
             self.attrs['shape'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(
-            infered_input_dist_attrs[0].dims_mapping, [0, -1, -1, -1]
+            inferred_input_dist_attrs[0].dims_mapping, [0, -1, -1, -1]
         )
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [-1, 0, -1, -1, -1]
+            inferred_output_dist_attrs[0].dims_mapping, [-1, 0, -1, -1, -1]
         )
 
         # shape: [6, 12, 48, 24] --> [3, 24, 6, 8, 24] (input --> output)
@@ -492,14 +508,14 @@ class TestReshapeSPMDRule(unittest.TestCase):
             self.output_dist_tensor_spec,
             self.attrs['shape'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
         self.assertEqual(
-            infered_input_dist_attrs[0].dims_mapping, [-1, -1, -1, 0]
+            inferred_input_dist_attrs[0].dims_mapping, [-1, -1, -1, 0]
         )
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [-1, -1, -1, -1, 0]
+            inferred_output_dist_attrs[0].dims_mapping, [-1, -1, -1, -1, 0]
         )
 
         # shape: [8, 1024, 3072] --> [0, 0, -1, 192] (input --> output)
@@ -513,12 +529,12 @@ class TestReshapeSPMDRule(unittest.TestCase):
             self.output_dist_tensor_spec,
             self.attrs['shape'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
-        self.assertEqual(infered_input_dist_attrs[0].dims_mapping, [0, 1, -1])
+        self.assertEqual(inferred_input_dist_attrs[0].dims_mapping, [0, 1, -1])
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [0, 1, -1, -1]
+            inferred_output_dist_attrs[0].dims_mapping, [0, 1, -1, -1]
         )
 
         # shape: [-1, -1, 3072] --> [0, 0, -1, 192] (input --> output)
@@ -532,12 +548,12 @@ class TestReshapeSPMDRule(unittest.TestCase):
             self.output_dist_tensor_spec,
             self.attrs['shape'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
-        self.assertEqual(infered_input_dist_attrs[0].dims_mapping, [0, 1, -1])
+        self.assertEqual(inferred_input_dist_attrs[0].dims_mapping, [0, 1, -1])
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [0, 1, -1, -1]
+            inferred_output_dist_attrs[0].dims_mapping, [0, 1, -1, -1]
         )
 
         # shape: [-1, -1, 3072] --> [0, 0, -1, 192] (input --> output)
@@ -551,12 +567,12 @@ class TestReshapeSPMDRule(unittest.TestCase):
             self.output_dist_tensor_spec,
             self.attrs['shape'],
         )
-        infered_input_dist_attrs = result_dist_attrs[0]
-        infered_output_dist_attrs = result_dist_attrs[1]
+        inferred_input_dist_attrs = result_dist_attrs[0]
+        inferred_output_dist_attrs = result_dist_attrs[1]
 
-        self.assertEqual(infered_input_dist_attrs[0].dims_mapping, [0, -1, 1])
+        self.assertEqual(inferred_input_dist_attrs[0].dims_mapping, [0, -1, 1])
         self.assertEqual(
-            infered_output_dist_attrs[0].dims_mapping, [0, -1, 1, -1]
+            inferred_output_dist_attrs[0].dims_mapping, [0, -1, 1, -1]
         )
 
 

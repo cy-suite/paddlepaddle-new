@@ -47,9 +47,7 @@ DimExpr DimExpr::operator/(const DimExpr& other) const {
   if (this->isa<std::int64_t>() && other.isa<std::int64_t>()) {
     std::int64_t num = this->dyn_cast<std::int64_t>();
     std::int64_t dem = other.dyn_cast<std::int64_t>();
-    if (num % dem == 0) {
-      return num / dem;
-    }
+    return num / dem;
   }
   const DimExpr& reciprocal = Reciprocal<DimExpr>(other);
   DimExpr div_expr = Mul<DimExpr>{List<DimExpr>{*this, reciprocal}};
@@ -145,7 +143,7 @@ std::string ListDimExprToString(const List<DimExpr>& dim_exprs,
 }  // namespace
 
 std::string ToString(const DimExpr& dim_expr) {
-  auto lambdas = Overloaded{
+  auto lambdas = common::Overloaded{
       [](std::int64_t dim_expr) { return std::to_string(dim_expr); },
       [](const std::string& dim_expr) { return dim_expr; },
       [](const Negative<DimExpr>& dim_expr) {

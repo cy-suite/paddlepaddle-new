@@ -13,6 +13,7 @@
 # limitations under the License.
 
 import inspect
+import textwrap
 from collections.abc import Sequence
 
 from paddle.base import core
@@ -65,19 +66,11 @@ class OriginInfo:
         self.source_code = source_code
 
     def __str__(self):
-        return "{} \nsource_code: {}  in function {}\n  ".format(
-            self.location, self.source_code, self.function_name
-        )
+        return f"{self.location} \nsource_code: {self.source_code}  in function {self.function_name}\n  "
 
     def formatted_message(self):
         flag_for_origin_info = "(* user code *)"
-        return '    File "{}", line {}, in {} {}\n\t{}'.format(
-            self.location.filepath,
-            self.location.lineno,
-            self.function_name,
-            flag_for_origin_info,
-            self.source_code.lstrip(),
-        )
+        return f'    File "{self.location.filepath}", line {self.location.lineno}, in {self.function_name} {flag_for_origin_info}\n\t{self.source_code.lstrip()}'
 
     def as_frame(self):
         return (
@@ -111,7 +104,7 @@ class OriginInfoAttacher(gast.NodeTransformer):
     def visit(self, node):
         if isinstance(node, gast.FunctionDef):
             self.current_func.append(node)
-        if hasattr(node, "lineno"):
+        if getattr(node, "lineno", None) is not None:
             self._attach_origin_info(node)
         self.generic_visit(node)
 
@@ -157,16 +150,14 @@ def create_and_update_origin_info_map(
     """
 
     origin_info_map = {}
-    static_source = inspect.getsource(static_func)
+    static_source = textwrap.dedent(inspect.getsource(static_func))
     static_node = gast.parse(static_source)
     static_node = attach_origin_info(static_node, static_func)
 
     for t_node, s_node in ast_walk(transformed_node, static_node):
         assert type(t_node) == type(
             s_node
-        ), "The node types should be the same, but received type(t_node) is {}, and type(s_node) is {}.".format(
-            type(t_node), type(s_node)
-        )
+        ), f"The node types should be the same, but received type(t_node) is {type(t_node)}, and type(s_node) is {type(s_node)}."
         dygraph_info = getattr(t_node, ORIGIN_INFO, None)
         static_info = getattr(s_node, ORIGIN_INFO, None)
 
@@ -243,9 +234,7 @@ def ast_walk(transformed_node, static_node):
 
         assert type(t_node) == type(
             s_node
-        ), "The node types should be the same, but received type(t_node) is {}, and type(s_node) is {}.".format(
-            type(t_node), type(s_node)
-        )
+        ), f"The node types should be the same, but received type(t_node) is {type(t_node)}, and type(s_node) is {type(s_node)}."
 
         yield t_node, s_node
 

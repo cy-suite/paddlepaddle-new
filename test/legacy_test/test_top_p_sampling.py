@@ -18,7 +18,6 @@ import numpy as np
 
 import paddle
 from paddle.base import core
-from paddle.pir_utils import test_with_pir_api
 
 
 def TopPProcess(probs, top_p):
@@ -83,9 +82,30 @@ class TestTopPAPI(unittest.TestCase):
                 * self.batch_size,
                 self.dtype,
             ).reshape((-1, 1))
+
             # test case for basic test case 1
             paddle_result = paddle.tensor.top_p_sampling(
                 input_tensor, topp_tensor, seed=self.seed
+            )
+            ref_res = TopPProcess(input_tensor, self.topp)
+
+            np.testing.assert_allclose(
+                paddle_result[0].numpy(), ref_res[0].numpy(), rtol=1e-05
+            )
+            np.testing.assert_allclose(
+                paddle_result[1].numpy().flatten(),
+                ref_res[1].numpy().flatten(),
+                rtol=0,
+            )
+
+            # test case for basic test case 1
+            paddle_result = paddle.tensor.top_p_sampling(
+                input_tensor,
+                topp_tensor,
+                seed=-1,
+                k=5,
+                mode="non-truncated",
+                return_top=True,
             )
             ref_res = TopPProcess(input_tensor, self.topp)
 
@@ -145,7 +165,6 @@ class TestTopPAPI(unittest.TestCase):
             for place in places:
                 self.run_dygraph(place)
 
-    @test_with_pir_api
     def test_static(self):
         if core.is_compiled_with_cuda():
             places = [core.CUDAPlace(0)]

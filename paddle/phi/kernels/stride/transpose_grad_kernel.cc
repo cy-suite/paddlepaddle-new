@@ -13,9 +13,12 @@
 // limitations under the License.
 
 #include "paddle/phi/kernels/transpose_grad_kernel.h"
+#include "paddle/common/flags.h"
 #include "paddle/phi/backends/all_context.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/transpose_kernel.h"
+
+COMMON_DECLARE_bool(use_stride_kernel);
 
 namespace phi {
 
@@ -24,6 +27,11 @@ void TransposeGradStridedKernel(const Context& dev_ctx,
                                 const DenseTensor& out_grad,
                                 const std::vector<int>& axis,
                                 DenseTensor* x_grad) {
+  if (!FLAGS_use_stride_kernel) {
+    PADDLE_THROW(common::errors::Fatal(
+        "FLAGS_use_stride_kernel is closed. Strided kernel "
+        "be called, something wrong has happened!"));
+  }
   size_t axis_size = axis.size();
   std::vector<int> formatted_axis = axis;
   for (size_t i = 0; i < axis_size; i++) {
@@ -42,5 +50,6 @@ void TransposeGradStridedKernel(const Context& dev_ctx,
 
 }  // namespace phi
 
-PD_REGISTER_KERNEL_FOR_ALL_BACKEND_DTYPE_EXCEPT_CUSTOM(
-    transpose_grad, STRIDED, phi::TransposeGradStridedKernel) {}
+PD_REGISTER_KERNEL_FOR_ALL_BACKEND_DTYPE(transpose_grad,
+                                         STRIDED,
+                                         phi::TransposeGradStridedKernel) {}

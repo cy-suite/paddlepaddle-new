@@ -22,7 +22,7 @@
 #include "paddle/phi/kernels/legacy/elementwise_add_kernel.h"
 #include "paddle/phi/kernels/legacy/elementwise_divide_kernel.h"
 #include "paddle/phi/kernels/legacy/elementwise_kernel.h"
-#include "paddle/phi/kernels/legacy/elementwise_multipy_kernel.h"
+#include "paddle/phi/kernels/legacy/elementwise_multiply_kernel.h"
 #include "paddle/phi/kernels/legacy/elementwise_subtract_kernel.h"
 
 namespace phi {
@@ -59,20 +59,22 @@ void MultiPrecisionAddKernelImpl(const Context& dev_ctx,
   std::vector<const DenseTensor*> inputs = {&x, &y};
   std::vector<DenseTensor*> outputs = {out};
   if (y.dtype() == phi::DataType::BFLOAT16) {
-    funcs::ElementwiseKernel<T>(
+    funcs::BroadcastKernel<T>(
         dev_ctx,
         inputs,
         &outputs,
-        funcs::MultiPrecisionAddFunctor<T, phi::bfloat16>());
+        funcs::MultiPrecisionAddFunctor<T, phi::bfloat16>(),
+        -1);
   } else if (y.dtype() == phi::DataType::FLOAT16) {
-    funcs::ElementwiseKernel<T>(
+    funcs::BroadcastKernel<T>(
         dev_ctx,
         inputs,
         &outputs,
-        funcs::MultiPrecisionAddFunctor<T, phi::float16>());
+        funcs::MultiPrecisionAddFunctor<T, phi::float16>(),
+        -1);
   } else {
-    PADDLE_THROW(phi::errors::InvalidArgument(
-        "Unsupport x dtype:%s, y dtype:%s for add(x, y) operation",
+    PADDLE_THROW(common::errors::InvalidArgument(
+        "Unsupported x dtype:%s, y dtype:%s for add(x, y) operation",
         phi::DataTypeToString(x.type()),
         phi::DataTypeToString(y.type())));
   }

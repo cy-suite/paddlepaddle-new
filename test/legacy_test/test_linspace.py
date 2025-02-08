@@ -16,10 +16,11 @@ import unittest
 
 import numpy as np
 from op_test import OpTest, convert_float_to_uint16, paddle_static_guard
+from utils import dygraph_guard, static_guard
 
 import paddle
 from paddle import base
-from paddle.base import Program, core, program_guard
+from paddle.base import core
 
 
 class TestLinspaceOpCommonCase(OpTest):
@@ -43,7 +44,7 @@ class TestLinspaceOpCommonCase(OpTest):
         }
 
     def test_check_output(self):
-        self.check_output(check_pir=True)
+        self.check_output(check_pir=True, check_symbol_infer=False)
 
 
 class TestLinspaceOpReverseCase(TestLinspaceOpCommonCase):
@@ -55,9 +56,6 @@ class TestLinspaceOpReverseCase(TestLinspaceOpCommonCase):
         }
         self.outputs = {'Out': np.arange(10, -1, -1).astype(self.dtype)}
 
-    def test_check_output(self):
-        self.check_output(check_pir=True)
-
 
 class TestLinspaceOpNumOneCase(TestLinspaceOpCommonCase):
     def _set_data(self):
@@ -67,9 +65,6 @@ class TestLinspaceOpNumOneCase(TestLinspaceOpCommonCase):
             'Num': np.array([1]).astype('int32'),
         }
         self.outputs = {'Out': np.array([10], dtype=self.dtype)}
-
-    def test_check_output(self):
-        self.check_output(check_pir=True)
 
 
 class TestLinspaceOpCommonCaseFP16(TestLinspaceOpCommonCase):
@@ -111,7 +106,9 @@ class TestLinspaceOpCommonCaseBF16(TestLinspaceOpCommonCaseFP16):
         }
 
     def test_check_output(self):
-        return self.check_output_with_place(core.CUDAPlace(0), check_pir=True)
+        return self.check_output_with_place(
+            core.CUDAPlace(0), check_pir=True, check_symbol_infer=False
+        )
 
 
 class TestLinspaceOpReverseCaseBF16(TestLinspaceOpCommonCaseBF16):
@@ -172,6 +169,8 @@ class TestLinspaceAPI(unittest.TestCase):
             np.testing.assert_array_equal(res_1, res_2)
 
     def test_name(self):
+        if paddle.framework.use_pir_api():
+            return
         with paddle_static_guard():
             with paddle.static.program_guard(paddle.static.Program()):
                 out = paddle.linspace(
@@ -194,7 +193,9 @@ class TestLinspaceAPI(unittest.TestCase):
 class TestLinspaceOpError(unittest.TestCase):
     def test_errors(self):
         with paddle_static_guard():
-            with program_guard(Program(), Program()):
+            with paddle.base.program_guard(
+                paddle.base.Program(), paddle.base.Program()
+            ):
 
                 def test_dtype():
                     paddle.linspace(0, 10, 1, dtype="int8")
@@ -244,6 +245,38 @@ class TestLinspaceOpError(unittest.TestCase):
                     paddle.linspace(0, 10, num, dtype="float32")
 
                 self.assertRaises(TypeError, test_step_dtype)
+
+
+class TestLinspaceOpEmptyTensor(unittest.TestCase):
+    def _get_places(self):
+        places = [base.CPUPlace()]
+        if paddle.is_compiled_with_cuda():
+            places.append(base.CUDAPlace(0))
+        return places
+
+    def _test_linspace_empty_static(self, place):
+        with static_guard():
+            with paddle.static.program_guard(
+                paddle.static.Program(), paddle.static.Program()
+            ):
+                out = paddle.linspace(0, 10, 0, dtype='float32')
+                exe = paddle.static.Executor(place)
+                res = exe.run(fetch_list=[out])
+                self.assertEqual(res[0].shape, (0,))
+                self.assertEqual(len(res[0]), 0)
+
+    def _test_linspace_empty_dynamic(self):
+        with dygraph_guard():
+            out = paddle.linspace(0, 10, 0, dtype='float32')
+            self.assertEqual(out.shape, [0])
+            self.assertEqual(len(out.numpy()), 0)
+
+    def test_empty_tensor(self):
+        places = self._get_places()
+        for place in places:
+            self._test_linspace_empty_static(place)
+
+        self._test_linspace_empty_dynamic()
 
 
 if __name__ == "__main__":

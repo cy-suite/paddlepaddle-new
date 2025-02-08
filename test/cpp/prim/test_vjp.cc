@@ -85,7 +85,7 @@ TEST(VJP, TanhBackwardTest) {
 
   auto kernel_program = paddle::dialect::PdOpLowerToKernelPass(&program);
 
-  auto place = platform::CPUPlace();
+  auto place = phi::CPUPlace();
   Scope scope;
 
   InterpreterCore test_core(place, {}, kernel_program->block(), &scope);
@@ -142,7 +142,7 @@ TEST(VJP, Tanh_BackwardTest) {
 
   auto kernel_program = paddle::dialect::PdOpLowerToKernelPass(&program);
 
-  auto place = platform::CPUPlace();
+  auto place = phi::CPUPlace();
   Scope scope;
 
   InterpreterCore test_core(place, {}, kernel_program->block(), &scope);
@@ -180,7 +180,8 @@ TEST(VJP, MeanBackwardTest) {
       std::vector<int64_t>{}, 1.0, phi::DataType::FLOAT32, phi::CPUPlace());
 
   std::vector<std::vector<bool>> stop_gradients{{false}};
-  std::vector<std::vector<pir::Value>> inputs{{op1.out()}};
+  std::vector<std::vector<pir::Value>> inputs{{op1.out()},
+                                              {op2.operand_source(1)}};
   std::vector<std::vector<pir::Value>> outputs{{op2.out()}};
   std::vector<std::vector<pir::Value>> out_grads{{op3.out()}};
 
@@ -196,7 +197,7 @@ TEST(VJP, MeanBackwardTest) {
 
   auto kernel_program = paddle::dialect::PdOpLowerToKernelPass(&program);
 
-  auto place = platform::CPUPlace();
+  auto place = phi::CPUPlace();
   Scope scope;
 
   ProgramDesc prog_desc;
@@ -257,7 +258,7 @@ TEST(VJP, ConcatBackwardTest) {
 
   auto kernel_program = paddle::dialect::PdOpLowerToKernelPass(&program);
 
-  auto place = platform::CPUPlace();
+  auto place = phi::CPUPlace();
   Scope scope;
 
   ProgramDesc prog_desc;
@@ -325,7 +326,7 @@ TEST(VJP, AddBackwardTest) {
 
   auto kernel_program = paddle::dialect::PdOpLowerToKernelPass(&program);
 
-  auto place = platform::CPUPlace();
+  auto place = phi::CPUPlace();
   Scope scope;
 
   ProgramDesc prog_desc;
@@ -390,7 +391,7 @@ TEST(VJP, Add_BackwardTest) {
 
   auto kernel_program = paddle::dialect::PdOpLowerToKernelPass(&program);
 
-  auto place = platform::CPUPlace();
+  auto place = phi::CPUPlace();
   Scope scope;
 
   ProgramDesc prog_desc;
@@ -467,7 +468,7 @@ TEST(VJP, SplitBackwardTest) {
 
   auto kernel_program = paddle::dialect::PdOpLowerToKernelPass(&program);
 
-  auto place = platform::CPUPlace();
+  auto place = phi::CPUPlace();
   Scope scope;
 
   InterpreterCore test_core(place, {}, kernel_program->block(), &scope);

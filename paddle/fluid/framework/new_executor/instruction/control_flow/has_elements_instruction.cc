@@ -21,7 +21,7 @@ namespace paddle {
 namespace framework {
 HasElementsInstruction::HasElementsInstruction(
     size_t id,
-    const platform::Place& place,
+    const phi::Place& place,
     ::pir::Operation* op,
     ValueExecutionInfo* value_exe_info)
     : InstructionBase(id, place), op_(op), value_exe_info_(value_exe_info) {
@@ -42,11 +42,9 @@ HasElementsInstruction::HasElementsInstruction(
 
   type_ = OpFuncType::kCpuSync;
 
-  platform::DeviceContextPool& pool = platform::DeviceContextPool::Instance();
-  auto* bool_tensor = value_exe_info_->GetVarByValue(op_->result(0))
-                          ->GetMutable<phi::DenseTensor>();
-  bool_tensor->Resize(phi::make_ddim({1}));
-  has_elements_ = pool.Get(platform::CPUPlace())->Alloc<bool>(bool_tensor);
+  bool_tensor_ = value_exe_info_->GetVarByValue(op_->result(0))
+                     ->GetMutable<phi::DenseTensor>();
+  bool_tensor_->Resize(phi::make_ddim({1}));
 
   auto stack_value =
       op_->dyn_cast<paddle::dialect::HasElementsOp>().operand_source(0);
@@ -56,7 +54,9 @@ HasElementsInstruction::HasElementsInstruction(
 
 void HasElementsInstruction::Run() {
   VLOG(6) << "run has_elements instruction";
-  *has_elements_ = !stack_element_var_array_->empty();
+  phi::DeviceContextPool& pool = phi::DeviceContextPool::Instance();
+  bool* has_elements = pool.Get(phi::CPUPlace())->Alloc<bool>(bool_tensor_);
+  *has_elements = !stack_element_var_array_->empty();
 }
 }  // namespace framework
 }  // namespace paddle

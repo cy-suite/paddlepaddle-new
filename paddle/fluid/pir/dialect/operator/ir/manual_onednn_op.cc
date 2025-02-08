@@ -25,7 +25,7 @@ paddle::onednn::dialect::ExpandOp
 #include "paddle/fluid/pir/dialect/operator/ir/op_attribute.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_type.h"
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
-#include "paddle/fluid/primitive/rule/vjp/vjp.h"
+#include "paddle/fluid/primitive/vjp_interface/vjp.h"
 #include "paddle/phi/api/lib/data_type_set.h"
 #include "paddle/phi/api/lib/utils/allocator.h"
 #include "paddle/phi/core/dense_tensor.h"
@@ -47,7 +47,7 @@ namespace paddle {
 namespace onednn {
 namespace dialect {
 
-const char* ExpandOp::attributes_name[1] = {"mkldnn_data_type"};
+const char* ExpandOp::attributes_name[1] = {"mkldnn_data_type"};  // NOLINT
 
 OpInfoTuple ExpandOp::GetOpInfo() {
   std::vector<paddle::dialect::OpInputInfo> inputs = {
@@ -113,7 +113,7 @@ void ExpandOp::Build(pir::Builder& builder,
   argument_attributes.insert({"mkldnn_data_type", attr_mkldnn_data_type});
 
   std::vector<pir::Type> argument_outputs =
-      ExpandOp::InferMeta(argument_inputs, argument_attributes);
+      ExpandOp::InferMeta(argument_inputs, &argument_attributes);
   argument.AddOutputs(argument_outputs.begin(), argument_outputs.end());
   ::pir::PassStopGradientsDefaultly(argument);
 }
@@ -124,16 +124,21 @@ void ExpandOp::Build(pir::Builder& builder,
                      pir::AttributeMap attributes) {
   VLOG(4) << "Start build ExpandOp";
 
-  IR_ENFORCE(attributes.find("shape") != attributes.end(),
-             "'shape' Attribute is expected for ExpandOp. ");
+  PADDLE_ENFORCE_NE(attributes.find("shape"),
+                    attributes.end(),
+                    common::errors::InvalidArgument(
+                        "'shape' Attribute is expected for ExpandOp. "));
   std::vector<int64_t> shape =
       attributes.at("shape")
           .dyn_cast<paddle::dialect::IntArrayAttribute>()
           .data()
           .GetData();
 
-  IR_ENFORCE(attributes.find("mkldnn_data_type") != attributes.end(),
-             "'mkldnn_data_type' Attribute is expected for ExpandOp. ");
+  PADDLE_ENFORCE_NE(
+      attributes.find("mkldnn_data_type"),
+      attributes.end(),
+      common::errors::InvalidArgument(
+          "'mkldnn_data_type' Attribute is expected for ExpandOp. "));
   std::string mkldnn_data_type = attributes.at("mkldnn_data_type")
                                      .dyn_cast<pir::StrAttribute>()
                                      .AsString();
@@ -156,7 +161,7 @@ void ExpandOp::Build(pir::Builder& builder,
   argument_attributes.insert({"mkldnn_data_type", attr_mkldnn_data_type});
 
   std::vector<pir::Type> argument_outputs =
-      ExpandOp::InferMeta(argument_inputs, argument_attributes);
+      ExpandOp::InferMeta(argument_inputs, &argument_attributes);
   argument.AddOutputs(argument_outputs.begin(), argument_outputs.end());
   ::pir::PassStopGradientsDefaultly(argument);
 }
@@ -180,7 +185,7 @@ void ExpandOp::Build(pir::Builder& builder,
   argument_attributes.insert({"mkldnn_data_type", attr_mkldnn_data_type});
 
   std::vector<pir::Type> argument_outputs =
-      ExpandOp::InferMeta(argument_inputs, argument_attributes);
+      ExpandOp::InferMeta(argument_inputs, &argument_attributes);
   argument.AddOutputs(argument_outputs.begin(), argument_outputs.end());
   ::pir::PassStopGradientsDefaultly(argument);
 }
@@ -190,48 +195,66 @@ void ExpandOp::VerifySig() {
   VLOG(4) << "Verifying inputs:";
   {
     auto input_size = num_operands();
-    IR_ENFORCE(input_size == 2u,
-               "The size %d of inputs must be equal to 2.",
-               input_size);
-    IR_ENFORCE((*this)
-                   ->operand_source(0)
-                   .type()
-                   .isa<paddle::dialect::DenseTensorType>(),
-               "Type validation failed for the 0th input, got %s.",
-               (*this)->operand_source(0).type());
+    PADDLE_ENFORCE_EQ(
+        input_size,
+        2u,
+        common::errors::InvalidArgument(
+            "The size %d of inputs must be equal to 2.", input_size));
+    PADDLE_ENFORCE_EQ((*this)
+                          ->operand_source(0)
+                          .type()
+                          .isa<paddle::dialect::DenseTensorType>(),
+                      true,
+                      common::errors::InvalidArgument(
+                          "Type validation failed for the 0th input, got %s.",
+                          (*this)->operand_source(0).type()));
     if (auto vec_type =
             (*this)->operand_source(1).type().dyn_cast<pir::VectorType>()) {
       for (size_t i = 0; i < vec_type.size(); ++i) {
-        IR_ENFORCE(vec_type[i].isa<paddle::dialect::DenseTensorType>(),
-                   "Type validation failed for the 1th input, got %s.",
-                   (*this)->operand_source(1).type());
+        PADDLE_ENFORCE_EQ(
+            vec_type[i].isa<paddle::dialect::DenseTensorType>(),
+            true,
+            common::errors::InvalidArgument(
+                "Type validation failed for the 1th input, got %s.",
+                (*this)->operand_source(1).type()));
       }
     } else {
-      IR_ENFORCE((*this)
-                     ->operand_source(1)
-                     .type()
-                     .isa<paddle::dialect::DenseTensorType>(),
-                 "Type validation failed for the 1th input, got %s.",
-                 (*this)->operand_source(1).type());
+      PADDLE_ENFORCE_EQ((*this)
+                            ->operand_source(1)
+                            .type()
+                            .isa<paddle::dialect::DenseTensorType>(),
+                        true,
+                        common::errors::InvalidArgument(
+                            "Type validation failed for the 1th input, got %s.",
+                            (*this)->operand_source(1).type()));
     }
   }
   VLOG(4) << "Verifying attributes:";
   {
     auto& attributes = this->attributes();
-    IR_ENFORCE(attributes.count("mkldnn_data_type") > 0,
-               "mkldnn_data_type does not exist.");
-    IR_ENFORCE(attributes.at("mkldnn_data_type").isa<pir::StrAttribute>(),
-               "Type of attribute: mkldnn_data_type is not pir::StrAttribute.");
+    PADDLE_ENFORCE_GT(
+        attributes.count("mkldnn_data_type"),
+        0,
+        common::errors::InvalidArgument("mkldnn_data_type does not exist."));
+    PADDLE_ENFORCE_EQ(
+        attributes.at("mkldnn_data_type").isa<pir::StrAttribute>(),
+        true,
+        common::errors::InvalidArgument(
+            "Type of attribute: mkldnn_data_type is not pir::StrAttribute."));
   }
   VLOG(4) << "Verifying outputs:";
   {
     auto output_size = num_results();
-    IR_ENFORCE(output_size == 1u,
-               "The size %d of outputs must be equal to 1.",
-               output_size);
-    IR_ENFORCE(
+    PADDLE_ENFORCE_EQ(
+        output_size,
+        1u,
+        common::errors::InvalidArgument(
+            "The size %d of outputs must be equal to 1.", output_size));
+    PADDLE_ENFORCE_EQ(
         (*this)->result(0).type().isa<paddle::dialect::DenseTensorType>(),
-        "Type validation failed for the 0th output.");
+        true,
+        common::errors::InvalidArgument(
+            "Type validation failed for the 0th output."));
   }
   VLOG(4) << "End Verifying for: ExpandOp.";
 }
@@ -243,10 +266,16 @@ void ExpandOp::InferMeta(phi::InferMetaContext* infer_meta) {
 
 std::vector<pir::Type> ExpandOp::InferMeta(
     const std::vector<pir::Value>& input_values,
-    const pir::AttributeMap& attributes) {
-  IR_ENFORCE(input_values.size() == 2,
-             "Num of inputs is expected to be 2 but got %d.",
-             input_values.size());
+    pir::AttributeMap* p_attributes) {
+  PADDLE_ENFORCE_NOT_NULL(
+      p_attributes,
+      common::errors::Fatal(
+          "AttributeMap pointer in InferMeta function is nullptr."));
+  PADDLE_ENFORCE_EQ(input_values.size(),
+                    2,
+                    common::errors::InvalidArgument(
+                        "Num of inputs is expected to be 2 but got %d.",
+                        input_values.size()));
 
   pir::Value x_ = input_values[0];
   pir::Value shape_ = input_values[1];
@@ -256,32 +285,32 @@ std::vector<pir::Type> ExpandOp::InferMeta(
   if (x_.type().isa<paddle::dialect::DenseTensorType>()) {
     x = x_.type().dyn_cast<paddle::dialect::DenseTensorType>();
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support paddle::dialect::DenseTensorType or "
         "paddle::dialect::AllocatedDenseTensorType"));
   }
 
   phi::IntArray shape;
   if (shape_.defining_op()->isa<paddle::dialect::FullIntArrayOp>()) {
-    shape = std::move(phi::IntArray(paddle::dialect::GetInt64Vector(
+    shape = phi::IntArray(paddle::dialect::GetInt64Vector(
         shape_.defining_op()
             ->dyn_cast<paddle::dialect::FullIntArrayOp>()
-            .attribute("value"))));
+            .attribute("value")));
   } else if (shape_.type().isa<pir::VectorType>()) {
     size_t shape_size = shape_.type().dyn_cast<pir::VectorType>().size();
     // In ExpandInferMeta use -2 to represent the element in expand_shape is a
     // var.
-    shape = std::move(phi::IntArray(std::vector<int64_t>(shape_size, -2)));
+    shape = phi::IntArray(std::vector<int64_t>(shape_size, -2));
     shape.SetFromTensor(true);
   } else if (shape_.type().isa<paddle::dialect::DenseTensorType>()) {
     size_t shape_size = common::product(
         shape_.type().dyn_cast<paddle::dialect::DenseTensorType>().dims());
     // In ExpandInferMeta use -2 to represent the element in expand_shape is a
     // var.
-    shape = std::move(phi::IntArray(std::vector<int64_t>(shape_size, -2)));
+    shape = phi::IntArray(std::vector<int64_t>(shape_size, -2));
     shape.SetFromTensor(true);
   } else {
-    PADDLE_THROW(phi::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "Only support VectorType or DenseTensorType"));
   }
 
@@ -319,14 +348,6 @@ phi::DataType ExpandOp::GetKernelTypeForVar(
   VLOG(4) << "Get KernelType for Var of op: ExpandOp";
 
   return expected_kernel_dtype;
-}
-
-bool ExpandOp::InferSymbolicShape(
-    pir::ShapeConstraintIRAnalysis* shape_analysis) {
-  VLOG(4) << "Infer symbolic shape for op: ExpandOp";
-  PADDLE_THROW(phi::errors::Unimplemented(
-      " ExpandOp's InferSymbolicShape interface is NOT implemented now."));
-  return true;
 }
 
 }  // namespace dialect

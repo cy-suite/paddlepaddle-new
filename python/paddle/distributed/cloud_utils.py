@@ -84,7 +84,7 @@ paddlecloud environment."
         ports = list(range(started_port, started_port + len(selected_devices)))
         trainer_endpoints = []
         for ip in node_ips:
-            trainer_endpoints.append(["%s:%d" % (ip, port) for port in ports])
+            trainer_endpoints.append([f"{ip}:{port}" for port in ports])
     else:
         trainer_endpoints_ori = trainer_endpoints.split(",")
         trainer_endpoints = []
@@ -116,9 +116,7 @@ def get_cluster_and_pod(args):
     selected_devices = get_gpus(args.selected_devices)
     trainers_num = _get_trainers_num()
     logger.debug(
-        "parsed from args trainerss_num:{} selected_devices:{}".format(
-            trainers_num, selected_devices
-        )
+        f"parsed from args trainerss_num:{trainers_num} selected_devices:{selected_devices}"
     )
 
     cluster = None

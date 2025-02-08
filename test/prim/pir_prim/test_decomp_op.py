@@ -24,20 +24,26 @@ paddle.enable_static()
 
 def get_ir_program():
     paddle.enable_static()
-    x = paddle.randn([4, 4])
-    main_program, start_program = (
-        paddle.static.Program(),
-        paddle.static.Program(),
-    )
-    with paddle.static.program_guard(main_program, start_program):
-        x_s = paddle.static.data('x', [4, 4], x.dtype)
-        x_s.stop_gradient = False
-        y_s = paddle.matmul(x_s, x_s)
-        y_s = paddle.add(x_s, y_s)
-        y_s = paddle.mean(y_s)
-        y_s = paddle.tanh(y_s)
-    pir_program = pir.translate_to_pir(main_program.desc)
-    return pir_program
+    with paddle.pir_utils.OldIrGuard():
+        x = paddle.randn([4, 4])
+        main_program, start_program = (
+            paddle.static.Program(),
+            paddle.static.Program(),
+        )
+        with paddle.static.program_guard(main_program, start_program):
+            x_s = paddle.static.data('x', [4, 4], x.dtype)
+            x_s.stop_gradient = False
+            y_s = paddle.matmul(x_s, x_s)
+            y_s = paddle.add(x_s, y_s)
+            y_s = paddle.mean(y_s)
+            y_s = paddle.tanh(y_s)
+        pir_program = pir.translate_to_pir(main_program.desc)
+
+        all_ops = pir_program.global_block().ops
+        for op in all_ops:
+            op.op_role = 1
+
+        return pir_program
 
 
 class TestBuildOp(unittest.TestCase):
@@ -61,11 +67,16 @@ class TestBuildOp(unittest.TestCase):
                     'pd_op.matmul',
                     'pd_op.add',
                     'pd_op.full_int_array',
+                    'pd_op.full_int_array',
                     'pd_op.sum',
                     'pd_op.full',
                     'pd_op.divide',
                     'pd_op.tanh',
                 ],
+            )
+            op_role_list = [op.op_role for op in pir_program.global_block().ops]
+            self.assertEqual(
+                all(op_role == 1 for op_role in op_role_list), True
             )
 
 

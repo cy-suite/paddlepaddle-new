@@ -31,6 +31,7 @@
 #include "paddle/cinn/ir/schedule/ir_schedule_util.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
 #include "paddle/cinn/ir/utils/ir_nodes_collector.h"
+#include "paddle/common/enforce.h"
 
 namespace cinn {
 namespace auto_schedule {
@@ -55,7 +56,7 @@ bool AutoInline::CanInlineIntoConsumer(const Expr& sche_block_realize_expr,
       return false;
     }
   }
-  std::set<ir::Expr> find_store = ir::ir_utils::CollectIRNodesWithoutTensor(
+  std::vector<ir::Expr> find_store = ir::ir_utils::CollectIRNodesWithoutTensor(
       compute_body, [&](const Expr* x) { return x->As<ir::Store>(); });
   if (find_store.size() != 1UL) {
     return false;
@@ -84,7 +85,7 @@ bool AutoInline::CanInlineIntoConsumer(const Expr& sche_block_realize_expr,
   std::vector<ir::Expr> consumers =
       ir::GetConsumers(sche_block_realize_expr, root);
   for (const ir::Expr& consumer : consumers) {
-    std::set<ir::Expr> find_load = ir::ir_utils::CollectIRNodesWithoutTensor(
+    std::vector<ir::Expr> find_load = ir::ir_utils::CollectIRNodesWithoutTensor(
         consumer.As<ir::ScheduleBlockRealize>()
             ->schedule_block.As<ir::ScheduleBlock>()
             ->body,
@@ -116,7 +117,7 @@ bool AutoInline::CanInlineIntoConsumer(const Expr& sche_block_realize_expr,
   }
   // Check there is no overlap between the buffers the schedule block reads and
   // writes.
-  std::set<ir::Expr> find_load = ir::ir_utils::CollectIRNodesWithoutTensor(
+  std::vector<ir::Expr> find_load = ir::ir_utils::CollectIRNodesWithoutTensor(
       compute_body, [&](const Expr* x) {
         return x->As<ir::Load>() && x->As<ir::Load>()->tensor == tensor_expr;
       });
@@ -196,15 +197,26 @@ RuleApplyType AutoInline::Init(ir::IRSchedule* ir_schedule) {
 }
 
 void AutoInline::Apply(int index) {
-  CHECK(ir_schedule_ != nullptr) << "Run AutoInline::Apply without Init";
-  CHECK(num_applicable_ > 0 &&
-        apply_indices_and_type_.size() == num_applicable_)
-      << "AutoInline::Apply pre-condition doesn't meet";
-  CHECK(index >= 0 && num_applicable_ > index)
-      << "Invalid index for AutoInline::Apply, the index needs 0 <= index && "
-         "index < NumberApplicable(), "
-      << "Currently index = " << index
-      << ",  NumberApplicable() = " << num_applicable_;
+  PADDLE_ENFORCE_EQ(
+      ir_schedule_ != nullptr,
+      true,
+      ::common::errors::InvalidArgument("Run AutoInline::Apply without Init"));
+
+  PADDLE_ENFORCE_EQ(
+      num_applicable_ > 0 && apply_indices_and_type_.size() == num_applicable_,
+      true,
+      ::common::errors::InvalidArgument(
+          "AutoInline::Apply pre-condition doesn't meet"));
+
+  PADDLE_ENFORCE_EQ(
+      index >= 0 && num_applicable_ > index,
+      true,
+      ::common::errors::InvalidArgument(
+          "Invalid index for AutoInline::Apply, the index needs 0 <= index && "
+          "index < NumberApplicable(), "
+          "Currently index = %d, NumberApplicable() = %d",
+          index,
+          num_applicable_));
 
   int apply_index = apply_indices_and_type_[index].first;
   Apply(ir_schedule_, all_block_realizes_[apply_index]);
@@ -217,7 +229,10 @@ RuleApplyType AutoInline::AnalyseApplyType(
     SearchState state, const std::string& block_name) const {
   Expr block_expr = state->ir_schedule.GetBlock(block_name);
   auto* block_realize = block_expr.As<ir::ScheduleBlockRealize>();
-  CHECK(block_realize) << "stmt is not a ScheduleBlockRealize:" << block_expr;
+  PADDLE_ENFORCE_NOT_NULL(
+      block_realize,
+      ::common::errors::InvalidArgument(
+          "stmt is not a ScheduleBlockRealize: %s", block_expr));
 
   AnalyzeScheduleBlockReadWriteBuffer(
       block_realize->schedule_block.As<ir::ScheduleBlock>());
@@ -239,7 +254,10 @@ std::vector<SearchState> AutoInline::ApplyOnBlock(
 
 void AutoInline::Apply(ir::IRSchedule* ir_schedule, ir::Expr& block_expr) {
   auto* block_realize = block_expr.As<ir::ScheduleBlockRealize>();
-  CHECK(block_realize) << "stmt is not a ScheduleBlockRealize:" << block_expr;
+  PADDLE_ENFORCE_NOT_NULL(
+      block_realize,
+      ::common::errors::InvalidArgument(
+          "stmt is not a ScheduleBlockRealize: %s", block_expr));
 
   AnalyzeScheduleBlockReadWriteBuffer(
       block_realize->schedule_block.As<ir::ScheduleBlock>());

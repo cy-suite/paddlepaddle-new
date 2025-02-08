@@ -1,24 +1,26 @@
 if(WITH_GPU)
+  set(PRIM_FORWARD_BLOCKLIST "pd_op.dropout")
+
   file(
-    GLOB CINN_SUB_GRAPH_TEST
+    GLOB DYNAMIC_BUILD_TESTS
     RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
     "test_*.py")
+  string(REPLACE ".py" "" DYNAMIC_BUILD_TESTS "${DYNAMIC_BUILD_TESTS}")
 
-  foreach(cinn_sub_graph_test_name ${CINN_SUB_GRAPH_TEST})
-    string(REGEX REPLACE ".py" "" cinn_sub_graph_test_name
-                         ${cinn_sub_graph_test_name})
+  foreach(cinn_sub_graph_test_name ${DYNAMIC_BUILD_TESTS})
     add_test(
       NAME ${cinn_sub_graph_test_name}
       COMMAND
         ${CMAKE_COMMAND} -E env
         PYTHONPATH=${CMAKE_BINARY_DIR}:${CMAKE_BINARY_DIR}/python/:$ENV{PYTHONPATH}
-        FLAGS_cinn_new_group_scheduler=1 FLAGS_enable_pir_api=1
-        FLAGS_cinn_bucket_compile=1 FLAGS_group_schedule_tiling_first=1
+        FLAGS_prim_enable_dynamic=1 FLAGS_check_infer_symbolic=1
+        FLAGS_prim_forward_blacklist=${PRIM_FORWARD_BLOCKLIST}
         FLAGS_cudnn_deterministic=true ${PYTHON_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/${cinn_sub_graph_test_name}.py
       WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
     set_tests_properties(${cinn_sub_graph_test_name} PROPERTIES LABELS
                                                                 "RUN_TYPE=CINN")
+    set_tests_properties(${cinn_sub_graph_test_name} PROPERTIES TIMEOUT 600)
   endforeach()
 
 endif()

@@ -22,8 +22,7 @@ limitations under the License. */
 #include "paddle/phi/infermeta/spmd_rules/spmd_rule_macro_define.h"
 #include "paddle/phi/infermeta/spmd_rules/utils.h"
 
-namespace phi {
-namespace distributed {
+namespace phi::distributed {
 
 using phi::distributed::auto_parallel::str_join;
 
@@ -37,24 +36,24 @@ SpmdInfo GatherInferSpmdBase(const DistMetaTensor& x,
   // index may be 0-d tensor, verify it specifically
   auto index_shape = common::vectorize(index.dims());
   int index_ndim = index_shape.size();
-  TensorDistAttr index_dist_attr_src = index.dist_attr();
-  std::vector<int64_t> index_dims_mapping_src =
+  const TensorDistAttr& index_dist_attr_src = index.dist_attr();
+  const std::vector<int64_t>& index_dims_mapping_src =
       index_dist_attr_src.dims_mapping();
   if (index_ndim == 0) {
     PADDLE_ENFORCE_EQ(index_dims_mapping_src.size(),
                       1,
-                      phi::errors::InvalidArgument(
+                      common::errors::InvalidArgument(
                           "index is 0-d tensor, it's dims_mapping size "
                           "must be 1, but received [%d]",
                           index_dims_mapping_src.size()));
   } else {
-    PADDLE_ENFORCE_EQ(
-        index_ndim,
-        index_dims_mapping_src.size(),
-        phi::errors::InvalidArgument("Tensor index's rank [%d] and "
-                                     "dims_mapping size [%d] are not matched.",
-                                     index_ndim,
-                                     index_dims_mapping_src.size()));
+    PADDLE_ENFORCE_EQ(index_ndim,
+                      index_dims_mapping_src.size(),
+                      common::errors::InvalidArgument(
+                          "Tensor index's rank [%d] and "
+                          "dims_mapping size [%d] are not matched.",
+                          index_ndim,
+                          index_dims_mapping_src.size()));
   }
 
   // Step1: Build Einsum Notation
@@ -71,7 +70,7 @@ SpmdInfo GatherInferSpmdBase(const DistMetaTensor& x,
     out_axes[axis] = 'k';
   }
 
-  // Step2: Sharding Propogation
+  // Step2: Sharding Propagation
   // Step2.1: Merge input shardings
   std::vector<int64_t> x_dims_mapping(x_dims_mapping_src);
   if (axis < x_ndim) {
@@ -133,7 +132,7 @@ SpmdInfo GatherInferSpmdReverseBase(const DistMetaTensor& x,
     out_axes[axis] = 'k';
   }
 
-  // Step2: Sharding Propogation
+  // Step2: Sharding Propagation
   // Step2.1: Merge output shardings
   std::unordered_map<std::string, int64_t> axis_to_dim_map =
       ShardingMergeForTensors({{out_axes, out_dims_mapping_src}});
@@ -182,8 +181,8 @@ SpmdInfo GatherGradInferSpmd(const DistMetaTensor& x,
   EXTRACT_SHAPE_AND_DIST_ATTR(out_grad);
   auto index_shape = common::vectorize(index.dims());
   int index_ndim = index_shape.size();
-  TensorDistAttr index_dist_attr_src = index.dist_attr();
-  std::vector<int64_t> index_dims_mapping_src =
+  const TensorDistAttr& index_dist_attr_src = index.dist_attr();
+  const std::vector<int64_t>& index_dims_mapping_src =
       index_dist_attr_src.dims_mapping();
   int axis_ = axis.to<int32_t>();
 
@@ -215,5 +214,4 @@ SpmdInfo GatherGradInferSpmd(const DistMetaTensor& x,
           {x_grad_dist_attr}};
 }
 
-}  // namespace distributed
-}  // namespace phi
+}  // namespace phi::distributed

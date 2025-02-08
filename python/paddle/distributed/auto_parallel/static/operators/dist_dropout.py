@@ -72,10 +72,10 @@ class DistributedDropout(DistributedOperatorImplContainer):
         if changed:
             (
                 _,
-                infered_output_dims_mappings,
+                inferred_output_dims_mappings,
             ) = merge_forward_backward_dims_mapping(fw_results, bw_results)
             dist_op.dist_attr.set_output_dims_mapping(
-                mask_name, infered_output_dims_mappings[0]
+                mask_name, inferred_output_dims_mappings[0]
             )
 
         return changed
@@ -111,7 +111,7 @@ class DistributedDropoutImpl0(DistributedElementwiseImpl0):
         op_dist_attr = ctx.get_op_dist_attr_for_program(src_op)
         assert (
             op_dist_attr is not None
-        ), f"forward op [{str(src_op)}] don't have dist attribute !"
+        ), f"forward op [{src_op}] don't have dist attribute !"
 
         if is_enable_auto_rand_ctrl() and not op_dist_attr.is_recompute:
             # check validation of inputs / outputs
@@ -144,7 +144,7 @@ class DistributedDropoutImpl0(DistributedElementwiseImpl0):
                     assert (
                         pre_op.type == "seed"
                         and len(pre_op.attr("rng_name")) == 0
-                    ), f"found exception op {str(pre_op)}"
+                    ), f"found exception op {pre_op}"
 
                     # determinate rng
                     X_var = main_block._var_recursive(kwargs['X'][0])
@@ -180,7 +180,7 @@ class DistributedDropoutImpl0(DistributedElementwiseImpl0):
                         ".".join(["tensor_parallel_seed", 'tmp'])
                     ),
                     dtype=paddle.int32,
-                    type=core.VarDesc.VarType.LOD_TENSOR,
+                    type=core.VarDesc.VarType.DENSE_TENSOR,
                     persistable=False,
                     stop_gradient=False,
                 )

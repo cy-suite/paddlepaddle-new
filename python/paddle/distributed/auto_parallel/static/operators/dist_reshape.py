@@ -73,11 +73,11 @@ class DistributedReshape2(DistributedOperatorImplContainer):
         )
 
         # step4: update xshape
-        infered_input_dims_mappings, _ = merge_forward_backward_dims_mapping(
+        inferred_input_dims_mappings, _ = merge_forward_backward_dims_mapping(
             fw_results, bw_results
         )
         dist_op.dist_attr.set_output_dims_mapping(
-            xshape_name, [-1] + infered_input_dims_mappings[0]
+            xshape_name, [-1] + inferred_input_dims_mappings[0]
         )
 
         return changed
@@ -295,7 +295,7 @@ class DistributedReshapeImpl0(DistributedOperatorImpl):
         op_dist_attr = ctx.get_op_dist_attr_for_program(src_op)
         assert (
             op_dist_attr is not None
-        ), f"backward op [{str(src_op)}] don't have dist attribute !"
+        ), f"backward op [{src_op}] don't have dist attribute !"
 
         # check validation of inputs / outputs
         for input_name in src_op.desc.input_names():
@@ -551,7 +551,7 @@ class DistributedReshapeImpl1(DistributedOperatorImpl):
         op_dist_attr = ctx.get_op_dist_attr_for_program(src_op)
         assert (
             op_dist_attr is not None
-        ), f"backward op [{str(src_op)}] don't have dist attribute !"
+        ), f"backward op [{src_op}] don't have dist attribute !"
 
         # check validation of inputs / outputs
         for input_name in src_op.desc.input_names():
@@ -800,7 +800,7 @@ class DistributedReshapeImpl2(DistributedOperatorImpl):
         op_dist_attr = ctx.get_op_dist_attr_for_program(src_op)
         assert (
             op_dist_attr is not None
-        ), f"backward op [{str(src_op)}] don't have dist attribute !"
+        ), f"backward op [{src_op}] don't have dist attribute !"
 
         # check validation of inputs / outputs
         for input_name in src_op.desc.input_names():

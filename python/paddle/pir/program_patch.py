@@ -18,15 +18,8 @@ from . import Program
 
 _already_patch_program = False
 
-global_prog_seed = 0
-
 
 def monkey_patch_program():
-    def global_seed(self, seed=0):
-        global global_prog_seed
-        global_prog_seed = seed
-        self._seed = global_prog_seed
-
     @signature_safe_contextmanager
     def _lr_schedule_guard(self, is_with_opt=False):
         # TODO(dev): Currently there has not equivalent of op_role in PIR
@@ -34,11 +27,22 @@ def monkey_patch_program():
         # be fixed in the future.
         yield
 
-    global global_prog_seed
+    def state_dict(self, mode="all", scope=None):
+        from paddle.base import core
+        from paddle.base.executor import global_scope
+
+        if scope is not None and not isinstance(scope, core._Scope):
+            raise TypeError(
+                f"`scope` should be None or `paddle.static.Scope'` type, but received {type(scope)}."
+            )
+
+        if scope is None:
+            scope = global_scope()
+        return self._state_dict(mode, scope)
+
     program_attrs = {
-        "global_seed": global_seed,
-        "_seed": global_prog_seed,
         "_lr_schedule_guard": _lr_schedule_guard,
+        "state_dict": state_dict,
     }
 
     global _already_patch_program

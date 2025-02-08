@@ -21,6 +21,7 @@ import numpy as np
 
 import paddle
 from paddle.base import core, framework, global_scope
+from paddle.base.framework import in_pir_mode
 from paddle.base.log_helper import get_logger
 from paddle.base.wrapped_decorator import signature_safe_contextmanager
 
@@ -35,9 +36,9 @@ _logger = get_logger(
 )
 
 _valid_types = [
-    core.VarDesc.VarType.LOD_TENSOR,
+    core.VarDesc.VarType.DENSE_TENSOR,
     core.VarDesc.VarType.SELECTED_ROWS,
-    core.VarDesc.VarType.LOD_TENSOR_ARRAY,
+    core.VarDesc.VarType.DENSE_TENSOR_ARRAY,
 ]
 
 _fp16_guard_pattern = "__use_fp16__"
@@ -439,9 +440,7 @@ def set_var_dst_dtype(
                 var.desc.set_dtype(dtype)
 
         _logger.debug(
-            "---- op type: {}, var name: {}, var dtype: {} ----".format(
-                op.type, var_name, var.dtype
-            )
+            f"---- op type: {op.type}, var name: {var_name}, var dtype: {var.dtype} ----"
         )
 
     return low_precision_var_names
@@ -456,11 +455,11 @@ def set_param_dtype(program, dtype, amp_lists, use_fp16_guard, level):
         all_parameters.extend(block.all_parameters())
         ops = block.ops
         for op in ops:
-            # Currently, lookup_table is in black_list and unsupport_list, it's weight will be
+            # Currently, lookup_table is in black_list and unsupported_list, it's weight will be
             # set to fp32 in step 1 of cast_model_tp_fp16. But the weight may be used as matmul's
             # input in transformer, so the weight is also in to_fp16_var_names.
             # TODO(zhangting2020): consider fix auto_parallel_fp16 and remove lookup_table
-            # from black_list and unsupport_list.
+            # from black_list and unsupported_list.
             if op.type in amp_lists.black_list:
                 continue
             if _need_keep_fp32(op, amp_lists.unsupported_list, use_fp16_guard):
@@ -708,7 +707,7 @@ def cast_model_to_fp16(
                 return True
             if (
                 op.block._var_recursive(name).type
-                != core.VarDesc.VarType.LOD_TENSOR
+                != core.VarDesc.VarType.DENSE_TENSOR
             ):
                 return False
             return op.block._var_recursive(name).dtype in SUPPORT_FLOAT_TYPES
@@ -869,6 +868,8 @@ def _convert_to_float(place, org_array):
     framework._set_expected_place(place)
     org_tensor = paddle.to_tensor(org_array)
     fp32_array = paddle.cast(org_tensor, paddle.float32).numpy()
+    if in_pir_mode():
+        fp32_array.get_defining_op().set_bool_attr("master_grad_cast", True)
     paddle.enable_static()
     return fp32_array
 

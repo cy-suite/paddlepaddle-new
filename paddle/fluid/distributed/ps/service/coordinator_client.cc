@@ -25,8 +25,7 @@
 static const int MIN_PORT = 8500;
 static const int MAX_PORT = 65535;
 
-namespace paddle {
-namespace distributed {
+namespace paddle::distributed {
 
 PD_DEFINE_uint64(total_fl_client_size, 100, "supported total fl client size");
 PD_DEFINE_uint32(coordinator_wait_all_clients_max_time, 60, "uint32: s");
@@ -163,7 +162,7 @@ int32_t CoordinatorClient::StartClientService() {
   }
   uint32_t port_ = std::stol(port);
   int32_t rank_ = std::stoi(rank);
-  _env->RegisteCoordinatorClient(ip, port_, rank_);
+  _env->RegisterCoordinatorClient(ip, port_, rank_);
   VLOG(0) << "fl-ps > coordinator service addr: " << ip << ", " << port << ", "
           << _coordinator_id;
   return 0;
@@ -201,5 +200,4 @@ void CoordinatorClient::SendFLStrategy(const uint32_t& client_id) {
   return;
 }
 
-}  // namespace distributed
-}  // namespace paddle
+}  // namespace paddle::distributed

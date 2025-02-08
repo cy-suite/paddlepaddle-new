@@ -23,7 +23,16 @@
 namespace pir {
 /// Create an operation given the fields represented as an OperationState.
 Operation *Builder::Build(OperationArgument &&argument) {
-  return Insert(Operation::Create(std::move(argument)));
+  Operation *op = Insert(Operation::Create(std::move(argument)));
+  // TODO(ljz): Generalize here to be a hook function in the future.
+  // we add op_role attribute only when it is not equal to -1.
+  if (op_role_ != -1) {
+    op->set_attribute("op_role", Int32Attribute::get(context_, op_role_));
+  }
+  if (chunk_id_ != -1) {
+    op->set_attribute("chunk_id", Int32Attribute::get(context_, chunk_id_));
+  }
+  return op;
 }
 
 /// Creates an operation with the given fields.
@@ -60,6 +69,12 @@ Complex64Type Builder::complex64_type() { return Complex64Type::get(context_); }
 Complex128Type Builder::complex128_type() {
   return Complex128Type::get(context_);
 }
+Float8E4M3FNType Builder::float8e4m3fn_type() {
+  return Float8E4M3FNType::get(context_);
+}
+Float8E5M2Type Builder::float8e5m2_type() {
+  return Float8E5M2Type::get(context_);
+}
 StrAttribute Builder::str_attr(const std::string &value) {
   return StrAttribute::get(context_, value);
 }
@@ -89,6 +104,25 @@ PointerAttribute Builder::pointer_attr(void *value) {
 }
 TensorNameAttribute Builder::tensor_name_attr(const std::string &value) {
   return TensorNameAttribute::get(context_, value);
+}
+
+BuilderAttrGuard::BuilderAttrGuard(std::shared_ptr<Builder> builder,
+                                   int op_role,
+                                   int chunk_id)
+    : builder_(builder),
+      pre_op_role_(builder_->op_role()),
+      pre_chunk_id_(builder_->chunk_id()) {
+  if (pre_op_role_ != op_role) {
+    builder_->set_op_role(op_role);
+  }
+  if (pre_chunk_id_ != chunk_id) {
+    builder_->set_chunk_id(chunk_id);
+  }
+}
+
+BuilderAttrGuard::~BuilderAttrGuard() {  // NOLINT
+  builder_->set_op_role(pre_op_role_);
+  builder_->set_chunk_id(pre_chunk_id_);
 }
 
 }  // namespace pir

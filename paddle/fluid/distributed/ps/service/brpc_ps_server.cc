@@ -21,14 +21,12 @@
 #include "paddle/fluid/distributed/ps/table/depends/sparse_utils.h"
 #include "paddle/fluid/distributed/ps/table/table.h"
 #include "paddle/fluid/framework/archive.h"
-#include "paddle/fluid/platform/profiler.h"
+#include "paddle/phi/core/platform/profiler.h"
 
-namespace google {
-namespace protobuf {
+namespace google::protobuf {
 class Closure;
 class RpcController;
-}  // namespace protobuf
-}  // namespace google
+}  // namespace google::protobuf
 
 PD_DEFINE_int32(pserver_timeout_ms_s2s,
                 10000,
@@ -40,8 +38,7 @@ PD_DEFINE_string(pserver_connection_type_s2s,
                  "pooled",
                  "pserver connection_type[pooled:single]");
 
-namespace paddle {
-namespace distributed {
+namespace paddle::distributed {
 
 int32_t BrpcPsServer::Initialize() {
   auto &service_config = _config.downpour_server_param().service_param();
@@ -51,7 +48,7 @@ int32_t BrpcPsServer::Initialize() {
   }
   auto *service =
       CREATE_PSCORE_CLASS(PsBaseService, service_config.service_class());
-  if (service == NULL) {
+  if (service == nullptr) {
     LOG(ERROR) << "service is unregistered, service_name:"
                << service_config.service_class();
     return -1;
@@ -95,8 +92,8 @@ uint64_t BrpcPsServer::Start(const std::string &ip, uint32_t port) {
     }
   }
 
-  _environment->RegistePsServer(ip, port, _rank);
-  cv_.wait(lock, [&] { return stoped_; });
+  _environment->RegisterPsServer(ip, port, _rank);
+  cv_.wait(lock, [&] { return stopped_; });
 
   PSHost host;
   host.ip = ip;
@@ -140,8 +137,10 @@ std::future<int32_t> BrpcPsServer::SendPServer2PServerMsg(
   auto promise = std::make_shared<std::promise<int32_t>>();
   std::future<int> fut = promise->get_future();
   if (static_cast<size_t>(to_pserver_id) >= _pserver_channels.size()) {
-    LOG(FATAL) << "to_pserver_id is out of range pservers, which size is "
-               << _pserver_channels.size();
+    std::stringstream ss;
+    ss << "to_pserver_id is out of range pservers, which size is "
+       << _pserver_channels.size();
+    PADDLE_THROW(common::errors::Fatal(ss.str()));
     promise->set_value(-1);
     return fut;
   }
@@ -179,7 +178,11 @@ int32_t BrpcPsServer::ReceiveFromPServer(int msg_type,
   while (ar.Cursor() < ar.Finish()) {
     data.push_back(ar.Get<std::pair<uint64_t, std::string>>());
   }
-  CHECK(ar.Cursor() == ar.Finish());
+  PADDLE_ENFORCE_EQ(ar.Cursor(),
+                    ar.Finish(),
+                    common::errors::InvalidArgument(
+                        "Expected 'ar.Cursor()' to be equal to 'ar.Finish()', "
+                        "but found they are not equal."));
   this->_shuffled_ins->Write(std::move(data));
   return 0;
 }
@@ -300,8 +303,8 @@ int32_t BrpcPsService::PullDense(Table *table,
                                  const PsRequestMessage &request,
                                  PsResponseMessage &response,
                                  brpc::Controller *cntl) {
-  platform::RecordEvent record_event(
-      "PsService->PullDense", platform::TracerEventType::Communication, 1);
+  phi::RecordEvent record_event(
+      "PsService->PullDense", phi::TracerEventType::Communication, 1);
   CHECK_TABLE_EXIST(table, request, response)
   if (request.params_size() < 1) {
     set_response_code(
@@ -335,8 +338,8 @@ int32_t BrpcPsService::PushDenseParam(Table *table,
                                       const PsRequestMessage &request,
                                       PsResponseMessage &response,
                                       brpc::Controller *cntl) {
-  platform::RecordEvent record_event(
-      "PsService->PushDenseParam", platform::TracerEventType::Communication, 1);
+  phi::RecordEvent record_event(
+      "PsService->PushDenseParam", phi::TracerEventType::Communication, 1);
   CHECK_TABLE_EXIST(table, request, response)
   thread_local std::string push_buffer;
   auto &req_io_buffer = cntl->request_attachment();
@@ -369,8 +372,8 @@ int32_t BrpcPsService::PushDense(Table *table,
                                  const PsRequestMessage &request,
                                  PsResponseMessage &response,
                                  brpc::Controller *cntl) {
-  platform::RecordEvent record_event(
-      "PsService->PushDense", platform::TracerEventType::Communication, 1);
+  phi::RecordEvent record_event(
+      "PsService->PushDense", phi::TracerEventType::Communication, 1);
   CHECK_TABLE_EXIST(table, request, response)
   auto req_buffer_size = request.data().size();
   if (req_buffer_size < 1) {
@@ -424,9 +427,8 @@ int32_t BrpcPsService::PushSparseParam(Table *table,
                                        const PsRequestMessage &request,
                                        PsResponseMessage &response,
                                        brpc::Controller *cntl) {
-  platform::RecordEvent record_event("PsService->PushSparseParam",
-                                     platform::TracerEventType::Communication,
-                                     1);
+  phi::RecordEvent record_event(
+      "PsService->PushSparseParam", phi::TracerEventType::Communication, 1);
   CHECK_TABLE_EXIST(table, request, response)
   auto &push_data = request.data();
   if (push_data.empty()) {
@@ -468,8 +470,8 @@ int32_t BrpcPsService::PullGeoParam(Table *table,
                                     const PsRequestMessage &request,
                                     PsResponseMessage &response,
                                     brpc::Controller *cntl) {
-  platform::RecordEvent record_event(
-      "PsService->pull_geo_param", platform::TracerEventType::Communication, 1);
+  phi::RecordEvent record_event(
+      "PsService->pull_geo_param", phi::TracerEventType::Communication, 1);
   CHECK_TABLE_EXIST(table, request, response)
   thread_local std::string push_sparse_request_buffer;
 
@@ -500,8 +502,8 @@ int32_t BrpcPsService::PullSparse(Table *table,
                                   const PsRequestMessage &request,
                                   PsResponseMessage &response,
                                   brpc::Controller *cntl) {
-  platform::RecordEvent record_event(
-      "PsService->PullSparse", platform::TracerEventType::Communication, 1);
+  phi::RecordEvent record_event(
+      "PsService->PullSparse", phi::TracerEventType::Communication, 1);
   CHECK_TABLE_EXIST(table, request, response)
 
   auto &req_io_buffer = cntl->request_attachment();
@@ -554,8 +556,8 @@ int32_t BrpcPsService::PushSparse(Table *table,
                                   const PsRequestMessage &request,
                                   PsResponseMessage &response,
                                   brpc::Controller *cntl) {
-  platform::RecordEvent record_event(
-      "PsService->PushSparse", platform::TracerEventType::Communication, 1);
+  phi::RecordEvent record_event(
+      "PsService->PushSparse", phi::TracerEventType::Communication, 1);
   CHECK_TABLE_EXIST(table, request, response)
   auto &push_data = request.data();
   if (push_data.empty()) {
@@ -847,7 +849,7 @@ int32_t BrpcPsService::StopServer(Table *table,
   auto *p_server = _server;
   std::thread t_stop([p_server]() {
     p_server->Stop();
-    VLOG(3) << "Server Stoped";
+    VLOG(3) << "Server Stopped";
   });
   t_stop.detach();
   return 0;
@@ -896,5 +898,4 @@ int32_t BrpcPsService::PushGlobalStep(Table *table,
   return 0;
 }
 
-}  // namespace distributed
-}  // namespace paddle
+}  // namespace paddle::distributed

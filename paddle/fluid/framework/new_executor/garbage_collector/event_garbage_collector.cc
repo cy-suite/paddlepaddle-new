@@ -21,11 +21,11 @@
 #include <windows.h>
 #endif  // !_WIN32
 
-namespace paddle {
-namespace framework {
+namespace paddle::framework {
 
 InterpreterCoreEventGarbageCollector::InterpreterCoreEventGarbageCollector(
-    const std::vector<Instruction>& vec_instruction) {
+    const std::vector<Instruction>& vec_instruction)
+    : queue_(nullptr), gc_event_(), events_() {
   WorkQueueOptions options(/*name*/ "GarbageCollector",
                            /*num_threads*/ 1,
                            /*allow_spinning*/ true,
@@ -38,7 +38,8 @@ InterpreterCoreEventGarbageCollector::InterpreterCoreEventGarbageCollector(
 }
 
 InterpreterCoreEventGarbageCollector::InterpreterCoreEventGarbageCollector(
-    const std::vector<std::unique_ptr<InstructionBase>>& vec_instruction) {
+    const std::vector<std::unique_ptr<InstructionBase>>& vec_instruction)
+    : queue_(nullptr), gc_event_(), events_() {
   WorkQueueOptions options(/*name*/ "GarbageCollector",
                            /*num_threads*/ 1,
                            /*allow_spinning*/ true,
@@ -59,7 +60,7 @@ void InterpreterCoreEventGarbageCollector::Add(Variable* var,
                                                const Instruction& instr) {
   PADDLE_ENFORCE_LT(instr.Id(),
                     gc_event_.size(),
-                    platform::errors::OutOfRange(
+                    common::errors::OutOfRange(
                         "The index should be less than the size of gc event "
                         ", but got index is %d and size is %d",
                         instr.Id(),
@@ -71,7 +72,7 @@ void InterpreterCoreEventGarbageCollector::Add(Variable* var,
                                                const InstructionBase* instr) {
   PADDLE_ENFORCE_LT(instr->Id(),
                     gc_event_.size(),
-                    platform::errors::OutOfRange(
+                    common::errors::OutOfRange(
                         "The index should be less than the size of gc event "
                         ", but got index is %d and size is %d",
                         instr->Id(),
@@ -79,10 +80,9 @@ void InterpreterCoreEventGarbageCollector::Add(Variable* var,
   Add(var, &gc_event_.at(instr->Id()), &instr->DeviceContext());
 }
 
-void InterpreterCoreEventGarbageCollector::Add(
-    Variable* var,
-    platform::DeviceEvent* event,
-    const platform::DeviceContext* ctx) {
+void InterpreterCoreEventGarbageCollector::Add(Variable* var,
+                                               platform::DeviceEvent* event,
+                                               const phi::DeviceContext* ctx) {
   if (UNLIKELY(max_memory_size_ < 0) || var == nullptr) {
     return;
   }
@@ -92,10 +92,7 @@ void InterpreterCoreEventGarbageCollector::Add(
   } else if (
       var->IsType<
           operators::reader::
-              OrderedMultiDeviceLoDTensorBlockingQueueHolder>()) {  // NOLINT
-    // TODO(xiongkun03) in old executor, this type of variable is not support
-    // eager deletion. so we just leave it here ?
-  } else if (var->IsType<LoDRankTable>()) {
+              OrderedMultiDeviceDenseTensorBlockingQueueHolder>()) {  // NOLINT
     // TODO(xiongkun03) in old executor, this type of variable is not support
     // eager deletion. so we just leave it here ?
   } else if (var->IsType<phi::SelectedRows>()) {
@@ -104,9 +101,35 @@ void InterpreterCoreEventGarbageCollector::Add(
             ->MoveMemoryHolder(),
         event,
         ctx);
-    var->GetMutable<phi::SelectedRows>()->mutable_rows()->clear();
-  } else if (var->IsType<LoDTensorArray>()) {
-    auto* tensor_arr = var->GetMutable<LoDTensorArray>();
+  } else if (var->IsType<phi::SparseCooTensor>()) {
+    Add(var->GetMutable<phi::SparseCooTensor>()
+            ->mutable_values()
+            ->MoveMemoryHolder(),
+        event,
+        ctx);
+    Add(var->GetMutable<phi::SparseCooTensor>()
+            ->mutable_indices()
+            ->MoveMemoryHolder(),
+        event,
+        ctx);
+  } else if (var->IsType<phi::SparseCsrTensor>()) {
+    Add(var->GetMutable<phi::SparseCsrTensor>()
+            ->mutable_crows()
+            ->MoveMemoryHolder(),
+        event,
+        ctx);
+    Add(var->GetMutable<phi::SparseCsrTensor>()
+            ->mutable_cols()
+            ->MoveMemoryHolder(),
+        event,
+        ctx);
+    Add(var->GetMutable<phi::SparseCsrTensor>()
+            ->mutable_values()
+            ->MoveMemoryHolder(),
+        event,
+        ctx);
+  } else if (var->IsType<phi::TensorArray>()) {
+    auto* tensor_arr = var->GetMutable<phi::TensorArray>();
     for (auto& t : *tensor_arr) {
       Add(t.MoveMemoryHolder(), event, ctx);
     }
@@ -115,16 +138,15 @@ void InterpreterCoreEventGarbageCollector::Add(
     // refer to executor.cc to see what old garbage collector does.
     // do nothing, because the sub scope will be deleted by sub-executor.
   } else {
-    PADDLE_THROW(platform::errors::Unimplemented(
+    PADDLE_THROW(common::errors::Unimplemented(
         "The variable(%s) is not supported in eager deletion.",
         framework::ToTypeName(var->Type())));
   }
 }
 
-void InterpreterCoreEventGarbageCollector::Add(
-    Garbage garbage,
-    platform::DeviceEvent* event,
-    const platform::DeviceContext* ctx) {
+void InterpreterCoreEventGarbageCollector::Add(Garbage garbage,
+                                               platform::DeviceEvent* event,
+                                               const phi::DeviceContext* ctx) {
   if (!garbage) {
     return;
   }
@@ -145,10 +167,9 @@ void InterpreterCoreEventGarbageCollector::Add(
   }
 }
 
-void InterpreterCoreEventGarbageCollector::Free(
-    const Garbage& garbage,
-    platform::DeviceEvent* event,
-    const platform::DeviceContext* ctx) {
+void InterpreterCoreEventGarbageCollector::Free(const Garbage& garbage,
+                                                platform::DeviceEvent* event,
+                                                const phi::DeviceContext* ctx) {
   event->Record(ctx);
   event->SetFinished();  // Only for CPU Event
   queue_->AddTask([container = garbage, event = event]() {
@@ -186,5 +207,4 @@ void InterpreterCoreEventGarbageCollector::FreeGarbages() {
   events_.clear();
 }
 
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework

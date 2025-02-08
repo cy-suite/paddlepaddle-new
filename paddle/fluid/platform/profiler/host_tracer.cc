@@ -18,10 +18,9 @@
 #include "glog/logging.h"
 #include "paddle/fluid/framework/op_proto_maker.h"
 #include "paddle/fluid/platform/profiler/common_event.h"
-#include "paddle/fluid/platform/profiler/host_event_recorder.h"
+#include "paddle/phi/core/platform/profiler/host_event_recorder.h"
 
-namespace paddle {
-namespace platform {
+namespace paddle::platform {
 
 namespace {
 
@@ -140,9 +139,9 @@ void HostTracer::PrepareTracing() {
 
 void HostTracer::StartTracing() {
   PADDLE_ENFORCE_EQ(
-      state_ == TracerState::READY || state_ == TracerState::STOPED,
+      state_ == TracerState::READY || state_ == TracerState::STOPPED,
       true,
-      platform::errors::PreconditionNotMet("TracerState must be READY"));
+      common::errors::PreconditionNotMet("TracerState must be READY"));
   HostEventRecorder<CommonEvent>::GetInstance().GatherEvents();
   HostEventRecorder<CommonMemEvent>::GetInstance().GatherEvents();
   HostEventRecorder<OperatorSupplementOriginEvent>::GetInstance()
@@ -155,16 +154,16 @@ void HostTracer::StopTracing() {
   PADDLE_ENFORCE_EQ(
       state_,
       TracerState::STARTED,
-      platform::errors::PreconditionNotMet("TracerState must be STARTED"));
+      common::errors::PreconditionNotMet("TracerState must be STARTED"));
   HostTraceLevel::GetInstance().SetLevel(HostTraceLevel::kDisabled);
-  state_ = TracerState::STOPED;
+  state_ = TracerState::STOPPED;
 }
 
 void HostTracer::CollectTraceData(TraceEventCollector* collector) {
   PADDLE_ENFORCE_EQ(
       state_,
-      TracerState::STOPED,
-      platform::errors::PreconditionNotMet("TracerState must be STOPED"));
+      TracerState::STOPPED,
+      common::errors::PreconditionNotMet("TracerState must be STOPPED"));
   HostEventSection<CommonEvent> host_events =
       HostEventRecorder<CommonEvent>::GetInstance().GatherEvents();
   ProcessHostEvents(host_events, collector);
@@ -177,5 +176,4 @@ void HostTracer::CollectTraceData(TraceEventCollector* collector) {
   ProcessOperatorSupplementEvents(op_supplement_events, collector);
 }
 
-}  // namespace platform
-}  // namespace paddle
+}  // namespace paddle::platform

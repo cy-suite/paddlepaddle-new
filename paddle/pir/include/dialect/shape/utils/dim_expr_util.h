@@ -27,6 +27,24 @@ IR_API DimExpr SubstituteDimExpr(
     const DimExpr& dim_expr,
     const std::unordered_map<DimExpr, DimExpr>& pattern_to_replacement);
 
+IR_API int GetDimExprPriority(const DimExpr& dim_expr);
+
+enum class PriorityComparisonStatus {
+  HIGHER,  // lhs has a higher priority than rhs
+  EQUAL,   // lhs and rhs have equal priority
+  LOWER    // lhs has a lower priority than rhs
+};
+IR_API PriorityComparisonStatus CompareDimExprPriority(const DimExpr& lhs,
+                                                       const DimExpr& rhs);
+
+enum class DimExprCompareResult {
+  GT,       // lhs is greater than rhs
+  EQ,       // lhs and rhs is equal
+  LT,       // lhs is less than rhs
+  UNKNOWN,  // lhs and rhs is not comparable
+};
+IR_API DimExprCompareResult Compare(const DimExpr& lhs, const DimExpr& rhs);
+
 IR_API std::unordered_set<std::string> CollectDimExprSymbols(
     const DimExpr& dim_expr);
 

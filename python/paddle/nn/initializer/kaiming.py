@@ -12,8 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 # TODO: define the initializers of Kaiming functions in neural network
 import math
+from typing import TYPE_CHECKING
 
 import paddle
 from paddle import _C_ops
@@ -25,6 +28,9 @@ from ...base.framework import (
     in_pir_mode,
 )
 from .initializer import Initializer, calculate_gain
+
+if TYPE_CHECKING:
+    from .initializer import _NonLinearity
 
 __all__ = []
 
@@ -52,7 +58,7 @@ class MSRAInitializer(Initializer):
 
     Args:
         uniform (bool, optional): whether to use uniform or normal distribution. Default is True.
-        fan_in (float32|None, optional): fan_in (in_features) of trainable Tensor, If None, it will be infered automatically. If you don't want to use in_features of the Tensor, you can set the value of 'fan_in' smartly by yourself. Default is None.
+        fan_in (float32|None, optional): fan_in (in_features) of trainable Tensor, If None, it will be inferred automatically. If you don't want to use in_features of the Tensor, you can set the value of 'fan_in' smartly by yourself. Default is None.
         seed (int32, optional): random seed. Default is 0.
         negative_slope (float, optional): negative_slope (only used with leaky_relu). Default is 0.0.
         nonlinearity(str, optional): the non-linear function. Default is relu.
@@ -64,12 +70,12 @@ class MSRAInitializer(Initializer):
 
     def __init__(
         self,
-        uniform=True,
-        fan_in=None,
-        seed=0,
-        negative_slope=0,
-        nonlinearity='relu',
-    ):
+        uniform: bool = True,
+        fan_in: float | None = None,
+        seed: int = 0,
+        negative_slope: float = 0,
+        nonlinearity: _NonLinearity = 'relu',
+    ) -> None:
         """Constructor for MSRAInitializer"""
         assert uniform is not None
         assert seed is not None
@@ -80,12 +86,14 @@ class MSRAInitializer(Initializer):
         self._negative_slope = negative_slope
         self._nonlinearity = nonlinearity
 
-    def forward(self, var, block=None):
+    def forward(
+        self, var: paddle.Tensor, block: paddle.pir.Block | None = None
+    ) -> paddle.Tensor | None:
         """Initialize the input tensor with MSRA initialization.
 
         Args:
             var(Tensor): Tensor that needs to be initialized.
-            block(Block, optional): The block in which initialization ops
+            block(Block|None, optional): The block in which initialization ops
                    should be added. Used in static graph only, default None.
 
         Returns:
@@ -108,8 +116,9 @@ class MSRAInitializer(Initializer):
             self._seed = block.program.random_seed
 
         # to be compatible of fp16 initializers
-        if var.dtype == core.VarDesc.VarType.FP16 or (
-            var.dtype == core.VarDesc.VarType.BF16 and not self._uniform
+        origin_dtype = var.dtype
+        if origin_dtype == core.VarDesc.VarType.FP16 or (
+            origin_dtype == core.VarDesc.VarType.BF16 and not self._uniform
         ):
             out_dtype = core.VarDesc.VarType.FP32
             out_var = block.create_var(
@@ -118,17 +127,17 @@ class MSRAInitializer(Initializer):
                 ),
                 shape=var.shape,
                 dtype=out_dtype,
-                type=core.VarDesc.VarType.LOD_TENSOR,
+                type=core.VarDesc.VarType.DENSE_TENSOR,
                 persistable=False,
             )
         elif (
-            var.dtype in (core.DataType.FLOAT16, core.DataType.BFLOAT16)
+            origin_dtype in (core.DataType.FLOAT16, core.DataType.BFLOAT16)
             and not self._uniform
         ):
             out_dtype = core.DataType.FLOAT32
             out_var = var
         else:
-            out_dtype = var.dtype
+            out_dtype = origin_dtype
             out_var = var
 
         if in_dygraph_mode():
@@ -151,10 +160,16 @@ class MSRAInitializer(Initializer):
                     out_var.shape, 0.0, std, self._seed, out_dtype, place
                 )
 
-            if var.dtype == core.VarDesc.VarType.FP16 or (
-                var.dtype == core.VarDesc.VarType.BF16 and not self._uniform
+            if origin_dtype == core.VarDesc.VarType.FP16 or (
+                origin_dtype
+                in [
+                    core.VarDesc.VarType.BF16,
+                    core.DataType.FLOAT16,
+                    core.DataType.BFLOAT16,
+                ]
+                and not self._uniform
             ):
-                var_tmp = _C_ops.cast(out_var, var.dtype)
+                var_tmp = _C_ops.cast(out_var, origin_dtype)
                 var_tmp._share_underline_tensor_to(var)
             else:
                 out_var._share_underline_tensor_to(var)
@@ -180,10 +195,10 @@ class MSRAInitializer(Initializer):
                 )
 
             if (
-                var.dtype in (core.DataType.FLOAT16, core.DataType.BFLOAT16)
+                origin_dtype in (core.DataType.FLOAT16, core.DataType.BFLOAT16)
                 and not self._uniform
             ):
-                return _C_ops.cast(out_var, var.dtype)
+                return _C_ops.cast(out_var, origin_dtype)
 
             return out_var
         else:
@@ -220,14 +235,17 @@ class MSRAInitializer(Initializer):
                     stop_gradient=True,
                 )
 
-            if var.dtype == core.VarDesc.VarType.FP16 or (
-                var.dtype == core.VarDesc.VarType.BF16 and not self._uniform
+            if origin_dtype == core.VarDesc.VarType.FP16 or (
+                origin_dtype == core.VarDesc.VarType.BF16 and not self._uniform
             ):
                 block.append_op(
                     type="cast",
                     inputs={"X": out_var},
                     outputs={"Out": var},
-                    attrs={"in_dtype": out_var.dtype, "out_dtype": var.dtype},
+                    attrs={
+                        "in_dtype": out_var.dtype,
+                        "out_dtype": origin_dtype,
+                    },
                 )
 
             var.op = op
@@ -252,7 +270,7 @@ class KaimingNormal(MSRAInitializer):
         \frac{gain}{\sqrt{{fan\_in}}}
 
     Args:
-        fan_in (float32|None, optional): fan_in (in_features) of trainable Tensor, If None, it will be infered automatically. If you don't want to use in_features of the Tensor, you can set the value of 'fan_in' smartly by yourself. Default is None.
+        fan_in (float32|None, optional): fan_in (in_features) of trainable Tensor, If None, it will be inferred automatically. If you don't want to use in_features of the Tensor, you can set the value of 'fan_in' smartly by yourself. Default is None.
         negative_slope (float, optional): negative_slope (only used with leaky_relu). Default is 0.0.
         nonlinearity(str, optional): the non-linear function. Default is relu.
 
@@ -271,7 +289,12 @@ class KaimingNormal(MSRAInitializer):
 
     """
 
-    def __init__(self, fan_in=None, negative_slope=0.0, nonlinearity='relu'):
+    def __init__(
+        self,
+        fan_in: float | None = None,
+        negative_slope: float = 0.0,
+        nonlinearity: str = 'relu',
+    ) -> None:
         super().__init__(
             uniform=False,
             fan_in=fan_in,
@@ -298,7 +321,7 @@ class KaimingUniform(MSRAInitializer):
         x = gain \times \sqrt{\frac{3}{fan\_in}}
 
     Args:
-        fan_in (float32|None, optional): fan_in (in_features) of trainable Tensor, If None, it will be infered automaticly. If you don't want to use in_features of the Tensor, you can set the value of 'fan_in' smartly by yourself. Default is None.
+        fan_in (float32|None, optional): fan_in (in_features) of trainable Tensor, If None, it will be inferred automatically. If you don't want to use in_features of the Tensor, you can set the value of 'fan_in' smartly by yourself. Default is None.
         negative_slope (float, optional): negative_slope (only used with leaky_relu). Default is 0.0.
         nonlinearity(str, optional): the non-linear function. Default is relu.
 
@@ -317,7 +340,12 @@ class KaimingUniform(MSRAInitializer):
 
     """
 
-    def __init__(self, fan_in=None, negative_slope=0.0, nonlinearity='relu'):
+    def __init__(
+        self,
+        fan_in: float | None = None,
+        negative_slope: float = 0.0,
+        nonlinearity: str = 'relu',
+    ) -> None:
         super().__init__(
             uniform=True,
             fan_in=fan_in,

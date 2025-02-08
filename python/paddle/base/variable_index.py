@@ -20,6 +20,7 @@ import paddle
 from . import core, unique_name
 
 MAX_INTEGER = 2**31 - 1
+MIN_INTEGER = -(2**31)
 
 
 def replace_ellipsis(var, item):
@@ -125,9 +126,7 @@ def get_value_for_bool_tensor(var, item):
         if dim_len != -1 and var.shape[i] != -1 and dim_len != var.shape[i]:
             raise IndexError(
                 "The dimension of bool index doesn't match indexed array along "
-                "dimension {}, the target dimension is {}, but received {}.".format(
-                    i, var.shape[i], dim_len
-                )
+                f"dimension {i}, the target dimension is {var.shape[i]}, but received {dim_len}."
             )
         i += 1
     if len(item.shape) == len(var.shape):
@@ -160,9 +159,7 @@ def _setitem_for_tensor_array(var, item, value):
         return array_write(x=value, i=item, array=var)
     else:
         raise NotImplementedError(
-            "Only support __setitem__ by Int/Variable in tensor_array, but gets {}".format(
-                type(item)
-            )
+            f"Only support __setitem__ by Int/Variable in tensor_array, but gets {type(item)}"
         )
 
 
@@ -256,7 +253,7 @@ def is_tensor_array_type(value):
     else:
         return (
             hasattr(value, "desc")
-            and value.desc.type() == core.VarDesc.VarType.LOD_TENSOR_ARRAY
+            and value.desc.type() == core.VarDesc.VarType.DENSE_TENSOR_ARRAY
         )
 
 
@@ -300,8 +297,7 @@ def parse_index(x, indices):
                 # the unpack size would cause error.
                 # We raises IndexError here to support grammar like `a, b = var`
                 raise IndexError(
-                    "slice_item %d at dim %d should be >= 0 and < x.shape[%d]: %d"
-                    % (slice_item, dim, dim, x.shape[dim])
+                    f"slice_item {slice_item} at dim {dim} should be >= 0 and < x.shape[{dim}]: {x.shape[dim]}"
                 )
             # not calculate result to reduce call times for slice OP.
             decrease_axes.append(dim)
@@ -339,7 +335,7 @@ def parse_index(x, indices):
             if start is None:
                 start = 0 if step > 0 else MAX_INTEGER
             if end is None:
-                end = MAX_INTEGER if step > 0 else -1
+                end = MAX_INTEGER if step > 0 else MIN_INTEGER
 
             if not (
                 is_tensor_array
@@ -347,7 +343,7 @@ def parse_index(x, indices):
                 or isinstance(step, (paddle.base.Variable, paddle.pir.Value))
             ):
                 if x.shape[dim] != -1 and end >= x.shape[dim]:
-                    end = MAX_INTEGER if step > 0 else -1
+                    end = MAX_INTEGER if step > 0 else x.shape[dim]
             estimated_dim += 1
             dim += 1
 
@@ -362,9 +358,7 @@ def parse_index(x, indices):
                 and len(slice_item) != x.shape[dim]
             ):
                 raise IndexError(
-                    "The shape of boolean index {} did not match indexed tensor {} along axis {}".format(
-                        len(slice_item), x.shape[dim], dim
-                    )
+                    f"The shape of boolean index {len(slice_item)} did not match indexed tensor {x.shape[dim]} along axis {dim}"
                 )
 
             has_advanced_index = True
@@ -382,9 +376,7 @@ def parse_index(x, indices):
 
                 elif slice_item.shape[0] != x.shape[dim]:
                     raise IndexError(
-                        "The shape of boolean index {} did not match indexed tensor {} along axis {}".format(
-                            slice_item.shape[0], x.shape[dim], dim
-                        )
+                        f"The shape of boolean index {slice_item.shape[0]} did not match indexed tensor {x.shape[dim]} along axis {dim}"
                     )
             advanced_index[estimated_dim] = (estimated_dim, slice_item)
             has_advanced_index = True
@@ -399,9 +391,7 @@ def parse_index(x, indices):
 
                 elif slice_item.shape[0] != x.shape[dim]:
                     raise IndexError(
-                        "The shape of boolean index {} did not match indexed tensor {} along axis {}".format(
-                            slice_item.shape[0], x.shape[dim], dim
-                        )
+                        f"The shape of boolean index {slice_item.shape[0]} did not match indexed tensor {x.shape[dim]} along axis {dim}"
                     )
             advanced_index[estimated_dim] = (estimated_dim, slice_item)
             has_advanced_index = True
@@ -409,9 +399,7 @@ def parse_index(x, indices):
             dim += 1
         else:
             raise IndexError(
-                "Valid index accept int / bool / slice / ellipsis / list / Tuple / Ndarray / Tensor, but received {}.".format(
-                    slice_item
-                )
+                f"Valid index accept int / bool / slice / ellipsis / list / Tuple / Ndarray / Tensor, but received {slice_item}."
             )
         if not slice_is_same_to_original(start, end, step):
             starts.append(start)
@@ -450,7 +438,7 @@ def _setitem_static(x, indices, values):
         values(Tensor|Number|Ndarray): values to be assigned to the x.
     """
     from . import in_dynamic_or_pir_mode
-    from .framework import Variable, default_main_program, in_pir_mode
+    from .framework import Variable, in_pir_mode
 
     is_tensor_array = is_tensor_array_type(x)
 
@@ -569,7 +557,9 @@ def _setitem_static(x, indices, values):
                     _global_inplace_map,
                 )
 
-                _global_inplace_map.add(default_main_program(), x, output)
+                _global_inplace_map.add(
+                    paddle.static.default_main_program(), x, output
+                )
             return output
         else:
             helper = paddle.base.layer_helper.LayerHelper(
@@ -584,7 +574,7 @@ def _setitem_static(x, indices, values):
                 output = helper.create_variable_for_type_inference(
                     dtype=x.dtype
                 )
-            cur_block = default_main_program().current_block()
+            cur_block = paddle.static.default_main_program().current_block()
             cur_block.append_op(
                 type="set_value",
                 inputs=inputs,
@@ -692,7 +682,9 @@ def _setitem_static(x, indices, values):
                 _global_inplace_map,
             )
 
-            _global_inplace_map.add(default_main_program(), x, output)
+            _global_inplace_map.add(
+                paddle.static.default_main_program(), x, output
+            )
         else:
             helper = paddle.base.layer_helper.LayerHelper(
                 'set_value', **locals()
@@ -706,7 +698,7 @@ def _setitem_static(x, indices, values):
                 output = helper.create_variable_for_type_inference(
                     dtype=x.dtype
                 )
-            cur_block = default_main_program().current_block()
+            cur_block = paddle.static.default_main_program().current_block()
             cur_block.append_op(
                 type="set_value",
                 inputs=inputs,
@@ -804,9 +796,8 @@ def get_tensor_with_basic_indexing(
                     attrs['decrease_axis'],
                 )
         else:
-            from .framework import default_main_program
 
-            target_block = default_main_program().current_block()
+            target_block = paddle.static.default_main_program().current_block()
 
             slice_out_var = target_block.create_var(
                 name=unique_name.generate_with_ignorable_key(
@@ -919,7 +910,7 @@ def _getitem_static(x, indices):
 
 def parse_bool_and_broadcast_indices(indices):
     # deal with multiple Tensors and translating bool tensor to int tensor.
-    # In static mode, bool-tensor cannot be broadcasted since its corresponding int tensor's shape cannot be infered.
+    # In static mode, bool-tensor cannot be broadcasted since its corresponding int tensor's shape cannot be inferred.
     for i, indice in enumerate(indices):
         if (
             indice.dtype == paddle.bool

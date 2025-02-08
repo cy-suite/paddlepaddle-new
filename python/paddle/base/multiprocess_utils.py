@@ -24,7 +24,7 @@ from . import core
 MP_STATUS_CHECK_INTERVAL = 5.0
 
 # NOTE: [ mmap files clear ] If there is still data in the multiprocess queue when the main process finishes reading,
-# the data in the queue needs to be popped. Then the LoDTensor read by the main process
+# the data in the queue needs to be popped. Then the DenseTensor read by the main process
 # from the child process will automatically clear the memory-mapped file.
 multiprocess_queue_set = set()
 
@@ -71,7 +71,7 @@ class CleanupFuncRegistrar:
 
         def _func_register(function):
             if not callable(function):
-                raise TypeError("%s is not callable object." % (function))
+                raise TypeError(f"{function} is not callable object.")
             # check function object whether hash-able
             if function not in cls._registered_func_set:
                 atexit.register(_func_executor)

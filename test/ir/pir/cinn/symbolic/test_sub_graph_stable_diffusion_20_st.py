@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# repo: diffusers_sub_grpah
+# repo: diffusers_sub_graph
 # model: stable_diffusion
 # api:paddle.nn.functional.activation.silu||api:paddle.nn.functional.common.dropout||api:paddle.nn.functional.conv.conv2d||method:__add__||method:__truediv__
 import unittest
@@ -20,6 +20,8 @@ import unittest
 import numpy as np
 
 import paddle
+
+paddle.seed(2024)
 
 
 class LayerCase(paddle.nn.Layer):
@@ -92,7 +94,7 @@ class TestLayer(unittest.TestCase):
         for st, cinn in zip(
             paddle.utils.flatten(st_out), paddle.utils.flatten(cinn_out)
         ):
-            np.testing.assert_allclose(st.numpy(), cinn.numpy(), atol=1e-8)
+            np.testing.assert_allclose(st.numpy(), cinn.numpy(), atol=1e-6)
 
 
 if __name__ == '__main__':

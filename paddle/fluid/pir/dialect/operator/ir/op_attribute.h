@@ -19,11 +19,15 @@
 #include "paddle/phi/common/scalar.h"
 #include "paddle/phi/core/enforce.h"
 #include "paddle/pir/include/core/builtin_attribute.h"
-#include "paddle/pir/include/core/parser/ir_parser.h"
+#include "paddle/pir/include/core/dll_decl.h"
 
 namespace paddle {
 namespace dialect {
-class IntArrayAttribute : public pir::Attribute {
+// __force_backend__ in ["gpu","gpudnn","cpu",""]
+inline const char kForceBackendAttr[] = "__force_backend__";
+inline const char kCanRunTrtAttr[] = "__l_trt__";
+
+class IR_API IntArrayAttribute : public pir::Attribute {
  public:
   using Attribute::Attribute;
 
@@ -34,9 +38,9 @@ class IntArrayAttribute : public pir::Attribute {
     return storage() < right.storage();
   }
 
-  static IntArrayAttribute Parse(pir::IrParser &parser);  // NOLINT
-
   const phi::IntArray &data() const;
+
+  static std::string name() { return "a_intarray"; }
 };
 
 class ScalarAttribute : public pir::Attribute {
@@ -59,10 +63,12 @@ class ScalarAttribute : public pir::Attribute {
     return TransToIrAttribute(scalar, ctx);
   }
 
-  phi::Scalar data();
+  phi::Scalar data() const;
+
+  static std::string name() { return "a_scalar"; }
 };
 
-class DataTypeAttribute : public pir::Attribute {
+class IR_API DataTypeAttribute : public pir::Attribute {
  public:
   using Attribute::Attribute;
 
@@ -73,9 +79,9 @@ class DataTypeAttribute : public pir::Attribute {
     return storage() < right.storage();
   }
 
-  static DataTypeAttribute Parse(pir::IrParser &parser);  // NOLINT
-
   phi::DataType data() const;
+
+  static std::string name() { return "a_dtype"; }
 };
 
 class PlaceAttribute : public pir::Attribute {
@@ -88,9 +94,8 @@ class PlaceAttribute : public pir::Attribute {
     return storage() < right.storage();
   }
 
-  static PlaceAttribute Parse(pir::IrParser &parser);  // NOLINT
-
   phi::Place data() const;
+  static std::string name() { return "a_place"; }
 };
 
 class DataLayoutAttribute : public pir::Attribute {
@@ -104,8 +109,8 @@ class DataLayoutAttribute : public pir::Attribute {
     return storage() < right.storage();
   }
 
-  static DataLayoutAttribute Parse(pir::IrParser &parser);  // NOLINT
   phi::DataLayout data() const;
+  static std::string name() { return "a_layout"; }
 };
 
 }  // namespace dialect

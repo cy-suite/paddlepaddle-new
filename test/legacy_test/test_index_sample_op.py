@@ -20,7 +20,6 @@ from op_test import OpTest, convert_float_to_uint16
 import paddle
 from paddle import base
 from paddle.base import core
-from paddle.pir_utils import test_with_pir_api
 
 
 class TestIndexSampleOp(OpTest):
@@ -130,6 +129,7 @@ class TestCase6(TestIndexSampleOp):
         self.index_type = "int64"
 
 
+@unittest.skipIf(core.is_compiled_with_xpu(), "complex is not supported on XPU")
 class TestIndexSampleComplex64(TestIndexSampleOp):
     def config(self):
         """
@@ -141,6 +141,7 @@ class TestIndexSampleComplex64(TestIndexSampleOp):
         self.index_type = "int64"
 
 
+@unittest.skipIf(core.is_compiled_with_xpu(), "complex is not supported on XPU")
 class TestIndexSampleComplex128(TestIndexSampleOp):
     def config(self):
         """
@@ -200,7 +201,7 @@ class TestIndexSampleBF16Op(OpTest):
 
 
 class TestIndexSampleShape(unittest.TestCase):
-    @test_with_pir_api
+
     def test_shape(self):
         paddle.enable_static()
         with paddle.static.program_guard(paddle.static.Program()):
