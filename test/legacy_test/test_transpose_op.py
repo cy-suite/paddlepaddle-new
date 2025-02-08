@@ -13,10 +13,8 @@
 # limitations under the License.
 
 
-import sys
-
 import os
-
+import sys
 import unittest
 
 import gradient_checker
@@ -832,7 +830,6 @@ class TestTransposeAPI_ZeroDim(unittest.TestCase):
         paddle.enable_static()
 
 
-
 class TestMatrixTransposeApi(unittest.TestCase):
     def test_static_out(self):
         paddle.enable_static()
@@ -935,6 +932,7 @@ class TestTransposeParamCheck(unittest.TestCase):
 
     def test_static(self):
         self._test_func(True)
+
 
 if __name__ == '__main__':
     paddle.enable_static()
