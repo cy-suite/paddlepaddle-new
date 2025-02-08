@@ -2,19 +2,12 @@ name: PR-CI-SOT
 
 on:
   workflow_call:
-    inputs:
-      PR_ID:
-        description: 'PR number'
-        required: true
-        type: string
-      COMMIT_ID:
-        description: 'commit number'
-        required: true
-        type: string
 
 env:
   dockerfile: Dockerfile.cuda9_cudnn7_gcc48_py35_centos6
   docker_image: 077ca344c322
+  PR_ID: ${{ github.event.pull_request.number }}
+  COMMIT_ID: ${{ github.event.pull_request.head.sha }}
 
 defaults:
   run:
@@ -29,8 +22,6 @@ jobs:
     # sudo usermod -aG docker $USER
     - name: Check docker image and run container
       env:
-        PR_ID: ${{ inputs.PR_ID }}
-        COMMIT_ID: ${{ inputs.COMMIT_ID }}
         FLAGS_fraction_of_gpu_memory_to_use: 0.15
         CTEST_OUTPUT_ON_FAILURE: 1
         CTEST_PARALLEL_LEVEL: 2
@@ -41,7 +32,7 @@ jobs:
         WITH_TESTING: "OFF"
         WITH_COVERAGE: "OFF"
         COVERALLS_UPLOAD: "OFF"
-        GIT_PR_ID: ${{ inputs.PR_ID }}
+        GIT_PR_ID: ${{ github.event.pull_request.number }}
         PADDLE_VERSION: 0.0.0
         CMAKE_BUILD_TYPE: Release
         PADDLE_FRACTION_GPU_MEMORY_TO_USE: 0.15

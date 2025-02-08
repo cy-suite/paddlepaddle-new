@@ -18,16 +18,10 @@ env:
 jobs:
   Clone:
     uses: ./.github/workflows/_Clone-linux.yml
-    with:
-      # PR_ID: ${{ github.event.pull_request.number }}
-      COMMIT_ID: ${{ github.event.pull_request.head.sha }}
 
   SOT:
     uses: ./.github/workflows/_SOT.yml
     needs: Clone
-    with:
-      PR_ID: ${{ github.event.pull_request.number }}
-      COMMIT_ID: ${{ github.event.pull_request.head.sha }}
 
   # Py3:
   #   uses: ./.github/workflows/_Py3.yml
