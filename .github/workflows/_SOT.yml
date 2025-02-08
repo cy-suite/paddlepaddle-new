@@ -136,8 +136,13 @@ jobs:
           fi
         fi
         set -e
-        git checkout test
-        git merge develop
+        git fetch origin pull/${PR_ID}/head
+        git checkout -b origin_pr FETCH_HEAD
+        git fetch upstream develop
+        git checkout -b test_pr upstream/develop
+        git merge --no-edit origin_pr
+        # git checkout test
+        # git merge develop
         "
 
     - name: Configure cache and ccache
