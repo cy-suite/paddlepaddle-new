@@ -731,7 +731,7 @@ def _to_tensor_non_static(
             data.stop_gradient = stop_gradient
             return data
         elif isinstance(data, core.DenseTensor):
-            # should't expose it to users, just for internal use.
+            # shouldn't expose it to users, just for internal use.
             # convert core.DenseTensor to Tensor first
             # Currently, there is no copy when places are same
             data = paddle.Tensor(data, place=place)

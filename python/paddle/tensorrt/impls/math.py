@@ -157,7 +157,7 @@ def divide_converter(network, paddle_op, inputs):
 
 
 @converter_registry.register("pd_op.subtract", trt_version="trt_version_ge=8.0")
-def substract_converter(network, paddle_op, inputs):
+def subtract_converter(network, paddle_op, inputs):
     return add_elementwise_layer(
         network, paddle_op, inputs, trt.ElementWiseOperation.SUB
     )
@@ -276,6 +276,11 @@ def min_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.sum", trt_version="8.x")
 def sum_converter(network, paddle_op, inputs):
     return add_reduce_layer(network, paddle_op, inputs, trt.ReduceOperation.SUM)
+
+
+@converter_registry.register("pd_op.mean", trt_version="8.x")
+def mean_converter(network, paddle_op, inputs):
+    return add_reduce_layer(network, paddle_op, inputs, trt.ReduceOperation.AVG)
 
 
 @converter_registry.register("pd_op.any", trt_version="8.x")
