@@ -134,7 +134,7 @@ def moe_dispatch(
     moe_topk: int,
     group_moe: bool = False,
     topk_only_mode: bool = False,
-) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor, Tensor]:
+) -> tuple[Tensor, Tensor, Tensor, Tensor, Tensor]:
     """
     Dispatches tokens to experts based on gating probabilities.
 
