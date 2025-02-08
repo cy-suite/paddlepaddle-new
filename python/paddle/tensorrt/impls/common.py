@@ -406,7 +406,7 @@ def linear_interp_converter(network, paddle_op, inputs):
 
     if outsize_tensor is None:
         if len(inputs) > 2 and inputs[2] is not None:
-            outsize_tensor = inputs[2]
+            outsize_tensor = inputs[2][0]
 
     if out_w > 0 and scale_w <= 0:
         scale_w = float(out_w) / float(in_dim[w_axis])
@@ -434,9 +434,7 @@ def linear_interp_converter(network, paddle_op, inputs):
             channel_dim = get_shape_tensor_element(network, input_shape, 2)
             outsize_itensors.append(channel_dim)
 
-        layer.set_input(
-            1, network.add_concatenation(outsize_itensors).get_output(0)
-        )
+        layer.set_input(1, trt_concat(network, outsize_itensors))
     else:
         layer.scales = scales
 

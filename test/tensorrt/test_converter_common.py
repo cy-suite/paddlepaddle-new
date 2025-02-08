@@ -687,5 +687,36 @@ class TestLinearInterpCase7TRTPattern(TensorRTBaseTest):
         self.check_trt_result(precision_mode="fp16")
 
 
+class TestLinearInterpCase8TRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = linear_interp_test
+        self.api_args = {
+            "x": np.random.random([1, 18, 144]).astype("float32"),
+            "OutSize": None,
+            "SizeTensor": [
+                np.array([288], dtype="int64"),
+            ],
+            "Scale": None,
+            "data_layout": "NCHW",
+            "out_d": -1,
+            "out_h": -1,
+            "out_w": 288,
+            "scale": [],
+            "interp_method": "linear",
+            "align_corners": True,
+            "align_mode": 0,
+        }
+        self.program_config = {"feed_list": ["x", "SizeTensor"]}
+        self.min_shape = {"x": [1, 18, 144]}
+        self.opt_shape = {"x": [2, 18, 144]}
+        self.max_shape = {"x": [4, 18, 144]}
+
+    def test_trt_result(self):
+        self.check_trt_result()
+
+    def test_fp16_trt_result(self):
+        self.check_trt_result(precision_mode="fp16")
+
+
 if __name__ == "__main__":
     unittest.main()
