@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 import unittest
 
 import gradient_checker
@@ -23,6 +24,9 @@ import paddle
 from paddle import base
 from paddle.base import core
 from paddle.pir_utils import test_with_pir_api
+
+sys.path.append("../dygraph_to_static")
+from dygraph_to_static_utils import enable_to_static_guard
 
 paddle.enable_static()
 
@@ -816,6 +820,29 @@ class TestTransposeAPI_ZeroDim(unittest.TestCase):
         self.assertEqual(out.grad.shape, [])
 
         paddle.enable_static()
+
+
+class TestTransposeParamCheck(unittest.TestCase):
+    # Currently, Paddle does not support passing a permutation list of length 2
+    # for swapping axes in a multi-dimensional tensor. The length of the perm
+    # parameter must match the number of dimensions of the input tensor, and the
+    # axes are rearranged according to the order specified in perm.
+
+    def _test_func(self, flag):
+        with enable_to_static_guard(flag):
+            x_cuda = paddle.rand([32, 4, 32])
+            with self.assertRaises(ValueError):
+                x_cuda.transpose([1, 2])
+
+            x_cpu = paddle.to_tensor(x_cuda, place=paddle.CPUPlace())
+            with self.assertRaises(ValueError):
+                x_cpu.transpose([1, 2])
+
+    def test_dygraph(self):
+        self._test_func(False)
+
+    def test_static(self):
+        self._test_func(True)
 
 
 if __name__ == '__main__':
