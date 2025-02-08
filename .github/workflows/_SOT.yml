@@ -116,26 +116,29 @@ jobs:
         git_code=1
         set +e
         set -x
+        proxy=http://bdhttp:ff015d42d2e77bcf1df0b20fbb848340@180.76.138.26:18801
+        export http_proxy=$proxy
+        export https_proxy=$proxy
         git pull upstream develop
-        if [ $? -eq 0 ]; then
-          git_code=0
-          echo 'git pull succeed with1'
-        else
-          proxy=${{ vars.PADDLE_PROXY }}
-          echo \"::add-mask::$proxy\"
-          echo "proxyyy"
-          echo $proxy
-          export http_proxy=$proxy
-          export https_proxy=$proxy
-          git pull upstream develop
-          if [ $? -eq 0 ]; then
-            git_code=0
-            echo 'git pull succeed with2'
-          else
-            echo 'proxy filed'
-            exit 2
-          fi
-        fi
+        # if [ $? -eq 0 ]; then
+        #   git_code=0
+        #   echo 'git pull succeed with1'
+        # else
+        #   proxy=${{ vars.PADDLE_PROXY }}
+        #   echo \"::add-mask::$proxy\"
+        #   echo "proxyyy"
+        #   echo $proxy
+        #   export http_proxy=$proxy
+        #   export https_proxy=$proxy
+        #   git pull upstream develop
+        #   if [ $? -eq 0 ]; then
+        #     git_code=0
+        #     echo 'git pull succeed with2'
+        #   else
+        #     echo 'proxy filed'
+        #     exit 2
+        #   fi
+        # fi
         set -e
         git checkout pr
         # git fetch origin pull/${PR_ID}/head
