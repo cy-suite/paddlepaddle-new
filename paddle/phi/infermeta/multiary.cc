@@ -6057,7 +6057,7 @@ void MoeDispatchInferMeta(const MetaTensor& X,
   top_k_indices->set_layout(X.layout());
 }
 
-void MoeFfnInferMeta(const MetaTensor& permute_input,
+void MoeFFNInferMeta(const MetaTensor& permute_input,
                      const MetaTensor& token_nums_per_expert,
                      const MetaTensor& ffn1_weight,
                      const MetaTensor& ffn2_weight,
