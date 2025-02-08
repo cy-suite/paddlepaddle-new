@@ -323,7 +323,7 @@ class RunnableProgram:
         )
         return [fwd_prog, bwd_prog], prog_attr
 
-    def apply_pir_program_pass(self, pass_fn):
+    def apply_pir_program_pass(self, pass_fn, sym_program=None):
         """
         Main entries for pass function, without considering any input/output and forward segmentation.
         pass_fn' signature is:
@@ -349,7 +349,7 @@ class RunnableProgram:
         # NOTE(dev): Add this line to trigger program_name_attr logic
         program_name_attr = self.program_name_attr
         self.forward_program, self.backward_program = pass_fn(
-            origin_fwd, origin_bwd, program_name_attr
+            origin_fwd, origin_bwd, program_name_attr, sym_program
         )
         prog_logger.log(
             1,
@@ -543,10 +543,10 @@ class IndicesPreservePass:
 class ValuePreservePass:
     OP_NAME_PREFIX = "preserved_value_"
 
-    def __init__(self, values, use_cinn_pass):
+    def __init__(self, values, use_cinn_pass, program=None):
         self.values = values
         self.use_cinn_pass = use_cinn_pass
-        self.program = None
+        self.program = program
 
     def apply(self, program):
         raise RuntimeError("Not implemented.")
@@ -778,7 +778,12 @@ class PartialProgramLayer:
     def _create_program(self, is_infer_mode=False) -> RunnableProgram:
         if is_infer_mode:
 
-            def pass_fn(forward_program, backward_program, program_name_attr):
+            def pass_fn(
+                forward_program,
+                backward_program,
+                program_name_attr,
+                whole_program,
+            ):
                 # common pass
                 pm = paddle.base.libpaddle.pir.PassManager()
                 paddle.base.libpaddle.pir.infer_symbolic_shape_pass(
@@ -834,7 +839,7 @@ class PartialProgramLayer:
                 forward_program,
                 backward_program,
                 program_name_attr,
-                whole_program=self.full_graph_program_with_symbol_shape,
+                whole_program,
             ):
                 def init_backward_program_shape_analysis(
                     forward_program, backward_program
@@ -899,9 +904,15 @@ class PartialProgramLayer:
                 )
                 if cinn_is_enabled(self._build_strategy, self._backend):
                     # 获取 kwrags 列表，用于排除从 whole_program 中直接获取维度信息和推导
-                    kw_value_list = (
-                        backward_program.global_block().kwargs().values()
-                    )
+                    def is_kw_value(v):
+                        kw_value_list = (
+                            backward_program.global_block().kwargs().values()
+                        )
+                        for kw in kw_value_list:
+                            if v.is_same(kw):
+                                return True
+                        return False
+
                     # 获取全图 program 的 shape_analysis
                     whole_shape_analysis = paddle.base.libpaddle.pir.get_shape_constraint_ir_analysis(
                         whole_program
@@ -923,10 +934,10 @@ class PartialProgramLayer:
                         whole_shape_analysis
                     )
 
-                    value_no_find_in_whole_program = (
+                    fwd_value_no_find_in_whole_program = (
                         []
                     )  # 经过 pass 变换之后，不存在于原 推导全图的 Value
-
+                    bwd_value_no_find_in_whole_program = []
                     for var in forward_program.list_vars():
                         if whole_shape_analysis.has_shape_or_data_for_var(var):
                             # 直接获取
@@ -936,32 +947,32 @@ class PartialProgramLayer:
                                     var
                                 ),
                             )
+                        elif is_fake_value(var):
+                            continue
                         else:
                             # 添加列表
-                            value_no_find_in_whole_program.append(var)
+                            fwd_value_no_find_in_whole_program.append(var)
                     # 在子图中自行拓扑推导 或 可能得到这些 Value 的拓扑序，然后手动调用算子推导？
-                    for var in value_no_find_in_whole_program:
+                    for var in fwd_value_no_find_in_whole_program:
                         forward_shape_analysis.get_shape_or_data_for_var(var)
-                        value_no_find_in_whole_program.remove(var)
                     # 共享 kwargs 维度
                     init_backward_program_shape_analysis(
                         forward_program, backward_program
                     )
                     for var in backward_program.list_vars():
-                        if whole_program.has_shape_or_data_for_var(var):
+                        if whole_shape_analysis.has_shape_or_data_for_var(var):
                             backward_shape_analysis.set_shape_or_data_for_var(
                                 var,
                                 whole_shape_analysis.get_shape_or_data_for_var(
                                     var
                                 ),
                             )
-                        elif var in kw_value_list:
+                        elif is_kw_value(var) or is_fake_value(var):
                             continue
                         else:
-                            value_no_find_in_whole_program.append(var)
-                    for var in value_no_find_in_whole_program:
+                            bwd_value_no_find_in_whole_program.append(var)
+                    for var in bwd_value_no_find_in_whole_program:
                         backward_shape_analysis.get_shape_or_data_for_var(var)
-                        value_no_find_in_whole_program.remove(var)
                     paddle.base.libpaddle.pir.apply_cinn_pass(
                         forward_program, False
                     )
@@ -974,7 +985,9 @@ class PartialProgramLayer:
                     )
                 return forward_program, backward_program
 
-            train_program.apply_pir_program_pass(pass_fn)
+            train_program.apply_pir_program_pass(
+                pass_fn, self.full_graph_program_with_symbol_shape
+            )
             return train_program
 
     @cached_property
@@ -1146,11 +1159,11 @@ class PartialProgramLayer:
             [forward_end_idx, backward_start_op_index, backward_end_op_index],
             fused_bn_add_act_pass,
         )
+
+        program = forward_index_pass(program)
         self.full_graph_program_with_symbol_shape = (
             fused_bn_add_act_pass.program
         )
-
-        program = forward_index_pass(program)
         (
             inputs,
             params,
