@@ -102,8 +102,8 @@ jobs:
 
     - name: Download paddle and update
       run: |
-        docker start paddle-CI
-        docker exec -i paddle-CI /bin/bash
+        # docker start paddle-CI
+        docker exec paddle-CI /bin/bash -c "
         pwd
         ln -s /home/data/cfs/.cache /root/.cache
         wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/Paddle/${PR_ID}/${COMMIT_ID}/Paddle.tar.gz
@@ -136,6 +136,7 @@ jobs:
         set -e
         git checkout test
         git merge develop
+        "
 
     - name: Configure cache and ccache
       run: |
