@@ -65,6 +65,7 @@ jobs:
           -v "cfs:/home/data/cfs" \
           -v "gzcfs:/home/data/gzcfs" \
           -v "shm:/dev/shm" \
+          -v "/home/gushiwei:/home/gushiwei"
           -e PR_ID \
           -e COMMIT_ID \
           -e FLAGS_fraction_of_gpu_memory_to_use \
@@ -97,7 +98,7 @@ jobs:
           -e WITH_INFERENCE_API_TEST \
           -e CCACHE_MAXSIZE \
           -e CCACHE_LIMIT_MULTIPLE \
-          -w /workspace/Paddle/Paddle --network host ${docker_image}
+          -w /home/gushiwei/actions-runner/_work/Paddle/Paddle --network host ${docker_image}
       # working_directory: ./tools/dockerfile/
 
     - name: Download paddle and update
@@ -155,8 +156,8 @@ jobs:
 
     - name: Check sot
       env:
-        work_dir: "/workspace/Paddle"
-        PADDLE_ROOT: "/workspace/Paddle"
+        work_dir: "/home/gushiwei/actions-runner/_work/Paddle/Paddle"
+        PADDLE_ROOT: "/home/gushiwei/actions-runner/_work/Paddle/Paddle"
       run: |
         docker exec -t paddle-CI /bin/bash -c "
         EXCODE=0
