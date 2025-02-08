@@ -104,37 +104,6 @@ def fused_bias_dropout_residual_layer_norm(
     dropout_rate,
     ln_epsilon,
 ):
-    x = paddle.to_tensor(x)
-    residual = paddle.to_tensor(residual)
-    bias = paddle.create_parameter(
-        shape=bias_shape, dtype='float32', name="bias"
-    )
-    ln_scale = paddle.create_parameter(
-        shape=ln_scale_shape, dtype='float32', name="ln_scale"
-    )
-    ln_bias = paddle.create_parameter(
-        shape=ln_bias_shape, dtype='float32', name="ln_bias"
-    )
-    return paddle.incubate.nn.functional.fused_bias_dropout_residual_layer_norm(
-        x,
-        residual,
-        bias,
-        ln_scale,
-        ln_bias,
-        dropout_rate=dropout_rate,
-        ln_epsilon=ln_epsilon,
-    )
-
-
-def fused_bias_dropout_residual_layer_norm(
-    x,
-    residual,
-    bias_shape,
-    ln_scale_shape,
-    ln_bias_shape,
-    dropout_rate,
-    ln_epsilon,
-):
     bias = paddle.create_parameter(
         shape=bias_shape, dtype='float32', name="bias"
     )
