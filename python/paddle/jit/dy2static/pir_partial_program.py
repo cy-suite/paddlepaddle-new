@@ -543,10 +543,10 @@ class IndicesPreservePass:
 class ValuePreservePass:
     OP_NAME_PREFIX = "preserved_value_"
 
-    def __init__(self, values, use_cinn_pass, program=None):
+    def __init__(self, values, use_cinn_pass):
         self.values = values
         self.use_cinn_pass = use_cinn_pass
-        self.program = program
+        self.program = None
 
     def apply(self, program):
         raise RuntimeError("Not implemented.")
@@ -834,20 +834,22 @@ class PartialProgramLayer:
             # Note: Only set grad type once after initializing train program. So we put it here.
             self._set_grad_type(self._params, train_program)
 
-            # TODO: 优化这段代码实现，现在重复代码比较多
             def pass_fn(
                 forward_program,
                 backward_program,
                 program_name_attr,
                 whole_program,
             ):
-                def init_backward_program_shape_analysis(
+                def get_shape_analysis(program):
+                    return paddle.base.libpaddle.pir.get_shape_constraint_ir_analysis(
+                        program
+                    )
+
+                def set_backward_program_shape_analysis(
                     forward_program, backward_program
                 ):
-                    forward_shape_analysis = paddle.base.libpaddle.pir.get_shape_constraint_ir_analysis(
-                        forward_program
-                    )
-                    backward_shape_analysis = paddle.base.libpaddle.pir.get_shape_constraint_ir_analysis(
+                    forward_shape_analysis = get_shape_analysis(forward_program)
+                    backward_shape_analysis = get_shape_analysis(
                         backward_program
                     )
 
@@ -888,6 +890,41 @@ class PartialProgramLayer:
                             forward_matched_value, kw_value
                         )
 
+                def init_forward_and_backward_program_shape_analysis(
+                    forward_program, backward_program, whole_analysis
+                ):
+                    forward_shape_analysis = get_shape_analysis(forward_program)
+                    backward_shape_analysis = get_shape_analysis(
+                        backward_program
+                    )
+                    forward_shape_analysis.register_symbol_cstr_from_shape_analysis(
+                        whole_analysis
+                    )
+                    backward_shape_analysis.register_symbol_cstr_from_shape_analysis(
+                        whole_analysis
+                    )
+
+                def process_program_vars(
+                    program, whole_analysis, is_target_value=None
+                ):
+                    program_analysis = get_shape_analysis(program)
+                    missing_vars = []
+                    for var in program.list_vars():
+                        if whole_analysis.has_shape_or_data_for_var(var):
+                            program_analysis.set_shape_or_data_for_var(
+                                var,
+                                whole_analysis.get_shape_or_data_for_var(var),
+                            )
+                        elif is_fake_value(var) or (
+                            is_target_value and is_target_value(var)
+                        ):
+                            continue
+                        else:
+                            missing_vars.append(var)
+
+                    for var in missing_vars:
+                        program_analysis.get_shape_or_data_for_var(var)
+
                 apply_general_passes(
                     forward_program,
                     enable_cse=cse_is_enabled(),
@@ -903,76 +940,31 @@ class PartialProgramLayer:
                     ),
                 )
                 if cinn_is_enabled(self._build_strategy, self._backend):
-                    # 获取 kwrags 列表，用于排除从 whole_program 中直接获取维度信息和推导
-                    def is_kw_value(v):
-                        kw_value_list = (
-                            backward_program.global_block().kwargs().values()
-                        )
-                        for kw in kw_value_list:
-                            if v.is_same(kw):
-                                return True
-                        return False
-
-                    # 获取全图 program 的 shape_analysis
-                    whole_shape_analysis = paddle.base.libpaddle.pir.get_shape_constraint_ir_analysis(
-                        whole_program
+                    kw_values = (
+                        backward_program.global_block().kwargs().values()
                     )
-                    # 获取fwd program 的 shape_analysis
-                    forward_shape_analysis = paddle.base.libpaddle.pir.get_shape_constraint_ir_analysis(
-                        forward_program
-                    )
-                    # 为前向 shape_analysis 注册约束
-                    forward_shape_analysis.register_symbol_cstr_from_shape_analysis(
-                        whole_shape_analysis
-                    )
-                    # 获取bwd program 的 shape_analysis
-                    backward_shape_analysis = paddle.base.libpaddle.pir.get_shape_constraint_ir_analysis(
-                        backward_program
-                    )
-                    # 为反向 shape_analysis 注册约束
-                    backward_shape_analysis.register_symbol_cstr_from_shape_analysis(
-                        whole_shape_analysis
+                    is_kw_value = lambda v: any(
+                        v.is_same(kw) for kw in kw_values
                     )
 
-                    fwd_value_no_find_in_whole_program = (
-                        []
-                    )  # 经过 pass 变换之后，不存在于原 推导全图的 Value
-                    bwd_value_no_find_in_whole_program = []
-                    for var in forward_program.list_vars():
-                        if whole_shape_analysis.has_shape_or_data_for_var(var):
-                            # 直接获取
-                            forward_shape_analysis.set_shape_or_data_for_var(
-                                var,
-                                whole_shape_analysis.get_shape_or_data_for_var(
-                                    var
-                                ),
-                            )
-                        elif is_fake_value(var):
-                            continue
-                        else:
-                            # 添加列表
-                            fwd_value_no_find_in_whole_program.append(var)
-                    # 在子图中自行拓扑推导 或 可能得到这些 Value 的拓扑序，然后手动调用算子推导？
-                    for var in fwd_value_no_find_in_whole_program:
-                        forward_shape_analysis.get_shape_or_data_for_var(var)
-                    # 共享 kwargs 维度
-                    init_backward_program_shape_analysis(
+                    whole_analysis = get_shape_analysis(whole_program)
+
+                    init_forward_and_backward_program_shape_analysis(
+                        forward_program, backward_program, whole_analysis
+                    )
+                    process_program_vars(
+                        forward_program,
+                        whole_analysis,
+                        is_target_value=lambda _: False,
+                    )
+                    set_backward_program_shape_analysis(
                         forward_program, backward_program
                     )
-                    for var in backward_program.list_vars():
-                        if whole_shape_analysis.has_shape_or_data_for_var(var):
-                            backward_shape_analysis.set_shape_or_data_for_var(
-                                var,
-                                whole_shape_analysis.get_shape_or_data_for_var(
-                                    var
-                                ),
-                            )
-                        elif is_kw_value(var) or is_fake_value(var):
-                            continue
-                        else:
-                            bwd_value_no_find_in_whole_program.append(var)
-                    for var in bwd_value_no_find_in_whole_program:
-                        backward_shape_analysis.get_shape_or_data_for_var(var)
+                    process_program_vars(
+                        backward_program,
+                        whole_analysis,
+                        is_target_value=is_kw_value,
+                    )
                     paddle.base.libpaddle.pir.apply_cinn_pass(
                         forward_program, False
                     )
