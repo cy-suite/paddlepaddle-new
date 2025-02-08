@@ -32,10 +32,11 @@
 void PrintMeanMaxMin(const std::string& op,
                      const std::string& var,
                      const paddle::Tensor& x) {
-  if (x.numel() > 1073741824) {
-    std::cout << "LXJ shape Dbg: " << op << "--" << var
-              << " shape = " << x.dims() << std::endl;
-  }
+  bool grad_tmp = egr::Controller::Instance().HasGrad();
+  egr::Controller::Instance().SetHasGrad(false);
+
+  std::cout << "LXJ shape Dbg: " << op << "--" << var << " shape = " << x.dims()
+            << std::endl;
   auto mean_tensor = paddle::experimental::copy_to(
       paddle::experimental::mean(x, paddle::experimental::IntArray({1}), false),
       phi::CPUPlace(),
@@ -48,7 +49,18 @@ void PrintMeanMaxMin(const std::string& op,
       paddle::experimental::min(x, paddle::experimental::IntArray({1}), false),
       phi::CPUPlace(),
       true);
-  double mean, max, min;
+
+  auto u =
+      paddle::experimental::mean(x, paddle::experimental::IntArray({}), false);
+  auto sub = paddle::experimental::subtract(x, u);
+  auto pow = paddle::experimental::pow(sub, 2);
+  auto out_ten = paddle::experimental::sum(
+      pow, paddle::experimental::IntArray({}), pow.dtype(), false);
+
+  auto out_tensor =
+      paddle::experimental::copy_to(out_ten, phi::CPUPlace(), true);
+
+  double mean, max, min, out;
   switch (mean_tensor.dtype()) {
     case phi::DataType::BOOL:
       mean = *mean_tensor.data<bool>();
@@ -172,9 +184,54 @@ void PrintMeanMaxMin(const std::string& op,
       min = -1;
       break;
   }
+  switch (out_tensor.dtype()) {
+    case phi::DataType::BOOL:
+      out = *out_tensor.data<bool>();
+      break;
+    case phi::DataType::UINT8:
+      out = *out_tensor.data<uint8_t>();
+      break;
+    case phi::DataType::INT8:
+      out = *out_tensor.data<int8_t>();
+      break;
+    case phi::DataType::BFLOAT16:
+      out = *out_tensor.data<phi::dtype::bfloat16>();
+      break;
+    case phi::DataType::FLOAT16:
+      out = *out_tensor.data<phi::dtype::float16>();
+      break;
+    case phi::DataType::INT16:
+      out = *out_tensor.data<int16_t>();
+      break;
+    case phi::DataType::UINT16:
+      out = *out_tensor.data<uint16_t>();
+      break;
+    case phi::DataType::FLOAT32:
+      out = *out_tensor.data<float>();
+      break;
+    case phi::DataType::INT32:
+      out = *out_tensor.data<int>();
+      break;
+    case phi::DataType::FLOAT64:
+      out = *out_tensor.data<double>();
+      break;
+    case phi::DataType::INT64:
+      out = *out_tensor.data<int64_t>();
+      break;
+    case phi::DataType::UINT64:
+      out = *out_tensor.data<uint64_t>();
+      break;
+    default:
+      out = -1;
+      break;
+  }
+  auto x_numel = x.numel();
+
+  egr::Controller::Instance().SetHasGrad(grad_tmp);
 
   std::cout << "LXJ Dbg: " << op << "--" << var << ": mean = " << mean
-            << ", max = " << max << ", min = " << min << std::endl;
+            << ", max = " << max << ", min = " << min
+            << ", std = " << out / x_numel << std::endl;
 }
 
 void PrintMeanMaxMin(const std::string& op,
