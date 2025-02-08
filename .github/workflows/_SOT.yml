@@ -102,7 +102,6 @@ jobs:
 
     - name: Download paddle and update
       run: |
-        # docker start paddle-CI
         docker exec -t paddle-CI /bin/bash -c "
         pwd
         ln -s /home/data/cfs/.cache /root/.cache
@@ -118,16 +117,18 @@ jobs:
         git pull upstream develop
         if [ $? -eq 0 ]; then
           git_code=0
-          echo 'git pull succeed with'
+          echo 'git pull succeed with1'
         else
           proxy=${{ vars.PADDLE_PROXY }}
           echo \"::add-mask::$proxy\"
+          echo "proxyyy"
+          echo $proxy
           export http_proxy=$proxy
           export https_proxy=$proxy
           git pull upstream develop
           if [ $? -eq 0 ]; then
             git_code=0
-            echo 'git pull succeed with'
+            echo 'git pull succeed with2'
           else
             echo 'proxy filed'
             exit 2
@@ -140,25 +141,24 @@ jobs:
 
     - name: Configure cache and ccache
       run: |
-        docker start paddle-CI
-        docker exec -i paddle-CI /bin/bash
+        docker exec -t paddle-CI /bin/bash -c "
         mkdir -p /home/data/cfs/.cache/build
         echo "CACHE_DIR=/home/data/cfs/.cache/build" >> $GITHUB_ENV
         if [ -f '/home/data/gzcfs/gz.txt' ];then
           mkdir -p /home/data/gzcfs/.ccache/sot
-          echo "CCACHE_DIR=/home/data/gzcfs/.ccache/sot" >> $GITHUB_ENV
+          echo 'CCACHE_DIR=/home/data/gzcfs/.ccache/sot' >> $GITHUB_ENV
         else
           mkdir -p /home/data/cfs/.ccache/sot
-          echo "CCACHE_DIR=/home/data/cfs/.ccache/sot" >> $GITHUB_ENV
+          echo 'CCACHE_DIR=/home/data/cfs/.ccache/sot' >> $GITHUB_ENV
         fi
+        "
 
     - name: Check sot
       env:
         work_dir: "/workspace/Paddle"
         PADDLE_ROOT: "/workspace/Paddle"
       run: |
-        docker start paddle-CI
-        docker exec -i paddle-CI /bin/bash
+        docker exec -t paddle-CI /bin/bash -c "
         EXCODE=0
         set +e
         PATH=/usr/local/bin:${PATH}
@@ -166,28 +166,29 @@ jobs:
         ln -sf $(which pip3.10) /usr/local/bin/pip
         bash -x ${work_dir}/paddle/scripts/paddle_build.sh cicheck_sot;EXCODE=$?
         echo "EXCODE=$EXCODE" >> $GITHUB_ENV
+        "
 
     - name: Check result
       run: |
-        docker start paddle-CI
-        docker exec -i paddle-CI /bin/bash
+        docker exec -t paddle-CI /bin/bash -c "
         if [[ $EXCODE -eq 0 ]];then
-          echo "Congratulations!  Your PR passed the paddle-build."
+          echo 'Congratulations!  Your PR passed the paddle-build.'
         elif [[ $EXCODE -eq 4 ]];then
-          echo "Sorry, your code style check failed."
+          echo 'Sorry, your code style check failed.'
         elif [[ $EXCODE -eq 5 ]];then
-          echo "Sorry, API's example code check failed."
+          echo 'Sorry, API's example code check failed.'
         elif [[ $EXCODE -eq 6 ]];then
-          echo "Sorry, your pr need to be approved."
+          echo 'Sorry, your pr need to be approved.'
         elif [[ $EXCODE -eq 7 ]];then
-          echo "Sorry, build failed."
+          echo 'Sorry, build failed.'
         elif [[ $EXCODE -eq 8 ]];then
-          echo "Sorry, some tests failed."
+          echo 'Sorry, some tests failed.'
         elif [[ $EXCODE -eq 9 ]];then
-          echo "Sorry, coverage check failed."
+          echo 'Sorry, coverage check failed.'
         fi
         # set -x
         exit $EXCODE
+        "
 
     - name: Terminate and delete the container
       if: always()
