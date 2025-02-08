@@ -829,6 +829,7 @@ class PartialProgramLayer:
             # Note: Only set grad type once after initializing train program. So we put it here.
             self._set_grad_type(self._params, train_program)
 
+            # TODO: 优化这段代码实现，现在重复代码比较多
             def pass_fn(
                 forward_program,
                 backward_program,
@@ -897,40 +898,70 @@ class PartialProgramLayer:
                     ),
                 )
                 if cinn_is_enabled(self._build_strategy, self._backend):
+                    # 获取 kwrags 列表，用于排除从 whole_program 中直接获取维度信息和推导
                     kw_value_list = (
                         backward_program.global_block().kwargs().values()
                     )
-
+                    # 获取全图 program 的 shape_analysis
                     whole_shape_analysis = paddle.base.libpaddle.pir.get_shape_constraint_ir_analysis(
                         whole_program
                     )
+                    # 获取fwd program 的 shape_analysis
                     forward_shape_analysis = paddle.base.libpaddle.pir.get_shape_constraint_ir_analysis(
                         forward_program
                     )
+                    # 为前向 shape_analysis 注册约束
                     forward_shape_analysis.register_symbol_cstr_from_shape_analysis(
                         whole_shape_analysis
                     )
+                    # 获取bwd program 的 shape_analysis
                     backward_shape_analysis = paddle.base.libpaddle.pir.get_shape_constraint_ir_analysis(
                         backward_program
                     )
+                    # 为反向 shape_analysis 注册约束
                     backward_shape_analysis.register_symbol_cstr_from_shape_analysis(
                         whole_shape_analysis
                     )
+
+                    value_no_find_in_whole_program = (
+                        []
+                    )  # 经过 pass 变换之后，不存在于原 推导全图的 Value
+
                     for var in forward_program.list_vars():
-                        forward_shape_analysis.set_shape_or_data_for_var(
-                            var,
-                            whole_shape_analysis.get_shape_or_data_for_var(var),
-                        )
+                        if whole_shape_analysis.has_shape_or_data_for_var(var):
+                            # 直接获取
+                            forward_shape_analysis.set_shape_or_data_for_var(
+                                var,
+                                whole_shape_analysis.get_shape_or_data_for_var(
+                                    var
+                                ),
+                            )
+                        else:
+                            # 添加列表
+                            value_no_find_in_whole_program.append(var)
+                    # 在子图中自行拓扑推导 或 可能得到这些 Value 的拓扑序，然后手动调用算子推导？
+                    for var in value_no_find_in_whole_program:
+                        forward_shape_analysis.get_shape_or_data_for_var(var)
+                        value_no_find_in_whole_program.remove(var)
+                    # 共享 kwargs 维度
                     init_backward_program_shape_analysis(
                         forward_program, backward_program
                     )
                     for var in backward_program.list_vars():
-                        if var in kw_value_list:
+                        if whole_program.has_shape_or_data_for_var(var):
+                            backward_shape_analysis.set_shape_or_data_for_var(
+                                var,
+                                whole_shape_analysis.get_shape_or_data_for_var(
+                                    var
+                                ),
+                            )
+                        elif var in kw_value_list:
                             continue
-                        backward_shape_analysis.set_shape_or_data_for_var(
-                            var,
-                            whole_shape_analysis.get_shape_or_data_for_var(var),
-                        )
+                        else:
+                            value_no_find_in_whole_program.append(var)
+                    for var in value_no_find_in_whole_program:
+                        backward_shape_analysis.get_shape_or_data_for_var(var)
+                        value_no_find_in_whole_program.remove(var)
                     paddle.base.libpaddle.pir.apply_cinn_pass(
                         forward_program, False
                     )
