@@ -18,7 +18,7 @@ RUN yum install -y sudo wget curl perl util-linux xz bzip2 git patch which perl 
 
 # Just add everything as a safe.directory for git since these will be used in multiple places with git
 RUN git config --global --add safe.directory '*'
-RUN ln -s /opt/rh/gcc-toolset-11/root/usr/lib/gcc/x86_64-redhat-linux/11 /usr/lib/gcc/x86_64-redhat-linux/11
+RUN ln -s /opt/rh/gcc-toolset-${DEVTOOLSET_VERSION}/root/usr/lib/gcc/x86_64-redhat-linux/${DEVTOOLSET_VERSION} /usr/lib/gcc/x86_64-redhat-linux/${DEVTOOLSET_VERSION}
 ENV PATH=/opt/rh/gcc-toolset-${DEVTOOLSET_VERSION}/root/usr/bin:$PATH
 
 # cmake-3.18.4
