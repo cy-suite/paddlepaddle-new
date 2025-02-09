@@ -3745,8 +3745,8 @@ def log10_(x: Tensor, name: str | None = None) -> Tensor:
 def is_clip_tensor(value):
     if paddle.is_tensor(value):
         if math.prod(value.shape) > 1:
-            return true
-    return false
+            return True
+    return False
 
 def clip(
     x: Tensor,
