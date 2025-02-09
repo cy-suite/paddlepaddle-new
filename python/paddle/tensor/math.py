@@ -3742,6 +3742,12 @@ def log10_(x: Tensor, name: str | None = None) -> Tensor:
         return _C_ops.log10_(x)
 
 
+def is_clip_tensor(value):
+    if paddle.is_tensor(value):
+        if math.prod(value.shape) > 1:
+            return true
+    return false
+
 def clip(
     x: Tensor,
     min: float | Tensor | None = None,
@@ -3798,7 +3804,7 @@ def clip(
         min_ = float(np.finfo(np.float32).min)
         max_ = float(np.finfo(np.float32).max)
 
-    if paddle.is_tensor(min) or paddle.is_tensor(max):
+    if is_clip_tensor(min) or is_clip_tensor(max):
         min = min_ if min is None else min
         max = max_ if max is None else max
         min = (
@@ -3869,14 +3875,34 @@ def clip(
             return output
 
     if in_dynamic_or_pir_mode():
+        if paddle.is_tensor(min):
+            min = min.item()
+        if paddle.is_tensor(max):
+            max = max.item()
         min = min_ if min is None else min
         max = max_ if max is None else max
         return _C_ops.clip(x, min, max)
     else:
         if min is not None:
-            check_type(min, 'min', (float, int), 'clip')
+            check_type(min, 'min', (float, int, Variable), 'clip')
+            if isinstance(min, Variable):
+                check_dtype(
+                    min.dtype,
+                    'min',
+                    ['float16', 'float32', 'float64', 'int32', 'uint16'],
+                    'clip',
+                    '(When the type of min in clip is Variable.)',
+                )
         if max is not None:
-            check_type(max, 'max', (float, int), 'clip')
+            check_type(max, 'max', (float, int, Variable), 'clip')
+            if isinstance(max, Variable):
+                check_dtype(
+                    max.dtype,
+                    'max',
+                    ['float16', 'float32', 'float64', 'int32', 'uint16'],
+                    'clip',
+                    '(When the type of max in clip is Variable.)',
+                )
 
         check_variable_and_dtype(
             x,
@@ -3888,10 +3914,16 @@ def clip(
         inputs = {'X': x}
         attrs = {'min': min_, 'max': max_}
 
-        if min is not None:
+        if paddle.is_tensor(min):
+            min.stop_gradient = True
+            inputs['Min'] = min
+        elif min is not None:
             attrs['min'] = min
 
-        if max is not None:
+        if paddle.is_tensor(max):
+            max.stop_gradient = True
+            inputs['Max'] = max
+        elif max is not None:
             attrs['max'] = max
 
         helper = LayerHelper('clip', **locals())
@@ -3921,7 +3953,7 @@ def clip_(
     min = fmin if min is None else min
     max = fmax if max is None else max
 
-    if paddle.is_tensor(min) or paddle.is_tensor(max):
+    if paddle.is_clip_tensor(min) or paddle.is_clip_tensor(max):
         min = (
             min
             if paddle.is_tensor(min)
@@ -3953,6 +3985,10 @@ def clip_(
         max.stop_gradient = True
         return _C_ops.clip_tensor_(x, min, max)
     else:
+        if paddle.is_tensor(min):
+            min = min.item()
+        if paddle.is_tensor(max):
+            max = max.item()
         return _C_ops.clip_(x, min, max)
 
 

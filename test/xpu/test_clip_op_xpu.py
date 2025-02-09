@@ -142,8 +142,8 @@ class XPUTestClipOp(XPUOpTestWrapper):
             self.shape = (4, 8, 8)
             self.max = 0.7
             self.min = 0.2
-            # self.inputs['Max'] = np.array([0.8]).astype('float32')
-            # self.inputs['Min'] = np.array([0.3]).astype('float32')
+            self.inputs['Max'] = np.array([0.8]).astype('float32')
+            self.inputs['Min'] = np.array([0.3]).astype('float32')
 
     class TestClipOp5(TestClipOp):
         def init_data(self):
@@ -189,16 +189,15 @@ class TestClipAPI(unittest.TestCase):
             )
             exe = base.Executor(place)
 
-            # out_1 = self._executed_api(images, min=min, max=max)
+            out_1 = self._executed_api(images, min=min, max=max)
             out_2 = self._executed_api(images, min=0.2, max=0.9)
             out_3 = self._executed_api(images, min=0.3)
             out_4 = self._executed_api(images, max=0.7)
-            # out_5 = self._executed_api(images, min=min)
-            # out_6 = self._executed_api(images, max=max)
+            out_5 = self._executed_api(images, min=min)
+            out_6 = self._executed_api(images, max=max)
             out_7 = self._executed_api(images, max=-1.0)
             out_8 = self._executed_api(images)
-            # res1, res2, res3, res4, res5, res6, res7, res8 = exe.run(
-            res2, res3, res4, res7, res8 = exe.run(
+            res1, res2, res3, res4, res5, res6, res7, res8 = exe.run(
                 train_prog,
                 feed={
                     "image": data,
@@ -206,23 +205,23 @@ class TestClipAPI(unittest.TestCase):
                     "max": np.array([0.8]).astype('float32'),
                 },
                 fetch_list=[
-                    # out_1,
+                    out_1,
                     out_2,
                     out_3,
                     out_4,
-                    # out_5,
-                    # out_6,
+                    out_5,
+                    out_6,
                     out_7,
                     out_8,
                 ],
             )
 
-            # np.testing.assert_allclose(res1, data.clip(0.2, 0.8))
+            np.testing.assert_allclose(res1, data.clip(0.2, 0.8))
             np.testing.assert_allclose(res2, data.clip(0.2, 0.9))
             np.testing.assert_allclose(res3, data.clip(min=0.3))
             np.testing.assert_allclose(res4, data.clip(max=0.7))
-            # np.testing.assert_allclose(res5, data.clip(min=0.2))
-            # np.testing.assert_allclose(res6, data.clip(max=0.8))
+            np.testing.assert_allclose(res5, data.clip(min=0.2))
+            np.testing.assert_allclose(res6, data.clip(max=0.8))
             np.testing.assert_allclose(res7, data.clip(max=-1))
             np.testing.assert_allclose(res8, data)
         paddle.disable_static()
@@ -245,11 +244,11 @@ class TestClipAPI(unittest.TestCase):
         images = paddle.to_tensor(data, dtype='float32')
         out_2 = self._executed_api(images, min=0.2, max=0.9)
         images = paddle.to_tensor(data, dtype='float32')
-        # out_3 = self._executed_api(images, min=v_min, max=v_max)
+        out_3 = self._executed_api(images, min=v_min, max=v_max)
 
         np.testing.assert_allclose(out_1.numpy(), data.clip(0.2, 0.8))
         np.testing.assert_allclose(out_2.numpy(), data.clip(0.2, 0.9))
-        # np.testing.assert_allclose(out_3.numpy(), data.clip(0.2, 0.8))
+        np.testing.assert_allclose(out_3.numpy(), data.clip(0.2, 0.8))
 
     def test_errors(self):
         paddle.enable_static()
