@@ -581,7 +581,11 @@ def transpose(
 
     """
     if in_dynamic_or_pir_mode():
-        if paddle.is_tensor(x) and len(perm) != len(x.shape):
+        if (
+            paddle.is_tensor(x)
+            and isinstance(perm, (tuple, list))
+            and len(perm) != len(x.shape)
+        ):
             # TODO: Parameter validation is currently implemented here due to issues
             # arising in certain optimization passes ('squeeze_transpose_onednn_fuse_pass'
             # and 'squeeze2_transpose2_onednn_fuse_pass') when checks are added directly
