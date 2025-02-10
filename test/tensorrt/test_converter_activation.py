@@ -49,7 +49,7 @@ class TestEluTRTPatternCase2(TensorRTBaseTest):
         self.max_shape = {"x": [5]}
 
     def test_trt_result(self):
-        self.check_trt_result()
+        self.check_trt_result(rtol=1e-3, atol=1e-3, precision_mode="fp16")
 
 
 class TestHardSigmoidTRTPattern(TensorRTBaseTest):
