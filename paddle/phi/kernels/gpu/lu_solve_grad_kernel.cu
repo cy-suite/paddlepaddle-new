@@ -21,7 +21,7 @@
 #include "paddle/phi/kernels/impl/lu_solve_grad_kernel_impl.h"
 #include "paddle/phi/kernels/lu_solve_grad_kernel.h"
 
-PD_REGISTER_KERNEL(lu_solve_grad, GPU, ALL_LAYOUT, phi::LuSolveGradKernel, float, double) {
-}
+PD_REGISTER_KERNEL(
+    lu_solve_grad, GPU, ALL_LAYOUT, phi::LuSolveGradKernel, float, double) {}
 
 #endif  // not PADDLE_WITH_HIP

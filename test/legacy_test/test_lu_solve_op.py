@@ -31,6 +31,15 @@ class TestSolveOpAPI_1(unittest.TestCase):
         self.b = paddle.randn((2, 1, 4, 1))
         self.LU, self.pivots = paddle.linalg.lu(self.A)
         self.x = paddle.linalg.solve(self.A, self.b)
+        self.place = []
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not core.is_compiled_with_cuda()
+        ):
+            self.place.append(base.CPUPlace())
+        if core.is_compiled_with_cuda():
+            self.place.append(base.CUDAPlace(0))
 
 
     def test_dygraph(self):
