@@ -258,7 +258,7 @@ class AutoScanTest(unittest.TestCase):
         config = paddle_infer.Config()
         config.switch_ir_debug(True)
         config.set_optim_cache_dir(self.cache_dir)
-        # config.disable_glog_info()
+        config.disable_glog_info()
         if ir_optim is not None:
             config.switch_ir_optim(ir_optim)
         if use_gpu:
@@ -638,7 +638,7 @@ class PassAutoScanTest(AutoScanTest):
 
     def create_trt_inference_config(self) -> paddle_infer.Config:
         config = paddle_infer.Config()
-        # config.disable_glog_info()
+        config.disable_glog_info()
         config.enable_use_gpu(100, 0)
         config.set_optim_cache_dir(self.cache_dir)
         config.switch_ir_debug(True)
@@ -705,7 +705,7 @@ class TrtLayerAutoScanTest(AutoScanTest):
 
     def create_inference_config(self, use_trt=True) -> paddle_infer.Config:
         config = paddle_infer.Config()
-        # config.disable_glog_info()
+        config.disable_glog_info()
         config.enable_use_gpu(100, 0)
         config.set_optim_cache_dir(self.cache_dir)
         if use_trt:
@@ -834,6 +834,7 @@ class TrtLayerAutoScanTest(AutoScanTest):
                 main_program_desc, util_program = create_fake_model(
                     prog_config, run_pir=True
                 )
+
                 # transform program from old ir to new ir
                 startup_program = pir.translate_to_pir(util_program.desc)
                 pir_main_program = pir.translate_to_pir(main_program_desc)
@@ -841,6 +842,7 @@ class TrtLayerAutoScanTest(AutoScanTest):
                     with paddle.static.program_guard(
                         pir_main_program, startup_program
                     ):
+
                         feed_dict = {}
                         feed_data = prog_config.get_feed_data()
                         for key, value in feed_data.items():
