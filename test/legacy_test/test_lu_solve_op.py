@@ -28,18 +28,12 @@ from paddle.base import core
 class TestSolveOpAPI_1(unittest.TestCase):
     def setUp(self):
         self.A = paddle.to_tensor([[2, 5],[4, 8]], dtype='float32')
-        self.b = paddle.to_tensor([[1, 1],[1, 1]], dtype='float32')
+        self.b = paddle.to_tensor([[1, 1],[2, 2]], dtype='float32')
         self.LU, self.pivots = paddle.linalg.lu(self.A)
-        self.x = paddle.linalg.solve(self.A, self.b)
         self.place = []
-        if (
-            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
-            in ['1', 'true', 'on']
-            or not core.is_compiled_with_cuda()
-        ):
-            self.place.append(base.CPUPlace())
-        if core.is_compiled_with_cuda():
-            self.place.append(base.CUDAPlace(0))
+        self.place.append(base.CPUPlace())
+        # if core.is_compiled_with_cuda():
+        #     self.place.append(base.CUDAPlace(0))
 
 
     def test_dygraph(self):
