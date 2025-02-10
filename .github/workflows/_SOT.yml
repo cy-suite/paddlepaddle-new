@@ -117,10 +117,10 @@ jobs:
         git checkout develop
         git_code=1
         # set +e
-        set -x
         proxy=\$(cat ../proxy)
         export http_proxy=\${proxy}
         export https_proxy=\${proxy}
+        set -x
         git pull upstream develop
         echo \$?
         # if [ $? -eq 0 ]; then
