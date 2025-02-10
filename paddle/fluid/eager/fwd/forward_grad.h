@@ -17,6 +17,7 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <unordered_map>
 #include <unordered_set>
 #include "paddle/common/errors.h"
 #include "paddle/phi/api/include/tensor.h"

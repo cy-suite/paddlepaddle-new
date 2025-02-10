@@ -138,6 +138,93 @@ class AutogradMeta : public AbstractAutogradMeta {
 
   void SetRetainGrads(bool value) { retain_grads_ = value; }
 
+  const paddle::Tensor& fw_grad(uint64_t level,
+                                const paddle::Tensor& self) const {
+    // Ensure that concurrent fw_grad() "reads" are thread safe
+    // std::lock_guard<std::mutex> lock(mutex_);
+
+    const auto& direct_fw_grad =
+        fw_grad_ ? fw_grad_->value(level) : ForwardGrad::undef_grad();
+
+    // if (fale && !direct_fw_grad.defined()) {
+    //   // For view that don't have a forward grad, check if their base has one
+    //   that
+    //   // has been defined by an inplace operation.
+    //   // This ensure that case 5 from [Forward Grad View/inplace] above works
+    //   fine auto const_view_meta =
+    //       static_cast<const torch::autograd::DifferentiableViewMeta*>(this);
+    //   // This is ok to do as we ONLY modify fw_grad_ and this field is
+    //   properly
+    //   // locked in all methods
+    //   if (const_view_meta->has_fw_view()) {
+    //     const auto& view_info = const_view_meta->get_forward_view();
+    //     const auto& base = view_info.base_;
+
+    //     const auto& base_val = base._fw_grad(level);
+    //     if (base_val.defined()) {
+    //       // Lazy initialization of fw_grad_
+    //       const_view_meta->fw_grad_ = std::make_shared<ForwardGrad>();
+
+    //       Variable new_val;
+    //       if (view_info.has_view_fn()) {
+    //         new_val = view_info.view_fn()(base_val);
+    //       } else {
+    //         new_val = base_val.as_strided(
+    //             self.sizes(), self.strides(), self.storage_offset());
+    //       }
+
+    //       const_view_meta->fw_grad_->set_value(new_val, level);
+    //       return const_view_meta->fw_grad_->value(level);
+    //     }
+    //   }
+    // }
+    return direct_fw_grad;
+  }
+
+  const paddle::Tensor& fw_grad(uint64_t level) const {
+    // Ensure that concurrent fw_grad() "reads" are thread safe
+    // std::lock_guard<std::mutex> lock(mutex_);
+
+    // const auto& direct_fw_grad =
+    //     fw_grad_ ? fw_grad_->value(level) : ForwardGrad::undef_grad();
+    const auto& direct_fw_grad =
+        fw_grad_ ? fw_grad_->value(level) : ForwardGrad::undef_grad();
+
+    // if (!direct_fw_grad.defined() && false) {
+    //   // For view that don't have a forward grad, check if their base has one
+    //   that
+    //   // has been defined by an inplace operation.
+    //   // This ensure that case 5 from [Forward Grad View/inplace] above works
+    //   fine auto const_view_meta =
+    //       static_cast<const torch::autograd::DifferentiableViewMeta*>(this);
+    //   // This is ok to do as we ONLY modify fw_grad_ and this field is
+    //   properly
+    //   // locked in all methods
+    //   if (const_view_meta->has_fw_view()) {
+    //     const auto& view_info = const_view_meta->get_forward_view();
+    //     const auto& base = view_info.base_;
+
+    //     const auto& base_val = base._fw_grad(level);
+    //     if (base_val.defined()) {
+    //       // Lazy initialization of fw_grad_
+    //       const_view_meta->fw_grad_ = std::make_shared<ForwardGrad>();
+
+    //       Variable new_val;
+    //       if (view_info.has_view_fn()) {
+    //         new_val = view_info.view_fn()(base_val);
+    //       } else {
+    //         new_val = base_val.as_strided(
+    //             self.sizes(), self.strides(), self.storage_offset());
+    //       }
+
+    //       const_view_meta->fw_grad_->set_value(new_val, level);
+    //       return const_view_meta->fw_grad_->value(level);
+    //     }
+    //   }
+    // }
+    return direct_fw_grad;
+  }
+
  private:
   // TODO(jiabin) :Should we use pointer instead of object?
   std::shared_ptr<paddle::Tensor> grad_ = std::make_shared<paddle::Tensor>();
@@ -183,50 +270,6 @@ class AutogradMeta : public AbstractAutogradMeta {
   // must be protected by mutex_
   mutable std::shared_ptr<ForwardGrad> fw_grad_;
   // mutable std::mutex mutex_;
-
-  const paddle::Tensor& fw_grad(uint64_t level,
-                                const paddle::Tensor& self) const {
-    // Ensure that concurrent fw_grad() "reads" are thread safe
-    // std::lock_guard<std::mutex> lock(mutex_);
-
-    // const auto& direct_fw_grad =
-    //     fw_grad_ ? fw_grad_->value(level) : ForwardGrad::undef_grad();
-    const auto& direct_fw_grad = fw_grad_->value(level);
-
-    // if (!direct_fw_grad.defined() && false) {
-    //   // For view that don't have a forward grad, check if their base has one
-    //   that
-    //   // has been defined by an inplace operation.
-    //   // This ensure that case 5 from [Forward Grad View/inplace] above works
-    //   fine auto const_view_meta =
-    //       static_cast<const torch::autograd::DifferentiableViewMeta*>(this);
-    //   // This is ok to do as we ONLY modify fw_grad_ and this field is
-    //   properly
-    //   // locked in all methods
-    //   if (const_view_meta->has_fw_view()) {
-    //     const auto& view_info = const_view_meta->get_forward_view();
-    //     const auto& base = view_info.base_;
-
-    //     const auto& base_val = base._fw_grad(level);
-    //     if (base_val.defined()) {
-    //       // Lazy initialization of fw_grad_
-    //       const_view_meta->fw_grad_ = std::make_shared<ForwardGrad>();
-
-    //       Variable new_val;
-    //       if (view_info.has_view_fn()) {
-    //         new_val = view_info.view_fn()(base_val);
-    //       } else {
-    //         new_val = base_val.as_strided(
-    //             self.sizes(), self.strides(), self.storage_offset());
-    //       }
-
-    //       const_view_meta->fw_grad_->set_value(new_val, level);
-    //       return const_view_meta->fw_grad_->value(level);
-    //     }
-    //   }
-    // }
-    return direct_fw_grad;
-  }
 
   // This function is will ensure that the fw_grad_ is properly a view of the
   // base for inplace ops on Tensors that do not have forward grad originally.

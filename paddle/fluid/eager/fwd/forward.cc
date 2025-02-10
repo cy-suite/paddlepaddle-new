@@ -42,7 +42,7 @@ paddle::Tensor make_dual(const paddle::Tensor& primal,
 
   auto dual_tensor = view_shape_ad_func(primal, primal.shape());
   dual_tensor._set_fw_grad(
-      tangent, dual_tensor, level, /* is_inplace_op */ false);
+      tangent, /*dual_tensor,*/ level, /* is_inplace_op */ false);
   return dual_tensor;
 }
 

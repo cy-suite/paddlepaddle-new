@@ -565,8 +565,8 @@ Tensor Tensor::contiguous() {
 /// This function returns the forward gradient for this Tensor at the given
 /// level.
 const Tensor &Tensor::_fw_grad(uint64_t level) const {
-  // return _fw_grad(level, *this);
   if (!autograd_meta_) return singleton_undefined_tensor;
+
   return autograd_meta_->fw_grad(level, *this);
 }
 
@@ -589,11 +589,12 @@ const Tensor &Tensor::_fw_grad(uint64_t level) const {
 // }
 
 void Tensor::_set_fw_grad(const Tensor &new_grad,
-                          const Tensor &self,
                           uint64_t level,
                           bool is_inplace_op) {
-  if (!autograd_meta_) autograd_meta_ = std::make_shared<egr::AutogradMeta>();
-  autograd_meta_->set_fw_grad(new_grad, self, level, is_inplace_op);
+  if (!autograd_meta_) {
+    autograd_meta_ = std::make_shared<egr::AutogradMeta>();
+  }
+  autograd_meta_->set_fw_grad(new_grad, *this, level, is_inplace_op);
 }
 
 std::shared_ptr<phi::TensorBase> Tensor::get_impl() const {
@@ -601,7 +602,7 @@ std::shared_ptr<phi::TensorBase> Tensor::get_impl() const {
 }
 
 // Taken from codegened version
-const Tensor &Tensor::_fw_primal(int64_t level) {
+const Tensor &Tensor::_fw_primal(int64_t level) const {
   // auto& self_ = unpack(self, "self", 0);
   // std::shared_ptr<Identity> grad_fn;
   // if (compute_requires_grad( self )) {
