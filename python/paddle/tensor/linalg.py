@@ -3603,8 +3603,8 @@ def lu_solve(b: Tensor, lu_data: Tensor, pivots: Tensor, trans: str = "N", name=
          [-1.4000001]
          [ 0.6      ]]
     """
-    b = b if b.shape[:-2] == lu_data.shape[:-2] else paddle.broadcast_to(b, lu_data.shape[-2:] + b.shape[:-2])
-    pivots = pivots if pivots.shape[:-1] == lu_data.shape[:-2] else paddle.broadcast_to(pivots, lu_data.shape[-2:] + pivots.shape[:-1])
+    b = b if b.shape[:-2] == lu_data.shape[:-2] else paddle.broadcast_to(b, lu_data.shape[:-2] + b.shape[-2:])
+    pivots = pivots if pivots.shape[:-1] == lu_data.shape[:-2] else paddle.broadcast_to(pivots, lu_data.shape[:-2] + pivots.shape[-1:])
     if b.ndim < 2:
         raise ValueError(f'`b` dimension must be gather than 2, but got {len(b.shape)}')
     if lu_data.ndim < 2:
