@@ -2229,8 +2229,8 @@ class Pad3dOpPattern : public pir::OpRewritePattern<paddle::dialect::Pad3dOp> {
         op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
-    if (!pir::GetDefiningOpForInput(op, 1)
-             ->isa<paddle::dialect::FullIntArrayOp>()) {
+    pir::Value paddings_tensor = op.operand_source(1);
+    if (!paddings_tensor) {
       return false;
     }
     if (op->HasAttribute("mode")) {
