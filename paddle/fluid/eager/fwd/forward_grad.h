@@ -19,6 +19,7 @@
 #include <mutex>
 #include <unordered_map>
 #include <unordered_set>
+#include "glog/logging.h"
 #include "paddle/common/errors.h"
 #include "paddle/phi/api/include/tensor.h"
 #include "paddle/utils/small_vector.h"
@@ -35,10 +36,30 @@ namespace {
 // thread local
 
 // std::mutex all_forward_levels_mutex_;
-std::vector<std::shared_ptr<ForwardADLevel>> all_forward_levels_;
+// std::vector<std::shared_ptr<ForwardADLevel>> all_forward_levels_;
 
 static const paddle::Tensor singleton_undefined_tensor;
 }  // namespace
+
+class ForwardADLevelManager {
+ public:
+  static ForwardADLevelManager& instance() {
+    static ForwardADLevelManager instance;
+    return instance;
+  }
+
+  std::vector<std::shared_ptr<ForwardADLevel>>& get_all_forward_levels() {
+    return all_forward_levels_;
+  }
+
+ private:
+  ForwardADLevelManager() = default;
+  ~ForwardADLevelManager() = default;
+  ForwardADLevelManager(const ForwardADLevelManager&) = delete;
+  ForwardADLevelManager& operator=(const ForwardADLevelManager&) = delete;
+
+  std::vector<std::shared_ptr<ForwardADLevel>> all_forward_levels_;
+};
 
 struct TEST_API ForwardADLevel {
   explicit ForwardADLevel(uint64_t idx) : idx_(idx) {}
@@ -46,15 +67,22 @@ struct TEST_API ForwardADLevel {
 
   static uint64_t get_next_idx() {
     // std::lock_guard<std::mutex> lock(all_forward_levels_mutex_);
+    auto& all_forward_levels_ =
+        ForwardADLevelManager::instance().get_all_forward_levels();
     auto next_idx = all_forward_levels_.size();
     PD_CHECK(next_idx == 0,
              "Nested forward mode AD is not supported at the moment");
     all_forward_levels_.push_back(std::make_shared<ForwardADLevel>(next_idx));
+    // VLOG(0) << "address of all_forward_levels_ = " << (&all_forward_levels_);
+    // VLOG(0) << "all_forward_levels_.size() = " << all_forward_levels_.size();
     return next_idx;
   }
 
   static void release_idx(uint64_t idx) {
     // std::unique_lock<std::mutex> lock(all_forward_levels_mutex_);
+    auto& all_forward_levels_ =
+        ForwardADLevelManager::instance().get_all_forward_levels();
+    // VLOG(0) << "Call release_idx: " << idx;
     PD_CHECK(idx + 1 == all_forward_levels_.size(),
              "Exiting a forward AD level that is not the "
              "last that was created is not support. Ensure they are released "
@@ -70,6 +98,11 @@ struct TEST_API ForwardADLevel {
 
   static std::shared_ptr<ForwardADLevel> get_by_idx(uint64_t idx) {
     // std::lock_guard<std::mutex> lock(all_forward_levels_mutex_);
+    auto& all_forward_levels_ =
+        ForwardADLevelManager::instance().get_all_forward_levels();
+    // VLOG(0) << "idx = " << idx;
+    // VLOG(0) << "address of all_forward_levels_ = " << (&all_forward_levels_);
+    // VLOG(0) << "all_forward_levels_.size() = " << all_forward_levels_.size();
     PD_CHECK(idx < all_forward_levels_.size(),
              "Trying to access a forward AD level with an invalid index. "
              "This index was either not created or is already deleted.");
@@ -78,6 +111,8 @@ struct TEST_API ForwardADLevel {
 
   static std::shared_ptr<ForwardADLevel> try_get_by_idx(uint64_t idx) {
     // std::lock_guard<std::mutex> lock(all_forward_levels_mutex_);
+    auto& all_forward_levels_ =
+        ForwardADLevelManager::instance().get_all_forward_levels();
     if (idx < all_forward_levels_.size()) {
       return all_forward_levels_[idx];
     } else {

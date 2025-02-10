@@ -44,7 +44,7 @@ if(NOT ((NOT WITH_PYTHON) AND ON_INFER))
   add_dependencies(grad_tensor_holder eager_codegen)
   cc_library(
     backward
-    SRCS backward.cc fwd/forward.cc fwd/forward_grad.cc
+    SRCS backward.cc fwd/forward.cc fwd/forward_grad.cc fwd/forward_grad.h
     DEPS grad_tensor_holder utils autograd_meta grad_node_info phi common)
 endif()
 

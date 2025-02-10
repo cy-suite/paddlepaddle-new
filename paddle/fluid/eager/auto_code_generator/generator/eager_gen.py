@@ -1171,7 +1171,7 @@ class DygraphFunctionGeneratorBase(FunctionGeneratorBase):
         for name, (_, _) in forward_outputs_position_map.items():
             output_autograd_meta_name = GetAutoGradMetaName(name)
             pass_stop_gradient_args_list.append(output_autograd_meta_name)
-        pass_stop_gradient_args_str = ",".join(pass_stop_gradient_args_list)
+        pass_stop_gradient_args_str = ", ".join(pass_stop_gradient_args_list)
         return pass_stop_gradient_args_str
 
     def GenerateNodeCreationCodes(self, for_backward=False, is_inplaced=False):

@@ -99,35 +99,38 @@ ForwardADLevel::~ForwardADLevel() {
 //   return singleton_undefined_tensor;
 // }
 
-// Tensor _make_dual(
-//     c10::DispatchKeySet ks,
+// paddle::Tensor _make_dual(
 //     const Tensor& primal,
 //     const Tensor& tangent,
-//     int64_t level) {
-//   TORCH_CHECK(
+//     int64_t level
+// ) {
+//   PD_CHECK(
 //       !primal._fw_grad(level).defined(),
 //       "Making a dual Tensor based on a Tensor that "
 //       "already has a forward gradient at the same level ",
-//       level,
-//       " is not supported.");
-//   auto& primal_ = unpack(primal, "primal", 0);
-//   auto& tangent_ = unpack(tangent, "tangent", 0);
-//   std::shared_ptr<ViewBackward0> grad_fn;
-//   if (compute_requires_grad(primal_)) {
-//     grad_fn = std::make_shared<ViewBackward0>();
-//     grad_fn->self_sym_sizes = primal_.sym_sizes().vec();
-//     grad_fn->set_next_edges(collect_next_edges(primal_));
-//   }
+//       "is not supported.");
 
-//   auto result = ([&]() {
-//     at::AutoDispatchBelowAutograd guard;
-//     return at::redispatch::_make_dual(
-//         ks & c10::after_autograd_keyset, primal_, tangent_, level);
-//   })();
+//   // std::shared_ptr<ViewBackward0> grad_fn;
+//   // egr::AutogradMeta* primal_autograd_meta =
+//   egr::EagerUtils::nullable_autograd_meta(primal);
+//   // if (egr::EagerUtils::ComputeRequireGrad(primal_autograd_meta)) {
+//   //   // Node Construction
+//   //   grad_node = std::shared_ptr<ViewShapeGradNode>(new
+//   ViewShapeGradNode(1, 1)); // NOLINT
+//   //   // SetGradOutMeta & SetEdges
+//   //   grad_node->SetGradOutMeta(x, 0);
+//   //   // SetOutRank & SetHistory & SetGradInMeta
+//   //   if (out_autograd_meta) {
+//   //     egr::EagerUtils::SetOutRankWithSlot(out_autograd_meta, 0);
+//   //   }
+//   //   if (out_autograd_meta) {
+//   //     egr::EagerUtils::SetHistory(out_autograd_meta, grad_node);
+//   //   }
+//   //   grad_node->SetGradInMeta(out, 0);
+//   // }
+//   auto primal_ = view_shape_ad_func(primal, primal.shape());
 
-//   if (grad_fn) {
-//     set_history(flatten_tensor_args(result), grad_fn);
-//   }
+//   auto& result = primal_;
 
 //   TORCH_CHECK(level == 0, "Invalid level given to _make_dual");
 //   result._set_fw_grad(tangent_, level, /* is_inplace_op */ false);

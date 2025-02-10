@@ -1159,8 +1159,8 @@ PYBIND11_MODULE(libpaddle, m) {
   m.def("_enter_dual_level", &egr::enter_dual_level);
   m.def("_exit_dual_level",
         [](int idx) { egr::exit_dual_level(static_cast<uint64_t>(idx)); });
-  // m.def("make_dual", egr::make_dual);
-  // m.def("unpack_dual", egr::unpack_dual);
+  m.def("make_dual", egr::make_dual);
+  m.def("unpack_dual", egr::unpack_dual);
   m.def("_set_prim_target_grad_name",
         &paddle::prim::PrimCommonUtils::SetTargetGradName);
   m.def("set_num_threads", &platform::SetNumThreads);

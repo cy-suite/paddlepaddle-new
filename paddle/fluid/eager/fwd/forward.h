@@ -27,6 +27,13 @@ TEST_API uint64_t enter_dual_level();
 
 TEST_API void exit_dual_level(uint64_t level);
 
+TEST_API paddle::Tensor make_dual(const paddle::Tensor& primal,
+                                  const paddle::Tensor& tangent,
+                                  int64_t level);
+
+TEST_API std::tuple<paddle::Tensor, paddle::Tensor> unpack_dual(
+    const paddle::Tensor& tensor, int64_t level);
+
 // } // namespace forward_ad
 
 }  // namespace egr

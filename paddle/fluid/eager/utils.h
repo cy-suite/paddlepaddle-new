@@ -211,7 +211,7 @@ class TEST_API EagerUtils {
 
   static const paddle::Tensor& toNonOptFwGrad(const paddle::Tensor& t) {
     return t.has_allocation() ? t._fw_grad(/*level */ 0)
-                              : forward_ad::singleton_undefined_tensor;
+                              : ForwardGrad::undef_grad();
   }
 
   static const paddle::Tensor& toNonOptPrimal(const paddle::Tensor& t) {
@@ -221,7 +221,7 @@ class TEST_API EagerUtils {
       // } // 当t是一个单数字时，直接返回自己，因为数字本身的primal就是自己
       return t._fw_primal(/* level */ 0);  // 否则返回0级primal
     }
-    return forward_ad::singleton_undefined_tensor;  // 返回一个空的primal
+    return ForwardGrad::undef_grad();  // 返回一个空的primal
   }
 
   template <typename T, typename... Args>
