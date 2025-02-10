@@ -105,8 +105,6 @@ jobs:
       run: |
         docker exec -t paddle-CI /bin/bash -c "
         rm -rf * .[^.]*
-        echo \$http_proxy
-        echo \$https_proxy
         ln -s /home/data/cfs/.cache /root/.cache
         wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/Paddle/${PR_ID}/${COMMIT_ID}/Paddle.tar.gz --no-check-certificate
         tar xf Paddle.tar.gz --strip-components=1
@@ -115,7 +113,6 @@ jobs:
         git config --global user.email "paddle_ci@example.com"
         git remote add upstream https://github.com/PaddlePaddle/Paddle.git
         set -x
-        git config --list
         git remote -v
         git checkout develop
         git_code=1
