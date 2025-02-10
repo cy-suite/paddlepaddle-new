@@ -153,7 +153,7 @@ jobs:
       run: |
         docker exec -t paddle-CI /bin/bash -c "
         mkdir -p /home/data/cfs/.cache/build
-        echo "CACHE_DIR=/home/data/cfs/.cache/build" >> $GITHUB_ENV
+        echo 'CACHE_DIR=/home/data/cfs/.cache/build' >> $GITHUB_ENV
         if [ -f '/home/data/gzcfs/gz.txt' ];then
           mkdir -p /home/data/gzcfs/.ccache/sot
           echo 'CCACHE_DIR=/home/data/gzcfs/.ccache/sot' >> $GITHUB_ENV
