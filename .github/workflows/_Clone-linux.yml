@@ -66,6 +66,7 @@ jobs:
         rm Paddle.tar.gz
         cd -
         git switch develop
+        git branch -D test
         git gc
 
     # - name: Clean environment
