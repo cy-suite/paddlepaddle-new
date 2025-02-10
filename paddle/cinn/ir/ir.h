@@ -1167,7 +1167,7 @@ struct PrimitiveNode : public ExprNode<PrimitiveNode> {
   static const IrNodeTy _node_type_ = IrNodeTy::PrimitiveNode;
 };
 
-// possiable keys of attributes in ir nodes with are listed in the following
+// possible keys of attributes in ir nodes with are listed in the following
 // namespace
 namespace attr {
 

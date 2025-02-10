@@ -336,7 +336,7 @@ bool ArgmaxOpInferSymbolicShape(pir::Operation *op,
       if (keepdims) {
         out_sym_shape.emplace_back(std::int64_t(rank));
       } else {
-        out_sym_shape.emplace_back(std::int64_t(0));
+        out_sym_shape = {};
       }
     } else {
       for (int i = 0; i < axis; i++) {
@@ -3028,7 +3028,7 @@ bool ReshapeOpInferSymbolicShape(
       }
     }
 
-    // replace '-1' with infered shape
+    // replace '-1' with inferred shape
 
     const auto &product_exclude_minus_one =
         GetProduct(target_shape, IsPositiveInteger);
@@ -3335,7 +3335,7 @@ bool SplitOpInferSymbolicShape(pir::Operation *op,
       op->operand_source(2).defining_op()->isa<paddle::dialect::FullOp>(),
       true,
       common::errors::InvalidArgument(
-          "Invalid input args : axis, pleace check"));
+          "Invalid input args : axis, please check"));
 
   int64_t axis = op->operand_source(2)
                      .defining_op<paddle::dialect::FullOp>()
