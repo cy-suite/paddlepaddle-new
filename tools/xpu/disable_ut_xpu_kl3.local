@@ -155,6 +155,7 @@ test_lstm
 test_masked_select_op
 test_math_op_patch_var_base
 test_matmul_weight_trans_pass
+test_median
 test_meshgrid_op
 test_mnist
 test_mnist_amp
