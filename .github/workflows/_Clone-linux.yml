@@ -30,6 +30,11 @@ jobs:
 
     - name: Merge PR to test branch
       run: |
+        git switch develop
+        set +e
+        git branch -D test
+        set -e
+        git gc
         git switch -c test
         git config --global user.name "PaddleCI"
         git config --global user.email "paddle_ci@example.com"

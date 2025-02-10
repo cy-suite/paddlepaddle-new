@@ -104,6 +104,7 @@ jobs:
     - name: Download paddle and update
       run: |
         docker exec -t paddle-CI /bin/bash -c "
+        rm -rf * .[^.]*
         git --version
         echo $http_proxy
         echo $https_proxy
@@ -119,8 +120,8 @@ jobs:
         # set +e
         set -x
         proxy='http://bdhttp:ff015d42d2e77bcf1df0b20fbb848340@180.76.138.26:18801'
-        http_proxy=${proxy}
-        https_proxy=${proxy}
+        http_proxy='http://bdhttp:ff015d42d2e77bcf1df0b20fbb848340@180.76.138.26:18801'
+        https_proxy='http://bdhttp:ff015d42d2e77bcf1df0b20fbb848340@180.76.138.26:18801'
         git pull upstream develop
         echo $?
         # if [ $? -eq 0 ]; then
@@ -181,6 +182,7 @@ jobs:
     - name: Check result
       run: |
         docker exec -t paddle-CI /bin/bash -c "
+        rm -rf * .[^.]*
         if [[ $EXCODE -eq 0 ]];then
           echo 'Congratulations!  Your PR passed the paddle-build.'
         elif [[ $EXCODE -eq 4 ]];then
@@ -197,7 +199,6 @@ jobs:
           echo 'Sorry, coverage check failed.'
         fi
         # set -x
-        rm -rf * .[^.]*
         exit $EXCODE
         "
 
