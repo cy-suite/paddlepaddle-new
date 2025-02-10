@@ -123,7 +123,7 @@ def transpose(
             [3, 2, 4]
 
     """
-    if in_dynamic_or_pir_mode():
+    if paddle.is_tensor(x) and in_dynamic_or_pir_mode():
         # TODO: Parameter validation is currently implemented here due to issues
         # arising in certain optimization passes ('squeeze_transpose_onednn_fuse_pass'
         # and 'squeeze2_transpose2_onednn_fuse_pass') when checks are added directly

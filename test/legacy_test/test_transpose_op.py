@@ -501,7 +501,6 @@ class TestTransposeOpBool8D(TestTransposeOpBool):
 
 
 class TestTransposeOpError(unittest.TestCase):
-
     def test_errors(self):
         paddle.enable_static()
         with paddle.static.program_guard(
@@ -538,7 +537,6 @@ class TestTransposeOpError(unittest.TestCase):
 
 
 class TestTransposeApi(unittest.TestCase):
-
     def test_static_out(self):
         paddle.enable_static()
         with paddle.static.program_guard(paddle.static.Program()):
@@ -576,7 +574,6 @@ class TestTransposeApi(unittest.TestCase):
 
 
 class TestTAPI(unittest.TestCase):
-
     def test_static_out(self):
         with base.program_guard(base.Program()):
             data = paddle.static.data(shape=[10], dtype="float64", name="data")
@@ -648,7 +645,6 @@ class TestTAPI(unittest.TestCase):
 
 
 class TestMoveAxis(unittest.TestCase):
-
     def test_static_moveaxis1(self):
         x_np = np.random.randn(2, 3, 4, 5, 7)
         expected = np.moveaxis(x_np, [0, 4, 3, 2], [1, 3, 2, 0])
@@ -915,18 +911,19 @@ class TestTransposeParamCheck(unittest.TestCase):
     # axes are rearranged according to the order specified in perm.
 
     def _test_error(self):
+        x = paddle.rand([16, 2, 4, 8])
+        if paddle.device.is_compiled_with_cuda():
+            x_cuda = x.cuda()
+            with self.assertRaisesRegex(
+                ValueError,
+                r"^Input\(perm\) is the permutation of dimensions of Input\(x\), its length should be equal to dimensions of Input\(x\)",
+            ):
+                x_cuda.transpose([1, 2])
 
-        x_cuda = paddle.rand([16, 2, 4, 8])
+        x_cpu = x.cpu()
         with self.assertRaisesRegex(
             ValueError,
-            "^Input\\(perm\\) is the permutation of dimensions of Input\\(x\\), its length should be equal to dimensions of Input\\(x\\)",
-        ):
-            x_cuda.transpose([1, 2])
-
-        x_cpu = paddle.to_tensor(x_cuda, place=paddle.CPUPlace())
-        with self.assertRaisesRegex(
-            ValueError,
-            "^Input\\(perm\\) is the permutation of dimensions of Input\\(x\\), its length should be equal to dimensions of Input\\(x\\)",
+            r"^Input\(perm\) is the permutation of dimensions of Input\(x\), its length should be equal to dimensions of Input\(x\)",
         ):
             x_cpu.transpose([1, 2])
 
