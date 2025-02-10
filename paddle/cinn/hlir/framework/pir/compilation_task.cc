@@ -71,7 +71,7 @@ void GroupCompilationContext::PrepareModuleBuilder() {
   PADDLE_ENFORCE_EQ(predicates_.size(),
                     priorities_.size(),
                     ::common::errors::InvalidArgument(
-                        "The size of predicates and priorites should be "
+                        "The size of predicates and priorities should be "
                         "the same."));
   for (const ir::Expr& predicate : predicates_) {
     module_builder_.AddPredicate(predicate);

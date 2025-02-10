@@ -116,6 +116,8 @@ DEFINE_GENERAL_PATTERN(Isnan, paddle::dialect::IsnanOp)
 DEFINE_GENERAL_PATTERN(Sign, paddle::dialect::SignOp)
 DEFINE_GENERAL_PATTERN(Round, paddle::dialect::RoundOp)
 DEFINE_GENERAL_PATTERN(Numel, paddle::dialect::NumelOp)
+DEFINE_GENERAL_PATTERN(Pool3d, paddle::dialect::Pool3dOp)
+DEFINE_GENERAL_PATTERN(ShuffleChannel, paddle::dialect::ShuffleChannelOp)
 
 #undef DEFINE_GENERAL_PATTERN
 
@@ -136,8 +138,7 @@ class ReduceCommonOpPattern : public pir::OpRewritePattern<OpType> {
       return false;
     }
 
-    if constexpr (std::is_same_v<OpType, paddle::dialect::MeanOp> ||
-                  std::is_same_v<OpType, paddle::dialect::AnyOp> ||
+    if constexpr (std::is_same_v<OpType, paddle::dialect::AnyOp> ||
                   std::is_same_v<OpType, paddle::dialect::AllOp>) {
       if (!op->HasAttribute("axis")) {
         VLOG(3) << "The axis attribute does not exist";
@@ -649,6 +650,7 @@ class TransposeOpPattern
     return true;
   }
 };
+
 class GatherOpPattern
     : public pir::OpRewritePattern<paddle::dialect::GatherOp> {
  public:
@@ -659,9 +661,10 @@ class GatherOpPattern
         op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
-    pir::Value axis = op.operand_source(2);
-    if (!axis) {
-      VLOG(3) << "axis is empty. Skipping rewrite.";
+    if (!op.axis().defining_op()->isa<paddle::dialect::FullOp>()) {
+      VLOG(3) << "When axis is not a constant "
+                 "Skip to convert into TRT.";
+
       return false;
     }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
@@ -2406,6 +2409,41 @@ class YoloBoxOpPattern
   }
 };
 
+class FullBatchSizeLikeOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::FullBatchSizeLikeOp> {
+ public:
+  using pir::OpRewritePattern<
+      paddle::dialect::FullBatchSizeLikeOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::FullBatchSizeLikeOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    if (!op->HasAttribute("input_dim_idx")) {
+      VLOG(3) << "pd_op.full_batch_size_like must has input_dim_idx attribute";
+      return false;
+    }
+    if (!op->HasAttribute("output_dim_idx")) {
+      VLOG(3) << "pd_op.full_batch_size_like must has output_dim_idx attribute";
+      return false;
+    }
+    if (!op->HasAttribute("shape")) {
+      VLOG(3) << "pd_op.full_batch_size_like must has shape attribute";
+      return false;
+    }
+    pir::Value input = op.operand_source(0);
+    auto input_type = pir::GetDataTypeFromValue(input);
+    if (!input_type.isa<pir::Float32Type>()) {
+      VLOG(3) << "pd_op.full_batch_size_like only support float32.";
+      return false;
+    }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class TrtOpMarkerPass : public pir::PatternRewritePass {
  public:
   TrtOpMarkerPass() : pir::PatternRewritePass("trt_op_marker_pass", 2) {}
@@ -2483,6 +2521,8 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Sign)
     ADD_PATTERN(Round)
     ADD_PATTERN(Numel)
+    ADD_PATTERN(Pool3d)
+    ADD_PATTERN(ShuffleChannel)
 #if IS_TRT_VERSION_GE(8600)
     ADD_PATTERN(Layer_norm)
 #endif
@@ -2571,6 +2611,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(
         std::make_unique<FusedBiasDropoutResidualLayerNormOpPattern>(context));
     ps.Add(std::make_unique<YoloBoxOpPattern>(context));
+    ps.Add(std::make_unique<FullBatchSizeLikeOpPattern>(context));
     return ps;
   }
 };

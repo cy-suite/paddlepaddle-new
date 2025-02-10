@@ -1534,6 +1534,18 @@ PHI_DEFINE_EXPORTED_bool(enable_pir_in_executor,
                          "Enable PIR in executor");
 
 /**
+ * Using PIR API in Python
+ * Name: enable_custom_engine
+ * Since Version: 3.0.0
+ * Value Range: bool, default=false
+ * Example:
+ * Note: If True, CustomDevice can use subgraph engine optimize
+ */
+PHI_DEFINE_EXPORTED_string(enable_custom_engine,
+                           "",
+                           "Set CustomDevice subgraph engine translate pass");
+
+/**
  * Using PIR by translating legacy program to pir program
  * for dy2st mode  FLAG
  * Name: enable_pir_in_executor
@@ -1877,7 +1889,7 @@ PHI_DEFINE_EXPORTED_string(
     mkl_dir,  // NOLINT
     "",
     "Specify path for loading libmkl_rt.so. "
-    "For insrance, /opt/intel/oneapi/mkl/latest/lib/intel64/."
+    "For instance, /opt/intel/oneapi/mkl/latest/lib/intel64/."
     "If default, "
     "dlopen will search mkl from LD_LIBRARY_PATH");
 
