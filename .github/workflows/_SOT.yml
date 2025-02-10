@@ -118,7 +118,7 @@ jobs:
         git_code=1
         # set +e
         set -x
-        proxy='http://bdhttp:ff015d42d2e77bcf1df0b20fbb848340@180.76.138.26:18801'
+        proxy=\$(cat ../proxy)
         export http_proxy=\${proxy}
         export https_proxy=\${proxy}
         git pull upstream develop
@@ -152,13 +152,13 @@ jobs:
       run: |
         docker exec -t paddle-CI /bin/bash -c "
         mkdir -p /home/data/cfs/.cache/build
-        echo 'CACHE_DIR=/home/data/cfs/.cache/build' >> $GITHUB_ENV
+        echo 'CACHE_DIR=/home/data/cfs/.cache/build' >> \$GITHUB_ENV
         if [ -f '/home/data/gzcfs/gz.txt' ];then
           mkdir -p /home/data/gzcfs/.ccache/sot
-          echo 'CCACHE_DIR=/home/data/gzcfs/.ccache/sot' >> $GITHUB_ENV
+          echo 'CCACHE_DIR=/home/data/gzcfs/.ccache/sot' >> \$GITHUB_ENV
         else
           mkdir -p /home/data/cfs/.ccache/sot
-          echo 'CCACHE_DIR=/home/data/cfs/.ccache/sot' >> $GITHUB_ENV
+          echo 'CCACHE_DIR=/home/data/cfs/.ccache/sot' >> \$GITHUB_ENV
         fi
         "
 
@@ -171,34 +171,34 @@ jobs:
         EXCODE=0
         set +e
         PATH=/usr/local/bin:${PATH}
-        ln -sf $(which python3.10) /usr/local/bin/python
-        ln -sf $(which pip3.10) /usr/local/bin/pip
-        bash -x ${work_dir}/paddle/scripts/paddle_build.sh cicheck_sot;EXCODE=$?
-        echo $EXCODE
-        echo \"EXCODE=$EXCODE\" >> $GITHUB_ENV
+        ln -sf \$(which python3.10) /usr/local/bin/python
+        ln -sf \$(which pip3.10) /usr/local/bin/pip
+        bash -x \${work_dir}/paddle/scripts/paddle_build.sh cicheck_sot;EXCODE=\$?
+        echo \$EXCODE
+        echo \"EXCODE=$EXCODE\" >> \$GITHUB_ENV
         "
 
     - name: Check result
       run: |
         docker exec -t paddle-CI /bin/bash -c "
         rm -rf * .[^.]*
-        if [[ $EXCODE -eq 0 ]];then
+        if [[ \$EXCODE -eq 0 ]];then
           echo 'Congratulations!  Your PR passed the paddle-build.'
-        elif [[ $EXCODE -eq 4 ]];then
+        elif [[ \$EXCODE -eq 4 ]];then
           echo 'Sorry, your code style check failed.'
-        elif [[ $EXCODE -eq 5 ]];then
+        elif [[ \$EXCODE -eq 5 ]];then
           echo 'Sorry, API's example code check failed.'
-        elif [[ $EXCODE -eq 6 ]];then
+        elif [[ \$EXCODE -eq 6 ]];then
           echo 'Sorry, your pr need to be approved.'
-        elif [[ $EXCODE -eq 7 ]];then
+        elif [[ \$EXCODE -eq 7 ]];then
           echo 'Sorry, build failed.'
-        elif [[ $EXCODE -eq 8 ]];then
+        elif [[ \$EXCODE -eq 8 ]];then
           echo 'Sorry, some tests failed.'
-        elif [[ $EXCODE -eq 9 ]];then
+        elif [[ \$EXCODE -eq 9 ]];then
           echo 'Sorry, coverage check failed.'
         fi
         # set -x
-        exit $EXCODE
+        exit \$EXCODE
         "
 
     - name: Terminate and delete the container
