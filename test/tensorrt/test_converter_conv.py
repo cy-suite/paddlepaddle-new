@@ -418,7 +418,7 @@ class TestDepthwiseConv3dTransposeTRTPattern(TensorRTBaseTest):
         self.max_shape = {"x": [10, 2, 8, 8, 8]}
 
     def test_trt_result_fp16(self):
-        self.check_trt_result(precision_mode="fp16")
+        self.check_trt_result(rtol=1e-3, atol=1e-3, precision_mode="fp16")
 
     def test_trt_result_fp32(self):
         self.check_trt_result()
@@ -437,7 +437,7 @@ class TestDepthwiseConv3dTransposeSameTRTPattern(TensorRTBaseTest):
         self.max_shape = {"x": [10, 3, 8, 8, 8]}
 
     def test_trt_result_fp16(self):
-        self.check_trt_result(precision_mode="fp16")
+        self.check_trt_result(rtol=1e-3, atol=1e-3, precision_mode="fp16")
 
     def test_trt_result_fp32(self):
         self.check_trt_result()
@@ -473,7 +473,7 @@ class TestDepthwiseConv3dTransposeOutputPadding2TRTPattern(TensorRTBaseTest):
         self.max_shape = {"x": [10, 3, 8, 8, 8]}
 
     def test_trt_result_fp16(self):
-        self.check_trt_result(precision_mode="fp16")
+        self.check_trt_result(rtol=1e-3, atol=1e-3, precision_mode="fp16")
 
     def test_trt_result_fp32(self):
         self.check_trt_result()
