@@ -38,15 +38,15 @@ void PrintMeanMaxMin(const std::string& op,
   std::cout << "LXJ shape Dbg: " << op << "--" << var << " shape = " << x.dims()
             << std::endl;
   auto mean_tensor = paddle::experimental::copy_to(
-      paddle::experimental::mean(x, paddle::experimental::IntArray({1}), false),
+      paddle::experimental::mean(x, paddle::experimental::IntArray({}), false),
       phi::CPUPlace(),
       true);
   auto max_tensor = paddle::experimental::copy_to(
-      paddle::experimental::max(x, paddle::experimental::IntArray({1}), false),
+      paddle::experimental::max(x, paddle::experimental::IntArray({}), false),
       phi::CPUPlace(),
       true);
   auto min_tensor = paddle::experimental::copy_to(
-      paddle::experimental::min(x, paddle::experimental::IntArray({1}), false),
+      paddle::experimental::min(x, paddle::experimental::IntArray({}), false),
       phi::CPUPlace(),
       true);
 
