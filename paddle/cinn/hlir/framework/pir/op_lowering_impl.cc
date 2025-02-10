@@ -437,8 +437,9 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
 
     if (FLAGS_cinn_longlong2int && i != func_bodies.size() - 1) {
       if (fusion_group_info->is_dynamic) {
-        ir::LoweredFunc func_int32 = ir::_LoweredFunc_::Make(
-            group->FuncName(), group_func_args_int32, func_body, temp_buffers);
+        ir::LoweredFunc func_copied = ir::ir_utils::IRCopy(func);
+        // set lowered_func's args to int32 type
+        func_copied->args = group_func_args_int32;
         ir::Expr predicates_copied = ir::ir_utils::IRCopy(predicates[i]);
 
         ir::Expr elems_num(1);
@@ -454,15 +455,15 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
             predicates[i], ir::GE::Make(elems_num, ir::Expr(INT32_MAX)));
 
         ir::stmt::BlockRef block =
-            ir::ConvertExprBlockToStmtBlock(func_int32->body);
+            ir::ConvertExprBlockToStmtBlock(func_copied->body);
         VLOG(10) << "Before CastLonglong2Int: \n" << block;
 
         optim::TryCastLonglong2Int(block, /*enforce_cast*/ true);
         VLOG(10) << "After CastLonglong2Int: \n" << block;
-        func_int32->body = ir::ConvertStmtBlockToExprBlock(block);
+        func_copied->body = ir::ConvertStmtBlockToExprBlock(block);
 
         ret_predicates.push_back(std::move(predicate_int32));
-        ret_lowered_funcs.push_back(std::move(func_int32));
+        ret_lowered_funcs.push_back(std::move(func_copied));
         ret_priorities.push_back(priorities[i]);
       } else {
         // static branch
@@ -495,8 +496,6 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
   UnifyTempSpaceArgs(&ret_lowered_funcs);
   group->mut_temp_space_sizes() = CollectTempSpaceSizes(ret_lowered_funcs);
 
-  std::vector<CondFuncPriorWrapper> ret_tuples;
-
   PADDLE_ENFORCE_EQ(
       ret_lowered_funcs.size(),
       ret_predicates.size(),
@@ -509,12 +508,14 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
       ::common::errors::InvalidArgument(
           "The size of ret_lowered_funcs and ret_priorities should be "
           "the same."));
+
+  std::vector<CondFuncPriorWrapper> ret;
   for (size_t i = 0; i < ret_lowered_funcs.size(); ++i) {
-    ret_tuples.emplace_back(std::move(ret_predicates[i]),
-                            std::move(ret_lowered_funcs[i]),
-                            std::move(ret_priorities[i]));
+    ret.emplace_back(std::move(ret_predicates[i]),
+                     std::move(ret_lowered_funcs[i]),
+                     std::move(ret_priorities[i]));
   }
-  return ret_tuples;
+  return ret;
 }
 
 std::vector<ir::stmt::BlockRef> OpLowererImpl::LowerOps(

@@ -68,7 +68,10 @@ class OpLowererImpl : public OpLowererImplBase<OpLoweringGroupPtr> {
    * variables, applying low-level optimization passes, etc.
    * @param group The group to be lowered.
    * @param tensor_map All tensors used for calculating the group.
+   * @param fusion_group_info The info of the fusion group.
    * @param func_bodies The scheduled func bodies of group.
+   * @param predicates The symbolic predicate of each func.
+   * @param priorities The priority of each func.
    * @param group_func_arg_tensors Tensors used as the group function arguments.
    * @param group_func_args Arguments used as the group function arguments.
    * @return The lowered funcs after the post processing.
