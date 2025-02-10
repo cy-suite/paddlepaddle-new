@@ -2500,7 +2500,7 @@ def addmm_(
     name: str | None = None,
 ) -> Tensor:
     """
-    Inplace version of ``addmm`` API, the output Tensor will be inplaced with input ``x``.
+    Inplace version of ``addmm`` API, the output Tensor will be inplaced with input ``input``.
     Please refer to :ref:`api_paddle_addmm`.
     """
     input_shape = input.shape
@@ -2687,7 +2687,7 @@ def baddbmm_(
     name: str | None = None,
 ) -> Tensor:
     """
-    Inplace version of ``baddbmm`` API, the output Tensor will be inplaced with input ``x``.
+    Inplace version of ``baddbmm`` API, the output Tensor will be inplaced with input ``input``.
     Please refer to :ref:`api_paddle_baddbmm`.
     """
     input_shape = input.shape
