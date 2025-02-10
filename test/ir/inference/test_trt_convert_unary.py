@@ -61,7 +61,7 @@ class TrtConvertActivationTest(TrtLayerAutoScanTest):
             else:
                 return np.random.random([batch, 3, 32, 32]).astype(np.int32)
 
-        for dims in [0]:
+        for dims in [0, 2, 3, 4]:
             for batch in [1, 4]:
                 for op_type in [
                     "exp",
