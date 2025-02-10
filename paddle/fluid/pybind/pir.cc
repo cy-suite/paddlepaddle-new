@@ -974,7 +974,8 @@ void BindOperation(py::module *m) {
                      pair.second.dyn_cast<OperationDistAttribute>();
                } else {
                  if (pair.second.isa<pir::FloatAttribute>()) {
-                  #warning "The value is stored with float32 precision, which might cause precision issues for higher precision requirements."
+#warning \
+    "The value is stored with float32 precision, which might cause precision issues for higher precision requirements."
                  }
                  attrs_dict[pair.first.c_str()] =
                      paddle::dialect::GetAttributeData(pair.second);
