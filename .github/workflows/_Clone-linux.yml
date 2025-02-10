@@ -30,12 +30,12 @@ jobs:
 
     - name: Merge PR to test branch
       run: |
-        git checkout -b test
+        git switch -c test
         git config --global user.name "PaddleCI"
         git config --global user.email "paddle_ci@example.com"
         git fetch origin pull/${{ github.event.pull_request.number }}/head:pr
         git merge --no-ff pr
-        # git branch -d pr
+        git branch -d pr
 
     - name: Download bos client
       env:
@@ -65,8 +65,7 @@ jobs:
         python ${bos_file} Paddle.tar.gz paddle-github-action/PR/Paddle/${PR_ID}/${COMMIT_ID}
         rm Paddle.tar.gz
         cd -
-        git checkout develop
-        git branch -D test
+        git switch develop
         git gc
 
     # - name: Clean environment

@@ -112,13 +112,13 @@ jobs:
         git config --global user.name "PaddleCI"
         git config --global user.email "paddle_ci@example.com"
         git remote add upstream https://github.com/PaddlePaddle/Paddle.git
-        git checkout develop
+        git switch develop
         git_code=1
         set +e
         set -x
-        proxy=http://bdhttp:ff015d42d2e77bcf1df0b20fbb848340@180.76.138.26:18801
-        export http_proxy=$proxy
-        export https_proxy=$proxy
+        proxy='http://bdhttp:ff015d42d2e77bcf1df0b20fbb848340@180.76.138.26:18801'
+        export http_proxy=${proxy}
+        export https_proxy=${proxy}
         git pull upstream develop
         # if [ $? -eq 0 ]; then
         #   git_code=0
@@ -140,13 +140,9 @@ jobs:
         #   fi
         # fi
         set -e
-        git checkout pr
-        # git fetch origin pull/${PR_ID}/head
-        # git checkout -b origin_pr FETCH_HEAD
         git fetch upstream develop
-        git checkout -b test_pr upstream/develop
-        git merge --no-edit pr
-        # git merge develop
+        git switch test
+        git merge develop
         "
 
     - name: Configure cache and ccache
