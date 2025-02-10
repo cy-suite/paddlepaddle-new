@@ -241,9 +241,9 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
     const LoopAxisMapping& upstream,
     const LoopAxisMapping& downstream,
     bool upstream_is_anchor) {
-  VLOG(4) << "Try to get valid loop transform route " << upstream_is_anchor
-      ? "from downstream to upstream."
-      : "from upstream to downstream.";
+  VLOG(4) << "Try to get valid loop transform route "
+          << (upstream_is_anchor ? "from downstream to upstream."
+                                 : "from upstream to downstream.");
   const auto& [loop_sink_route, loop_lift_route] =
       GetLoopTransformRoute(upstream, downstream);
   auto loop_transform_route =

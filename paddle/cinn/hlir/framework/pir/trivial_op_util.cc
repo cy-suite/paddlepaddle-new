@@ -656,18 +656,18 @@ ExprTransformer WrapScheduleRealizer(const std::vector<ir::Var>& block_vars,
   return ExprTransformer(f);
 }
 
-ExprTransformer RemoveOneTransformer(int one) {
+ExprTransformer RemoveForTransformer(int axis) {
   const auto& f = [=](const ir::Expr& root) -> ir::Expr {
     ir::Expr copied = ir::ir_utils::IRCopy(root);
     const auto& iters = GetAllLoopVars(copied);
     // Find target expr and replace with for->body.
     const ir::Expr& target_for = (ExprSetFinderUtils::ChildFors *
-                                  ExprSetFinderUtils::IsForIterVar(iters[one]))
+                                  ExprSetFinderUtils::IsForIterVar(iters[axis]))
                                      .GetSingle(copied);
     const ir::Expr& target_block =
         ExprSetFinderUtils::DirectlyFather(copied).GetSingle(target_for);
     if (target_block.As<ir::ScheduleBlockRealize>() != nullptr) {
-      VLOG(4) << "RemoveOneTransformer: father block is root realize";
+      VLOG(4) << "RemoveForsTransformer: father block is root realize";
       ir::Expr shedule_block =
           target_block.As<ir::ScheduleBlockRealize>()->schedule_block;
       PADDLE_ENFORCE_EQ(
@@ -700,7 +700,7 @@ ExprTransformer RemoveOneTransformer(int one) {
           target_block, to_replace_block)(&copied);
     } else {
       PADDLE_THROW(::common::errors::InvalidArgument(
-          "RemoveOneTransformer: target for father should be a ir::Block or "
+          "RemoveForsTransformer: target for father should be a ir::Block or "
           "ir::ScheduleBlockRealize."));
     }
     // Remove var to 0 in ScheduleBlockRealizer
@@ -708,21 +708,21 @@ ExprTransformer RemoveOneTransformer(int one) {
         &copied,
         (ExprSetFinderUtils::ChildScheduleBlockRealizes *
          ExprSetFinderUtils::ScheduleBlockRealizeIsNotInit),
-        RemoveVarInScheduleBlockRealize(iters[one], ir::Expr(0)));
+        RemoveVarInScheduleBlockRealize(iters[axis], ir::Expr(0)));
     InplaceMutateSingleExpr(
         &copied,
         (ExprSetFinderUtils::ChildScheduleBlockRealizes *
          ExprSetFinderUtils::ScheduleBlockRealizeIsInit),
-        RemoveVarInScheduleBlockRealize(iters[one], ir::Expr(0)));
+        RemoveVarInScheduleBlockRealize(iters[axis], ir::Expr(0)));
     return copied;
   };
   return ExprTransformer(f);
 }
 
-ExprTransformer RemoveOnesTransformer(const std::vector<int32_t>& ones) {
+ExprTransformer RemoveForsTransformer(const std::vector<int32_t>& axes) {
   ExprTransformer f = Identity;
-  for (const auto& one : ones) {
-    f = RemoveOneTransformer(one) * f;
+  for (const auto& axis : axes) {
+    f = RemoveForTransformer(axis) * f;
   }
   return ExprTransformer(f);
 }
@@ -730,7 +730,7 @@ ExprTransformer RemoveOnesTransformer(const std::vector<int32_t>& ones) {
 ExprTransformer TransposeForsTransformer(const std::vector<int32_t>& perm) {
   const auto& f = [=](const ir::Expr& root) -> ir::Expr {
     const auto& iters = GetAllLoopVars(root);
-    PADDLE_ENFORCE_EQ(
+    PADDLE_ENFORCE_GE(
         iters.size(),
         perm.size(),
         ::common::errors::InvalidArgument(
@@ -1010,7 +1010,7 @@ ir::Expr ReshapeLoop(const ir::Expr& root,
         VLOG(4) << "Remove index[" << i << "]: " << in_shape[i]
                 << " for expr: \n"
                 << copied;
-        copied = ExprTransformerUtils::RemoveOneTransformer(i)(copied);
+        copied = ExprTransformerUtils::RemoveForTransformer(i)(copied);
         ir_sch.SetExprs({copied});
         for (auto& index : fuse_indices) {
           index--;

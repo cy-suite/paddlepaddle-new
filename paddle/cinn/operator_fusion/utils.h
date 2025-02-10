@@ -339,6 +339,15 @@ std::vector<Int> ArangeVector(Int start, Int end, Int step = 1) {
   return res;
 }
 
+template <typename T1, typename T2>
+std::vector<T2> CastVector(const std::vector<T1>& vec) {
+  std::vector<T2> res;
+  for (const auto& item : vec) {
+    res.push_back(static_cast<T2>(item));
+  }
+  return res;
+}
+
 template <typename Int, typename T>
 std::vector<Int> GetTransposePerm(const std::vector<T>& source,
                                   const std::vector<T>& target) {

@@ -159,6 +159,16 @@ void RunItersTransformInstr(const std::shared_ptr<ItersTransformInstr>& instr,
   interpreter->scope[instr->target_] = new_pattern;
 }
 
+void RunAxisTransformInstr(const std::shared_ptr<AxisTransformInstr>& instr,
+                           FusionInterpreter* interpreter) {
+  auto axis_transform = [&](ir::Expr op_expr) -> ir::Expr {
+    for (auto trans : instr->axis_transform_route_) {
+      op_expr = std::visit(ApplyAxisTransform(op_expr), trans);
+    }
+    return op_expr;
+  };
+}
+
 void RunReshapeAlignInstr(const std::shared_ptr<ReshapeAlignInstr>& instr,
                           FusionInterpreter* interpreter) {
   const auto expr = std::visit(
@@ -242,6 +252,10 @@ std::vector<ir::Expr> FusionInterpreter::Run() {
       case T_ItersTransform:
         RunItersTransformInstr(
             dynamic_cast_instr_with_err<ItersTransformInstr>(instr), this);
+        break;
+      case T_AxisTransform:
+        RunAxisTransformInstr(
+            dynamic_cast_instr_with_err<AxisTransformInstr>(instr), this);
         break;
       case T_ReshapeAlign:
         RunReshapeAlignInstr(

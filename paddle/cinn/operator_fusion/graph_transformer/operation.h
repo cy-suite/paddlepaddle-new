@@ -193,6 +193,9 @@ struct AnchorFusionOperation {
     if (!loop_lift_transform.has_value() && !loop_sink_transform.has_value()) {
       return upstream;
     }
+    VLOG(4) << "Start AnchorFusionOperation";
+    VLOG(4) << "Upstream: \n" << upstream->DebugStr();
+    VLOG(4) << "Downstream: \n" << downstream->DebugStr();
     bool upstream_is_anchor = loop_lift_transform.has_value();
     const auto merge_pattern_fn =
         [upstream_is_anchor](const StmtPattern& upstream,
@@ -208,6 +211,25 @@ struct AnchorFusionOperation {
     };
     auto merged_node = graph->MergeNode(upstream, downstream, merge_pattern_fn);
     // Update tracker
+    if (upstream_is_anchor) {
+      auto downstream_tmp_id = GetNewTmpId(downstream->id());
+      merged_node->AppendInstr(std::make_shared<AxisTransformInstr>(
+          downstream->id(), downstream_tmp_id, loop_lift_transform.value()));
+      merged_node->AppendInstr(std::make_shared<CombineInstr>(
+          std::vector<std::string>{upstream->id(), downstream_tmp_id},
+          merged_node->id()));
+    } else {
+      auto upstream_tmp_id = GetNewTmpId(upstream->id());
+      merged_node->AppendInstr(std::make_shared<AxisTransformInstr>(
+          upstream->id(), upstream_tmp_id, loop_sink_transform.value()));
+      merged_node->AppendInstr(std::make_shared<CombineInstr>(
+          std::vector<std::string>{upstream_tmp_id, downstream->id()},
+          merged_node->id()));
+    }
+    graph->RemoveNode(upstream);
+    graph->RemoveNode(downstream);
+    VLOG(4) << "Merged: \n" << merged_node->DebugStr();
+    return merged_node;
   }
 };
 
