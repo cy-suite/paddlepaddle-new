@@ -105,8 +105,8 @@ jobs:
       run: |
         docker exec -t paddle-CI /bin/bash -c "
         rm -rf * .[^.]*
-        echo $http_proxy
-        echo $https_proxy
+        echo \$http_proxy
+        echo \$https_proxy
         ln -s /home/data/cfs/.cache /root/.cache
         wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/Paddle/${PR_ID}/${COMMIT_ID}/Paddle.tar.gz --no-check-certificate
         tar xf Paddle.tar.gz --strip-components=1
@@ -119,8 +119,8 @@ jobs:
         # set +e
         set -x
         proxy='http://bdhttp:ff015d42d2e77bcf1df0b20fbb848340@180.76.138.26:18801'
-        export http_proxy=${proxy}
-        export https_proxy=${proxy}
+        export http_proxy=\${proxy}
+        export https_proxy=\${proxy}
         git pull upstream develop
         echo $?
         # if [ $? -eq 0 ]; then
