@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef PADDLE_WITH_HIP
+// #ifndef PADDLE_WITH_HIP
 // HIP not support cusolver
 
 #include "paddle/phi/backends/dynload/cusolver.h"
@@ -135,4 +135,4 @@ void LuSolveKernel(const Context& dev_ctx,
 PD_REGISTER_KERNEL(
     lu_solve, GPU, ALL_LAYOUT, phi::LuSolveKernel, float, double) {}
 
-#endif  // not PADDLE_WITH_HIP
+// #endif  // not PADDLE_WITH_HIP
