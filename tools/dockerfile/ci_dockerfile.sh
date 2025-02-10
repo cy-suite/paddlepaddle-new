@@ -84,11 +84,14 @@ function make_ubuntu20_cu12_dockerfile(){
     cd git-2.17.1 \&\& \
     ./configure --with-openssl --with-curl --prefix=/usr/local \&\& \
     make -j8 \&\& make install " ${dockerfile_name}
-  sed -i "${dockerfile_line}i RUN pip install wheel \&\& pip3 install PyGithub wheel distro \&\& pip3.8 install distro" ${dockerfile_name}
+  sed -i "${dockerfile_line}i RUN pip install wheel jinja2 \&\& pip3 install PyGithub wheel distro jinja2 \&\& pip3.8 install distro jinja2" ${dockerfile_name}
   sed -i "${dockerfile_line}i RUN cd /usr/local/TensorRT-8.6.1.6/python \&\& pip3.9 install tensorrt-8.6.1-cp39-none-linux_x86_64.whl" ${dockerfile_name}
   sed -i 's# && rm /etc/apt/sources.list.d/nvidia-ml.list##g' ${dockerfile_name}
   sed -i 's#RUN bash /build_scripts/install_trt.sh#RUN bash /build_scripts/install_trt.sh trt8616#g' ${dockerfile_name}
   sed -i 's#RUN bash /build_scripts/install_cudnn.sh cudnn841#RUN bash /build_scripts/install_cudnn.sh cudnn896 #g' ${dockerfile_name}
+  sed -i 's#RUN apt-get install -y gcc-8 g++-8#RUN apt-get install -y gcc-12 g++-12#g' ${dockerfile_name}
+  sed -i 's#gcc-8#gcc-12#g' ${dockerfile_name}
+  sed -i 's#g++-8#g++-12#g' ${dockerfile_name}
 
   sed -i "${dockerfile_line}i WORKDIR /home \n \
     RUN git clone --depth=1 https://github.com/PaddlePaddle/PaddleNLP.git -b stable/paddle-ci \&\& cd PaddleNLP \&\& \
@@ -116,7 +119,7 @@ function make_ubuntu20_cu123_dockerfile(){
     cd git-2.17.1 \&\& \
     ./configure --with-openssl --with-curl --prefix=/usr/local \&\& \
     make -j8 \&\& make install " ${dockerfile_name}
-  sed -i "${dockerfile_line}i RUN pip install wheel \&\& pip3 install PyGithub wheel distro \&\& pip3.8 install distro" ${dockerfile_name}
+  sed -i "${dockerfile_line}i RUN pip install wheel jinja2 \&\& pip3 install PyGithub wheel distro jinja2 \&\& pip3.8 install distro jinja2" ${dockerfile_name}
   sed -i 's# && rm /etc/apt/sources.list.d/nvidia-ml.list##g' ${dockerfile_name}
   sed -i 's#RUN bash /build_scripts/install_trt.sh#RUN bash /build_scripts/install_trt.sh trt8616#g' ${dockerfile_name}
   sed -i 's#RUN bash /build_scripts/install_cudnn.sh cudnn841#RUN bash /build_scripts/install_cudnn.sh cudnn900 #g' ${dockerfile_name}
