@@ -362,6 +362,7 @@ std::tuple<Tensor, Tensor, Tensor, std::vector<Tensor>> cudnn_lstm_grad_impl(
   DataLayout kernel_layout = DataLayout::UNDEFINED;
   DataType kernel_data_type = DataType::UNDEFINED;
 
+#ifdef PADDLE_WITH_DISTRIBUTE
   bool run_auto_parallel = AllInputsAreDistTensor(x,
                                                   init_h,
                                                   init_c,
@@ -823,7 +824,7 @@ std::tuple<Tensor, Tensor, Tensor, std::vector<Tensor>> cudnn_lstm_grad_impl(
     // 12. Return
     return api_output;
   }
-
+#endif  // PADDLE_WITH_DISTRIBUTE
   VLOG(6) << "cudnn_lstm_grad API kernel key: [" << kernel_backend << ", "
           << kernel_layout << ", " << kernel_data_type << "]";
   auto kernel_result = phi::KernelFactory::Instance().SelectKernelOrThrowError(
