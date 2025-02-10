@@ -416,15 +416,14 @@ class TestAsinTRTPattern(TensorRTBaseTest):
         self.min_shape = {"x": [1, 2, 32, 32]}
         self.opt_shape = {"x": [1, 2, 32, 32]}
         self.max_shape = {"x": [2, 2, 32, 32]}
-        
+
     def test_trt_result(self):
         self.check_trt_result(rtol=1e-3, atol=1e-3)
 
     def test_trt_result_fp16(self):
         self.check_trt_result(rtol=1e-3, atol=1e-3, precision_mode="fp16")
-        
-        
-        
+
+
 def deform_conv2d_wrapper(
     input_data,
     offset,
