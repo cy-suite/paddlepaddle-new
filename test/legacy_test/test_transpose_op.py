@@ -14,20 +14,17 @@
 
 
 import os
-import sys
 import unittest
 
 import gradient_checker
 import numpy as np
 from decorator_helper import prog_scope
 from op_test import OpTest, convert_float_to_uint16
+from utils import dygraph_guard, static_guard
 
 import paddle
 from paddle import base
 from paddle.base import core
-
-sys.path.append("../dygraph_to_static")
-from dygraph_to_static_utils import enable_to_static_guard
 
 paddle.enable_static()
 
@@ -917,21 +914,29 @@ class TestTransposeParamCheck(unittest.TestCase):
     # parameter must match the number of dimensions of the input tensor, and the
     # axes are rearranged according to the order specified in perm.
 
-    def _test_func(self, flag):
-        with enable_to_static_guard(flag):
-            x_cuda = paddle.rand([32, 4, 32])
-            with self.assertRaises(ValueError):
-                x_cuda.transpose([1, 2])
+    def _test_error(self):
 
-            x_cpu = paddle.to_tensor(x_cuda, place=paddle.CPUPlace())
-            with self.assertRaises(ValueError):
-                x_cpu.transpose([1, 2])
+        x_cuda = paddle.rand([16, 2, 4, 8])
+        with self.assertRaisesRegex(
+            ValueError,
+            "^Input\\(perm\\) is the permutation of dimensions of Input\\(x\\), its length should be equal to dimensions of Input\\(x\\)",
+        ):
+            x_cuda.transpose([1, 2])
+
+        x_cpu = paddle.to_tensor(x_cuda, place=paddle.CPUPlace())
+        with self.assertRaisesRegex(
+            ValueError,
+            "^Input\\(perm\\) is the permutation of dimensions of Input\\(x\\), its length should be equal to dimensions of Input\\(x\\)",
+        ):
+            x_cpu.transpose([1, 2])
 
     def test_dygraph(self):
-        self._test_func(False)
+        with dygraph_guard():
+            self._test_error()
 
     def test_static(self):
-        self._test_func(True)
+        with static_guard():
+            self._test_error()
 
 
 if __name__ == '__main__':
