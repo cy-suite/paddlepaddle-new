@@ -27,8 +27,8 @@ from paddle.base import core
 
 class TestSolveOpAPI_1(unittest.TestCase):
     def setUp(self):
-        self.A = paddle.randn((2, 2, 4, 4))
-        self.b = paddle.randn((2, 1, 4, 1))
+        self.A = paddle.to_tensor([[2, 5],[4, 8]], dtype='float32')
+        self.b = paddle.to_tensor([[1, 1],[1, 1]], dtype='float32')
         self.LU, self.pivots = paddle.linalg.lu(self.A)
         self.x = paddle.linalg.solve(self.A, self.b)
         self.place = []
