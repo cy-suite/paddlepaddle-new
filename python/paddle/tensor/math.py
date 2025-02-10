@@ -3953,7 +3953,7 @@ def clip_(
     min = fmin if min is None else min
     max = fmax if max is None else max
 
-    if paddle.is_clip_tensor(min) or paddle.is_clip_tensor(max):
+    if is_clip_tensor(min) or is_clip_tensor(max):
         min = (
             min
             if paddle.is_tensor(min)
