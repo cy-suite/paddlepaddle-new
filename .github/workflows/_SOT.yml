@@ -119,8 +119,8 @@ jobs:
         # set +e
         set -x
         proxy='http://bdhttp:ff015d42d2e77bcf1df0b20fbb848340@180.76.138.26:18801'
-        http_proxy=${proxy}
-        https_proxy=${proxy}
+        export http_proxy=${proxy}
+        export https_proxy=${proxy}
         git pull upstream develop
         echo $?
         # if [ $? -eq 0 ]; then
