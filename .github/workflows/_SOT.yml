@@ -164,7 +164,9 @@ jobs:
         work_dir: "/home/gushiwei/actions-runner/_work/Paddle/Paddle"
         PADDLE_ROOT: "/home/gushiwei/actions-runner/_work/Paddle/Paddle"
       run: |
-        docker exec -t paddle-CI -e work_dir -e PADDLE_ROOT /bin/bash -c "
+        docker exec -t paddle-CI /bin/bash -c "
+        export work_dir=\${{ env.work_dir }}
+        export PADDLE_ROOT=\${{ env.PADDLE_ROOT }}
         set -x
         EXCODE=0
         set +e
