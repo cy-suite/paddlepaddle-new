@@ -8,6 +8,7 @@ env:
   docker_image: 077ca344c322
   PR_ID: ${{ github.event.pull_request.number }}
   COMMIT_ID: ${{ github.event.pull_request.head.sha }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 defaults:
   run:
@@ -98,6 +99,7 @@ jobs:
           -e WITH_INFERENCE_API_TEST \
           -e CCACHE_MAXSIZE \
           -e CCACHE_LIMIT_MULTIPLE \
+          -e GITHUB_TOKEN \
           -w /home/gushiwei/actions-runner/_work/Paddle/Paddle --network host ${docker_image}
       # working_directory: ./tools/dockerfile/
 
