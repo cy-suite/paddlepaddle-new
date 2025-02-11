@@ -306,7 +306,7 @@ collect_srcs(
   kernel_dispatch.cc
   api_gen_utils.cc
   data_transform.cc
-  api_custom_impl.cc
+  manual_api.cc
   tensor_method.cc
   tensor_copy.cc
   scalar.cc

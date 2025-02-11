@@ -16,7 +16,7 @@ import argparse
 
 import yaml
 from api_base import PREFIX_TENSOR_NAME
-from api_gen import ForwardAPI, backward_api_black_list
+from api_gen import ForwardAPI, backward_api_black_list, manual_api_list
 
 
 class SparseAPI(ForwardAPI):
@@ -497,7 +497,8 @@ def generate_api(api_yaml_path, header_file_path, source_file_path):
         if sparse_api.is_dygraph_api:
             sparse_api.is_dygraph_api = False
         header_file.write(sparse_api.gene_api_declaration())
-        source_file.write(sparse_api.gene_api_code())
+        if sparse_api not in manual_api_list:
+            source_file.write(sparse_api.gene_api_code())
 
     header_file.write(namespace[1])
     source_file.write(namespace[1])

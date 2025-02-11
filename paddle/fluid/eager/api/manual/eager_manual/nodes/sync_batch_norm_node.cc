@@ -25,7 +25,6 @@
 #include "paddle/phi/api/backward/backward_api.h"
 #include "paddle/phi/api/backward/sparse_bw_api.h"
 #include "paddle/phi/api/include/sparse_api.h"
-#include "paddle/phi/api/lib/api_custom_impl.h"
 #include "paddle/phi/core/platform/profiler/event_tracing.h"
 
 COMMON_DECLARE_bool(check_nan_inf);

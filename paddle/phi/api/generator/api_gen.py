@@ -18,10 +18,17 @@ import yaml
 from api_base import PREFIX_TENSOR_NAME, BaseAPI
 
 backward_api_black_list = [
-    "pull_sparse_v2_grad",  # tensor = push_sparse_v2() is not implemented in api_custom_impl.cc
-    "scale_grad",  # tensor = scale is not implemented in api_custom_impl.cc
+    "pull_sparse_v2_grad",  # tensor = push_sparse_v2() is not implemented in manual_api.cc
+    "scale_grad",  # tensor = scale is not implemented in manual_api.cc
 ]
 
+manual_api_list = [
+    "add_n",
+    "copy_to",
+    "fused_gemm_epilogue",
+    "embedding_grad",
+    "cudnn_lstm_grad",
+]
 inplace_out_type_map = {
     "Tensor": "Tensor&",
     "std::vector<Tensor>": "std::vector<Tensor>&",
@@ -36,19 +43,6 @@ optional_out_type_map = {
     "Tensor": "paddle::optional<Tensor>",
     "std::vector<Tensor>": "paddle::optional<std::vector<Tensor>>",
 }
-
-manual_impl = '''
-
-PADDLE_API Tensor embedding_grad(const Tensor& x, const Tensor& weight, const Tensor& out_grad, int64_t padding_idx, bool sparse) {
-  Tensor weight_grad;
-  embedding_grad_impl(x, weight, out_grad, padding_idx, sparse, &weight_grad);
-  return weight_grad;
-}
-
-PADDLE_API std::tuple<Tensor, Tensor, Tensor, std::vector<Tensor>> cudnn_lstm_grad(const Tensor& x, const Tensor& init_h, const Tensor& init_c, const paddle::optional<std::vector<Tensor>>& weight_list, const paddle::optional<Tensor>& sequence_length, const Tensor& out, const Tensor& reserve, const Tensor& state_out, const Tensor& out_grad, const Tensor& last_h_grad, const Tensor& last_c_grad, float dropout_prob, bool is_bidirec, int hidden_size, int num_layers, bool is_test, int seed) {
-  return cudnn_lstm_grad_impl(x, init_h, init_c, weight_list, sequence_length, out, reserve, state_out, out_grad, last_h_grad, last_c_grad, dropout_prob, is_bidirec, hidden_size, num_layers, is_test, seed) ;
-}
-'''
 
 
 class ForwardAPI(BaseAPI):
@@ -447,7 +441,6 @@ def source_include(header_file_path):
 #include "glog/logging.h"
 #include "paddle/common/flags.h"
 
-#include "paddle/phi/api/lib/api_custom_impl.h"
 #include "paddle/phi/api/lib/api_gen_utils.h"
 #include "paddle/phi/api/lib/api_registry.h"
 #include "paddle/phi/api/lib/data_transform.h"
@@ -562,10 +555,8 @@ def generate_api(
             forward_api.is_dygraph_api = True
 
         header_file.write(forward_api.gene_api_declaration())
-        if forward_api.api not in ["embedding_grad", "cudnn_lstm_grad"]:
+        if forward_api.api not in manual_api_list:
             source_file.write(forward_api.gene_api_code())
-    if not is_fused_ops_yaml:
-        source_file.write(manual_impl)
 
     header_file.write(namespace[1])
     source_file.write(namespace[1])

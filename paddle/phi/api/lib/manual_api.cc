@@ -12,8 +12,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License. */
 
-#include "paddle/phi/api/lib/api_custom_impl.h"
-
 #include "glog/logging.h"
 #include "paddle/common/flags.h"
 #include "paddle/phi/api/lib/api_gen_utils.h"
@@ -31,6 +29,8 @@ limitations under the License. */
 #include "paddle/phi/infermeta/nullary.h"
 #include "paddle/phi/infermeta/unary.h"
 
+#include "paddle/phi/api/backward/backward_api.h"
+#include "paddle/phi/api/include/api.h"
 #include "paddle/phi/api/profiler/event_tracing.h"
 #include "paddle/phi/api/profiler/supplement_tracing.h"
 #ifdef PADDLE_WITH_DISTRIBUTE
@@ -44,8 +44,7 @@ COMMON_DECLARE_bool(benchmark);
 namespace paddle::experimental {
 
 ////////////////// Forward api impls //////////////////////
-
-Tensor add_n_impl(const std::vector<Tensor>& x) {
+PADDLE_API Tensor add_n(const std::vector<Tensor>& x) {
   Backend kernel_backend = Backend::UNDEFINED;
   DataLayout kernel_layout = DataLayout::UNDEFINED;
   DataType kernel_data_type = DataType::UNDEFINED;
@@ -222,14 +221,14 @@ Tensor add_n_impl(const std::vector<Tensor>& x) {
   return api_output;
 }
 
-Tensor copy_to_impl(const Tensor& x, Place place, bool blocking) {
+PADDLE_API Tensor copy_to(const Tensor& x, const Place& place, bool blocking) {
   Tensor out;
   copy(x, place, blocking, &out);
   out.set_name(x.name());
   return out;
 }
 
-std::tuple<Tensor, Tensor> fused_gemm_epilogue_impl(
+PADDLE_API std::tuple<Tensor, Tensor> fused_gemm_epilogue(
     const Tensor& x,
     const Tensor& y,
     const Tensor& bias,
@@ -339,24 +338,24 @@ std::tuple<Tensor, Tensor> fused_gemm_epilogue_impl(
 
 // weight_list.size() should be weight_list.get_ptr()->size() but can't modify
 // yaml file
-std::tuple<Tensor, Tensor, Tensor, std::vector<Tensor>> cudnn_lstm_grad_impl(
-    const Tensor& x,
-    const Tensor& init_h,
-    const Tensor& init_c,
-    const paddle::optional<std::vector<Tensor>>& weight_list,
-    const paddle::optional<Tensor>& sequence_length,
-    const Tensor& out,
-    const Tensor& reserve,
-    const Tensor& state_out,
-    const Tensor& out_grad,
-    const Tensor& last_h_grad,
-    const Tensor& last_c_grad,
-    float dropout_prob,
-    bool is_bidirec,
-    int hidden_size,
-    int num_layers,
-    bool is_test,
-    int seed) {
+PADDLE_API std::tuple<Tensor, Tensor, Tensor, std::vector<Tensor>>
+cudnn_lstm_grad(const Tensor& x,
+                const Tensor& init_h,
+                const Tensor& init_c,
+                const paddle::optional<std::vector<Tensor>>& weight_list,
+                const paddle::optional<Tensor>& sequence_length,
+                const Tensor& out,
+                const Tensor& reserve,
+                const Tensor& state_out,
+                const Tensor& out_grad,
+                const Tensor& last_h_grad,
+                const Tensor& last_c_grad,
+                float dropout_prob,
+                bool is_bidirec,
+                int hidden_size,
+                int num_layers,
+                bool is_test,
+                int seed) {
   // Kernel Key Construction
   Backend kernel_backend = Backend::UNDEFINED;
   DataLayout kernel_layout = DataLayout::UNDEFINED;
@@ -1054,14 +1053,23 @@ std::tuple<Tensor, Tensor, Tensor, std::vector<Tensor>> cudnn_lstm_grad_impl(
   return api_output;
 }
 
+PADDLE_API Tensor embedding_grad(const Tensor& x,
+                                 const Tensor& weight,
+                                 const Tensor& out_grad,
+                                 int64_t padding_idx,
+                                 bool sparse) {
+  Tensor weight_grad;
+  embedding_grad(x, weight, out_grad, padding_idx, sparse, &weight_grad);
+  return weight_grad;
+}
 ////////////////// Backward(grad) api impls //////////////////////
 
-void embedding_grad_impl(const Tensor& x,
-                         const Tensor& weight,
-                         const Tensor& out_grad,
-                         int64_t padding_idx,
-                         bool sparse,
-                         Tensor* weight_grad) {
+PADDLE_API void embedding_grad(const Tensor& x,
+                               const Tensor& weight,
+                               const Tensor& out_grad,
+                               int64_t padding_idx,
+                               bool sparse,
+                               Tensor* weight_grad) {
   DataType kernel_data_type = ParseDataType(weight);
   auto kernel_key_set = ParseKernelKeyByInputArgs(weight);
   auto kernel_key = kernel_key_set.GetHighestPriorityKernelKey();

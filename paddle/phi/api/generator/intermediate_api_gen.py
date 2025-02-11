@@ -15,7 +15,7 @@
 import argparse
 
 import yaml
-from api_gen import ForwardAPI, backward_api_black_list
+from api_gen import ForwardAPI, backward_api_black_list, manual_api_list
 from dist_api_gen import DistForwardAPI
 from sparse_api_gen import SparseAPI
 
@@ -39,7 +39,6 @@ def source_include(header_file_path):
 #include "glog/logging.h"
 #include "paddle/common/flags.h"
 
-#include "paddle/phi/api/lib/api_custom_impl.h"
 #include "paddle/phi/api/lib/api_gen_utils.h"
 #include "paddle/phi/api/lib/data_transform.h"
 #include "paddle/phi/api/lib/kernel_dispatch.h"
@@ -144,7 +143,8 @@ def generate_intermediate_api(
             continue
         if sparse_api.is_dygraph_api:
             dygraph_header_file.write(sparse_api.gene_api_declaration())
-            dygraph_source_file.write(sparse_api.gene_api_code())
+            if sparse_api.api not in manual_api_list:
+                dygraph_source_file.write(sparse_api.gene_api_code())
 
     dygraph_header_file.write(sparse_namespace_pair[1])
     dygraph_header_file.write(namespace[1])

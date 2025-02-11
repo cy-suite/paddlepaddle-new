@@ -503,7 +503,6 @@ def source_include(header_file_path, fw_header_file_path):
 #include "glog/logging.h"
 #include "paddle/common/flags.h"
 
-#include "paddle/phi/api/lib/api_custom_impl.h"
 #include "paddle/phi/api/lib/api_gen_utils.h"
 #include "paddle/phi/api/lib/data_transform.h"
 #include "paddle/phi/api/lib/kernel_dispatch.h"
@@ -598,9 +597,7 @@ def generate_backward_api(
     for bw_api in bw_apis:
         dist_bw_api = DistBackwardAPI(bw_api)
         header_file.write(dist_bw_api.gene_api_declaration())
-        if is_fused_backward_yaml is True:
-            source_file.write(dist_bw_api.gene_api_code())
-        else:
+        if dist_bw_api.api not in ["embedding_grad"]:
             source_file.write(dist_bw_api.gene_api_code())
 
     header_file.write(namespace[1])

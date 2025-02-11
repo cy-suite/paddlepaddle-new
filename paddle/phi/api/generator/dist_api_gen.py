@@ -24,7 +24,7 @@ from api_gen import (
     backward_api_black_list,
     declare_extension_api,
     header_include,
-    manual_impl,
+    manual_api_list,
     source_include,
 )
 
@@ -2126,10 +2126,8 @@ def generate_api(
             dist_forward_api.is_dygraph_api = True
 
         header_file.write(dist_forward_api.gene_api_declaration())
-        if dist_forward_api.api not in ["embedding_grad", "cudnn_lstm_grad"]:
+        if dist_forward_api.api not in manual_api_list:
             source_file.write(dist_forward_api.gene_api_code())
-    if not is_fused_ops_yaml:
-        source_file.write(manual_impl)
 
     header_file.write(namespace[1])
     source_file.write(namespace[1])
