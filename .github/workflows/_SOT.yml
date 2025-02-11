@@ -113,11 +113,10 @@ jobs:
         rm Paddle.tar.gz
         git config --global user.name PaddleCI
         git config --global user.email paddle_ci@example.com
-        git remote add upstream https://github-actions:${GITHUB_TOKEN}@github.com/PaddlePaddle/Paddle.git
+        git remote add upstream https://github.com/PaddlePaddle/Paddle.git
         proxy=$(cat ../proxy)
         export http_proxy=${proxy}
         export https_proxy=${proxy}
-        echo $http_proxy
         git remote -v
         git checkout develop
         git_code=1
@@ -127,7 +126,7 @@ jobs:
         git merge develop
         '
       env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_TOKEN: ${TEST_TIAN}
 
     - name: Configure cache and ccache
       run: |
