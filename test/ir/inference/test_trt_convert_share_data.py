@@ -97,15 +97,9 @@ class TrtConvertShareDataTest(TrtLayerAutoScanTest):
             self.dynamic_shape.max_input_shape = {"input_data": [1]}
             self.dynamic_shape.opt_input_shape = {"input_data": [1]}
         else:
-            self.dynamic_shape.min_input_shape = {
-                "input_data": [1, 3, 64, 64]
-            }
-            self.dynamic_shape.max_input_shape = {
-                "input_data": [1, 3, 64, 64]
-            }
-            self.dynamic_shape.opt_input_shape = {
-                "input_data": [1, 3, 64, 64]
-            }
+            self.dynamic_shape.min_input_shape = {"input_data": [1, 3, 64, 64]}
+            self.dynamic_shape.max_input_shape = {"input_data": [1, 3, 64, 64]}
+            self.dynamic_shape.opt_input_shape = {"input_data": [1, 3, 64, 64]}
         return self.dynamic_shape
 
     def sample_predictor_configs(
