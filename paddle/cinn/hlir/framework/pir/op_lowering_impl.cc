@@ -271,28 +271,31 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
     std::vector<ir::Tensor>* infer_shape_arg_tensor) {
   // Help func for lonnglong2int pass.
   std::vector<ir::Expr> inputs_element_size;
-  auto judge_dynamic = [&](std::vector<cinn::ir::Expr> loops) {
+  auto judge_dynamic = [](const std::vector<cinn::ir::Expr>& loops) {
     for (const auto& loop : loops) {
       if (!loop.is_constant()) return true;
     }
     return false;
   };
-  auto get_element_size = [&](std::vector<cinn::ir::Expr> loops) {
+  auto get_element_size = [](const std::vector<cinn::ir::Expr>& loops) {
     ir::Expr elems_num(1);
     for (const auto& loop : loops) {
       elems_num = ir::Mul::Make(elems_num, loop);
     }
     return cinn::optim::ArithSimplify(elems_num);
   };
-  auto deal_perdicate_cond = [&](ir::Expr max_output_size) {
+  auto deal_perdicate_cond = [&](const ir::Expr& max_output_size) {
     ir::Expr pred_longlong2int = ir::Expr(true);
+    std::unordered_set<ir::Expr> perd_set;
     for (const auto& size : inputs_element_size) {
-      if (!size.is_constant()) {
+      if (!size.is_constant() && perd_set.count(size) == 0) {
         pred_longlong2int = ir::And::Make(
             pred_longlong2int, ir::LE::Make(size, ir::Expr(INT32_MAX)));
+        perd_set.insert(size);
       }
     }
-    if (!max_output_size.is_constant()) {
+    if (!max_output_size.is_constant() &&
+        perd_set.count(max_output_size) == 0) {
       pred_longlong2int =
           ir::And::Make(pred_longlong2int,
                         ir::LE::Make(max_output_size, ir::Expr(INT32_MAX)));
@@ -304,6 +307,7 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
          std::vector<cinn::ir::Argument>& args) {
         for (auto& arg : args) {
           if (arg.is_var() && symbol_args_set.count(arg.name()) != 0) {
+            arg.set_var(ir::ir_utils::IRCopy(arg.var_arg()));
             arg.var_arg()->set_type(cinn::common::Int(32));
           }
         }
@@ -328,9 +332,6 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
     if (FLAGS_cinn_longlong2int) {
       inputs_element_size.push_back(get_element_size(arg_tensor->shape));
     }
-    VLOG(4) << "input shape" << cinn::utils::Join(arg_tensor->shape, ", ");
-    VLOG(4) << "input sym shape"
-            << cinn::utils::Join(arg_tensor->sym_shape, ", ");
     arg_name_set.insert(arg_tensor->buffer->name);
   }
 
@@ -484,6 +485,7 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
         ir::LoweredFunc func_copied = ir::ir_utils::IRCopy(func);
         // set lowered_func's symbol args to int32 type
         deal_func_args(symbol_args_set, func_copied->args);
+
         ir::Expr predicates_copied = ir::ir_utils::IRCopy(predicates[i]);
 
         // Deal longlong2int predicates, calculate all elements size.
@@ -500,10 +502,10 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
 
         ir::stmt::BlockRef block =
             ir::ConvertExprBlockToStmtBlock(func_copied->body);
-        VLOG(10) << "Before CastLonglong2Int: \n" << block;
+        VLOG(6) << "Before CastLonglong2Int In Dynamic Branch: \n" << block;
 
         optim::TryCastLonglong2Int(block, /*enforce_cast*/ true);
-        VLOG(10) << "After CastLonglong2Int: \n" << block;
+        VLOG(6) << "After CastLonglong2Int In Dynamic Branch: \n" << block;
         func_copied->body = ir::ConvertStmtBlockToExprBlock(block);
 
         // Add int32 func and predicate. int64 branch is handled by default.
@@ -530,10 +532,10 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
         }();
 
         ir::stmt::BlockRef block = ir::ConvertExprBlockToStmtBlock(func->body);
-        VLOG(10) << "Before CastLonglong2Int: \n" << block;
+        VLOG(6) << "Before CastLonglong2Int In Static Branch: \n" << block;
         optim::TryCastLonglong2Int(block,
                                    /*enforce_cast*/ can_cast);
-        VLOG(10) << "After CastLonglong2Int: \n" << block;
+        VLOG(6) << "After CastLonglong2Int In Static Branch: \n" << block;
         func->body = ir::ConvertStmtBlockToExprBlock(block);
       }
     }
