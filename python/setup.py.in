@@ -1181,7 +1181,7 @@ headers = (
     list(find_files('*.h','@PADDLE_SOURCE_DIR@/paddle/fluid/pir/dialect/operator/utils/'))+
     list(find_files('*.h','@PADDLE_SOURCE_DIR@/paddle/fluid/pir/dialect/kernel/ir/'))+
     list(find_files('*.h','@PADDLE_SOURCE_DIR@/paddle/pir/include/core/'))+
-    list(find_files('pd_op_to_kernel_pass.h','@PADDLE_SOURCE_DIR@/paddle/fluid/pir/transformers/'))+
+    list(find_files('pd_op_to_kernel_pass.h','@PADDLE_SOURCE_DIR@/paddle/fluid/pir/transforms/'))+
     #custom_engine
     list(find_files('custom_engine_ext.h','@PADDLE_SOURCE_DIR@/paddle/fluid/custom_engine/'))+
     #new_executor headers
