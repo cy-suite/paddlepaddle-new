@@ -123,7 +123,7 @@ jobs:
         git_code=1
         # set +e
         set -x
-        # git pull upstream develop
+        git pull origin develop
         echo \$?
         # if [ $? -eq 0 ]; then
         #   git_code=0
@@ -143,7 +143,7 @@ jobs:
         #   fi
         # fi
         # set -e
-        git fetch upstream develop
+        git fetch origin develop
         git checkout test
         git merge develop
         "

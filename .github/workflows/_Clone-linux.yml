@@ -24,7 +24,6 @@ jobs:
     - name: Clone paddle
       uses: actions/checkout@v4
       with:
-        token: ''
         ref: ${{ github.event.pull_request.base.ref }}
         submodules: 'recursive'
         fetch-depth: 1000
