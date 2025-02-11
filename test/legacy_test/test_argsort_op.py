@@ -169,7 +169,7 @@ class TestArgsortZeroSize2(TestArgsort):
 
 class TestArgsortZeroSize3(TestArgsort):
     def init(self):
-        self.input_shape = [2, 0, 4]
+        self.input_shape = [0, 3]
         self.axis = 1
 
 
