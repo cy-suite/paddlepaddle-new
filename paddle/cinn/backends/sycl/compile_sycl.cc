@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/cinn/backends/sycl/compiler_sycl.h"
+#include "paddle/cinn/backends/sycl/compile_sycl.h"
 #include <sys/stat.h>  // for mkdir
 #include <fstream>
 #include "paddle/cinn/runtime/sycl/sycl_backend_api.h"
@@ -47,10 +47,9 @@ std::string Compiler::CompileToSo(const std::string& source_code,
                       ::common::errors::Fatal(
                           "SYCL backends error ! Fail to mkdir " + prefix_dir));
   }
-  // get unqiue file_path
+  // get unique file_path
   compile_num++;
-  std::string filename =
-      prefix_dir + "/" + common::UniqName("sycl");
+  std::string filename = prefix_dir + "/" + common::UniqName("sycl");
   source_file_path = filename + ".cc";
   shared_lib_path = filename + ".so";
   // write source file
