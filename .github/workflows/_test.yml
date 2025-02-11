@@ -1,0 +1,30 @@
+name: Clone-linux
+
+on:
+  workflow_call:
+
+permissions: read-all
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  PR_ID: ${{ github.event.pull_request.number }}
+  COMMIT_ID: ${{ github.event.pull_request.head.sha }}
+
+jobs:
+  Clone:
+    # Don't run  on forked repos.
+    if: github.repository_owner == 'PaddlePaddle'
+    runs-on:
+      group: HK-Clone
+
+    steps:
+    - name: Clone paddle
+      uses: actions/checkout@v4
+      with:
+        token: ''
+        ref: ${{ github.event.pull_request.base.ref }}
+        submodules: 'recursive'
+        fetch-depth: 1000
