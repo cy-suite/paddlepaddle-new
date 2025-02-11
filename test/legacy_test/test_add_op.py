@@ -1,4 +1,4 @@
-# Copyright (c) 2020 PaddlePaddle Authors. All Rights Reserved.
+# Copyright (c) 2025 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import paddle
 from paddle import base, static
 
 
-class TestSubtractAPI(unittest.TestCase):
+class TestAddAPI(unittest.TestCase):
     def setUp(self):
         self.places = []
         self.places.append(paddle.CPUPlace())
@@ -30,6 +30,7 @@ class TestSubtractAPI(unittest.TestCase):
             self.places.append(paddle.CUDAPlace(0))
 
         self.dtypes = [
+            'uint8',
             'int8',
             'int16',
             'int32',
@@ -75,11 +76,11 @@ class TestSubtractAPI(unittest.TestCase):
             for shape, dtype in itertools.product(self.shapes, self.dtypes):
                 x_np = self.generate_random_data(shape[0], dtype)
                 y_np = self.generate_random_data(shape[1], dtype)
-                expected = np.subtract(x_np, y_np)
+                expected = np.add(x_np, y_np)
                 for place in self.places:
                     x = paddle.to_tensor(x_np, dtype=dtype, place=place)
                     y = paddle.to_tensor(y_np, dtype=dtype, place=place)
-                    result = paddle.subtract(x, y)
+                    result = paddle.add(x, y)
                     np.testing.assert_allclose(
                         result, expected, rtol=1e-05, atol=1e-05
                     )
@@ -89,7 +90,7 @@ class TestSubtractAPI(unittest.TestCase):
             for shape, dtype in itertools.product(self.shapes, self.dtypes):
                 x_np = self.generate_random_data(shape[0], dtype)
                 y_np = self.generate_random_data(shape[1], dtype)
-                expected = np.subtract(x_np, y_np)
+                expected = np.add(x_np, y_np)
                 for place in self.places:
                     with static.program_guard(
                         static.Program(), static.Program()
@@ -100,7 +101,7 @@ class TestSubtractAPI(unittest.TestCase):
                         y = paddle.static.data(
                             name="y", shape=shape[1], dtype=dtype
                         )
-                        result = paddle.subtract(x, y)
+                        result = paddle.add(x, y)
                         exe = base.Executor(place=place)
                         fetches = exe.run(
                             feed={"x": x_np, "y": y_np},
