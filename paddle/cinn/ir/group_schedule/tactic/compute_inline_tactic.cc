@@ -18,7 +18,6 @@
 #include <vector>
 
 #include "paddle/cinn/ir/ir.h"
-#include "paddle/cinn/ir/ir_analyzer/ir_analyzer.h"
 #include "paddle/cinn/ir/ir_printer.h"
 #include "paddle/cinn/ir/schedule/ir_schedule.h"
 #include "paddle/cinn/ir/schedule/ir_schedule_util.h"
@@ -171,6 +170,47 @@ bool ContainsNodeType(ir::Expr expr,
       });
   return !collection.empty();
 }
+
+// TODO(Hongqing-work): IndicesToVars and AnalyzeScheduleBlockReadWriteBuffer in
+// ir_analyzer.cc will cause error here, so we temporarily keep the old version
+// of code from auto_schedule analyze_ir.cc and fix it later.
+std::vector<ir::Var> IndicesToVars(const std::vector<ir::Expr>& indices) {
+  std::vector<ir::Var> result;
+  for (const ir::Expr& e : indices) {
+    // Whether we have to convert other types, like const numbers to Var?
+    if (e.As<ir::_Var_>() != nullptr) {
+      ir::Expr copy_e = ir::ir_utils::IRCopy(e);
+      ir::_Var_* var_ref = copy_e.As<ir::_Var_>();
+      result.emplace_back(ir::Var(var_ref));
+    }
+  }
+  return result;
+}
+
+void AnalyzeScheduleBlockReadWriteBuffer(ir::ScheduleBlock* sche_block) {
+  if (!sche_block->read_buffers.empty() || !sche_block->write_buffers.empty()) {
+    return;
+  }
+
+  ir::ir_utils::CollectIRNodesWithoutTensor(
+      sche_block->body, [&](const Expr* x) {
+        const ir::Load* load_expr = x->As<ir::Load>();
+        if (load_expr != nullptr) {
+          const ir::Tensor t = load_expr->tensor.as_tensor_ref();
+          sche_block->read_buffers.emplace_back(
+              ir::BufferRange(t->buffer, IndicesToVars(load_expr->indices)));
+          return false;
+        }
+        const ir::Store* store_expr = x->As<ir::Store>();
+        if (store_expr != nullptr) {
+          const ir::Tensor t = store_expr->tensor.as_tensor_ref();
+          sche_block->write_buffers.emplace_back(
+              ir::BufferRange(t->buffer, IndicesToVars(store_expr->indices)));
+          return false;
+        }
+        return false;
+      });
+}
 }  // namespace
 
 AutoInlineType ComputeInlineTactic::AnalyzeInlineType(
@@ -220,7 +260,7 @@ void ComputeInlineTactic::Apply(ir::IRSchedule* sch,
       ::common::errors::InvalidArgument(
           "stmt is not a ScheduleBlockRealize: %s", schedule_block));
 
-  analyzer::AnalyzeScheduleBlockReadWriteBuffer(
+  AnalyzeScheduleBlockReadWriteBuffer(
       block_realize->schedule_block.As<ir::ScheduleBlock>());
   AutoInlineType type = AnalyzeInlineType(schedule_block, sch);
 
@@ -246,7 +286,7 @@ void ComputeInlineTactic::Apply(ir::IRSchedule* sch,
         sche_block_realize->schedule_block.As<ir::ScheduleBlock>();
     sche_block->read_buffers = {};
     sche_block->write_buffers = {};
-    analyzer::AnalyzeScheduleBlockReadWriteBuffer(sche_block);
+    AnalyzeScheduleBlockReadWriteBuffer(sche_block);
   }
   VLOG(6) << "try ComputeInline on: " << block_id
           << ", after ComputeInline, func body: "
