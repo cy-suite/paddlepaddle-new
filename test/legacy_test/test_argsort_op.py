@@ -155,6 +155,30 @@ class TestArgsort4(TestArgsort):
         self.axis = 1
 
 
+class TestArgsortZeroSize(TestArgsort):
+    def init(self):
+        self.input_shape = [0, 3]
+        self.axis = 0
+
+
+class TestArgsortZeroSize2(TestArgsort):
+    def init(self):
+        self.input_shape = [2, 0, 4]
+        self.axis = 0
+
+
+class TestArgsortZeroSize3(TestArgsort):
+    def init(self):
+        self.input_shape = [2, 0, 4]
+        self.axis = 1
+
+
+class TestArgsortZeroSize4(TestArgsort):
+    def init(self):
+        self.input_shape = [2, 0, 4]
+        self.axis = 1
+
+
 class TestStableArgsort(unittest.TestCase):
     def init(self):
         self.input_shape = [
