@@ -127,7 +127,7 @@ jobs:
         echo \$?
         # if [ $? -eq 0 ]; then
         #   git_code=0
-        #   echo 'git pull succeed with1'
+        #   echo  'git pull succeed with1'
         # else
         #   proxy=${{ vars.PADDLE_PROXY }}
         #   echo \"::add-mask::$proxy\"
