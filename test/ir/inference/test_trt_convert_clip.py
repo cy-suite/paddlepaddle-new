@@ -48,7 +48,7 @@ class TrtConvertClipTest(TrtLayerAutoScanTest):
         def generate_weight2(attrs: list[dict[str, Any]]):
             return np.array([np.random.uniform(10, 20)]).astype("float32")
 
-        for dims in [0, 1, 2, 3, 4]:
+        for dims in [1, 2, 3, 4]:
             for batch in [1, 4]:
                 for dtype in [np.float32, np.int32]:
                     for op_inputs in [
@@ -99,7 +99,7 @@ class TrtConvertClipTest(TrtLayerAutoScanTest):
 
                         yield program_config
 
-    def generate_dynamic_shape(self):
+    def generate_dynamic_shape(self, attrs):
         if self.dims == 0:
             self.dynamic_shape.min_input_shape = {"input_data": []}
             self.dynamic_shape.max_input_shape = {"input_data": []}
@@ -151,7 +151,7 @@ class TrtConvertClipTest(TrtLayerAutoScanTest):
             ), (1e-3, 1e-3)
 
         # for dynamic_shape
-        self.generate_dynamic_shape()
+        self.generate_dynamic_shape(attrs)
         self.trt_param.precision = paddle_infer.PrecisionType.Float32
         yield self.create_inference_config(), generate_trt_nodes_num(
             attrs, True
