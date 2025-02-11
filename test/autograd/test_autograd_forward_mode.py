@@ -33,6 +33,18 @@ class TestFWDContext(unittest.TestCase):
             paddle.autograd.forward_mode._current_level == -1
         ), "The current dual level should be -1."
 
+    def test_dual_tensor_deconstruct(self):
+        x = paddle.randn([10, 10])
+        with paddle.autograd.dual_level():
+            x_t = paddle.randn(x.shape)
+            x_dual = paddle.autograd.make_dual(x, x_t)
+            x_p, x_t = paddle.autograd.unpack_dual(x_dual)
+            self.assertIsInstance(x_p, paddle.Tensor)
+            self.assertIsInstance(x_t, paddle.Tensor)
+        x_p, x_t = paddle.autograd.unpack_dual(x_dual)
+        self.assertIsInstance(x_p, paddle.Tensor)
+        self.assertTrue(x_t is None)
+
     def test_reverse_on_forward(self):
         x = paddle.randn([100, 100])
         x.stop_gradient = False
