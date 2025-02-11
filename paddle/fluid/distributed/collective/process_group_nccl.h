@@ -270,10 +270,10 @@ class ProcessGroupNCCL final : public ProcessGroupWithStream {
   std::vector<std::pair<std::weak_ptr<phi::Allocation>, gpuStream_t>>
       allocation_stream_pairs_;
 
-  // For colaescing tensors processing (eg. batch_isend_irecv)
+  // For coalescing tensors processing (eg. batch_isend_irecv)
   bool is_coalescing_{false};
-  std::vector<std::shared_ptr<phi::DenseTensor>> colaescing_tensors_;
-  std::vector<std::string> colaescing_place_keys_;
+  std::vector<std::shared_ptr<phi::DenseTensor>> coalescing_tensors_;
+  std::vector<std::string> coalescing_place_keys_;
 };
 
 }  //  namespace distributed
