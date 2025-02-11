@@ -100,6 +100,7 @@ jobs:
           -e CCACHE_MAXSIZE \
           -e CCACHE_LIMIT_MULTIPLE \
           -e GITHUB_TOKEN \
+          -e GITHUB_ENV \
           -w /home/gushiwei/actions-runner/_work/Paddle/Paddle --network host ${docker_image}
       # working_directory: ./tools/dockerfile/
 
@@ -118,7 +119,6 @@ jobs:
         # export http_proxy=\${proxy}
         # export https_proxy=\${proxy}
         set -x
-        git remote -v
         git checkout develop
         git_code=1
         # set +e
