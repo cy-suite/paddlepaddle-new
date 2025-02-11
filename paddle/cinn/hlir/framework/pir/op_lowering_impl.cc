@@ -335,11 +335,6 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
   // update args for dynamic dim
   int non_tensor_arg_idx = group_func_args->size();
 
-  std::vector<ir::Argument> group_func_args_int32;
-  for (const auto& arg : *group_func_args) {
-    group_func_args_int32.emplace_back(arg);
-  }
-
   std::unordered_set<std::string> symbol_args_set;
   for (int tensor_arg_idx = 0; tensor_arg_idx < input_tensor_size;
        tensor_arg_idx++) {
@@ -358,8 +353,6 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
           symbol_args_set.insert(symbol_name);
           group_func_args->emplace_back(
               ir::_Var_::Make(symbol_name, cinn::common::Int(64)));
-          group_func_args_int32.emplace_back(
-              ir::_Var_::Make(symbol_name, cinn::common::Int(32)));
           group->mut_symbol_args_map()[non_tensor_arg_idx++] =
               CINNKernelInfo::ArgDimIdx{tensor_arg_idx, tensor_arg_dim_idx};
           VLOG(4) << "device kernel func's " << symbol_name << " is from "
@@ -382,8 +375,6 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
             symbol_args_set.insert(symbol_name);
             group_func_args->emplace_back(
                 ir::_Var_::Make(symbol_name, cinn::common::Int(64)));
-            group_func_args_int32.emplace_back(
-                ir::_Var_::Make(symbol_name, cinn::common::Int(32)));
             group->mut_symbol_args_map()[non_tensor_arg_idx++] =
                 CINNKernelInfo::ArgValueIdx{tensor_arg_idx, value_idx};
             VLOG(4) << "device kernel func's " << symbol_name << " is from "
@@ -438,8 +429,12 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
     if (FLAGS_cinn_longlong2int && i != func_bodies.size() - 1) {
       if (fusion_group_info->is_dynamic) {
         ir::LoweredFunc func_copied = ir::ir_utils::IRCopy(func);
-        // set lowered_func's args to int32 type
-        func_copied->args = group_func_args_int32;
+        // set lowered_func's symbol args to int32 type
+        for (auto& arg : func_copied->args) {
+          if (arg.is_var() && symbol_args_set.count(arg.name()) != 0) {
+            arg.var_arg()->set_type(cinn::common::Int(32));
+          }
+        }
         ir::Expr predicates_copied = ir::ir_utils::IRCopy(predicates[i]);
 
         ir::Expr elems_num(1);
