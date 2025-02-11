@@ -21,6 +21,7 @@ limitations under the License. */
 #include "glog/logging.h"
 
 #include "paddle/common/ddim.h"
+#include "paddle/fluid/eager/api/generated/eager_generated/forwards/dygraph_functions.h"
 #include "paddle/fluid/eager/autograd_meta.h"
 #include "paddle/phi/api/include/context_pool.h"
 #include "paddle/phi/api/lib/data_transform.h"
@@ -634,7 +635,7 @@ const Tensor &Tensor::_fw_primal(int64_t level) const {
   //   // End modified from original codegen
   // }
   // return result;
-  return this->autograd_meta_->fw_grad(level, *this);
+  // return this->autograd_meta_->fw_grad(level, *this);
 }
 
 }  // namespace paddle

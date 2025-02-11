@@ -48,8 +48,8 @@ void scale_jvp(const paddle::Tensor& x_p,
                bool bias_after_scale,
                paddle::Tensor* out_t);
 
-void tanh_jvp(const paddle::Tensor& x_p,
-              const paddle::Tensor& x_t,
+void tanh_jvp(const paddle::Tensor& x_t,
+              const paddle::Tensor& out_p,
               paddle::Tensor* out_t);
 
 void concat_jvp(const std::vector<paddle::Tensor>& x_ts,

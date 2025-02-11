@@ -41,10 +41,10 @@ void scale_jvp(const paddle::Tensor& x_p,
   *out_t = scale_ad_func(x_p, scale, 0, false);
 }
 
-void tanh_jvp(const paddle::Tensor& x_p,
-              const paddle::Tensor& x_t,
+void tanh_jvp(const paddle::Tensor& x_t,
+              const paddle::Tensor& out_p,
               paddle::Tensor* out_t) {
-  paddle::prim::tanh_grad<paddle::Tensor>(x_p, x_t, out_t);
+  paddle::prim::tanh_grad<paddle::Tensor>(out_p, x_t, out_t);
 }
 
 void concat_jvp(const std::vector<paddle::Tensor>& x_ts,
