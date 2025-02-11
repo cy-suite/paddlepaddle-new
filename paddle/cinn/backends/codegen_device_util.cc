@@ -187,7 +187,7 @@ detail::CollectBucketStrategyHostFunctionVisitor::GenDeviceKernelName(
   // NOTE(chenxi67): The kernel name is too long to be supported in cuda12.3 so
   // we need to curtail it.
   const std::string new_fn_name = CurTailFnName(fn_name);
-  return new_fn_name + "__COND_" + cond_str + "__kernel";
+  return new_fn_name + "_COND_" + cond_str + "__kernel";
 }
 
 void detail::CollectBucketStrategyHostFunctionVisitor::ProcessLoweredFunc(
