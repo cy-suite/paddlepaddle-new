@@ -30,6 +30,8 @@ jobs:
 
     - name: Merge PR to test branch
       run: |
+        git config --unset http.https://github.com/.extraheader
+        git config --global --unset http.https://github.com/.extraheader
         git switch develop
         set +e
         git branch -D test
