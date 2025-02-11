@@ -27,16 +27,30 @@ class TestCollectiveReduceAPI(test_base.TestCollectiveAPIRunnerBase):
         self.global_ring_id = 0
 
     def get_model(self, main_prog, startup_program, rank, indata=None):
-        with base.program_guard(main_prog, startup_program):
-            # NOTE: this is a hack relying on an undocumented behavior that `to_tensor` uses uint16 to replace bfloat16
-            if indata.dtype == "bfloat16":
-                tindata = paddle.to_tensor(indata, "float32").cast("uint16")
-                dist.reduce(tindata, dst=0)
-                return [tindata.cast("float32").numpy()]
-            else:
-                tindata = paddle.to_tensor(indata)
-                dist.reduce(tindata, dst=0)
-                return [tindata.numpy()]
+        if self.backend == 'ucc':
+            with base.program_guard(main_prog, startup_program):
+                # NOTE: this is a hack relying on an undocumented behavior that `to_tensor` uses uint16 to replace bfloat16
+                if indata.dtype == "bfloat16":
+                    tindata = paddle.to_tensor(
+                        indata, "float32", place=paddle.CPUPlace()
+                    ).cast("uint16")
+                    dist.reduce(tindata, dst=0)
+                    return [tindata.cast("float32").numpy()]
+                else:
+                    tindata = paddle.to_tensor(indata, place=paddle.CPUPlace())
+                    dist.reduce(tindata, dst=0)
+                    return [tindata.numpy()]
+        else:
+            with base.program_guard(main_prog, startup_program):
+                # NOTE: this is a hack relying on an undocumented behavior that `to_tensor` uses uint16 to replace bfloat16
+                if indata.dtype == "bfloat16":
+                    tindata = paddle.to_tensor(indata, "float32").cast("uint16")
+                    dist.reduce(tindata, dst=0)
+                    return [tindata.cast("float32").numpy()]
+                else:
+                    tindata = paddle.to_tensor(indata)
+                    dist.reduce(tindata, dst=0)
+                    return [tindata.numpy()]
 
 
 if __name__ == "__main__":
