@@ -121,8 +121,8 @@ jobs:
         git remote -v
         git checkout develop
         git_code=1
-        git pull upstream develop
-        git fetch upstream develop
+        git pull origin develop
+        git fetch origin develop
         git checkout test
         git merge develop
         '
