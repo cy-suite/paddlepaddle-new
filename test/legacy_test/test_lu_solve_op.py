@@ -28,7 +28,7 @@ from paddle.base import core
 class TestSolveOpAPI_1(unittest.TestCase):
     def setUp(self):
         self.A = paddle.to_tensor([[2, 5],[4, 8]], dtype='float32')
-        self.b = paddle.to_tensor([[1, 1],[2, 2]], dtype='float32')
+        self.b = paddle.to_tensor([[1, 1],[1, 1]], dtype='float32')
         self.LU, self.pivots = paddle.linalg.lu(self.A)
         self.place = []
         self.place.append(base.CPUPlace())
@@ -41,8 +41,6 @@ class TestSolveOpAPI_1(unittest.TestCase):
             paddle.disable_static(place)
             lu_solve_x = paddle.linalg.lu_solve(self.b, self.LU, self.pivots)
             solve_x = paddle.linalg.solve(self.A, self.b)
-
-            
             np.testing.assert_allclose(
                 lu_solve_x.numpy(), solve_x.numpy(), rtol=1e-05
             )
