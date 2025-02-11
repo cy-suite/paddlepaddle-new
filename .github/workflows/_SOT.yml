@@ -123,7 +123,7 @@ jobs:
         git_code=1
         # set +e
         set -x
-        git pull upstream develop
+        # git pull upstream develop
         echo \$?
         # if [ $? -eq 0 ]; then
         #   git_code=0
