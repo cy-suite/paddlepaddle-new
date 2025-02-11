@@ -165,6 +165,7 @@ jobs:
         PADDLE_ROOT: "/home/gushiwei/actions-runner/_work/Paddle/Paddle"
       run: |
         docker exec -t paddle-CI /bin/bash -c "
+        set -x
         EXCODE=0
         set +e
         PATH=/usr/local/bin:${PATH}
