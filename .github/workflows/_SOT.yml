@@ -115,16 +115,15 @@ jobs:
         git config --global user.name "PaddleCI"
         git config --global user.email "paddle_ci@example.com"
         git remote add upstream https://github.com/PaddlePaddle/Paddle.git
-        # proxy=\$(cat ../proxy)
-        # export http_proxy=\${proxy}
-        # export https_proxy=\${proxy}
+        proxy=\$(cat ../proxy)
+        export http_proxy=\${proxy}
+        export https_proxy=\${proxy}
         set -x
         git checkout develop
         git_code=1
         # set +e
         set -x
         git pull upstream develop
-        echo \$?
         # if [ $? -eq 0 ]; then
         #   git_code=0
         #   echo  'git pull succeed with1'
@@ -173,12 +172,15 @@ jobs:
         PATH=/usr/local/bin:${PATH}
         ln -sf \$(which python3.10) /usr/local/bin/python
         ln -sf \$(which pip3.10) /usr/local/bin/pip
+        git branch
         bash -x \${work_dir}/paddle/scripts/paddle_build_action.sh cicheck_sot;EXCODE=\$?
         echo \$EXCODE
         echo \"EXCODE=$EXCODE\" >> \$GITHUB_ENV
         "
 
     - name: Check result
+      env:
+        EXCODE: ${{ env.EXCODE }}
       run: |
         docker exec -t paddle-CI /bin/bash -c "
         rm -rf * .[^.]*
