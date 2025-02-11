@@ -345,6 +345,7 @@ XPUOpMap& get_kl3_ops() {
                      phi::DataType::INT32,
                      phi::DataType::INT64})},
       {"deformable_conv_grad", XPUKernelSet({phi::DataType::FLOAT32})},
+      {"deformable_conv", XPUKernelSet({phi::DataType::FLOAT32})},
       {"deformable_conv_v1_grad", XPUKernelSet({phi::DataType::FLOAT32})},
       {"deformable_conv_v1", XPUKernelSet({phi::DataType::FLOAT32})},
       {"depthwise_conv2d_grad", XPUKernelSet({phi::DataType::FLOAT32})},
