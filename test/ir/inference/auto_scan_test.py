@@ -923,7 +923,7 @@ class TrtLayerAutoScanTest(AutoScanTest):
                                 prog_config.ops[i].attrs
                                 for i in range(len(prog_config.ops))
                             ]
-                            dynamic_shape = self.generate_dynamic_shape()
+                            dynamic_shape = self.generate_dynamic_shape(attrs)
 
                             main_program_desc, util_program = create_fake_model(
                                 prog_config,
