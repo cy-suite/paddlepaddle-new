@@ -77,7 +77,7 @@ void LuSolveKernel(const Context& dev_ctx,
       "LU solve failed with error code %d. Check if matrix is singular.",
       info));
   }
-  *lu = Transpose2DTo6D<Context, T>(dev_ctx, lu);
+  lu = Transpose2DTo6D<Context, T>(dev_ctx, lu);
   *out = Transpose2DTo6D<Context, T>(dev_ctx, *out);
 }
 }  // namespace phi
