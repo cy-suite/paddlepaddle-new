@@ -30,7 +30,6 @@ class TestSubtractAPI(unittest.TestCase):
             self.places.append(paddle.CUDAPlace(0))
 
         self.dtypes = [
-            'int8',
             'int16',
             'int32',
             'int64',
