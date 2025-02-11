@@ -22,11 +22,12 @@ jobs:
 
     steps:
     - name: Clone paddle
-      uses: actions/checkout@v4
+      uses: XieYunshen/PaddleQACheckout@pull_request_support
       with:
-        #ref: ${{ github.event.pull_request.base.ref }}
-        #submodules: 'recursive'
-        fetch-depth: 1000
+        ref: ${{ github.event.pull_request.base.ref }}
+        submodules: 'recursive'
+        fetch_depth: 1000
+        branch_name: PR${{ github.event.pull_request.number }}
 
     - name: Merge PR to test branch
       run: |
