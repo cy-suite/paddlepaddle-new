@@ -361,7 +361,6 @@ class TestClipTensorCase1(TestClipTensorAPI):
         self.dtype = 'float32'
 
 
-
 class TestClipTensorCase2(TestClipTensorAPI):
     def initCase(self):
         self.x_shape = [10, 1, 10]

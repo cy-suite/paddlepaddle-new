@@ -3748,6 +3748,7 @@ def is_clip_tensor(value):
             return True
     return False
 
+
 def clip(
     x: Tensor,
     min: float | Tensor | None = None,
@@ -3831,13 +3832,11 @@ def clip(
         )
         max_bcast = (
             paddle.broadcast_to(max, out_shape)
-            if max.shape!= out_shape
+            if max.shape != out_shape
             else max
         )
         x_bcast = (
-            paddle.broadcast_to(x, out_shape)
-            if x.shape!= out_shape
-            else x
+            paddle.broadcast_to(x, out_shape) if x.shape != out_shape else x
         )
         if in_dynamic_or_pir_mode():
             return _C_ops.clip_tensor(x_bcast, min_bcast, max_bcast)

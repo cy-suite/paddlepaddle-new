@@ -21,10 +21,10 @@ namespace phi {
 
 template <typename T, dnnl::algorithm BINARY_OP>
 void BinaryFun(const OneDNNContext& dev_ctx,
-                       const DenseTensor& x,
-                       const DenseTensor& y,
-                       int axis,
-                       DenseTensor* out) {
+               const DenseTensor& x,
+               const DenseTensor& y,
+               int axis,
+               DenseTensor* out) {
   const auto& onednn_engine = dev_ctx.GetEngine();
 
   auto* non_const_x = &x;
@@ -122,14 +122,18 @@ void BinaryFun(const OneDNNContext& dev_ctx,
 
 template <typename T, typename Context>
 void ClipTensorKernel(const Context& dev_ctx,
-                const DenseTensor& x,
-                const DenseTensor& min,
-                const DenseTensor& max,
-                DenseTensor* out) {
+                      const DenseTensor& x,
+                      const DenseTensor& min,
+                      const DenseTensor& max,
+                      DenseTensor* out) {
   BinaryFun<T, dnnl::algorithm::binary_max>(dev_ctx, x, min, -1, out);
   BinaryFun<T, dnnl::algorithm::binary_min>(dev_ctx, *out, max, -1, out);
 }
 }  // namespace phi
 
-PD_REGISTER_KERNEL(
-    clip_tensor, OneDNN, ONEDNN, phi::ClipTensorKernel, float, phi::dtype::bfloat16) {}
+PD_REGISTER_KERNEL(clip_tensor,
+                   OneDNN,
+                   ONEDNN,
+                   phi::ClipTensorKernel,
+                   float,
+                   phi::dtype::bfloat16) {}

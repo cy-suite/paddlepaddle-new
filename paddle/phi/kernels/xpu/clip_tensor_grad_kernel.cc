@@ -54,10 +54,10 @@ void ClipTensorGradKernel(const Context& dev_ctx,
   MetaTensor meta_zero(&zero_tensor);
   UnchangedInferMeta(x_grad, &meta_zero);
   phi::FullKernel<T, Context>(dev_ctx,
-                         common::vectorize(x_grad->dims()),
-                         0.0f,
-                         zero_tensor.dtype(),
-                         &zero_tensor);
+                              common::vectorize(x_grad->dims()),
+                              0.0f,
+                              zero_tensor.dtype(),
+                              &zero_tensor);
   phi::WhereKernel<T, Context>(dev_ctx, out, out_grad, zero_tensor, x_grad);
 }
 

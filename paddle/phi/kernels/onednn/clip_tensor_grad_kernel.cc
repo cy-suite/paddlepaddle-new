@@ -15,18 +15,18 @@
 #include "paddle/phi/kernels/clip_tensor_kernel.h"
 
 #include "paddle/phi/backends/onednn/onednn_reuse.h"
-#include "paddle/phi/infermeta/unary.h"
 #include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/infermeta/unary.h"
 #include "paddle/phi/kernels/cast_kernel.h"
 
 namespace phi {
 
 template <typename T, dnnl::algorithm BINARY_OP>
 void BinaryFun(const OneDNNContext& dev_ctx,
-                       const DenseTensor& x,
-                       const DenseTensor& y,
-                       int axis,
-                       DenseTensor* out) {
+               const DenseTensor& x,
+               const DenseTensor& y,
+               int axis,
+               DenseTensor* out) {
   const auto& onednn_engine = dev_ctx.GetEngine();
 
   auto* non_const_x = &x;
@@ -146,11 +146,17 @@ void ClipTensorGradKernel(const Context& dev_ctx,
   phi::DenseTensor mask_zero;
   MetaTensor meta_mask_zero(&mask_zero);
   UnchangedInferMeta(x, &meta_mask_zero);
-  BinaryFun<T, dnnl::algorithm::binary_mul>(dev_ctx, cast_x_ls_min, cast_x_ls_max, -1, &mask_zero);
+  BinaryFun<T, dnnl::algorithm::binary_mul>(
+    dev_ctx, cast_x_ls_min, cast_x_ls_max, -1, &mask_zero);
 
-  BinaryFun<T, dnnl::algorithm::binary_mul>(dev_ctx, mask_zero, out_grad, -1, x_grad);
+  BinaryFun<T, dnnl::algorithm::binary_mul>(
+    dev_ctx, mask_zero, out_grad, -1, x_grad);
 }
 }  // namespace phi
 
-PD_REGISTER_KERNEL(
-    clip_tensor_grad, OneDNN, ONEDNN, phi::ClipTensorGradKernel, float, phi::dtype::bfloat16) {}
+PD_REGISTER_KERNEL(clip_tensor_grad,
+                   OneDNN,
+                   ONEDNN,
+                   phi::ClipTensorGradKernel,
+                   float,
+                   phi::dtype::bfloat16) {}
