@@ -83,7 +83,7 @@ if TYPE_CHECKING:
 
 PD_ALL_CONTAINERS = (paddle.nn.Sequential, paddle.nn.LayerList)
 PD_SEQ_CONTAINERS = (paddle.nn.Sequential, paddle.nn.LayerList)
-PD_NO_SIDE_EFFECT_CLASSES = (
+PD_PURE_CLASSES = (
     paddle.distributed.ProcessMesh,
     paddle.distributed.Shard,
     paddle.distributed.Replicate,
@@ -913,7 +913,7 @@ class PaddleLayerClassVariable(ClassVariable):
         return None
 
 
-class NoSideEffectClassVariable(ClassVariable):
+class PureClassVariable(ClassVariable):
     def __init__(self, class_: type, graph: FunctionGraph, tracker: Tracker):
         super().__init__(class_, graph, tracker)
 
@@ -930,6 +930,6 @@ class NoSideEffectClassVariable(ClassVariable):
 
     @VariableFactory.register_from_value(successor="ClassVariable")
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if inspect.isclass(value) and value in PD_NO_SIDE_EFFECT_CLASSES:
-            return NoSideEffectClassVariable(value, graph, tracker)
+        if inspect.isclass(value) and value in PD_PURE_CLASSES:
+            return PureClassVariable(value, graph, tracker)
         return None

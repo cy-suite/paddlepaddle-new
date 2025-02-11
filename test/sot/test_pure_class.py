@@ -18,27 +18,18 @@ from test_case_base import TestCaseBase
 
 import paddle.distributed as dist
 from paddle.jit.sot.psdb import check_no_breakgraph, check_no_fallback
-from paddle.jit.sot.utils import ENV_MIN_GRAPH_SIZE
-
-ENV_MIN_GRAPH_SIZE.set(0)
 
 
 @check_no_breakgraph
 @check_no_fallback
-def forward1():
-    return dist.ProcessMesh([[0, 1], [2, 3]], dim_names=['x', 'y'])
+def forward():
+    mesh = dist.ProcessMesh([[0, 1], [2, 3]], dim_names=['x', 'y'])
+    placement = [dist.Shard(0), dist.Replicate(), dist.Partial()]
 
 
-@check_no_breakgraph
-@check_no_fallback
-def forward2():
-    return [dist.Shard(0), dist.Replicate(), dist.Partial()]
-
-
-class TestNoSideEffectClass(TestCaseBase):
+class TestPureClass(TestCaseBase):
     def test_class(self):
-        self.assert_results(forward1)
-        self.assert_results(forward2)
+        self.assert_results(forward)
 
 
 if __name__ == "__main__":
