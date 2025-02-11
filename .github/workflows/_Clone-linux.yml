@@ -27,7 +27,6 @@ jobs:
         ref: ${{ github.event.pull_request.base.ref }}
         submodules: 'recursive'
         fetch-depth: 1000
-        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Merge PR to test branch
       run: |

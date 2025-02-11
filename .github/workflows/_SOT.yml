@@ -8,7 +8,6 @@ env:
   docker_image: 077ca344c322
   PR_ID: ${{ github.event.pull_request.number }}
   COMMIT_ID: ${{ github.event.pull_request.head.sha }}
-  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 defaults:
   run:
@@ -99,7 +98,6 @@ jobs:
           -e WITH_INFERENCE_API_TEST \
           -e CCACHE_MAXSIZE \
           -e CCACHE_LIMIT_MULTIPLE \
-          -e GITHUB_TOKEN \
           -e GITHUB_ENV \
           -w /home/gushiwei/actions-runner/_work/Paddle/Paddle --network host ${docker_image}
       # working_directory: ./tools/dockerfile/
@@ -115,9 +113,9 @@ jobs:
         git config --global user.name "PaddleCI"
         git config --global user.email "paddle_ci@example.com"
         git remote add upstream https://github.com/PaddlePaddle/Paddle.git
-        proxy=\$(cat ../proxy)
-        export http_proxy=\${proxy}
-        export https_proxy=\${proxy}
+        # proxy=\$(cat ../proxy)
+        # export http_proxy=\${proxy}
+        # export https_proxy=\${proxy}
         set -x
         git checkout develop
         git_code=1
