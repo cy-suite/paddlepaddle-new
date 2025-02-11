@@ -1015,7 +1015,7 @@ std::tuple<Tensor, Tensor, Tensor> group_norm_decomp(
   Tensor mean_out = squeeze<T>(mean_, c_axis);
   Tensor var_out = squeeze<T>(var_, c_axis);
   out = decomp_helper.Merge(out);
-  out = ConvertToMT<T>(out, org_dtype);
+  out = ConvertToOrig<T>(out, org_dtype);
 
   return std::make_tuple(out, mean_out, var_out);
 }

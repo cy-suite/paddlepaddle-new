@@ -2315,7 +2315,7 @@ void group_norm_grad(const Tensor& x,
     auto d_mean_d_std = (d_mean + d_std) / decomp_helper.GetHW(x_data);
 
     auto x_grad_tmp = dx_end - d_mean_d_std;
-    x_grad_tmp = ConvertToMT<T>(x_grad_tmp, x.dtype());
+    x_grad_tmp = ConvertToOrig<T>(x_grad_tmp, x.dtype());
     x_grad_tmp = decomp_helper.Merge(x_grad_tmp);
     set_output<T>(x_grad_tmp, x_grad);
   }

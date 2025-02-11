@@ -607,12 +607,12 @@ class GroupNormDecompHelper {
       }
 
       split_shape_tensor_.push_back(
-          full<T>({1}, split_dim[0], phi::DataType::INT32));
+          full<T>({1}, split_dim[0], phi::DataType::INT64));
       split_shape_tensor_.push_back(
-          full<T>({1}, split_dim[1], phi::DataType::INT32));
+          full<T>({1}, split_dim[1], phi::DataType::INT64));
 
       merge_shape_tensor_.push_back(
-          full<T>({1}, channel_dim, phi::DataType::INT32));
+          full<T>({1}, channel_dim, phi::DataType::INT64));
 
       if (channel_axis_ + 1 < x_rank_) {
         split_shape_tensor_.push_back(
