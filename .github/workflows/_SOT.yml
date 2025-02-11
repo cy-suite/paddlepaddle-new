@@ -125,8 +125,6 @@ jobs:
         git checkout test
         git merge develop
         '
-      env:
-        GITHUB_TOKEN: ${TEST_TIAN}
 
     - name: Configure cache and ccache
       run: |
