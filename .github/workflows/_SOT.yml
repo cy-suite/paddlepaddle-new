@@ -137,7 +137,7 @@ jobs:
         #     exit 2
         #   fi
         # fi
-        # set -e
+        # set  -e
         git fetch upstream develop
         git checkout test
         git merge develop
