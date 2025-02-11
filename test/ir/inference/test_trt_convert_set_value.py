@@ -31,7 +31,7 @@ class TrtConvertSetValue(TrtLayerAutoScanTest):
             return np.random.random([2, 3, 3]).astype(np.float32)
 
         def generate_input2():
-            return np.random.random([2, 2, 3]).astype(np.float32)
+            return np.random.random([2, 3, 3]).astype(np.float32)
 
         for update_scalar in [True, False]:
             self.update_scalar = update_scalar
@@ -53,9 +53,10 @@ class TrtConvertSetValue(TrtLayerAutoScanTest):
                     "op_attrs": {
                         "axes": [1],
                         "starts": [0],
-                        "ends": [2],
+                        "ends": [3],
                         "steps": [1],
                         "decrease_axes": [],
+                        "values": [0.0],
                     },
                 },
                 {
@@ -111,15 +112,15 @@ class TrtConvertSetValue(TrtLayerAutoScanTest):
         else:
             self.dynamic_shape.min_input_shape = {
                 "input_data": [2, 3, 3],
-                "update_data": [2, 2, 3],
+                "update_data": [2, 3, 3],
             }
             self.dynamic_shape.max_input_shape = {
                 "input_data": [3, 3, 4],
-                "update_data": [3, 2, 4],
+                "update_data": [3, 3, 4],
             }
             self.dynamic_shape.opt_input_shape = {
                 "input_data": [3, 3, 3],
-                "update_data": [3, 2, 3],
+                "update_data": [3, 3, 3],
             }
         return self.dynamic_shape
 
