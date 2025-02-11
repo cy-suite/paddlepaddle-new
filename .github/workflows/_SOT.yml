@@ -174,7 +174,7 @@ jobs:
         git branch
         bash -x \${work_dir}/paddle/scripts/paddle_build_action.sh cicheck_sot;EXCODE=\$?
         echo \$EXCODE
-        echo \"EXCODE=$EXCODE\" >> \$GITHUB_ENV
+        echo \"EXCODE=\$EXCODE\" >> \$GITHUB_ENV
         "
 
     - name: Check result
