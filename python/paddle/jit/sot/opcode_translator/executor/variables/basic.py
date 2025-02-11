@@ -1032,6 +1032,9 @@ class ObjectVariable(VariableBase):
     def get_py_value(self, allow_tensor=False) -> Any:
         return self.value
 
+    def _reconstruct(self, codegen: PyCodeGen):
+        codegen.gen_load_const(self.value)
+
 
 class SliceVariable(VariableBase):
     """
