@@ -269,6 +269,46 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
     std::vector<ir::Tensor>* group_func_arg_tensors,
     std::vector<ir::Argument>* group_func_args,
     std::vector<ir::Tensor>* infer_shape_arg_tensor) {
+  // Help func for lonnglong2int pass.
+  std::vector<ir::Expr> inputs_element_size;
+  auto judge_dynamic = [&](std::vector<cinn::ir::Expr> loops) {
+    for (const auto& loop : loops) {
+      if (!loop.is_constant()) return true;
+    }
+    return false;
+  };
+  auto get_element_size = [&](std::vector<cinn::ir::Expr> loops) {
+    ir::Expr elems_num(1);
+    for (const auto& loop : loops) {
+      elems_num = ir::Mul::Make(elems_num, loop);
+    }
+    return cinn::optim::ArithSimplify(elems_num);
+  };
+  auto deal_perdicate_cond = [&](ir::Expr max_output_size) {
+    ir::Expr pred_longlong2int = ir::Expr(true);
+    for (const auto& size : inputs_element_size) {
+      if (!size.is_constant()) {
+        pred_longlong2int = ir::And::Make(
+            pred_longlong2int, ir::LE::Make(size, ir::Expr(INT32_MAX)));
+      }
+    }
+    if (!max_output_size.is_constant()) {
+      pred_longlong2int =
+          ir::And::Make(pred_longlong2int,
+                        ir::LE::Make(max_output_size, ir::Expr(INT32_MAX)));
+    }
+    return pred_longlong2int;
+  };
+  auto deal_func_args =
+      [](const std::unordered_set<std::string>& symbol_args_set,
+         std::vector<cinn::ir::Argument>& args) {
+        for (auto& arg : args) {
+          if (arg.is_var() && symbol_args_set.count(arg.name()) != 0) {
+            arg.var_arg()->set_type(cinn::common::Int(32));
+          }
+        }
+      };
+
   // 1.Prepare function args
   group->mut_input_names().clear();
   std::unordered_set<std::string> store_buffer_names =
@@ -284,6 +324,13 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
             ? ir::Argument::IO::kOutput
             : ir::Argument::IO::kInput;
     (*group_func_args).emplace_back(arg_tensor->buffer, io_type);
+    // collect element size for longlong2int pass.
+    if (FLAGS_cinn_longlong2int) {
+      inputs_element_size.push_back(get_element_size(arg_tensor->shape));
+    }
+    VLOG(4) << "input shape" << cinn::utils::Join(arg_tensor->shape, ", ");
+    VLOG(4) << "input sym shape"
+            << cinn::utils::Join(arg_tensor->sym_shape, ", ");
     arg_name_set.insert(arg_tensor->buffer->name);
   }
 
@@ -427,27 +474,29 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
     func->num_output_tensors = infer_shape_arg_tensor->size();
 
     if (FLAGS_cinn_longlong2int && i != func_bodies.size() - 1) {
-      if (fusion_group_info->is_dynamic) {
+      // The loop ranges product of Fusion group info is the max elements size
+      // for output, we dont need to calculate every output independently.
+      ir::Expr outputs_element_max_size = cinn::optim::ArithSimplify(
+          get_element_size(fusion_group_info->loop_ranges_expr));
+      bool is_dynamic = judge_dynamic(inputs_element_size) ||
+                        !outputs_element_max_size.is_constant();
+      if (is_dynamic) {
         ir::LoweredFunc func_copied = ir::ir_utils::IRCopy(func);
         // set lowered_func's symbol args to int32 type
-        for (auto& arg : func_copied->args) {
-          if (arg.is_var() && symbol_args_set.count(arg.name()) != 0) {
-            arg.var_arg()->set_type(cinn::common::Int(32));
-          }
-        }
+        deal_func_args(symbol_args_set, func_copied->args);
         ir::Expr predicates_copied = ir::ir_utils::IRCopy(predicates[i]);
 
-        ir::Expr elems_num(1);
-        for (const auto& loop : fusion_group_info->loop_ranges_expr) {
-          elems_num = ir::Mul::Make(elems_num, loop);
-        }
-        VLOG(10) << "elems_num in dynamic branch: " << elems_num;
+        // Deal longlong2int predicates, calculate all elements size.
+        ir::Expr pred_longlong2int =
+            deal_perdicate_cond(outputs_element_max_size);
 
-        // Deal with predicates, set original predicates to range int64
-        ir::Expr predicate_int32 = ir::And::Make(
-            predicates_copied, ir::LT::Make(elems_num, ir::Expr(INT32_MAX)));
-        predicates[i] = ir::And::Make(
-            predicates[i], ir::GE::Make(elems_num, ir::Expr(INT32_MAX)));
+        // New predicate for int32.
+        ir::Expr predicate_int32 =
+            ir::And::Make(predicates_copied, pred_longlong2int);
+
+        // Old predicate for int64.
+        predicates[i] =
+            ir::And::Make(predicates[i], ir::Not::Make(pred_longlong2int));
 
         ir::stmt::BlockRef block =
             ir::ConvertExprBlockToStmtBlock(func_copied->body);
@@ -457,21 +506,33 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
         VLOG(10) << "After CastLonglong2Int: \n" << block;
         func_copied->body = ir::ConvertStmtBlockToExprBlock(block);
 
+        // Add int32 func and predicate. int64 branch is handled by default.
         ret_predicates.push_back(std::move(predicate_int32));
         ret_lowered_funcs.push_back(std::move(func_copied));
         ret_priorities.push_back(priorities[i]);
       } else {
         // static branch
-        ir::stmt::BlockRef block = ir::ConvertExprBlockToStmtBlock(func->body);
 
-        int64_t elems_num = 1;
-        for (const auto& loop : fusion_group_info->loop_ranges) {
-          elems_num *= loop;
-        }
-        VLOG(10) << "elems_num in static branch: " << elems_num;
+        // Although the inputs and outputs are static, symbols may still exist.
+        // we can change those type safely.
+        // e.g. out = inp[S0, S0 + 2], D(out) = 2, D(inp) = 8
+        deal_func_args(symbol_args_set, func->args);
+
+        // Here we have enough information to determine whether it is safe to
+        // transpose, so there is no need to enter the pass to determine
+        // according to the for loop range.
+        auto can_cast = [&]() {
+          for (const auto& size : inputs_element_size) {
+            if (size.as_int64() >= INT32_MAX) return false;
+          }
+          if (outputs_element_max_size.as_int64() >= INT32_MAX) return false;
+          return true;
+        }();
+
+        ir::stmt::BlockRef block = ir::ConvertExprBlockToStmtBlock(func->body);
         VLOG(10) << "Before CastLonglong2Int: \n" << block;
         optim::TryCastLonglong2Int(block,
-                                   /*enforce_cast*/ elems_num < INT32_MAX);
+                                   /*enforce_cast*/ can_cast);
         VLOG(10) << "After CastLonglong2Int: \n" << block;
         func->body = ir::ConvertStmtBlockToExprBlock(block);
       }

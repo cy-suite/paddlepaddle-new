@@ -174,7 +174,6 @@ struct FusionGroupInfo {
   std::vector<int64_t> reduce_axis;
   std::vector<std::string> reduce_var_name;
   bool can_apply_grid_reduce;
-  bool is_dynamic{false};
   GroupVectorizeInfo vectorize_info;
 
   std::string DebugPrint() {
@@ -186,7 +185,6 @@ struct FusionGroupInfo {
        << "\nreduce_var_name: " << cinn::utils::Join(reduce_var_name, " ")
        << "\ncan_apply_grid_reduce: " << can_apply_grid_reduce
        << "\ncan_apply_vectorize: " << vectorize_info.can_apply_vectorize
-       << "\nis_dynamic: : " << is_dynamic
        << "\nhas_select_op: " << vectorize_info.has_select_op
        << "\ncontinuous_arg_nums: " << vectorize_info.continuous_arg_nums
        << "\nfusion_group_arg_nums: " << vectorize_info.fusion_group_arg_nums;
