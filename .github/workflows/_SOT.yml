@@ -139,6 +139,7 @@ jobs:
         '
 
     - name: Check sot
+      id: check_sot
       env:
         work_dir: "/home/gushiwei/actions-runner/_work/Paddle/Paddle"
         PADDLE_ROOT: "/home/gushiwei/actions-runner/_work/Paddle/Paddle"
@@ -154,7 +155,8 @@ jobs:
         ln -sf $(which pip3.10) /usr/local/bin/pip
         git branch
         . ../proxy
-        bash -x ${work_dir}/paddle/scripts/paddle_build.sh cicheck_sot;EXCODE=$?
+        bash -x ${work_dir}/paddle/scripts/paddle_build.sh cicheck_sot
+        EXCODE=$?
         echo $EXCODE
         echo "EXCODE=${EXCODE}" >> $GITHUB_ENV
         echo ${{ env.EXCODE }}
@@ -162,7 +164,7 @@ jobs:
 
     - name: Check result
       env:
-        CHECK_SCRIPT: "./paddle/scrips/paddle_build/check_excode.sh"
+        CHECK_SCRIPT: "${{ github.workspace }}/paddle/scrips/paddle_build/check_excode.sh"
       run: |
         docker exec -t paddle-CI /bin/bash -c "export EXCODE=${{ env.EXCODE }} && bash $CHECK_SCRIPT"
 
