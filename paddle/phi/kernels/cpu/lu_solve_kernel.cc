@@ -39,7 +39,7 @@ void LuSolveKernel(const Context& dev_ctx,
   // Copy RHS data to output (will be overwritten with solution)
   // phi::Copy(dev_ctx, x, x.place(), false, out);
   *out = Transpose2DTo6D<Context, T>(dev_ctx, x);
-  lu = Transpose2DTo6D<Context, T>(dev_ctx, lu);
+  DenseTensor tem_lu = Transpose2DTo6D<Context, T>(dev_ctx, lu);
 
   // Prepare LAPACK parameters
   char trans_char = (trans == "N") ? 'N' : ((trans == "T") ? 'T' : 'C');
@@ -53,7 +53,7 @@ void LuSolveKernel(const Context& dev_ctx,
   auto outrank = outdims.size();
   int batchsize = product(common::slice_ddim(outdims, 0, outrank - 2));
   auto out_data = out->data<T>();
-  auto lu_data = reinterpret_cast<T*>(const_cast<T*>(lu.data<T>()));
+  auto lu_data = reinterpret_cast<T*>(const_cast<T*>(tem_lu.data<T>()));
   auto pivots_data = reinterpret_cast<int*>(const_cast<int*>(pivots.data<int>()));
 
   for (int i = 0; i < batchsize; i++) {
@@ -77,7 +77,6 @@ void LuSolveKernel(const Context& dev_ctx,
       "LU solve failed with error code %d. Check if matrix is singular.",
       info));
   }
-  lu = Transpose2DTo6D<Context, T>(dev_ctx, lu);
   *out = Transpose2DTo6D<Context, T>(dev_ctx, *out);
 }
 }  // namespace phi
