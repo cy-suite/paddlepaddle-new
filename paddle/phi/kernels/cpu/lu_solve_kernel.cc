@@ -39,7 +39,7 @@ void LuSolveKernel(const Context& dev_ctx,
   // Copy RHS data to output (will be overwritten with solution)
   // phi::Copy(dev_ctx, x, x.place(), false, out);
   *out = Transpose2DTo6D<Context, T>(dev_ctx, x);
-  *lu = Transpose2DTo6D<Context, T>(dev_ctx, lu);
+  lu = Transpose2DTo6D<Context, T>(dev_ctx, lu);
 
   // Prepare LAPACK parameters
   char trans_char = (trans == "N") ? 'N' : ((trans == "T") ? 'T' : 'C');
