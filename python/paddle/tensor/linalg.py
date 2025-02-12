@@ -3575,7 +3575,9 @@ def lu(
         return lu, p
 
 
-def lu_solve(b: Tensor, lu_data: Tensor, pivots: Tensor, trans: str = "N", name=None):
+def lu_solve(
+    b: Tensor, lu_data: Tensor, pivots: Tensor, trans: str = "N", name=None
+):
     r"""
     Computes the solution y to the system of linear equations :math:`Ay = b` ,
     given LU decomposition :math:`A` and column vector :math:`b`.
@@ -3603,26 +3605,48 @@ def lu_solve(b: Tensor, lu_data: Tensor, pivots: Tensor, trans: str = "N", name=
          [-1.4000001]
          [ 0.6      ]]
     """
-    b = b if b.shape[:-2] == lu_data.shape[:-2] else paddle.broadcast_to(b, lu_data.shape[:-2] + b.shape[-2:])
-    pivots = pivots if pivots.shape[:-1] == lu_data.shape[:-2] else paddle.broadcast_to(pivots, lu_data.shape[:-2] + pivots.shape[-1:])
+    b = (
+        b
+        if b.shape[:-2] == lu_data.shape[:-2]
+        else paddle.broadcast_to(b, lu_data.shape[:-2] + b.shape[-2:])
+    )
+    pivots = (
+        pivots
+        if pivots.shape[:-1] == lu_data.shape[:-2]
+        else paddle.broadcast_to(pivots, lu_data.shape[:-2] + pivots.shape[-1:])
+    )
     if b.ndim < 2:
-        raise ValueError(f'`b` dimension must be gather than 2, but got {len(b.shape)}')
+        raise ValueError(
+            f'`b` dimension must be gather than 2, but got {len(b.shape)}'
+        )
     if lu_data.ndim < 2:
-        raise ValueError(f'`lu_data` dimension must be gather than 2, but got {len(lu_data.shape)}')
+        raise ValueError(
+            f'`lu_data` dimension must be gather than 2, but got {len(lu_data.shape)}'
+        )
     if pivots.ndim < 1:
-        raise ValueError(f'`pivots` dimension must be gather than 1, but got {len(pivots.shape)}')
+        raise ValueError(
+            f'`pivots` dimension must be gather than 1, but got {len(pivots.shape)}'
+        )
     if b.shape[-2] != lu_data.shape[-2]:
-        raise ValueError(f'the rows of `b` must be equal to the rows of `lu_data`, but got {b.shape[-2]} and {lu_data.shape[-2]}')
+        raise ValueError(
+            f'the rows of `b` must be equal to the rows of `lu_data`, but got {b.shape[-2]} and {lu_data.shape[-2]}'
+        )
     if lu_data.shape[-1] != lu_data.shape[-2]:
-        raise ValueError(f'`lu_data` shape[-1] must be equal to `lu_data` shape[-2], but got {lu_data.shape[-1]} and {lu_data.shape[-2]}')
+        raise ValueError(
+            f'`lu_data` shape[-1] must be equal to `lu_data` shape[-2], but got {lu_data.shape[-1]} and {lu_data.shape[-2]}'
+        )
     if pivots.shape[-1] != lu_data.shape[-1]:
-        raise ValueError(f'`pivots` shape[-1] must be equal to `lu_data` shape[-1], but got {pivots.shape[-1]} and {lu_data.shape[-1]}')
+        raise ValueError(
+            f'`pivots` shape[-1] must be equal to `lu_data` shape[-1], but got {pivots.shape[-1]} and {lu_data.shape[-1]}'
+        )
 
     if in_dynamic_or_pir_mode():
         out = _C_ops.lu_solve(b, lu_data, pivots, trans)
     else:
         check_variable_and_dtype(b, 'dtype', ['float32', 'float64'], 'lu_solve')
-        check_variable_and_dtype(lu_data, 'dtype', ['float32', 'float64'], 'lu_solve')
+        check_variable_and_dtype(
+            lu_data, 'dtype', ['float32', 'float64'], 'lu_solve'
+        )
         check_variable_and_dtype(pivots, 'dtype', ['int32'], 'lu_solve')
         helper = LayerHelper('lu_solve', **locals())
         out = helper.create_variable_for_type_inference(dtype=b.dtype)
@@ -3630,7 +3654,7 @@ def lu_solve(b: Tensor, lu_data: Tensor, pivots: Tensor, trans: str = "N", name=
             type='lu_solve',
             inputs={'x': b, 'lu': lu_data, 'pivots': pivots},
             outputs={'out': out},
-            attrs={'trans':trans}
+            attrs={'trans':trans},
         )
     return out
 

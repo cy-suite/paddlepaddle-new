@@ -78,6 +78,7 @@ __all__ = [
     'pca_lowrank',
     'svd_lowrank',
     'lu',
+    'lu_solve',
     'lu_unpack',
     'matrix_exp',
     'matrix_power',

@@ -18,7 +18,6 @@
 #include "paddle/phi/kernels/impl/lu_solve_grad_kernel_impl.h"
 #include "paddle/phi/kernels/lu_solve_grad_kernel.h"
 
-
 // Register the CPU backward kernel
 PD_REGISTER_KERNEL(
     lu_solve_grad, CPU, ALL_LAYOUT, phi::LuSolveGradKernel, float, double) {}

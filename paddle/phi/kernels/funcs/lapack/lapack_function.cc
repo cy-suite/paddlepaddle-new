@@ -35,12 +35,12 @@ template <>
 void lapackLuSolve<double>(char trans,
                            int n,
                            int nrhs,
-                           double* a,
+                           double *a,
                            int lda,
-                           int* ipiv,
-                           double* b,
+                           int *ipiv,
+                           double *b,
                            int ldb,
-                           int* info) {
+                           int *info) {
   dynload::dgetrs_(&trans, &n, &nrhs, a, &lda, ipiv, b, &ldb, info); 
 }
 
@@ -48,12 +48,12 @@ template <>
 void lapackLuSolve<float>(char trans,
                           int n,
                           int nrhs,
-                          float* a,
+                          float *a,
                           int lda,
-                          int* ipiv,
-                          float* b,
+                          int *ipiv,
+                          float *b,
                           int ldb,
-                          int* info) {
+                          int *info) {
   dynload::sgetrs_(&trans, &n, &nrhs, a, &lda, ipiv, b, &ldb, info); 
 }
 

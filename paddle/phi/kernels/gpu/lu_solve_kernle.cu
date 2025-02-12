@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// #ifndef PADDLE_WITH_HIP
+#ifndef PADDLE_WITH_HIP
 // HIP not support cusolver
 
 #include "paddle/phi/backends/dynload/cusolver.h"
@@ -20,8 +20,8 @@
 #include "paddle/phi/core/kernel_registry.h"
 
 #include "paddle/phi/common/memory_utils.h"
-#include "paddle/phi/kernels/lu_solve_kernel.h"
 #include "paddle/phi/kernels/impl/lu_kernel_impl.h"
+#include "paddle/phi/kernels/lu_solve_kernel.h"
 
 namespace phi {
 
@@ -30,24 +30,24 @@ void cusolver_getrs(const cusolverDnHandle_t& cusolverH,
                     cublasOperation_t trans,
                     int n,
                     int nrhs,
-                    T *a,
+                    T* a,
                     int lda,
-                    int *ipiv,
-                    T *b,
+                    int* ipiv,
+                    T* b,
                     int ldb,
-                    int *info);
+                    int* info);
 
 template <>
 void cusolver_getrs<float>(const cusolverDnHandle_t& cusolverH,
                           cublasOperation_t trans,
                            int n,
                            int nrhs,
-                           float *a,
+                           float* a,
                            int lda,
-                           int *ipiv,
-                           float *b,
+                           int* ipiv,
+                           float* b,
                            int ldb,
-                           int *info) {
+                           int* info) {
   PADDLE_ENFORCE_GPU_SUCCESS(dynload::cusolverDnSgetrs(
       cusolverH, trans, n, nrhs, a, lda, ipiv, b, ldb, info));
 }
@@ -57,12 +57,12 @@ void cusolver_getrs<double>(const cusolverDnHandle_t& cusolverH,
                            cublasOperation_t trans,
                            int n,
                            int nrhs,
-                           double *a,
+                           double* a,
                            int lda,
-                           int *ipiv,
-                           double *b,
+                           int* ipiv,
+                           double* b,
                            int ldb,
-                           int *info) {
+                           int* info) {
   PADDLE_ENFORCE_GPU_SUCCESS(dynload::cusolverDnDgetrs(
       cusolverH, trans, n, nrhs, a, lda, ipiv, b, ldb, info));
 }
@@ -76,8 +76,8 @@ void LuSolveKernel(const Context& dev_ctx,
                    DenseTensor* out) {
   dev_ctx.template Alloc<T>(out);
   // Copy x to out since cusolverDn*getrs overwrites the input
-//   phi::Copy(dev_ctx, x, dev_ctx.GetPlace(), false, out);
   *out = phi::Transpose2DTo6D<Context, T>(dev_ctx, x);
+  DenseTensor tem_lu = Transpose2DTo6D<Context, T>(dev_ctx, lu);
   // Validate input dimensions
   auto x_dims = x.dims();
   auto lu_dims = lu.dims();
@@ -107,8 +107,9 @@ void LuSolveKernel(const Context& dev_ctx,
   auto outrank = outdims.size();
   int batchsize = product(common::slice_ddim(outdims, 0, outrank - 2));
   auto out_data = out->data<T>();
-  auto lu_data = reinterpret_cast<T*>(const_cast<T*>(lu.data<T>()));
-  auto pivots_data = reinterpret_cast<int*>(const_cast<int*>(pivots.data<int>()));
+  auto lu_data = reinterpret_cast<T*>(const_cast<T*>(tem_lu.data<T>()));
+  auto pivots_data =
+      reinterpret_cast<int*>(const_cast<int*>(pivots.data<int>()));
   for (int i = 0; i < batchsize; i++) {
     auto handle = dev_ctx.cusolver_dn_handle();
     auto* out_data_item = &out_data[i * n * n];
@@ -135,4 +136,4 @@ void LuSolveKernel(const Context& dev_ctx,
 PD_REGISTER_KERNEL(
     lu_solve, GPU, ALL_LAYOUT, phi::LuSolveKernel, float, double) {}
 
-// #endif  // not PADDLE_WITH_HIP
+#endif  // not PADDLE_WITH_HIP
