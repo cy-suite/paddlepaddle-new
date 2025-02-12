@@ -30,7 +30,7 @@ jobs:
 
     - name: Merge PR to test branch
       run: |
-        echo 'github.event.pull_request.head.sha:${{ github.event.pull_request.head.sha }}'
+        echo 'github.event.pull_request.head.sha:${PR_ID}'
         git config --unset http.https://github.com/.extraheader
         # git config --global --unset http.https://github.com/.extraheader
         git switch develop
