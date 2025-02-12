@@ -256,7 +256,7 @@ class AutoScanTest(unittest.TestCase):
         ir_optim: bool | None = None,
     ):
         config = paddle_infer.Config()
-        config.switch_ir_debug()
+        config.switch_ir_debug(True)
         config.set_optim_cache_dir(self.cache_dir)
         config.disable_glog_info()
         if ir_optim is not None:
