@@ -153,8 +153,8 @@ jobs:
       run: |
         docker exec -t paddle-CI-${PR_ID} /bin/bash -c "export EXCODE=${{ env.EXCODE }} && bash $CHECK_SCRIPT"
 
-    # - name: Terminate and delete the container
-    #   if: always()
-    #   run: |
-    #     docker stop paddle-CI-${PR_ID}
-    #     docker rm paddle-CI-${PR_ID}
+    - name: Terminate and delete the container
+      if: always()
+      run: |
+        docker stop paddle-CI-${PR_ID}
+        docker rm paddle-CI-${PR_ID}
