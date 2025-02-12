@@ -302,16 +302,6 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
     }
     return pred_longlong2int;
   };
-  auto deal_func_args =
-      [](const std::unordered_set<std::string>& symbol_args_set,
-         std::vector<cinn::ir::Argument>& args) {
-        for (auto& arg : args) {
-          if (arg.is_var() && symbol_args_set.count(arg.name()) != 0) {
-            arg.set_var(ir::ir_utils::IRCopy(arg.var_arg()));
-            arg.var_arg()->set_type(cinn::common::Int(32));
-          }
-        }
-      };
 
   // 1.Prepare function args
   group->mut_input_names().clear();
@@ -474,6 +464,7 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
     }
     func->num_output_tensors = infer_shape_arg_tensor->size();
 
+    // 5. Apply longlong2int pass
     if (FLAGS_cinn_longlong2int && i != func_bodies.size() - 1) {
       // The loop ranges product of Fusion group info is the max elements size
       // for output, we dont need to calculate every output independently.
@@ -482,10 +473,8 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
       bool is_dynamic = judge_dynamic(inputs_element_size) ||
                         !outputs_element_max_size.is_constant();
       if (is_dynamic) {
+        // Copy lowered_func and predicate for type int32 in dynamic branch.
         ir::LoweredFunc func_copied = ir::ir_utils::IRCopy(func);
-        // set lowered_func's symbol args to int32 type
-        deal_func_args(symbol_args_set, func_copied->args);
-
         ir::Expr predicates_copied = ir::ir_utils::IRCopy(predicates[i]);
 
         // Deal longlong2int predicates, calculate all elements size.
@@ -500,29 +489,22 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
         predicates[i] =
             ir::And::Make(predicates[i], ir::Not::Make(pred_longlong2int));
 
-        ir::stmt::BlockRef block =
-            ir::ConvertExprBlockToStmtBlock(func_copied->body);
-        VLOG(6) << "Before CastLonglong2Int In Dynamic Branch: \n" << block;
-
-        optim::TryCastLonglong2Int(block, /*enforce_cast*/ true);
-        VLOG(6) << "After CastLonglong2Int In Dynamic Branch: \n" << block;
-        func_copied->body = ir::ConvertStmtBlockToExprBlock(block);
+        // Enforce cast the func copied in dynamic branch.
+        VLOG(6) << "Before CastLonglong2Int In Dynamic Branch: \n"
+                << func_copied;
+        optim::TryCastLonglong2Int(
+            func_copied, symbol_args_set, /*enforce_cast*/ true);
+        VLOG(6) << "After CastLonglong2Int In Dynamic Branch: \n"
+                << func_copied;
 
         // Add int32 func and predicate. int64 branch is handled by default.
         ret_predicates.push_back(std::move(predicate_int32));
         ret_lowered_funcs.push_back(std::move(func_copied));
         ret_priorities.push_back(priorities[i]);
       } else {
-        // static branch
-
-        // Although the inputs and outputs are static, symbols may still exist.
-        // we can change those type safely.
-        // e.g. out = inp[S0, S0 + 2], D(out) = 2, D(inp) = 8
-        deal_func_args(symbol_args_set, func->args);
-
-        // Here we have enough information to determine whether it is safe to
-        // transpose, so there is no need to enter the pass to determine
-        // according to the for loop range.
+        // static branch, Here we have enough information to determine whether
+        // it is safe to transpose, so there is no need to enter the pass to
+        // determine according to the for loop range.
         auto can_cast = [&]() {
           for (const auto& size : inputs_element_size) {
             if (size.as_int64() >= INT32_MAX) return false;
@@ -531,12 +513,10 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
           return true;
         }();
 
-        ir::stmt::BlockRef block = ir::ConvertExprBlockToStmtBlock(func->body);
-        VLOG(6) << "Before CastLonglong2Int In Static Branch: \n" << block;
-        optim::TryCastLonglong2Int(block,
-                                   /*enforce_cast*/ can_cast);
-        VLOG(6) << "After CastLonglong2Int In Static Branch: \n" << block;
-        func->body = ir::ConvertStmtBlockToExprBlock(block);
+        VLOG(6) << "Before CastLonglong2Int In Static Branch: \n" << func;
+        optim::TryCastLonglong2Int(
+            func, symbol_args_set, /*enforce_cast*/ can_cast);
+        VLOG(6) << "After CastLonglong2Int In Static Branch: \n" << func;
       }
     }
 
@@ -550,7 +530,7 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
     }
   }
 
-  // 5. Unify temp_space args and set temp_space sizes
+  // 6. Unify temp_space args and set temp_space sizes
   UnifyTempSpaceArgs(&ret_lowered_funcs);
   group->mut_temp_space_sizes() = CollectTempSpaceSizes(ret_lowered_funcs);
 
