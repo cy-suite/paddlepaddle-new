@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-tar xf Paddle.tar.gz --strip-components=1
-rm Paddle.tar.gz
 git config --global user.name "PaddleCI"
 git config --global user.email "paddle_ci@example.com"
 git remote add upstream https://github.com/PaddlePaddle/Paddle.git
