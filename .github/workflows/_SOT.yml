@@ -164,7 +164,7 @@ jobs:
       env:
         CHECK_SCRIPT: "./paddle/scrips/paddle_build/check_excode.sh"
       run: |
-        docker exec -t paddle-CI /bin/bash -c "EXCODE=${{ env.EXCODE }} && bash $CHECK_SCRIPT"
+        docker exec -t paddle-CI /bin/bash -c "export EXCODE=${{ env.EXCODE }} && bash $CHECK_SCRIPT"
 
     - name: Terminate and delete the container
       if: always()
