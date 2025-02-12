@@ -2263,54 +2263,38 @@ void group_norm_grad(const Tensor& x,
   Tensor x_data = ConvertToMT<T>(x);
   Tensor out_grad_data = ConvertToMT<T>(out_grad);
 
-  std::cerr << "x data " << x_data.dims() << std::endl;
   x_data = decomp_helper.Split(x_data);
-  std::cerr << "new data " << x_data.dims() << std::endl;
   out_grad_data = decomp_helper.Split(out_grad_data);
 
   const auto& reduce_axis = decomp_helper.GetReduceAxis();
-  std::cerr << "var " << variance.dims() << std::endl;
 
   const auto& squeeze_axis = decomp_helper.GetMeanVarSqueezeAxis();
-  for (auto d : squeeze_axis) {
-    std::cerr << "dd  " << d << std::endl;
-  }
   auto variance_new = unsqueeze<T>(variance, squeeze_axis);
   auto mean_new = unsqueeze<T>(mean, squeeze_axis);
 
-  std::cerr << "var new " << variance_new.dims() << std::endl;
-  for (auto& d : reduce_axis) {
-    std::cerr << "reduc axis " << d << std::endl;
-  }
-
   Tensor scale_data;
-  if (scale) {
+  if (scale.get_ptr()) {
     scale_data = reshape<T>(scale.get(), scale_bias_new_shape);
-  }
-  Tensor bias_data;
-  if (bias) {
-    bias_data = reshape<T>(bias.get(), scale_bias_new_shape);
   }
 
   auto x_sub_mean = x_data - mean_new;
-  auto tmp =
-      (full_scalar<T>(1.0, variance_new.dtype()) /
-       (variance_new + full_scalar<T>(epsilon, variance_new.dtype())));  // M,1
-  auto sqrt_var_1 = sqrt<T>(tmp);                                        // M,1
+  auto tmp = (full_scalar<T>(1.0, variance_new.dtype()) /
+              (variance_new + full_scalar<T>(epsilon, variance_new.dtype())));
+  auto sqrt_var_1 = sqrt<T>(tmp);
   auto x_sub_mean_mul_sqrt_var_1 = x_sub_mean * sqrt_var_1;
 
   if (x_grad) {
-    auto out_grad_scale = out_grad_data;  // M,N
-    if (scale) {
-      out_grad_scale = out_grad_data * scale_data;  // M,N * 1,N = M,N
+    auto out_grad_scale = out_grad_data;
+    if (scale.get_ptr()) {
+      out_grad_scale = out_grad_data * scale_data;
     }
 
     auto dx_end = sqrt_var_1 * out_grad_scale;
-    auto d_mean = dx_end.sum(reduce_axis, x_data.dtype(), true);  // M,1
+    auto d_mean = dx_end.sum(reduce_axis, x_data.dtype(), true);
 
     auto d_std_1 = (tmp * x_sub_mean * out_grad_scale)
-                       .sum(reduce_axis, x_data.dtype(), true);  // M,1
-    auto d_std = d_std_1 * x_sub_mean_mul_sqrt_var_1;  // M,1 * M,N = M,N
+                       .sum(reduce_axis, x_data.dtype(), true);
+    auto d_std = d_std_1 * x_sub_mean_mul_sqrt_var_1;
 
     auto d_mean_d_std = (d_mean + d_std) / decomp_helper.GetHW(x_data);
 

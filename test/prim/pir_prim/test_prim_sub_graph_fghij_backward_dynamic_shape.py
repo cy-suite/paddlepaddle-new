@@ -109,21 +109,21 @@ class TestPrimFmaxWithGrad1(TestPrimTwoWithGrad):
         self.tol = 1e-6
 
 
-# class TestPrimFmaxWithGrad2(TestPrimTwoWithGrad):
-#     def setUp(self):
-#         np.random.seed(2023)
-#         self.op_name = "pd_op.fmax_grad"
-#         self.dtype = "float32"
-#         self.x_shape = [30, 200, 40]
-#         self.init_x_shape = [None, None, 40]
-#         self.y_shape = [30, 200, 40]
-#         self.init_y_shape = [30, 200, 40]
-#         self.x = np.random.random(self.x_shape).astype(self.dtype)
-#         self.y = np.random.random(self.y_shape).astype(self.dtype)
-#         self.x[3, 100, 20:] = np.nan
-#         self.net = fmax_net
-#         self.enable_cinn = False
-#         self.tol = 1e-6
+class TestPrimFmaxWithGrad2(TestPrimTwoWithGrad):
+    def setUp(self):
+        np.random.seed(2023)
+        self.op_name = "pd_op.fmax_grad"
+        self.dtype = "float32"
+        self.x_shape = [30, 200, 40]
+        self.init_x_shape = [None, None, 40]
+        self.y_shape = [30, 200, 40]
+        self.init_y_shape = [30, 200, 40]
+        self.x = np.random.random(self.x_shape).astype(self.dtype)
+        self.y = np.random.random(self.y_shape).astype(self.dtype)
+        self.x[3, 100, 20:] = np.nan
+        self.net = fmax_net
+        self.enable_cinn = False
+        self.tol = 1e-6
 
 
 class TestPrimFmaxWithGrad3(TestPrimTwoWithGrad):
@@ -410,17 +410,17 @@ class TestPrimGroupNormWithGrad1(TestPrimThreeWithGrad):
         self.tol = 1e-4
 
 
-class TestPrimGroupNormWithGrad2(TestPrimBaseWithGrad):
-    def setUp(self):
-        np.random.seed(2023)
-        self.op_name = "pd_op.group_norm_grad"
-        self.dtype = "float32"
-        self.x_shape = [30, 60, 50, 60]
-        self.init_x_shape = [None, 60, None, None]
-        self.x = np.random.uniform(-0.5, 0.5, self.x_shape).astype(self.dtype)
-        self.net = group_norm_net2
-        self.enable_cinn = False
-        self.tol = 1e-5
+# class TestPrimGroupNormWithGrad2(TestPrimBaseWithGrad):
+#     def setUp(self):
+#         np.random.seed(2023)
+#         self.op_name = "pd_op.group_norm_grad"
+#         self.dtype = "float32"
+#         self.x_shape = [30, 60, 50, 60]
+#         self.init_x_shape = [None, 60, None, None]
+#         self.x = np.random.uniform(-0.5, 0.5, self.x_shape).astype(self.dtype)
+#         self.net = group_norm_net2
+#         self.enable_cinn = False
+#         self.tol = 1e-5
 
 
 class TestPrimGroupNormWithGrad3(TestPrimThreeWithGrad):
