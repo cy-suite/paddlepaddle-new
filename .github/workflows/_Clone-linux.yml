@@ -35,6 +35,7 @@ jobs:
         cd third_party/gloo
         git fetch --tags
         # git submodule foreach 'git fetch --tags --all'
+        cd -
         git switch develop
         set +e
         git branch -D test
