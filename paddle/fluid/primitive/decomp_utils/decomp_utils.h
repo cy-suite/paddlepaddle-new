@@ -673,7 +673,6 @@ class GroupNormDecompHelper {
     }
 
     if (static_hw) {
-      std::cerr << "static hwg " << hwg_numel << std::endl;
       return full_scalar<T>(hwg_numel, x.dtype());
     } else {
       auto x_shape = shape64<T>(x);
