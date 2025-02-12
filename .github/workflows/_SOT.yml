@@ -117,7 +117,6 @@ jobs:
         set -x
         git checkout develop
         git_code=1
-        set -x
         git pull upstream develop
         git fetch upstream develop
         git checkout test
@@ -141,15 +140,13 @@ jobs:
     - name: Check sot
       id: check_sot
       env:
-        work_dir: "/home/gushiwei/actions-runner/_work/Paddle/Paddle"
-        PADDLE_ROOT: "/home/gushiwei/actions-runner/_work/Paddle/Paddle"
+        work_dir: ${{ github.workspace }}
+        PADDLE_ROOT: ${{ github.workspace }}
       run: |
         docker exec -t paddle-CI /bin/bash -c '
         export work_dir=${{ env.work_dir }}
         export PADDLE_ROOT=${{ env.PADDLE_ROOT }}
-        set -x
         EXCODE=0
-        set +e
         PATH=/usr/local/bin:${PATH}
         ln -sf $(which python3.10) /usr/local/bin/python
         ln -sf $(which pip3.10) /usr/local/bin/pip
@@ -158,7 +155,7 @@ jobs:
         bash -x ${work_dir}/paddle/scripts/paddle_build.sh cicheck_sot
         EXCODE=$?
         echo $EXCODE
-        echo "EXCODE=${EXCODE}" >> $GITHUB_ENV
+        echo "EXCODE=${EXCODE}" >> ${{ github.env }}
         echo ${{ env.EXCODE }}
         '
 
