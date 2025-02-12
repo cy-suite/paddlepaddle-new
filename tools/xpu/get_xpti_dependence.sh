@@ -16,27 +16,27 @@
 
 set -ex
 
-# XPTI_URL=$1
-# XPTI_DIR_NAME=$2
+XPTI_URL=$1
+XPTI_DIR_NAME=$2
 
-# if ! [ -n "$XPTI_URL" ]; then
-#   exit 0
-# fi
+if ! [ -n "$XPTI_URL" ]; then
+  exit 0
+fi
 
-# wget --no-check-certificate ${XPTI_URL} -c -q -O xpti.tar.gz
-# if [[ $? -ne 0  ]]; then
-#   echo "downloading failed: ${XPTI_URL}"
-#   exit 1
-# else
-#   echo "downloading ok: ${XPTI_URL}"
-# fi
+wget --no-check-certificate ${XPTI_URL} -c -q -O xpti.tar.gz
+if [[ $? -ne 0  ]]; then
+  echo "downloading failed: ${XPTI_URL}"
+  exit 1
+else
+  echo "downloading ok: ${XPTI_URL}"
+fi
 
-# tar -xvf xpti.tar.gz
+tar -xvf xpti.tar.gz
 
 # xpu/include/xpu already exists
-cp -r /ssd1/lijin23/baidu/xpu/xpti/output/include/* xpu/include/xpu
+cp -r ${XPTI_DIR_NAME}/include/* xpu/include/xpu
 # xpu/lib already exists
-cp -r /ssd1/lijin23/baidu/xpu/xpti/output/so/* xpu/lib/
+cp -r ${XPTI_DIR_NAME}/so/* xpu/lib/
 # copy libxpurt.so that support klprof
 # commit fa894b83f9e2d1235564b93301265d8b55be5464 (HEAD -> trace)
 # rm xpu/lib/libxpurt.so*
