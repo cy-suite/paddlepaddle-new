@@ -37,11 +37,13 @@
 
 namespace paddle::platform {
 
+#ifdef PADDLE_WITH_XPTI
 using XPTIEvent = baidu::xpu::xpti::XPTIEvent;
 using XPTIEventAPI = baidu::xpu::xpti::XPTIEventAPI;
 using XPTIEventKernel = baidu::xpu::xpti::XPTIEventKernel;
 using XPTIEventMem = baidu::xpu::xpti::XPTIEventMem;
 using XPTIEventWait = baidu::xpu::xpti::XPTIEventWait;
+#endif
 
 void XPUTracer::PrepareTracing() {
   PADDLE_ENFORCE_EQ(
