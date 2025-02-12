@@ -190,7 +190,7 @@ RUN apt-get install pkg-config -y
 RUN apt-get update &&\
     apt install -y clang-12
 
-ARG CC=/usr/bin/clang-12 
+ARG CC=/usr/bin/clang-12
 ARG CXX=/usr/bin/clang++-12
 
 # ccache 4.2.0

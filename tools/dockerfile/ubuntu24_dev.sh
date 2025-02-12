@@ -43,4 +43,4 @@ function base_image(){
 export ref_CUDA_MAJOR=cpu
 base_image
 export ref_CUDA_MAJOR=12.6
-base_image 
+base_image
