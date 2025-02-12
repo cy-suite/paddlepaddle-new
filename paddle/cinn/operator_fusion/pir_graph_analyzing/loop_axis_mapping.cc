@@ -69,21 +69,14 @@ void LoopAxisMapping::EliminateIdentity() {
         route.erase(route.begin() + i);
       }
     }
-    if (route.empty()) {
-      route.push_back(IdentityTransform::InstancePtr());
-    }
+    if (route.empty()) route.push_back(IdentityTransform::InstancePtr());
   };
-  for (auto& route : input2loop) {
-    eliminate_identity(route);
-  }
-  for (auto& route : loop2input) {
-    eliminate_identity(route);
-  }
-  for (auto& route : loop2output) {
-    eliminate_identity(route);
-  }
-  for (auto& route : output2loop) {
-    eliminate_identity(route);
+  std::array<std::reference_wrapper<std::vector<AxisTransformRoute>>, 4>
+      all_routes = {input2loop, output2loop, loop2input, loop2output};
+  for (auto& routes : all_routes) {
+    for (auto& route : routes.get()) {
+      eliminate_identity(route);
+    }
   }
 }
 
@@ -244,11 +237,37 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
   VLOG(4) << "Try to get valid loop transform route "
           << (upstream_is_anchor ? "from downstream to upstream."
                                  : "from upstream to downstream.");
+  auto source = upstream_is_anchor ? downstream : upstream;
+  auto target = upstream_is_anchor ? upstream : downstream;
+  if (source.reduce_axis_num > 0 && target.reduce_axis_num == 0) {
+    VLOG(4) << "Cannot transform reduce loop to trivial loop.";
+    return std::nullopt;
+  } else if (source.reduce_axis_num > 0 && target.reduce_axis_num > 0) {
+    if (source.reduce_axis_num != target.reduce_axis_num) {
+      VLOG(4) << "Cannot transform reduce loop to different reduce axis num.";
+      return std::nullopt;
+    }
+    auto get_reduce_loop = [](const LoopAxisMapping& mapping) {
+      return SliceVector(mapping.loop,
+                         mapping.loop.size() - mapping.reduce_axis_num,
+                         mapping.loop.size());
+    };
+    auto source_reduce_loop = get_reduce_loop(source);
+    auto target_reduce_loop = get_reduce_loop(target);
+    for (size_t i = 0; i < source_reduce_loop.size(); ++i) {
+      if (source_reduce_loop[i] != target_reduce_loop[i]) {
+        VLOG(4) << "Cannot transform reduce loop to unaligned reduce axis.";
+        return std::nullopt;
+      }
+    }
+  }
+  bool rr_fusion = source.reduce_axis_num > 0 && target.reduce_axis_num > 0;
+
   const auto& [loop_sink_route, loop_lift_route] =
       GetLoopTransformRoute(upstream, downstream);
   auto loop_transform_route =
       upstream_is_anchor ? loop_lift_route : loop_sink_route;
-  auto source_loop = upstream_is_anchor ? downstream.loop : upstream.loop;
+  auto source_loop = source.loop;
 
   size_t id = 0;
   auto unique_id = [&]() { return "I" + std::to_string(id++); };
@@ -256,14 +275,28 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
   AxisTransformRoute result;
   std::vector<std::string> axis_ids;
   std::unordered_map<std::string, symbol::DimExpr> axis_symbols;
-  std::unordered_set<std::string> deleted_axes;
+  std::set<std::string> deleted_axes;
   std::unordered_set<std::string> unused_axes;
+  std::unordered_map<std::string, std::string> axis_reuse_map;
+  std::map<std::string, std::set<std::string>> axis_relation_map;
   for (const auto& symbol : source_loop) {
     auto axis_id = unique_id();
     axis_ids.push_back(axis_id);
     axis_symbols[axis_id] = symbol;
   }
   size_t cur_axis_size = axis_ids.size();
+  auto source_ids = axis_ids;
+
+  if (rr_fusion) {
+    // Because reduce axis can not be transformed, we need to add
+    // same fake axis to substitute reduce axis for transformation.
+    std::vector<int64_t> reduce_axis = ArangeVector<int64_t>(
+        cur_axis_size - source.reduce_axis_num, cur_axis_size);
+    std::vector<symbol::DimExpr> reduce_shape =
+        GatherVector(source_loop, reduce_axis);
+    result.push_back(
+        std::make_shared<AppendAxisTransform>(reduce_axis, reduce_shape));
+  }
 
   auto apply_transpose = [&](const TransposeTransformPtr& transform) {
     axis_ids = TransposeVector(axis_ids, transform->perm);
@@ -276,20 +309,23 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
       bool can_reuse = false;
       for (const auto& deleted_axis : deleted_axes) {
         if (axis_symbols.at(deleted_axis) == symbol) {
-          // Can reuse deleted axis.
-          int deleted_axis_pos =
-              std::find(axis_ids.begin(), axis_ids.end(), deleted_axis) -
-              axis_ids.begin();
-          auto perm = ArangeVector<int32_t>(0, axis_ids.size());
-          perm.erase(perm.begin() + deleted_axis_pos);
-          perm.insert(perm.begin() + axis, deleted_axis_pos);
-          axis_ids.erase(axis_ids.begin() + deleted_axis_pos);
-          auto axis_id = unique_id();
-          axis_ids.insert(axis_ids.begin() + axis, axis_id);
-          axis_symbols[axis_id] = symbol;
+          // Can reuse deleted axis, move deleted axis to the append position.
+          int deleted_axis_pos = FindPosInVector(axis_ids, deleted_axis).back();
+          auto new_axis_id = unique_id();
+          if (deleted_axis_pos == axis) {
+            axis_ids[deleted_axis_pos] = new_axis_id;
+          } else {
+            auto perm = ArangeVector<int32_t>(0, axis_ids.size());
+            perm.erase(perm.begin() + deleted_axis_pos);
+            perm.insert(perm.begin() + axis, deleted_axis_pos);
+            axis_ids.erase(axis_ids.begin() + deleted_axis_pos);
+            axis_ids.insert(axis_ids.begin() + axis, new_axis_id);
+            result.push_back(std::make_shared<TransposeTransform>(perm));
+          }
+          axis_symbols[new_axis_id] = symbol;
+          axis_reuse_map[deleted_axis] = new_axis_id;
           deleted_axes.erase(deleted_axis);
           cur_axis_size++;
-          result.push_back(std::make_shared<TransposeTransform>(perm));
           can_reuse = true;
           break;
         }
@@ -320,18 +356,21 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
       } else {
         // Used axis can not be deleted directly, we need to transpose it to
         // the end to ensure accuracy of subsequent transform.
-        std::vector<std::string> new_axis_ids;
-        std::vector<int> perm;
-        for (int i = 0; i < axis_ids.size(); ++i) {
-          if (i == axis) continue;
-          new_axis_ids.push_back(axis_ids[i]);
-          perm.push_back(i);
+        std::vector<std::string> new_axis_ids = axis_ids;
+        // No need to transpose if the axis is already at the end.
+        if (axis != cur_axis_size - 1) {
+          std::vector<int> perm;
+          for (int idx = 0; idx < axis_ids.size(); ++idx) {
+            if (idx == axis) continue;
+            new_axis_ids.push_back(axis_ids[idx]);
+            perm.push_back(idx);
+          }
+          new_axis_ids.push_back(axis_id);
+          perm.push_back(axis);
+          result.push_back(std::make_shared<TransposeTransform>(perm));
         }
         deleted_axes.insert(axis_id);
-        new_axis_ids.push_back(axis_id);
         axis_ids = new_axis_ids;
-        perm.push_back(axis);
-        result.push_back(std::make_shared<TransposeTransform>(perm));
       }
       cur_axis_size--;
     }
@@ -363,10 +402,29 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
             }
           }
           for (int i = out_start; i < out_end; ++i) {
-            auto axis_id = unique_id();
-            new_axis_ids.push_back(axis_id);
-            axis_symbols[axis_id] = out_shape[i];
-            if (is_unused) unused_axes.insert(axis_id);
+            if (out_shape[i] == symbol::DimExpr(1)) {
+              auto axis_id = unique_id();
+              new_axis_ids.push_back(axis_id);
+              axis_symbols[axis_id] = symbol::DimExpr(1);
+            } else {
+              std::string axis_id;
+              for (int j = in_start; j < in_end; ++j) {
+                if (in_shape[j] == symbol::DimExpr(1)) {
+                  continue;
+                } else if (in_shape[j] == out_shape[i]) {
+                  axis_id = axis_ids[j];
+                  break;
+                } else {
+                  if (axis_id.empty()) axis_id = unique_id();
+                  axis_relation_map[axis_ids[j]].insert(axis_id);
+                }
+              }
+              new_axis_ids.push_back(axis_id);
+              if (!axis_symbols.count(axis_id)) {
+                axis_symbols[axis_id] = out_shape[i];
+                if (is_unused) unused_axes.insert(axis_id);
+              }
+            }
           }
         }
       }
@@ -405,6 +463,52 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
                "axes.";
     return std::nullopt;
   }
+  if (rr_fusion) {
+    // Check if all reduce axes are reused and there is no relationship
+    // between reduce axes and non reduce axes.
+    auto [source_trivial_ids, source_reduce_ids] =
+        SplitVector(source_ids, source_ids.size() - source.reduce_axis_num);
+
+    auto get_related_ids = [&](const std::vector<std::string>& ids) {
+      std::deque<std::string> queue(ids.begin(), ids.end());
+      std::set<std::string> related_ids;
+      while (!queue.empty()) {
+        auto cur_id = queue.front();
+        queue.pop_front();
+        if (related_ids.count(cur_id)) continue;
+        related_ids.insert(cur_id);
+        if (axis_relation_map.count(cur_id)) {
+          for (const auto& id : axis_relation_map.at(cur_id)) {
+            queue.push_back(id);
+          }
+        }
+      }
+      return related_ids;
+    };
+    auto source_reduce_related_ids = get_related_ids(source_reduce_ids);
+    auto source_trivial_related_ids = get_related_ids(source_trivial_ids);
+
+    auto [target_trivial_ids, target_reduce_ids] =
+        SplitVector(axis_ids, axis_ids.size() - target.reduce_axis_num);
+
+    if (!SetIntersection(source_reduce_related_ids, ToSet(target_trivial_ids))
+             .empty() ||
+        !SetIntersection(source_trivial_related_ids, ToSet(target_reduce_ids))
+             .empty()) {
+      VLOG(4) << "Can not find valid loop transform because of relationship "
+                 "between reduce axis and non reduce axis.";
+      return std::nullopt;
+    }
+    // Remove fake reduce axes.
+    std::vector<int64_t> reduce_axis = ArangeVector<int64_t>(
+        axis_ids.size() - target.reduce_axis_num, axis_ids.size());
+    std::vector<symbol::DimExpr> reduce_shape =
+        GatherVector(target.loop, reduce_axis);
+    result.push_back(
+        std::make_shared<DeleteAxisTransform>(reduce_axis, reduce_shape));
+  }
+
+  VLOG(4) << "Found loop transform: " << result;
   return result;
 }
 

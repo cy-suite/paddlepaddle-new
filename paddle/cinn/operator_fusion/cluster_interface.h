@@ -71,15 +71,12 @@ inline std::vector<fusion::PatternNodePtr> ClusterOps(
       shape_analysis, &(relative_judge_policy->GetAxesInfoManager()));
   const auto& iters_fusion_policy =
       std::make_shared<fusion::ItersFusionPolicy>(iters_manager);
-  const auto& anchor_fusion_policy =
-      std::make_shared<fusion::AnchorFusionPolicy>();
 
   fusion::PolicyManager policy_manager;
 
   policy_manager.SetPolicy(relative_judge_policy);
   policy_manager.SetPolicy(general_topo_policy);
   policy_manager.SetPolicy(iters_fusion_policy);
-  policy_manager.SetPolicy(anchor_fusion_policy);
 
   VLOG(4) << "Start Create PatternGraph";
   fusion::PatternGraph graph(content_without_yield, outputs, policy_manager);

@@ -563,6 +563,12 @@ bool AllFirstInSecond(const std::vector<T>& first,
 }
 
 template <typename T>
+std::pair<std::vector<T>, std::vector<T>> SplitVector(const std::vector<T>& vec,
+                                                      int pos) {
+  return {SliceVector(vec, 0, pos), SliceVector(vec, pos, vec.size())};
+}
+
+template <typename T>
 std::vector<size_t> FindPosInVector(const std::vector<T>& vec, const T& item) {
   std::vector<size_t> result;
   for (size_t i = 0; i < vec.size(); ++i) {

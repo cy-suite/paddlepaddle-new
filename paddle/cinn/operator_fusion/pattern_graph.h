@@ -60,9 +60,6 @@ class PatternGraph {
   std::shared_ptr<ItersFusionPolicy> iters_fusion_policy() {
     return policy_manager_.template GetPolicy<ItersFusionPolicy>();
   }
-  std::shared_ptr<AnchorFusionPolicy> anchor_fusion_policy() {
-    return policy_manager_.template GetPolicy<AnchorFusionPolicy>();
-  }
 
  private:
   PatternNodePtrSet all_pattern_nodes_;

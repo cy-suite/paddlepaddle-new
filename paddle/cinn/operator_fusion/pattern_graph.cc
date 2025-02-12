@@ -61,29 +61,29 @@ std::vector<PatternNodePtr> PatternGraph::ClusterOps() {
   VLOG(4) << "[Group Cluster] After AnchorFusion: ";
   PrintGraphInfo();
 
-  // All -> ItersPermutationPattern
-  VLOG(4) << "[Group Cluster] Start LiftToItersPermutationPattern";
-  LiftToItersPermutationPattern();
-  VLOG(4) << "[Group Cluster] After LiftToItersPermutationPattern: ";
-  PrintGraphInfo();
+  // // All -> ItersPermutationPattern
+  // VLOG(4) << "[Group Cluster] Start LiftToItersPermutationPattern";
+  // LiftToItersPermutationPattern();
+  // VLOG(4) << "[Group Cluster] After LiftToItersPermutationPattern: ";
+  // PrintGraphInfo();
 
-  // ItersPermutationPattern x ItersPermutationPattern Fusion
-  VLOG(4) << "[Group Cluster] Start IdentityAnchorFusion";
-  LimitedAnchorFusion();
-  VLOG(4) << "[Group Cluster] After IdentityAnchorFusion: ";
-  PrintGraphInfo();
+  // // ItersPermutationPattern x ItersPermutationPattern Fusion
+  // VLOG(4) << "[Group Cluster] Start IdentityAnchorFusion";
+  // LimitedAnchorFusion();
+  // VLOG(4) << "[Group Cluster] After IdentityAnchorFusion: ";
+  // PrintGraphInfo();
 
-  // Sink single trivial op pattern
-  VLOG(4) << "[Group Cluster] Start SplitRecomputePattern";
-  SplitRecomputePattern();
-  VLOG(4) << "[Group Cluster] After SplitRecomputePattern: ";
-  PrintGraphInfo();
+  // // Sink single trivial op pattern
+  // VLOG(4) << "[Group Cluster] Start SplitRecomputePattern";
+  // SplitRecomputePattern();
+  // VLOG(4) << "[Group Cluster] After SplitRecomputePattern: ";
+  // PrintGraphInfo();
 
-  // ItersPermutationPattern x ItersPermutationPattern Fusion
-  VLOG(4) << "[Group Cluster] Start ItersPermutationFusion";
-  ItersPermutationFusion();
-  VLOG(4) << "[Group Cluster] After ItersPermutationFusion: ";
-  PrintGraphInfo();
+  // // ItersPermutationPattern x ItersPermutationPattern Fusion
+  // VLOG(4) << "[Group Cluster] Start ItersPermutationFusion";
+  // ItersPermutationFusion();
+  // VLOG(4) << "[Group Cluster] After ItersPermutationFusion: ";
+  // PrintGraphInfo();
 
   // Horizontal fusion.
   VLOG(4) << "[Group Cluster] Start HorizontalFusion";
@@ -205,7 +205,8 @@ void PatternGraph::HorizontalFusion() {
                       StmtPatternGraphMatcher<ReduceTreePlusTrivialPattern>,
                       StmtPatternGraphMatcher<ReducePattern>,
                       StmtPatternGraphMatcher<ReduceTreePattern>,
-                      StmtPatternGraphMatcher<ItersPermutationPattern>>,
+                      StmtPatternGraphMatcher<ItersPermutationPattern>,
+                      StmtPatternGraphMatcher<AnchorPattern>>,
                    LiftToHorizontalFusionPatternOperation>(this);
 
   GraphTransformer<NodePairPattern,

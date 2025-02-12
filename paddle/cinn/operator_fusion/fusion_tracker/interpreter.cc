@@ -167,6 +167,23 @@ void RunAxisTransformInstr(const std::shared_ptr<AxisTransformInstr>& instr,
     }
     return op_expr;
   };
+
+  auto new_pattern = std::make_shared<ScopeElement>();
+  auto fusion_ops = interpreter->scope[instr->source_]->fusion_ops;
+  VLOG(4) << "[AxisTransform] transform route size: "
+          << instr->axis_transform_route_.size();
+  for (const auto& fusion_op : fusion_ops) {
+    ir::Expr op_expr = std::visit(FusibleOp2Expr(), fusion_op).back();
+    VLOG(4) << "[AxisTransform] expr before transform: \n" << op_expr;
+    ir::Expr transformed_expr = axis_transform(op_expr);
+    if (cinn::hlir::framework::pir::trivial_fusion_detail::IsReduceBody(
+            transformed_expr)) {
+      new_pattern->fusion_ops.emplace_back(ReduceOp(transformed_expr));
+    } else {
+      new_pattern->fusion_ops.emplace_back(TrivialOp(transformed_expr));
+    }
+  }
+  interpreter->scope[instr->target_] = new_pattern;
 }
 
 void RunReshapeAlignInstr(const std::shared_ptr<ReshapeAlignInstr>& instr,
