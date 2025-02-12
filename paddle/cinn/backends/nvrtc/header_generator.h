@@ -38,6 +38,9 @@ class JitSafeHeaderGenerator : public HeaderGeneratorBase {
     return include_names_;
   }
 
+  void AddJitSafeHeader(const std::string& header_name,
+                        const std::string& header_content);
+
  private:
   JitSafeHeaderGenerator();
   std::vector<const char*> headers_;
