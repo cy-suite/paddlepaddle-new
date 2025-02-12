@@ -94,12 +94,6 @@ def reshard_single_value(program, op, operand, attr):
                     return reshard_var
             # insert reshard
             reshard_var = paddle._C_ops.reshard_v2(prev_var, operand_attr)
-            if prev_var.get_defining_op().id() == 3141:
-                print("==== insert reshard for op[3141] result ====")
-                print("prev_var:", prev_var)
-                print("prev_var_op:", prev_var.get_defining_op())
-                print("operand_attr:", operand_attr)
-                print("op:", op)
             return reshard_var
     return prev_var
 

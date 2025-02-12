@@ -21,8 +21,35 @@ from paddle.distributed.auto_parallel.placement_type import (
 )
 
 from ..process_group import new_process_group
-from ..utils import mesh_equal_ignore_shape_one, split_mesh
+from ..utils import split_mesh
 from .base_reshard_func import ReshardFunction, copy_dist_attr_with_new_member
+
+
+def _mesh_equal_ignore_shape_one(mesh1, mesh2, dim: int):
+    """
+    Check if two process meshes are equal, ignoring the shape value `1`
+    in the specified dimension. This is used when mesh1 is a sub-mesh
+    splitted from a global mesh, in this case, the shape of mesh1 is `1`
+    in the split dim.
+    E.g, the following two meshes are equal:
+      mesh1: shape = [1,2,2], process_ids = [0,1,2,3]
+      mesh2: shape = [2,2], process_ids = [0,1,2,3]
+    """
+    assert dim >= 0 and dim < len(mesh1.shape), "invalid dim arg"
+    if mesh1 == mesh2:
+        return True
+
+    if mesh1.process_ids != mesh2.process_ids:
+        return False
+
+    a_shape = copy.copy(mesh1.shape)
+    b_shape = copy.copy(mesh2.shape)
+
+    if a_shape[dim] != 1:
+        return False
+    a_shape.pop(dim)
+
+    return a_shape == b_shape
 
 
 class SubToGlobalMeshFunction(ReshardFunction):
@@ -75,7 +102,7 @@ class SubToGlobalMeshFunction(ReshardFunction):
         dst_meshes = [
             mesh
             for mesh in sub_meshes
-            if not mesh_equal_ignore_shape_one(mesh, src_mesh, sub_mesh_dim)
+            if not _mesh_equal_ignore_shape_one(mesh, src_mesh, sub_mesh_dim)
         ]
 
         comm_group_ids = []

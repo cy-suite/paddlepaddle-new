@@ -548,9 +548,7 @@ def moe_global_mesh_tensor(
         global_dims = _cal_global_shape(
             local_tensor._local_shape, mesh, placements
         )
-        return paddle.jit.dy2static.py_layer.StaticPyLayer(
-            _moe_global_mesh_tensor
-        ).apply(
+        dist_tensor = paddle._C_ops.moe_global_mesh_tensor(
             local_tensor_list,
             local_mesh_list,
             local_placements,
@@ -558,6 +556,9 @@ def moe_global_mesh_tensor(
             placements,
             global_dims,
         )
+        dist_tensor.stop_gradient = local_tensor_list[0].stop_gradient
+        dist_tensor.persistable = local_tensor_list[0].persistable
+        return dist_tensor
     else:
         raise NotImplementedError(
             "dtensor_from_local_list() are only supported in dynamic and pir mode."
@@ -705,17 +706,17 @@ def moe_sub_mesh_tensors(
             global_placements,
         )
     elif paddle.framework.in_pir_mode():
-
-        return paddle.jit.dy2static.py_layer.StaticPyLayer(
-            _moe_sub_mesh_tensors
-        ).apply(
+        local_tensors = paddle._C_ops.moe_sub_mesh_tensors(
             dist_tensor,
             local_mesh_list,
             local_placements,
-            local_mesh_dim,
             global_mesh,
             global_placements,
         )
+        for local_tensor in local_tensors:
+            local_tensor.stop_gradient = dist_tensor.stop_gradient
+            local_tensor.persistable = dist_tensor.persistable
+        return local_tensors
     else:
         raise NotImplementedError(
             "moe_sub_mesh_tensors is only supported in dynamic mode."
