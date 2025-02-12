@@ -71,10 +71,10 @@ jobs:
         python -m pip install bce-python-sdk==0.8.74
         python ${bos_file} Paddle.tar.gz paddle-github-action/PR/Paddle/${PR_ID}/${COMMIT_ID}
         rm Paddle.tar.gz
-        cd -
-        git switch develop
-        git branch -D test
-        git gc
+        # cd -
+        # git switch develop
+        # git branch -D test
+        # git gc
 
     # - name: Clean environment
     #   if: always()
