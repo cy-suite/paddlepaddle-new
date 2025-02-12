@@ -116,7 +116,6 @@ jobs:
         . ../proxy
         set -x
         git checkout develop
-        git_code=1
         git pull upstream develop
         git fetch upstream develop
         git checkout test
@@ -127,13 +126,13 @@ jobs:
       run: |
         docker exec -t paddle-CI-${PR_ID} /bin/bash -c '
         mkdir -p /home/data/cfs/.cache/build
-        echo "CACHE_DIR=/home/data/cfs/.cache/build" >> $GITHUB_ENV
+        echo "CACHE_DIR=/home/data/cfs/.cache/build" >> ${{ github.env }}
         if [ -f '/home/data/gzcfs/gz.txt' ];then
           mkdir -p /home/data/gzcfs/.ccache/sot
-          echo "CCACHE_DIR=/home/data/gzcfs/.ccache/sot" >> $GITHUB_ENV
+          echo "CCACHE_DIR=/home/data/gzcfs/.ccache/sot" >> ${{ github.env }}
         else
           mkdir -p /home/data/cfs/.ccache/sot
-          echo "CCACHE_DIR=/home/data/cfs/.ccache/sot" >> $GITHUB_ENV
+          echo "CCACHE_DIR=/home/data/cfs/.ccache/sot" >> ${{ github.env }}
         fi
         '
 
@@ -143,6 +142,7 @@ jobs:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
       run: |
+        set -x
         echo $CACHE_DIR
         echo ${{ env.CACHE_DIR }}
         docker exec -t paddle-CI-${PR_ID} /bin/bash -c '
