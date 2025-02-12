@@ -143,6 +143,8 @@ jobs:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
       run: |
+        export EXCODE=${{ env.CACHE_DIR }}
+        export EXCODE=${{ env.CCACHE_DIR }}
         docker exec -t paddle-CI-${PR_ID} /bin/bash -c '
         export work_dir=${{ env.work_dir }}
         export PADDLE_ROOT=${{ env.PADDLE_ROOT }}
