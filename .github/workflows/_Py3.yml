@@ -134,7 +134,7 @@ jobs:
         echo "EXCODE=${EXCODE}" >> ${{ github.env }}
         '
 
-    -name: Upload paddle_whl
+    - name: Upload paddle_whl
       env:
         home_path: ${{ github.workspace }}/..
         bos_file: ${{ github.workspace }}/../bos/BosClient.py
