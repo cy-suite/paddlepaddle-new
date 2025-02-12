@@ -13,17 +13,17 @@
 # limitations under the License.
 
 cd third_party/gloo
-git fetch origin tags v0.0.3
+git fetch --tags
 cd -
 cd third_party/protobuf
-git fetch origin tags v21.12
+git fetch --tags
 cd -
 cd third_party/gtest
-git fetch origin tags release-1.8.1
+git fetch --tags
 cd -
 cd third_party/pocketfft
-git fetch origin tags release_for_eigen
+git fetch --tags
 cd -
 cd third_party/pybind
-git fetch origin tags v2.13.6
+git fetch --tags
 cd -
