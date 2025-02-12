@@ -105,6 +105,9 @@ jobs:
         rm -rf /root/.cache && ln -s /home/data/cfs/.cache/python35-cpu /root/.cache
         wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/Paddle/${PR_ID}/${COMMIT_ID}/Paddle.tar.gz --no-check-certificate
         tar xf Paddle.tar.gz --strip-components=1
+        cd third_party/rocksdb
+        git fetch origin 6.19.fb
+        cd -
         bash ${{ github.workspace }}/paddle/scripts/paddle_build/config_paddle.sh
         . ../proxy
         git checkout develop
