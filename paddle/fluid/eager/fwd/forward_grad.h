@@ -73,8 +73,6 @@ struct TEST_API ForwardADLevel {
     PD_CHECK(next_idx == 0,
              "Nested forward mode AD is not supported at the moment");
     all_forward_levels_.push_back(std::make_shared<ForwardADLevel>(next_idx));
-    // VLOG(0) << "address of all_forward_levels_ = " << (&all_forward_levels_);
-    // VLOG(0) << "all_forward_levels_.size() = " << all_forward_levels_.size();
     return next_idx;
   }
 
@@ -82,7 +80,6 @@ struct TEST_API ForwardADLevel {
     // std::unique_lock<std::mutex> lock(all_forward_levels_mutex_);
     auto& all_forward_levels_ =
         ForwardADLevelManager::instance().get_all_forward_levels();
-    // VLOG(0) << "Call release_idx: " << idx;
     PD_CHECK(idx + 1 == all_forward_levels_.size(),
              "Exiting a forward AD level that is not the "
              "last that was created is not support. Ensure they are released "

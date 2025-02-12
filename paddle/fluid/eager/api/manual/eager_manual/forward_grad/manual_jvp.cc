@@ -21,34 +21,23 @@
 // 3. other case, e.g. concat/stack/batch_norm, we need to implement jvp rules
 // manually
 //
-
 #include "paddle/fluid/eager/api/manual/eager_manual/forward_grad/manual_jvp.h"
+#include <vector>
+#include "paddle/phi/api/include/tensor.h"
+#include "paddle/phi/common/data_type.h"
+#include "paddle/phi/common/place.h"
+#include "paddle/phi/common/scalar.h"
+#include "paddle/utils/optional.h"
 
-void add_jvp(const paddle::Tensor& x_p,
-             const paddle::Tensor& x_t,
-             const paddle::Tensor& y_p,
-             const paddle::Tensor& y_t,
-             paddle::Tensor* out_t) {
-  *out_t = x_t + y_t;
-}
-
-void scale_jvp(const paddle::Tensor& x_p,
-               const paddle::Tensor& x_t,
-               paddle::experimental::Scalar scale,
-               paddle::experimental::Scalar bias,
-               bool bias_after_scale,
-               paddle::Tensor* out_t) {
-  *out_t = scale_ad_func(x_p, scale, 0, false);
-}
-
-void tanh_jvp(const paddle::Tensor& x_t,
-              const paddle::Tensor& out_p,
-              paddle::Tensor* out_t) {
-  paddle::prim::tanh_grad<paddle::Tensor>(out_p, x_t, out_t);
-}
-
-void concat_jvp(const std::vector<paddle::Tensor>& x_ts,
-                paddle::experimental::Scalar axis,
-                paddle::Tensor* out_t) {
-  *out_t = concat_ad_func(x_ts, axis);
+Tensor concat_jvp(const std::vector<Tensor>& x_ts, Scalar axis) {
+  std::vector<Tensor> fw_grads;
+  for (const Tensor& t : x_ts) {
+    if (egr::EagerUtils::nullable_autograd_meta(t)) {
+      fw_grads.push_back(t._fw_grad(/*level*/ 0));
+    } else {
+      fw_grads.push_back(
+          paddle::experimental::zeros(t.shape(), t.dtype(), t.place()));
+    }
+  }
+  return concat_ad_func(fw_grads, axis);
 }

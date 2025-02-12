@@ -22,7 +22,7 @@ import paddle
 sys.path.insert(0, '.')
 
 
-class TestFWDContext(unittest.TestCase):
+class TestFwdADContext(unittest.TestCase):
     def test_enter_exit_dual_level(self):
         paddle.autograd.enter_dual_level()
         assert (
@@ -63,13 +63,11 @@ class TestFWDContext(unittest.TestCase):
                 y_dual
             )
 
-        print(f"x_primal.stop_gradient = {x_primal.stop_gradient}")
-        print(f"x_tangent.stop_gradient = {x_tangent.stop_gradient}")
-        print(f"y_primal.stop_gradient = {y_primal.stop_gradient}")
-        print(f"y_tangent.stop_gradient = {y_tangent.stop_gradient}")
-
         y = func(x)
         dy_dx_bwd = paddle.grad(y, x, x_tangent, create_graph=True)[0]
+        np.testing.assert_allclose(
+            dy_dx_bwd.numpy(), y_tangent.numpy(), 1e-6, 1e-6
+        )
 
         vv = paddle.randn(y_tangent.shape)
         ddy_ddx_bwdfwd = paddle.grad(
@@ -78,10 +76,38 @@ class TestFWDContext(unittest.TestCase):
         ddy_ddx_bwdbwd = paddle.grad(dy_dx_bwd, x, vv, create_graph=False)[0]
 
         np.testing.assert_allclose(
-            dy_dx_bwd.numpy(), y_tangent.numpy(), 1e-6, 1e-6
+            ddy_ddx_bwdfwd.numpy(), ddy_ddx_bwdbwd.numpy(), 1e-6, 1e-6
+        )
+
+
+class TestFwdAD_eager_ops(unittest.TestCase):
+    def test_concat_jvp(self):
+        xs = [paddle.randn([2, 2, 1]) for _ in range(4)]
+        vs = [paddle.randn(xs[i].shape) for i in range(4)]
+        for i in range(4):
+            xs[i].stop_gradient = False
+            vs[i].stop_gradient = False
+
+        axis = 1
+        with paddle.autograd.dual_level():
+            xs_dual = [paddle.autograd.make_dual(x, v) for x, v in zip(xs, vs)]
+            # test concat with one vanilla Tensor
+            xs_dual[2] = xs[i]
+            y_dual = paddle.concat(xs_dual, axis)
+            y_primal, y_tangent = paddle.autograd.unpack_dual(y_dual)
+            # print(y_tangent)
+
+        np.testing.assert_allclose(
+            y_primal.numpy(),
+            paddle.concat(xs, axis).numpy(),
+            1e-6,
+            1e-6,
         )
         np.testing.assert_allclose(
-            ddy_ddx_bwdfwd.numpy(), ddy_ddx_bwdbwd.numpy(), 1e-6, 1e-6
+            y_tangent.numpy(),
+            paddle.concat(vs, axis).numpy(),
+            1e-6,
+            1e-6,
         )
 
 
