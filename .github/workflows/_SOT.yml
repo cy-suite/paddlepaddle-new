@@ -99,7 +99,9 @@ jobs:
     - name: Download paddle and update
       run: |
         docker exec -t paddle-CI-${PR_ID} /bin/bash -c '
-        bash ${{ github.workspace }}/paddle/scripts/paddle_build/download_paddle.sh ${PR_ID} ${COMMIT_ID}
+        rm -rf * .[^.]*
+        wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/Paddle/${PR_ID}/${COMMIT_ID}/Paddle.tar.gz --no-check-certificate
+        bash ${{ github.workspace }}/paddle/scripts/paddle_build/config_paddle.sh
         ln -s /home/data/cfs/.cache /root/.cache
         . ../proxy
         git checkout develop

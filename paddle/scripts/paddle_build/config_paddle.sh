@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-rm -rf * .[^.]*
-wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/Paddle/$1/$2/Paddle.tar.gz --no-check-certificate
 tar xf Paddle.tar.gz --strip-components=1
 rm Paddle.tar.gz
 git config --global user.name "PaddleCI"
