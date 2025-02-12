@@ -119,18 +119,25 @@ class CastLonglong2IntMutator : public ir::IRMutator<> {
     auto node = expr->As<ir::Load>();
     std::for_each(node->indices.begin(),
                   node->indices.end(),
-                  [&](cinn::ir::Expr& e) { ir::TryElevateInt64ToInt32({e}); });
+                  [&](cinn::ir::Expr& e) { ir::IRMutator<>::Visit(&e, &e); });
     ir::IRMutator<>::Visit(&node->tensor, &node->tensor);
   }
-
   void Visit(const ir::Select* op, Expr* expr) override {
     auto node = expr->As<ir::Select>();
     auto cond = node->condition;
-    if (cond.is_cmp()) {
-      ir::TryElevateInt64ToInt32({cond->operand(0), cond->operand(1)});
+    if (cond.is_cmp() && cond->operand(0).is_index() &&
+        cond->operand(1).is_index()) {
+      ir::IRMutator<>::Visit(&cond->operands[0], &cond->operands[0]);
+      ir::IRMutator<>::Visit(&cond->operands[1], &cond->operands[1]);
     }
     ir::IRMutator<>::Visit(&node->true_value, &node->true_value);
     ir::IRMutator<>::Visit(&node->false_value, &node->false_value);
+  }
+  void Visit(const ir::IntImm* op, Expr* expr) override {
+    ir::TryElevateInt64ToInt32({*expr});
+  }
+  void Visit(const ir::_Var_* op, Expr* expr) override {
+    ir::TryElevateInt64ToInt32({*expr});
   }
 };
 
@@ -148,18 +155,25 @@ class LongLong2IntExprPass : public ExprPass {
 }  // namespace
 
 LogicalResult LongLong2IntStmtPass::Run(ir::stmt::StmtRef stmt) {
-  auto CastStore = [](StmtRef stmt) {
+  CastLonglong2IntMutator narrow;
+  // store and if_then_else stmt may has recursive load, so we need to use
+  // mutator to change those type.
+  auto CastStore = [&](StmtRef stmt) {
     Store store_stmt = stmt.as<Store>();
     for (Expr index : store_stmt->indices()) {
-      ir::TryElevateInt64ToInt32({index});
+      narrow(&index);
     }
+    ir::Expr value = store_stmt->value();
+    narrow(&value);
   };
 
-  auto CastIfThenElse = [](StmtRef stmt) {
+  auto CastIfThenElse = [&](StmtRef stmt) {
     IfThenElse if_stmt = stmt.as<IfThenElse>();
     Expr cond = if_stmt->condition();
-    if (cond.is_cmp()) {
-      ir::TryElevateInt64ToInt32({cond->operand(0), cond->operand(1)});
+    if (cond.is_cmp() && cond->operand(0).is_index() &&
+        cond->operand(1).is_index()) {
+      narrow(&cond->operands[0]);
+      narrow(&cond->operands[1]);
     }
   };
 

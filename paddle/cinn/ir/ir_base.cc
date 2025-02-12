@@ -628,7 +628,11 @@ void IrNode::convert_int64_to_int32() {
   if (type_ == UInt(64)) type_ = UInt(32);
 
   for (Expr &operand : operands) {
-    operand->convert_int64_to_int32();
+    if (operand->node_type() == IrNodeTy::Load) {
+      operand = ir::Cast::Make(Int(32), operand);
+    } else {
+      operand->convert_int64_to_int32();
+    }
   }
 }
 
