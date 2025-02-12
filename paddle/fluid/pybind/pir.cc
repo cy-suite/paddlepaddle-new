@@ -24,6 +24,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+#include <vector>
 
 #include "paddle/common/enforce.h"
 #include "paddle/common/flags.h"
@@ -2058,6 +2059,111 @@ int AppendShadowOutputs(Program *program,
   // return the inserted op.
   return counter;
 }
+bool IsBlockKwargs(const Program &program, const pir::Value &value) {
+  for (const auto &fgy : program.block()->kwargs()) {
+    if (value == fgy.second) return true;
+  }
+  return false;
+}
+
+using ValueUnorderedMap = std::unordered_map<pir::Value, pir::Value>;
+void ShareShapeDimFwdAndBwd(const Program &full_program,
+                            const Program &fwd_program,
+                            const Program &bwd_program,
+                            const ValueUnorderedMap &fwd_value_map,
+                            const ValueUnorderedMap &bwd_value_map,
+                            const std::vector<Value> &forward_outputs_grads,
+                            const std::vector<Value> &forward_outputs) {
+  auto &full_prog_analysis =
+      pir::ShapeAnalysisManager::Instance().Get(&full_program);
+  auto &fwd_prog_analysis =
+      pir::ShapeAnalysisManager::Instance().Get(&fwd_program);
+  fwd_prog_analysis.RegisterSymbolConstraintFromShapeAnalysis(
+      full_prog_analysis);
+  auto &bwd_prog_analysis =
+      pir::ShapeAnalysisManager::Instance().Get(&bwd_program);
+
+  ValueUnorderedMap need_infer_fwd_values;
+  for (const auto &fwd_pair : fwd_value_map) {
+    auto origin_value = fwd_pair.first;
+    auto new_value = fwd_pair.second;
+    if (full_prog_analysis.HasShapeOrDataForValue(origin_value)) {
+      fwd_prog_analysis.SetShapeOrDataForValue(
+          new_value, full_prog_analysis.GetShapeOrDataForValue(origin_value));
+    } else if (!IsFakeValue(origin_value)) {
+      need_infer_fwd_values[new_value] = origin_value;
+    }
+  }
+  for (const auto &fwd_pair : need_infer_fwd_values) {
+    const auto &x_shape_or_data =
+        fwd_prog_analysis.GetShapeOrDataForValue(fwd_pair.first);
+  }
+
+  // std::vector<Value> value_list;
+  // for (const auto &fwd_pair : need_infer_fwd_values) {
+  //   for (auto it = fwd_pair.first.use_begin(); it !=
+  //   fwd_pair.first.use_end();
+  //        ++it) {
+  //     auto parent_op = it.owner();
+  //     auto infer_symbolic_shape_interface =
+  //         parent_op->dyn_cast<pir::InferSymbolicShapeInterface>();
+  //     if (infer_symbolic_shape_interface) {
+  //       infer_symbolic_shape_interface.InferSymbolicShape(
+  //           fwd_prog_analysis.InitInferContext())
+  //     }
+  //     bool need_add_equal = true;
+  //     for (size_t i = 0; i < parent_op->results(); ++i) {
+  //       if (need_infer_fwd_values.count(parent_op->result(i)) > 0) {
+  //         need_add_equal = false;
+  //         break;
+  //       }
+  //     }
+  //     if (need_add_equal) {
+  //       for (size_t i = 0; i < parent_op->results(); ++i) {
+  //         fwd_prog_analysis.AddEqualCstr(const symbol::DimExpr &lhs,
+  //                                        const symbol::DimExpr &rhs);
+  //       }
+  //     }
+  //   }
+  // }
+
+  bwd_prog_analysis.RegisterSymbolConstraintFromShapeAnalysis(
+      fwd_prog_analysis);
+
+  for (const auto &fwd_pair : need_infer_fwd_values) {
+    if (bwd_value_map.count(fwd_pair.second) > 0) {
+      Value bwd_value = bwd_value_map.at(fwd_pair.second);
+      bwd_prog_analysis.SetShapeOrDataForValue(
+          bwd_value, fwd_prog_analysis.GetShapeOrDataForValue(fwd_pair.first));
+    }
+  }
+
+  for (size_t index = 0; index < forward_outputs_grads.size(); ++index) {
+    if (!IsFakeValue(forward_outputs_grads[index])) {
+      bwd_prog_analysis.SetShapeOrDataForValue(
+          bwd_value_map.at(forward_outputs_grads[index]),
+          fwd_prog_analysis.GetShapeOrDataForValue(forward_outputs[index]));
+    }
+  }
+
+  ValueUnorderedMap need_infer_bwd_values;
+  for (const auto &bwd_pair : bwd_value_map) {
+    auto origin_value = bwd_pair.first;
+    auto new_value = bwd_pair.second;
+    if (full_prog_analysis.HasShapeOrDataForValue(origin_value)) {
+      bwd_prog_analysis.SetShapeOrDataForValue(
+          new_value, full_prog_analysis.GetShapeOrDataForValue(origin_value));
+    } else if (!IsFakeValue(origin_value) &&
+               !IsBlockKwargs(bwd_program, new_value)) {
+      need_infer_bwd_values[new_value] = origin_value;
+    }
+  }
+
+  for (const auto &bwd_pair : need_infer_bwd_values) {
+    const auto &x_shape_or_data =
+        bwd_prog_analysis.GetShapeOrDataForValue(bwd_pair.first);
+  }
+}
 
 SplitedResult SplitForwardBackward(
     const Program &program,
@@ -2270,6 +2376,13 @@ SplitedResult SplitForwardBackward(
       {"bo", bo}};
   std::vector<std::shared_ptr<Program>> programs = {forward_program,
                                                     backward_program};
+  ShareShapeDimFwdAndBwd(program,
+                         *forward_program,
+                         *backward_program,
+                         forward_value_map,
+                         backward_value_map,
+                         forward_outputs_grads,
+                         forward_outputs);
   return std::make_pair(programs, attr);
 }
 
