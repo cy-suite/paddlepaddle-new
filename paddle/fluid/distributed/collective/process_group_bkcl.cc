@@ -101,11 +101,6 @@ void ProcessGroupBKCL::BKCLTask::RegisterDelayedCommFunc(const CommFunc& func) {
   delayed_funcs_.push_back(func);
 }
 
-static bool IsCrossNodeComm(int src_rank, int tgt_rank) {
-  VLOG(3) << "src_rank: " << src_rank << "tgt_rank: " << tgt_rank;
-  return true;
-}
-
 ProcessGroupBKCL::ProcessGroupBKCL(
     const std::shared_ptr<phi::distributed::Store>& store,
     int rank,
@@ -365,7 +360,7 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupBKCL::Point2Point(
 
   auto bkcl_comm_ctx = this->GetCommContext();
   if (std::getenv("BKCL_ASYNC_SEND_RECV") != nullptr &&
-      IsCrossNodeComm(rank_, p2p_target_rank) && comm_type == CommType::RECV) {
+      comm_type == CommType::RECV) {
     // delay dispatch of comm kernels
     VLOG(3) << "In async send /recv mode, delay recv from " << peer << ".";
     task->RegisterDelayedCommFunc(

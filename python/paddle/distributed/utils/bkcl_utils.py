@@ -18,10 +18,10 @@ import paddle
 
 
 def check_bkcl_async_p2p_conn(ranks):
-    ranks_per_node = int(os.getenv("XPU_PADDLE_NODES_PER_RANK", "8"))
+    ranks_per_node = int(os.getenv("PADDLE_LOCAL_SIZE", "8"))
     assert (
         ranks_per_node > 0
-    ), f"The XPU_PADDLE_NODES_PER_RANK must be greater than 0, bot got {ranks_per_node}"
+    ), f"The PADDLE_LOCAL_SIZE must be greater than 0, bot got {ranks_per_node}"
     for i in range(len(ranks) - 1):
         rank_interval = ranks[i + 1] - ranks[i]
         assert (
