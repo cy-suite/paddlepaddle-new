@@ -32,8 +32,6 @@ jobs:
       run: |
         git config --unset http.https://github.com/.extraheader
         # git config --global --unset http.https://github.com/.extraheader
-        # git submodule foreach 'git fetch --tags --all'
-        bash ${{ github.workspace }}/paddle/scripts/paddle_build/third_party_tag.sh
         git switch develop
         set +e
         git branch -D test
@@ -45,6 +43,8 @@ jobs:
         git fetch origin pull/${{ github.event.pull_request.number }}/head:pr
         git merge --no-ff pr
         git branch -d pr
+        # git submodule foreach 'git fetch --tags --all'
+        bash ${{ github.workspace }}/paddle/scripts/paddle_build/third_party_tag.sh
 
     - name: Download bos client
       env:
