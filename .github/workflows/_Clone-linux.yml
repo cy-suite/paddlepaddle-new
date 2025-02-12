@@ -32,6 +32,7 @@ jobs:
       run: |
         git config --unset http.https://github.com/.extraheader
         # git config --global --unset http.https://github.com/.extraheader
+        git submodule update --init --recursive
         git switch develop
         set +e
         git branch -D test
@@ -71,8 +72,8 @@ jobs:
         python -m pip install bce-python-sdk==0.8.74
         python ${bos_file} Paddle.tar.gz paddle-github-action/PR/Paddle/${PR_ID}/${COMMIT_ID}
         rm Paddle.tar.gz
-        cd -
-        git switch develop
+        # cd -
+        # git switch develop
         # git branch -D test
         # git gc
 

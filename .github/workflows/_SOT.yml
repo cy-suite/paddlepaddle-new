@@ -102,7 +102,6 @@ jobs:
         rm -rf * .[^.]*
         wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/Paddle/${PR_ID}/${COMMIT_ID}/Paddle.tar.gz --no-check-certificate
         tar xf Paddle.tar.gz --strip-components=1
-        rm Paddle.tar.gz
         bash ${{ github.workspace }}/paddle/scripts/paddle_build/config_paddle.sh
         ln -s /home/data/cfs/.cache /root/.cache
         . ../proxy
@@ -134,8 +133,6 @@ jobs:
         PADDLE_ROOT: ${{ github.workspace }}
       run: |
         docker exec -t paddle-CI-${PR_ID} /bin/bash -c '
-        git branch
-        pwd
         export CACHE_DIR=${{ env.CACHE_DIR }}
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         export work_dir=${{ env.work_dir }}
