@@ -136,12 +136,12 @@ jobs:
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         export work_dir=${{ env.work_dir }}
         export PADDLE_ROOT=${{ env.PADDLE_ROOT }}
-        EXCODE=0
         PATH=/usr/local/bin:${PATH}
         ln -sf $(which python3.10) /usr/local/bin/python
         ln -sf $(which pip3.10) /usr/local/bin/pip
         pip config set global.cache-dir "/home/data/cfs/.cache/pip"
         . ../proxy
+        EXCODE=0
         bash -x ${work_dir}/paddle/scripts/paddle_build.sh cicheck_sot;EXCODE=$?
         echo "EXCODE=${EXCODE}" >> ${{ github.env }}
         '
