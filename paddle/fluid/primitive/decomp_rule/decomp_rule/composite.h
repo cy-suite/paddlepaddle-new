@@ -1420,6 +1420,28 @@ Tensor addmm_decomp(const Tensor& input,
 }
 
 template <typename T>
+Tensor baddbmm_decomp(const Tensor& input,
+                      const Tensor& x,
+                      const Tensor& y,
+                      const float beta,
+                      const float alpha) {
+  int batch_size = x.shape()[0];
+  std::vector<Tensor> batch_results;
+
+  for (int i = 0; i < batch_size; ++i) {
+    Tensor x_batch = get_slice<T>(x, i);
+    Tensor y_batch = get_slice<T>(y, i);
+    Tensor result = matmul<T>(x_batch, y_batch);
+    batch_results.push_back(result);
+  }
+
+  Tensor x_y_mat = concat<T>(batch_results);
+
+  return full_scalar<T>(alpha, x_y_mat.dtype()) * x_y_mat +
+         full_scalar<T>(beta, input.dtype()) * input;
+}
+
+template <typename T>
 Tensor eye_decomp(const paddle::Scalar& num_rows,
                   const paddle::Scalar& num_columns,
                   const DataType dtype,
@@ -1490,36 +1512,6 @@ Tensor diag_decomp(const Tensor& x,
     res = take_along_axis<T>(x_flat, indices, 0);
   }
   return ConvertToOrig<T>(res, x.dtype());
-}
-
-template <typename T>
-Tensor allclose_decomp(const Tensor& x,
-                       const Tensor& y,
-                       const paddle::Scalar& rtol,
-                       const paddle::Scalar& atol,
-                       const bool equal_nan) {
-  Tensor left = abs<T>(x - y);
-  Tensor min_diff_tensor;
-  if (has_dynamic_shape(y.shape())) {
-    min_diff_tensor =
-        backend::full_with_tensor<T>(shape64<T>(y), 1e-15, y.dtype());
-  } else {
-    min_diff_tensor = full<T>(y.shape(), 1e-15, y.dtype());
-  }
-  Tensor rtol_tensor = full_scalar<T>(rtol.to<double>(), y.dtype());
-  Tensor atol_tensor = full_scalar<T>(atol.to<double>(), y.dtype());
-  Tensor right = atol_tensor + rtol_tensor * y;
-  Tensor diff = abs<T>(right - left);
-  Tensor res_tmp = backend::logical_or<T>(less_equal<T>(left, right),
-                                          less_equal<T>(diff, min_diff_tensor));
-  Tensor res = backend::logical_or<T>(equal<T>(x, y), res_tmp);
-  if (equal_nan) {
-    Tensor x_nan = isnan<T>(x);
-    Tensor y_nan = isnan<T>(y);
-    res = backend::logical_or<T>(
-        res, backend::logical_or<T>(backend::logical_not<T>(x_nan), y_nan));
-  }
-  return backend::all<T>(res);
 }
 
 }  // namespace details
