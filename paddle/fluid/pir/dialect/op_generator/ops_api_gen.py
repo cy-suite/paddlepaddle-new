@@ -236,10 +236,8 @@ NO_NEED_GEN_STATIC_ONLY_APIS = [
     'push_box_sparse_',
     'send_and_recv',
     'send_and_recv_',
-    'cudnn_lstm_grad',
     'straight_through_estimator',
     "multiply_grad",
-    "embedding_grad",
     "scale_grad",
     "conv2d_grad",
 ]
@@ -251,8 +249,6 @@ class OpsAPIGen(CodeGen):
 
     def _need_skip(self, op_info, op_name):
         if op_name.endswith("_grad"):
-            if op_info.is_sparse_op or op_info.is_fused_op:
-                return True
             if op_name.endswith(("double_grad", "_grad_grad", "triple_grad")):
                 return True
             if op_name[:-5] in NO_NEED_GEN_STATIC_ONLY_APIS:
