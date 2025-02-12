@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# sot
 cd third_party/gloo
 git fetch --tags
 cd -
@@ -27,6 +28,11 @@ cd -
 cd third_party/pybind
 git fetch --tags
 cd -
+
+# py3+
 cd third_party/brpc
 git fetch --tags
+cd -
+cd third_party/rocksdb
+git fetch origin 6.19.fb
 cd -
