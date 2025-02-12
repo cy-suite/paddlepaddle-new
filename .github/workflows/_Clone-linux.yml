@@ -32,7 +32,7 @@ jobs:
       run: |
         git config --unset http.https://github.com/.extraheader
         # git config --global --unset http.https://github.com/.extraheader
-        git submodule update --init --recursive
+        git submodule foreach 'git fetch --tags --all'
         git switch develop
         set +e
         git branch -D test
