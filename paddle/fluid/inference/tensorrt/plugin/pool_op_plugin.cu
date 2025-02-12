@@ -368,6 +368,243 @@ int PoolPluginDynamic::enqueue(const nvinfer1::PluginTensorDesc *input_desc,
 }
 #endif
 
+PIRPoolPluginDynamic::PIRPoolPluginDynamic(void const *serialData,
+                                           size_t serialLength) {
+  DeserializeValue(&serialData, &serialLength, &ceil_mode_);
+  const char *pool_type;
+  DeserializeValue(&serialData, &serialLength, &pool_type);
+  pool_type_ = std::string(pool_type);
+  DeserializeValue(&serialData, &serialLength, &adaptive_);
+  DeserializeValue(&serialData, &serialLength, &exclusive_);
+  DeserializeValue(&serialData, &serialLength, &ksize_);
+  DeserializeValue(&serialData, &serialLength, &strides_);
+  DeserializeValue(&serialData, &serialLength, &paddings_);
+  DeserializeValue(&serialData, &serialLength, &is_global_);
+}
+
+size_t PIRPoolPluginDynamic::getSerializationSize() const TRT_NOEXCEPT {
+  return SerializedSize(ceil_mode_) + SerializedSize(pool_type_.c_str()) +
+         SerializedSize(adaptive_) + SerializedSize(exclusive_) +
+         SerializedSize(ksize_) + SerializedSize(strides_) +
+         SerializedSize(paddings_) + SerializedSize(is_global_);
+}
+
+void PIRPoolPluginDynamic::serialize(void *buffer) const TRT_NOEXCEPT {
+  SerializeValue(&buffer, ceil_mode_);
+  SerializeValue(&buffer, pool_type_.c_str());
+  SerializeValue(&buffer, adaptive_);
+  SerializeValue(&buffer, exclusive_);
+  SerializeValue(&buffer, ksize_);
+  SerializeValue(&buffer, strides_);
+  SerializeValue(&buffer, paddings_);
+  SerializeValue(&buffer, is_global_);
+}
+
+nvinfer1::IPluginV2DynamicExt *PIRPoolPluginDynamic::clone() const
+    TRT_NOEXCEPT {
+  return new PIRPoolPluginDynamic(ceil_mode_,
+                                  pool_type_,
+                                  adaptive_,
+                                  exclusive_,
+                                  ksize_,
+                                  strides_,
+                                  paddings_,
+                                  is_global_);
+}
+
+nvinfer1::DimsExprs PIRPoolPluginDynamic::getOutputDimensions(
+    int output_index,
+    const nvinfer1::DimsExprs *inputs,
+    int nb_inputs,
+    nvinfer1::IExprBuilder &expr_builder) TRT_NOEXCEPT {
+  PADDLE_ENFORCE_EQ(nb_inputs,
+                    1,
+                    common::errors::InvalidArgument(
+                        "The Split plugin should be only one input."));
+
+  nvinfer1::DimsExprs output(inputs[0]);
+  if (is_global_ && !adaptive_) {
+    output.d[2] = expr_builder.constant(1);
+    output.d[3] = expr_builder.constant(1);
+    return output;
+  }
+  if (is_global_ && adaptive_) {
+    return inputs[0];
+  }
+  if (adaptive_) {
+    output.d[2] = expr_builder.constant(ksize_[0]);
+    output.d[3] = expr_builder.constant(ksize_[1]);
+    return output;
+  }
+
+  auto stri_0 = expr_builder.constant(strides_[0]);
+  auto stri_1 = expr_builder.constant(strides_[1]);
+  auto one_value = expr_builder.constant(1);
+
+  auto v0_tmp = expr_builder.constant(-ksize_[0] + 2 * paddings_[0]);
+  auto v1_tmp = expr_builder.constant(-ksize_[1] + 2 * paddings_[1]);
+
+  auto ceil_tmp =
+      expr_builder.constant(-ksize_[0] + 2 * paddings_[0] + strides_[0] - 1);
+  auto ceil1_tmp =
+      expr_builder.constant(-ksize_[1] + 2 * paddings_[1] + strides_[1] - 1);
+
+  if (!ceil_mode_) {
+    output.d[2] = expr_builder.operation(
+        nvinfer1::DimensionOperation::kSUM,
+        *expr_builder.operation(
+            nvinfer1::DimensionOperation::kFLOOR_DIV,
+            *expr_builder.operation(
+                nvinfer1::DimensionOperation::kSUM, *inputs[0].d[2], *v0_tmp),
+            *stri_0),
+        *one_value);
+    output.d[3] = expr_builder.operation(
+        nvinfer1::DimensionOperation::kSUM,
+        *expr_builder.operation(
+            nvinfer1::DimensionOperation::kFLOOR_DIV,
+            *expr_builder.operation(
+                nvinfer1::DimensionOperation::kSUM, *inputs[0].d[3], *v1_tmp),
+            *stri_1),
+        *one_value);
+
+  } else {
+    output.d[2] = expr_builder.operation(
+        nvinfer1::DimensionOperation::kSUM,
+        *expr_builder.operation(
+            nvinfer1::DimensionOperation::kFLOOR_DIV,
+            *expr_builder.operation(
+                nvinfer1::DimensionOperation::kSUM, *inputs[0].d[2], *ceil_tmp),
+            *stri_0),
+        *one_value);
+    output.d[3] = expr_builder.operation(
+        nvinfer1::DimensionOperation::kSUM,
+        *expr_builder.operation(
+            nvinfer1::DimensionOperation::kFLOOR_DIV,
+            *expr_builder.operation(nvinfer1::DimensionOperation::kSUM,
+                                    *inputs[0].d[3],
+                                    *ceil1_tmp),
+            *stri_1),
+        *one_value);
+  }
+
+  return output;
+}
+
+bool PIRPoolPluginDynamic::supportsFormatCombination(
+    int pos,
+    const nvinfer1::PluginTensorDesc *in_out,
+    int nb_inputs,
+    int nb_outputs) TRT_NOEXCEPT {
+  PADDLE_ENFORCE_NOT_NULL(
+      in_out,
+      common::errors::InvalidArgument(
+          "The input of swish plugin should not be nullptr."));
+
+  PADDLE_ENFORCE_LT(
+      pos,
+      nb_inputs + nb_outputs,
+      common::errors::InvalidArgument("The pos(%d) should be less than the "
+                                      "num(%d) of the input and the output.",
+                                      pos,
+                                      nb_inputs + nb_outputs));
+  (in_out && pos < (nb_inputs + nb_outputs));
+
+  return ((in_out[pos].type == nvinfer1::DataType::kFLOAT) &&
+          in_out[pos].format == nvinfer1::PluginFormat::kLINEAR);
+}
+
+nvinfer1::DataType PIRPoolPluginDynamic::getOutputDataType(
+    int index,
+    const nvinfer1::DataType *input_types,
+    int nb_inputs) const TRT_NOEXCEPT {
+  PADDLE_ENFORCE_EQ(index,
+                    0,
+                    common::errors::InvalidArgument(
+                        "The Pool Plugin only has one input, so the "
+                        "index value should be 0, but get %d.",
+                        index));
+  PADDLE_ENFORCE_EQ(
+      (input_types[0] == nvinfer1::DataType::kFLOAT),
+      true,
+      common::errors::InvalidArgument("The input type should be float"));
+  return input_types[0];
+}
+
+int PIRPoolPluginDynamic::enqueue(const nvinfer1::PluginTensorDesc *input_desc,
+                                  const nvinfer1::PluginTensorDesc *output_desc,
+                                  const void *const *inputs,
+                                  void *const *outputs,
+                                  void *workspace,
+                                  cudaStream_t stream) TRT_NOEXCEPT {
+  auto input_dims = input_desc[0].dims;
+  int n = input_dims.d[0];
+  int c = input_dims.d[1];
+  int h = input_dims.d[2];
+  int w = input_dims.d[3];
+
+  const float *input = static_cast<const float *>(inputs[0]);
+  float *output = static_cast<float *>(outputs[0]);
+
+  std::vector<int> input_shape, output_shape;
+  for (int i = 0; i < input_dims.nbDims; i++)
+    input_shape.push_back(input_dims.d[i]);
+  output_shape = input_shape;
+
+  std::vector<int> ksize = ksize_;
+  std::vector<int> paddings = paddings_;
+  if (is_global_) {
+    ksize[0] = h;
+    ksize[1] = w;
+    paddings[0] = 0;
+    paddings[1] = 0;
+    output_shape[2] = 1;
+    output_shape[3] = 1;
+    if (adaptive_) {
+      output_shape[2] = h;
+      output_shape[3] = w;
+    }
+  } else {
+    auto data_dim = CalcOutputSize(
+        {h, w}, ceil_mode_, adaptive_, ksize_, strides_, paddings_);
+    output_shape[2] = data_dim[0];
+    output_shape[3] = data_dim[1];
+  }
+
+  if (pool_type_ == "max") {
+    phi::funcs::MaxPool<float> pool_process;
+    phi::funcs::Pool2dDirectCUDAFunctor<phi::funcs::MaxPool<float>, float>
+        pool2d_forward;
+    pool2d_forward(input,
+                   input_shape,
+                   output_shape,
+                   ksize,
+                   strides_,
+                   paddings,
+                   true,
+                   false,
+                   output,
+                   stream,
+                   pool_process);
+  } else if (pool_type_ == "avg") {
+    phi::funcs::AvgPool<float> pool_process;
+    phi::funcs::Pool2dDirectCUDAFunctor<phi::funcs::AvgPool<float>, float>
+        pool2d_forward;
+    pool2d_forward(input,
+                   input_shape,
+                   output_shape,
+                   ksize,
+                   strides_,
+                   paddings,
+                   exclusive_,
+                   adaptive_,
+                   output,
+                   stream,
+                   pool_process);
+  }
+
+  return cudaGetLastError() != cudaSuccess;
+}
+
 }  // namespace plugin
 }  // namespace tensorrt
 }  // namespace inference

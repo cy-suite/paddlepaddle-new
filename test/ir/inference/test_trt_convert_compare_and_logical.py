@@ -90,49 +90,51 @@ class TrtConvertLogicalTest(TrtLayerAutoScanTest):
 
                     yield program_config
 
+    def generate_dynamic_shape(self):
+        if self.dims == 2:
+            self.dynamic_shape.min_input_shape = {
+                "input_data1": [2, 16],
+                "input_data2": [2, 16],
+            }
+            self.dynamic_shape.max_input_shape = {
+                "input_data1": [2, 16],
+                "input_data2": [2, 16],
+            }
+            self.dynamic_shape.opt_input_shape = {
+                "input_data1": [2, 16],
+                "input_data2": [2, 16],
+            }
+        if self.dims == 3:
+            self.dynamic_shape.min_input_shape = {
+                "input_data1": [2, 16, 32],
+                "input_data2": [2, 16, 32],
+            }
+            self.dynamic_shape.max_input_shape = {
+                "input_data1": [2, 16, 32],
+                "input_data2": [2, 16, 32],
+            }
+            self.dynamic_shape.opt_input_shape = {
+                "input_data1": [2, 16, 32],
+                "input_data2": [2, 16, 32],
+            }
+        if self.dims == 4:
+            self.dynamic_shape.min_input_shape = {
+                "input_data1": [1, 32, 16, 32],
+                "input_data2": [1, 32, 16, 32],
+            }
+            self.dynamic_shape.max_input_shape = {
+                "input_data1": [1, 32, 16, 32],
+                "input_data2": [1, 32, 16, 32],
+            }
+            self.dynamic_shape.opt_input_shape = {
+                "input_data1": [1, 32, 16, 32],
+                "input_data2": [1, 32, 16, 32],
+            }
+        return self.dynamic_shape
+
     def sample_predictor_configs(
-        self, program_config
+        self, program_config, run_pir=False
     ) -> tuple[paddle_infer.Config, list[int], float]:
-        def generate_dynamic_shape(attrs):
-            if self.dims == 2:
-                self.dynamic_shape.min_input_shape = {
-                    "input_data1": [2, 16],
-                    "input_data2": [2, 16],
-                }
-                self.dynamic_shape.max_input_shape = {
-                    "input_data1": [2, 16],
-                    "input_data2": [2, 16],
-                }
-                self.dynamic_shape.opt_input_shape = {
-                    "input_data1": [2, 16],
-                    "input_data2": [2, 16],
-                }
-            if self.dims == 3:
-                self.dynamic_shape.min_input_shape = {
-                    "input_data1": [2, 16, 32],
-                    "input_data2": [2, 16, 32],
-                }
-                self.dynamic_shape.max_input_shape = {
-                    "input_data1": [2, 16, 32],
-                    "input_data2": [2, 16, 32],
-                }
-                self.dynamic_shape.opt_input_shape = {
-                    "input_data1": [2, 16, 32],
-                    "input_data2": [2, 16, 32],
-                }
-            if self.dims == 4:
-                self.dynamic_shape.min_input_shape = {
-                    "input_data1": [1, 32, 16, 32],
-                    "input_data2": [1, 32, 16, 32],
-                }
-                self.dynamic_shape.max_input_shape = {
-                    "input_data1": [1, 32, 16, 32],
-                    "input_data2": [1, 32, 16, 32],
-                }
-                self.dynamic_shape.opt_input_shape = {
-                    "input_data1": [1, 32, 16, 32],
-                    "input_data2": [1, 32, 16, 32],
-                }
 
         def clear_dynamic_shape():
             self.dynamic_shape.max_input_shape = {}
@@ -165,7 +167,7 @@ class TrtConvertLogicalTest(TrtLayerAutoScanTest):
         ), (1e-3, 1e-3)
 
         # for dynamic_shape
-        generate_dynamic_shape(attrs)
+        self.generate_dynamic_shape()
         self.trt_param.precision = paddle_infer.PrecisionType.Float32
         program_config.set_input_type(np.float32)
         yield self.create_inference_config(), generate_trt_nodes_num(
@@ -182,7 +184,7 @@ class TrtConvertLogicalTest(TrtLayerAutoScanTest):
 
     def test(self):
         self.add_skip_trt_case()
-        self.run_test()
+        self.run_test(run_pir=True)
 
 
 class TrtConvertCompareTest(TrtLayerAutoScanTest):
@@ -236,49 +238,51 @@ class TrtConvertCompareTest(TrtLayerAutoScanTest):
 
                     yield program_config
 
+    def generate_dynamic_shape(self):
+        if self.dims == 2:
+            self.dynamic_shape.min_input_shape = {
+                "input_data1": [2, 16],
+                "input_data2": [2, 16],
+            }
+            self.dynamic_shape.max_input_shape = {
+                "input_data1": [2, 16],
+                "input_data2": [2, 16],
+            }
+            self.dynamic_shape.opt_input_shape = {
+                "input_data1": [2, 16],
+                "input_data2": [2, 16],
+            }
+        if self.dims == 3:
+            self.dynamic_shape.min_input_shape = {
+                "input_data1": [2, 16, 32],
+                "input_data2": [2, 16, 32],
+            }
+            self.dynamic_shape.max_input_shape = {
+                "input_data1": [2, 16, 32],
+                "input_data2": [2, 16, 32],
+            }
+            self.dynamic_shape.opt_input_shape = {
+                "input_data1": [2, 16, 32],
+                "input_data2": [2, 16, 32],
+            }
+        if self.dims == 4:
+            self.dynamic_shape.min_input_shape = {
+                "input_data1": [1, 32, 16, 32],
+                "input_data2": [1, 32, 16, 32],
+            }
+            self.dynamic_shape.max_input_shape = {
+                "input_data1": [1, 32, 16, 32],
+                "input_data2": [1, 32, 16, 32],
+            }
+            self.dynamic_shape.opt_input_shape = {
+                "input_data1": [1, 32, 16, 32],
+                "input_data2": [1, 32, 16, 32],
+            }
+        return self.dynamic_shape
+
     def sample_predictor_configs(
-        self, program_config
+        self, program_config, run_pir=False
     ) -> (paddle_infer.Config, list[int], float):
-        def generate_dynamic_shape(attrs):
-            if self.dims == 2:
-                self.dynamic_shape.min_input_shape = {
-                    "input_data1": [2, 16],
-                    "input_data2": [2, 16],
-                }
-                self.dynamic_shape.max_input_shape = {
-                    "input_data1": [2, 16],
-                    "input_data2": [2, 16],
-                }
-                self.dynamic_shape.opt_input_shape = {
-                    "input_data1": [2, 16],
-                    "input_data2": [2, 16],
-                }
-            if self.dims == 3:
-                self.dynamic_shape.min_input_shape = {
-                    "input_data1": [2, 16, 32],
-                    "input_data2": [2, 16, 32],
-                }
-                self.dynamic_shape.max_input_shape = {
-                    "input_data1": [2, 16, 32],
-                    "input_data2": [2, 16, 32],
-                }
-                self.dynamic_shape.opt_input_shape = {
-                    "input_data1": [2, 16, 32],
-                    "input_data2": [2, 16, 32],
-                }
-            if self.dims == 4:
-                self.dynamic_shape.min_input_shape = {
-                    "input_data1": [1, 32, 16, 32],
-                    "input_data2": [1, 32, 16, 32],
-                }
-                self.dynamic_shape.max_input_shape = {
-                    "input_data1": [1, 32, 16, 32],
-                    "input_data2": [1, 32, 16, 32],
-                }
-                self.dynamic_shape.opt_input_shape = {
-                    "input_data1": [1, 32, 16, 32],
-                    "input_data2": [1, 32, 16, 32],
-                }
 
         def clear_dynamic_shape():
             self.dynamic_shape.max_input_shape = {}
@@ -311,7 +315,7 @@ class TrtConvertCompareTest(TrtLayerAutoScanTest):
         ), (1e-3, 1e-3)
 
         # for dynamic_shape
-        generate_dynamic_shape(attrs)
+        self.generate_dynamic_shape()
         self.trt_param.precision = paddle_infer.PrecisionType.Float32
         program_config.set_input_type(np.float32)
         yield self.create_inference_config(), generate_trt_nodes_num(
@@ -328,7 +332,7 @@ class TrtConvertCompareTest(TrtLayerAutoScanTest):
 
     def test(self):
         self.add_skip_trt_case()
-        self.run_test()
+        self.run_test(run_pir=True)
 
 
 class TrtConvertLessEqualTest(TrtLayerAutoScanTest):
@@ -397,49 +401,53 @@ class TrtConvertLessEqualTest(TrtLayerAutoScanTest):
 
                     yield program_config
 
+    def generate_dynamic_shape(self):
+        if self.dims == 2:
+            self.dynamic_shape.min_input_shape = {
+                "input_data1": [2, 16],
+                "input_data2": [2, 16],
+            }
+            self.dynamic_shape.max_input_shape = {
+                "input_data1": [2, 16],
+                "input_data2": [2, 16],
+            }
+            self.dynamic_shape.opt_input_shape = {
+                "input_data1": [2, 16],
+                "input_data2": [2, 16],
+            }
+        if self.dims == 3:
+            self.dynamic_shape.min_input_shape = {
+                "input_data1": [2, 16, 32],
+                "input_data2": [2, 16, 32],
+            }
+            self.dynamic_shape.max_input_shape = {
+                "input_data1": [2, 16, 32],
+                "input_data2": [2, 16, 32],
+            }
+            self.dynamic_shape.opt_input_shape = {
+                "input_data1": [2, 16, 32],
+                "input_data2": [2, 16, 32],
+            }
+        if self.dims == 4:
+            self.dynamic_shape.min_input_shape = {
+                "input_data1": [1, 32, 16, 32],
+                "input_data2": [1, 32, 16, 32],
+            }
+            self.dynamic_shape.max_input_shape = {
+                "input_data1": [1, 32, 16, 32],
+                "input_data2": [1, 32, 16, 32],
+            }
+            self.dynamic_shape.opt_input_shape = {
+                "input_data1": [1, 32, 16, 32],
+                "input_data2": [1, 32, 16, 32],
+            }
+        return self.dynamic_shape
+
     def sample_predictor_configs(
-        self, program_config
+        self,
+        program_config,
+        run_pir=False,
     ) -> (paddle_infer.Config, list[int], float):
-        def generate_dynamic_shape(attrs):
-            if self.dims == 2:
-                self.dynamic_shape.min_input_shape = {
-                    "input_data1": [2, 16],
-                    "input_data2": [2, 16],
-                }
-                self.dynamic_shape.max_input_shape = {
-                    "input_data1": [2, 16],
-                    "input_data2": [2, 16],
-                }
-                self.dynamic_shape.opt_input_shape = {
-                    "input_data1": [2, 16],
-                    "input_data2": [2, 16],
-                }
-            if self.dims == 3:
-                self.dynamic_shape.min_input_shape = {
-                    "input_data1": [2, 16, 32],
-                    "input_data2": [2, 16, 32],
-                }
-                self.dynamic_shape.max_input_shape = {
-                    "input_data1": [2, 16, 32],
-                    "input_data2": [2, 16, 32],
-                }
-                self.dynamic_shape.opt_input_shape = {
-                    "input_data1": [2, 16, 32],
-                    "input_data2": [2, 16, 32],
-                }
-            if self.dims == 4:
-                self.dynamic_shape.min_input_shape = {
-                    "input_data1": [1, 32, 16, 32],
-                    "input_data2": [1, 32, 16, 32],
-                }
-                self.dynamic_shape.max_input_shape = {
-                    "input_data1": [1, 32, 16, 32],
-                    "input_data2": [1, 32, 16, 32],
-                }
-                self.dynamic_shape.opt_input_shape = {
-                    "input_data1": [1, 32, 16, 32],
-                    "input_data2": [1, 32, 16, 32],
-                }
 
         def clear_dynamic_shape():
             self.dynamic_shape.max_input_shape = {}
@@ -474,7 +482,7 @@ class TrtConvertLessEqualTest(TrtLayerAutoScanTest):
         ), (1e-3, 1e-3)
 
         # for dynamic_shape
-        generate_dynamic_shape(attrs)
+        self.generate_dynamic_shape()
         self.trt_param.precision = paddle_infer.PrecisionType.Float32
         program_config.set_input_type(np.float32)
         yield self.create_inference_config(), generate_trt_nodes_num(
@@ -491,7 +499,7 @@ class TrtConvertLessEqualTest(TrtLayerAutoScanTest):
 
     def test(self):
         self.add_skip_trt_case()
-        self.run_test()
+        self.run_test(run_pir=True)
 
 
 class TrtConvertGreaterEqualTest(TrtLayerAutoScanTest):
@@ -560,49 +568,53 @@ class TrtConvertGreaterEqualTest(TrtLayerAutoScanTest):
 
                     yield program_config
 
+    def generate_dynamic_shape(self):
+        if self.dims == 2:
+            self.dynamic_shape.min_input_shape = {
+                "input_data1": [2, 16],
+                "input_data2": [2, 16],
+            }
+            self.dynamic_shape.max_input_shape = {
+                "input_data1": [2, 16],
+                "input_data2": [2, 16],
+            }
+            self.dynamic_shape.opt_input_shape = {
+                "input_data1": [2, 16],
+                "input_data2": [2, 16],
+            }
+        if self.dims == 3:
+            self.dynamic_shape.min_input_shape = {
+                "input_data1": [2, 16, 32],
+                "input_data2": [2, 16, 32],
+            }
+            self.dynamic_shape.max_input_shape = {
+                "input_data1": [2, 16, 32],
+                "input_data2": [2, 16, 32],
+            }
+            self.dynamic_shape.opt_input_shape = {
+                "input_data1": [2, 16, 32],
+                "input_data2": [2, 16, 32],
+            }
+        if self.dims == 4:
+            self.dynamic_shape.min_input_shape = {
+                "input_data1": [1, 32, 16, 32],
+                "input_data2": [1, 32, 16, 32],
+            }
+            self.dynamic_shape.max_input_shape = {
+                "input_data1": [1, 32, 16, 32],
+                "input_data2": [1, 32, 16, 32],
+            }
+            self.dynamic_shape.opt_input_shape = {
+                "input_data1": [1, 32, 16, 32],
+                "input_data2": [1, 32, 16, 32],
+            }
+        return self.dynamic_shape
+
     def sample_predictor_configs(
-        self, program_config
+        self,
+        program_config,
+        run_pir=False,
     ) -> (paddle_infer.Config, list[int], float):
-        def generate_dynamic_shape(attrs):
-            if self.dims == 2:
-                self.dynamic_shape.min_input_shape = {
-                    "input_data1": [2, 16],
-                    "input_data2": [2, 16],
-                }
-                self.dynamic_shape.max_input_shape = {
-                    "input_data1": [2, 16],
-                    "input_data2": [2, 16],
-                }
-                self.dynamic_shape.opt_input_shape = {
-                    "input_data1": [2, 16],
-                    "input_data2": [2, 16],
-                }
-            if self.dims == 3:
-                self.dynamic_shape.min_input_shape = {
-                    "input_data1": [2, 16, 32],
-                    "input_data2": [2, 16, 32],
-                }
-                self.dynamic_shape.max_input_shape = {
-                    "input_data1": [2, 16, 32],
-                    "input_data2": [2, 16, 32],
-                }
-                self.dynamic_shape.opt_input_shape = {
-                    "input_data1": [2, 16, 32],
-                    "input_data2": [2, 16, 32],
-                }
-            if self.dims == 4:
-                self.dynamic_shape.min_input_shape = {
-                    "input_data1": [1, 32, 16, 32],
-                    "input_data2": [1, 32, 16, 32],
-                }
-                self.dynamic_shape.max_input_shape = {
-                    "input_data1": [1, 32, 16, 32],
-                    "input_data2": [1, 32, 16, 32],
-                }
-                self.dynamic_shape.opt_input_shape = {
-                    "input_data1": [1, 32, 16, 32],
-                    "input_data2": [1, 32, 16, 32],
-                }
 
         def clear_dynamic_shape():
             self.dynamic_shape.max_input_shape = {}
@@ -637,7 +649,7 @@ class TrtConvertGreaterEqualTest(TrtLayerAutoScanTest):
         ), (1e-3, 1e-3)
 
         # for dynamic_shape
-        generate_dynamic_shape(attrs)
+        self.generate_dynamic_shape()
         self.trt_param.precision = paddle_infer.PrecisionType.Float32
         program_config.set_input_type(np.float32)
         yield self.create_inference_config(), generate_trt_nodes_num(
@@ -654,7 +666,7 @@ class TrtConvertGreaterEqualTest(TrtLayerAutoScanTest):
 
     def test(self):
         self.add_skip_trt_case()
-        self.run_test()
+        self.run_test(run_pir=True)
 
 
 class TrtConvertCompareSkipTest(TrtLayerAutoScanTest):
@@ -696,7 +708,7 @@ class TrtConvertCompareSkipTest(TrtLayerAutoScanTest):
 
                 yield program_config
 
-    def generate_dynamic_shape(self, attrs):
+    def generate_dynamic_shape(self):
         if self.dims == 2:
             shape_data = [2, 16]
         if self.dims == 3:
@@ -749,7 +761,7 @@ class TrtConvertCompareSkipTest(TrtLayerAutoScanTest):
         ), (1e-3, 1e-3)
 
         # for dynamic_shape
-        self.generate_dynamic_shape(attrs)
+        self.generate_dynamic_shape()
         self.trt_param.precision = paddle_infer.PrecisionType.Float32
         yield self.create_inference_config(), generate_trt_nodes_num(
             attrs, True
