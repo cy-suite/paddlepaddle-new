@@ -54,7 +54,7 @@ jobs:
         CCACHE_MAXSIZE: 150G
         CCACHE_LIMIT_MULTIPLE: 0.8
       run: |
-        bash ${{ github.workspace }}/paddle/scripts/paddle_build/build_docker_image.sh
+        bash ${{ github.workspace }}/paddle/scripts/paddle_build/check_docker_image.sh
         docker run -d -t --name paddle-CI-${PR_ID} \
           -v "/home/data/cfs:/home/data/cfs" \
           -v "/home/data/gzcfs:/home/data/gzcfs" \
