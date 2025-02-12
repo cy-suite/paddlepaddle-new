@@ -207,106 +207,75 @@ std::unique_ptr<FuncPass> CreateRemoveGpuForLoopsPass() {
  * this is the problem of isl AST output, drop it to make it run in all the
  * threads.
  */
-class DropIfThenElseMutator : public ir::IRMutator<>,
-                              public ir::stmt::StmtMutator<> {
+class DropIfThenElseMutator {
  public:
-  void operator()(ir::Expr expr) {
-    ir::Expr _expr = expr;
-    ir::IRMutator<>::Visit(&_expr, &_expr);
-  }
-
   void operator()(ir::stmt::BlockRef block) { VisitBlock(block); }
 
  private:
-  void VisitBlock(ir::stmt::BlockRef block) override {
-    std::vector<ir::stmt::StmtRef> stmts = block->stmts();
-    std::vector<ir::stmt::StmtRef> new_stmts;
-    for (ir::stmt::StmtRef &stmt : stmts) {
-      if (stmt->stmt_type() == ir::StmtNodeTy::IfThenElse) {
-        const ir::stmt::IfThenElse &node = stmt.as<ir::stmt::IfThenElse>();
-        VisitStmt(node);
-        if (!blocked_statement_stack.empty() &&
-            blocked_statement_stack.back().count(node) &&
-            blocked_statement_stack.back()[node]) {
-          // If the IfThenElse statement is marked, replace it with its
-          // true_case statements.
-          const ir::stmt::BlockRef true_case_block = node->true_case();
-          for (const auto &true_stmt : true_case_block->stmts()) {
-            new_stmts.push_back(true_stmt);
-          }
-        } else {
-          new_stmts.push_back(stmt);
-        }
-      } else {
-        new_stmts.push_back(stmt);
-      }
-    }
-    block->set_stmts(new_stmts);
-  }
-
-  void VisitStmt(ir::stmt::IfThenElse stmt) override {
-    // Initialize the current IfThenElse statement as not marked.
-    if (blocked_statement_stack.empty()) {
-      std::map<ir::stmt::IfThenElse, bool> map({{stmt, false}});
-      blocked_statement_stack.push_back(map);
-    }
-    blocked_statement_stack.back()[stmt] = false;
-
-    // Traverse the condition and true_case.
-    operator()(stmt->condition());
-    operator()(stmt->true_case());
-
-    // Pop the current IfThenElse statement from the stack.
-    blocked_statement_stack.back().erase(stmt);
-    if (blocked_statement_stack.back().empty()) {
-      blocked_statement_stack.pop_back();
-    }
-  }
-
-  void VisitStmt(ir::stmt::For stmt) override {
-    operator()(stmt->min());
-    operator()(stmt->extent());
-    VisitBlock(stmt->body());
-  }
-
-  void VisitStmt(ir::stmt::Schedule stmt) override { VisitBlock(stmt->body()); }
-
-  void VisitStmt(ir::stmt::Let stmt) override { operator()(stmt->body()); }
-
-  void VisitStmt(ir::stmt::Free stmt) override {}
-
-  void VisitStmt(ir::stmt::Store stmt) override {}
-
-  void VisitStmt(ir::stmt::Alloc) override {}
-
-  void VisitStmt(ir::stmt::Evaluate) override {}
-
-  void Visit(const ir::Call *op, Expr *expr) override {
-    if (op->name == runtime::intrinsic::cuda_sync_threads) {
-      if (!blocked_statement_stack.empty()) {
-        auto &current_if_map = blocked_statement_stack.back();
-        for (auto &[if_stmt, marked] : current_if_map) {
-          if (auto *eq_n = if_stmt->condition().As<ir::EQ>()) {
-            if (eq_n->b() == cinn::common::make_const(0)) {
-              marked = true;
+  bool isDropCandidate(const ir::stmt::IfThenElse &stmt) {
+    if (!stmt->condition().defined()) return false;
+    const ir::Expr &cond = stmt->condition();
+    if (auto *eq_n = cond.As<ir::EQ>()) {
+      if (eq_n->b() == cinn::common::make_const(0)) {
+        ir::stmt::BlockRef true_case = stmt->true_case();
+        if (true_case.defined() && true_case->stmts().size() == 1) {
+          auto eval_stmt = true_case->stmts()[0];
+          if (eval_stmt->stmt_type() == ir::StmtNodeTy::Evaluate) {
+            auto eval_expr = eval_stmt.as<ir::stmt::Evaluate>()->value();
+            if (auto *call = eval_expr.As<ir::Call>()) {
+              if (call->name == runtime::intrinsic::cuda_sync_threads) {
+                return true;
+              }
             }
           }
         }
       }
     }
+    return false;
   }
 
-  // Collect all the statements with Block(include Block) to the statement.
-  std::vector<std::map<ir::stmt::IfThenElse, bool>> blocked_statement_stack;
+  void VisitBlock(ir::stmt::BlockRef block) {
+    std::vector<ir::stmt::StmtRef> stmts = block->stmts();
+    std::vector<ir::stmt::StmtRef> new_stmts;
+    for (ir::stmt::StmtRef &stmt : stmts) {
+      switch (stmt->stmt_type()) {
+        case ir::StmtNodeTy::IfThenElse: {
+          const ir::stmt::IfThenElse &if_node = stmt.as<ir::stmt::IfThenElse>();
+          if (isDropCandidate(if_node)) {
+            const ir::stmt::BlockRef true_case = if_node->true_case();
+            for (const auto &true_stmt : true_case->stmts()) {
+              new_stmts.push_back(true_stmt);
+            }
+          } else {
+            new_stmts.push_back(stmt);
+          }
+        } break;
+        case ir::StmtNodeTy::For: {
+          ir::stmt::For for_stmt = stmt.as<ir::stmt::For>();
+          VisitBlock(for_stmt->body());
+          new_stmts.push_back(stmt);
+        } break;
+        case ir::StmtNodeTy::Schedule: {
+          ir::stmt::Schedule schedule = stmt.as<ir::stmt::Schedule>();
+          VisitBlock(schedule->body());
+          new_stmts.push_back(stmt);
+        } break;
+        default:
+          new_stmts.push_back(stmt);
+          break;
+      }
+    }
+    block->set_stmts(new_stmts);
+  }
 };
 
-LogicalResult CudaSyncThreadsDropIfThenElsePass::Run(ir::LoweredFunc fn) {
+LogicalResult CudaSyncThreadsDropIfThenElsePass::Run(ir::stmt::BlockRef block) {
   DropIfThenElseMutator mutator;
-  mutator(fn->body_block);
+  mutator(block);
   return LogicalResult::success();
 }
 
-std::unique_ptr<FuncPass> CreateCudaSyncThreadsDropIfThenElsePass() {
+std::unique_ptr<BlockPass> CreateCudaSyncThreadsDropIfThenElsePass() {
   return std::make_unique<CudaSyncThreadsDropIfThenElsePass>();
 }
 
@@ -753,8 +722,8 @@ void OptimizeExprGPU(ir::stmt::BlockRef block) {
   RestructureVarNodes restructure_var_nodes;
   restructure_var_nodes(block);
 
-  // Replace iter_vars used in ScheduleBlocks to their corresponding iter_values
-  // in ScheduleBlockRealizes.
+  // Replace iter_vars used in ScheduleBlocks to their corresponding
+  // iter_values in ScheduleBlockRealizes.
   ReplaceIndexToBindExpr replace_index_to_bind_expr;
   replace_index_to_bind_expr(block);
 
@@ -764,17 +733,20 @@ void OptimizeExprGPU(ir::stmt::BlockRef block) {
   pass_manager.Run(block);
   ir::Expr new_expr = ir::ConvertStmtBlockToExprBlock(block);
 
-  // Replace variables bound on block/thread to the actual blockIdx/threadIdx.
+  // Replace variables bound on block/thread to the actual
+  // blockIdx/threadIdx.
+  LOG(INFO) << "Before ReplaceLoopVarToGpu: \n" << block;
   ReplaceLoopVarToGpu replace_loop_var_to_gpu;
   replace_loop_var_to_gpu(block);
+  LOG(INFO) << "After ReplaceLoopVarToGpu: \n" << block;
 
-  // Replace blockIdx in shared memory's indices to zero, because shared memory
-  // cannot be accessed from another block.
+  // Replace blockIdx in shared memory's indices to zero, because shared
+  // memory cannot be accessed from another block.
   SharedAxisVisitor shared_axis_visitor;
   shared_axis_visitor(block);
 
-  // Replace blockIdx/threadIdx in local buffer's indices to zero, because local
-  // buffers cannot be accessed from another block/thread.
+  // Replace blockIdx/threadIdx in local buffer's indices to zero, because
+  // local buffers cannot be accessed from another block/thread.
   LocalAxisVisitor local_axis_visitor;
   local_axis_visitor(block);
 

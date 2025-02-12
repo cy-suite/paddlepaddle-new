@@ -37,7 +37,6 @@ namespace optim {
  *   3) Expression Simplification and Type Casting
  */
 void OptimizeExprGPU(ir::stmt::BlockRef func_body);
-// void OptimizeExprGPU(ir::Expr* func_body);
 
 /**
  * Remove the GPU block/thread-bound For loops, add IfThenElse guards if needed.
@@ -104,14 +103,14 @@ std::unique_ptr<FuncPass> CreateRemoveGpuForLoopsPass();
  * =>
  *   if (xxxx > 0) { __syncthreads(); }
  */
-class CudaSyncThreadsDropIfThenElsePass : public FuncPass {
+class CudaSyncThreadsDropIfThenElsePass : public BlockPass {
  public:
   CudaSyncThreadsDropIfThenElsePass()
-      : FuncPass("cuda_sync_threads_drop_ifthenelse") {}
+      : BlockPass("cuda_sync_threads_drop_ifthenelse") {}
 
-  LogicalResult Run(ir::LoweredFunc fn) override;
+  LogicalResult Run(ir::stmt::BlockRef block) override;
 };
-std::unique_ptr<FuncPass> CreateCudaSyncThreadsDropIfThenElsePass();
+std::unique_ptr<BlockPass> CreateCudaSyncThreadsDropIfThenElsePass();
 
 }  // namespace optim
 }  // namespace cinn

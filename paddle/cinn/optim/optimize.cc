@@ -81,9 +81,13 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
           func_pass_manager.Run(copied);
           LOG(INFO) << "After removing GPU for loops:\n" << copied;
         }
+        VLOG(10) << "Before Optimize CudaSyncThreadsDropIfThenElse:" << copied;
+        BlockPassManager blk_pass_manager;
+        blk_pass_manager.AddPass(CreateCudaSyncThreadsDropIfThenElsePass());
+        blk_pass_manager.Run(copied->body_block);
+        VLOG(10) << "After Optimize CudaSyncThreadsDropIfThenElse:" << copied;
         FuncPassManager func_pass_manager;
         VLOG(10) << "Before Optimize TransBufferWithDynamicShape:" << copied;
-        func_pass_manager.AddPass(CreateCudaSyncThreadsDropIfThenElsePass());
         func_pass_manager.AddPass(CreateTransBufferWithDynamicShapePass());
         func_pass_manager.Run(copied);
         VLOG(10) << "After Optimize TransBufferWithDynamicShape:" << copied;
@@ -100,9 +104,9 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
           LOG(INFO) << "After removing GPU for loops:\n" << copied;
         }
         VLOG(10) << "Before Optimize CudaSyncThreadsDropIfThenElse:" << copied;
-        FuncPassManager func_pass_manager;
-        func_pass_manager.AddPass(CreateCudaSyncThreadsDropIfThenElsePass());
-        func_pass_manager.Run(copied);
+        BlockPassManager blk_pass_manager;
+        blk_pass_manager.AddPass(CreateCudaSyncThreadsDropIfThenElsePass());
+        blk_pass_manager.Run(copied->body_block);
         VLOG(10) << "After Optimize CudaSyncThreadsDropIfThenElse:" << copied;
 #endif
       },
