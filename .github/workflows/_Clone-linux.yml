@@ -32,10 +32,8 @@ jobs:
       run: |
         git config --unset http.https://github.com/.extraheader
         # git config --global --unset http.https://github.com/.extraheader
-        cd third_party/gloo
-        git fetch --tags
         # git submodule foreach 'git fetch --tags --all'
-        cd -
+        bash ${{ github.workspace }}/paddle/scripts/paddle_build/third_party_tag.sh
         git switch develop
         set +e
         git branch -D test
