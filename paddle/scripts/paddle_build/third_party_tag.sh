@@ -27,3 +27,6 @@ cd -
 cd third_party/pybind
 git fetch --tags
 cd -
+cd third_party/brpc
+git fetch --tags
+cd -
