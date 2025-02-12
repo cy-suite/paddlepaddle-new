@@ -72,5 +72,8 @@ class LUSolveFunctor<T, GPUContext> {
 
 #if defined(PADDLE_WITH_CUDA)
 PD_REGISTER_KERNEL(
-    lu_solve, GPU, ALL_LAYOUT, phi::LUSolveKernel, float, double) {}
+    lu_solve, GPU, ALL_LAYOUT, phi::LUSolveKernel, float, double) {
+  kernel->InputAt(1).SetDataType(phi::DataType::INT32);
+  kernel->InputAt(1).SetBackend(phi::Backend::ALL_BACKEND);
+}
 #endif

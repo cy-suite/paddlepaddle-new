@@ -1303,6 +1303,8 @@ void LUSolveInferMeta(const MetaTensor& lu,
       2,
       common::errors::InvalidArgument(
           "LU matrix must be at least 2D, but got %dD", lu_dims.size()));
+
+  int64_t m = lu_dims[lu_dims.size() - 1];
   PADDLE_ENFORCE_EQ(lu_dims[lu_dims.size() - 1],
                     lu_dims[lu_dims.size() - 2],
                     common::errors::InvalidArgument(
@@ -1316,39 +1318,48 @@ void LUSolveInferMeta(const MetaTensor& lu,
                     common::errors::InvalidArgument(
                         "Pivot indices tensor must be at least 1D, but got %dD",
                         pivot_dims.size()));
+
   PADDLE_ENFORCE_EQ(
       pivot_dims[pivot_dims.size() - 1],
-      lu_dims[lu_dims.size() - 1],
-      common::errors::InvalidArgument("Pivot's last dimension must match LU's "
-                                      "last dimension, but got %d vs %d",
-                                      pivot_dims[pivot_dims.size() - 1],
-                                      lu_dims[lu_dims.size() - 1]));
+      m,
+      common::errors::InvalidArgument(
+          "Pivot's last dimension must match LU's last dimension, "
+          "but got %d vs %d",
+          pivot_dims[pivot_dims.size() - 1],
+          m));
 
-  // b should have shape [..., M] or [..., M, K]
+  // b should have shape [..., M, K]
   PADDLE_ENFORCE_GE(
       b_dims.size(),
-      1,
+      2,
       common::errors::InvalidArgument(
-          "RHS tensor must be at least 1D, but got %dD", b_dims.size()));
+          "The RHS tensor b must be at least 2D, but got %dD", b_dims.size()));
+
   PADDLE_ENFORCE_EQ(
-      b_dims[b_dims.size() - (b_dims.size() == lu_dims.size() ? 2 : 1)],
-      lu_dims[lu_dims.size() - 1],
+      b_dims[b_dims.size() - 2],
+      m,
       common::errors::InvalidArgument(
-          "B's relevant dimension must match LU's last dimension, but got %d "
-          "vs %d",
-          b_dims[b_dims.size() - (b_dims.size() == lu_dims.size() ? 2 : 1)],
-          lu_dims[lu_dims.size() - 1]));
+          "b's second to last dimension must match LU's last dimension "
+          "for matrix multiplication, but got %d vs %d",
+          b_dims[b_dims.size() - 2],
+          m));
 
-  std::vector<int64_t> out_dims{};
-  // Add matrix dimensions
-  if (b_dims.size() == lu_dims.size()) {
-    out_dims.push_back(lu_dims[lu_dims.size() - 2]);  // M
-    out_dims.push_back(b_dims[b_dims.size() - 1]);    // K
-  } else {
-    out_dims.push_back(lu_dims[lu_dims.size() - 1]);  // M
-  }
+  // Calculate broadcast shape between lu and b
+  auto lu_matrix_dims = phi::slice_ddim(lu_dims, 0, lu_dims.size() - 2);
+  auto b_batch_dims = phi::slice_ddim(b_dims, 0, b_dims.size() - 2);
 
-  out->set_dims(common::make_ddim(out_dims));
+  auto broadcast_dims =
+      funcs::GetOutputDimsForDynamicShape(lu_matrix_dims, b_batch_dims);
+
+  // Construct output dimensions
+  std::vector<int64_t> out_dims = phi::vectorize(broadcast_dims);
+  // Append matrix dimensions [M, K]
+  out_dims.push_back(m);
+  out_dims.push_back(b_dims[b_dims.size() - 1]);
+  out_dims.push_back(m);
+  out_dims.push_back(b_dims[b_dims.size() - 1]);
+
+  out->set_dims(phi::make_ddim(out_dims));
   out->set_dtype(lu.dtype());
 }
 

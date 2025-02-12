@@ -4910,51 +4910,65 @@ bool UpdateLossScaling_OpInferSymbolicShape(
 
 bool LuSolveOpInferSymbolicShape(
     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
-  const auto &lu_shape =
-      infer_context->GetShapeOrDataForValue(op->operand_source(0)).shape();
-  const auto &b_shape =
-      infer_context->GetShapeOrDataForValue(op->operand_source(1)).shape();
+  const auto &lu_data_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(0));
+  const auto &b_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(2));
 
-  // LU tensor must be at least 2D (square matrix)
+  const std::vector<symbol::DimExpr> &lu_shape = lu_data_shape_or_data.shape();
+  const std::vector<symbol::DimExpr> &b_shape = b_shape_or_data.shape();
+
+  // LU matrix must be at least 2D
   PADDLE_ENFORCE_GE(
       lu_shape.size(),
       2,
       common::errors::InvalidArgument(
-          "The LU tensor must be at least 2D, but got %d dimensions",
+          "The input LU tensor must be at least 2D, but got %d dimensions",
           lu_shape.size()));
 
-  // Last two dimensions of LU must be equal (square matrix)
-  infer_context->AddEqualCstr(lu_shape[lu_shape.size() - 1],
-                              lu_shape[lu_shape.size() - 2]);
-
-  // b tensor must have compatible shape with LU
+  // B tensor must be at least 2D
   PADDLE_ENFORCE_GE(
       b_shape.size(),
-      1,
+      2,
       common::errors::InvalidArgument(
-          "The b tensor must be at least 1D, but got %d dimensions",
+          "The input B tensor must be at least 2D, but got %d dimensions",
           b_shape.size()));
 
-  // For broadcasting rules, b should be compatible with lu along batch
-  // dimensions
-  size_t lu_batch_dims = lu_shape.size() - 2;
-  size_t b_batch_dims = b_shape.size() - 1;
-  size_t max_batch_dims = std::max(lu_batch_dims, b_batch_dims);
+  // Last dimension of LU must equal second-to-last dimension of B
+  infer_context->AddEqualCstr(lu_shape[lu_shape.size() - 1],
+                              b_shape[b_shape.size() - 2]);
 
-  // Output shape is same as b shape
-  std::vector<symbol::DimExpr> out_shape = b_shape;
+  // Get output shape by broadcasting other dimensions
+  std::vector<symbol::DimExpr> out_shape;
 
-  // Add broadcast constraints for batch dimensions
-  for (size_t i = 0; i < max_batch_dims; ++i) {
-    symbol::DimExpr lu_dim =
-        i < lu_batch_dims ? lu_shape[i] : symbol::DimExpr(1);
-    symbol::DimExpr b_dim = i < b_batch_dims ? b_shape[i] : symbol::DimExpr(1);
-    infer_context->AddBroadcastableCstr(lu_dim, b_dim);
+  // First add broadcast of batch dimensions from right to left
+  size_t lu_batch_rank = lu_shape.size() - 2;  // exclude last 2 dims
+  size_t b_batch_rank = b_shape.size() - 2;
+  size_t max_batch_rank = std::max(lu_batch_rank, b_batch_rank);
+
+  // Initialize output shape with proper size
+  out_shape.resize(max_batch_rank + 2);
+
+  // Add matrix dimensions from B
+  out_shape[max_batch_rank] = b_shape[b_shape.size() - 2];
+  out_shape[max_batch_rank + 1] = b_shape[b_shape.size() - 1];
+
+  // Process batch dimensions from right to left
+  for (size_t i = 1; i <= max_batch_rank; i++) {
+    size_t out_idx = max_batch_rank - i;
+    size_t lu_idx = lu_batch_rank - i;
+    size_t b_idx = b_batch_rank - i;
+
+    if (lu_idx < lu_batch_rank && b_idx < b_batch_rank) {
+      // Both tensors have this batch dim, use broadcast
+      out_shape[out_idx] = lu_shape[lu_idx];
+      infer_context->AddBroadcastableCstr(lu_shape[lu_idx], b_shape[b_idx]);
+    } else if (lu_idx < lu_batch_rank) {
+      out_shape[out_idx] = lu_shape[lu_idx];
+    } else {
+      out_shape[out_idx] = b_shape[b_idx];
+    }
   }
-
-  // Last dimension of b must be equal to last dimension of LU
-  infer_context->AddEqualCstr(b_shape[b_shape.size() - 1],
-                              lu_shape[lu_shape.size() - 1]);
 
   infer_context->SetShapeOrDataForValue(
       op->result(0),
