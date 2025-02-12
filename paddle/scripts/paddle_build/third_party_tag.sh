@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+set -x
 # sot
 cd third_party/gloo
 git fetch --tags

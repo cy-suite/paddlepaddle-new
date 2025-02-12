@@ -44,7 +44,7 @@ jobs:
         git merge --no-ff pr
         git branch -d pr
         # git submodule foreach 'git fetch --tags --all'
-        # bash ${{ github.workspace }}/paddle/scripts/paddle_build/third_party_tag.sh
+        bash ${{ github.workspace }}/paddle/scripts/paddle_build/third_party_tag.sh
 
     - name: Download bos client
       env:

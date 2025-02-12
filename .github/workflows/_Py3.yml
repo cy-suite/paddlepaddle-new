@@ -107,9 +107,10 @@ jobs:
         tar xf Paddle.tar.gz --strip-components=1
         bash ${{ github.workspace }}/paddle/scripts/paddle_build/config_paddle.sh
         . ../proxy
-        # cd third_party/rocksdb
-        # git fetch origin 6.19.fb
-        # cd -
+        set -x
+        cd third_party/rocksdb
+        git fetch origin 6.19.fb
+        cd -
         git checkout develop
         git pull upstream develop
         git fetch upstream develop
