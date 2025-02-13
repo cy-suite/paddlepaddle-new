@@ -408,10 +408,10 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
         }
       }
     } else {
-      const auto& partion_indices = PartionReshapeAxes(in_shape, out_shape);
-      for (int idx = 1; idx < partion_indices.size(); ++idx) {
-        const auto& [in_start, out_start] = partion_indices[idx - 1];
-        const auto& [in_end, out_end] = partion_indices[idx];
+      const auto& partition_indices = PartitionReshapeAxes(in_shape, out_shape);
+      for (int idx = 1; idx < partition_indices.size(); ++idx) {
+        const auto& [in_start, out_start] = partition_indices[idx - 1];
+        const auto& [in_end, out_end] = partition_indices[idx];
         if (in_end == in_start + 1 && out_end == out_start + 1) {
           new_axis_ids.push_back(axis_ids[in_start]);
         } else {
@@ -649,7 +649,7 @@ LoopAxisMapping CreateLoopMappingForBroadcast(pir::Operation* op) {
   result.input2loop.resize(1);
   result.loop2output.resize(1);
 
-  const auto& broad_cast_value = GetBroadcastOpInputOuputValue(op);
+  const auto& broad_cast_value = GetBroadcastOpInputOutputValue(op);
   PADDLE_ENFORCE(broad_cast_value.has_value(),
                  ::common::errors::InvalidArgument(
                      "Required broad_cast_value is not empty."));
