@@ -14,21 +14,21 @@ limitations under the License. */
 
 #include "paddle/fluid/operators/collective/c_softmax_with_cross_entropy_op.h"
 #include "paddle/phi/core/distributed/comm_context_manager.h"
-#include "paddle/phi/kernels/reduce_sum_kernel.h"
-#include "paddle/phi/kernels/reduce_max_kernel.h"
-#include "paddle/phi/kernels/full_kernel.h"
 #include "paddle/phi/kernels/activation_kernel.h"
+#include "paddle/phi/kernels/full_kernel.h"
+#include "paddle/phi/kernels/reduce_max_kernel.h"
+#include "paddle/phi/kernels/reduce_sum_kernel.h"
 
 #include "paddle/fluid/platform/collective_helper.h"
 #include "paddle/fluid/platform/device/gpu/nccl_helper.h"
 #include "paddle/phi/backends/gpu/gpu_context.h"
 #include "paddle/phi/kernels/funcs/axis_utils.h"
+#include "paddle/phi/kernels/funcs/broadcast_function.h"
 #include "paddle/phi/kernels/funcs/cross_entropy.h"
+#include "paddle/phi/kernels/funcs/elementwise_functor.h"
 #include "paddle/phi/kernels/funcs/math.h"
 #include "paddle/phi/kernels/funcs/math_function.h"
 #include "paddle/phi/kernels/funcs/softmax_impl.h"
-#include "paddle/phi/kernels/funcs/broadcast_function.h"
-#include "paddle/phi/kernels/funcs/elementwise_functor.h"
 #include "paddle/utils/string/string_helper.h"
 
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
@@ -333,7 +333,7 @@ struct CSoftmaxWithCrossEntropyFunctor<phi::GPUContext, T> {
     std::vector<const phi::DenseTensor*> inputs = {&logits_2d, &logits_max};
     std::vector<phi::DenseTensor*> outputs = {&softmax_2d};
     phi::funcs::BroadcastKernel<T>(
-      dev_ctx, inputs, &outputs, phi::funcs::SubtractFunctor<T>());
+        dev_ctx, inputs, &outputs, phi::funcs::SubtractFunctor<T>());
 
     // step 3, obtain predict target
     phi::DenseTensor predicted_logits;
@@ -342,7 +342,11 @@ struct CSoftmaxWithCrossEntropyFunctor<phi::GPUContext, T> {
     predicted_logits.mutable_data<T>(place);
 
     phi::FullKernel<T, phi::GPUContext>(
-      dev_ctx, common::vectorize(predicted_logits.dims()), 0, predicted_logits.dtype(), &predicted_logits);
+        dev_ctx,
+        common::vectorize(predicted_logits.dims()),
+        0,
+        predicted_logits.dtype(),
+        &predicted_logits);
 
     const int64_t start_index = rank * D;
     const int64_t end_index = start_index + D;
@@ -422,8 +426,7 @@ struct CSoftmaxWithCrossEntropyFunctor<phi::GPUContext, T> {
     }
 
     // step 4, obtain exp(logit)
-    phi::ExpKernel<T, phi::GPUContext>(
-        dev_ctx, softmax_2d, &softmax_2d);
+    phi::ExpKernel<T, phi::GPUContext>(dev_ctx, softmax_2d, &softmax_2d);
 
     // step 5, obtain sum_exp_logits
     phi::DenseTensor sum_exp_logits;
@@ -490,12 +493,12 @@ struct CSoftmaxWithCrossEntropyFunctor<phi::GPUContext, T> {
     }
 
     phi::ReciprocalKernel<T, phi::GPUContext>(
-      dev_ctx, sum_exp_logits, &sum_exp_logits);
+        dev_ctx, sum_exp_logits, &sum_exp_logits);
 
     inputs = std::vector<const phi::DenseTensor*>{&softmax_2d, &sum_exp_logits};
     outputs = std::vector<phi::DenseTensor*>{&softmax_2d};
     phi::funcs::BroadcastKernel<T>(
-      dev_ctx, inputs, &outputs, phi::funcs::MultiplyFunctor<T>());
+        dev_ctx, inputs, &outputs, phi::funcs::MultiplyFunctor<T>());
   }
 };
 
@@ -550,7 +553,7 @@ struct CSoftmaxWithCrossEntropyProcessGroupFunctor<phi::GPUContext, T> {
     std::vector<const phi::DenseTensor*> inputs = {&logits_2d, &logits_max};
     std::vector<phi::DenseTensor*> outputs = {&softmax_2d};
     phi::funcs::BroadcastKernel<T>(
-      dev_ctx, inputs, &outputs, phi::funcs::SubtractFunctor<T>());
+        dev_ctx, inputs, &outputs, phi::funcs::SubtractFunctor<T>());
 
     // step 3, obtain predict target
     phi::DenseTensor predicted_logits;
@@ -559,7 +562,11 @@ struct CSoftmaxWithCrossEntropyProcessGroupFunctor<phi::GPUContext, T> {
     predicted_logits.mutable_data<T>(place);
 
     phi::FullKernel<T, phi::GPUContext>(
-      dev_ctx, common::vectorize(predicted_logits.dims()), 0, predicted_logits.dtype(), &predicted_logits);
+        dev_ctx,
+        common::vectorize(predicted_logits.dims()),
+        0,
+        predicted_logits.dtype(),
+        &predicted_logits);
 
     const int64_t start_index = rank * D;
     const int64_t end_index = start_index + D;
@@ -626,8 +633,7 @@ struct CSoftmaxWithCrossEntropyProcessGroupFunctor<phi::GPUContext, T> {
     pg->AllReduce(&predicted_logits, predicted_logits, opts, true, true);
 
     // step 4, obtain exp(logit)
-    phi::ExpKernel<T, phi::GPUContext>(
-        dev_ctx, softmax_2d, &softmax_2d);
+    phi::ExpKernel<T, phi::GPUContext>(dev_ctx, softmax_2d, &softmax_2d);
 
     // step 5, obtain sum_exp_logits
     phi::DenseTensor sum_exp_logits;
@@ -681,12 +687,12 @@ struct CSoftmaxWithCrossEntropyProcessGroupFunctor<phi::GPUContext, T> {
       }
     }
     phi::ReciprocalKernel<T, phi::GPUContext>(
-      dev_ctx, sum_exp_logits, &sum_exp_logits);
+        dev_ctx, sum_exp_logits, &sum_exp_logits);
 
     inputs = std::vector<const phi::DenseTensor*>{&softmax_2d, &sum_exp_logits};
     outputs = std::vector<phi::DenseTensor*>{&softmax_2d};
     phi::funcs::BroadcastKernel<T>(
-      dev_ctx, inputs, &outputs, phi::funcs::MultiplyFunctor<T>());
+        dev_ctx, inputs, &outputs, phi::funcs::MultiplyFunctor<T>());
   }
 };
 
