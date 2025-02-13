@@ -338,6 +338,7 @@ std::string TensorRtSubgraphPass::CreateTensorRTOp(
   std::set<std::string> input_names;
   std::set<std::string> input_names_with_id;
   std::vector<std::string> parameters;
+  std::vector<std::string> refit_params_name;
   // if we delete fluid copy of parameters shared by more than 1 ops, there will
   // be problem, so we filter them out.
   std::vector<std::string> params_not_shared;
@@ -640,7 +641,6 @@ std::string TensorRtSubgraphPass::CreateTensorRTOp(
       Get<std::string>("tensorrt_transformer_maskid");
   auto use_dla = Get<bool>("trt_use_dla");
   auto refit_params_path = Get<std::string>("refit_params_path");
-  LOG(INFO) << "refit_params_path" << refit_params_path;
   auto dla_core = Get<int>("trt_dla_core");
   auto use_inspector = Get<bool>("use_inspector");
   auto inspector_serialize = Get<bool>("inspector_serialize");
@@ -674,6 +674,7 @@ std::string TensorRtSubgraphPass::CreateTensorRTOp(
   op_desc->SetAttr("output_name_mapping", output_mapping);
   op_desc->SetAttr("origin_output_rank", renamed_output_rank);
   op_desc->SetAttr("parameters", parameters);
+  op_desc->SetAttr("refit_params_name", refit_params_name);
   op_desc->SetAttr("allow_build_at_runtime", allow_build_at_runtime);
   op_desc->SetAttr("shape_range_info_path", shape_range_info_path);
   op_desc->SetAttr("with_dynamic_shape", with_dynamic_shape);
@@ -722,11 +723,14 @@ std::string TensorRtSubgraphPass::CreateTensorRTOp(
   }
 
   auto use_static_engine = Get<bool>("use_static_engine");
+  LOG(INFO) << "use_static_engine: " << use_static_engine;
   op_desc->SetAttr("use_static_engine", use_static_engine);
-  if (use_static_engine)
+  if (use_static_engine) {
+    auto cache_dir = Get<std::string>("model_opt_cache_dir");
+    LOG(INFO) << "TensorRT engine cache directory: " << cache_dir;
     op_desc->SetAttr("model_opt_cache_dir",
                      Get<std::string>("model_opt_cache_dir"));
-
+  }
   // TODO(NHZlX)
   // There are models with the same structure but the different parameters,
   // when running in the 'use_serialize' mode, there is a bug.
@@ -878,11 +882,43 @@ std::string TensorRtSubgraphPass::CreateTensorRTOp(
         Get<std::string>("model_opt_cache_dir"), engine_key);
     // we can load the engine info serialized before from the disk.
     if (!trt_engine_serialized_data.empty()) {
+      LOG(INFO)
+          << "trt_engine_serialized_data is not empty, try to deserialize it.";
       try {
         trt_engine->Deserialize(trt_engine_serialized_data);
         LOG(INFO) << "Load TRT Optimized Info from "
                   << GetTrtEngineSerializedPath(
                          Get<std::string>("model_opt_cache_dir"), engine_key);
+        auto refit_params_path = Get<std::string>("refit_params_path");
+        LOG(INFO) << "refit_params_path" << refit_params_path;
+        if (!refit_params_path.empty()) {
+          LOG(INFO) << "TensorRT Subgraph parameters count: "
+                    << parameters.size();
+          for (const auto &param : parameters) {
+            auto *var = scope->FindVar(param);
+            if (var != nullptr) {
+              auto &tensor = var->Get<phi::DenseTensor>();
+              LOG(INFO) << "TensorRT subgraph parameter name: " << param
+                        << " shape: " << tensor.dims();
+              op_desc->SetAttr("use_refittable", true);
+              if (trt_engine != nullptr) {
+                LOG(INFO) << "Setting refit weights for" << param;
+                bool success = trt_engine->setRefitWeights(param, tensor);
+                if (!success) {
+                  LOG(ERROR) << "Failed to set refit weights for " << param;
+                } else {
+                  LOG(INFO) << "Successfully set refit weights for " << param;
+                }
+              }
+            }
+          }
+        }
+        bool refit_success = trt_engine->FinalizeRefit();
+        if (!refit_success) {
+          LOG(ERROR) << "Failed to finalize refit";
+        } else {
+          LOG(INFO) << "Success to finalize refit";
+        }
         return engine_key + std::to_string(predictor_id);
       } catch (const std::exception &exp) {
         LOG(WARNING)

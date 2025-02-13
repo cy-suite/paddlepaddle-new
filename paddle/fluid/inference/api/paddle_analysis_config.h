@@ -748,6 +748,9 @@ struct PD_INFER_DECL AnalysisConfig {
 
   const std::string& refit_params_path() const { return refit_params_path_; }
 
+  void MarkTrtRefitParamsNames(
+      const std::vector<std::string>& refit_params_names);
+
   ///
   /// \brief Prevent TensorRtSubgraph running in Paddle-TRT
   /// NOTE: just experimental, not an official stable API, easy to be broken.
@@ -1214,6 +1217,7 @@ struct PD_INFER_DECL AnalysisConfig {
   bool trt_forbid_dynamic_op_{false};
 
   std::vector<std::string> trt_output_tensor_names_{};
+  std::vector<std::string> refit_params_names_{};
   std::vector<std::string> trt_exclude_var_names_{};
   std::vector<std::string> trt_parameters_run_fp16_{};
   std::vector<std::string> trt_parameters_run_int8_{};

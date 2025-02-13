@@ -1061,15 +1061,26 @@ class TensorRTEngineOp : public framework::OperatorBase {
       bool has_engine =
         inference::Singleton<inference::tensorrt::TRTEngineManager>::Global()
             .Has(engine_key_ + std::to_string(predictor_id_));
-      if (!has_engine) {
-        LOG(ERROR) << "Create TRT Engine failed.";
-      }
+      
+      LOG(INFO)<<"has_engine"<<has_engine;
+
       if (use_static_engine_) {
         LOG(INFO) << "Load TRT Optimized Info from "
                   << inference::analysis::GetTrtEngineSerializedPath(
                          model_opt_cache_dir_, engine_key_);
-       
-        auto params = Attr<std::vector<std::string>>("parameters");
+        std::vector<std::string> all_weight_names;
+        std::vector<phi::DenseTensor> all_weight_tensors;
+        std::string trt_engine_serialized_data =
+            inference::analysis::GetTrtEngineSerializedData(
+                model_opt_cache_dir_, engine_key_);
+        trt_engine_->Deserialize(trt_engine_serialized_data);
+        if (!params.refit_params_path.empty())
+        {
+          LOG(INFO)<<"Begin to refit TRT Weights from path:"<<params.refit_params_path;
+          
+      
+        }
+
       } else {
         // This branch mainly used to ut.
         PrepareTRTEngine(scope, trt_engine_);

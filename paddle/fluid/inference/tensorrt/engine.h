@@ -318,6 +318,8 @@ class TensorRTEngine {
 
   bool FinalizeRefit();
 
+  void InitRefitter();
+
   float GetTensorDynamicRange(nvinfer1::ITensor* tensor) {
     return quant_dynamic_range_[tensor];
   }
