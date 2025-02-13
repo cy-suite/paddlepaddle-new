@@ -134,6 +134,7 @@ jobs:
         EXCODE=0
         # bash -x ${work_dir}/paddle/scripts/paddle_build.sh cicheck_py37;EXCODE=$?
         echo "EXCODE=${EXCODE}" >> ${{ github.env }}
+        python -m pip install bce-python-sdk==0.8.74
         '
 
     - name: Upload paddle_whl
@@ -150,7 +151,7 @@ jobs:
             wget -q --no-proxy -O ${home_path}/bos_new.tar.gz https://xly-devops.bj.bcebos.com/home/bos_new.tar.gz --no-check-certificate
             mkdir ${home_path}/bos
             tar xf ${home_path}/bos_new.tar.gz -C ${home_path}/bos
-            python -m pip install bce-python-sdk==0.8.74
+            set -x
             python3.9 ${bos_file} ${{ github.workspace }}/dist/${paddle_whl} paddle-github-action/PR/cpu_whl/${PR_ID}/${COMMIT_ID}
           fi
         fi
