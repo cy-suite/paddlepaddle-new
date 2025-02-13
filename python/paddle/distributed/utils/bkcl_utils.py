@@ -18,17 +18,17 @@ import paddle
 
 
 def check_bkcl_async_p2p_conn(ranks):
-    ranks_per_node = int(os.getenv("PADDLE_LOCAL_SIZE", "8"))
+    ranks_per_node = int(os.getenv("PADDLE_LOCAL_SIZE"))
     assert (
         ranks_per_node > 0
     ), f"The PADDLE_LOCAL_SIZE must be greater than 0, bot got {ranks_per_node}"
     for i in range(len(ranks) - 1):
         rank_interval = ranks[i + 1] - ranks[i]
-        assert (
-            rank_interval % ranks_per_node == 0
-        ), "When BKCL_ASYNC_SEND_RECV is set, we assume all of the send/recv \
-            are cross-node communication, but now we found you have \
-            single node send/recv, which would cause hange problem."
+        assert rank_interval >= ranks_per_node, (
+            "When BKCL_ASYNC_SEND_RECV is set, we assume all of the send/recv "
+            "are cross-node communication, but now we found you have "
+            f"single node send/recv between rank {ranks[i]} and rank {ranks[i + 1]}, which would cause hang problem."
+        )
 
 
 def build_bkcl_async_p2p_conn(stage_id, prev_rank, next_rank, pp_comm_group):
