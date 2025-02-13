@@ -2093,7 +2093,7 @@ void ShareShapeDimFwdAndBwd(const Program &full_program,
       full_prog_analysis);
   auto &bwd_prog_analysis =
       pir::ShapeAnalysisManager::Instance().Get(&bwd_program);
-
+  VLOG(0) << "fg0";
   ValueUnorderedMap need_infer_fwd_values;
   for (const auto &fwd_pair : fwd_value_map) {
     auto origin_value = fwd_pair.first;
@@ -2105,6 +2105,7 @@ void ShareShapeDimFwdAndBwd(const Program &full_program,
       need_infer_fwd_values[new_value] = origin_value;
     }
   }
+  VLOG(0) << "fgy1";
   for (const auto &fwd_pair : need_infer_fwd_values) {
     [[maybe_unused]] const auto &x_shape_or_data =
         fwd_prog_analysis.GetShapeOrDataForValue(fwd_pair.first);
@@ -2140,7 +2141,7 @@ void ShareShapeDimFwdAndBwd(const Program &full_program,
 
   bwd_prog_analysis.RegisterSymbolConstraintFromShapeAnalysis(
       fwd_prog_analysis);
-
+  VLOG(0) << "fgy2";
   for (const auto &fwd_pair : need_infer_fwd_values) {
     if (bwd_value_map.count(fwd_pair.second) > 0) {
       Value bwd_value = bwd_value_map.at(fwd_pair.second);
@@ -2148,7 +2149,7 @@ void ShareShapeDimFwdAndBwd(const Program &full_program,
           bwd_value, fwd_prog_analysis.GetShapeOrDataForValue(fwd_pair.first));
     }
   }
-
+  VLOG(0) << "fgy3";
   for (size_t index = 0; index < forward_outputs_grads.size(); ++index) {
     if (!IsFakeValue(forward_outputs_grads[index])) {
       bwd_prog_analysis.SetShapeOrDataForValue(
@@ -2156,7 +2157,7 @@ void ShareShapeDimFwdAndBwd(const Program &full_program,
           fwd_prog_analysis.GetShapeOrDataForValue(forward_outputs[index]));
     }
   }
-
+  VLOG(0) << "fgy4";
   ValueUnorderedMap need_infer_bwd_values;
   for (const auto &bwd_pair : bwd_value_map) {
     auto origin_value = bwd_pair.first;
@@ -2169,7 +2170,7 @@ void ShareShapeDimFwdAndBwd(const Program &full_program,
       need_infer_bwd_values[new_value] = origin_value;
     }
   }
-
+  VLOG(0) << "fgy5";
   for (const auto &bwd_pair : need_infer_bwd_values) {
     [[maybe_unused]] const auto &x_shape_or_data =
         bwd_prog_analysis.GetShapeOrDataForValue(bwd_pair.first);
@@ -2185,7 +2186,8 @@ SplitedResult SplitForwardBackward(
     const std::vector<pir::Value> &forward_params_grads,
     const std::vector<pir::Value> &forward_outputs_grads,
     const std::pair<size_t, size_t> &forward_range,
-    const std::pair<size_t, size_t> &backward_range) {
+    const std::pair<size_t, size_t> &backward_range,
+    bool need_share_shape = false) {
   std::vector<pir::Value> forward_in_out_values;
   for (auto &v :
        std::vector({&forward_inputs, &forward_outputs, &forward_params})) {
@@ -2387,13 +2389,15 @@ SplitedResult SplitForwardBackward(
       {"bo", bo}};
   std::vector<std::shared_ptr<Program>> programs = {forward_program,
                                                     backward_program};
-  ShareShapeDimFwdAndBwd(program,
-                         *forward_program,
-                         *backward_program,
-                         forward_value_map,
-                         backward_value_map,
-                         forward_outputs_grads,
-                         forward_outputs);
+  if (need_share_shape) {
+    ShareShapeDimFwdAndBwd(program,
+                           *forward_program,
+                           *backward_program,
+                           forward_value_map,
+                           backward_value_map,
+                           forward_outputs_grads,
+                           forward_outputs);
+  }
   // PrintProgram(forward_program->module_op(), "forward_program");
   // PrintProgram(backward_program->module_op(), "backward_program");
   return std::make_pair(programs, attr);

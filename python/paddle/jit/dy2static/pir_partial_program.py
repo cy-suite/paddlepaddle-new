@@ -262,6 +262,7 @@ class RunnableProgram:
             if self.backward_range[1] < len(self.program.global_block().ops)
             else None
         )
+        self.need_share_shape = False
 
     def update_op_range(self):
         if self.fwd_end_next_op is None or self.bwd_start_pre_op is None:
@@ -320,6 +321,7 @@ class RunnableProgram:
             self.out_grad_values,
             self.forward_range,
             self.backward_range,
+            self.need_share_shape,
         )
         return [fwd_prog, bwd_prog], prog_attr
 
@@ -822,6 +824,7 @@ class PartialProgramLayer:
             train_program: RunnableProgram = (
                 self.origin_runnable_program.clone()
             )
+            train_program.need_share_shape = True
             train_program.apply_dist_pass_for_origin_program()
 
             # Author(liujinnan): auto_layout_pass should be applied to the original_program, before append backward. So we put it here.
