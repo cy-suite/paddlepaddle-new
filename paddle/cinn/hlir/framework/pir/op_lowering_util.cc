@@ -1286,12 +1286,12 @@ std::vector<int64_t> CollectTempSpaceSizes(
   return sizes;
 }
 
-void LongLong2Int(const ir::LoweredFunc& func,
-                  const std::unordered_set<std::string> symbol_args_set,
+void LongLong2Int(const std::unordered_set<std::string> symbol_args_set,
                   const std::vector<ir::Expr>& loop_ranges_expr,
                   const std::vector<Expr>& inputs_element_size,
                   int priorities,
                   ir::Expr* predicates,
+                  ir::LoweredFunc* func,
                   std::vector<ir::Expr>* ret_predicates,
                   std::vector<ir::LoweredFunc>* ret_lowered_funcs,
                   std::vector<int>* ret_priorities) {
@@ -1334,7 +1334,7 @@ void LongLong2Int(const ir::LoweredFunc& func,
                     !outputs_element_max_size.is_constant();
   if (is_dynamic) {
     // Copy lowered_func and predicate for type int32 in dynamic branch.
-    ir::LoweredFunc func_copied = ir::ir_utils::IRCopy(func);
+    ir::LoweredFunc func_copied = ir::ir_utils::IRCopy(*func);
     ir::Expr predicates_copied = ir::ir_utils::IRCopy(*predicates);
 
     // Deal longlong2int predicates, calculate all elements size.
@@ -1372,7 +1372,7 @@ void LongLong2Int(const ir::LoweredFunc& func,
 
     VLOG(6) << "Before CastLonglong2Int In Static Branch: \n" << func;
     optim::TryCastLonglong2Int(
-        func, symbol_args_set, /*enforce_cast*/ can_cast);
+        *func, symbol_args_set, /*enforce_cast*/ can_cast);
     VLOG(6) << "After CastLonglong2Int In Static Branch: \n" << func;
   }
 }

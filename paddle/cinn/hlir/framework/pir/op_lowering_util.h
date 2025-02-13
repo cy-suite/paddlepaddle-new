@@ -93,14 +93,14 @@ void UnifyTempSpaceArgs(std::vector<ir::LoweredFunc>* funcs);
 std::vector<int64_t> CollectTempSpaceSizes(
     const std::vector<ir::LoweredFunc>& funcs);
 
-/* apply longlong2int pass on func, it will add a int32 branch into buckets, and
+/* Apply longlong2int pass on func, it will add a int32 branch into buckets, and
  * the original branch predicates will be changed */
-void LongLong2Int(const ir::LoweredFunc& func,
-                  const std::unordered_set<std::string> symbol_args_set,
+void LongLong2Int(const std::unordered_set<std::string> symbol_args_set,
                   const std::vector<ir::Expr>& loop_ranges_expr,
                   const std::vector<Expr>& inputs_element_size,
                   int priorities,
                   ir::Expr* predicates,
+                  ir::LoweredFunc* func,
                   std::vector<ir::Expr>* ret_predicates,
                   std::vector<ir::LoweredFunc>* ret_lowered_funcs,
                   std::vector<int>* ret_priorities);
