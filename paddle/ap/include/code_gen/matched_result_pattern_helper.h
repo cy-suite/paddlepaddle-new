@@ -25,7 +25,6 @@
 #include "paddle/ap/include/drr/result_pattern_helper.h"
 #include "paddle/ap/include/drr/value.h"
 #include "paddle/ap/include/graph/graph_helper.h"
-#include "paddle/ap/include/index_expr/valid_index_expr_builder.h"
 #include "paddle/ap/include/ir_match/graph_match_ctx.h"
 #include "paddle/ap/include/ir_match/graph_matcher.h"
 #include "paddle/ap/include/ir_match/ir_match_ctx.h"

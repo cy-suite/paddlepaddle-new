@@ -26,7 +26,6 @@
 #include "paddle/ap/include/code_gen/op_code_gen_ctx.h"
 #include "paddle/ap/include/code_gen/out_tensor_data_ptr_kernel_arg_id_method_class.h"
 #include "paddle/ap/include/code_module/code_module.h"
-#include "paddle/ap/include/index_expr/index_tuple_expr.h"
 #include "paddle/ap/include/ir_match/native_or_ref_ir_value.h"
 #include "paddle/ap/include/registry/registry_singleton.h"
 
@@ -189,84 +188,6 @@ struct CodeGenCtxMethodClass {
                symbol::ToString(dim_expr)};
     return adt::Ok{};
   }
-
-  static adt::Result<ValueT> StaticMakeFusionOpCodeGenClass(
-      const ValueT& self_val, const std::vector<ValueT>& args) {
-    ADT_LET_CONST_REF(self, self_val.template CastTo<Self>());
-    return This{}.MakeFusionOpCodeGenClass(self, args);
-  }
-
-  using NativeOrRefIrValue = ir_match::NativeOrRefIrValue<BirNode>;
-
-  adt::Result<ValueT> MakeFusionOpCodeGenClass(
-      const Self& self, const std::vector<ValueT>& packed_args_vec) {
-    const auto& packed_args = axpr::CastToPackedArgs(packed_args_vec);
-    const auto& [args, kwargs] = *packed_args;
-    ADT_CHECK(args->size() == 1) << adt::errors::TypeError{
-        "'CodeGenCtx.make_fusion_op_code_gen_class' takes 1 positional "
-        "arguments but " +
-        std::to_string(args->size()) + " were given."};
-    ADT_LET_CONST_REF(ir_op, IrOp<BirNode>::CastFrom(args->at(0)))
-        << adt::errors::TypeError{
-               std::string() +
-               "the positional argument 1 of "
-               "'CodeGenCtx.make_fusion_op_code_gen_class' should "
-               "be able to cast to a NativeIrOp, PackedIrOp or RefIrOp."};
-    ADT_LET_CONST_REF(input_index_loop_anchor_flags_lst,
-                      kwargs->template Get<adt::List<ValueT>>(
-                          "input_index_loop_anchor_flags"))
-        << adt::errors::TypeError{
-               std::string() +
-               "'CodeGenCtx.input_index_loop_anchor_flags' requires bool list "
-               "typed "
-               "keyword argument 'input_index_loop_anchor_flags'."};
-    LoopAnchorFlags input_index_loop_anchor_flags;
-    {
-      input_index_loop_anchor_flags->reserve(
-          input_index_loop_anchor_flags_lst->size());
-      for (const auto& elt : *input_index_loop_anchor_flags_lst) {
-        ADT_LET_CONST_REF(mask, elt.template CastTo<bool>())
-            << adt::errors::TypeError{
-                   std::string() +
-                   "'CodeGenCtx.input_index_loop_anchor_flags' requires bool "
-                   "list typed "
-                   "keyword argument 'input_index_loop_anchor_flags'."};
-        input_index_loop_anchor_flags->emplace_back(
-            tLoopAnchorFlag<bool>{mask});
-      }
-    }
-    ADT_LET_CONST_REF(output_index_loop_anchor_flags_lst,
-                      kwargs->template Get<adt::List<ValueT>>(
-                          "output_index_loop_anchor_flags"))
-        << adt::errors::TypeError{
-               std::string() +
-               "'CodeGenCtx.output_index_loop_anchor_flags' requires bool list "
-               "typed "
-               "keyword argument 'output_index_loop_anchor_flags'."};
-    LoopAnchorFlags output_index_loop_anchor_flags;
-    {
-      output_index_loop_anchor_flags->reserve(
-          output_index_loop_anchor_flags_lst->size());
-      for (const auto& elt : *output_index_loop_anchor_flags_lst) {
-        ADT_LET_CONST_REF(mask, elt.template CastTo<bool>())
-            << adt::errors::TypeError{
-                   std::string() +
-                   "'CodeGenCtx.output_index_loop_anchor_flags' requires bool "
-                   "list typed "
-                   "keyword argument 'output_index_loop_anchor_flags'."};
-        output_index_loop_anchor_flags->emplace_back(
-            tLoopAnchorFlag<bool>{mask});
-      }
-    }
-
-    OpCodeGenCtx<BirNode> op_code_gen_ctx{self.shared_ptr(),
-                                          input_index_loop_anchor_flags,
-                                          output_index_loop_anchor_flags};
-    ADT_LET_CONST_REF(
-        class_attrs,
-        ConvertFusionOpToClassAttrs<BirNode>(op_code_gen_ctx, ir_op));
-    return axpr::TypeImpl<axpr::ClassInstance<ValueT>>(class_attrs);
-  }
 };
 
 template <typename ValueT, typename BirNode>
@@ -274,8 +195,6 @@ axpr::TypeImpl<axpr::BuiltinClassInstance<ValueT>> GetCodeGenCtxClass() {
   using ImplMethods = CodeGenCtxMethodClass<ValueT, BirNode>;
   static auto cls(
       axpr::MakeBuiltinClass<ValueT>("CodeGenCtx", [&](const auto& Define) {
-        Define("make_fusion_op_code_gen_class",
-               &ImplMethods::StaticMakeFusionOpCodeGenClass);
         Define("dim_expr_kernel_arg_id",
                &ImplMethods::StaticMakeAndCheckDimExprKernelArgId);
         Define("in_tensor_data_ptr_kernel_arg_id",
