@@ -144,8 +144,9 @@ jobs:
         paddle_whl: paddlepaddle-0.0.0-cp39-cp39-linux_x86_64.whl
       run: |
         docker exec -t paddle-CI-${PR_ID} /bin/bash -c '
-        export EXCODE=${{ env.EXCODE }}
-        if [ ${EXCODE} -eq 0 ]; then
+        export AK=paddle
+        export SK=paddle
+        if [ ${{ env.EXCODE }} -eq 0 ]; then
           if [ ! -f "${{ env.bos_file }}" ]; then
             wget -q --no-proxy -O ${{ env.home_path }}/bos_new.tar.gz https://xly-devops.bj.bcebos.com/home/bos_new.tar.gz --no-check-certificate
             mkdir ${{ env.home_path }}/bos
