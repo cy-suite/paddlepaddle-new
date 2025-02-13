@@ -127,7 +127,7 @@ void CodeGenSyclDevice::Visit(const ir::_LoweredFunc_ *op) {
     }
   }
   str_ += "\n";
-  // function body
+
   PrintFunctionBody(op);
 
   str_ += ");\n";

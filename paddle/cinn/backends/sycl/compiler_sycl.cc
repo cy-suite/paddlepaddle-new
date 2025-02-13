@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/cinn/backends/sycl/compile_sycl.h"
+#include "paddle/cinn/backends/sycl/compiler_sycl.h"
 #include <sys/stat.h>  // for mkdir
 #include <fstream>
 #include "paddle/cinn/runtime/sycl/sycl_backend_api.h"
@@ -89,7 +89,10 @@ void Compiler::SetDeviceArchOptions(const Arch gpu_type) {
         device_arch_options +=
             " -Xsycl-target-backend --offload-arch=" + gpu_version;
       },
-      [&](auto) { CINN_NOT_IMPLEMENTED });
+      [&](auto) {
+        PADDLE_THROW(::common::errors::Fatal(
+            "SYCL backends error ! NOT support this arch ! "));
+      });
 }
 
 }  // namespace syclrtc
