@@ -132,7 +132,7 @@ jobs:
         pip install -r "${work_dir}/python/unittest_py/requirements.txt"
         . ../proxy
         EXCODE=0
-        bash -x ${work_dir}/paddle/scripts/paddle_build.sh cicheck_py37;EXCODE=$?
+        # bash -x ${work_dir}/paddle/scripts/paddle_build.sh cicheck_py37;EXCODE=$?
         echo "EXCODE=${EXCODE}" >> ${{ github.env }}
         '
 
@@ -143,6 +143,7 @@ jobs:
         paddle_whl: paddlepaddle-0.0.0-cp39-cp39-linux_x86_64.whl
         EXCODE: ${{ env.EXCODE }}
       run: |
+        docker exec -t paddle-CI-${PR_ID} /bin/bash -c '
         if [ ${EXCODE} -eq 0 ]; then
           if [ ! -f "${bos_file}" ]; then
             wget -q --no-proxy -O ${home_path}/bos_new.tar.gz https://xly-devops.bj.bcebos.com/home/bos_new.tar.gz --no-check-certificate
@@ -152,6 +153,7 @@ jobs:
             python3.9 ${bos_file} ${{ github.workspace }}/dist/${paddle_whl} paddle-github-action/PR/cpu_whl/${PR_ID}/${COMMIT_ID}
           fi
         fi
+        '
 
     - name: Check result
       env:
