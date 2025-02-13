@@ -80,7 +80,7 @@ std::pair<std::vector<int64_t>, bool> GetSliceAxis(pir::Operation* slice_op);
 
 bool GetReduceOpKeepDims(pir::Operation* reduce_op);
 
-std::optional<std::pair<pir::Value, pir::Value>> GetBroadcastOpInputOuputValue(
+std::optional<std::pair<pir::Value, pir::Value>> GetBroadcastOpInputOutputValue(
     pir::Operation* op);
 
 std::vector<std::pair<size_t, size_t>> GetNonBroadCastDims(pir::Operation* op);
@@ -734,7 +734,7 @@ bool ShapeProductEqual(const std::vector<symbol::DimExpr>& in_shape,
 bool ShapeProductEqual(const std::vector<symbol::DimExpr>& in_shape,
                        const std::vector<symbol::DimExpr>& out_shape);
 
-std::vector<std::pair<int, int>> PartionReshapeAxes(
+std::vector<std::pair<int, int>> PartitionReshapeAxes(
     const std::vector<symbol::DimExpr>& in_shape,
     const std::vector<symbol::DimExpr>& out_shape);
 

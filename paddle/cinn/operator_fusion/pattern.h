@@ -34,7 +34,7 @@ enum class PatternType {
   ItersPermutation,
   Anchor,
   Horizontal,
-  Unsupport = -1,
+  Unsupported = -1,
 };
 
 struct PatternContent {
@@ -233,11 +233,11 @@ struct HorizontalFusionPattern : public PatternBase {
   void update_tracker() const;
 };
 
-struct UnsupportPattern : public PatternBase {
-  explicit UnsupportPattern(const std::vector<pir::Operation*>& ops,
-                            const FusionTrackerPtr& tracker)
+struct UnsupportedPattern : public PatternBase {
+  explicit UnsupportedPattern(const std::vector<pir::Operation*>& ops,
+                              const FusionTrackerPtr& tracker)
       : PatternBase(UniqueId(), tracker, ops) {}
-  DEFINE_PATTERN_STATIC_ATTR(Unsupport);
+  DEFINE_PATTERN_STATIC_ATTR(Unsupported);
 };
 
 using StmtPattern = std::variant<TrivialPattern,
@@ -247,7 +247,7 @@ using StmtPattern = std::variant<TrivialPattern,
                                  ItersPermutationPattern,
                                  AnchorPattern,
                                  HorizontalFusionPattern,
-                                 UnsupportPattern>;
+                                 UnsupportedPattern>;
 
 static std::string GetPatternId(const StmtPattern& s);
 static std::vector<pir::Operation*> GetOpsInPattern(const StmtPattern& pattern);

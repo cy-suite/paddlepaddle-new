@@ -393,11 +393,11 @@ void AddNInferMeta(const std::vector<const MetaTensor*>& x,
       N,
       0,
       common::errors::InvalidArgument(
-          "The input tensor X's dimensions of SumOp "
+          "The input tensor X's dimensions of AddNOp "
           "should be larger than 0. But received X's dimensions %d.",
           N));
   if (N == 1) {
-    VLOG(3) << "Warning: SumOp have only one input, may waste memory";
+    VLOG(3) << "Warning: AddNOp have only one input, may waste memory";
   }
   bool is_all_0d_tensor = true;
   phi::DDim in_dim({0});
@@ -405,10 +405,6 @@ void AddNInferMeta(const std::vector<const MetaTensor*>& x,
     auto x_dim = x[i]->dims();
     // x_dim.size() == 1 means the real dim of selected rows is [0]
     if (x[i]->is_selected_rows() && x_dim.size() == 1) {
-      continue;
-    }
-    // for zero-sized tensor
-    if (common::product(x_dim) == 0) {
       continue;
     }
     // for 0D tensor
@@ -423,7 +419,7 @@ void AddNInferMeta(const std::vector<const MetaTensor*>& x,
         PADDLE_ENFORCE_EQ(in_dim,
                           x_dim,
                           common::errors::InvalidArgument(
-                              "The input tensor X of SumOp must"
+                              "The input tensor X of AddNOp must"
                               " have same shape. But received X[0]'s shape = "
                               "[%s], X[%d]'s shape = [%s].",
                               in_dim,
@@ -434,7 +430,7 @@ void AddNInferMeta(const std::vector<const MetaTensor*>& x,
             in_dim.size(),
             x_dim.size(),
             common::errors::InvalidArgument(
-                "The input tensor X of SumOp must have same "
+                "The input tensor X of AddNOp must have same "
                 "dimensions. But received X[0]'s dimensions = %d, X[0]'s "
                 "shape = "
                 "[%s], X[%d]'s dimensions = %d, X[%d]'s shape = [%s].",
@@ -453,7 +449,7 @@ void AddNInferMeta(const std::vector<const MetaTensor*>& x,
               in_dim[j],
               x_dim[j],
               common::errors::InvalidArgument(
-                  "The input tensor X of SumOp must have same shape "
+                  "The input tensor X of AddNOp must have same shape "
                   "if not -1."
                   "But received X[0]'s shape = [%s], X[%d]'s shape = [%s].",
                   in_dim,
@@ -973,6 +969,7 @@ void BatchNormInferMeta(const MetaTensor& x,
   }
   y->share_lod(x);
   y->set_dtype(x.dtype());
+  y->set_layout(x.layout());
 }
 
 void BatchNormInferInferMeta(const MetaTensor& x,
@@ -2310,7 +2307,7 @@ void FusedBiasActInferMeta(const MetaTensor& x,
         dim % 2,
         0,
         common::errors::InvalidArgument(
-            "The seconde dimension of x must be even, but receive %d", dim));
+            "The second dimension of x must be even, but receive %d", dim));
     x_shapes[x_last_dim] /= 2;
     out->set_dims(common::make_ddim(x_shapes));
   } else if (act_method == "gelu" || act_method == "relu") {
@@ -5934,6 +5931,7 @@ void FusedMoeInferMeta(const MetaTensor& X,
                        const MetaTensor& ffn2_bias,
                        const std::string& quant_method,
                        const int moe_topk,
+                       const bool group_moe,
                        const bool norm_topk_prob,
                        MetaTensor* out) {
   out->set_dims(X.dims());
@@ -6022,6 +6020,75 @@ void MultiheadMatmulInferMeta(const MetaTensor& input,
   out->share_lod(input);
 }
 
+void MoeDispatchInferMeta(const MetaTensor& X,
+                          const MetaTensor& gating_output,
+                          const int moe_topk,
+                          const bool group_moe,
+                          const bool topk_only_mode,
+                          MetaTensor* permute_input,
+                          MetaTensor* token_nums_per_expert,
+                          MetaTensor* permute_indices_per_token,
+                          MetaTensor* expert_scales_float,
+                          MetaTensor* top_k_indices) {
+  int token_rows = 0;
+  auto input_dims = X.dims();
+  if (input_dims.size() == 3) {
+    token_rows = input_dims[0] * input_dims[1];
+  } else {
+    token_rows = input_dims[0];
+  }
+  const int num_rows = token_rows;
+  const int hidden_size = X.dims()[input_dims.size() - 1];
+
+  permute_input->set_dims({moe_topk * num_rows, hidden_size});
+  permute_input->set_dtype(X.dtype());
+  permute_input->set_layout(X.layout());
+
+  permute_indices_per_token->set_dims({moe_topk, num_rows});
+  permute_indices_per_token->set_dtype(DataType::INT32);
+  permute_indices_per_token->set_layout(X.layout());
+
+  expert_scales_float->set_dims({num_rows, moe_topk});
+  expert_scales_float->set_dtype(DataType::FLOAT32);
+  expert_scales_float->set_layout(X.layout());
+
+  top_k_indices->set_dims({num_rows, moe_topk});
+  top_k_indices->set_dtype(DataType::INT32);
+  top_k_indices->set_layout(X.layout());
+}
+
+void MoeFFNInferMeta(const MetaTensor& permute_input,
+                     const MetaTensor& token_nums_per_expert,
+                     const MetaTensor& ffn1_weight,
+                     const MetaTensor& ffn2_weight,
+                     const MetaTensor& ffn1_bias,
+                     const MetaTensor& ffn1_scale,
+                     const MetaTensor& ffn2_scale,
+                     const std::string& quant_method,
+                     MetaTensor* ffn_out) {
+  ffn_out->set_dims(permute_input.dims());
+  ffn_out->share_lod(permute_input);
+  ffn_out->set_dtype(permute_input.dtype());
+  ffn_out->set_layout(permute_input.layout());
+}
+
+void MoeReduceInferMeta(const MetaTensor& ffn_out,
+                        const MetaTensor& expert_scales_float,
+                        const MetaTensor& permute_indices_per_token,
+                        const MetaTensor& top_k_indices,
+                        const MetaTensor& ffn2_bias,
+                        const bool norm_topk_prob,
+                        const float routed_scaling_factor,
+                        MetaTensor* output) {
+  auto ffn_out_dims = ffn_out.dims();
+  const int top_k = top_k_indices.dims()[1];
+  const int num_rows = ffn_out_dims[0] / top_k;
+  const int hidden_size = ffn_out_dims[1];
+  output->set_dims({num_rows, hidden_size});
+  output->set_dtype(ffn_out.dtype());
+  output->set_layout(ffn_out.layout());
+}
+
 void MaskedMultiheadAttentionInferMeta(const MetaTensor& x,
                                        const MetaTensor& cache_kv,
                                        const MetaTensor& bias,
@@ -6058,7 +6125,7 @@ void MaskedMultiheadAttentionInferMeta(const MetaTensor& x,
       0,
       errors::InvalidArgument(
           "The num_head of query must be divisible by the num_head of key, but "
-          "recived num_head of query is %d, and the num_head of key is %d",
+          "received num_head of query is %d, and the num_head of key is %d",
           num_head,
           k_num_head));
   PADDLE_ENFORCE_EQ(

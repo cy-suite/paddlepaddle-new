@@ -356,7 +356,7 @@ def _set_skip_gc_vars_in_pir(num_micro_batches, job_types, sub_programs, jobs):
             f"Skip gc vars for {job_type}-({micro_batch_id}): {skip_gc_vars}"
         )
 
-        if job_type in ["backward", "backward_w"]:
+        if job_type in ["send_backward", "backward_w"]:
             assert (
                 len(skip_gc_vars) == 0
             ), f"When enabling pipeline parallelism strategy, the skip_gc_vars for {job_type} subprogram must be empty, but it is {skip_gc_vars}."
@@ -391,7 +391,7 @@ def shadow_var_between_sub_programs(sub_programs):
                         if input_arg_name in op.input("XShape"):
                             continue
                     input_arg_names.add(input_arg_name)
-                    # NOTE(Ruibiao): When translating these codes to pir, we can simplely set
+                    # NOTE(Ruibiao): When translating these codes to pir, we can simply set
                     # `shadow_arg_names=input_arg_names-output_arg_names` since the program
                     # in pir satisfies SSA form.
                     if input_arg_name not in output_arg_names:
@@ -817,7 +817,7 @@ def infer_chunk_id(op_idx, ops, with_dist=True):
                 return op.dist_attr.chunk_id
         else:
             if op.has_attr("chunk_id"):
-                return op.attrs()["chunk_id"]
+                return op.chunk_id
             else:
                 return -1
 
@@ -836,11 +836,8 @@ def infer_chunk_id(op_idx, ops, with_dist=True):
         for used_op in all_used_ops:
             if used_op.dist_attr and used_op.dist_attr.chunk_id != -1:
                 return used_op.dist_attr.chunk_id != -1
-            elif (
-                used_op.has_attr("chunk_id")
-                and used_op.attrs()["chunk_id"] != -1
-            ):
-                return used_op.attrs()["chunk_id"]
+            elif used_op.has_attr("chunk_id") and used_op.chunk_id != -1:
+                return used_op.chunk_id
 
     return -1
 
@@ -1351,15 +1348,15 @@ def _program_for_vpp_split_bwk(
                     type_to_ops[type + str(chunk_id)] = []
         type_to_ops["fetch"] = []
 
-        dealed_op_idx = 0
+        dealt_op_idx = 0
         for ip, op in enumerate(block.ops):
-            if ip < dealed_op_idx:
+            if ip < dealt_op_idx:
                 continue
             if is_forward_op(op):
                 type = oprole_type[0]
             elif is_backward_op(op):
                 types = _get_backward_op_type(block, op, ip)
-                dealed_op_idx = dealed_op_idx + len(types) - 1
+                dealt_op_idx = dealt_op_idx + len(types) - 1
             elif is_optimize_op(op):
                 type = oprole_type[4]
             else:
@@ -1403,7 +1400,7 @@ def _program_for_vpp_split_bwk(
                     )
             else:
                 raise ValueError(f"There is not dist_attr for op[{op.type}].")
-            dealed_op_idx = dealed_op_idx + 1
+            dealt_op_idx = dealt_op_idx + 1
 
         return type_to_ops
 
@@ -1523,9 +1520,9 @@ def _program_for_zero_bubble(program, enable_send_recv_overlap=False):
             type_to_ops[type] = []
         type_to_ops["fetch"] = []
 
-        dealed_op_idx = 0
+        dealt_op_idx = 0
         for idx, op in enumerate(block.ops):
-            if idx < dealed_op_idx:
+            if idx < dealt_op_idx:
                 continue
             if _is_fetch_op(op):
                 type_to_ops["fetch"].append(op)
@@ -1533,7 +1530,7 @@ def _program_for_zero_bubble(program, enable_send_recv_overlap=False):
                 type_to_ops["forward"].append(op)
             elif is_backward_op(op):
                 types = _get_backward_op_type(block, op, idx)
-                dealed_op_idx = dealed_op_idx + len(types) - 1
+                dealt_op_idx = dealt_op_idx + len(types) - 1
                 for i, type in enumerate(types):
                     type_to_ops[type].append(block.ops[idx + i])
                     type_to_ops["backward"].append(block.ops[idx + i])
@@ -1545,7 +1542,7 @@ def _program_for_zero_bubble(program, enable_send_recv_overlap=False):
                     + str(op.attr('op_role'))
                     + " isn't one of Forward, Backward or Optimizer."
                 )
-            dealed_op_idx = dealed_op_idx + 1
+            dealt_op_idx = dealt_op_idx + 1
         return type_to_ops
 
     type_to_program = OrderedDict()
@@ -1661,18 +1658,18 @@ def _program_for_zero_bubble_vpp(
                         type_to_ops["backward_w" + str(chunk_id)] = []
         type_to_ops["fetch"] = []
 
-        dealed_op_idx = 0
-        dealed_types = []
+        dealt_op_idx = 0
+        dealt_types = []
         for idx, op in enumerate(block.ops):
-            if idx < dealed_op_idx:
-                type = dealed_types[len(dealed_types) - dealed_op_idx + idx]
+            if idx < dealt_op_idx:
+                type = dealt_types[len(dealt_types) - dealt_op_idx + idx]
             else:
                 if is_forward_op(op):
                     type = oprole_type[0]
                 elif is_backward_op(op):
                     type = _get_backward_op_type(block, op, idx)
-                    dealed_op_idx = dealed_op_idx + len(type) - 1
-                    dealed_types = type[1:]
+                    dealt_op_idx = dealt_op_idx + len(type) - 1
+                    dealt_types = type[1:]
                     type = type[0]
                 elif is_optimize_op(op):
                     type = oprole_type[3]
@@ -1682,7 +1679,7 @@ def _program_for_zero_bubble_vpp(
                         + str(op.attr('op_role'))
                         + " isn't one of Forward, Backward or Optimizer."
                     )
-                dealed_op_idx += 1
+                dealt_op_idx += 1
 
             dist_op = dist_context.get_dist_op_for_program(op)
             if _is_fetch_op(op):
@@ -1791,11 +1788,11 @@ def split_matmul_grad_to_matmul(
     tran_x = matmul_grad_op.attr("trans_x")
     assert (
         not tran_x
-    ), f"matmul_grad(id={matmul_grad_id}) with tran_x == True is not supported for spliting matmul_grad to matmul"
+    ), f"matmul_grad(id={matmul_grad_id}) with tran_x == True is not supported for splitting matmul_grad to matmul"
     tran_y = matmul_grad_op.attr("trans_y")
     assert (
         not tran_y
-    ), f"matmul_grad(id={matmul_grad_id}) with tran_y == True is not supported for spliting matmul_grad to matmul"
+    ), f"matmul_grad(id={matmul_grad_id}) with tran_y == True is not supported for splitting matmul_grad to matmul"
 
     x = matmul_grad_op.input("X")
     y = matmul_grad_op.input("Y")
@@ -1930,11 +1927,11 @@ def _pir_split_matmul_grad_to_matmul(block, matmul_grad_id):
 
     assert not matmul_grad_op.has_attr(
         "trans_x"
-    ), f"matmul_grad(id={matmul_grad_id}) with tran_x == True is not supported for spliting matmul_grad to matmul"
+    ), f"matmul_grad(id={matmul_grad_id}) with tran_x == True is not supported for splitting matmul_grad to matmul"
 
     assert not matmul_grad_op.has_attr(
         "trans_y"
-    ), f"matmul_grad(id={matmul_grad_id}) with tran_y == True is not supported for spliting matmul_grad to matmul"
+    ), f"matmul_grad(id={matmul_grad_id}) with tran_y == True is not supported for splitting matmul_grad to matmul"
 
     x = matmul_grad_op.operand_source(0)
     y = matmul_grad_op.operand_source(1)
@@ -1966,7 +1963,7 @@ def _pir_split_matmul_grad_to_matmul(block, matmul_grad_id):
     # When the rank of input matrix is 3, MatmulGradKernel use reshape to fold the first two dimensions of x and out_grad (see FoldInitDims in matmul_grad_kernel_impl.h), and then calls blas.Matmul to calculate y_grad.
     # If we directly append matmul op to calculate y_grad without FoldInitDims, blas.BatchedGEMM is actually called in MatmulKernel, which has a larger cost than using blas.Matmul after dimension folding.
     # Therefore, we imitate MatmulGradKernel here by inserting reshape op before matmul.
-    chunk_id = matmul_grad_op.attrs()["chunk_id"]
+    chunk_id = matmul_grad_op.chunk_id
 
     paddle.pir.set_insertion_point_after(matmul_grad_op)
     new_x = paddle._C_ops.reshape(x, new_x_dims)
@@ -2110,7 +2107,7 @@ class PipelineMemoryEstimator:
                     continue
 
                 var_info[var_name]["count"] -= 1
-                if var_name not in has_used_vars and not self._is_perisitable(
+                if var_name not in has_used_vars and not self._is_persistable(
                     var_name, var_info
                 ):
                     has_used_vars.add(var_name)
@@ -2125,7 +2122,7 @@ class PipelineMemoryEstimator:
 
                 if self._is_last_used(var_name, var_info):
                     if (
-                        not self._is_perisitable(var_name, var_info)
+                        not self._is_persistable(var_name, var_info)
                         and var_name not in skip_gc_vars
                     ):
                         last_use_vars.append(var_name)
@@ -2245,7 +2242,7 @@ class PipelineMemoryEstimator:
 
         return var_info[var_name]["count"] == 0
 
-    def _is_perisitable(self, var_name, var_info):
+    def _is_persistable(self, var_name, var_info):
         if var_name not in var_info:
             return False
 
