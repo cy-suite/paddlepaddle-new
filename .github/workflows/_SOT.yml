@@ -8,6 +8,7 @@ env:
   docker_image: 077ca344c322
   PR_ID: ${{ github.event.pull_request.number }}
   COMMIT_ID: ${{ github.event.pull_request.head.sha }}
+  container_name: paddle-CI-${{ github.event.pull_request.number }}-${{ github.workflow }}
 
 defaults:
   run:
@@ -54,7 +55,7 @@ jobs:
         CCACHE_LIMIT_MULTIPLE: 0.8
       run: |
         # bash ${{ github.workspace }}/paddle/scripts/paddle_build/check_docker_image.sh
-        docker run -d -t --name paddle-CI-${PR_ID} \
+        docker run -d -t --name ${container_name} \
           -v "/home/data/cfs:/home/data/cfs" \
           -v "/home/data/gzcfs:/home/data/gzcfs" \
           -v "/dev/shm:/dev/shm" \
@@ -97,7 +98,7 @@ jobs:
 
     - name: Download paddle and update
       run: |
-        docker exec -t paddle-CI-${PR_ID} /bin/bash -c '
+        docker exec -t ${container_name} /bin/bash -c '
         rm -rf * .[^.]*
         wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/Paddle/${PR_ID}/${COMMIT_ID}/Paddle.tar.gz --no-check-certificate
         tar xf Paddle.tar.gz --strip-components=1
@@ -113,7 +114,7 @@ jobs:
 
     - name: Configure cache and ccache
       run: |
-        docker exec -t paddle-CI-${PR_ID} /bin/bash -c '
+        docker exec -t ${container_name} /bin/bash -c '
         mkdir -p /home/data/cfs/.cache/build
         echo "CACHE_DIR=/home/data/cfs/.cache/build" >> ${{ github.env }}
         if [ -f '/home/data/gzcfs/gz.txt' ];then
@@ -131,7 +132,7 @@ jobs:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
       run: |
-        docker exec -t paddle-CI-${PR_ID} /bin/bash -c '
+        docker exec -t ${container_name} /bin/bash -c '
         export CACHE_DIR=${{ env.CACHE_DIR }}
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         export work_dir=${{ env.work_dir }}
@@ -150,10 +151,10 @@ jobs:
       env:
         CHECK_SCRIPT: "${{ github.workspace }}/paddle/scripts/paddle_build/check_excode.sh"
       run: |
-        docker exec -t paddle-CI-${PR_ID} /bin/bash -c "export EXCODE=${{ env.EXCODE }} && bash $CHECK_SCRIPT"
+        docker exec -t ${container_name} /bin/bash -c "export EXCODE=${{ env.EXCODE }} && bash $CHECK_SCRIPT"
 
     - name: Terminate and delete the container
       if: always()
       run: |
-        docker stop paddle-CI-${PR_ID}
-        docker rm paddle-CI-${PR_ID}
+        docker stop ${container_name}
+        docker rm ${container_name}

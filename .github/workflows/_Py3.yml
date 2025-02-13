@@ -8,6 +8,7 @@ env:
   docker_image: 077ca344c322
   PR_ID: ${{ github.event.pull_request.number }}
   COMMIT_ID: ${{ github.event.pull_request.head.sha }}
+  container_name: paddle-CI-${{ github.event.pull_request.number }}-${{ github.workflow }}
 
 defaults:
   run:
@@ -56,7 +57,7 @@ jobs:
         CCACHE_LIMIT_MULTIPLE: 0.8
       run: |
         # bash ${{ github.workspace }}/paddle/scripts/paddle_build/check_docker_image.sh
-        docker run -d -t --name paddle-CI-${PR_ID} \
+        docker run -d -t --name ${container_name} \
           -v "/home/data/cfs:/home/data/cfs" \
           -v "/home/data/gzcfs:/home/data/gzcfs" \
           -v "/dev/shm:/dev/shm" \
@@ -100,7 +101,7 @@ jobs:
 
     - name: Download paddle and update
       run: |
-        docker exec -t paddle-CI-${PR_ID} /bin/bash -c '
+        docker exec -t ${container_name} /bin/bash -c '
         rm -rf * .[^.]*
         rm -rf /root/.cache && ln -s /home/data/cfs/.cache/python35-cpu /root/.cache
         wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/Paddle/${PR_ID}/${COMMIT_ID}/Paddle.tar.gz --no-check-certificate
@@ -117,11 +118,11 @@ jobs:
 
     - name: Configure cache and ccache
       run: |
-        docker exec -t paddle-CI-${PR_ID} /bin/bash -c 'bash ${{ github.workspace }}/paddle/scripts/paddle_build/config_cfs.sh ${{ github.env }}'
+        docker exec -t ${container_name} /bin/bash -c 'bash ${{ github.workspace }}/paddle/scripts/paddle_build/config_cfs.sh ${{ github.env }}'
 
     - name: Check py3
       run: |
-        docker exec -t paddle-CI-${PR_ID} /bin/bash -c '
+        docker exec -t ${container_name} /bin/bash -c '
         export CACHE_DIR=${{ env.CACHE_DIR }}
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         PATH=/usr/local/bin:${PATH}
@@ -143,7 +144,7 @@ jobs:
         bos_file: ${{ github.workspace }}/../bos/BosClient.py
         paddle_whl: paddlepaddle-0.0.0-cp39-cp39-linux_x86_64.whl
       run: |
-        docker exec -t paddle-CI-${PR_ID} /bin/bash -c '
+        docker exec -t ${container_name} /bin/bash -c '
         export AK=paddle
         export SK=paddle
         if [ ${{ env.EXCODE }} -eq 0 ]; then
@@ -161,10 +162,10 @@ jobs:
       env:
         CHECK_SCRIPT: "${{ github.workspace }}/paddle/scripts/paddle_build/check_excode.sh"
       run: |
-        docker exec -t paddle-CI-${PR_ID} /bin/bash -c "export EXCODE=${{ env.EXCODE }} && bash $CHECK_SCRIPT"
+        docker exec -t ${container_name} /bin/bash -c "export EXCODE=${{ env.EXCODE }} && bash $CHECK_SCRIPT"
 
     - name: Terminate and delete the container
       if: always()
       run: |
-        docker stop paddle-CI-${PR_ID}
-        docker rm paddle-CI-${PR_ID}
+        docker stop ${container_name}
+        docker rm ${container_name}
