@@ -41,7 +41,8 @@ struct MergeTrivialPatternOperation {
           std::holds_alternative<ReduceTreePlusTrivialPattern>(
               downstream->stmt_pattern()) ||
           std::holds_alternative<ItersPermutationPattern>(
-              downstream->stmt_pattern());
+              downstream->stmt_pattern()) ||
+          std::holds_alternative<AnchorPattern>(downstream->stmt_pattern());
 
       if (can_fuse) {
         auto merged_node = graph->MergeNode(upstream, downstream, MergePattern);
@@ -186,17 +187,25 @@ struct AnchorFusionOperation {
   PatternNodePtr operator()(PatternGraph* graph,
                             const PatternNodePtr& upstream,
                             const PatternNodePtr& downstream) {
+    bool upstream_is_anchor;
+    AxisTransformRoute loop_transform;
     auto loop_lift_transform = GetValidLoopTransformRoute(
         upstream->loop_mapping(), downstream->loop_mapping(), true);
-    auto loop_sink_transform = GetValidLoopTransformRoute(
-        upstream->loop_mapping(), downstream->loop_mapping(), false);
-    if (!loop_lift_transform.has_value() && !loop_sink_transform.has_value()) {
-      return upstream;
+    if (loop_lift_transform.has_value()) {
+      loop_transform = loop_lift_transform.value();
+      upstream_is_anchor = true;
+    } else {
+      auto loop_sink_transform = GetValidLoopTransformRoute(
+          upstream->loop_mapping(), downstream->loop_mapping(), false);
+      if (!loop_sink_transform.has_value()) {
+        return upstream;
+      }
+      loop_transform = loop_sink_transform.value();
+      upstream_is_anchor = false;
     }
     VLOG(4) << "Start AnchorFusionOperation";
     VLOG(4) << "Upstream: \n" << upstream->DebugStr();
     VLOG(4) << "Downstream: \n" << downstream->DebugStr();
-    bool upstream_is_anchor = loop_lift_transform.has_value();
     const auto merge_pattern_fn =
         [upstream_is_anchor](const StmtPattern& upstream,
                              const StmtPattern& downstream) -> StmtPattern {
@@ -214,14 +223,14 @@ struct AnchorFusionOperation {
     if (upstream_is_anchor) {
       auto downstream_tmp_id = GetNewTmpId(downstream->id());
       merged_node->AppendInstr(std::make_shared<AxisTransformInstr>(
-          downstream->id(), downstream_tmp_id, loop_lift_transform.value()));
+          downstream->id(), downstream_tmp_id, loop_transform));
       merged_node->AppendInstr(std::make_shared<CombineInstr>(
           std::vector<std::string>{upstream->id(), downstream_tmp_id},
           merged_node->id()));
     } else {
       auto upstream_tmp_id = GetNewTmpId(upstream->id());
       merged_node->AppendInstr(std::make_shared<AxisTransformInstr>(
-          upstream->id(), upstream_tmp_id, loop_sink_transform.value()));
+          upstream->id(), upstream_tmp_id, loop_transform));
       merged_node->AppendInstr(std::make_shared<CombineInstr>(
           std::vector<std::string>{upstream_tmp_id, downstream->id()},
           merged_node->id()));
@@ -332,8 +341,7 @@ struct SplitRecomputeOperation {
         GetOpsInPattern(upstream->stmt_pattern()),
         upstream->sink_op(),
         std::make_shared<FusionTracker>(
-            std::get<ItersPermutationPattern>(upstream->stmt_pattern())
-                .tracker_));
+            std::get<AnchorPattern>(upstream->stmt_pattern()).tracker_));
     upstream->set_stmt_pattern(trivial_pattern);
     VLOG(4) << "Make CopyInstr: " << origin_name << " -> " << upstream->id();
     upstream->AppendInstr(

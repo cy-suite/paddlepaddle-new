@@ -718,6 +718,7 @@ std::vector<symbol::DimExpr> GetValueDims(const pir::Value& value,
 }
 
 std::vector<symbol::DimExpr> GetValueAllDims(const pir::Value& value);
+std::vector<symbol::DimExpr> GetCompatibleValueAllDims(const pir::Value& value);
 
 symbol::DimExpr GetShapeProduct(const std::vector<symbol::DimExpr>& shape,
                                 int start,

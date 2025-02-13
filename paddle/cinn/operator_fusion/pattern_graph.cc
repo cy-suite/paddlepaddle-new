@@ -73,11 +73,11 @@ std::vector<PatternNodePtr> PatternGraph::ClusterOps() {
   // VLOG(4) << "[Group Cluster] After IdentityAnchorFusion: ";
   // PrintGraphInfo();
 
-  // // Sink single trivial op pattern
-  // VLOG(4) << "[Group Cluster] Start SplitRecomputePattern";
-  // SplitRecomputePattern();
-  // VLOG(4) << "[Group Cluster] After SplitRecomputePattern: ";
-  // PrintGraphInfo();
+  // Sink single trivial op pattern
+  VLOG(4) << "[Group Cluster] Start SplitRecomputePattern";
+  SplitRecomputePattern();
+  VLOG(4) << "[Group Cluster] After SplitRecomputePattern: ";
+  PrintGraphInfo();
 
   // // ItersPermutationPattern x ItersPermutationPattern Fusion
   // VLOG(4) << "[Group Cluster] Start ItersPermutationFusion";
@@ -168,28 +168,28 @@ void PatternGraph::SinkTrivialPattern() {
       And<StmtPatternGraphMatcher<TrivialPattern>, TransposeOpMatcher>,
       MergeTrivialPatternOperation>(this);
 
-  // Sink Trivial pattern whose downstream containing related iters.
-  // TODO(huangjiyi): Only sink to the related iters pattern.
-  GraphTransformer<NodePattern,
-                   And<StmtPatternGraphMatcher<TrivialPattern>,
-                       DownstreamHasItersRelationMatcher,
-                       Not<ReshapeConnectionMatcher>>,
-                   MergeTrivialPatternOperation>(this);
+  // // Sink Trivial pattern whose downstream containing related iters.
+  // // TODO(huangjiyi): Only sink to the related iters pattern.
+  // GraphTransformer<NodePattern,
+  //                  And<StmtPatternGraphMatcher<TrivialPattern>,
+  //                      DownstreamHasItersRelationMatcher,
+  //                      Not<ReshapeConnectionMatcher>>,
+  //                  MergeTrivialPatternOperation>(this);
 
-  // Sink non-leaf reshape pattern.
-  GraphTransformer<
-      NodePattern,
-      And<StmtPatternGraphMatcher<TrivialPattern>,
-          Or<OnlyOneDownstreamMatcher, DownstreamHasItersRelationMatcher>,
-          Not<LeafReshapeConnectionMatcher>>,
-      MergeTrivialPatternOperation>(this);
+  // // Sink non-leaf reshape pattern.
+  // GraphTransformer<
+  //     NodePattern,
+  //     And<StmtPatternGraphMatcher<TrivialPattern>,
+  //         Or<OnlyOneDownstreamMatcher, DownstreamHasItersRelationMatcher>,
+  //         Not<LeafReshapeConnectionMatcher>>,
+  //     MergeTrivialPatternOperation>(this);
 
-  // Align leaf reshape pattern to the input shape
-  GraphTransformer<NodePattern,
-                   And<StmtPatternGraphMatcher<TrivialPattern>,
-                       ReshapeOpMatcher,
-                       LeafReshapeConnectionMatcher>,
-                   ReshapeAlignInputOperation>(this);
+  // // Align leaf reshape pattern to the input shape
+  // GraphTransformer<NodePattern,
+  //                  And<StmtPatternGraphMatcher<TrivialPattern>,
+  //                      ReshapeOpMatcher,
+  //                      LeafReshapeConnectionMatcher>,
+  //                  ReshapeAlignInputOperation>(this);
 }
 
 void PatternGraph::ReduceLiftReduceTree() {
@@ -275,9 +275,12 @@ void PatternGraph::ItersPermutationFusion() {
 void PatternGraph::SplitRecomputePattern() {
   GraphTransformer<NodePattern, RecomputeNodeMatcher, SplitRecomputeOperation>(
       this);
+  // GraphTransformer<NodePattern,
+  //                  StmtPatternGraphMatcher<TrivialPattern>,
+  //                  LiftToItersPermutationPatternOperation>(this);
   GraphTransformer<NodePattern,
                    StmtPatternGraphMatcher<TrivialPattern>,
-                   LiftToItersPermutationPatternOperation>(this);
+                   LiftToAnchorPatternOperation>(this);
 }
 
 PatternGraph::PatternGraph(const std::vector<PatternContent>& contents,

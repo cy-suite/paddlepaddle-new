@@ -198,6 +198,12 @@ std::vector<symbol::DimExpr> GetValueAllDims(const pir::Value& value) {
   return GetValueDims(value, ArangeVector<int>(0, GetRank(value)));
 }
 
+std::vector<symbol::DimExpr> GetCompatibleValueAllDims(
+    const pir::Value& value) {
+  return GetRank(value) == 0 ? std::vector<symbol::DimExpr>{symbol::DimExpr(1)}
+                             : GetValueAllDims(value);
+}
+
 symbol::DimExpr GetShapeProduct(const std::vector<symbol::DimExpr>& shape,
                                 int start,
                                 int end) {

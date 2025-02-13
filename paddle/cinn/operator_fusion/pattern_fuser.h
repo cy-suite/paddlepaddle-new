@@ -144,6 +144,14 @@ static StmtPattern MergePatternImpl(const TrivialPattern& first,
   return result;
 }
 
+static StmtPattern MergePatternImpl(const TrivialPattern& first,
+                                    const AnchorPattern& second) {
+  return AnchorPattern(
+      UniqueConcatVector(GetOpsInPattern(first), GetOpsInPattern(second)),
+      std::make_shared<FusionTracker>(first.tracker_, second.tracker_),
+      LoopMappingMerge(first.loop_mapping(), second.loop_mapping(), false));
+}
+
 // RR & RT
 
 static int InsertUpstreamIntoTree(const ReduceTreePattern& upstream,
@@ -545,6 +553,9 @@ static StmtPattern MergePattern(const StmtPattern& first,
         return MergePatternImpl(lhs, rhs);
       },
       [&](const TrivialPattern& lhs, const ItersPermutationPattern& rhs) {
+        return MergePatternImpl(lhs, rhs);
+      },
+      [&](const TrivialPattern& lhs, const AnchorPattern& rhs) {
         return MergePatternImpl(lhs, rhs);
       },
       [&](const HorizontalFusionPattern& lhs,

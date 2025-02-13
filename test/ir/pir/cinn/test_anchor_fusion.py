@@ -286,6 +286,20 @@ class TestAnchorFusion(unittest.TestCase):
 
         self.check_accuracy_and_kernel_num(init, func, kernel_num=1)
 
+    def test_0d_fusion(self):
+        def func(x):
+            a = x + 1
+            b = a[16, 8]
+            b = b.reshape([1, 1])
+            c = b.expand([16, 32])
+            return a, b, c
+
+        def init():
+            x = paddle.rand((32, 16))
+            return (x,)
+
+        self.check_accuracy_and_kernel_num(init, func, kernel_num=1)
+
 
 if __name__ == "__main__":
     unittest.main()
