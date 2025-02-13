@@ -165,6 +165,7 @@ XPUOpMap& get_kl3_ops() {
        XPUKernelSet({phi::DataType::FLOAT32, phi::DataType::FLOAT16})},
       {"batch_norm_grad",
        XPUKernelSet({phi::DataType::FLOAT32, phi::DataType::FLOAT16})},
+      {"barrier", XPUKernelSet({phi::DataType::INT32})},
       {"batch_norm",
        XPUKernelSet({phi::DataType::FLOAT32, phi::DataType::FLOAT16})},
       {"bn_act_xpu",
