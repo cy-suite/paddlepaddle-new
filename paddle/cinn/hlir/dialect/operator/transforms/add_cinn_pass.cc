@@ -27,6 +27,8 @@
 #include "paddle/pir/include/dialect/shape/utils/shape_analysis.h"
 #include "paddle/pir/include/pass/pass_manager.h"
 
+#include "paddle/ap/include/memory/guard.h"
+#include "paddle/ap/include/paddle/pass/ap_lower_fusion_op_pass.h"
 #include "paddle/cinn/hlir/dialect/operator/ir/manual_op.h"
 #include "paddle/cinn/hlir/dialect/operator/ir/op_dialect.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/accuracy_check_pass.h"
@@ -62,6 +64,7 @@
 #include "paddle/fluid/pir/transforms/general/common_subexpression_elimination_pass.h"
 #include "paddle/fluid/pir/transforms/general/dead_code_elimination_pass.h"
 #include "paddle/fluid/pir/transforms/gpu/fused_gemm_epilogue_pass.h"
+#include "paddle/pir/include/core/ir_printer.h"
 
 COMMON_DECLARE_bool(cinn_specify_input_dynamic_dim);
 COMMON_DECLARE_string(cinn_input_dynamic_dim_spec_file);
@@ -70,6 +73,7 @@ COMMON_DECLARE_bool(disable_dyshape_in_train);
 COMMON_DECLARE_bool(enable_cinn_accuracy_check);
 COMMON_DECLARE_bool(enable_fuse_parallel_matmul_pass);
 COMMON_DECLARE_bool(enable_fusion_fallback);
+COMMON_DECLARE_bool(enable_ap);
 COMMON_DECLARE_bool(logging_pir_py_code_dump_symbolic_dims);
 
 namespace cinn::dialect::ir {
@@ -222,20 +226,46 @@ void ApplyCinnLowerPass(
     VLOG(0) << "Enable CINN Accuracy Check Pass";
     pass_manager->AddPass(cinn::dialect::ir::CreateAccuracyCheckPass());
   }
-  if (FLAGS_enable_fusion_fallback) {
-    VLOG(0) << "Enable Fusion Fallback Pass";
-    pass_manager->AddPass(cinn::dialect::ir::CreateFusionFallbackPass());
-  }
-  if (has_dynamic_shape && !force_static_shape) {
-    pass_manager->AddPass(
-        cinn::dialect::ir::CreateLowerCinnDyShapeFusionOpPass());
+  if (FLAGS_enable_ap) {
+    ap::memory::Guard guard{};
+    if (auto pass =
+            CreateApLowerFusionOpClassicDrrPass(guard.circlable_ref_list())) {
+      pass_manager->AddPass(std::move(pass.value()));
+      pass_manager->AddPass(pir::CreateDeadCodeEliminationPass());
+      pir::IrPrinter(LOG(ERROR) << "before ApLowerFusionOpClassicDrrPass:\n")
+          .PrintProgram(program);
+      pass_manager->Run(program);
+      pir::IrPrinter(LOG(ERROR) << "after ApLowerFusionOpClassicDrrPass:\n")
+          .PrintProgram(program);
+    }
+    if (auto pass =
+            CreateApLowerFusionOpAbstractDrrPass(guard.circlable_ref_list())) {
+      pass_manager->AddPass(std::move(pass.value()));
+      pass_manager->AddPass(pir::CreateDeadCodeEliminationPass());
+      pir::IrPrinter(LOG(ERROR) << "before ApLowerFusionOpAbstractDrrPass:\n")
+          .PrintProgram(program);
+      pass_manager->Run(program);
+      pir::IrPrinter(LOG(ERROR) << "after ApLowerFusionOpAbstractDrrPass:\n")
+          .PrintProgram(program);
+      pass_manager = CreatePassManager();
+      pass_manager->AddPass(cinn::dialect::ir::CreateFusionFallbackPass());
+      pass_manager->Run(program);
+    }
   } else {
-    pass_manager->AddPass(cinn::dialect::ir::CreateLowerCinnFusionOpPass());
+    if (FLAGS_enable_fusion_fallback) {
+      VLOG(0) << "Enable Fusion Fallback Pass";
+      pass_manager->AddPass(cinn::dialect::ir::CreateFusionFallbackPass());
+    }
+    if (has_dynamic_shape && !force_static_shape) {
+      pass_manager->AddPass(
+          cinn::dialect::ir::CreateLowerCinnDyShapeFusionOpPass());
+    } else {
+      pass_manager->AddPass(cinn::dialect::ir::CreateLowerCinnFusionOpPass());
+    }
+    pass_manager->AddPass(
+        cinn::dialect::ir::CreateSplitGenerateShapeIntoShapeOpsPass());
+    pass_manager->Run(program);
   }
-  pass_manager->AddPass(
-      cinn::dialect::ir::CreateSplitGenerateShapeIntoShapeOpsPass());
-
-  pass_manager->Run(program);
 }
 
 template <typename OP_TYPE>
