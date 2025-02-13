@@ -13,10 +13,15 @@
 // limitations under the License.
 
 #include "paddle/cinn/backends/nvrtc/header_generator.h"
-#include <fstream>
+#include <iostream>
 #include "glog/logging.h"
 #include "jitify.hpp"  // NOLINT
 #include "paddle/common/enforce.h"
+
+#include "paddle/common/flags.h"
+
+PD_DECLARE_string(cinn_x86_builtin_code_root);
+
 namespace cinn {
 namespace backends {
 namespace nvrtc {
@@ -46,20 +51,21 @@ std::string read_file_as_string(const std::string& file_path) {
   return buffer.str();
 }
 
-void JitSafeHeaderGenerator::JitSafeHeaderGenerator() {
+JitSafeHeaderGenerator::JitSafeHeaderGenerator() {
   const auto& headers_map = ::jitify::detail::get_jitsafe_headers_map();
   for (auto& pair : headers_map) {
     include_names_.emplace_back(pair.first.data());
     headers_.emplace_back(pair.second.data());
   }
-
+  std::cout << "JitSafeHeaderGenerator::JitSafeHeaderGenerator() \n"
+            << FLAGS_cinn_x86_builtin_code_root << std::endl;
   std::string cinn_float16_header =
-      read_file_as_string("../../common/float16.h");
+      read_file_as_string("paddle/cinn/common/float16.h");
   std::string cinn_bfloat16_header =
-      read_file_as_string("../../common/bfloat16.h");
-  std::string cinn_with_cuda_header =
-      "\n#define CINN_WITH_CUDA\n" std::string cinn_cuda_runtime_source_header =
-          read_file_as_string("../../runtime/cuda/cinn_with_cuda.cuh");
+      read_file_as_string("paddle/cinn/common/bfloat16.h");
+  std::string cinn_with_cuda_header = "\n#define CINN_WITH_CUDA\n";
+  std::string cinn_cuda_runtime_source_header =
+      read_file_as_string("paddle/cinn/runtime/cuda/cinn_with_cuda.cuh");
   AddJitSafeHeader("float16_h", cinn_float16_header);
   AddJitSafeHeader("bfloat16_h", cinn_bfloat16_header);
   AddJitSafeHeader("cinn_with_cuda_h", cinn_with_cuda_header);

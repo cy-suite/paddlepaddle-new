@@ -328,11 +328,48 @@ void Compiler::RegisterDeviceModuleSymbol() {
       [&](common::HygonDCUArchHIP) { RegisterHipModuleSymbol(); },
       [&](common::HygonDCUArchSYCL) { RegisterSyclModuleSymbol(); });
 }
+std::string AnalyzeSourceHeader(const std::string& code) {
+#ifdef CINN_WITH_CUDA
+  auto HasFloat16String = [](const std::string& str) -> bool {
+    return str.find("float16") != std::string::npos ||
+           str.find("float8") != std::string::npos ||
+           str.find("half4") != std::string::npos ||
+           str.find("half8") != std::string::npos;
+  };
 
+  auto HasBFloat16String = [](const std::string& str) -> bool {
+    return str.find("bfloat16") != std::string::npos ||
+           str.find("bfloat168") != std::string::npos ||
+           str.find("bfloat164") != std::string::npos ||
+           str.find("bfloat162") != std::string::npos;
+  };
+
+  auto HasRunTimeFuncString = [](const std::string& str) -> bool {
+    return str.find("cinn_nvgpu_") != std::string::npos;
+  };
+
+  std::string header = CodeGenCudaDev::GetDefaultSourceHeader();
+  if (HasFloat16String(code)) {
+    header += CodeGenCudaDev::GetFloat16SourceHeader();
+  }
+  if (HasBFloat16String(code)) {
+    header += CodeGenCudaDev::GetBFloat16SourceHeader();
+  }
+  if (HasRunTimeFuncString(code)) {
+    header += CodeGenCudaDev::GetCudaRunTimeSourceHeader();
+  }
+
+  return header;
+#else
+  return "";
+#endif
+  return "";
+}
 void Compiler::RegisterCudaModuleSymbol() {
 #ifdef CINN_WITH_CUDA
   nvrtc::Compiler compiler;
-  std::string source_code = CodeGenCudaDev::GetSourceHeader() + device_fn_code_;
+  std::string source_code =
+      AnalyzeSourceHeader(device_fn_code_) + device_fn_code_;
   auto ptx = compiler(source_code);
   PADDLE_ENFORCE_EQ(!ptx.empty(),
                     true,

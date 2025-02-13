@@ -30,6 +30,7 @@
 #include "paddle/cinn/runtime/flags.h"
 #include "paddle/cinn/utils/string.h"
 #include "paddle/common/enforce.h"
+
 PD_DECLARE_string(cinn_nvcc_cmd_path);
 PD_DECLARE_string(nvidia_package_dir);
 PD_DECLARE_bool(nvrtc_compile_to_cubin);
@@ -172,6 +173,7 @@ std::string Compiler::CompileCudaSource(const std::string& code,
     param_cstrings.push_back(option.c_str());
   }
   VLOG(3) << "compile options: " << utils::Join(compile_options, " ");
+  std::cout << header_gen.size() << " --------" << std::endl;
   NVRTC_CALL(nvrtcCreateProgram(&prog,
                                 code.c_str(),
                                 nullptr,
@@ -180,6 +182,38 @@ std::string Compiler::CompileCudaSource(const std::string& code,
                                 header_gen.include_names().data()));
   nvrtcResult compile_res =
       nvrtcCompileProgram(prog, param_cstrings.size(), param_cstrings.data());
+
+  if (compile_res != NVRTC_SUCCESS) {
+    std::string new_code = R"(
+#pragma once
+#include <bfloat16_h>
+#include <cinn_cuda_runtime_source_h>
+#include <cinn_with_cuda_h>
+#include <float16_h>
+using cinn::common::bfloat16;
+using cinn::common::float16;
+using cinn::common::float8;
+using cinn::common::half4;
+using cinn::common::half8;
+using cinn::common::float168;
+using cinn::common::float164;
+using cinn::common::float162;
+using cinn::common::bfloat168;
+using cinn::common::bfloat164;
+using cinn::common::bfloat162;
+
+)";
+    new_code += code;
+    NVRTC_CALL(nvrtcCreateProgram(&prog,
+                                  new_code.c_str(),
+                                  nullptr,
+                                  header_gen.size(),
+                                  header_gen.headers().data(),
+                                  header_gen.include_names().data()));
+    nvrtcResult compile_res =
+        nvrtcCompileProgram(prog, param_cstrings.size(), param_cstrings.data());
+    std::cout << "success: " << std::endl;
+  }
 
   {  // get log
     size_t log_size;
