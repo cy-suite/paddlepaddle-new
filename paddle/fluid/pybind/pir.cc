@@ -2065,6 +2065,18 @@ bool IsBlockKwargs(const Program &program, const pir::Value &value) {
   return false;
 }
 
+void PrintProgram(pir::ModuleOp m, std::string msg) {
+  pir::ShapeConstraintIRAnalysis &shape_analysis =
+      pir::ShapeAnalysisManager::Instance().Get(m.program());
+  if (VLOG_IS_ON(3)) {
+    std::cerr << "===================== [ShapeDialect]" << msg
+              << " =====================\n"
+              << pir::CustomPrintHelper(*m.program(),
+                                        shape_analysis.PrintHook())
+              << std::endl;
+  }
+}
+
 using ValueUnorderedMap = std::unordered_map<pir::Value, pir::Value>;
 void ShareShapeDimFwdAndBwd(const Program &full_program,
                             const Program &fwd_program,
@@ -2094,7 +2106,7 @@ void ShareShapeDimFwdAndBwd(const Program &full_program,
     }
   }
   for (const auto &fwd_pair : need_infer_fwd_values) {
-    const auto &x_shape_or_data =
+    [[maybe_unused]] const auto &x_shape_or_data =
         fwd_prog_analysis.GetShapeOrDataForValue(fwd_pair.first);
   }
 
@@ -2159,7 +2171,7 @@ void ShareShapeDimFwdAndBwd(const Program &full_program,
   }
 
   for (const auto &bwd_pair : need_infer_bwd_values) {
-    const auto &x_shape_or_data =
+    [[maybe_unused]] const auto &x_shape_or_data =
         bwd_prog_analysis.GetShapeOrDataForValue(bwd_pair.first);
   }
 }
@@ -2382,6 +2394,8 @@ SplitedResult SplitForwardBackward(
                          backward_value_map,
                          forward_outputs_grads,
                          forward_outputs);
+  // PrintProgram(forward_program->module_op(), "forward_program");
+  // PrintProgram(backward_program->module_op(), "backward_program");
   return std::make_pair(programs, attr);
 }
 
