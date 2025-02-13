@@ -156,11 +156,10 @@ class GlobalOutputNet(nn.Layer):
         self.config = config
 
     def forward(self, input):
-        return (
-            input
-            if input is not None
-            else paddle.rand([self.config.hidden_size], dtype="float32")
-        )
+        # first tensor is DenseTensor, will 'shard_tensor'
+        # second tensor is DistTensor, will 'reshard'
+        # which test two different behaviors
+        return paddle.rand([self.config.hidden_size], dtype="float32"), input
 
 
 class LlamaModel(nn.Layer):
@@ -193,7 +192,7 @@ class LlamaModel(nn.Layer):
         self.layers = nn.LayerList(decoder_layers)
         self.norm = LlamaRMSNorm(self.config)
 
-    def forward(self, input_ids):
+    def forward(self, input_ids, attn_mask=None):
         hidden_states = self.embed_tokens(input_ids)
         if self.position_embedding is not None:
             ones = paddle.ones(input_ids.shape, dtype="int64")
@@ -202,7 +201,7 @@ class LlamaModel(nn.Layer):
             position_embeddings = self.position_embedding(position_ids)
             hidden_states = hidden_states + position_embeddings
 
-        global_tensor = self.global_layer(None)
+        global_tensor, _ = self.global_layer(attn_mask)
 
         for idx, (decoder_layer) in enumerate(self.layers):
             hidden_states = decoder_layer(hidden_states, global_tensor)
@@ -276,10 +275,11 @@ class LlamaForCausalLM(nn.Layer):
         else:
             self.lm_head = LlamaLMHead(self.config)
 
-    def forward(self, input_ids=None):
+    def forward(self, input_ids=None, attn_mask=None):
         input_ids.stop_gradient = True
+        attn_mask.stop_gradient = True
 
-        hidden_states = self.llama(input_ids)
+        hidden_states = self.llama(input_ids, attn_mask)
         logits = self.lm_head(hidden_states)
 
         return logits

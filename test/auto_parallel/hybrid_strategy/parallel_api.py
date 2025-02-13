@@ -52,7 +52,7 @@ class Config:
     vocab_size = 8192
     hidden_size = 512
     intermediate_size = 2048
-    seq_length = 512
+    seq_length = 192
     num_hidden_layers = 2
     num_attention_heads = 8
     rms_norm_eps = 1e-6
@@ -86,15 +86,22 @@ class LoRaConfig:
 
 
 class RandomDataset(Dataset):
-    def __init__(self, seq_len, num_samples=100):
+    def __init__(self, config, num_samples=100):
         super().__init__()
-        self.seq_len = seq_len
+        self.config = config
         self.num_samples = num_samples
 
     def __getitem__(self, index):
-        input = np.random.uniform(size=[self.seq_len]).astype("int64")
-        label = (np.random.uniform(size=[self.seq_len]) * 10).astype("int64")
-        return input, label
+        input = (np.random.uniform(size=[self.config.seq_length]) * 10).astype(
+            "int64"
+        )
+        attn_mask = (
+            np.random.uniform(size=[self.config.hidden_size]) * 2
+        ).astype("int64")
+        label = (np.random.uniform(size=[self.config.seq_length]) * 10).astype(
+            "int64"
+        )
+        return (input, attn_mask), label
 
     def __len__(self):
         return self.num_samples
@@ -435,7 +442,7 @@ class TestParallelAPI:
                 master_grad=self.amp_master_grad,
             )
 
-        train_dataset = RandomDataset(self.config.seq_length)
+        train_dataset = RandomDataset(self.config)
         train_sampler = BatchSampler(
             train_dataset,
             batch_size=2,
@@ -472,7 +479,7 @@ class TestParallelAPI:
                 scaler = dist.shard_scaler(scaler)
 
             for step, inputs in enumerate(dist_loader()):
-                input_ids, labels = inputs
+                (input_ids, attn_mask), labels = inputs
                 custom_black_list = [
                     "reduce_sum",
                     "c_softmax_with_cross_entropy",
@@ -489,7 +496,7 @@ class TestParallelAPI:
                     level=self.amp_level,
                     dtype=self.amp_dtype,
                 ):
-                    logits = model(input_ids)
+                    logits = model(input_ids, attn_mask)
                     tr_loss_step = criterion(logits, labels)
 
                 if self.gradient_accumulation_steps > 1:
@@ -541,8 +548,8 @@ class TestParallelAPI:
 
             dist_model.train()
             for step, inputs in enumerate(dist_loader()):
-                input_ids, labels = inputs
-                loss = dist_model(input_ids, labels)
+                (input_ids, attn_mask), labels = inputs
+                loss = dist_model(input_ids, attn_mask, labels)
                 logging.info(f"step: {step}  loss: {loss}")
                 if step >= 3:
                     break

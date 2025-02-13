@@ -43,8 +43,8 @@ class SubToGlobalMeshFunction(ReshardFunction):
         if out_mesh.ndim == in_mesh.ndim:
             return set(in_mesh.process_ids) < set(out_mesh.process_ids)
         else:
-            sub_meshes = paddle.base.libpaddle.pir.get_sub_meshes(in_mesh)
-            return out_mesh in sub_meshes
+            sub_meshes = paddle.base.libpaddle.pir.get_sub_meshes(out_mesh)
+            return in_mesh in sub_meshes
 
     def reshard(self, src_dist_attr, dst_dist_attr, src_value, dst_type):
         src_mesh = src_dist_attr.process_mesh
