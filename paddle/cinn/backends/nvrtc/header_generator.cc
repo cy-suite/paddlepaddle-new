@@ -42,10 +42,9 @@ const size_t JitSafeHeaderGenerator::size() const {
 std::string read_file_as_string(const std::string& file_path) {
   std::ifstream file(file_path);
 
-  if (!file) {
+  if (!file.is_open()) {
     throw std::runtime_error("Failed to open file");
   }
-
   std::stringstream buffer;
   buffer << file.rdbuf();
   return buffer.str();
@@ -60,12 +59,12 @@ JitSafeHeaderGenerator::JitSafeHeaderGenerator() {
   std::cout << "JitSafeHeaderGenerator::JitSafeHeaderGenerator() \n"
             << FLAGS_cinn_x86_builtin_code_root << std::endl;
   std::string cinn_float16_header =
-      read_file_as_string("paddle/cinn/common/float16.h");
+      read_file_as_string("/paddle/Paddle/paddle/cinn/common/float16.h");
   std::string cinn_bfloat16_header =
-      read_file_as_string("paddle/cinn/common/bfloat16.h");
+      read_file_as_string("/paddle/Paddle/paddle/cinn/common/bfloat16.h");
   std::string cinn_with_cuda_header = "\n#define CINN_WITH_CUDA\n";
-  std::string cinn_cuda_runtime_source_header =
-      read_file_as_string("paddle/cinn/runtime/cuda/cinn_with_cuda.cuh");
+  std::string cinn_cuda_runtime_source_header = read_file_as_string(
+      "/paddle/Paddle/paddle/cinn/runtime/cuda/cinn_cuda_runtime_source.cuh");
   AddJitSafeHeader("float16_h", cinn_float16_header);
   AddJitSafeHeader("bfloat16_h", cinn_bfloat16_header);
   AddJitSafeHeader("cinn_with_cuda_h", cinn_with_cuda_header);
