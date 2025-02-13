@@ -61,8 +61,6 @@ black_ops_list = [
     "sync_batch_norm_",
     "multiply",
     "multiply_grad",
-    "embedding_grad",
-    "cudnn_lstm_grad",
     "scale_grad",
     "pull_sparse_v2_grad",
     "push_gpups_sparse",
@@ -362,8 +360,12 @@ paddle::small_vector<std::vector<paddle::Tensor>, egr::kSlotSmallVectorSize> {}:
   VLOG(4) << \"Finish AD API GRAD: {}";
   VLOG(6) << "gradnode_ptr = " << this;
   // LOG IF DEBUG
-
 {}
+
+  if (HasNodePostHook()) {{
+    returns = ApplyNodePostHooks(returns, hooked_grads);
+  }}
+
   // Return
 {}
 }}
@@ -3357,8 +3359,12 @@ if __name__ == "__main__":
             generator_grad = DygraphForwardAndNodesGenerator(
                 backward_yaml_paths[i], backward_yaml_paths[i], all_bw, all_bw
             )
-        else:
+        elif backward_yaml_path.endswith('/dygraph_backward.yaml'):
             continue
+        else:
+            generator_grad = DygraphForwardAndNodesGenerator(
+                backward_yaml_path, backward_yaml_path
+            )
 
         generator_grad.run(True)
 
