@@ -61,8 +61,6 @@ black_ops_list = [
     "sync_batch_norm_",
     "multiply",
     "multiply_grad",
-    "embedding_grad",
-    "cudnn_lstm_grad",
     "scale_grad",
     "pull_sparse_v2_grad",
     "push_gpups_sparse",
@@ -362,8 +360,12 @@ paddle::small_vector<std::vector<paddle::Tensor>, egr::kSlotSmallVectorSize> {}:
   VLOG(4) << \"Finish AD API GRAD: {}";
   VLOG(6) << "gradnode_ptr = " << this;
   // LOG IF DEBUG
-
 {}
+
+  if (HasNodePostHook()) {{
+    returns = ApplyNodePostHooks(returns, hooked_grads);
+  }}
+
   // Return
 {}
 }}
@@ -2708,7 +2710,12 @@ class DygraphNodeGenerator(DygraphFunctionGeneratorBase):
             )
 
             grad_api_args[grad_api_position] = name
-            get_grad_in_args_list.append(get_attr_str)
+            if (
+                not is_invoke_forward_api
+                or name in self.grad_api_contents['invoke']
+            ):
+                # NOTE: attr 'dims' is not necessary for 'invoke: view_shape(out_grad, input.shape())'
+                get_grad_in_args_list.append(get_attr_str)
 
         get_grad_in_args_str = "\n".join(get_grad_in_args_list)
 
