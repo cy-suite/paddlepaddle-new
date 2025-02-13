@@ -8,7 +8,7 @@ env:
   docker_image: 077ca344c322
   PR_ID: ${{ github.event.pull_request.number }}
   COMMIT_ID: ${{ github.event.pull_request.head.sha }}
-  container_name: paddle-CI-${{ github.event.pull_request.number }}-${{ github.workflow }}
+  container_name: paddle-CI-${{ github.event.pull_request.number }}-py3
 
 defaults:
   run:
