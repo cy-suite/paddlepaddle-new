@@ -98,26 +98,26 @@ jobs:
           -e GITHUB_ENV \
           -w ${{ github.workspace }} --network host ${docker_image}
 
-    # - name: Download paddle and update
-    #   run: |
-    #     docker exec -t paddle-CI-${PR_ID} /bin/bash -c '
-    #     rm -rf * .[^.]*
-    #     rm -rf /root/.cache && ln -s /home/data/cfs/.cache/python35-cpu /root/.cache
-    #     wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/Paddle/${PR_ID}/${COMMIT_ID}/Paddle.tar.gz --no-check-certificate
-    #     tar xf Paddle.tar.gz --strip-components=1
-    #     bash ${{ github.workspace }}/paddle/scripts/paddle_build/config_paddle.sh
-    #     . ../proxy
-    #     set -x
-    #     git checkout develop
-    #     git pull upstream develop
-    #     git fetch upstream develop
-    #     git checkout test
-    #     git merge develop
-    #     '
+    - name: Download paddle and update
+      run: |
+        docker exec -t paddle-CI-${PR_ID} /bin/bash -c '
+        rm -rf * .[^.]*
+        rm -rf /root/.cache && ln -s /home/data/cfs/.cache/python35-cpu /root/.cache
+        wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/Paddle/${PR_ID}/${COMMIT_ID}/Paddle.tar.gz --no-check-certificate
+        tar xf Paddle.tar.gz --strip-components=1
+        bash ${{ github.workspace }}/paddle/scripts/paddle_build/config_paddle.sh
+        . ../proxy
+        set -x
+        git checkout develop
+        git pull upstream develop
+        git fetch upstream develop
+        git checkout test
+        git merge develop
+        '
 
-    # - name: Configure cache and ccache
-    #   run: |
-    #     docker exec -t paddle-CI-${PR_ID} /bin/bash -c 'bash ${{ github.workspace }}/paddle/scripts/paddle_build/config_cfs.sh ${{ github.env }}'
+    - name: Configure cache and ccache
+      run: |
+        docker exec -t paddle-CI-${PR_ID} /bin/bash -c 'bash ${{ github.workspace }}/paddle/scripts/paddle_build/config_cfs.sh ${{ github.env }}'
 
     - name: Check py3
       run: |

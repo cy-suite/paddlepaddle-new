@@ -79,7 +79,7 @@ jobs:
         git branch -D test
         git gc
 
-    # - name: Clean environment
-    #   if: always()
-    #   run: |
-    #     rm -rf ${{ github.workspace }}/*
+    - name: Clean environment
+      if: always()
+      run: |
+        rm -rf ${{ github.workspace }}/*
