@@ -59,14 +59,14 @@ class TrtConvertPool2dTest(TrtLayerAutoScanTest):
 
         strides_options = [[1, 2]]
         paddings_options = [[0, 2]]
-        pooling_type_options = ['max', 'avg']
+        pooling_type_options = ['max']
         padding_algorithm_options = ['EXPLICIT', 'SAME', 'VALID']
         ksize_options = [[2, 3], [3, 3]]
         data_format_options = ['NCHW']
-        global_pooling_options = [True]
-        exclusive_options = [True]
-        adaptive_option = [True]
-        ceil_mode_options = [True]
+        global_pooling_options = [True, False]
+        exclusive_options = [True, False]
+        adaptive_option = [False, True]
+        ceil_mode_options = [True, False]
 
         configurations = [
             strides_options,

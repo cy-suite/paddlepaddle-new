@@ -254,87 +254,6 @@ class PoolPluginDynamic : public DynamicPluginTensorRT {
   bool is_global_;
 };
 
-class PIRPoolPluginDynamic : public DynamicPluginTensorRT {
- public:
-  PIRPoolPluginDynamic() {}
-  PIRPoolPluginDynamic(const bool& ceil_mode,
-                       const std::string& pool_type,
-                       const bool& adaptive,
-                       bool exclusive,
-                       const std::vector<int>& ksize,
-                       const std::vector<int>& strides,
-                       const std::vector<int>& paddings,
-                       const bool& is_global)
-      : ceil_mode_(ceil_mode),
-        pool_type_(pool_type),
-        adaptive_(adaptive),
-        exclusive_(exclusive),
-        ksize_(ksize),
-        strides_(strides),
-        paddings_(paddings),
-        is_global_(is_global) {}
-
-  PIRPoolPluginDynamic(void const* serialData, size_t serialLength);
-  ~PIRPoolPluginDynamic() {}
-  nvinfer1::IPluginV2DynamicExt* clone() const TRT_NOEXCEPT override;
-
-  const char* getPluginType() const TRT_NOEXCEPT override {
-    return "pool_plugin_dynamic";
-  }
-  int getNbOutputs() const TRT_NOEXCEPT override { return 1; }
-  int initialize() TRT_NOEXCEPT override { return 0; }
-
-  size_t getSerializationSize() const TRT_NOEXCEPT override;
-  void serialize(void* buffer) const TRT_NOEXCEPT override;
-
-  nvinfer1::DimsExprs getOutputDimensions(
-      int output_index,
-      const nvinfer1::DimsExprs* inputs,
-      int nb_inputs,
-      nvinfer1::IExprBuilder& expr_builder)  // NOLINT
-      TRT_NOEXCEPT override;
-
-  bool supportsFormatCombination(int pos,
-                                 const nvinfer1::PluginTensorDesc* inOut,
-                                 int nbInputs,
-                                 int nbOutputs) TRT_NOEXCEPT override;
-
-  void configurePlugin(const nvinfer1::DynamicPluginTensorDesc* in,
-                       int nbInputs,
-                       const nvinfer1::DynamicPluginTensorDesc* out,
-                       int nbOutputs) TRT_NOEXCEPT override {}
-
-  size_t getWorkspaceSize(const nvinfer1::PluginTensorDesc* inputs,
-                          int nbInputs,
-                          const nvinfer1::PluginTensorDesc* outputs,
-                          int nbOutputs) const TRT_NOEXCEPT override {
-    return 0;
-  }
-
-  int enqueue(const nvinfer1::PluginTensorDesc* inputDesc,
-              const nvinfer1::PluginTensorDesc* outputDesc,
-              const void* const* inputs,
-              void* const* outputs,
-              void* workspace,
-              cudaStream_t stream) TRT_NOEXCEPT override;
-  nvinfer1::DataType getOutputDataType(int index,
-                                       const nvinfer1::DataType* inputTypes,
-                                       int nbInputs) const
-      TRT_NOEXCEPT override;
-
-  void destroy() TRT_NOEXCEPT override { delete this; }
-
- private:
-  bool ceil_mode_;
-  std::string pool_type_;
-  bool adaptive_;
-  bool exclusive_;
-  std::vector<int> ksize_;
-  std::vector<int> strides_;
-  std::vector<int> paddings_;
-  bool is_global_;
-};
-
 class PoolPluginDynamicCreator : public TensorRTPluginCreator {
  public:
   const char* getPluginName() const TRT_NOEXCEPT override {
@@ -363,7 +282,7 @@ class PIRPoolPluginDynamicCreator : public TensorRTPluginCreator {
                                          const void* serial_data,
                                          size_t serial_length)
       TRT_NOEXCEPT override {
-    return new PIRPoolPluginDynamic(serial_data, serial_length);
+    return new PoolPluginDynamic(serial_data, serial_length);
   }
   nvinfer1::IPluginV2* createPlugin(const char* name,
                                     const nvinfer1::PluginFieldCollection* fc)
@@ -407,14 +326,14 @@ class PIRPoolPluginDynamicCreator : public TensorRTPluginCreator {
         assert(false && "unknown plugin field name.");
       }
     }
-    return new PIRPoolPluginDynamic(ceil_mode,
-                                    pool_type,
-                                    adaptive,
-                                    exclusive,
-                                    ksize,
-                                    strides,
-                                    paddings,
-                                    global_pooling);
+    return new PoolPluginDynamic(ceil_mode,
+                                 pool_type,
+                                 adaptive,
+                                 exclusive,
+                                 ksize,
+                                 strides,
+                                 paddings,
+                                 global_pooling);
   }
 };
 
