@@ -60,7 +60,7 @@ void LuSolveGradKernel(const Context& dev_ctx,
 
       auto blas = phi::funcs::GetBlas<Context, T>(dev_ctx);
       auto out_grad_dims = out_grad.dims();
-      auto mat_dim_l = 
+      auto mat_dim_l =
           phi::funcs::CreateMatrixDescriptor(out_grad_dims, 0, false);
       auto out_mH_dims = out_mH.dims();
       auto mat_dim_g = phi::funcs::CreateMatrixDescriptor(out_mH_dims, 0, true);

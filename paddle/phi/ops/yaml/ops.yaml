@@ -3149,7 +3149,7 @@
   interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : lu_solve
-  args : (Tensor x, Tensor lu, Tensor pivots, str trans = "N")
+  args : (Tensor x, Tensor lu, Tensor pivots, str trans)
   output : Tensor(out)
   infer_meta :
     func : UnchangedInferMeta

@@ -15,69 +15,91 @@
 #include "paddle/phi/backends/cpu/cpu_context.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/funcs/lapack/lapack_function.h"
-
-#include "paddle/phi/core/enforce.h"
 #include "paddle/phi/kernels/impl/lu_kernel_impl.h"
-#include "paddle/phi/kernels/lu_solve_kernel.h"
 
 namespace phi {
 
-template <typename T, typename Context>
-void LuSolveKernel(const Context& dev_ctx,
-                   const DenseTensor& x,
-                   const DenseTensor& lu,
-                   const DenseTensor& pivots,
-                   const std::string& trans,
-                   DenseTensor* out) {
-  // Get lu matrix dimensions
-  auto lu_dims = lu.dims();
-  // Get x matrix dimensions
-  auto x_dims = x.dims();
-
-  // Allocate output tensor
-  dev_ctx.template Alloc<T>(out);
-  // Copy RHS data to output (will be overwritten with solution)
-  *out = Transpose2DTo6D<Context, T>(dev_ctx, x);
-  DenseTensor tem_lu = Transpose2DTo6D<Context, T>(dev_ctx, lu);
-
-  // Prepare LAPACK parameters
-  char trans_char = (trans == "N") ? 'N' : ((trans == "T") ? 'T' : 'C');
-  int n_int = lu_dims[lu_dims.size() - 1];
-  int nrhs_int = x_dims[x_dims.size() - 1];
-  int lda = std::max(1, n_int);  // Leading dimension of A (LU matrix)
-  int ldb = std::max(1, n_int);  // Leading dimension of B (RHS/solution matrix)
-  int info = 0;
-
-  auto outdims = out->dims();
-  auto outrank = outdims.size();
-  int batchsize = product(common::slice_ddim(outdims, 0, outrank - 2));
-  auto out_data = out->data<T>();
-  auto lu_data = reinterpret_cast<T*>(const_cast<T*>(tem_lu.data<T>()));
-  auto pivots_data =
-      reinterpret_cast<int*>(const_cast<int*>(pivots.data<int>()));
-
-  for (int i = 0; i < batchsize; i++) {
-    auto* out_data_item = &out_data[i * lda * n_int];
-    auto* lu_data_item = &lu_data[i * ldb * nrhs_int];
-    auto* pivots_data_item = &pivots_data[i * n_int];
-    phi::funcs::lapackLuSolve<T>(trans_char,
-                                 n_int,
-                                 nrhs_int,
-                                 lu_data_item,
+template <typename T>
+class LuSolveFunctor<T, CPUContext> {
+ public:
+  void operator()(const CPUContext& dev_ctx,
+                  char trans,
+                  int n,
+                  int nrhs,
+                  T *a,
+                  int lda,
+                  int *ipiv,
+                  T *b,
+                  int ldb,
+                  int *info) {
+    phi::funcs::lapackLuSolve<T>(trans,
+                                 n,
+                                 nrhs,
                                  lda,
-                                 pivots_data_item,
-                                 out_data_item,
+                                 lda,
+                                 ipiv,
+                                 b,
                                  ldb,
-                                 &info);
-    PADDLE_ENFORCE_EQ(
-        info,
-        0,
-        phi::errors::PreconditionNotMet(
-        "LU solve failed with error code %d. Check if matrix is singular.",
-        info));
+                                 info);
   }
-  *out = Transpose2DTo6D<Context, T>(dev_ctx, *out);
 }
+
+// template <typename T, typename Context>
+// void LuSolveKernel(const Context& dev_ctx,
+//                    const DenseTensor& x,
+//                    const DenseTensor& lu,
+//                    const DenseTensor& pivots,
+//                    const std::string& trans,
+//                    DenseTensor* out) {
+//   // Get lu matrix dimensions
+//   auto lu_dims = lu.dims();
+//   // Get x matrix dimensions
+//   auto x_dims = x.dims();
+
+//   // Allocate output tensor
+//   dev_ctx.template Alloc<T>(out);
+//   // Copy RHS data to output (will be overwritten with solution)
+//   *out = Transpose2DTo6D<Context, T>(dev_ctx, x);
+//   DenseTensor tem_lu = Transpose2DTo6D<Context, T>(dev_ctx, lu);
+
+//   // Prepare LAPACK parameters
+//   char trans_char = (trans == "N") ? 'N' : ((trans == "T") ? 'T' : 'C');
+//   int n_int = lu_dims[lu_dims.size() - 1];
+//   int nrhs_int = x_dims[x_dims.size() - 1];
+//   int lda = std::max(1, n_int);  // Leading dimension of A (LU matrix)
+//   int ldb = std::max(1, n_int);  // Leading dimension of B (RHS/solution matrix)
+//   int info = 0;
+
+//   auto outdims = out->dims();
+//   auto outrank = outdims.size();
+//   int batchsize = product(common::slice_ddim(outdims, 0, outrank - 2));
+//   auto out_data = out->data<T>();
+//   auto lu_data = reinterpret_cast<T*>(const_cast<T*>(tem_lu.data<T>()));
+//   auto pivots_data =
+//       reinterpret_cast<int*>(const_cast<int*>(pivots.data<int>()));
+
+//   for (int i = 0; i < batchsize; i++) {
+//     auto* out_data_item = &out_data[i * lda * nrhs_int];
+//     auto* lu_data_item = &lu_data[i * ldb * n_int];
+//     auto* pivots_data_item = &pivots_data[i * n_int];
+//     phi::funcs::lapackLuSolve<T>(trans_char,
+//                                  n_int,
+//                                  nrhs_int,
+//                                  lu_data_item,
+//                                  lda,
+//                                  pivots_data_item,
+//                                  out_data_item,
+//                                  ldb,
+//                                  &info);
+//     PADDLE_ENFORCE_EQ(
+//         info,
+//         0,
+//         phi::errors::PreconditionNotMet(
+//             "LU solve failed with error code %d. Check if matrix is singular.",
+//             info));
+//   }
+//   *out = Transpose2DTo6D<Context, T>(dev_ctx, *out);
+// }
 }  // namespace phi
 
 PD_REGISTER_KERNEL(

@@ -22,6 +22,7 @@ import paddle
 from paddle import _C_ops
 from paddle.base.libpaddle import DataType
 from paddle.common_ops_import import VarDesc
+from paddle.tensor.math import broadcast_shape
 from paddle.utils.inplace_utils import inplace_apis_in_dygraph_only
 
 from ..base.data_feeder import (
@@ -3576,7 +3577,11 @@ def lu(
 
 
 def lu_solve(
-    b: Tensor, lu_data: Tensor, pivots: Tensor, trans: str = "N", name=None
+    b: Tensor,
+    lu_data: Tensor,
+    pivots: Tensor,
+    trans: str = "N",
+    name=None,
 ):
     r"""
     Computes the solution y to the system of linear equations :math:`Ay = b` ,
@@ -3590,31 +3595,24 @@ def lu_solve(
         pivots (Tensor): Permutation matrix P of LU decomposition. It has
             shape :math:`(*, m)`, where :math:`*` is batch dimensions, that can be converted
             to a permutation matrix P, with data type int32.
-        trans (str): The transpose of the matrix A. It can be "N" or "T",
+        trans (str): The transpose of the matrix A. It can be "N" , "T" or "C,
+
     Returns:
         Tensor, the same data type as the `b` and `lu_data`.
     Examples:
         >>> import paddle
         >>> import numpy as np
-        >>> b = paddle.to_tensor(np.array([[1], [3], [3]]), paddle.float32)
-        >>> LU_data = paddle.to_tensor(np.array([[2, 1, 1], [0.5, 1, 1.5], [0.5, 0, 2.5]]), paddle.float32)
-        >>> LU_pivots = paddle.to_tensor(np.array([2, 2, 3]), paddle.int32)
-        >>> y = paddle.lu_solve(b, LU_data, LU_pivots)
+
+        >>> A = paddle.to_tensor([[3, 1], [1, 2]], dtype="float64")
+        >>> b = paddle.to_tensor([[9, 8], [9, 8]], dtype="float64")
+        >>> lu, p = paddle.linalg.lu(A)
+        >>> y = paddle.lu_solve(b, lu, p)
+
         >>> print(y)
-        [[ 1.9000002]
-         [-1.4000001]
-         [ 0.6      ]]
+        Tensor(shape=[2, 2], dtype=float64, place=Place(cpu), stop_gradient=True,
+        [[1.80000000, 1.60000000],
+        [3.60000000, 3.20000000]])
     """
-    b = (
-        b
-        if b.shape[:-2] == lu_data.shape[:-2]
-        else paddle.broadcast_to(b, lu_data.shape[:-2] + b.shape[-2:])
-    )
-    pivots = (
-        pivots
-        if pivots.shape[:-1] == lu_data.shape[:-2]
-        else paddle.broadcast_to(pivots, lu_data.shape[:-2] + pivots.shape[-1:])
-    )
     if b.ndim < 2:
         raise ValueError(
             f'`b` dimension must be gather than 2, but got {len(b.shape)}'
@@ -3639,7 +3637,26 @@ def lu_solve(
         raise ValueError(
             f'`pivots` shape[-1] must be equal to `lu_data` shape[-1], but got {pivots.shape[-1]} and {lu_data.shape[-1]}'
         )
-
+    temp_shape = broadcast_shape(b.shape[:-2], lu_data.shape[:-2])
+    batch_shape = broadcast_shape(temp_shape, pivots.shape[:-1])
+    b = (
+        b
+        if b.shape[:-2] == batch_shape
+        else paddle.broadcast_to(b, batch_shape + b.shape[-2:])
+    )
+    # 实数的共轭矩阵和转置矩阵相同
+    trans = trans if trans == "N" else "T"
+    pivots = (
+        pivots
+        if pivots.shape[:-1] == batch_shape
+        else paddle.broadcast_to(pivots, batch_shape + pivots.shape[-1:])
+    )
+    lu_data = (
+        lu_data
+        if lu_data.shape[:-2] == batch_shape
+        else paddle.broadcast_to(lu_data, batch_shape + lu_data.shape[-2:])
+    )
+    pivots.stop_gradient = True
     if in_dynamic_or_pir_mode():
         out = _C_ops.lu_solve(b, lu_data, pivots, trans)
     else:
@@ -3652,9 +3669,9 @@ def lu_solve(
         out = helper.create_variable_for_type_inference(dtype=b.dtype)
         helper.append_op(
             type='lu_solve',
-            inputs={'x': b, 'lu': lu_data, 'pivots': pivots},
-            outputs={'out': out},
-            attrs={'trans':trans},
+            inputs={'X': b, 'Lu': lu_data, 'Pivots': pivots},
+            outputs={'Out': out},
+            attrs={'trans': trans},
         )
     return out
 
