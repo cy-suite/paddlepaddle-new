@@ -29,7 +29,7 @@ Compiler* Compiler::Global() {
   return inst;
 }
 
-std::string Compiler::operator()(const std::string& code, const Arch gpu_type) {
+std::string Compiler::operator()(const std::string& code) {
   Arch gpu_type = cinn::common::HygonDCUArchSYCL{};
   return CompileToSo(code, gpu_type);
 }

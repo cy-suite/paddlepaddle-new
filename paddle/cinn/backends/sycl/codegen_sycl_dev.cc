@@ -79,13 +79,11 @@ void CodeGenSyclDevice::Compile(const ir::Module &module,
 }
 
 void CodeGenSyclDevice::Compile(const ir::LoweredFunc &func) {
-  IrPrinter::Visit(Expr(func));
+  Visit(func.As<ir::_LoweredFunc_>());
+  // IrPrinter::Visit(Expr(func));
 }
 
 void CodeGenSyclDevice::Visit(const ir::_LoweredFunc_ *op) {
-  // clear names valid within scope when enter a new function
-  vectorized_tensor_names_.clear();
-
   // Print the packed function
   str_ += "// CodeGenSyclDevice: NOTE: Auto-generated packed function\n";
   str_ += "void ";
@@ -178,28 +176,30 @@ void CodeGenSyclDevice::Visit(const ir::Max *op) {
 void CodeGenSyclDevice::PrintFunctionBody(const ir::_LoweredFunc_ *op) {
   DoIndent();
 
-  std::vector<Expr> new_body;
-
-  auto alloca_temp_buffers = op->PrepareAllocTempBufferExprs();
-  auto temp_buffer_alias = GenerateBufferAliasExprs(op, op->temp_bufs);
-  auto alias_var_exprs = op->CudaAliasVarExprs();
-
-#define APPEND_TO_NEW_BODY(field__) \
-  new_body.insert(std::end(new_body), std::begin(field__), std::end(field__));
-  APPEND_TO_NEW_BODY(alloca_temp_buffers)
-  APPEND_TO_NEW_BODY(temp_buffer_alias)
-  APPEND_TO_NEW_BODY(alias_var_exprs)
-
-  new_body.push_back(op->body);
-
-  Expr func_body = ir::Block::Make(new_body);
-
-  optim::SimplifyBlocks(&func_body);
-  // Make sure that the function's body is wrapped by a block
-  if (!func_body.As<ir::Block>()) {
-    func_body = ir::Block::Make({func_body});
-  }
-  IrPrinter::Visit(func_body);
+  std::vector<ir::stmt::StmtRef> new_body_stmts;
+  auto axis_range_assumption_stmts = op->PrepareAxisRangeAssumptionStmts();
+  auto alloca_temp_buffer_stmts = op->PrepareAllocTempBufferStmts();
+  auto temp_buffer_alia_stmts = GenerateBufferAliasStmts(op, op->temp_bufs);
+  auto alias_var_stmts = op->CudaAliasVarStmts();
+  auto dealloc_temp_buffer_stmts =
+      FilterDeallocTempBuffers(op->PrepareDeallocTempBufferStmts());
+#define APPEND_TO_NEW_BODY_STMTS(field__) \
+  new_body_stmts.insert(                  \
+      std::end(new_body_stmts), std::begin(field__), std::end(field__));
+  APPEND_TO_NEW_BODY_STMTS(axis_range_assumption_stmts)
+  APPEND_TO_NEW_BODY_STMTS(alloca_temp_buffer_stmts)
+  APPEND_TO_NEW_BODY_STMTS(temp_buffer_alia_stmts)
+  APPEND_TO_NEW_BODY_STMTS(alias_var_stmts)
+  APPEND_TO_NEW_BODY_STMTS(op->body_block->stmts())
+  APPEND_TO_NEW_BODY_STMTS(dealloc_temp_buffer_stmts);
+  ir::stmt::BlockRef func_body_block = ir::stmt::BlockRef(new_body_stmts);
+  // Use ir_simplify when pass updated.
+  // optim::SimplifyBlocks(&func_body);
+  // // Make sure that the function's body is wrapped by a block
+  // if (!func_body.As<ir::Block>()) {
+  //   func_body = ir::Block::Make({func_body});
+  // }
+  CodeGenC::VisitBlock(func_body_block);
 }
 
 void CodeGenSyclDevice::PrintFunctionDeclaration(const ir::_LoweredFunc_ *op) {
@@ -280,10 +280,9 @@ void CodeGenSyclDevice::PrintTempBufferCreation(const ir::Buffer &buffer) {
 
     default:
       PADDLE_THROW(::common::errors::InvalidArgument(
-                       "SYCL device codegen not support memory %s, type %s"),
-                   buffer->name,
-                   ,
-                   buffer->memory_type);
+          "SYCL device codegen not support memory %s, type %s",
+          buffer->name,
+          buffer->memory_type));
   }
 }
 
