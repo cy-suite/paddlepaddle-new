@@ -38,7 +38,6 @@
 #include "paddle/cinn/operator_fusion/fusion_interface.h"
 #include "paddle/cinn/optim/check_tensor_buffer_map.h"
 #include "paddle/cinn/optim/eliminate_common_global_memory_read.h"
-#include "paddle/cinn/optim/longlong2int_pass.h"
 #include "paddle/cinn/optim/schedule_block_dce.h"
 #include "paddle/cinn/optim/transform_gpu_forloop.h"
 #include "paddle/common/ddim.h"
@@ -269,39 +268,7 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
     std::vector<ir::Tensor>* group_func_arg_tensors,
     std::vector<ir::Argument>* group_func_args,
     std::vector<ir::Tensor>* infer_shape_arg_tensor) {
-  // Help func for lonnglong2int pass.
   std::vector<ir::Expr> inputs_element_size;
-  auto judge_dynamic = [](const std::vector<cinn::ir::Expr>& loops) {
-    for (const auto& loop : loops) {
-      if (!loop.is_constant()) return true;
-    }
-    return false;
-  };
-  auto get_element_size = [](const std::vector<cinn::ir::Expr>& loops) {
-    ir::Expr elems_num(1);
-    for (const auto& loop : loops) {
-      elems_num = ir::Mul::Make(elems_num, loop);
-    }
-    return cinn::optim::ArithSimplify(elems_num);
-  };
-  auto deal_perdicate_cond = [&](const ir::Expr& max_output_size) {
-    ir::Expr pred_longlong2int = ir::Expr(true);
-    std::unordered_set<ir::Expr> perd_set;
-    for (const auto& size : inputs_element_size) {
-      if (!size.is_constant() && perd_set.count(size) == 0) {
-        pred_longlong2int = ir::And::Make(
-            pred_longlong2int, ir::LE::Make(size, ir::Expr(INT32_MAX)));
-        perd_set.insert(size);
-      }
-    }
-    if (!max_output_size.is_constant() &&
-        perd_set.count(max_output_size) == 0) {
-      pred_longlong2int =
-          ir::And::Make(pred_longlong2int,
-                        ir::LE::Make(max_output_size, ir::Expr(INT32_MAX)));
-    }
-    return pred_longlong2int;
-  };
 
   // 1.Prepare function args
   group->mut_input_names().clear();
@@ -320,7 +287,9 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
     (*group_func_args).emplace_back(arg_tensor->buffer, io_type);
     // collect element size for longlong2int pass.
     if (FLAGS_cinn_longlong2int) {
-      inputs_element_size.push_back(get_element_size(arg_tensor->shape));
+      inputs_element_size.push_back(common::FoldExpr(
+          [](const Expr& a, const Expr& b) { return ir::Mul::Make(a, b); },
+          arg_tensor->shape));
     }
     arg_name_set.insert(arg_tensor->buffer->name);
   }
@@ -465,60 +434,15 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
     func->num_output_tensors = infer_shape_arg_tensor->size();
 
     // 5. Apply longlong2int pass
-    if (FLAGS_cinn_longlong2int && i != func_bodies.size() - 1) {
-      // The loop ranges product of Fusion group info is the max elements size
-      // for output, we dont need to calculate every output independently.
-      ir::Expr outputs_element_max_size = cinn::optim::ArithSimplify(
-          get_element_size(fusion_group_info->loop_ranges_expr));
-      bool is_dynamic = judge_dynamic(inputs_element_size) ||
-                        !outputs_element_max_size.is_constant();
-      if (is_dynamic) {
-        // Copy lowered_func and predicate for type int32 in dynamic branch.
-        ir::LoweredFunc func_copied = ir::ir_utils::IRCopy(func);
-        ir::Expr predicates_copied = ir::ir_utils::IRCopy(predicates[i]);
-
-        // Deal longlong2int predicates, calculate all elements size.
-        ir::Expr pred_longlong2int =
-            deal_perdicate_cond(outputs_element_max_size);
-
-        // New predicate for int32.
-        ir::Expr predicate_int32 =
-            ir::And::Make(predicates_copied, pred_longlong2int);
-
-        // Old predicate for int64.
-        predicates[i] =
-            ir::And::Make(predicates[i], ir::Not::Make(pred_longlong2int));
-
-        // Enforce cast the func copied in dynamic branch.
-        VLOG(6) << "Before CastLonglong2Int In Dynamic Branch: \n"
-                << func_copied;
-        optim::TryCastLonglong2Int(
-            func_copied, symbol_args_set, /*enforce_cast*/ true);
-        VLOG(6) << "After CastLonglong2Int In Dynamic Branch: \n"
-                << func_copied;
-
-        // Add int32 func and predicate. int64 branch is handled by default.
-        ret_predicates.push_back(std::move(predicate_int32));
-        ret_lowered_funcs.push_back(std::move(func_copied));
-        ret_priorities.push_back(priorities[i]);
-      } else {
-        // static branch, Here we have enough information to determine whether
-        // it is safe to transpose, so there is no need to enter the pass to
-        // determine according to the for loop range.
-        auto can_cast = [&]() {
-          for (const auto& size : inputs_element_size) {
-            if (size.as_int64() >= INT32_MAX) return false;
-          }
-          if (outputs_element_max_size.as_int64() >= INT32_MAX) return false;
-          return true;
-        }();
-
-        VLOG(6) << "Before CastLonglong2Int In Static Branch: \n" << func;
-        optim::TryCastLonglong2Int(
-            func, symbol_args_set, /*enforce_cast*/ can_cast);
-        VLOG(6) << "After CastLonglong2Int In Static Branch: \n" << func;
-      }
-    }
+    LongLong2Int(func,
+                 symbol_args_set,
+                 fusion_group_info->loop_ranges_expr,
+                 inputs_element_size,
+                 priorities[i],
+                 &predicates[i],
+                 &ret_predicates,
+                 &ret_lowered_funcs,
+                 &ret_priorities);
 
     ret_predicates.push_back(std::move(predicates[i]));
     ret_lowered_funcs.push_back(std::move(func));

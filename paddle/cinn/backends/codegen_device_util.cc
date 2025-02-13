@@ -170,18 +170,18 @@ detail::CollectBucketStrategyHostFunctionVisitor::GenDeviceKernelName(
   std::string cond_str = Predicate2String(predicate);
   // replace '-' with 'NEG'
   size_t pos = cond_str.find("-", 0);
-  std::string replacement = "NEG";
+  const std::string replacement_neg = "NEG";
   while (pos != std::string::npos) {
-    cond_str.replace(pos, 1, replacement);
-    pos = cond_str.find("-", pos + replacement.length());
+    cond_str.replace(pos, 1, replacement_neg);
+    pos = cond_str.find("-", pos + replacement_neg.length());
   }
 
   // replace '!' with 'NOT'
   pos = cond_str.find("!", 0);
-  replacement = "NOT";
+  const std::string replacement_not = "NOT";
   while (pos != std::string::npos) {
-    cond_str.replace(pos, 1, replacement);
-    pos = cond_str.find("!", pos + replacement.length());
+    cond_str.replace(pos, 1, replacement_not);
+    pos = cond_str.find("!", pos + replacement_not.length());
   }
   VLOG(3) << "predicate string: " << cond_str;
   // NOTE(chenxi67): The kernel name is too long to be supported in cuda12.3 so
