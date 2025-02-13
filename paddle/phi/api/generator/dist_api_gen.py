@@ -87,7 +87,6 @@ NCCL_COMMCONTEXT_INIT = """
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || defined(PADDLE_WITH_XPU_BKCL)
   const auto & comm_context_manager_ = phi::distributed::CommContextManager::GetInstance();
   if (nranks > 1 && !comm_context_manager_.Has(std::to_string(ring_id))) {{
-    VLOG(1) << "Create CommContext for ring_id" << std::to_string(ring_id);
     auto store = phi::distributed::CreateOrGetGlobalTCPStore();
     CREATE_COMM_CONTEXT(store, std::to_string(ring_id), rank, nranks);
   }}
@@ -98,9 +97,7 @@ SET_NCCL_COMMCONTEXT = """
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || defined(PADDLE_WITH_XPU_BKCL)
   const auto & comm_context_manager = phi::distributed::CommContextManager::GetInstance();
   COMM_CONTEXT* comm_context = nullptr;
-  VLOG(1) << "ring id: " << std::to_string(ring_id);
   if (comm_context_manager.Has(std::to_string(ring_id))) {{
-    VLOG(1) << "comm_context_manager has ring_id" << std::to_string(ring_id);
     comm_context = static_cast<COMM_CONTEXT*>(
           comm_context_manager.Get(std::to_string(ring_id)));
     PADDLE_ENFORCE_NE(
@@ -119,7 +116,6 @@ SET_NCCL_COMMCONTEXT = """
         }}
         Backend act_kernel_backend = kernel_res.has_fallback_cpu ? Backend::CPU : kernel_backend;
         auto* dev_context = GetDeviceContextByBackend(act_kernel_backend);
-          VLOG(3) << "Set CommContext to DeviceContext";
         dev_context->SetCommContext(comm_context);
     }}
   }}
