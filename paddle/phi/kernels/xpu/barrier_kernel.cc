@@ -52,3 +52,5 @@ void BarrierKernel(const Context &dev_ctx,
 #endif
 }
 }  // namespace phi
+
+PD_REGISTER_KERNEL(barrier, XPU, ALL_LAYOUT, phi::BarrierKernel, int) {}
