@@ -144,6 +144,7 @@ jobs:
         EXCODE: ${{ env.EXCODE }}
       run: |
         docker exec -t paddle-CI-${PR_ID} /bin/bash -c '
+        export EXCODE=${{ env.EXCODE }}
         if [ ${EXCODE} -eq 0 ]; then
           if [ ! -f "${bos_file}" ]; then
             wget -q --no-proxy -O ${home_path}/bos_new.tar.gz https://xly-devops.bj.bcebos.com/home/bos_new.tar.gz --no-check-certificate
