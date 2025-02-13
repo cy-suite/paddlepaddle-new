@@ -108,9 +108,6 @@ jobs:
         bash ${{ github.workspace }}/paddle/scripts/paddle_build/config_paddle.sh
         . ../proxy
         set -x
-        cd third_party/rocksdb
-        git fetch origin 6.19.fb
-        cd -
         git checkout develop
         git pull upstream develop
         git fetch upstream develop
