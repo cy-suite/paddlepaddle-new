@@ -584,7 +584,9 @@ std::shared_ptr<phi::TensorBase> Tensor::get_impl() const {
 
 // Taken from codegened version
 const Tensor &Tensor::_fw_primal(int64_t level) const {
-  return this->autograd_meta_->fw_grad(level, *this);
+  // discard the fw grads reserved in autogradmeta
+  // return a pure primal Tensor
+  return Tensor(this->impl(), this->name());
 }
 
 }  // namespace paddle
