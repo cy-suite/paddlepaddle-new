@@ -19,6 +19,7 @@
 #include <functional>
 #include <memory>
 #include <optional>
+#include <random>
 #include "paddle/cinn/hlir/dialect/operator/transforms/check_infer_symbolic_pass.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/local_infer_symbolic_util.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/split_generate_shape_into_shape_ops_pass.h"
@@ -404,13 +405,13 @@ struct ShapeSignatureGenerator {
                        const DoEachT& DoEach) {
     if (set_size <= 0) return DoEach(is_subset_flags);
 
-    const auto& RecusiveVisit = [&](bool is_subset) {
+    const auto& RecursiveVisit = [&](bool is_subset) {
       std::vector<IsSubset> current_is_subset_flags(is_subset_flags);
       current_is_subset_flags.push_back(static_cast<int>(is_subset));
       VisitEachSubSet(set_size - 1, current_is_subset_flags, DoEach);
     };
-    RecusiveVisit(true);
-    RecusiveVisit(false);
+    RecursiveVisit(true);
+    RecursiveVisit(false);
   }
 
   std::optional<ConstrainedSymbolNamesList> GetConstrainedSymbolNamesList(

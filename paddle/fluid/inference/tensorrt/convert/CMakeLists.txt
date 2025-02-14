@@ -96,12 +96,13 @@ list(
   reverse_roll_op.cc
   tanhshrink_op.cc
   take_along_axis_op.cc
+  linear_interp_v2_op.cc
   logsigmoid_op.cc
   preln_layernorm_shift_partition_op.cc
   trans_layernorm_op.cc
   merge_layernorm_op.cc
   skip_merge_layernorm_op.cc
-  generic_and_custom_plugin_creator.cc
+  generic_and_custom_plugin_creater.cc
   lookup_table_op.cc
   elementwiseadd_transpose_op.cc
   skip_groupnorm_act_op.cc
@@ -154,33 +155,31 @@ nv_test(
        tensorrt_converter)
 if(WIN32)
   nv_test(
-    test_custom_plugin_creator
-    SRCS test_custom_plugin_creator.cc
+    test_custom_plugin_creater
+    SRCS test_custom_plugin_creater.cc
     DEPS paddle_framework tensorrt_converter phi common custom_operator
          init_phi)
 elseif(WITH_CINN)
   nv_test(
-    test_custom_plugin_creator
-    SRCS test_custom_plugin_creator.cc
+    test_custom_plugin_creater
+    SRCS test_custom_plugin_creater.cc
     DEPS paddle_framework
          tensorrt_converter
          phi
          common
          custom_operator
          init_phi
-         fleet_executor
          python)
 else()
   nv_test(
-    test_custom_plugin_creator
-    SRCS test_custom_plugin_creator.cc
+    test_custom_plugin_creater
+    SRCS test_custom_plugin_creater.cc
     DEPS paddle_framework
          tensorrt_converter
          phi
          common
          custom_operator
          init_phi
-         fleet_executor
          python)
 endif()
 

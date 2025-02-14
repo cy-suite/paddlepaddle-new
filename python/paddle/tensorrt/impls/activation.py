@@ -45,6 +45,19 @@ def activation_converter(network, paddle_op, inputs):
     return layer.get_output(0)
 
 
+@converter_registry.register(
+    "pd_op.logsigmoid", trt_version="trt_version_ge=8.0"
+)
+def logsigmoid_converter(network, paddle_op, inputs):
+    sigmoid_layer = network.add_activation(
+        inputs[0], trt.ActivationType.SIGMOID
+    )
+    layer = network.add_unary(
+        sigmoid_layer.get_output(0), trt.UnaryOperation.LOG
+    )
+    return layer.get_output(0)
+
+
 @converter_registry.register("pd_op.relu6", trt_version="trt_version_ge=8.0")
 def relu6_converter(network, paddle_op, inputs):
     layer = network.add_activation(inputs[0], trt.ActivationType.CLIP)
@@ -186,6 +199,16 @@ def swish_silu_converter(network, paddle_op, inputs):
         inputs[0], activation_type_map[paddle_op.name()]
     ).get_output(0)
     return trt_prod(network, inputs[0], layer_output)
+
+
+@converter_registry.register("pd_op.tanh_shrink", trt_version="8.x")
+def tanh_shrink_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    tanh_layer = network.add_activation(x, trt.ActivationType.TANH)
+    subtract_layer = network.add_elementwise(
+        x, tanh_layer.get_output(0), trt.ElementWiseOperation.SUB
+    )
+    return subtract_layer.get_output(0)
 
 
 @converter_registry.register("pd_op.stanh", trt_version="8.x")
