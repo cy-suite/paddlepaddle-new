@@ -34,9 +34,15 @@ class TestIndexExpr : public ::testing::Test {
              .set_index(true);
     S7 = ir::Var(ir::Expr(static_cast<int64_t>(1)), ir::Expr(INT32_MAX), "S7")
              .set_index(true);
+    S8 = ir::Var(ir::Expr(static_cast<int64_t>(1)), ir::Expr(INT32_MAX), "S8")
+             .set_index(true);
+    S9 = ir::Var(ir::Expr(static_cast<int64_t>(1)), ir::Expr(INT32_MAX), "S9")
+             .set_index(true);
+
+    f = ir::Var(ir::Expr(static_cast<int64_t>(1)), ir::Expr(INT32_MAX), "f");
   };
 
-  ir::Var S4, S5, S6, S7;
+  ir::Var S4, S5, S6, S7, S8, S9, f;
 };
 TEST_F(TestIndexExpr, IndexExpr_0) {
   ir::IndexExpr a(14);
@@ -166,7 +172,328 @@ TEST_F(TestIndexExpr, IndexExpr_3) {
   EXPECT_EQ(q14.as_index().Normalize(), ir::IndexExpr(S4 + S5));
   EXPECT_EQ(q15.as_index().Normalize(),
             ir::IndexExpr((S4 * 256 + S5 + S6 * 1024)) % 25088);
-  EXPECT_EQ(q16.as_index().Normalize(), ir::IndexExpr(S4 * 256 + S5));
+  EXPECT_EQ(q16.as_index().Normalize(ir::IndexExpr::OptLevel::Level2),
+            ir::IndexExpr(S4 * 256 + S5));
+}
+
+TEST_F(TestIndexExpr, Change_Seq_Of_Div_Mod) {
+  ir::Expr q1 = S4 / S5;
+  ir::Expr q2 = S4 % S5;
+  ir::Expr q3 = S4 / S5 % S6;
+  ir::Expr q4 = S4 / S5 % S6;
+
+  EXPECT_EQ(ChangeSeqOfDivMod(q1.as_index()), q1);
+  EXPECT_EQ(ChangeSeqOfDivMod(q2.as_index()), q2);
+  EXPECT_EQ(ChangeSeqOfDivMod(q3.as_index()), S4 % (S5 * S6) / S5);
+}
+
+TEST_F(TestIndexExpr, Test_ConstructIndexExprByNodeType) {
+  ir::Expr result_add = ConstructIndexExprByNodeType(
+      ir::IrNodeTy::Add, S4.as_index(), S5.as_index(), true);
+  ir::Expr result_sub = ConstructIndexExprByNodeType(
+      ir::IrNodeTy::Sub, S4.as_index(), S5.as_index(), false);
+  ir::Expr result_mul = ConstructIndexExprByNodeType(
+      ir::IrNodeTy::Mul, S4.as_index(), S5.as_index(), true);
+  ir::Expr result_div = ConstructIndexExprByNodeType(
+      ir::IrNodeTy::Div, S4.as_index(), S5.as_index(), true);
+  ir::Expr result_mod = ConstructIndexExprByNodeType(
+      ir::IrNodeTy::Mod, S4.as_index(), S5.as_index(), true);
+  ir::Expr result_min = ConstructIndexExprByNodeType(
+      ir::IrNodeTy::Min, S4.as_index(), S5.as_index(), false);
+  ir::Expr result_max = ConstructIndexExprByNodeType(
+      ir::IrNodeTy::Max, S4.as_index(), S5.as_index(), false);
+
+  EXPECT_EQ(result_add, S4 + S5);
+  EXPECT_EQ(result_sub, S4 - S5);
+  EXPECT_EQ(result_mul, S4 * S5);
+  EXPECT_EQ(result_div, S4 / S5);
+  EXPECT_EQ(result_mod, S4 % S5);
+  EXPECT_EQ(result_min, ir::Min::Make(S4, S5));
+  EXPECT_EQ(result_max, ir::Max::Make(S4, S5));
+}
+
+TEST_F(TestIndexExpr, Test_dynamic) {
+  ir::Expr q =
+      ((((((((((((((((S7 * 1024) + S8) + (S9 * 4096)) / S6) % S5) * S6) +
+                ((((S7 * 1024) + S8) + (S9 * 4096)) % S6)) +
+               (((((((((S7 * 1024) + S8) + (S9 * 4096)) / S6) / S5) % 640) %
+                  S4) *
+                 S6) *
+                S5)) +
+              (((((((((S7 * 1024) + S8) + (S9 * 4096)) / S6) / S5) / 640) *
+                 S5) *
+                S6) *
+               S4)) /
+             ((S5 * S6) * S4)) *
+            S4) +
+           (((((((((((S7 * 1024) + S8) + (S9 * 4096)) / S6) % S5) * S6) +
+                ((((S7 * 1024) + S8) + (S9 * 4096)) % S6)) +
+               (((((((((S7 * 1024) + S8) + (S9 * 4096)) / S6) / S5) % 640) %
+                  S4) *
+                 S6) *
+                S5)) +
+              (((((((((S7 * 1024) + S8) + (S9 * 4096)) / S6) / S5) / 640) *
+                 S5) *
+                S6) *
+               S4)) /
+             (S5 * S6)) %
+            S4)) *
+          S5) +
+         (((((((((((S7 * 1024) + S8) + (S9 * 4096)) / S6) % S5) * S6) +
+              ((((S7 * 1024) + S8) + (S9 * 4096)) % S6)) +
+             (((((((((S7 * 1024) + S8) + (S9 * 4096)) / S6) / S5) % 640) % S4) *
+               S6) *
+              S5)) +
+            (((((((((S7 * 1024) + S8) + (S9 * 4096)) / S6) / S5) / 640) * S5) *
+              S6) *
+             S4)) /
+           S6) %
+          S5)) *
+        S6) +
+       ((((((((((S7 * 1024) + S8) + (S9 * 4096)) / S6) % S5) * S6) +
+           ((((S7 * 1024) + S8) + (S9 * 4096)) % S6)) +
+          (((((((((S7 * 1024) + S8) + (S9 * 4096)) / S6) / S5) % 640) % S4) *
+            S6) *
+           S5)) +
+         (((((((((S7 * 1024) + S8) + (S9 * 4096)) / S6) / S5) / 640) * S5) *
+           S6) *
+          S4)) %
+        S6));
+
+  ir::Expr q1 =
+      ((((((f % ((S5 * S6) * 640)) % ((S5 * S6) * S4)) / (S5 * S6)) * S6) *
+        S5) +
+       (f % (S5 * S6)));
+  ir::Expr q2 = ((f % ((S5 * S6) * 640)) % ((S5 * S6) * S4)) % (S5 * S6);
+  ir::Expr q3 = (S5 * S6) * S4 / (S5 * S6);
+  ir::Expr q4 = (S5 * S6) * S4 % (S5 * S6);
+  ir::Expr q5 =
+      (((((((((((((f % ((S5 * S6) * 640)) % ((S5 * S6) * S4)) / (S5 * S6)) +
+                ((f / ((S5 * S6) * 640)) * S4)) *
+               S5) *
+              S6) +
+             (f % (S5 * S6))) %
+            ((S5 * S6) * S4)) /
+           (S5 * S6)) +
+          (((((((((f % ((S5 * S6) * 640)) % ((S5 * S6) * S4)) / (S5 * S6)) +
+                ((f / ((S5 * S6) * 640)) * S4)) *
+               S5) *
+              S6) +
+             (f % (S5 * S6))) /
+            ((S5 * S6) * S4)) *
+           S4)) *
+         S5) *
+        S6) +
+       (f % (S5 * S6)));
+
+  EXPECT_EQ(
+      q.as_index().Normalize(ir::IndexExpr::OptLevel::Level2),
+      ((((((((S7 * 1024) + S8) + (S9 * 4096)) / ((S5 * S6) * 640)) * S5) * S6) *
+        S4) +
+       (((((S7 * 1024) + S8) + (S9 * 4096)) % ((S5 * S6) * 640)) %
+        ((S5 * S6) * S4))));
+  EXPECT_EQ(q1.as_index().Normalize(ir::IndexExpr::OptLevel::Level2),
+            ((f % ((S5 * S6) * 640)) % ((S5 * S6) * S4)));
+  EXPECT_EQ(q2.as_index().Normalize(ir::IndexExpr::OptLevel::Level2),
+            f % (S5 * S6));
+  EXPECT_EQ(q3.as_index().Normalize(ir::IndexExpr::OptLevel::Level2), Expr(S4));
+  EXPECT_EQ(q4.as_index().Normalize(ir::IndexExpr::OptLevel::Level2), Expr(0));
+  EXPECT_EQ(q5.as_index().Normalize(ir::IndexExpr::OptLevel::Level2),
+            (((((f / ((S5 * S6) * 640)) * S4) * S5) * S6) +
+             ((f % ((S5 * S6) * 640)) % ((S5 * S6) * S4))));
+}
+
+TEST_F(TestIndexExpr, CommonFactor) {
+  ir::Var S0 = ir::Var("S0");
+  ir::Var S1 = ir::Var("S1");
+  ir::Var S2 = ir::Var("S2");
+  ir::Var S3 = ir::Var("S3");
+  ir::Var S4 = ir::Var("S4");
+  ir::Var S5 = ir::Var("S5");
+  ir::Var S6 = ir::Var("S6");
+  ir::Var S7 = ir::Var("S7");
+  ir::Var S8 = ir::Var("S8");
+  ir::Var S9 = ir::Var("S9");
+  ir::Var S13 = ir::Var("S13");
+  ir::Var S17 = ir::Var("S17");
+  ir::Var S21 = ir::Var("S21");
+  ir::Var tx = ir::Var("tx");
+  ir::Var bx = ir::Var("bx");
+
+  ir::Expr q = ((((((((S1 + S13) + S17) + S21) + S5) + S9)) * S2) * S3);
+  ir::Expr q1 = (((((((S3 * S5) * S2) + ((S3 * S9) * S2)) + ((S3 * S21) * S2)) +
+                   ((S2 * S3) * S17)) +
+                  ((S2 * S3) * S13)) +
+                 ((S2 * S3) * S1));
+  ir::Expr q2 =
+      (((((((((f * 1024) + tx) + (bx * 4096)) %
+            ((((((((((((((((((((((((((S3 * S5) * S2) * S0) +
+                                   (((S3 * S9) * S2) * S0)) +
+                                  (((S3 * S21) * S2) * S0)) +
+                                 (((S2 * S3) * S17) * S0)) +
+                                (((S2 * S3) * S13) * S0)) +
+                               (((S2 * S3) * S1) * S0)) /
+                              4096) *
+                             4096) +
+                            ((S3 * S5) * S2)) +
+                           ((S3 * S9) * S2)) +
+                          ((S3 * S21) * S2)) +
+                         ((S2 * S3) * S17)) +
+                        ((S2 * S3) * S13)) +
+                       ((S2 * S3) * S1)) +
+                      4095) /
+                     (((((((S3 * S5) * S2) + ((S3 * S9) * S2)) +
+                         ((S3 * S21) * S2)) +
+                        ((S2 * S3) * S17)) +
+                       ((S2 * S3) * S13)) +
+                      ((S2 * S3) * S1))) *
+                    S3) *
+                   S5) *
+                  S2) +
+                 (((((((((((((((((((((S3 * S5) * S2) * S0) +
+                                   (((S3 * S9) * S2) * S0)) +
+                                  (((S3 * S21) * S2) * S0)) +
+                                 (((S2 * S3) * S17) * S0)) +
+                                (((S2 * S3) * S13) * S0)) +
+                               (((S2 * S3) * S1) * S0)) /
+                              4096) *
+                             4096) +
+                            ((S3 * S5) * S2)) +
+                           ((S3 * S9) * S2)) +
+                          ((S3 * S21) * S2)) +
+                         ((S2 * S3) * S17)) +
+                        ((S2 * S3) * S13)) +
+                       ((S2 * S3) * S1)) +
+                      4095) /
+                     (((((((S3 * S5) * S2) + ((S3 * S9) * S2)) +
+                         ((S3 * S21) * S2)) +
+                        ((S2 * S3) * S17)) +
+                       ((S2 * S3) * S13)) +
+                      ((S2 * S3) * S1))) *
+                    S3) *
+                   S9) *
+                  S2)) +
+                (((((((((((((((((((((S3 * S5) * S2) * S0) +
+                                  (((S3 * S9) * S2) * S0)) +
+                                 (((S3 * S21) * S2) * S0)) +
+                                (((S2 * S3) * S17) * S0)) +
+                               (((S2 * S3) * S13) * S0)) +
+                              (((S2 * S3) * S1) * S0)) /
+                             4096) *
+                            4096) +
+                           ((S3 * S5) * S2)) +
+                          ((S3 * S9) * S2)) +
+                         ((S3 * S21) * S2)) +
+                        ((S2 * S3) * S17)) +
+                       ((S2 * S3) * S13)) +
+                      ((S2 * S3) * S1)) +
+                     4095) /
+                    (((((((S3 * S5) * S2) + ((S3 * S9) * S2)) +
+                        ((S3 * S21) * S2)) +
+                       ((S2 * S3) * S17)) +
+                      ((S2 * S3) * S13)) +
+                     ((S2 * S3) * S1))) *
+                   S3) *
+                  S21) *
+                 S2)) +
+               (((((((((((((((((((((S3 * S5) * S2) * S0) +
+                                 (((S3 * S9) * S2) * S0)) +
+                                (((S3 * S21) * S2) * S0)) +
+                               (((S2 * S3) * S17) * S0)) +
+                              (((S2 * S3) * S13) * S0)) +
+                             (((S2 * S3) * S1) * S0)) /
+                            4096) *
+                           4096) +
+                          ((S3 * S5) * S2)) +
+                         ((S3 * S9) * S2)) +
+                        ((S3 * S21) * S2)) +
+                       ((S2 * S3) * S17)) +
+                      ((S2 * S3) * S13)) +
+                     ((S2 * S3) * S1)) +
+                    4095) /
+                   (((((((S3 * S5) * S2) + ((S3 * S9) * S2)) +
+                       ((S3 * S21) * S2)) +
+                      ((S2 * S3) * S17)) +
+                     ((S2 * S3) * S13)) +
+                    ((S2 * S3) * S1))) *
+                  S2) *
+                 S3) *
+                S17)) +
+              (((((((((((((((((((((S3 * S5) * S2) * S0) +
+                                (((S3 * S9) * S2) * S0)) +
+                               (((S3 * S21) * S2) * S0)) +
+                              (((S2 * S3) * S17) * S0)) +
+                             (((S2 * S3) * S13) * S0)) +
+                            (((S2 * S3) * S1) * S0)) /
+                           4096) *
+                          4096) +
+                         ((S3 * S5) * S2)) +
+                        ((S3 * S9) * S2)) +
+                       ((S3 * S21) * S2)) +
+                      ((S2 * S3) * S17)) +
+                     ((S2 * S3) * S13)) +
+                    ((S2 * S3) * S1)) +
+                   4095) /
+                  (((((((S3 * S5) * S2) + ((S3 * S9) * S2)) +
+                      ((S3 * S21) * S2)) +
+                     ((S2 * S3) * S17)) +
+                    ((S2 * S3) * S13)) +
+                   ((S2 * S3) * S1))) *
+                 S2) *
+                S3) *
+               S13)) +
+             (((((((((((((((((((((S3 * S5) * S2) * S0) +
+                               (((S3 * S9) * S2) * S0)) +
+                              (((S3 * S21) * S2) * S0)) +
+                             (((S2 * S3) * S17) * S0)) +
+                            (((S2 * S3) * S13) * S0)) +
+                           (((S2 * S3) * S1) * S0)) /
+                          4096) *
+                         4096) +
+                        ((S3 * S5) * S2)) +
+                       ((S3 * S9) * S2)) +
+                      ((S3 * S21) * S2)) +
+                     ((S2 * S3) * S17)) +
+                    ((S2 * S3) * S13)) +
+                   ((S2 * S3) * S1)) +
+                  4095) /
+                 (((((((S3 * S5) * S2) + ((S3 * S9) * S2)) +
+                     ((S3 * S21) * S2)) +
+                    ((S2 * S3) * S17)) +
+                   ((S2 * S3) * S13)) +
+                  ((S2 * S3) * S1))) *
+                S2) *
+               S3) *
+              S1))) /
+           (((((((S3 * S5) * S2) + ((S3 * S9) * S2)) + ((S3 * S21) * S2)) +
+              ((S2 * S3) * S17)) +
+             ((S2 * S3) * S13)) +
+            ((S2 * S3) * S1))) *
+          (((((S1 + S13) + S17) + S21) + S5) + S9)) *
+         S2) *
+        S3) +
+       ((((f * 1024) + tx) + (bx * 4096)) %
+        (((((((S3 * S5) * S2) + ((S3 * S9) * S2)) + ((S3 * S21) * S2)) +
+           ((S2 * S3) * S17)) +
+          ((S2 * S3) * S13)) +
+         ((S2 * S3) * S1))));
+
+  EXPECT_EQ(q.as_index().Normalize(ir::IndexExpr::OptLevel::Level2),
+            (((((((S1 + S13) + S17) + S21) + S5) + S9) * S2) * S3));
+  EXPECT_EQ(q1.as_index().Normalize(ir::IndexExpr::OptLevel::Level2),
+            (((((((S5 + S9) + S21) + S17) + S13) + S1) * S2) * S3));
+  EXPECT_EQ(
+      q2.as_index().Normalize(ir::IndexExpr::OptLevel::Level2),
+      ((((f * 1024) + tx) + (bx * 4096)) %
+       ((((((((((((((((S5 + S9) + S21) + S17) + S13) + S1) * S2) * S3) * S0) /
+               4096) *
+              4096) +
+             (((((((S5 + S9) + S21) + S17) + S13) + S1) * S2) * S3)) +
+            4095) /
+           (((((((S5 + S9) + S21) + S17) + S13) + S1) * S2) * S3)) *
+          S3) *
+         S2) *
+        (((((S5 + S9) + S21) + S17) + S13) + S1))));
 }
 }  // namespace common
 }  // namespace cinn

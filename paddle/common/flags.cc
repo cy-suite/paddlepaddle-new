@@ -898,7 +898,7 @@ PHI_DEFINE_EXPORTED_bool(enable_neighbor_list_use_uva,
  */
 PHI_DEFINE_EXPORTED_double(graph_neighbor_size_percent,
                            1.0,
-                           "It controls whether precent of neighbor_size.");
+                           "It controls whether percent of neighbor_size.");
 
 /**
  * Distributed related FLAG
@@ -1059,46 +1059,6 @@ PHI_DEFINE_EXPORTED_int64(
     cinn_compile_thread_num,
     -1,
     "It controls how many thread numbers applying compilation cache.");
-/*
- * CINN related FLAG
- * Name: FLAGS_enable_interpretercore_launch_cinn
- * Since Version: 2.4
- * Value Range: bool, default=true
- * Example: FLAGS_enable_interpretercore_launch_cinn=true would execute the CINN
- * compiled instructions of a paddle graph with InterpreterCore, otherwise with
- * the CINN compiled runtime program in sequential order.
- */
-PHI_DEFINE_EXPORTED_bool(enable_interpretercore_launch_cinn,
-                         true,
-                         "It controls whether to execute cinn compiled "
-                         "program with InterpreterCore");
-
-/*
- * CINN related FLAG
- * Name: FLAGS_enable_cinn_auto_tune
- * Since Version: 2.3
- * Value Range: bool, default=false
- * Example: FLAGS_enable_cinn_auto_tune=true would use CINN with its
- * auto-tune feature enabled
- */
-PHI_DEFINE_EXPORTED_bool(enable_cinn_auto_tune,
-                         false,
-                         "It controls whether to use cinn with "
-                         "its auto-tune feature enabled");
-
-/*
- * CINN related FLAG
- * Name: FLAGS_cinn_subgraph_graphviz_dir
- * Since Version: 2.3
- * Value Range: string, default=""
- * Example: FLAGS_cinn_subgraph_graphviz_dir="./cinn_graph/" will save the
- * CINN sub-graph into "./cinn_graph/", and each sub-graph will save into
- * "fusion_groups_*"" directory
- */
-PHI_DEFINE_EXPORTED_string(cinn_subgraph_graphviz_dir,
-                           "",
-                           "Specify the directory path of dot file of "
-                           "graph, which is used for debug.");
 
 /*
  * CINN related FLAG
@@ -1106,11 +1066,11 @@ PHI_DEFINE_EXPORTED_string(cinn_subgraph_graphviz_dir,
  * Since Version: 3.0 Beta
  * Value Range: bool, default=false
  * Example: FLAGS_cinn_specify_input_dynamic_dim=true will use file set by
- * FLAGS_cinn_input_dynamic_dim_spec_file to specify input dynamic dimention.
+ * FLAGS_cinn_input_dynamic_dim_spec_file to specify input dynamic dimension.
  */
 PHI_DEFINE_EXPORTED_bool(cinn_specify_input_dynamic_dim,
                          false,
-                         "Whether to specify input dynamic dimention.");
+                         "Whether to specify input dynamic dimension.");
 
 /*
  * CINN related FLAG
@@ -1118,13 +1078,13 @@ PHI_DEFINE_EXPORTED_bool(cinn_specify_input_dynamic_dim,
  * Since Version: 3.0 Beta
  * Value Range: string, default=""
  * Example: FLAGS_cinn_input_dynamic_dim_spec_file="./config.json",
- * FLAGS_cinn_specify_input_dynamic_dim=true would use input dynamic dimention
- * predefined in ./config.json to specify input dynamic dimention.
+ * FLAGS_cinn_specify_input_dynamic_dim=true would use input dynamic dimension
+ * predefined in ./config.json to specify input dynamic dimension.
  */
 PHI_DEFINE_EXPORTED_string(
     cinn_input_dynamic_dim_spec_file,
     "",
-    "File path of predefined input dynamic dimention specification.");
+    "File path of predefined input dynamic dimension specification.");
 
 #endif
 
@@ -1574,6 +1534,18 @@ PHI_DEFINE_EXPORTED_bool(enable_pir_in_executor,
                          "Enable PIR in executor");
 
 /**
+ * Using PIR API in Python
+ * Name: enable_custom_engine
+ * Since Version: 3.0.0
+ * Value Range: bool, default=false
+ * Example:
+ * Note: If True, CustomDevice can use subgraph engine optimize
+ */
+PHI_DEFINE_EXPORTED_string(enable_custom_engine,
+                           "",
+                           "Set CustomDevice subgraph engine translate pass");
+
+/**
  * Using PIR by translating legacy program to pir program
  * for dy2st mode  FLAG
  * Name: enable_pir_in_executor
@@ -1650,18 +1622,6 @@ PHI_DEFINE_EXPORTED_string(
     ir_inplace_kernel_blacklist,
     "",
     "It controls the ir inplace kernel subset do not use.");
-/**
- * Specify the directory of saving PIR subgraph from @to_static
- * Name: pir_subgraph_saving_dir
- * Since Version: 2.6.0
- * Value Range: str, default=""
- * Example:
- * Note: "/workspace/my_path", it will save into my_path dir;
- */
-PHI_DEFINE_EXPORTED_string(
-    pir_subgraph_saving_dir,
-    "",
-    "Specify the directory of saving PIR subgraph from @to_static.");
 
 PHI_DEFINE_EXPORTED_bool(enable_record_memory, false, "Enable memory recorder");
 
@@ -1706,6 +1666,19 @@ PHI_DEFINE_EXPORTED_string(
     prim_forward_blacklist,
     "",
     "It controls the forward blacklist ops not to be decomposed.");
+
+/**
+ * Remove some redundant information when printing the pir program
+ * Name: disable_logging_op_attr_list
+ * Since Version: 3.0.0
+ * Value Range: string, default=""
+ * Example: FLAGS_disable_logging_op_attr_list="op_dist_attr"
+ * Note: If "dtype", "dtype:float32" will be deleted in Pir program
+ */
+PHI_DEFINE_EXPORTED_string(
+    disable_logging_op_attr_list,
+    "",
+    "Remove some redundant information when printing the pir program");
 
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || \
     defined(PADDLE_WITH_XPU_BKCL) || defined(PADDLE_WITH_CUSTOM_DEVICE)
@@ -1752,19 +1725,6 @@ PHI_DEFINE_EXPORTED_int64(alloc_fill_value,
                           -1,
                           "Whether to fill fixed value after allocation. "
                           "This is useful for debugging.");
-
-/**
- * Apply shape optimization pass to PIR FLAG
- * Name: pir_apply_shape_optimization_pass
- * Since Version: 3.0.0
- * Value Range: bool, default=false
- * Example:
- * Note: If True, will apply shape_optimization pass to PIR.
- */
-PHI_DEFINE_EXPORTED_bool(pir_apply_shape_optimization_pass,
-                         false,
-                         "Whether to apply shape_optimization pass "
-                         "to infer symbolic shape");
 
 PHI_DEFINE_EXPORTED_int64(
     pir_broadcast_tree_limit,
@@ -1896,7 +1856,7 @@ PHI_DEFINE_EXPORTED_string(cublaslt_device_best_config,
                            "offline in cublaslt gemm.");
 
 /**
- * Wether to use xqa optim in block_multihead_attention kernel (GQA)
+ * Whether to use xqa optim in block_multihead_attention kernel (GQA)
  * Name: use_xqa_optim
  * Since Version: 3.0.0
  * Value Range: bool, default=false
@@ -1916,7 +1876,7 @@ PHI_DEFINE_EXPORTED_string(
     mkl_dir,  // NOLINT
     "",
     "Specify path for loading libmkl_rt.so. "
-    "For insrance, /opt/intel/oneapi/mkl/latest/lib/intel64/."
+    "For instance, /opt/intel/oneapi/mkl/latest/lib/intel64/."
     "If default, "
     "dlopen will search mkl from LD_LIBRARY_PATH");
 
@@ -1999,7 +1959,7 @@ PHI_DEFINE_EXPORTED_int32(
  * Name: enable_auto_parallel_align_mode
  * Since Version: 3.0.0
  * Value Range: bool, default=false
- * Note: Just used for testing. Do not use in model trainning.
+ * Note: Just used for testing. Do not use in model training.
  */
 PHI_DEFINE_EXPORTED_bool(enable_auto_parallel_align_mode,
                          false,

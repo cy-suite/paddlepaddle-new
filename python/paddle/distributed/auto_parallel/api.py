@@ -239,8 +239,8 @@ def shard_tensor(
             be Shard, Replicate and Partial.
         dtype(str|np.dtype, optional): The desired data type of returned tensor.
             It Can be 'bool' , 'float16' , 'float32' , 'float64' , 'int8' , 'int16' , 'int32' , 'int64' , 'uint8',
-            'complex64' , 'complex128'. Default: None. If None, the the dtype is infered from ``data``
-            except for python float number, in which case the dtype is infered from ``get_default_type`` .
+            'complex64' , 'complex128'. Default: None. If None, the the dtype is inferred from ``data``
+            except for python float number, in which case the dtype is inferred from ``get_default_type`` .
         place(CPUPlace|CUDAPinnedPlace|CUDAPlace|str, optional): The place to allocate Tensor. Can be
             CPUPlace, CUDAPinnedPlace, CUDAPlace. Default: None, means global place. If ``place`` is
             string, It can be ``cpu``, ``gpu:x`` and ``gpu_pinned``, where ``x`` is the index of the GPUs.
@@ -336,6 +336,7 @@ def shard_tensor(
                 placements=placements,
                 **tensor.__dict__,
             )
+            dist_param.stop_gradient = tensor.stop_gradient
             if tensor._init_func is not None:
                 origin_init_func = tensor._init_func
                 dist_param.set_init_func(
@@ -722,48 +723,34 @@ def moe_sub_mesh_tensors(
 
 
 def dtensor_from_local(local_tensor, mesh, placements):
-    # assume the each rank has the same tensor shape for now, just use the local shape to calculate the global shape
-    global_dims = list(local_tensor.shape)
-    for idx, placement in enumerate(placements):
-        if placement.is_shard():
-            shard_dim = placement.get_dim()
-            local_dim_size = global_dims[shard_dim]
-            global_dims[shard_dim] = local_dim_size * mesh.shape[idx]
-
     if paddle.in_dynamic_mode():
-        place = paddle.framework._current_expected_place()
-        place = paddle.framework._get_paddle_place(place)
+        if local_tensor.is_dist() is True:
+            raise ValueError("The input should be a local tensor.")
 
-        return paddle.Tensor(
-            local_tensor,
-            dims=global_dims,
-            process_mesh=mesh,
-            placements=placements,
-            place=place,
+        return paddle.base.core.dtensor_from_local(
+            local_tensor, mesh, placements
         )
 
     # TODO Adopt Mix2Dist Pass to allow the program could be executed actually.
     elif paddle.framework.in_pir_mode():
-        assert isinstance(
-            local_tensor, (type(None), pir.Value)
-        ), "input tensor is not pir value."
-        assert (
-            local_tensor.is_dense_tensor_type()
-        ), "dtensor_from_local() are only supported dense tensor type right."
-        sharding_specs = get_shard_spec(mesh, placements, local_tensor.ndim)
-        dims_mapping = convert_to_dims_mapping(sharding_specs, mesh)
-        local_shape = local_tensor.shape
-        global_tensor_type = paddle.pir.create_shaped_type(
-            local_tensor.type(), global_dims
-        )
-        dist_dense_tensor_type = paddle.base.libpaddle.pir.create_dist_dense_tensor_type_by_dense_tensor(
-            global_tensor_type, local_shape, mesh, dims_mapping
-        )
-        local_tensor.set_type(dist_dense_tensor_type)
-        return local_tensor
+        return paddle._C_ops.dtensor_from_local(local_tensor, mesh, placements)
     else:
         raise RuntimeError(
             "dtensor_from_local() are only supported in dynamic or pir mode."
+        )
+
+
+def dtensor_to_local(dist_tensor):
+    if paddle.in_dynamic_mode():
+        if dist_tensor.is_dist() is False:
+            raise ValueError("The input should be a distributed tensor.")
+
+        return paddle.base.core.dtensor_to_local(dist_tensor)
+    elif paddle.framework.in_pir_mode():
+        return paddle._C_ops.dtensor_to_local(dist_tensor)
+    else:
+        raise RuntimeError(
+            "dtensor_to_local() are only supported in dynamic or pir mode."
         )
 
 
@@ -1170,6 +1157,10 @@ class _ShardOptimizer(Optimizer):
             accumulator = self._inner_opt._accumulators[key][target_name]
             if accumulator.is_dist() and not isinstance(accumulator, pir.Value):
                 continue
+
+            if paddle.in_dynamic_mode():
+                origin_accumulator_name = accumulator.name
+
             if self._shard_fn is not None:
                 self._inner_opt._accumulators[key][target_name] = (
                     self._shard_fn(key, param, accumulator)
@@ -1193,12 +1184,10 @@ class _ShardOptimizer(Optimizer):
                             placements=placements,
                         )
                     )
-            if not isinstance(
-                self._inner_opt._accumulators[key][target_name], pir.Value
-            ):
-                self._inner_opt._accumulators[key][target_name].name = (
-                    target_name + "_" + key
-                )
+            if paddle.in_dynamic_mode():
+                self._inner_opt._accumulators[key][
+                    target_name
+                ].name = origin_accumulator_name
 
     def _reset_placements(self, param):
         if param.is_dist() and isinstance(
@@ -2083,6 +2072,8 @@ class Strategy(auto_strategy.BaseConfig):
         )
         self._sp_optimization = auto_strategy.SPOptimizationConfig(config_dict)
 
+        self._full_graph = self._config_dict.get("full_graph", True)
+
     def _from_legacy_strategy(self, legacy_strategy):
         """
         NOTE(lizhiyu): This is a template function to get `dist.Strategy` from `fleet.auto.Strategy`.
@@ -2116,6 +2107,13 @@ class Strategy(auto_strategy.BaseConfig):
         self._mp_optimization = copy.deepcopy(legacy_strategy.mp_optimization)
         self._dp_optimization = copy.deepcopy(legacy_strategy.dp_optimization)
         self._sp_optimization = copy.deepcopy(legacy_strategy.sp_optimization)
+
+    @property
+    def full_graph(self) -> bool:
+        """
+        Whether to use AST mode.
+        """
+        return self._full_graph
 
     @property
     def sharding(self) -> auto_strategy.ShardingConfig:
@@ -2316,7 +2314,6 @@ class DistModel:
         metrics: list[Metric] | None = None,
         input_spec: list[list[DistributedInputSpec]] | None = None,
     ) -> None:
-        self._feed_name_list = []
         self._inner_strategy = self.__convert_strategy(strategy)
         self._structured_to_parameter_name = {
             k: v.name for k, v in layer.state_dict().items()
@@ -2332,7 +2329,7 @@ class DistModel:
 
         if (
             strategy
-            and strategy.sharding.enable_stage1_tensor_fusion
+            and strategy.sharding.enable_tensor_fusion
             and isinstance(optimizer, _ShardOptimizer)
             and use_pir_api()
         ):
@@ -2340,11 +2337,16 @@ class DistModel:
                 "The shard_fn should be ShardingStage1 "
                 "when stage1 tensor fusion is enabled."
             )
-            shard_fn = optimizer._shard_fn
-            inner_opt = optimizer._inner_opt
-            optimizer = ShardingOptimizerStage1(
-                inner_opt, shard_fn, self._inner_strategy
-            )
+            if isinstance(optimizer._shard_fn, ShardingStage1):
+                shard_fn = optimizer._shard_fn
+                inner_opt = optimizer._inner_opt
+                optimizer = ShardingOptimizerStage1(
+                    inner_opt, shard_fn, self._inner_strategy
+                )
+            else:
+                logging.warning(
+                    "Sharding tensor fusion only support ShardingStage1 now."
+                )
 
         self._engine = Engine(
             layer, loss, optimizer, metrics, strategy=self._inner_strategy
@@ -2653,7 +2655,6 @@ class DistModel:
         self,
         mode: Literal['opt', 'param', 'all'] = "all",
         split_fusion: bool = True,
-        load_sharded_model: bool = True,
     ) -> dict[str, Tensor]:
         """
         Get the state dict of model and optimizer.
@@ -2731,39 +2732,6 @@ class DistModel:
                                     ] = dist_tensor
                                 dist_state_dict.pop(param)
 
-        # When tensor fusion is enabled, optimizer parameters can become unbalanced in
-        # sharding. We need to either balance them or rename unbalanced parameters for each
-        # rank and directly load them.
-        enable_stage1_tensor_fusion = (
-            self._inner_strategy.sharding.enable_stage1_tensor_fusion
-            if self._inner_strategy
-            else False
-        )
-        if (
-            self._engine._optimizer is not None
-            and load_sharded_model
-            and enable_stage1_tensor_fusion
-        ):
-            optimizer = self._engine._optimizer
-            if isinstance(
-                optimizer,
-                paddle.static.amp.decorator.OptimizerWithMixedPrecision,
-            ):
-                optimizer = optimizer._optimizer
-
-            assert isinstance(
-                optimizer, ShardingOptimizerStage1
-            ), "The optimizer should be ShardingOptimizerStage1 when stage1 tensor fusion is enabled."
-
-            if self._inner_strategy.sharding.save_unbalanced_param:
-                optimizer.convert_state_dict_with_rank_unique_name(
-                    dist_state_dict
-                )
-            else:
-                optimizer.convert_state_dict_without_tensor_fusion_param(
-                    dist_state_dict
-                )
-
         mapping_names = [
             (
                 self._parameter_to_structured_name[k]
@@ -2832,43 +2800,19 @@ class DistModel:
     def set_state_dict(self, state_dict: dict[str, Tensor]) -> None:
         local_state_dict = {}
         dist_main_program = self.dist_main_program(mode=self._engine._mode)
-        cur_state_dict = self.state_dict(
-            split_fusion=False, load_sharded_model=False
-        )
+        cur_state_dict = self.state_dict(split_fusion=False)
         copy_tensor = False
 
-        # For sharding with tensor-fusion, we need to convert the state_dict
-        # to include tensor-fusion parameters before calling set_state_dict,
-        # as stored parameters are processed as if tensor-fusion is not applied
-        # or we can choose to load the unblanced parameters directly.
-        enable_stage1_tensor_fusion = (
-            self._inner_strategy.sharding.enable_stage1_tensor_fusion
+        # When using the tensor-fusion strategy, model parameters are shared with
+        # slice@ parameters. When setting the state_dict, we must copy the tensor
+        # instead of changing the handle directly, as this could cause errors in
+        # the slice@ parameters and increase memory usage.
+        enable_tensor_fusion = (
+            self._inner_strategy.sharding.enable_tensor_fusion
             if self._inner_strategy
             else False
         )
-        if self._engine._optimizer is not None and enable_stage1_tensor_fusion:
-            optimizer = self._engine._optimizer
-            if isinstance(
-                optimizer,
-                paddle.static.amp.decorator.OptimizerWithMixedPrecision,
-            ):
-                optimizer = optimizer._optimizer
-
-            assert isinstance(
-                optimizer, ShardingOptimizerStage1
-            ), "The optimizer should be ShardingOptimizerStage1 when stage1 tensor fusion is enabled."
-
-            if self._inner_strategy.sharding.save_unbalanced_param:
-                optimizer.convert_state_dict_with_origin_name(state_dict)
-            else:
-                optimizer.convert_state_dict_with_tensor_fusion_param(
-                    state_dict
-                )
-
-            # When using the tensor-fusion strategy, model parameters are shared with
-            # slice@ parameters. When setting the state_dict, we must copy the tensor
-            # instead of changing the handle directly, as this could cause errors in
-            # the slice@ parameters and increase memory usage.
+        if self._engine._optimizer is not None and enable_tensor_fusion:
             copy_tensor = True
 
         for k, v in state_dict.items():
@@ -2953,6 +2897,92 @@ class DistModel:
             dist_main_program.set_state_dict(
                 local_state_dict, paddle.static.global_scope()
             )
+
+    def _get_shard_stage1_optimizer(self):
+        optimizer = self._engine._optimizer
+        if optimizer is None:
+            return optimizer
+
+        if isinstance(
+            optimizer,
+            paddle.static.amp.decorator.OptimizerWithMixedPrecision,
+        ):
+            optimizer = optimizer._optimizer
+
+        assert isinstance(
+            optimizer, ShardingOptimizerStage1
+        ), "The optimizer should be ShardingOptimizerStage1 when stage1 tensor fusion is enabled."
+
+        return optimizer
+
+    def _convert_state_dict_tensor_fusion(self, state_dict, optimizer_function):
+        enable_tensor_fusion = (
+            self._inner_strategy.sharding.enable_tensor_fusion
+            if self._inner_strategy
+            else False
+        )
+
+        assert (
+            enable_tensor_fusion
+        ), "Can only convert state_dict when tensor fusion is enabled."
+        optimizer = self._get_shard_stage1_optimizer()
+        assert optimizer is not None, "The optimizer should not be None."
+
+        parameter_names = [
+            (
+                self._structured_to_parameter_name[k]
+                if k in self._structured_to_parameter_name
+                else k
+            )
+            for k in state_dict.keys()
+        ]
+        state_dict = dict(zip(parameter_names, list(state_dict.values())))
+
+        optimizer_function(optimizer, state_dict)
+
+        structured_names = [
+            (
+                self._parameter_to_structured_name[k]
+                if k in self._parameter_to_structured_name
+                else k
+            )
+            for k in state_dict.keys()
+        ]
+        state_dict = dict(zip(structured_names, list(state_dict.values())))
+
+        return state_dict
+
+    def _convert_state_dict_with_rank_unique_name(self, state_dict):
+        def optimizer_function(optimizer, state_dict):
+            optimizer.convert_state_dict_with_rank_unique_name(state_dict)
+
+        return self._convert_state_dict_tensor_fusion(
+            state_dict, optimizer_function
+        )
+
+    def _convert_state_dict_without_tensor_fusion_param(self, state_dict):
+        def optimizer_function(optimizer, state_dict):
+            optimizer.convert_state_dict_without_tensor_fusion_param(state_dict)
+
+        return self._convert_state_dict_tensor_fusion(
+            state_dict, optimizer_function
+        )
+
+    def _convert_state_dict_with_tensor_fusion_param(self, state_dict):
+        def optimizer_function(optimizer, state_dict):
+            optimizer.convert_state_dict_with_tensor_fusion_param(state_dict)
+
+        return self._convert_state_dict_tensor_fusion(
+            state_dict, optimizer_function
+        )
+
+    def _convert_state_dict_with_origin_name(self, state_dict):
+        def optimizer_function(optimizer, state_dict):
+            optimizer.convert_state_dict_with_origin_name(state_dict)
+
+        return self._convert_state_dict_tensor_fusion(
+            state_dict, optimizer_function
+        )
 
 
 def to_static(
@@ -3119,11 +3149,14 @@ def to_static(
                 raise NotImplementedError(
                     "Only sharding stage 1, 2 and 3 can to_static for now. User-defined shard_fn will be supported later."
                 )
-
-    dist_model = DistModel(
-        layer, loader, loss, optimizer, strategy, input_spec=input_spec
-    )
-    return dist_model
+    if strategy is None or strategy.full_graph:
+        dist_model = DistModel(
+            layer, loader, loss, optimizer, strategy, input_spec=input_spec
+        )
+        return dist_model
+    else:
+        layer = paddle.jit.to_static(layer, full_graph=False)
+        return layer
 
 
 def unshard_dtensor(dist_tensor: Tensor) -> Tensor:
@@ -3248,8 +3281,6 @@ class ShardDataloader:
             raise ValueError(
                 f"process_id {process_id} is in more than one mesh, the meshes are {self._meshes}"
             )
-        if input_keys is not None:
-            assert len(input_keys) == 2, "input_keys lengths must be 2"
 
         self._all_inputs_in_one_mesh = len(self._meshes) == 1
         self._input_keys = input_keys
@@ -3438,14 +3469,14 @@ class ShardDataloader:
                     )
             return dist_batch_data
         elif isinstance(batch_data, dict):
-            if self._all_inputs_in_one_mesh is False:
-                assert len(self._input_keys) == len(self._meshes)
-            dist_batch_data = {}
             input_keys = (
                 batch_data.keys()
                 if self._input_keys is None
                 else self._input_keys
             )
+            if self._all_inputs_in_one_mesh is False:
+                assert len(input_keys) == len(self._meshes)
+            dist_batch_data = {}
             for i, key in enumerate(input_keys):
                 input_data = batch_data[key]
                 if isinstance(input_data, (list, tuple)):

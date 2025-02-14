@@ -20,6 +20,7 @@ import yaml
 from codegen_utils import (
     AssertMessage,
     FindForwardName,
+    FindRenameForwardName,
     FunctionGeneratorBase,
     GeneratorBase,
     GetAutoGradMetaName,
@@ -61,6 +62,9 @@ black_ops_list = [
     "sync_batch_norm_",
     "multiply",
     "multiply_grad",
+    "scale_grad",
+    "pull_sparse_v2_grad",
+    "push_gpups_sparse",
 ]
 
 
@@ -357,8 +361,12 @@ paddle::small_vector<std::vector<paddle::Tensor>, egr::kSlotSmallVectorSize> {}:
   VLOG(4) << \"Finish AD API GRAD: {}";
   VLOG(6) << "gradnode_ptr = " << this;
   // LOG IF DEBUG
-
 {}
+
+  if (HasNodePostHook()) {{
+    returns = ApplyNodePostHooks(returns, hooked_grads);
+  }}
+
   // Return
 {}
 }}
@@ -485,7 +493,7 @@ FORWARD_BODY_BEFORE_API_CALL_TEMPLATE = """  if (require_any_grad) {{
     // Node Construction
 {}
     // Set for forward trace
-  if (FLAGS_check_nan_inf) {{
+  if (FLAGS_check_nan_inf || FLAGS_call_stack_level == 3) {{
     grad_node->SetForwardTrace(egr::Controller::Instance().GetPythonStack());
   }}
     // SetAttributes if needed
@@ -590,6 +598,7 @@ FORWARD_CC_FILE_TEMPLATE = """
 #include "paddle/fluid/imperative/amp_utils.h"
 
 COMMON_DECLARE_bool(check_nan_inf);
+COMMON_DECLARE_int32(call_stack_level);
 COMMON_DECLARE_string(tensor_operants_mode);
 COMMON_DECLARE_bool(use_stride_kernel);
 {}
@@ -694,7 +703,7 @@ LAYOUT_LOGIC_TEMPLATE = """
 """
 CREATE_PLAIN_OPTIONAL_TENSOR_TEMPLATE = """
   paddle::optional<paddle::Tensor> {name}_optional;
-  if({name}.initialized() ||
+  if(({name}.has_allocation()) ||
      ({name}.defined() && {name}.is_dist_tensor() &&
       phi::distributed::NeedComputationClipForPP({name}.impl()))) {name}_optional = paddle::make_optional<paddle::Tensor>({name});
 """
@@ -731,7 +740,7 @@ INPUT_CONTAIN_DIST_TENSOR_TEMPLATE = """
 
 CHECK_BACKWARD_INPLACE_TEMPLATE = """
   bool can_be_inplaced = false;
-  if ({}.initialized()) {{
+  if ({}.has_allocation()) {{
     VLOG(10) << {}.name() << "({}) use_count: " << {}.impl().use_count();
     if ({}.impl().use_count() == 1 || ({}.impl().use_count() == 2 && {}.impl().get() == {}.impl().get())) {{
       if ({}.is_dense_tensor() && !std::dynamic_pointer_cast<phi::DenseTensor>({}.impl())->meta().is_contiguous()) {{
@@ -915,7 +924,10 @@ class DygraphFunctionGeneratorBase(FunctionGeneratorBase):
         forward_api_contents = self.forward_api_contents
         grad_api_contents = self.grad_api_contents
 
-        assert 'op' in forward_api_contents, 'Unable to find "op" in ops.yaml'
+        assert (
+            'op' in forward_api_contents
+            or 'backward_op' in forward_api_contents
+        ), 'Unable to find "op" in ops.yaml'
         assert (
             'args' in forward_api_contents
         ), 'Unable to find "args" in ops.yaml'
@@ -1234,7 +1246,6 @@ class DygraphFunctionGeneratorBase(FunctionGeneratorBase):
         ) in backward_forward_inputs_map.items():
             is_optional = name in optional_inputs
             is_inplace_input = is_inplaced and name in self.forward_inplace_map
-
             if is_fwd_input:
                 if is_optional:
                     if is_inplace_input:
@@ -1608,7 +1619,7 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
 
         return layout_logic_str
 
-    def GenerateForwardDefinitionAndDeclaration(self, is_inplaced):
+    def GenerateForwardDefinitionAndDeclaration(self, is_inplaced, grad_flag):
         namespace = self.namespace
         if self.forward_api_name[-1] == '_' and not is_inplaced:
             return
@@ -1626,7 +1637,26 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
 
         optional_inputs = self.optional_inputs
         intermediate_outputs = self.intermediate_outputs
-        forward_inplace_map = self.forward_inplace_map if is_inplaced else {}
+        if is_inplaced:
+            if grad_flag and self.grad_api_contents is not None:
+                forward_inplace_map = {}
+                for key, value in self.forward_inplace_map.items():
+                    if key not in self.forward_inputs_position_map:
+                        key = FindRenameForwardName(key)
+                        assert (
+                            key in self.forward_inputs_position_map
+                        ), f"{key} not in {self.forward_api_name} forward_inputs_position_map"
+                    if value not in self.forward_outputs_position_map:
+                        value = FindRenameForwardName(value)
+                        assert (
+                            value in self.forward_outputs_position_map
+                        ), f"{value} not in {self.forward_api_name} forward_outputs_position_map"
+                    forward_inplace_map[key] = value
+                self.forward_inplace_map = forward_inplace_map
+            else:
+                forward_inplace_map = self.forward_inplace_map
+        else:
+            forward_inplace_map = {}
         indent = GetIndent(1)
 
         # Get Function Args
@@ -2175,14 +2205,16 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
 
         self.forward_declaration_str += f"TEST_API {returns_type_str} {forward_ad_function_name}({inputs_args_declaration_str});\n"
 
-    def GenerateInplacedForwardDygraphFunctions(self):
+    def GenerateInplacedForwardDygraphFunctions(self, grad_flag):
         # Inplaced Version Dygraph Function Generation
         forward_api_name = self.forward_api_name
         forward_api_contents = self.forward_api_contents
 
         if forward_api_name != "sum" and "inplace" in forward_api_contents:
             # Function Definition and Declaration Generation
-            self.GenerateForwardDefinitionAndDeclaration(is_inplaced=True)
+            self.GenerateForwardDefinitionAndDeclaration(
+                is_inplaced=True, grad_flag=grad_flag
+            )
             self.UpdateCoreOpsInformation(is_inplaced=True)
 
     def UpdateCoreOpsInformation(self, is_inplaced):
@@ -2217,7 +2249,7 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
         for name, (ttype, pos) in forward_outputs_position_map.items():
             core_ops_returns_info[fwd_api_name][pos] = name
 
-    def run(self):
+    def run(self, grad_flag=False):
         super().run()
 
         ###################
@@ -2225,11 +2257,13 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
         ###################
 
         # Definition And Declaration
-        self.GenerateForwardDefinitionAndDeclaration(is_inplaced=False)
+        self.GenerateForwardDefinitionAndDeclaration(
+            is_inplaced=False, grad_flag=grad_flag
+        )
 
         self.UpdateCoreOpsInformation(is_inplaced=False)
 
-        self.GenerateInplacedForwardDygraphFunctions()
+        self.GenerateInplacedForwardDygraphFunctions(grad_flag)
 
 
 class DygraphNodeGenerator(DygraphFunctionGeneratorBase):
@@ -2576,8 +2610,8 @@ class DygraphNodeGenerator(DygraphFunctionGeneratorBase):
                         optional_inplace_var_name.append(
                             transformed_tensor_name
                         )
-                tensor_wrapper_intermidiate_tensor_str = (
-                    f"(&this->{tensor_wrapper_name})->get_intermidiate_tensor()"
+                tensor_wrapper_intermediate_tensor_str = (
+                    f"(&this->{tensor_wrapper_name})->get_intermediate_tensor()"
                 )
                 inplace_check_str += CHECK_BACKWARD_INPLACE_TEMPLATE.format(
                     transformed_tensor_name,
@@ -2587,7 +2621,7 @@ class DygraphNodeGenerator(DygraphFunctionGeneratorBase):
                     transformed_tensor_name,
                     transformed_tensor_name,
                     transformed_tensor_name,
-                    tensor_wrapper_intermidiate_tensor_str,
+                    tensor_wrapper_intermediate_tensor_str,
                     transformed_tensor_name,
                     transformed_tensor_name,
                     transformed_tensor_name,
@@ -2698,7 +2732,12 @@ class DygraphNodeGenerator(DygraphFunctionGeneratorBase):
             )
 
             grad_api_args[grad_api_position] = name
-            get_grad_in_args_list.append(get_attr_str)
+            if (
+                not is_invoke_forward_api
+                or name in self.grad_api_contents['invoke']
+            ):
+                # NOTE: attr 'dims' is not necessary for 'invoke: view_shape(out_grad, input.shape())'
+                get_grad_in_args_list.append(get_attr_str)
 
         get_grad_in_args_str = "\n".join(get_grad_in_args_list)
 
@@ -2737,7 +2776,7 @@ class DygraphNodeGenerator(DygraphFunctionGeneratorBase):
                 grad_api_out_args_list.append(f"api_output_{out_index}")
                 fwd_positions_list.append(f"{fwd_position}")
             if inplace_grad_input_str in optional_inplace_var_name:
-                optional_inplace_str = 'VLOG(6) << "No Inplace should happened for wrappered input: {inplace_grad_input_str}";'
+                optional_inplace_str = 'VLOG(6) << "No Inplace should happened for wrapped input: {inplace_grad_input_str}";'
             else:
                 optional_inplace_str = f"""if (api_output_{out_index} != nullptr && can_be_inplaced) {{
       egr::EagerUtils::HandleViewBetweenInputAndOutput({inplace_grad_input_str}, api_output_{out_index});
@@ -2949,7 +2988,7 @@ if (paddle::prim::PrimCommonUtils::IsEagerPrimEnabled() && !need_skip) {{
             if IsPlainTensorType(rtype):
                 output_autograd_meta = f"""
   auto& {transformed_tensor_name} = returns[{pos}][0];
-  egr::AutogradMeta* {output_autograd_meta_name} = returns[{pos}][0].initialized() ? egr::EagerUtils::autograd_meta(&{transformed_tensor_name}) : nullptr;
+  egr::AutogradMeta* {output_autograd_meta_name} = returns[{pos}][0].has_allocation() ? egr::EagerUtils::autograd_meta(&{transformed_tensor_name}) : nullptr;
   if ({output_autograd_meta_name}) {output_autograd_meta_name}->SetStopGradient(false);
 """
 
@@ -3133,15 +3172,25 @@ class DygraphForwardAndNodesGenerator(GeneratorBase):
 
         return backward_api_contents
 
-    def GenerateCode(self):
+    def GenerateCode(self, grad_flag=False):
+        if grad_flag:
+            op_string = 'backward_op'
+        else:
+            op_string = 'op'
         forward_api_list = self.forward_api_list
         forward_apis_dict = {}
         for api_item in forward_api_list:
-            forward_apis_dict[api_item['op']] = api_item
+            forward_apis_dict[api_item[op_string]] = api_item
         namespace = self.namespace
 
         for forward_api_contents in forward_api_list:
-            if forward_api_contents['op'] in black_ops_list:
+            if forward_api_contents[op_string] in black_ops_list:
+                continue
+            if op_string == 'backward_op' and (
+                forward_api_contents[op_string].endswith(
+                    ('double_grad', 'triple_grad', 'grad_grad')
+                )
+            ):
                 continue
 
             self.CollectIsForwardOnly(forward_api_contents)
@@ -3160,7 +3209,7 @@ class DygraphForwardAndNodesGenerator(GeneratorBase):
                 forward_apis_dict,
                 namespace,
             )
-            function_generator.run()
+            function_generator.run(grad_flag)
 
             self.forward_definition_str += (
                 function_generator.forward_definition_str + "\n"
@@ -3169,38 +3218,41 @@ class DygraphForwardAndNodesGenerator(GeneratorBase):
                 function_generator.forward_declaration_str + "\n"
             )
 
-            # Generate Dygraph GradNode Function
-            while True:
-                if backward_api_contents is None:
-                    break
-                next_grad_api_contents = self.GetBackwardAPIContents(
-                    backward_api_contents
-                )
+            if not grad_flag:
+                # Generate Dygraph GradNode Function
+                while True:
+                    if backward_api_contents is None:
+                        break
+                    next_grad_api_contents = self.GetBackwardAPIContents(
+                        backward_api_contents
+                    )
 
-                node_generator = DygraphNodeGenerator(
-                    forward_api_contents,
-                    backward_api_contents,
-                    forward_apis_dict,
-                    namespace,
-                    next_grad_api_contents,
-                )
-                node_generator.run()
-                self.node_declaration_str += (
-                    node_generator.node_declaration_str + "\n"
-                )
-                self.node_definition_str += (
-                    node_generator.node_definition_str + "\n"
-                )
+                    node_generator = DygraphNodeGenerator(
+                        forward_api_contents,
+                        backward_api_contents,
+                        forward_apis_dict,
+                        namespace,
+                        next_grad_api_contents,
+                    )
+                    node_generator.run()
+                    self.node_declaration_str += (
+                        node_generator.node_declaration_str + "\n"
+                    )
+                    self.node_definition_str += (
+                        node_generator.node_definition_str + "\n"
+                    )
 
-                if next_grad_api_contents is None:
-                    break
+                    if next_grad_api_contents is None:
+                        break
 
-                # Detect if there exists higher-order GradNode
-                forward_api_contents = backward_api_contents
+                    # Detect if there exists higher-order GradNode
+                    forward_api_contents = backward_api_contents
 
-                # Fake forward_api_content
-                forward_api_contents['op'] = forward_api_contents['backward_op']
-                backward_api_contents = next_grad_api_contents
+                    # Fake forward_api_content
+                    forward_api_contents['op'] = forward_api_contents[
+                        'backward_op'
+                    ]
+                    backward_api_contents = next_grad_api_contents
 
         if len(namespace) > 0:
             if namespace.endswith("::"):
@@ -3218,12 +3270,12 @@ class DygraphForwardAndNodesGenerator(GeneratorBase):
                 namespace, self.node_definition_str
             )
 
-    def run(self):
+    def run(self, grad_flag=False):
         self.ParseYamlContents()
 
         self.InferNameSpace()
 
-        self.GenerateCode()
+        self.GenerateCode(grad_flag)
 
 
 ################
@@ -3328,6 +3380,26 @@ if __name__ == "__main__":
         forward_declaration_str += generator.forward_declaration_str + "\n"
         forward_definition_str += generator.forward_definition_str + "\n"
 
+    for i in range(len(backward_yaml_paths)):
+        backward_yaml_path = backward_yaml_paths[i]
+        if backward_yaml_path.endswith('/backward.yaml'):
+            generator_grad = DygraphForwardAndNodesGenerator(
+                backward_yaml_paths[i], backward_yaml_paths[i], all_bw, all_bw
+            )
+        elif backward_yaml_path.endswith('/dygraph_backward.yaml'):
+            continue
+        else:
+            generator_grad = DygraphForwardAndNodesGenerator(
+                backward_yaml_path, backward_yaml_path
+            )
+
+        generator_grad.run(True)
+
+        node_declaration_str += generator_grad.node_declaration_str + "\n"
+        node_definition_str += generator_grad.node_definition_str + "\n"
+
+        forward_declaration_str += generator_grad.forward_declaration_str + "\n"
+        forward_definition_str += generator_grad.forward_definition_str + "\n"
     # Generate Files
     nodes_h_path = args.nodes_h_path
     nodes_cc_path = args.nodes_cc_path

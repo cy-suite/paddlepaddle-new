@@ -311,9 +311,10 @@ const Expr &Expr::set_index(bool flag) const {
 
 const IndexExpr Expr::as_index() const {
   if (is_index()) {
-    std::set<ir::Expr> collection = ir::ir_utils::CollectIRNodesWithoutTensor(
-        *this,
-        [&](const Expr *x) { return x->node_type() == ir::IrNodeTy::Sub; });
+    std::vector<ir::Expr> collection =
+        ir::ir_utils::CollectIRNodesWithoutTensor(*this, [&](const Expr *x) {
+          return x->node_type() == ir::IrNodeTy::Sub;
+        });
     if (!collection.empty()) return IndexExpr(*this).Normalize();
     return IndexExpr(*this);
   }
@@ -323,9 +324,10 @@ const IndexExpr Expr::as_index() const {
 
 IndexExpr Expr::as_index() {
   if (is_index()) {
-    std::set<ir::Expr> collection = ir::ir_utils::CollectIRNodesWithoutTensor(
-        *this,
-        [&](const Expr *x) { return x->node_type() == ir::IrNodeTy::Sub; });
+    std::vector<ir::Expr> collection =
+        ir::ir_utils::CollectIRNodesWithoutTensor(*this, [&](const Expr *x) {
+          return x->node_type() == ir::IrNodeTy::Sub;
+        });
     if (!collection.empty()) return IndexExpr(*this).Normalize();
     return IndexExpr(*this);
   }
@@ -488,31 +490,6 @@ bool IndexExpr::IsDynamic() const {
   }
 }
 
-IndexExpr ConstructIndexExprByNodeType(const IrNodeTy &ty,
-                                       const IndexExpr &lhs,
-                                       const IndexExpr &rhs) {
-  switch (ty) {
-    case IrNodeTy::Add:
-      return lhs + rhs;
-    case IrNodeTy::Sub:
-      return lhs - rhs;
-    case IrNodeTy::Mul:
-      return lhs * rhs;
-    case IrNodeTy::Div:
-      return lhs / rhs;
-    case IrNodeTy::Mod:
-      return lhs % rhs;
-    case IrNodeTy::Min:
-      return Min::Make(lhs, rhs);
-    case IrNodeTy::Max:
-      return Max::Make(lhs, rhs);
-    default:
-      PADDLE_THROW(::common::errors::InvalidArgument(
-          "Unsupported type in ConstructIndexExprByNodeType, which is: %s",
-          ty));
-  }
-}
-
 IndexExpr Simplify(const IndexExpr &expr, IndexExpr::OptLevel level) {
   switch (expr.node_type()) {
     case ir::IrNodeTy::IntImm:
@@ -559,7 +536,9 @@ IndexExpr Simplify(const IndexExpr &expr, IndexExpr::OptLevel level) {
 }
 
 IndexExpr IndexExpr::Normalize(OptLevel level) const {
-  return Simplify(*this, level);
+  auto res = Simplify(*this, level);
+  res = ChangeSeqOfDivMod(res);
+  return Simplify(res, level);
 }
 
 int32_t IndexExpr::as_int32() const {
@@ -677,6 +656,27 @@ void TryElevateInt32ToInt64(const std::vector<Expr> &expr_vec) {
                               expr->type()));
     if (expr->type() == Int(32)) {
       expr->convert_int32_to_int64();
+    }
+  }
+}
+
+void TryElevateInt64ToInt32(const std::vector<Expr> &expr_vec) {
+  for (const Expr &expr : expr_vec) {
+    if (!expr.is_index()) return;
+    if (expr.as_index().IsDynamic()) return;
+  }
+
+  for (const Expr &expr : expr_vec) {
+    if (expr->type() != Int(64))
+      if (expr->type() != Int(32))
+        PADDLE_ENFORCE_EQ(expr->type().is_unk(),
+                          true,
+                          ::common::errors::InvalidArgument(
+                              "Current only support convert int64_t "
+                              "to int32_t, but get type is: %s",
+                              expr->type()));
+    if (expr->type() == Int(64)) {
+      expr->convert_int64_to_int32();
     }
   }
 }

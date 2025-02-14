@@ -49,7 +49,7 @@ struct MergeTrivialPatternOperation {
             graph->iters_fusion_policy()->SingleDownstreamItersFusion(
                 upstream, downstream));
         graph->RemoveNode(downstream);
-        VLOG(4) << "Spliting trivial pattern: \nupstream "
+        VLOG(4) << "Splitting trivial pattern: \nupstream "
                 << upstream->DebugStr() << "\ndownstream "
                 << downstream->DebugStr() << "\nmerged "
                 << merged_node->DebugStr();
@@ -113,7 +113,7 @@ struct MergeReduceTreeAndTrivialOperation {
     merged_node->set_fusion_iters(
         graph->iters_fusion_policy()->SingleDownstreamItersFusion(node,
                                                                   downstream));
-    // TODO(huangjiyi): Support relationship analysis for defferent iters, for
+    // TODO(huangjiyi): Support relationship analysis for different iters, for
     // example the input iters and output iters of reshape op.
     auto sig = merged_node->fusion_iters();
     const auto upstream_iters = node->fusion_iters();

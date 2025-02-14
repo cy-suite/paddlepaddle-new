@@ -352,7 +352,7 @@ def convert_input_dims_map_to_placements(
     return placements_map
 
 
-# TODO: This method has been implementd in
+# TODO: This method has been implemented in
 # paddle/phi/core/distributed/auto_parallel/placement_types.h, bind it
 # python and it's logic.
 def placements_to_dims_map(placements: list, tensor_ndim: int) -> tuple[int]:
@@ -428,7 +428,7 @@ class AutoParallelForwardChecker:
     def __init__(
         self,
         op_type,
-        pthon_api,
+        python_api,
         dtype,
         placements_map,
         inputs,
@@ -441,7 +441,7 @@ class AutoParallelForwardChecker:
         self.checker_name = "AutoParallelForwardChecker"
         self.init_checker(
             op_type,
-            pthon_api,
+            python_api,
             dtype,
             placements_map,
             inputs,
@@ -455,7 +455,7 @@ class AutoParallelForwardChecker:
     def init_checker(
         self,
         op_type,
-        pthon_api,
+        python_api,
         dtype,
         placements_map,
         inputs,
@@ -466,7 +466,7 @@ class AutoParallelForwardChecker:
         python_out_sig=None,
     ):
         self.op_type = op_type
-        self.public_python_api = pthon_api
+        self.public_python_api = python_api
         self.dtype = np.dtype(dtype)
         self.placements_map = placements_map
         self.inputs = inputs
@@ -667,7 +667,7 @@ class AutoParallelGradChecker(AutoParallelForwardChecker):
     def __init__(
         self,
         op_type,
-        pthon_api,
+        python_api,
         dtype,
         placements_map,
         inputs,
@@ -683,7 +683,7 @@ class AutoParallelGradChecker(AutoParallelForwardChecker):
     ):
         super().__init__(
             op_type,
-            pthon_api,
+            python_api,
             dtype,
             placements_map,
             inputs,

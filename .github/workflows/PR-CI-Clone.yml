@@ -12,17 +12,21 @@ jobs:
     # Don't run on forked repos.
     if: github.repository_owner == 'PaddlePaddle'
     runs-on: ubuntu-latest
+    env:
+      PR_ID: ${{ github.event.pull_request.number }}
+      COMMIT_ID: ${{ github.event.pull_request.head.sha }}
+      BRANCH: develop
     steps:
     - name: Clone paddle
       uses: actions/checkout@v4
       with:
         submodules: 'recursive'
+        fetch-depth: 1000
 
-    - name: Merge paddle
+    - name: Merge PR to test branch
       run: |
-        git fetch origin pull/${{ github.event.pull_request.number }}/merge
-        git checkout -qf FETCH_HEAD
-        git checkout -b test
+        git fetch origin pull/${PR_ID}/merge
+        git checkout -b test FETCH_HEAD
 
     - name: Cache bos client
       id: cache_bos_client
@@ -46,8 +50,6 @@ jobs:
         WORK: "/home/runner/work/Paddle"
         AK: ${{ secrets.AK }}
         SK: ${{ secrets.SK }}
-        PR_ID: ${{ github.event.pull_request.number }}
-        COMMIT_ID: ${{ github.event.pull_request.head.sha }}
       run: |
         cd $WORK
         tar -zcf Paddle-action.tar.gz Paddle
