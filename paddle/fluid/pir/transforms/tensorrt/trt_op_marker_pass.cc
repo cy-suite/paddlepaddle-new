@@ -516,8 +516,6 @@ class RoiAlignOpPattern
     return true;
   }
 };
-
-  
 class DepthwiseConv2dTransposeOpPattern
     : public pir::OpRewritePattern<
           paddle::dialect::DepthwiseConv2dTransposeOp> {
