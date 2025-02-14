@@ -161,7 +161,8 @@ void PSendArrayKernel(const Context& dev_ctx,
                       int peer) {
 #if defined(PADDLE_WITH_NCCL) || \
     defined(PADDLE_WITH_RCCL) && NCCL_VERSION_CODE >= 2703
-  auto comm_ctx = GetCommContext<Context, NCCLCommContext>(dev_ctx, peer);
+  auto comm_ctx =
+      GetCommContext<Context, distributed::NCCLCommContext>(dev_ctx, peer);
   gpuStream_t stream = dev_ctx.stream();
   for (size_t idx = 0; idx < x_array.size(); idx++) {
     VLOG(3) << "DenseTensorArray: idx(" << idx << ")";
