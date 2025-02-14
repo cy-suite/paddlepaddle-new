@@ -212,14 +212,15 @@ ExprSet ExprSetFinder::operator()(const ir::Expr& x) const { return f_(x); }
 ir::Expr ExprSetFinder::GetSingle(const ir::Expr& x) const {
   ExprSetFinder call = (*this) * ExprSetFinder::GetIdentity();
   const auto& o = call.operator()(x);
-  PADDLE_ENFORCE_EQ(
-      o.size(),
-      1,
-      ::common::errors::InvalidArgument(
-          "Try to get single result, but we get %d. \nRoot:\n%s \nResult:\n%s",
-          o.size(),
-          x,
-          cinn::utils::Join(o, "\n")));
+  PADDLE_ENFORCE_EQ(o.size(),
+                    1,
+                    ::common::errors::InvalidArgument(
+                        "Try to get single result, but we get %d. \nFinder: "
+                        "%s. \nRoot:\n%s \nResult:\n%s",
+                        o.size(),
+                        call.name,
+                        x,
+                        cinn::utils::Join(o, "\n")));
   return *o.begin();
 }
 
@@ -238,7 +239,7 @@ ExprSetFinder ExprSetFinder::operator*(ExprSetFinder x) const {
     }
     return res;
   };
-  return ExprSetFinder(std::function(new_f), x.name + "*" + this->name);
+  return ExprSetFinder(std::function(new_f), x.name + " * " + this->name);
 }
 
 ExprSetFinder ExprSetFinder::GetIdentity() {
@@ -985,8 +986,8 @@ ir::Expr GetBodyBlock(const ir::Expr& root) {
 }
 
 ir::Expr ReshapeLoop(const ir::Expr& root,
-                     const std::vector<symbol::DimExpr>& in_shape,
-                     const std::vector<symbol::DimExpr>& out_shape) {
+                     const std::vector<symbol::DimExpr>& input_shape,
+                     const std::vector<symbol::DimExpr>& output_shape) {
   auto copied = ir::ir_utils::IRCopy(root);
 
   ir::ModuleExpr mod_expr({copied});
@@ -994,10 +995,19 @@ ir::Expr ReshapeLoop(const ir::Expr& root,
       mod_expr, -1, false, cinn::utils::ErrorMessageLevel::kGeneral, true);
 
   const auto block_realize =
-      (ExprSetFinderUtils::ChildScheduleBlockRealizes).GetSingle(copied);
+      (ExprSetFinderUtils::ChildScheduleBlockRealizes)(copied)[0];
   const auto block_name = block_realize.As<ir::ScheduleBlockRealize>()
                               ->schedule_block.As<ir::ScheduleBlock>()
                               ->name;
+  auto non_reduce_num = GetNonReduceLoopVars(copied).size();
+  bool is_reduce = non_reduce_num < input_shape.size();
+  auto in_shape =
+      is_reduce ? cinn::fusion::SliceVector(input_shape, 0, non_reduce_num)
+                : input_shape;
+  auto out_shape =
+      is_reduce ? cinn::fusion::SliceVector(output_shape, 0, non_reduce_num)
+                : output_shape;
+
   const auto shape_partition =
       fusion::PartitionReshapeAxes(in_shape, out_shape);
 

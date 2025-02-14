@@ -26,9 +26,9 @@ bool ItersFusionPolicy::CheckItersRelation(const PatternNodePtr& source,
   const auto source_iters = source->fusion_iters().loop_iters;
   const auto target_iters = target->fusion_iters().loop_iters;
   auto related_iters = MapKeyToVector(iters_manager_->related_iters_map());
-  const auto [source_related_iters, _UNUESD] =
+  const auto [source_related_iters, _unused1] =
       SplitFirstWhetherInSecond(source_iters, related_iters);
-  const auto target_unique_iters =
+  const auto [target_unique_iters, _unused2] =
       GatherFirstNotInSecond(target_iters, source_iters);
   if (source_related_iters.empty() || target_unique_iters.empty()) {
     return true;
@@ -115,7 +115,7 @@ std::optional<ItersTransform> ItersFusionPolicy::GetReuseItersTransform(
     FusionIters* source_iters, const FusionIters& target_iters) {
   const auto [shared_iters, source_unique_iters] =
       SplitFirstWhetherInSecond(*source_iters, target_iters);
-  const auto target_unique_iters =
+  const auto [target_unique_iters, _unused] =
       GatherFirstNotInSecond(target_iters, shared_iters);
 
   if (!source_unique_iters.empty() && !target_unique_iters.empty()) {
@@ -311,7 +311,7 @@ std::optional<ItersTransformRoute> ItersFusionPolicy::SearchItersTransformRoute(
       true,
       ::common::errors::PreconditionNotMet("The reused source iters should not "
                                            "contains element not in target."));
-  const auto reused_target_unique_iters =
+  const auto [reused_target_unique_iters, _unused] =
       GatherFirstNotInSecond(target_iters, reused_source_iters);
 
   // 3. Apply AppendItersTransform

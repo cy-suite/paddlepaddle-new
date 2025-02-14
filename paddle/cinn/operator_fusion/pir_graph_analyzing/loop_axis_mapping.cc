@@ -44,42 +44,6 @@ AxisTransformRoute ReverseTransformRoute(const AxisTransformRoute& route) {
   return result;
 }
 
-void LoopAxisMapping::SetReverseMapping() {
-  loop2input.clear();
-  output2loop.clear();
-  for (const auto& route : input2loop) {
-    PADDLE_ENFORCE(
-        !route.empty(),
-        ::common::errors::InvalidArgument("input2loop must not be empty."));
-    loop2input.push_back(ReverseTransformRoute(route));
-  }
-  for (const auto& route : loop2output) {
-    PADDLE_ENFORCE(
-        !route.empty(),
-        ::common::errors::InvalidArgument("loop2output must not be empty."));
-    output2loop.push_back(ReverseTransformRoute(route));
-  }
-}
-
-void LoopAxisMapping::EliminateIdentity() {
-  auto eliminate_identity = [](AxisTransformRoute& route) {
-    if (route.size() < 2) return;
-    for (int i = route.size() - 1; i >= 0; --i) {
-      if (std::get_if<IdentityTransformPtr>(&route[i])) {
-        route.erase(route.begin() + i);
-      }
-    }
-    if (route.empty()) route.push_back(IdentityTransform::InstancePtr());
-  };
-  std::array<std::reference_wrapper<std::vector<AxisTransformRoute>>, 4>
-      all_routes = {input2loop, output2loop, loop2input, loop2output};
-  for (auto& routes : all_routes) {
-    for (auto& route : routes.get()) {
-      eliminate_identity(route);
-    }
-  }
-}
-
 std::string LoopAxisMapping::DebugStr() const {
   std::stringstream ss;
   for (size_t i = 0; i < input_values.size(); ++i) {
@@ -97,13 +61,133 @@ std::string LoopAxisMapping::DebugStr() const {
   }
   for (size_t i = 0; i < input2loop.size(); ++i) {
     ss << "\ninput2loop  " << i << " : " << input2loop[i];
-    ss << "\nloop2input  " << i << " : " << loop2input[i];
   }
   for (size_t i = 0; i < loop2output.size(); ++i) {
     ss << "\nloop2output " << i << " : " << loop2output[i];
-    ss << "\noutput2loop " << i << " : " << output2loop[i];
   }
   return ss.str();
+}
+
+AxisTransformRoute SimplifyTransformRouteImpl(const AxisTransformRoute& route,
+                                              int in_size) {
+  if (route.size() <= 1) return route;
+  // 1. Simulate transform route
+  size_t id = 0;
+  auto unique_id = [&]() { return "I" + std::to_string(id++); };
+  std::vector<std::string> axis_ids;
+  std::unordered_map<std::string, symbol::DimExpr> axis_symbols;
+  for (size_t i = 0; i < in_size; ++i) {
+    axis_ids.push_back(unique_id());
+  }
+  auto source_ids = axis_ids;
+  auto simulate_transform = adt::match{
+      [&](const IdentityTransformPtr&) {},
+      [&](const TransposeTransformPtr& transform) {
+        axis_ids = TransposeVector(axis_ids, transform->perm);
+      },
+      [&](const AppendAxisTransformPtr& transform) {
+        for (int i = 0; i < transform->axis.size(); ++i) {
+          auto new_id = unique_id();
+          axis_ids.insert(axis_ids.begin() + transform->axis[i], new_id);
+          axis_symbols[new_id] = transform->shape[i];
+        }
+      },
+      [&](const DeleteAxisTransformPtr& transform) {
+        for (int i = transform->axis.size() - 1; i >= 0; --i) {
+          auto id_to_delete = axis_ids[transform->axis[i]];
+          axis_ids.erase(axis_ids.begin() + transform->axis[i]);
+          axis_symbols[id_to_delete] = transform->shape[i];
+        }
+      },
+      [&](const auto& trans) {
+        PADDLE_THROW(::common::errors::Unimplemented("Unsupported transform."));
+      },
+  };
+  for (const auto& trans : route) {
+    std::visit(simulate_transform, trans);
+  }
+  // 2. Get Simlplified transform route
+  AxisTransformRoute result;
+  auto& target_ids = axis_ids;
+  if (source_ids == target_ids) {
+    result.push_back(IdentityTransform::InstancePtr());
+  } else {
+    auto [source_unique_ids, source_unique_pos] =
+        GatherFirstNotInSecond(source_ids, target_ids);
+    auto [target_unique_ids, target_unique_pos] =
+        GatherFirstNotInSecond(target_ids, source_ids);
+    auto medium_ids = source_ids;
+    if (!source_unique_ids.empty()) {
+      auto delete_symbols = GatherMapValue(axis_symbols, source_unique_ids);
+      result.push_back(std::make_shared<DeleteAxisTransform>(
+          CastVector<int32_t, int64_t>(source_unique_pos), delete_symbols));
+      medium_ids = GatherVectorExcept(medium_ids, source_unique_pos);
+    }
+    if (!target_unique_ids.empty()) {
+      auto append_symbols = GatherMapValue(axis_symbols, target_unique_ids);
+      result.push_back(std::make_shared<AppendAxisTransform>(
+          CastVector<int32_t, int64_t>(target_unique_pos), append_symbols));
+      for (const auto& pos : target_unique_pos) {
+        medium_ids.insert(medium_ids.begin() + pos, target_ids[pos]);
+      }
+    }
+    if (medium_ids != target_ids) {
+      auto perm = GetTransposePerm<int32_t>(medium_ids, target_ids);
+      result.push_back(std::make_shared<TransposeTransform>(perm));
+    }
+  }
+  return result;
+}
+
+AxisTransformRoute SimplifyTransformRoute(const AxisTransformRoute& route,
+                                          int in_size) {
+  if (route.size() <= 1) return route;
+  // Simplify transform route by merging consecutive non-reshape transforms.
+  VLOG(4) << "Before SimplifyTransformRoute: " << route;
+  AxisTransformRoute result;
+  AxisTransformRoute part;
+  for (const auto& trans : route) {
+    if (std::holds_alternative<UnsupportedTransformPtr>(trans)) {
+      return {trans};
+    } else if (auto reshape_trans = std::get_if<ReshapeTransformPtr>(&trans)) {
+      result = ConcatVector(result, SimplifyTransformRouteImpl(part, in_size));
+      result.push_back(trans);
+      part.clear();
+      in_size = (*reshape_trans)->out_shape.size();
+    } else {
+      part.push_back(trans);
+    }
+  }
+  result = ConcatVector(result, SimplifyTransformRouteImpl(part, in_size));
+  VLOG(4) << "After SimplifyTransformRoute: " << result;
+  return result;
+}
+
+void LoopAxisMapping::SimplifyForwardMapping() {
+  for (int i = 0; i < input_values.size(); ++i) {
+    input2loop[i] = SimplifyTransformRoute(input2loop[i],
+                                           GetCompatibleRank(input_values[i]));
+  }
+  for (int i = 0; i < output_values.size(); ++i) {
+    loop2output[i] = SimplifyTransformRoute(loop2output[i], loop.size());
+  }
+}
+
+void LoopAxisMapping::SetReverseMapping() {
+  loop2input.clear();
+  output2loop.clear();
+  for (const auto& route : input2loop) {
+    PADDLE_ENFORCE(
+        !route.empty(),
+        ::common::errors::InvalidArgument("input2loop must not be empty."));
+    loop2input.push_back(ReverseTransformRoute(route));
+  }
+  for (const auto& route : loop2output) {
+    PADDLE_ENFORCE(
+        !route.empty(),
+        ::common::errors::InvalidArgument("loop2output must not be empty."));
+    output2loop.push_back(ReverseTransformRoute(route));
+  }
 }
 
 std::pair<AxisTransformRoute, AxisTransformRoute> GetLoopTransformRoute(
@@ -127,7 +211,8 @@ std::pair<AxisTransformRoute, AxisTransformRoute> GetLoopTransformRoute(
       }
     }
   }
-  return {loop_sink_route, loop_lift_route};
+  return {SimplifyTransformRoute(loop_sink_route, upstream.loop.size()),
+          SimplifyTransformRoute(loop_lift_route, downstream.loop.size())};
 }
 
 LoopAxisMapping LoopMappingMergeImpl(const LoopAxisMapping& upstream,
@@ -189,8 +274,8 @@ LoopAxisMapping LoopMappingMerge(const LoopAxisMapping& upstream,
           << "\nUpstream: " << upstream.DebugStr()
           << "\nDownstream: " << downstream.DebugStr();
   auto result = LoopMappingMergeImpl(upstream, downstream, upstream_is_anchor);
+  result.SimplifyForwardMapping();
   result.SetReverseMapping();
-  result.EliminateIdentity();
   VLOG(4) << "\nMerged result: " << result.DebugStr();
   return result;
 }
@@ -225,8 +310,8 @@ LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
   for (auto& route : result.loop2output) {
     route.insert(route.begin(), delete_reduce_axis);
   }
+  result.SimplifyForwardMapping();
   result.SetReverseMapping();
-  result.EliminateIdentity();
   VLOG(4) << "\nMerged result: " << result.DebugStr();
   return result;
 }
@@ -637,6 +722,8 @@ LoopAxisMapping CreateLoopMappingForSlice(pir::Operation* op) {
     result.input2loop[0].push_back(
         std::make_shared<AppendAxisTransform>(std::vector<int64_t>{0}));
   }
+  result.input2loop[0] =
+      SimplifyTransformRoute(result.input2loop[0], input_shape.size());
   result.loop2output[0].push_back(IdentityTransform::InstancePtr());
   return result;
 }

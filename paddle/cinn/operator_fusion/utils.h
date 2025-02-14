@@ -234,6 +234,29 @@ std::vector<T1> MapKeyToVector(const std::unordered_map<T1, T2>& input) {
   return result;
 }
 
+template <typename T1, typename T2>
+std::vector<T2> GatherMapValue(const std::map<T1, T2>& input,
+                               const std::vector<T1>& keys) {
+  std::vector<T2> result;
+  for (const auto& key : keys) {
+    if (input.count(key)) {
+      result.push_back(input[key]);
+    }
+  }
+  return result;
+}
+template <typename T1, typename T2>
+std::vector<T2> GatherMapValue(const std::unordered_map<T1, T2>& input,
+                               const std::vector<T1>& keys) {
+  std::vector<T2> result;
+  for (const auto& key : keys) {
+    if (input.count(key)) {
+      result.push_back(input.at(key));
+    }
+  }
+  return result;
+}
+
 template <typename Set>
 Set SetUnion(const Set& A, const Set& B) {
   Set result;
@@ -293,15 +316,17 @@ std::pair<std::vector<T>, std::vector<T>> SplitFirstWhetherInSecond(
 }
 
 template <typename T>
-std::vector<T> GatherFirstNotInSecond(const std::vector<T>& first,
-                                      const std::vector<T>& second) {
+std::pair<std::vector<T>, std::vector<int>> GatherFirstNotInSecond(
+    const std::vector<T>& first, const std::vector<T>& second) {
+  std::vector<int> pos;
   std::vector<T> result;
   for (size_t i = 0; i < first.size(); ++i) {
     if (std::find(second.begin(), second.end(), first[i]) == second.end()) {
       result.emplace_back(first[i]);
+      pos.emplace_back(i);
     }
   }
-  return result;
+  return {result, pos};
 }
 
 template <typename T>

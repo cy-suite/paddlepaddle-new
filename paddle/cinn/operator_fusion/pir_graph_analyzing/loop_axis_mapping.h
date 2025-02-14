@@ -137,8 +137,8 @@ struct LoopAxisMapping {
   std::vector<AxisTransformRoute> loop2input;
   std::vector<AxisTransformRoute> output2loop;
 
+  void SimplifyForwardMapping();
   void SetReverseMapping();
-  void EliminateIdentity();
 
   std::string DebugStr() const;
 };
@@ -150,6 +150,8 @@ LoopAxisMapping LoopMappingMerge(const LoopAxisMapping& upstream,
                                  bool upstream_is_anchor);
 LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
     const LoopAxisMapping& upstream, const LoopAxisMapping& downstream);
+
+AxisTransformRoute SimplifyTransformRoute(const AxisTransformRoute& route);
 
 std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
     const LoopAxisMapping& upstream,
