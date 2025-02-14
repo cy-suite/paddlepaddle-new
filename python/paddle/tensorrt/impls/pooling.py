@@ -186,31 +186,48 @@ def pool2d_converter(network, paddle_op, inputs):
         else:
             input_h = input_shape[input_dims - 2]
             input_w = input_shape[input_dims - 1]
-            stride_h = input_h // output_h
-            stride_w = input_w // output_w
-            kernel_h = input_h - (output_h - 1) * stride_h
-            kernel_w = input_w - (output_w - 1) * stride_w
 
-            if stride_h <= 0 or stride_w <= 0:
-                raise ValueError(
-                    "Calculated stride is non-positive, which is invalid."
+            if input_h < 0 or input_w < 0:
+                layer = create_pool_plugin(
+                    network,
+                    input_tensor,
+                    ceil_mode,
+                    pool_type,
+                    adaptive,
+                    exclusive,
+                    kernel_size,
+                    strides,
+                    paddings,
+                    global_pooling,
                 )
+            else:
+                stride_h = input_h // output_h
+                stride_w = input_w // output_w
+                kernel_h = input_h - (output_h - 1) * stride_h
+                kernel_w = input_w - (output_w - 1) * stride_w
 
-            nv_ksize = trt.DimsHW(kernel_h, kernel_w)
-            nv_strides = trt.DimsHW(stride_h, stride_w)
-            nv_paddings = trt.DimsHW(0, 0)
+                if stride_h <= 0 or stride_w <= 0:
+                    raise ValueError(
+                        "Calculated stride is non-positive, which is invalid."
+                    )
 
-            pooling_layer = network.add_pooling_nd(
-                input=input_tensor,
-                type=nv_pool_type,
-                window_size=nv_ksize,
-            )
-            if pooling_layer is None:
-                raise RuntimeError("Failed to add pooling layer in TensorRT.")
-            pooling_layer.stride_nd = nv_strides
-            pooling_layer.padding_nd = nv_paddings
-            pooling_layer.average_count_excludes_padding = exclusive
-            layer = pooling_layer
+                nv_ksize = trt.DimsHW(kernel_h, kernel_w)
+                nv_strides = trt.DimsHW(stride_h, stride_w)
+                nv_paddings = trt.DimsHW(0, 0)
+
+                pooling_layer = network.add_pooling_nd(
+                    input=input_tensor,
+                    type=nv_pool_type,
+                    window_size=nv_ksize,
+                )
+                if pooling_layer is None:
+                    raise RuntimeError(
+                        "Failed to add pooling layer in TensorRT."
+                    )
+                pooling_layer.stride_nd = nv_strides
+                pooling_layer.padding_nd = nv_paddings
+                pooling_layer.average_count_excludes_padding = exclusive
+                layer = pooling_layer
 
     elif not adaptive and not global_pooling and not ceil_mode:
         if padding_algorithm != "SAME" and (
