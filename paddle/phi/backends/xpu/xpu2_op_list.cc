@@ -1336,6 +1336,11 @@ XPUOpMap& get_kl2_ops() {
       {"block_multihead_attention_xpu", XPUKernelSet({phi::DataType::FLOAT16})},
       {"blha_get_max_len",
        XPUKernelSet({phi::DataType::INT32, phi::DataType::INT64})},
+      {"adaptive_layer_norm_xpu",
+       XPUKernelSet({phi::DataType::FLOAT32,
+                     phi::DataType::INT32,
+                     phi::DataType::BOOL,
+                     phi::DataType::INT64})},
   };
 
   return s_xpu2_kernels;

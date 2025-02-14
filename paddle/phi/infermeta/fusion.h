@@ -1459,4 +1459,18 @@ void ResnetBasicBlockGradInferMeta(const MetaTensor& x,
                                    MetaTensor* bias3_grad,
                                    MetaConfig config = MetaConfig());
 
+void AdaptiveLayerNormInferMeta(const MetaTensor& x,
+                                const MetaTensor& scale,
+                                const MetaTensor& bias,
+                                const MetaTensor& tensor1,
+                                const MetaTensor& tensor2,
+                                int begin_norm_axis,
+                                const float epsilon,
+                                const float factor,
+                                const float scale_bias,
+                                bool bias_after_scale,
+                                const int64_t unsqueeze_axis1,
+                                const int64_t unsqueeze_axis2,
+                                MetaTensor* out);
+
 }  // namespace phi
