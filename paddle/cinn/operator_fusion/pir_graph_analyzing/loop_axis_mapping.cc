@@ -68,8 +68,8 @@ std::string LoopAxisMapping::DebugStr() const {
   return ss.str();
 }
 
-AxisTransformRoute SimplifyTransformRouteImpl(const AxisTransformRoute& route,
-                                              int in_size) {
+AxisTransformRoute SimplifySimpleTransform(const AxisTransformRoute& route,
+                                           int in_size) {
   if (route.size() <= 1) return route;
   // 1. Simulate transform route
   size_t id = 0;
@@ -139,26 +139,71 @@ AxisTransformRoute SimplifyTransformRouteImpl(const AxisTransformRoute& route,
   return result;
 }
 
-AxisTransformRoute SimplifyTransformRoute(const AxisTransformRoute& route,
-                                          int in_size) {
+AxisTransformRoute SimplifyContinuousReshape(const AxisTransformRoute& route) {
   if (route.size() <= 1) return route;
-  // Simplify transform route by merging consecutive non-reshape transforms.
-  VLOG(4) << "Before SimplifyTransformRoute: " << route;
+  VLOG(4) << "Before SimplifyContinuousReshape: " << route;
+  const auto simplify_reshape =
+      [](const AxisTransformRoute& route) -> AxisTransformRoute {
+    if (route.size() <= 1) return route;
+    auto in_shape = std::get<ReshapeTransformPtr>(route.front())->in_shape;
+    auto out_shape = std::get<ReshapeTransformPtr>(route.back())->out_shape;
+    AxisTransformRoute result;
+    if (in_shape == out_shape) {
+      result.push_back(IdentityTransform::InstancePtr());
+    } else {
+      result.push_back(std::make_shared<ReshapeTransform>(in_shape, out_shape));
+    }
+    return result;
+  };
   AxisTransformRoute result;
-  AxisTransformRoute part;
+  AxisTransformRoute continuous_reshape;
   for (const auto& trans : route) {
     if (std::holds_alternative<UnsupportedTransformPtr>(trans)) {
       return {trans};
-    } else if (auto reshape_trans = std::get_if<ReshapeTransformPtr>(&trans)) {
-      result = ConcatVector(result, SimplifyTransformRouteImpl(part, in_size));
+    } else if (std::holds_alternative<IdentityTransformPtr>(trans)) {
+      // Do nothing.
+    } else if (std::holds_alternative<ReshapeTransformPtr>(trans)) {
+      continuous_reshape.push_back(std::get<ReshapeTransformPtr>(trans));
+    } else {
+      if (!continuous_reshape.empty()) {
+        result = ConcatVector(result, simplify_reshape(continuous_reshape));
+        continuous_reshape.clear();
+      }
       result.push_back(trans);
-      part.clear();
+    }
+  }
+  if (!continuous_reshape.empty()) {
+    result = ConcatVector(result, simplify_reshape(continuous_reshape));
+  }
+  VLOG(4) << "After SimplifyContinuousReshape: " << result;
+  return result;
+}
+
+AxisTransformRoute SimplifyTransformRoute(const AxisTransformRoute& route,
+                                          int in_size) {
+  AxisTransformRoute simplified_route = SimplifyContinuousReshape(route);
+  if (simplified_route.size() <= 1) return simplified_route;
+  // Simplify continuous non-reshape route.
+  VLOG(4) << "Before SimplifyTransformRoute: " << simplified_route;
+  AxisTransformRoute result;
+  AxisTransformRoute part;
+  for (const auto& trans : simplified_route) {
+    if (std::holds_alternative<UnsupportedTransformPtr>(trans)) {
+      return {trans};
+    } else if (std::holds_alternative<IdentityTransformPtr>(trans)) {
+      // Do nothing.
+    } else if (auto reshape_trans = std::get_if<ReshapeTransformPtr>(&trans)) {
+      if (!part.empty()) {
+        result = ConcatVector(result, SimplifySimpleTransform(part, in_size));
+        part.clear();
+      }
+      result.push_back(trans);
       in_size = (*reshape_trans)->out_shape.size();
     } else {
       part.push_back(trans);
     }
   }
-  result = ConcatVector(result, SimplifyTransformRouteImpl(part, in_size));
+  result = ConcatVector(result, SimplifySimpleTransform(part, in_size));
   VLOG(4) << "After SimplifyTransformRoute: " << result;
   return result;
 }
@@ -190,36 +235,41 @@ void LoopAxisMapping::SetReverseMapping() {
   }
 }
 
-std::pair<AxisTransformRoute, AxisTransformRoute> GetLoopTransformRoute(
-    const LoopAxisMapping& upstream, const LoopAxisMapping& downstream) {
-  AxisTransformRoute loop_sink_route, loop_lift_route;
+AxisTransformRoute GetLoopSinkRoute(const LoopAxisMapping& upstream,
+                                    const LoopAxisMapping& downstream) {
+  AxisTransformRoute result;
   for (size_t i = 0; i < upstream.output_values.size(); ++i) {
     auto value = upstream.output_values[i];
     auto indices = FindPosInVector(downstream.input_values, value);
     for (auto idx : indices) {
-      AxisTransformRoute sink_route =
+      AxisTransformRoute route =
           ConcatVector(upstream.loop2output[i], downstream.input2loop[idx]);
-      AxisTransformRoute lift_route =
-          ConcatVector(downstream.loop2input[idx], upstream.output2loop[i]);
-      if (sink_route.size() < loop_sink_route.size() ||
-          loop_sink_route.empty()) {
-        loop_sink_route = sink_route;
-      }
-      if (lift_route.size() < loop_lift_route.size() ||
-          loop_lift_route.empty()) {
-        loop_lift_route = lift_route;
-      }
+      if (route.size() < result.size() || result.empty()) result = route;
     }
   }
-  return {SimplifyTransformRoute(loop_sink_route, upstream.loop.size()),
-          SimplifyTransformRoute(loop_lift_route, downstream.loop.size())};
+  return SimplifyTransformRoute(result, upstream.loop.size());
+}
+
+AxisTransformRoute GetLoopLiftRoute(const LoopAxisMapping& upstream,
+                                    const LoopAxisMapping& downstream) {
+  AxisTransformRoute result;
+  for (size_t i = 0; i < upstream.output_values.size(); ++i) {
+    auto value = upstream.output_values[i];
+    auto indices = FindPosInVector(downstream.input_values, value);
+    for (auto idx : indices) {
+      AxisTransformRoute route =
+          ConcatVector(downstream.loop2input[idx], upstream.output2loop[i]);
+      if (route.size() < result.size() || result.empty()) result = route;
+    }
+  }
+  return SimplifyTransformRoute(result, downstream.loop.size());
 }
 
 LoopAxisMapping LoopMappingMergeImpl(const LoopAxisMapping& upstream,
                                      const LoopAxisMapping& downstream,
                                      bool upstream_is_anchor) {
-  const auto& [loop_sink_route, loop_lift_route] =
-      GetLoopTransformRoute(upstream, downstream);
+  const auto& loop_sink_route = GetLoopSinkRoute(upstream, downstream);
+  const auto& loop_lift_route = GetLoopLiftRoute(upstream, downstream);
 
   LoopAxisMapping result;
   result.input_values = upstream.input_values;
@@ -353,10 +403,9 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
   }
   bool rr_fusion = source.reduce_axis_num > 0 && target.reduce_axis_num > 0;
 
-  const auto& [loop_sink_route, loop_lift_route] =
-      GetLoopTransformRoute(upstream, downstream);
-  auto loop_transform_route =
-      upstream_is_anchor ? loop_lift_route : loop_sink_route;
+  const auto& loop_transform_route =
+      upstream_is_anchor ? GetLoopLiftRoute(upstream, downstream)
+                         : GetLoopSinkRoute(upstream, downstream);
   VLOG(4) << "Loop transform route: " << loop_transform_route;
 
   size_t id = 0;
@@ -374,7 +423,7 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
     axis_symbols[axis_id] = symbol;
   }
   size_t cur_axis_size = axis_ids.size();
-  auto source_ids = axis_ids;
+  const auto source_ids = axis_ids;
 
   if (rr_fusion) {
     // Because reduce axis can not be transformed, we need to add
@@ -628,6 +677,7 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
   }
 
   if (result.empty()) result.push_back(IdentityTransform::InstancePtr());
+  result = SimplifyTransformRoute(result, source_ids.size());
   VLOG(4) << "Found loop transform: " << result;
   return result;
 }

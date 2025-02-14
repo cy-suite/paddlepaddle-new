@@ -170,8 +170,8 @@ void RunAxisTransformInstr(const std::shared_ptr<AxisTransformInstr>& instr,
 
   auto new_pattern = std::make_shared<ScopeElement>();
   auto fusion_ops = interpreter->scope[instr->source_]->fusion_ops;
-  VLOG(4) << "[AxisTransform] transform route size: "
-          << instr->axis_transform_route_.size();
+  VLOG(4) << "[AxisTransform] transform route: "
+          << instr->axis_transform_route_;
   for (const auto& fusion_op : fusion_ops) {
     ir::Expr op_expr = std::visit(FusibleOp2Expr(), fusion_op).back();
     VLOG(4) << "[AxisTransform] expr before transform: \n" << op_expr;

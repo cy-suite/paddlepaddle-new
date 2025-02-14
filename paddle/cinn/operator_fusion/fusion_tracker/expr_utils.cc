@@ -26,7 +26,7 @@ using namespace ExprTransformerUtils;                               // NOLINT
 ir::Expr ApplyAxisTransform::operator()(const TransposeTransformPtr& trans) {
   VLOG(4) << "[AxisTransform] Start " << trans->DebugStr();
   auto result = TransposeForsTransformer(trans->perm)(expr_);
-  VLOG(4) << "[AxisTransform] After TransposeTransform: \n" << result;
+  VLOG(4) << "[AxisTransform] After " << trans->DebugStr() << ": \n" << result;
   return result;
 }
 
@@ -44,7 +44,7 @@ ir::Expr ApplyAxisTransform::operator()(const AppendAxisTransformPtr& trans) {
   }
   auto result = InsertForsTransformer(CastVector<int64_t, int32_t>(trans->axis),
                                       append_vars)(expr_);
-  VLOG(4) << "[AxisTransform] After AppendAxisTransform: \n" << result;
+  VLOG(4) << "[AxisTransform] After " << trans->DebugStr() << ": \n" << result;
   return result;
 }
 
@@ -52,14 +52,14 @@ ir::Expr ApplyAxisTransform::operator()(const DeleteAxisTransformPtr& trans) {
   VLOG(4) << "[AxisTransform] Start " << trans->DebugStr();
   auto result =
       RemoveForsTransformer(CastVector<int64_t, int32_t>(trans->axis))(expr_);
-  VLOG(4) << "[AxisTransform] After DeleteAxisTransform: \n" << result;
+  VLOG(4) << "[AxisTransform] After " << trans->DebugStr() << ": \n" << result;
   return result;
 }
 
 ir::Expr ApplyAxisTransform::operator()(const ReshapeTransformPtr& trans) {
   VLOG(4) << "[AxisTransform] Start " << trans->DebugStr();
   auto result = ReshapeLoop(expr_, trans->in_shape, trans->out_shape);
-  VLOG(4) << "[AxisTransform] After ReshapeTransform: \n" << result;
+  VLOG(4) << "[AxisTransform] After " << trans->DebugStr() << ": \n" << result;
   return result;
 }
 

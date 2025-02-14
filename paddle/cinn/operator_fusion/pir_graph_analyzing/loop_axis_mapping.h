@@ -121,6 +121,7 @@ struct ReshapeTransform {
 };
 
 std::ostream& operator<<(std::ostream& os, const AxisTransform& transform);
+std::ostream& operator<<(std::ostream& os, const AxisTransformRoute& route);
 
 AxisTransform ReverseTransform(const AxisTransform& transform);
 AxisTransformRoute ReverseTransformRoute(const AxisTransformRoute& route);
