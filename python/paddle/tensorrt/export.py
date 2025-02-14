@@ -287,6 +287,10 @@ def convert_to_trt(program, trt_config, scope):
             max_shape_feed=max_shape_feed,
             scope=scope,
         )
+        if trt_config.allow_only_specified_trt_ops and trt_config.disable_ops:
+            raise ValueError(
+                "The parameters 'allow_only_specified_trt_ops' and 'disable_ops' are mutually exclusive. Please specify only one."
+            )
         if trt_config.allow_only_specified_trt_ops:
             enforce_op_lower_trt(
                 program, trt_config.allow_only_specified_trt_ops
