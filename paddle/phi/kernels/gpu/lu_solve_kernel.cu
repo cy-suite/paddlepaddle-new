@@ -16,13 +16,55 @@
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/impl/lu_solve_kernel_impl.h"
 
-#if defined(PADDLE_WITH_CUDA)
+#ifdef PADDLE_WITH_HIP
+#include "paddle/phi/backends/dynload/rocsolver.h"
+#else
 #include "paddle/phi/backends/dynload/cusolver.h"
 #endif
 
 namespace phi {
 
-#if defined(PADDLE_WITH_CUDA)
+#ifdef PADDLE_WITH_HIP
+template <typename T>
+void rocsolver_getrs(const solverHandle_t& handle,
+                     rocblas_operation trans,
+                     int M,
+                     int N,
+                     T* Adata,
+                     int lda,
+                     const int* ipiv,
+                     T* Bdata,
+                     int ldb);
+
+#define FUNC_WITH_TYPES(m) m(float, s, float) m(double, d, double)
+
+#define GETRS_INSTANCE(T, C, CastType)                                    \
+  template <>                                                             \
+  void rocsolver_getrs<T>(const solverHandle_t& handle,                   \
+                          rocblas_operation trans,                        \
+                          int M,                                          \
+                          int N,                                          \
+                          T* Adata,                                       \
+                          int lda,                                        \
+                          const int* ipiv,                                \
+                          T* Bdata,                                       \
+                          int ldb) {                                      \
+    PADDLE_ENFORCE_GPU_SUCCESS(                                           \
+        dynload::rocsolver_##C##getrs(handle,                             \
+                                      trans,                              \
+                                      M,                                  \
+                                      N,                                  \
+                                      reinterpret_cast<CastType*>(Adata), \
+                                      lda,                                \
+                                      ipiv,                               \
+                                      reinterpret_cast<CastType*>(Bdata), \
+                                      ldb));                              \
+  }
+
+FUNC_WITH_TYPES(GETRS_INSTANCE);
+
+#endif
+
 template <typename T>
 class LUSolveFunctor<T, GPUContext> {
  public:
@@ -37,6 +79,11 @@ class LUSolveFunctor<T, GPUContext> {
                   int* devInfo) {
     auto handle = dev_ctx.cusolver_dn_handle();
 
+#ifdef PADDLE_WITH_HIP
+    rocblas_operation trans_op =
+        trans ? rocblas_operation_transpose : rocblas_operation_none;
+    rocsolver_getrs<T>(handle, trans_op, M, N, Adata, lda, ipiv, Bdata, lda);
+#else
     // Workspace sizes differ for different data types
     int workspace_size;
     if (std::is_same<T, float>::value) {
@@ -64,16 +111,15 @@ class LUSolveFunctor<T, GPUContext> {
                                          lda,
                                          devInfo));
     }
+#endif
   }
 };
-#endif
 
 }  // namespace phi
 
-#if defined(PADDLE_WITH_CUDA)
+#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
 PD_REGISTER_KERNEL(
     lu_solve, GPU, ALL_LAYOUT, phi::LUSolveKernel, float, double) {
   kernel->InputAt(1).SetDataType(phi::DataType::INT32);
-  kernel->InputAt(1).SetBackend(phi::Backend::ALL_BACKEND);
 }
 #endif

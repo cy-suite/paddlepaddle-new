@@ -98,7 +98,7 @@ class TestLUSolveOp(OpTest):
     def config(self):
         self.A_shape = [25, 25]
         self.b_shape = [25, 5]
-        self.dtype = np.float64
+        self.dtype = "float64"
 
     def generate_well_conditioned_matrix(self):
         """
@@ -142,8 +142,9 @@ class TestLUSolveOp(OpTest):
 
     def setUp(self):
         self.op_type = "lu_solve"
-        self.python_api = paddle.linalg.lu_solve
         self.config()
+        self.python_api = paddle.linalg.lu_solve
+
         # Generate a non-singular matrix A: random matrix plus identity matrix
         A = self.generate_well_conditioned_matrix()
         # Compute LU factorization of A
