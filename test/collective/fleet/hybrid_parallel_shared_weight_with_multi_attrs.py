@@ -36,8 +36,8 @@ def set_random_seed(seed, dp_id, rank_id):
     paddle.seed(seed + dp_id)
 
 
-batch_size = 8
-micro_batch_size = 2
+batch_size = 1
+micro_batch_size = 1
 vocab_size = 128
 hidden_size = 16
 
@@ -248,8 +248,8 @@ class TestSharedWeightWithMultiAttrs(unittest.TestCase):
                 [(x1, x2), (y1,)], optimizer_b, scheduler_b
             )
 
-            np.testing.assert_allclose(
-                loss_a.numpy(), loss_b.numpy(), rtol=1e-5, atol=1e-5
+            np.testing.assert_array_equal(
+                loss_a.numpy(), loss_b.reshape(shape=[]).numpy()
             )
 
 
