@@ -1049,7 +1049,7 @@ class _ExecutorCache:
                         )
 
                     if in_cinn_mode():
-                        apply_cinn_pass(pir_program)
+                        apply_cinn_pass(pir_program, True)
 
                     type_to_program = {"default": pir_program}
 
@@ -1143,7 +1143,7 @@ class _ExecutorCache:
                 logging.info("apply auto_recompute in executor")
                 program = decomp.auto_recompute_pir_program(program, None)
 
-            apply_cinn_pass(program)
+            apply_cinn_pass(program, True)
             return program
 
         if cached_data.plan is None:
