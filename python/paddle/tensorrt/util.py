@@ -87,7 +87,7 @@ def run_pir_pass(program, disable_passes=[], scope=None, precision_mode=None):
     passes = [
         {'trt_op_marker_pass': {}},
     ]
-    if precision_mode.value == "INT8":
+    if precision_mode is not None and precision_mode.value == "INT8":
         passes.append(
             {
                 'delete_quant_dequant_linear_op_pass': {
