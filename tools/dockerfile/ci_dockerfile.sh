@@ -90,10 +90,10 @@ function make_ubuntu20_cu12_dockerfile(){
   sed -i 's#RUN bash /build_scripts/install_trt.sh#RUN bash /build_scripts/install_trt.sh trt8616#g' ${dockerfile_name}
   sed -i 's#RUN bash /build_scripts/install_cudnn.sh cudnn841#RUN bash /build_scripts/install_cudnn.sh cudnn896 #g' ${dockerfile_name}
   sed -i 's#RUN apt-get install -y gcc-8 g++-8#RUN bash /build_scripts/install_gcc.sh gcc121#g' ${dockerfile_name}
-  sed -i 's#gcc-8#gcc-12.1#g' ${dockerfile_name}
-  sed -i 's#gcc-8#gcc-12.1#g' ${dockerfile_name}
-  sed -i 's#g++-8#g++-12.1#g' ${dockerfile_name}
-  sed -i 's#g++-8#g++-12.1#g' ${dockerfile_name}
+  sed -i 's#/usr/bin/gcc-8#/usr/local/gcc-12.1/bin/gcc#g' ${dockerfile_name}
+  sed -i 's#/usr/bin/gcc-8#/usr/local/gcc-12.1/bin/gcc#g' ${dockerfile_name}
+  sed -i 's#/usr/bin/g++-8#/usr/local/gcc-12.1/bin/g++#g' ${dockerfile_name}
+  sed -i 's#/usr/bin/g++-8#/usr/local/gcc-12.1/bin/g++#g' ${dockerfile_name}
 
   sed -i "${dockerfile_line}i WORKDIR /home \n \
     RUN git clone --depth=1 https://github.com/PaddlePaddle/PaddleNLP.git -b stable/paddle-ci \&\& cd PaddleNLP \&\& \
@@ -127,10 +127,10 @@ function make_ubuntu20_cu123_dockerfile(){
   sed -i 's#RUN bash /build_scripts/install_cudnn.sh cudnn841#RUN bash /build_scripts/install_cudnn.sh cudnn900 #g' ${dockerfile_name}
   sed -i 's#CUDNN_VERSION=8.4.1#CUDNN_VERSION=9.0.0#g' ${dockerfile_name}
   sed -i 's#RUN apt-get install -y gcc-8 g++-8#RUN bash /build_scripts/install_gcc.sh gcc121#g' ${dockerfile_name}
-  sed -i 's#gcc-8#gcc-12.1#g' ${dockerfile_name}
-  sed -i 's#gcc-8#gcc-12.1#g' ${dockerfile_name}
-  sed -i 's#g++-8#g++-12.1#g' ${dockerfile_name}
-  sed -i 's#g++-8#g++-12.1#g' ${dockerfile_name}
+  sed -i 's#/usr/bin/gcc-8#/usr/local/gcc-12.1/bin/gcc#g' ${dockerfile_name}
+  sed -i 's#/usr/bin/gcc-8#/usr/local/gcc-12.1/bin/gcc#g' ${dockerfile_name}
+  sed -i 's#/usr/bin/g++-8#/usr/local/gcc-12.1/bin/g++#g' ${dockerfile_name}
+  sed -i 's#/usr/bin/g++-8#/usr/local/gcc-12.1/bin/g++#g' ${dockerfile_name}
 
   sed -i "${dockerfile_line}i WORKDIR /home \n \
     RUN git clone --depth=1 https://github.com/PaddlePaddle/PaddleNLP.git -b stable/paddle-ci \&\& cd PaddleNLP \&\& \
