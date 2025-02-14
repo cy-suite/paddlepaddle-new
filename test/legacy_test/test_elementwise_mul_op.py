@@ -696,27 +696,28 @@ class TestMulApiZeroSize(unittest.TestCase):
 
     def test_dygraph(self):
         self.init_data()
-        with base.dygraph.guard():
-            x = paddle.to_tensor(self.x_numpy)
-            y = paddle.to_tensor(self.y_numpy)
-            z = self._executed_api(x, y)
-            np_z = np.multiply(self.x_numpy, self.y_numpy)
-            np.testing.assert_allclose(z, np_z, rtol=1e-05, atol=1e-05)
+        for place in [paddle.CPUPlace(), paddle.CUDAPlace(0)]:
+            with base.dygraph.guard(place):
+                x = paddle.to_tensor(self.x_numpy)
+                y = paddle.to_tensor(self.y_numpy)
+                z = self._executed_api(x, y)
+                np_z = np.multiply(self.x_numpy, self.y_numpy)
+                np.testing.assert_allclose(z, np_z, rtol=1e-05, atol=1e-05)
 
 
-class TestMulApiZeroSize2(unittest.TestCase):
+class TestMulApiZeroSize2(TestMulApiZeroSize):
     def init_data(self):
         self.x_numpy = np.random.rand(3).astype('float32')
         self.y_numpy = np.random.rand(0, 3).astype('float32')
 
 
-class TestMulApiZeroSize3(unittest.TestCase):
+class TestMulApiZeroSize3(TestMulApiZeroSize):
     def init_data(self):
         self.x_numpy = np.random.rand(2, 0).astype('float32')
         self.y_numpy = np.random.rand(1, 0).astype('float32')
 
 
-class TestMulApiZeroSize4(unittest.TestCase):
+class TestMulApiZeroSize4(TestMulApiZeroSize):
     def init_data(self):
         self.x_numpy = np.random.rand(1, 0, 2).astype('float32')
         self.y_numpy = np.random.rand(3, 0, 1).astype('float32')

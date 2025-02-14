@@ -750,27 +750,28 @@ class TestDivApiZeroSize(unittest.TestCase):
 
     def test_dygraph(self):
         self.init_data()
-        with base.dygraph.guard():
-            x = paddle.to_tensor(self.x_numpy)
-            y = paddle.to_tensor(self.y_numpy)
-            z = self._executed_api(x, y)
-            np_z = np.divide(self.x_numpy, self.y_numpy)
-            np.testing.assert_allclose(z, np_z, rtol=1e-05, atol=1e-05)
+        for place in [paddle.CPUPlace(), paddle.CUDAPlace(0)]:
+            with base.dygraph.guard(place):
+                x = paddle.to_tensor(self.x_numpy)
+                y = paddle.to_tensor(self.y_numpy)
+                z = self._executed_api(x, y)
+                np_z = np.divide(self.x_numpy, self.y_numpy)
+                np.testing.assert_allclose(z, np_z, rtol=1e-05, atol=1e-05)
 
 
-class TestDivApiZeroSize2(unittest.TestCase):
+class TestDivApiZeroSize2(TestDivApiZeroSize):
     def init_data(self):
         self.x_numpy = np.random.rand(3).astype('float32')
         self.y_numpy = np.random.rand(0, 3).astype('float32')
 
 
-class TestDivApiZeroSize3(unittest.TestCase):
+class TestDivApiZeroSize3(TestDivApiZeroSize):
     def init_data(self):
         self.x_numpy = np.random.rand(2, 0).astype('float32')
         self.y_numpy = np.random.rand(1, 0).astype('float32')
 
 
-class TestDivApiZeroSize4(unittest.TestCase):
+class TestDivApiZeroSize4(TestDivApiZeroSize):
     def init_data(self):
         self.x_numpy = np.random.rand(1, 0, 2).astype('float32')
         self.y_numpy = np.random.rand(3, 0, 1).astype('float32')
