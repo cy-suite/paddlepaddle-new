@@ -237,6 +237,8 @@ def ParseArguments():
     parser.add_argument('--nodes_cc_path', type=str)
     parser.add_argument('--forwards_h_path', type=str)
     parser.add_argument('--forwards_cc_path', type=str)
+    parser.add_argument('--backwards_h_path', type=str)
+    parser.add_argument('--backwards_cc_path', type=str)
     parser.add_argument('--api_yaml_path', type=str)
     parser.add_argument('--backward_yaml_path', type=str)
 
@@ -546,9 +548,9 @@ namespace {} {{
 NODE_CC_FILE_TEMPLATE = """
 #include "glog/logging.h"
 #include "paddle/phi/api/all.h"
-#include "paddle/phi/api/backward/backward_api.h"
-#include "paddle/phi/api/backward/fused_backward_api.h"
-#include "paddle/phi/api/backward/sparse_bw_api.h"
+#include "paddle/phi/api/backward/backward_api_impl.h"
+#include "paddle/phi/api/backward/fused_backward_api_impl.h"
+#include "paddle/phi/api/backward/sparse_backward_api_impl.h"
 #include "paddle/fluid/imperative/tracer.h"
 #include "paddle/fluid/framework/op_registry.h"
 #include "paddle/phi/core/platform/profiler/event_tracing.h"
@@ -578,10 +580,16 @@ NODE_H_FILE_TEMPLATE = """
 
 {}
 """
+FORWARD_CC_HEADER = """
+#include "paddle/fluid/eager/api/generated/eager_generated/forwards/dygraph_functions.h"
+#include "paddle/fluid/eager/api/manual/eager_manual/dygraph_forward_api.h"
+"""
 
+BACKWARD_CC_HEADER = """
+#include "paddle/fluid/eager/api/generated/eager_generated/forwards/dygraph_grad_functions.h"
+"""
 FORWARD_CC_FILE_TEMPLATE = """
 #include "paddle/phi/api/lib/dygraph_api.h"
-#include "paddle/fluid/eager/api/generated/eager_generated/forwards/dygraph_functions.h"
 #include "paddle/fluid/eager/api/generated/eager_generated/backwards/nodes.h"
 #include "paddle/fluid/eager/eager_layout_auto_tune.h"
 #include "paddle/phi/api/include/strings_api.h"
@@ -590,7 +598,7 @@ FORWARD_CC_FILE_TEMPLATE = """
 #include "paddle/phi/core/platform/profiler/event_tracing.h"
 #include "paddle/phi/backends/gpu/gpu_info.h"
 #include "paddle/fluid/eager/nan_inf_utils.h"
-#include "paddle/fluid/eager/api/manual/eager_manual/dygraph_forward_api.h"
+
 #include "paddle/common/flags.h"
 #include "paddle/phi/api/lib/data_transform.h"
 #include "paddle/fluid/eager/type_promotion_utils.h"
@@ -612,7 +620,6 @@ FORWARD_H_FILE_TEMPLATE = """
 #include "paddle/phi/api/all.h"
 #include "paddle/fluid/eager/utils.h"
 #include "paddle/fluid/framework/op_registry.h"
-#include "paddle/fluid/eager/api/manual/eager_manual/dygraph_forward_api.h"
 #include "paddle/utils/test_macros.h"
 
 using CPUPlace = phi::CPUPlace;
@@ -3299,14 +3306,19 @@ def GenerateNodeHFile(filepath, node_declaration_str):
         f.write(file_contents)
 
 
-def GenerateForwardCCFile(filepath, forward_definition_str):
+def GenerateForwardCCFile(filepath, forward_definition_str, grad_flag):
     if os.path.exists(filepath):
         os.remove(filepath)
 
     core_ops_info_str = GenerateCoreOpInfoDefinition()
-    file_contents = FORWARD_CC_FILE_TEMPLATE.format(
+    if not grad_flag:
+        file_contents = FORWARD_CC_HEADER
+    else:
+        file_contents = BACKWARD_CC_HEADER
+    file_contents += FORWARD_CC_FILE_TEMPLATE.format(
         core_ops_info_str, forward_definition_str
     )
+
     with open(filepath, 'a') as f:
         f.write(file_contents)
 
@@ -3336,6 +3348,8 @@ if __name__ == "__main__":
     forward_declaration_str = ""
     forward_definition_str = ""
 
+    backward_declaration_str = ""
+    backward_definition_str = ""
     # merge dygraph_ops.yaml and ops.yaml, dygraph_backward.yaml and backward.yaml
     all_ops = []
     all_bw = []
@@ -3395,18 +3409,25 @@ if __name__ == "__main__":
 
         generator_grad.run(True)
 
-        node_declaration_str += generator_grad.node_declaration_str + "\n"
-        node_definition_str += generator_grad.node_definition_str + "\n"
+        # node_declaration_str += generator_grad.node_declaration_str + "\n"
+        # node_definition_str += generator_grad.node_definition_str + "\n"
 
-        forward_declaration_str += generator_grad.forward_declaration_str + "\n"
-        forward_definition_str += generator_grad.forward_definition_str + "\n"
+        backward_declaration_str += (
+            generator_grad.forward_declaration_str + "\n"
+        )
+        backward_definition_str += generator_grad.forward_definition_str + "\n"
     # Generate Files
     nodes_h_path = args.nodes_h_path
     nodes_cc_path = args.nodes_cc_path
     forwards_h_path = args.forwards_h_path
     forwards_cc_path = args.forwards_cc_path
+    backwards_h_path = args.backwards_h_path
+    backwards_cc_path = args.backwards_cc_path
 
     GenerateNodeCCFile(nodes_cc_path, node_definition_str)
     GenerateNodeHFile(nodes_h_path, node_declaration_str)
-    GenerateForwardCCFile(forwards_cc_path, forward_definition_str)
+    GenerateForwardCCFile(forwards_cc_path, forward_definition_str, False)
     GenerateForwardHFile(forwards_h_path, forward_declaration_str)
+
+    GenerateForwardCCFile(backwards_cc_path, backward_definition_str, True)
+    GenerateForwardHFile(backwards_h_path, backward_declaration_str)
