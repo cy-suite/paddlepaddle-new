@@ -4,6 +4,15 @@
 # if one operator have "support_dygraph_mode : true", it supports dygraph mode,
 # otherwise the operator only could be used in static mode.
 
+- op : adaptive_layernorm_xpu
+  args : (Tensor x, Tensor scale, Tensor bias, Tensor in1, Tensor in2, int begin_norm_axis, float epsilon, float factor, float scale_bias, bool bias_after_scale, int64_t unsqueeze1_axis, int64_t unsqueeze2_axis)
+  output : Tensor(out)
+  infer_meta :
+    func : AdaptiveLayernormXPUInferMeta
+  kernel :
+    func : adaptive_layernorm_xpu
+    data_type : x
+
 - op : add_act_xpu
   args : (Tensor x, Tensor x_max, Tensor y, Tensor y_max, int act_type)
   output : Tensor(out), Tensor(out_max)
@@ -881,7 +890,7 @@
 
 - op: fused_moe
   args: (Tensor x, Tensor gate_weight, Tensor ffn1_weight, Tensor ffn1_scale, Tensor ffn1_bias, Tensor ffn2_weight, Tensor ffn2_scale, Tensor ffn2_bias,
-    str quant_method = "None", int moe_topk = 2, bool norm_topk_prob = true)
+    str quant_method = "None", int moe_topk = 2, bool group_moe = false, bool norm_topk_prob = true)
   output: Tensor (out)
   infer_meta:
     func: FusedMoeInferMeta

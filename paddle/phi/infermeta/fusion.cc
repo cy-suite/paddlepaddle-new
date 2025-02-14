@@ -141,8 +141,8 @@ void AdaptiveLayerNormInferMeta(const MetaTensor& x,
                                 const float factor,
                                 const float scale_bias,
                                 bool bias_after_scale,
-                                const int64_t unsqueeze_axis1,
-                                const int64_t unsqueeze_axis2,
+                                const int64_t unsqueeze1_axis,
+                                const int64_t unsqueeze2_axis,
                                 MetaTensor* out) {
   auto x_dims = x.dims();
   auto out_dims = x_dims;
@@ -2669,6 +2669,24 @@ void FastLayernormXPUInferMeta(const MetaTensor& x,
                                int begin_norm_axis,
                                float epsilon,
                                MetaTensor* out) {
+  out->set_dims(x.dims());
+  out->set_dtype(x.dtype());
+  out->set_layout(x.layout());
+}
+
+void AdaptiveLayernormXPUInferMeta(const MetaTensor& x,
+                                   const MetaTensor& scale,
+                                   const MetaTensor& bias,
+                                   const MetaTensor& in1,
+                                   const MetaTensor& in2,
+                                   int begin_norm_axis,
+                                   float epsilon,
+                                   float factor,
+                                   float scale_bias,
+                                   bool bias_after_scale,
+                                   int64_t unsqueeze_axis1,
+                                   int64_t unsqueeze_axis2,
+                                   MetaTensor* out) {
   out->set_dims(x.dims());
   out->set_dtype(x.dtype());
   out->set_layout(x.layout());

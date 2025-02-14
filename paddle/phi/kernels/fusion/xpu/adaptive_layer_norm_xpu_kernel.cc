@@ -17,8 +17,7 @@
 #include "paddle/phi/backends/xpu/enforce_xpu.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/core/tensor_meta.h"
-#include "paddle/phi/kernels/empty_kernel.h"
-#include "paddle/phi/kernels/unsqueeze_kernel.h"
+#include "paddle/phi/kernels/funcs/unsqueeze.h"
 
 namespace phi {
 namespace fusion {
