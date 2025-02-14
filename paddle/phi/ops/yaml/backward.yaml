@@ -236,6 +236,16 @@
     func : atanh_grad
   inplace : (out_grad -> x_grad)
 
+- backward_op : baddbmm_grad
+  forward : baddbmm (Tensor input, Tensor x, Tensor y, float beta=1.0, float alpha=1.0) -> Tensor(out)
+  args : (Tensor input, Tensor x, Tensor y, Tensor out_grad, float alpha, float beta)
+  output : Tensor(input_grad), Tensor(x_grad), Tensor(y_grad)
+  infer_meta :
+    func : GeneralTernaryGradInferMeta
+    param : [input, x, y]
+  kernel :
+    func : baddbmm_grad
+
 - backward_op : batch_fc_grad
   forward : batch_fc (Tensor input, Tensor w, Tensor bias) -> Tensor(out)
   args : (Tensor input, Tensor w, Tensor bias, Tensor out_grad)
@@ -1404,6 +1414,7 @@
   composite : group_norm_grad(x, scale, bias, y, mean, variance, y_grad, epsilon, groups, data_format, x_grad, scale_grad, bias_grad)
   optional: scale, bias
   inplace : (y_grad -> x_grad)
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - backward_op : gru_grad
   forward: gru (Tensor input, Tensor h0, Tensor weight, Tensor bias, str activation = "tanh",
@@ -3623,16 +3634,6 @@
   kernel :
     func : view_dtype_grad
     data_type : out_grad
-
-- backward_op : view_shape_grad
-  forward : view_shape (Tensor input, int64_t[] dims = {}) -> Tensor(out)
-  args : (Tensor input, Tensor out_grad, int64_t[] dims = {})
-  output : Tensor(input_grad)
-  infer_meta :
-    func : StridedUnChangedInferMeta
-    param : [input]
-  kernel :
-    func : view_shape_grad
 
 - backward_op : warpctc_grad
   forward : warpctc (Tensor logits, Tensor label, Tensor logits_length, Tensor labels_length, int blank = 0, bool norm_by_times = false) -> Tensor(loss), Tensor(warpctcgrad)
