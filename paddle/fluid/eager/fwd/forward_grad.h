@@ -218,7 +218,6 @@ struct TEST_API ForwardGrad : std::enable_shared_from_this<ForwardGrad> {
 
  private:
   // TODO(albanD): replace this with a SmallVector
-  // 每个Tensor都有一个ForwardGrad对象，用来存储不同level的（前向）梯度，所以是level->Tensor的映射
   std::unordered_map<uint64_t, paddle::Tensor> content_;
   // mutable std::mutex mutex_; // 进程间互斥锁
 };
