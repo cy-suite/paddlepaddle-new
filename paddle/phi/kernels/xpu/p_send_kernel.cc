@@ -14,60 +14,26 @@
 
 #include "paddle/phi/kernels/impl/p_send_kernel_impl.h"
 
-#if NCCL_VERSION_CODE >= 21000
 PD_REGISTER_KERNEL(p_send,
-                   GPU,
+                   XPU,
                    ALL_LAYOUT,
                    phi::PSendKernel,
                    float,
                    double,
-                   int,
-                   bool,
-                   int8_t,
                    uint8_t,
-                   int16_t,
+                   int,
                    int64_t,
                    phi::dtype::bfloat16,
                    phi::dtype::float16) {}
 
 PD_REGISTER_KERNEL(p_send_array,
-                   GPU,
+                   XPU,
                    ALL_LAYOUT,
                    phi::PSendArrayKernel,
                    float,
                    double,
-                   int,
-                   bool,
-                   int8_t,
                    uint8_t,
+                   int,
                    int64_t,
                    phi::dtype::bfloat16,
                    phi::dtype::float16) {}
-#else
-PD_REGISTER_KERNEL(p_send,
-                   GPU,
-                   ALL_LAYOUT,
-                   phi::PSendKernel,
-                   float,
-                   double,
-                   int,
-                   bool,
-                   int8_t,
-                   uint8_t,
-                   int16_t,
-                   int64_t,
-                   phi::dtype::float16) {}
-
-PD_REGISTER_KERNEL(p_send_array,
-                   GPU,
-                   ALL_LAYOUT,
-                   phi::PSendArrayKernel,
-                   float,
-                   double,
-                   int,
-                   bool,
-                   int8_t,
-                   uint8_t,
-                   int64_t,
-                   phi::dtype::float16) {}
-#endif
