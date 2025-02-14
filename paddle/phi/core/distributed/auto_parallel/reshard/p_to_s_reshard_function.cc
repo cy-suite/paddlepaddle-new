@@ -74,6 +74,7 @@ void ReshardPToSWithPadding(DeviceContext* dev_ctx,
                             in_reduce_scatter,
                             static_cast<int64_t>(process_ids.size()),
                             &out_reduce_scatter);
+
   DenseTensor out_result;
   if (split_axis != 0) {
     RESHARD_FUNCTOR(
