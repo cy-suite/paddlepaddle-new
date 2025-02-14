@@ -718,7 +718,12 @@ class TestAddApiZeroSize(unittest.TestCase):
 
     def test_dygraph(self):
         self.init_data()
-        for place in [paddle.CPUPlace(), paddle.CUDAPlace(0)]:
+        places = (
+            [paddle.CPUPlace(), paddle.CUDAPlace(0)]
+            if core.is_compiled_with_cuda()
+            else [paddle.CPUPlace()]
+        )
+        for place in places:
             with base.dygraph.guard(place):
                 x = paddle.to_tensor(self.x_numpy)
                 y = paddle.to_tensor(self.y_numpy)
