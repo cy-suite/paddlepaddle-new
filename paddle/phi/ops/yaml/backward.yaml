@@ -236,6 +236,16 @@
     func : atanh_grad
   inplace : (out_grad -> x_grad)
 
+- backward_op : baddbmm_grad
+  forward : baddbmm (Tensor input, Tensor x, Tensor y, float beta=1.0, float alpha=1.0) -> Tensor(out)
+  args : (Tensor input, Tensor x, Tensor y, Tensor out_grad, float alpha, float beta)
+  output : Tensor(input_grad), Tensor(x_grad), Tensor(y_grad)
+  infer_meta :
+    func : GeneralTernaryGradInferMeta
+    param : [input, x, y]
+  kernel :
+    func : baddbmm_grad
+
 - backward_op : batch_fc_grad
   forward : batch_fc (Tensor input, Tensor w, Tensor bias) -> Tensor(out)
   args : (Tensor input, Tensor w, Tensor bias, Tensor out_grad)
@@ -326,6 +336,19 @@
   args : (Tensor out_grad, int rank = 0, int nranks = 1, int ring_id = 0, bool use_model_parallel = true)
   output : Tensor(x_grad)
   invoke: c_split(out_grad, rank, nranks, ring_id, use_model_parallel)
+
+- backward_op : c_softmax_with_cross_entropy_grad
+  forward: c_softmax_with_cross_entropy (Tensor logits, Tensor label,  int64_t ignore_index=-100, int ring_id=0, int rank=0, int nranks=0) -> Tensor(softmax), Tensor(loss)
+  args: (Tensor softmax, Tensor label, Tensor loss_grad,int64_t ignore_index=-100, int ring_id=0, int rank=0, int nranks=0)
+  output: Tensor(logits_grad)
+  infer_meta :
+    func: CSoftmaxWithCrossEntropyGradInferMeta
+    spmd_rule : CSoftmaxWithCrossEntropyGradSpmd
+    param: [softmax, label, loss_grad, ignore_index, rank, nranks]
+  kernel:
+    func: c_softmax_with_cross_entropy_grad
+    data_type: loss_grad
+    param: [softmax, label, loss_grad, ignore_index, rank, nranks]
 
 - backward_op : cast_grad
   forward : cast (Tensor x, DataType dtype) -> Tensor(out)
@@ -1404,6 +1427,7 @@
   composite : group_norm_grad(x, scale, bias, y, mean, variance, y_grad, epsilon, groups, data_format, x_grad, scale_grad, bias_grad)
   optional: scale, bias
   inplace : (y_grad -> x_grad)
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - backward_op : gru_grad
   forward: gru (Tensor input, Tensor h0, Tensor weight, Tensor bias, str activation = "tanh",
@@ -2918,16 +2942,16 @@
   optional : pos_weight
 
 - backward_op : sigmoid_double_grad
-  forward : sigmoid_grad (Tensor out, Tensor fwd_grad_out) -> Tensor(grad_x)
-  args : (Tensor out, Tensor fwd_grad_out, Tensor grad_x_grad)
-  output : Tensor(out_grad), Tensor(fwd_grad_out_grad)
+  forward : sigmoid_grad (Tensor out, Tensor grad_out) -> Tensor(grad_x)
+  args : (Tensor out, Tensor grad_out, Tensor grad_x_grad)
+  output : Tensor(out_grad), Tensor(grad_out_grad)
   infer_meta :
     func : GeneralBinaryGradInferMeta
-    param : [out, fwd_grad_out]
+    param : [out, grad_out]
   kernel :
     func : sigmoid_double_grad
   backward : sigmoid_triple_grad
-  inplace : (grad_x_grad -> fwd_grad_out_grad)
+  inplace : (grad_x_grad -> grad_out_grad)
 
 - backward_op : sigmoid_grad
   forward : sigmoid (Tensor x) -> Tensor(out)
@@ -3613,16 +3637,6 @@
   kernel :
     func : view_dtype_grad
     data_type : out_grad
-
-- backward_op : view_shape_grad
-  forward : view_shape (Tensor input, int64_t[] dims = {}) -> Tensor(out)
-  args : (Tensor input, Tensor out_grad, int64_t[] dims = {})
-  output : Tensor(input_grad)
-  infer_meta :
-    func : StridedUnChangedInferMeta
-    param : [input]
-  kernel :
-    func : view_shape_grad
 
 - backward_op : warpctc_grad
   forward : warpctc (Tensor logits, Tensor label, Tensor logits_length, Tensor labels_length, int blank = 0, bool norm_by_times = false) -> Tensor(loss), Tensor(warpctcgrad)
