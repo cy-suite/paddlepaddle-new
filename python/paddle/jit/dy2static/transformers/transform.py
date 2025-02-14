@@ -24,7 +24,7 @@ from paddle.framework import use_pir_api
 from .. import logging_utils
 from ..utils import ast_to_source_code
 from .assert_transformer import AssertTransformer
-from .base import BaseTransformer
+from .base import BaseTransformer, ForLoopTuplePreTransformer
 from .break_continue_transformer import (
     BreakContinueTransformer,
     BreakTransformOptimizer,
@@ -101,6 +101,7 @@ class DygraphToStaticAst(BaseTransformer):
             EarlyReturnTransformer,
             AttributeJstTransformer,  # Tensor.size -> Tensor.size(), it's unnecessary in PIR mode
             TensorShapeTransformer,  # Tensor.shape -> paddle.shape(Tensor)
+            ForLoopTuplePreTransformer,  # transform all for loops to `for A in B` pattern
             BreakContinueTransformer,  # break/continue in loops
             ReturnTransformer,  # return in functions
             LogicalTransformer,  # logical and/or/not

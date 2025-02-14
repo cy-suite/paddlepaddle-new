@@ -24,7 +24,6 @@ from ..utils import (
 )
 from .base import (
     BaseTransformer,
-    ForLoopTuplePreTransformer,
     ForNodeVisitor,
 )
 from .utils import (
@@ -480,7 +479,6 @@ class LoopTransformer(BaseTransformer):
         FunctionNameLivenessAnalysis(self.root)
 
     def transform(self):
-        ForLoopTuplePreTransformer(self.root).transform()
         self.visit(self.root)
 
     def visit_While(self, node):
@@ -545,8 +543,6 @@ class LoopTransformer(BaseTransformer):
             iter_var_name = current_for_node_parser.iter_var_name
             iter_idx_name = current_for_node_parser.iter_idx_name
             loop_var_names.add(iter_idx_name)
-            if current_for_node_parser.enum_idx_name is not None:
-                loop_var_names.add(current_for_node_parser.enum_idx_name)
 
         # 3. prepare result statement list
         new_stmts = []

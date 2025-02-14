@@ -124,6 +124,8 @@ def convert_load(x):
 
 
 def indexable(x, code=None):
+    if paddle.in_dynamic_mode():
+        return x
     if isinstance(x, (Variable, Value)):
         return x
     elif hasattr(x, '__iter__'):
