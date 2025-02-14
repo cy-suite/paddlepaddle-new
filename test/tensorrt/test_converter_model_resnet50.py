@@ -132,7 +132,7 @@ class TestConverterResNet50(unittest.TestCase):
         predictor = paddle_infer.create_predictor(config)
         output_trt_int8 = predictor.run([image])
 
-        # Check that the results are close to each other within a tolerance of 1e-3
+        # Check that the results are close to each other within a tolerance of 0.9
         np.testing.assert_allclose(
             output_fp32,
             output_trt_int8[0],
