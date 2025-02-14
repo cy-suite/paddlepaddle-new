@@ -64,8 +64,7 @@ TuplePushInstruction::TuplePushInstruction(size_t id,
 
   std::unordered_map<pir::Value, std::vector<int>> inputs;
   for (size_t i = 0; i < tuple_push_op_.tuple_size(); ++i) {
-    auto inlet_element_value = tuple_push_op_.inl std::cout << "input i" << i
-                                                            << std::endl;
+    auto inlet_element_value = tuple_push_op_.inlet_element(i);
     if (inlet_element_value.type()) {
       inputs.emplace(inlet_element_value,
                      GetValueIds(inlet_element_value, *value_exe_info_));
