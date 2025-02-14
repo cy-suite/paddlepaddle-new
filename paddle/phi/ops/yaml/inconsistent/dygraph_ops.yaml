@@ -395,4 +395,3 @@
   kernel :
     func : view_shape
   backward : view_shape_grad
-  interfaces : paddle::dialect::InferSymbolicShapeInterface
