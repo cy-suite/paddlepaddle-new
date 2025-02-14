@@ -672,7 +672,7 @@ class PADDLE_API Tensor final {
 
   std::shared_ptr<phi::TensorBase> get_impl() const;
 
-  const Tensor& _fw_primal(int64_t level) const;
+  Tensor _fw_primal(int64_t level) const;
 
  private:
   /**

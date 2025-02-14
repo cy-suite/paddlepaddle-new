@@ -214,7 +214,7 @@ class TEST_API EagerUtils {
                               : ForwardGrad::undef_grad();
   }
 
-  static const paddle::Tensor& toNonOptPrimal(const paddle::Tensor& t) {
+  static paddle::Tensor toNonOptPrimal(const paddle::Tensor& t) {
     if (t.has_allocation()) {
       // if (t->unsafeGetTensorImpl()->is_wrapped_number()) {
       //   return *t;
