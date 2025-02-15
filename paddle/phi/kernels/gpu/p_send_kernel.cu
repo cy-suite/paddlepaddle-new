@@ -70,9 +70,9 @@ void PSendArrayKernel(const Context& dev_ctx,
             << common::product(x.dims()) << " to " << peer;
   }
 #else
-  PADDLE_THROW(errors::PreconditionNotMet(
-      "PaddlePaddle should compile with GPU."
-      "and NCCL version >= 2.7.3 is needed, or with XPU support."));
+  PADDLE_THROW(
+      errors::PreconditionNotMet("PaddlePaddle should compile with GPU."
+                                 "and NCCL version >= 2.7.3 is needed."));
 #endif
 }
 

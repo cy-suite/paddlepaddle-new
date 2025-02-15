@@ -52,8 +52,7 @@ void PRecvKernel(const Context& dev_ctx,
   comm_ctx->Recv(out, out->numel(), peer, stream);
 #else
   PADDLE_THROW(
-      errors::PreconditionNotMet("PaddlePaddle should compile with GPU."
-                                 "and NCCL version >= 2.7.3 is needed."));
+      errors::PreconditionNotMet("PaddlePaddle should compile with XPU."));
 #endif
 }
 
@@ -79,8 +78,7 @@ void PRecvArrayKernel(const Context& dev_ctx,
   }
 #else
   PADDLE_THROW(
-      errors::PreconditionNotMet("PaddlePaddle should compile with GPU."
-                                 "and NCCL version >= 2.7.3 is needed."));
+      errors::PreconditionNotMet("PaddlePaddle should compile with XPU."));
 #endif
 }
 
