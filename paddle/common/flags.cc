@@ -1726,19 +1726,6 @@ PHI_DEFINE_EXPORTED_int64(alloc_fill_value,
                           "Whether to fill fixed value after allocation. "
                           "This is useful for debugging.");
 
-/**
- * Apply shape optimization pass to PIR FLAG
- * Name: pir_apply_shape_optimization_pass
- * Since Version: 3.0.0
- * Value Range: bool, default=false
- * Example:
- * Note: If True, will apply shape_optimization pass to PIR.
- */
-PHI_DEFINE_EXPORTED_bool(pir_apply_shape_optimization_pass,
-                         false,
-                         "Whether to apply shape_optimization pass "
-                         "to infer symbolic shape");
-
 PHI_DEFINE_EXPORTED_int64(
     pir_broadcast_tree_limit,
     32,
@@ -1889,7 +1876,7 @@ PHI_DEFINE_EXPORTED_string(
     mkl_dir,  // NOLINT
     "",
     "Specify path for loading libmkl_rt.so. "
-    "For insrance, /opt/intel/oneapi/mkl/latest/lib/intel64/."
+    "For instance, /opt/intel/oneapi/mkl/latest/lib/intel64/."
     "If default, "
     "dlopen will search mkl from LD_LIBRARY_PATH");
 

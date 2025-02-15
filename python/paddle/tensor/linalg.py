@@ -2748,7 +2748,7 @@ def mv(x: Tensor, vec: Tensor, name: str | None = None) -> Tensor:
             For more information, please refer to :ref:`api_guide_Name`. Default is None.
 
     Returns:
-        Tensor: The tensor which is producted by x and vec.
+        Tensor: The tensor which is produced by x and vec.
 
     Examples:
         .. code-block:: python
@@ -2931,7 +2931,7 @@ def svd(
     Let :math:`X` be the input matrix or a batch of input matrices, the output should satisfies:
 
     .. math::
-        X = U * diag(S) * VT
+        X = U * diag(S) * V^{H}
 
     Args:
         x (Tensor): The input tensor. Its shape should be `[..., N, M]`,
@@ -3011,7 +3011,7 @@ def svdvals(x: Tensor, name: str | None = None) -> Tensor:
     produced by singular value decomposition:
 
     .. math::
-        X = U * diag(S) * VH
+        X = U * diag(S) * V^{H}
 
     Args:
         x (Tensor): The input tensor. Its shape should be `[..., M, N]`, where
@@ -3092,12 +3092,12 @@ def svd_lowrank(
     If :math:`X` is the input matrix or a batch of input matrices, the output should satisfies:
 
     .. math::
-        X \approx U * diag(S) * V^{T}
+        X \approx U * diag(S) * V^{H}
 
     When :math:`M` is given, the output should satisfies:
 
     .. math::
-        X - M \approx U * diag(S) * V^{T}
+        X - M \approx U * diag(S) * V^{H}
 
     Args:
         x (Tensor): The input tensor. Its shape should be `[..., N, M]`, where `...` is
