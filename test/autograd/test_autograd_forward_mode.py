@@ -16,14 +16,15 @@ import sys
 import unittest
 
 import numpy as np
+from parameterized import parameterized
 
 import paddle
 
 sys.path.insert(0, '.')
 
 
-class TestFwdADContext(unittest.TestCase):
-    def test_enter_exit_dual_level(self):
+class TestDualContext(unittest.TestCase):
+    def test_dual_level(self):
         paddle.autograd.enter_dual_level()
         assert (
             paddle.autograd.forward_mode._current_level == 0
@@ -33,17 +34,59 @@ class TestFwdADContext(unittest.TestCase):
             paddle.autograd.forward_mode._current_level == -1
         ), "The current dual level should be -1."
 
-    def test_dual_tensor_deconstruct(self):
-        x = paddle.randn([10, 10])
+    @parameterized.expand(
+        [
+            (True, True),
+            (False, True),
+            (True, False),
+            (False, False),
+        ]
+    )
+    def test_make_dual(self, x_p_st, x_t_st):
+        # test stop_gradient should be same with primal
+        x_p = paddle.randn([10, 10])
+        x_p.stop_gradient = x_p_st
         with paddle.autograd.dual_level():
-            x_t = paddle.randn(x.shape)
-            x_dual = paddle.autograd.make_dual(x, x_t)
-            x_p, x_t = paddle.autograd.unpack_dual(x_dual)
-            self.assertIsInstance(x_p, paddle.Tensor)
-            self.assertIsInstance(x_t, paddle.Tensor)
-        x_p, x_t = paddle.autograd.unpack_dual(x_dual)
-        self.assertIsInstance(x_p, paddle.Tensor)
-        self.assertTrue(x_t is None)
+            x_t = paddle.randn(x_p.shape)
+            x_t.stop_gradient = x_t_st
+            x_dual = paddle.autograd.make_dual(x_p, x_t)
+            self.assertIsInstance(x_dual, paddle.Tensor)
+            self.assertEqual(x_dual.stop_gradient, x_p_st)
+
+    @parameterized.expand(
+        [
+            (True, True),
+            (False, True),
+            (True, False),
+            (False, False),
+        ]
+    )
+    def test_unpack_dual(self, x_p_st, x_t_st):
+        # test stop_gradient unchanged through make/unpack dual
+        # and gradient chain should be built correctly between
+        # (primal, UnpackedDualTensor.primal) and (tangent, UnpackedDualTensor.tangent)
+        x_p = paddle.randn([10, 10])
+        x_p.stop_gradient = x_p_st
+        with paddle.autograd.dual_level():
+            x_t = paddle.randn(x_p.shape)
+            x_t.stop_gradient = x_t_st
+            x_dual = paddle.autograd.make_dual(x_p, x_t)
+            x_p_identity, x_t_view = paddle.autograd.unpack_dual(x_dual)
+            self.assertEqual(x_p.data_ptr(), x_p_identity.data_ptr())
+            self.assertIsInstance(x_p_identity, paddle.Tensor)
+            self.assertIsInstance(x_t_view, paddle.Tensor)
+            self.assertEqual(x_p_identity.stop_gradient, x_p_st)
+            self.assertEqual(x_t_view.stop_gradient, x_t_st)
+
+            if not x_p_st:
+                v = paddle.randn(x_p.shape)
+                dx_p = paddle.grad(x_p_identity, x_p, v)[0]
+                np.testing.assert_allclose(v.numpy(), dx_p.numpy())
+
+            if not x_t_st:
+                v = paddle.randn(x_t.shape)
+                dx_t = paddle.grad(x_t_view, x_t, v)[0]
+                np.testing.assert_allclose(v.numpy(), dx_t.numpy())
 
     def test_reverse_on_forward(self):
         x = paddle.randn([100, 100])

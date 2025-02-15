@@ -586,6 +586,7 @@ std::shared_ptr<phi::TensorBase> Tensor::get_impl() const {
 Tensor Tensor::_fw_primal(int64_t level) const {
   // discard the fw grads reserved in autogradmeta
   // return a pure primal Tensor
+  // Here the returned Tensor has no autograd_meta_
   return Tensor(this->impl(), this->name());
 }
 

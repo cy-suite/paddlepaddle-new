@@ -5,4 +5,4 @@ add_subdirectory(generated)
 cc_library(
   eager_api
   SRCS all.cc
-  DEPS hook_utils global_utils eager_scale)
+  DEPS hook_utils global_utils eager_scale eager_fw_primal)

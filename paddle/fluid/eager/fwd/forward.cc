@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "paddle/fluid/eager/fwd/forward.h"
+#include "/workspace/hesensen/Paddle_JH/paddle/fluid/eager/api/generated/eager_generated/forwards/fw_primal.h"
 #include "paddle/fluid/eager/api/generated/eager_generated/forwards/dygraph_functions.h"
 #include "paddle/fluid/eager/fwd/forward_grad.h"
 
@@ -48,8 +49,8 @@ paddle::Tensor make_dual(const paddle::Tensor& primal,
 
 std::tuple<paddle::Tensor, paddle::Tensor> unpack_dual(
     const paddle::Tensor& tensor, int64_t level) {
-  return std::tuple<paddle::Tensor, paddle::Tensor>(tensor,
-                                                    tensor._fw_grad(level));
+  return std::tuple<paddle::Tensor, paddle::Tensor>(
+      egr::fw_primal(tensor, level, true), tensor._fw_grad(level));
 }
 
 // } // namespace forward_ad

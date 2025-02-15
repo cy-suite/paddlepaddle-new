@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "paddle/fluid/eager/api/generated/eager_generated/forwards/fw_primal.h"
 #include "paddle/fluid/eager/autograd_meta.h"
 #include "paddle/fluid/eager/eager_tensor.h"
 #include "paddle/fluid/eager/fwd/forward_grad.h"
@@ -216,12 +217,10 @@ class TEST_API EagerUtils {
 
   static paddle::Tensor toNonOptPrimal(const paddle::Tensor& t) {
     if (t.has_allocation()) {
-      // if (t->unsafeGetTensorImpl()->is_wrapped_number()) {
-      //   return *t;
-      // } // 当t是一个单数字时，直接返回自己，因为数字本身的primal就是自己
-      return t._fw_primal(/* level */ 0);  // 否则返回0级primal
+      return egr::fw_primal(t, /* level */ 0, true);
+      // return t._fw_primal(/* level */ 0);  // 否则返回0级primal
     }
-    return ForwardGrad::undef_grad();  // 返回一个空的primal
+    return ForwardGrad::undef_grad();  // 返回一个临时的primal
   }
 
   template <typename T, typename... Args>
