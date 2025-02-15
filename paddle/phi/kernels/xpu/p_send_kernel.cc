@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "paddle/phi/kernels/p_send_kernel.h"
-#include "paddle/phi/kernels/funcs/send_recv_functor.h"
 
 #include "glog/logging.h"
 
@@ -21,6 +20,7 @@
 #include "paddle/phi/common/memory_utils.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/core/utils/data_type.h"
+#include "paddle/phi/kernels/funcs/send_recv_functor.h"
 
 #if defined(PADDLE_WITH_XPU_BKCL)
 #include "paddle/phi/core/distributed/bkcl_comm_context.h"
@@ -34,20 +34,15 @@ void PSendKernel(const Context& dev_ctx,
                  int peer,
                  bool dynamic_shape) {
 #if defined(PADDLE_WITH_XPU_BKCL)
-  VLOG(0) << "debug point0";
   auto comm_ctx =
       GetCommContext<Context, distributed::BKCLCommContext>(dev_ctx, peer);
-  VLOG(0) << "debug point1";
   XPUStream stream = dev_ctx.stream();
-  VLOG(0) << "debug point2";
   if (dynamic_shape) {
     send_shape_info<Context, distributed::BKCLCommContext, XPUStream>(
         dev_ctx, x, comm_ctx, peer, stream);
   }
-  VLOG(0) << "debug point3";
 
   comm_ctx->Send(x, x.numel(), peer, stream);
-  VLOG(0) << "debug point4";
 #else
   PADDLE_THROW(
       errors::PreconditionNotMet("PaddlePaddle should compile with GPU."

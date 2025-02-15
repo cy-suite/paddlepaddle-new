@@ -12,15 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/phi/kernels/funcs/send_recv_functor.h"
-#include "paddle/phi/kernels/p_send_kernel.h"
+#include "paddle/phi/kernels/p_recv_kernel.h"
 
 #include "glog/logging.h"
 
 #include "paddle/phi/backends/all_context.h"
 #include "paddle/phi/common/memory_utils.h"
 #include "paddle/phi/core/kernel_registry.h"
-#include "paddle/phi/core/utils/data_type.h"
+#include "paddle/phi/kernels/funcs/send_recv_functor.h"
 
 #if defined(PADDLE_WITH_NCCL) || \
     defined(PADDLE_WITH_RCCL) && NCCL_VERSION_CODE >= 2703
