@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include "paddle/phi/infermeta/binary.h"
 #include "paddle/phi/kernels/funcs/blas/blas.h"
 #include "paddle/phi/kernels/funcs/math_function.h"
 #include "paddle/phi/kernels/funcs/matrix_solve.h"
@@ -26,45 +27,56 @@
 namespace phi {
 
 template <typename T, typename Context>
+DenseTensor GetMH(const Context& dev_ctx, const DenseTensor x) {
+  DenseTensor x_mH;
+  phi::Tensor_Conj<Context, T>(dev_ctx, x, &x_mH);
+  return phi::Transpose2DTo6D<Context, T>(dev_ctx, x_mH);
+}
+
+template <typename T, typename Context>
 void LuSolveGradKernel(const Context& dev_ctx,
-                       const DenseTensor& x,
+                       const DenseTensor& b,
                        const DenseTensor& lu,
                        const DenseTensor& pivots,
                        const DenseTensor& out,
                        const DenseTensor& out_grad,
                        const std::string& trans,
-                       DenseTensor* x_grad,
+                       DenseTensor* b_grad,
                        DenseTensor* lu_grad) {
-  if (x_grad != nullptr) {
+  if (b_grad != nullptr) {
+    dev_ctx.template Alloc<T>(b_grad);
     std::string trans_t = (trans == "N") ? "T" : "N";
     phi::LuSolveKernel<T, Context>(
-        dev_ctx, out_grad, lu, pivots, trans_t, x_grad);
+        dev_ctx, out_grad, lu, pivots, trans_t, b_grad);
   }
 
   if (lu_grad != nullptr) {
+    dev_ctx.template Alloc<T>(lu_grad);
+
     DenseTensor p, l, u, l_mH, u_mH;
+    MetaTensor meta_p(&p);
+    MetaTensor meta_l(&l);
+    MetaTensor meta_u(&u);
     bool unpack_pivots = (trans == "N") ? false : true;
+    LUUnpackInferMeta(
+        lu, pivots, true, unpack_pivots, &meta_p, &meta_l, &meta_u);
     phi::LUUnpackKernel<T, Context>(
         dev_ctx, lu, pivots, true, unpack_pivots, &p, &l, &u);
-
-    phi::Tensor_Conj<Context, T>(dev_ctx, u, &l_mH);
-    l_mH = phi::Transpose2DTo6D<Context, T>(dev_ctx, l_mH);
-
-    phi::Tensor_Conj<Context, T>(dev_ctx, u, &u_mH);
-    u_mH = phi::Transpose2DTo6D<Context, T>(dev_ctx, u_mH);
+    l_mH = GetMH<T, Context>(dev_ctx, l);
+    u_mH = GetMH<T, Context>(dev_ctx, u);
     if (trans == "N") {
       // gR = U^{-H}op_2(-gX)op_2(X)^Ha
       DenseTensor gR, psi_tmp, out_mH;
-      phi::Tensor_Conj<Context, T>(dev_ctx, out, &out_mH);
-      out_mH = phi::Transpose2DTo6D<Context, T>(dev_ctx, out_mH);
+      out_mH = GetMH<T, Context>(dev_ctx, out);
 
       auto blas = phi::funcs::GetBlas<Context, T>(dev_ctx);
       auto out_grad_dims = out_grad.dims();
       auto mat_dim_l =
           phi::funcs::CreateMatrixDescriptor(out_grad_dims, 0, false);
       auto out_mH_dims = out_mH.dims();
-      auto mat_dim_g = phi::funcs::CreateMatrixDescriptor(out_mH_dims, 0, true);
-      psi_tmp.Resize(out_grad_dims);
+      auto mat_dim_g =
+          phi::funcs::CreateMatrixDescriptor(out_mH_dims, 0, false);
+      psi_tmp.Resize(lu.dims());
       dev_ctx.template Alloc<T>(&psi_tmp);
       blas.MatMul(out_grad,
                   mat_dim_l,
@@ -81,7 +93,7 @@ void LuSolveGradKernel(const Context& dev_ctx,
       auto gr_dims = gR.dims();
       auto mat_dim_r = phi::funcs::CreateMatrixDescriptor(gr_dims, 0, false);
       auto gu_dims = u_mH.dims();
-      auto mat_dim_u = phi::funcs::CreateMatrixDescriptor(gu_dims, 0, true);
+      auto mat_dim_u = phi::funcs::CreateMatrixDescriptor(gu_dims, 0, false);
       mul_tmp.Resize(gr_dims);
       dev_ctx.template Alloc<T>(&mul_tmp);
       blas.MatMul(gR,
@@ -92,7 +104,7 @@ void LuSolveGradKernel(const Context& dev_ctx,
                   &mul_tmp,
                   static_cast<T>(0));
       phi::TriangularSolveKernel<T, Context>(
-          dev_ctx, l_mH, mul_tmp, true, true, true, &gL);
+          dev_ctx, l_mH, mul_tmp, true, false, true, &gL);
 
       auto phil_rank = gL.dims().size();
       auto phir_rank = gR.dims().size();
@@ -121,8 +133,9 @@ void LuSolveGradKernel(const Context& dev_ctx,
       auto PmTdims = p_mT.dims();
       auto Outdims = out.dims();
       auto mat_dim_p = phi::funcs::CreateMatrixDescriptor(PmTdims, 0, false);
-      auto mat_dim_o = phi::funcs::CreateMatrixDescriptor(Outdims, 0, true);
-      tem_out.Resize(PmTdims);
+      auto mat_dim_o = phi::funcs::CreateMatrixDescriptor(Outdims, 0, false);
+      tem_out.Resize(Outdims);
+      dev_ctx.template Alloc<T>(&tem_out);
       auto blas = phi::funcs::GetBlas<Context, T>(dev_ctx);
       // gR = -P^T op_3(X)op_1(op_2(gX))P
       blas.MatMul(p_mT,
@@ -132,16 +145,15 @@ void LuSolveGradKernel(const Context& dev_ctx,
                   static_cast<T>(-1),
                   &tem_out,
                   static_cast<T>(0));
-
-      Tensor_Conj<Context, T>(dev_ctx, out_grad, &out_grad_mH);
-      out_grad_mH = Transpose2DTo6D<Context, T>(dev_ctx, out_grad_mH);
+      out_grad_mH = GetMH<T, Context>(dev_ctx, out_grad);
       auto TemOutdims = tem_out.dims();
       auto OutGradmHdims = out_grad_mH.dims();
       auto mat_dim_tem_out =
           phi::funcs::CreateMatrixDescriptor(TemOutdims, 0, false);
       auto mat_dim_out_grad_mH =
-          phi::funcs::CreateMatrixDescriptor(OutGradmHdims, 0, true);
-      tem_out1.Resize(TemOutdims);
+          phi::funcs::CreateMatrixDescriptor(OutGradmHdims, 0, false);
+      tem_out1.Resize(lu.dims());
+      dev_ctx.template Alloc<T>(&tem_out1);
       blas.MatMul(tem_out,
                   mat_dim_tem_out,
                   out_grad_mH,
@@ -153,8 +165,9 @@ void LuSolveGradKernel(const Context& dev_ctx,
       auto pdims = p.dims();
       auto mat_dim_tem_out1 =
           phi::funcs::CreateMatrixDescriptor(TemOutdims1, 0, false);
-      auto mat_dim_p1 = phi::funcs::CreateMatrixDescriptor(pdims, 0, true);
+      auto mat_dim_p1 = phi::funcs::CreateMatrixDescriptor(pdims, 0, false);
       tem_out2.Resize(TemOutdims1);
+      dev_ctx.template Alloc<T>(&tem_out2);
       blas.MatMul(tem_out1,
                   mat_dim_tem_out1,
                   p,
@@ -164,13 +177,14 @@ void LuSolveGradKernel(const Context& dev_ctx,
                   static_cast<T>(0));
       // gR = gR L^{-H}
       phi::TriangularSolveKernel<T, Context>(
-          dev_ctx, l_mH, tem_out2, true, false, true, &gR);
+          dev_ctx, l_mH, tem_out2, true, true, true, &gR);
       // gU = (L^H gR U^{-H}).triu()
       auto LmHdims = l_mH.dims();
       auto gRdims = gR.dims();
       auto mat_dim_l_mh = phi::funcs::CreateMatrixDescriptor(LmHdims, 0, false);
-      auto mat_dim_gr = phi::funcs::CreateMatrixDescriptor(gRdims, 0, true);
+      auto mat_dim_gr = phi::funcs::CreateMatrixDescriptor(gRdims, 0, false);
       tem_out3.Resize(LmHdims);
+      dev_ctx.template Alloc<T>(&tem_out3);
       blas.MatMul(l_mH,
                   mat_dim_l_mh,
                   gR,
@@ -179,7 +193,7 @@ void LuSolveGradKernel(const Context& dev_ctx,
                   &tem_out3,
                   static_cast<T>(0));
       phi::TriangularSolveKernel<T, Context>(
-          dev_ctx, u_mH, tem_out3, false, false, false, &gU);
+          dev_ctx, u_mH, tem_out3, false, true, false, &gU);
 
       auto phiu_rank = gU.dims().size();
       auto phir_rank = gR.dims().size();

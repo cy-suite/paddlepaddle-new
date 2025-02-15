@@ -20,7 +20,7 @@ namespace phi {
 
 template <typename T, typename Context>
 void LuSolveKernel(const Context& dev_ctx,
-                   const DenseTensor& x,
+                   const DenseTensor& b,
                    const DenseTensor& lu,
                    const DenseTensor& pivots,
                    const std::string& trans,

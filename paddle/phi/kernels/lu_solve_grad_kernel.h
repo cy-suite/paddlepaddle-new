@@ -20,13 +20,13 @@ namespace phi {
 
 template <typename T, typename Context>
 void LuSolveGradKernel(const Context& dev_ctx,
-                       const DenseTensor& x,
+                       const DenseTensor& b,
                        const DenseTensor& lu,
                        const DenseTensor& pivots,
                        const DenseTensor& out,
                        const DenseTensor& out_grad,
                        const std::string& trans,
-                       DenseTensor* x_grad,
+                       DenseTensor* b_grad,
                        DenseTensor* lu_grad);
 
 }  // namespace phi

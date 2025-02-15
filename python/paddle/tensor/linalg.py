@@ -3578,7 +3578,7 @@ def lu(
 
 def lu_solve(
     b: Tensor,
-    lu_data: Tensor,
+    lu: Tensor,
     pivots: Tensor,
     trans: str = "N",
     name=None,
@@ -3586,19 +3586,19 @@ def lu_solve(
     r"""
     Computes the solution y to the system of linear equations :math:`Ay = b` ,
     given LU decomposition :math:`A` and column vector :math:`b`.
+
     Args:
-        b (Tensor): Column vector `b` in the above equation. It has shape :math:`(*, m, k)`,
-            where :math:`*` is batch dimensions, with data type float32, float16.
-        lu_data (Tensor): LU decomposition. It has shape :math:`(*, m, m)`, where :math:`*` is batch
-            dimensions, that can be decomposed into an upper triangular matrix U and a lower triangular
-            matrix L, with data type float32, float16.
-        pivots (Tensor): Permutation matrix P of LU decomposition. It has
-            shape :math:`(*, m)`, where :math:`*` is batch dimensions, that can be converted
-            to a permutation matrix P, with data type int32.
-        trans (str): The transpose of the matrix A. It can be "N" , "T" or "C,
+        b (Tensor): Column vector `b` in the above equation. It has shape :math:`(*, m, k)`, where :math:`*` is batch dimensions, with data type float32, float16.
+
+        lu (Tensor): LU decomposition. It has shape :math:`(*, m, m)`, where :math:`*` is batch dimensions, that can be decomposed into an upper triangular matrix U and a lower triangular matrix L, with data type float32, float16.
+
+        pivots (Tensor): Permutation matrix P of LU decomposition. It has shape :math:`(*, m)`, where :math:`*` is batch dimensions, that can be converted to a permutation matrix P, with data type int32.
+
+        trans (str): The transpose of the matrix A. It can be "N" , "T" or "C", default is "N".
 
     Returns:
-        Tensor, the same data type as the `b` and `lu_data`.
+        Tensor, the same data type as the `b` and `lu`.
+
     Examples:
         >>> import paddle
         >>> import numpy as np
@@ -3617,59 +3617,58 @@ def lu_solve(
         raise ValueError(
             f'`b` dimension must be gather than 2, but got {len(b.shape)}'
         )
-    if lu_data.ndim < 2:
+    if lu.ndim < 2:
         raise ValueError(
-            f'`lu_data` dimension must be gather than 2, but got {len(lu_data.shape)}'
+            f'`lu` dimension must be gather than 2, but got {len(lu.shape)}'
         )
     if pivots.ndim < 1:
         raise ValueError(
             f'`pivots` dimension must be gather than 1, but got {len(pivots.shape)}'
         )
-    if b.shape[-2] != lu_data.shape[-2]:
+    if b.shape[-2] != lu.shape[-2]:
         raise ValueError(
-            f'the rows of `b` must be equal to the rows of `lu_data`, but got {b.shape[-2]} and {lu_data.shape[-2]}'
+            f'the rows of `b` must be equal to the rows of `lu`, but got {b.shape[-2]} and {lu.shape[-2]}'
         )
-    if lu_data.shape[-1] != lu_data.shape[-2]:
+    if lu.shape[-1] != lu.shape[-2]:
         raise ValueError(
-            f'`lu_data` shape[-1] must be equal to `lu_data` shape[-2], but got {lu_data.shape[-1]} and {lu_data.shape[-2]}'
+            f'`lu` shape[-1] must be equal to `lu` shape[-2], but got {lu.shape[-1]} and {lu.shape[-2]}'
         )
-    if pivots.shape[-1] != lu_data.shape[-1]:
+    if pivots.shape[-1] != lu.shape[-1]:
         raise ValueError(
-            f'`pivots` shape[-1] must be equal to `lu_data` shape[-1], but got {pivots.shape[-1]} and {lu_data.shape[-1]}'
+            f'`pivots` shape[-1] must be equal to `lu` shape[-1], but got {pivots.shape[-1]} and {lu.shape[-1]}'
         )
-    temp_shape = broadcast_shape(b.shape[:-2], lu_data.shape[:-2])
+    temp_shape = broadcast_shape(b.shape[:-2], lu.shape[:-2])
     batch_shape = broadcast_shape(temp_shape, pivots.shape[:-1])
     b = (
         b
         if b.shape[:-2] == batch_shape
         else paddle.broadcast_to(b, batch_shape + b.shape[-2:])
     )
-    # 实数的共轭矩阵和转置矩阵相同
     trans = trans if trans == "N" else "T"
     pivots = (
         pivots
         if pivots.shape[:-1] == batch_shape
         else paddle.broadcast_to(pivots, batch_shape + pivots.shape[-1:])
     )
-    lu_data = (
-        lu_data
-        if lu_data.shape[:-2] == batch_shape
-        else paddle.broadcast_to(lu_data, batch_shape + lu_data.shape[-2:])
+    lu = (
+        lu
+        if lu.shape[:-2] == batch_shape
+        else paddle.broadcast_to(lu, batch_shape + lu.shape[-2:])
     )
     pivots.stop_gradient = True
     if in_dynamic_or_pir_mode():
-        out = _C_ops.lu_solve(b, lu_data, pivots, trans)
+        out = _C_ops.lu_solve(b, lu, pivots, trans)
     else:
         check_variable_and_dtype(b, 'dtype', ['float32', 'float64'], 'lu_solve')
         check_variable_and_dtype(
-            lu_data, 'dtype', ['float32', 'float64'], 'lu_solve'
+            lu, 'dtype', ['float32', 'float64'], 'lu_solve'
         )
         check_variable_and_dtype(pivots, 'dtype', ['int32'], 'lu_solve')
         helper = LayerHelper('lu_solve', **locals())
         out = helper.create_variable_for_type_inference(dtype=b.dtype)
         helper.append_op(
             type='lu_solve',
-            inputs={'X': b, 'Lu': lu_data, 'Pivots': pivots},
+            inputs={'B': b, 'Lu': lu, 'Pivots': pivots},
             outputs={'Out': out},
             attrs={'trans': trans},
         )

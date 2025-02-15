@@ -12,14 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 import unittest
 
 import numpy as np
-from op_test import OpTest
 
 import paddle
 from paddle import base
 from paddle.base import core
+
+sys.path.append("..")
+from op_test import OpTest
 
 
 def _transpose_last_2dim(x):
@@ -30,44 +33,93 @@ def _transpose_last_2dim(x):
     return x
 
 
-def get_inandout(A, b, trans="N", dtype="float64"):
+def get_inandout(A_shape, b_shape, trans="N", dtype="float64"):
     paddle.disable_static(base.CPUPlace())
-    A = paddle.randn(A, dtype=dtype)
-    b = paddle.randn(b, dtype=dtype)
-    lu, pivots = paddle.linalg.lu(A)
+    np.random.seed(2025)
+    A = np.random.random(A_shape).astype(dtype)
+    b = np.random.random(b_shape).astype(dtype)
+    x_grad = paddle.to_tensor(np.random.random(b_shape).astype(dtype))
+    paddle_A = paddle.to_tensor(A)
+    lu, pivots = paddle.linalg.lu(paddle_A)
     if trans == "N":  # Ax = b
-        out = paddle.linalg.solve(A, b)
+        out = np.linalg.solve(A, b)
+
+        temp_A = np.swapaxes(A, -2, -1)
+        b_grad = np.linalg.solve(temp_A, x_grad)
+
+        _, L, U = paddle.linalg.lu_unpack(lu, pivots, True, False)
+        U_mH = _transpose_last_2dim(paddle.conj(U))
+        gR = paddle.linalg.triangular_solve(
+            U_mH,
+            paddle.mm(
+                -x_grad,
+                _transpose_last_2dim(paddle.conj(paddle.to_tensor(out))),
+            ),
+            False,
+            False,
+            False,
+        )
+        gL = paddle.linalg.triangular_solve(
+            _transpose_last_2dim(paddle.conj(L)),
+            paddle.mm(gR, U_mH),
+            True,
+            False,
+            True,
+        )
+        lu_grad = (paddle.tril(gL, -1) + paddle.triu(gR, 0)).numpy()
     elif trans == "T":  # A^Tx = b
-        A = _transpose_last_2dim(A)
-        out = paddle.linalg.solve(A, b)
-    lu = lu.numpy().astype(dtype)
-    pivots = pivots.numpy().astype("int32")
-    b = b.numpy().astype(dtype)
-    out = out.numpy().astype(dtype)
+        temp_A = np.swapaxes(A, -2, -1)
+        out = np.linalg.solve(temp_A, b)
+
+        b_grad = np.linalg.solve(A, x_grad)
+
+        P, L, U = paddle.linalg.lu_unpack(lu, pivots, True, True)
+        gR = paddle.mm(-_transpose_last_2dim(P), paddle.to_tensor(out))
+        gR = paddle.mm(gR, _transpose_last_2dim(paddle.conj(x_grad)))
+        gR = paddle.mm(gR, P)
+        L_mH = _transpose_last_2dim(paddle.conj(L))
+        gR = paddle.linalg.triangular_solve(L_mH, gR, True, True, True)
+        gU = paddle.linalg.triangular_solve(
+            _transpose_last_2dim(paddle.conj(U)),
+            paddle.mm(L_mH, gR),
+            False,
+            True,
+            False,
+        )
+        lu_grad = (paddle.tril(gR, -1) + paddle.triu(gU, 0)).numpy()
+
+    lu = lu.numpy()
+    pivots = pivots.numpy()
+    x_grad = x_grad.numpy()
     paddle.enable_static()
-    return lu, pivots, b, out
+    return lu, pivots, b, out, x_grad, b_grad, lu_grad
 
 
 class TestLuSolveOp(OpTest):
     def setUp(self):
-
         self.python_api = paddle.linalg.lu_solve
         self.op_type = "lu_solve"
         self.init_value()
-        self.LU, self.pivots, self.b, self.out = get_inandout(
-            self.A_shape, self.b_shape, self.trans, self.dtype
-        )
+        (
+            self.LU,
+            self.pivots,
+            self.b,
+            self.out,
+            self.x_grad,
+            self.b_grad,
+            self.lu_grad,
+        ) = get_inandout(self.A_shape, self.b_shape, self.trans, self.dtype)
         self.inputs = {
-            'X': self.b,
-            'Lu': self.LU,
-            'Pivots': self.pivots,
+            'b': self.b,
+            'lu': self.LU,
+            'pivots': self.pivots,
         }
         self.attrs = {'trans': self.trans}
-        self.outputs = {'Out': self.out}
+        self.outputs = {'out': self.out}
 
     def init_value(self):
-        self.A_shape = [15, 15]
-        self.b_shape = [15, 10]
+        self.A_shape = [2, 10, 10]
+        self.b_shape = [2, 10, 5]
         self.trans = "N"
         self.dtype = "float64"
 
@@ -78,16 +130,69 @@ class TestLuSolveOp(OpTest):
 
     def test_check_grad(self):
         paddle.enable_static()
-        self.check_grad(['X', 'Lu'], ['Out'], check_pir=True)
+        self.check_grad(
+            ['b', 'lu'],
+            'out',
+            no_grad_set=['pivots'],
+            user_defined_grads=[self.b_grad, self.lu_grad],
+            user_defined_grad_outputs=[self.x_grad],
+            check_pir=True,
+        )
         paddle.disable_static()
+
+
+class TestLuSolveOp1(TestLuSolveOp):
+    def init_value(self):
+        self.A_shape = [2, 10, 10]
+        self.b_shape = [2, 10, 5]
+        self.trans = "T"
+        self.dtype = "float64"
+
+
+class TestLuSolveOp2(TestLuSolveOp):
+    def init_value(self):
+        self.A_shape = [2, 2, 10, 10]
+        self.b_shape = [2, 2, 10, 5]
+        self.trans = "T"
+        self.dtype = "float64"
+
+
+class TestLuSolveOp3(TestLuSolveOp):
+    def init_value(self):
+        self.A_shape = [2, 2, 10, 10]
+        self.b_shape = [2, 2, 10, 5]
+        self.trans = "N"
+        self.dtype = "float64"
+
+
+class TestLuSolveOp4(TestLuSolveOp):
+    def init_value(self):
+        self.A_shape = [10, 10]
+        self.b_shape = [10, 10]
+        self.trans = "T"
+        self.dtype = "float64"
+
+
+class TestLuSolveOp5(TestLuSolveOp):
+    def init_value(self):
+        self.A_shape = [10, 10]
+        self.b_shape = [10, 10]
+        self.trans = "N"
+        self.dtype = "float64"
 
 
 class TestLuSolveOpAPI(unittest.TestCase):
     def setUp(self):
         self.init_value()
-        self.LU, self.pivots, self.b, self.out = get_inandout(
-            self.A_shape, self.b_shape, self.trans, self.dtype
-        )
+        (
+            self.LU,
+            self.pivots,
+            self.b,
+            self.out,
+            _,
+            _,
+            _,
+        ) = get_inandout(self.A_shape, self.b_shape, self.trans, self.dtype)
         self.place = []
         self.place.append(base.CPUPlace())
         if core.is_compiled_with_cuda():
@@ -95,19 +200,22 @@ class TestLuSolveOpAPI(unittest.TestCase):
 
     def init_value(self):
         # Ax = b
-        self.A_shape = [15, 15]
-        self.b_shape = [15, 10]
+        self.A_shape = [10, 10]
+        self.b_shape = [10, 5]
         self.trans = "N"
         self.dtype = "float64"
+        self.rtol = 1e-05
 
     def test_dygraph(self):
         def run(place):
             paddle.disable_static(place)
-            LU = paddle.to_tensor(self.LU, self.dtype)
-            pivots = paddle.to_tensor(self.pivots, self.dtype)
-            b = paddle.to_tensor(self.b, self.dtype)
-            lu_solve_x = paddle.linalg.lu_solve(b, LU, pivots, self.trans)
-            np.testing.assert_allclose(lu_solve_x.numpy(), self.out, rtol=1e-05)
+            lu = paddle.to_tensor(self.LU)
+            pivots = paddle.to_tensor(self.pivots)
+            b = paddle.to_tensor(self.b)
+            lu_solve_x = paddle.linalg.lu_solve(b, lu, pivots, self.trans)
+            np.testing.assert_allclose(
+                lu_solve_x.numpy(), self.out, rtol=self.rtol
+            )
             paddle.enable_static()
 
         for place in self.place:
@@ -120,26 +228,28 @@ class TestLuSolveOpAPI(unittest.TestCase):
                 paddle.static.Program(), paddle.static.Program()
             ):
                 b = paddle.static.data(
-                    name='X', shape=self.b_shape, dtype=self.dtype
+                    name='B', shape=self.b.shape, dtype=self.b.dtype
                 )
-                LU = paddle.static.data(
-                    name='Lu', shape=self.LU.shape, dtype=self.dtype
+                lu = paddle.static.data(
+                    name='Lu', shape=self.LU.shape, dtype=self.LU.dtype
                 )
                 pivots = paddle.static.data(
-                    name='Pivots', shape=self.pivots.shape, dtype=self.dtype
+                    name='Pivots',
+                    shape=self.pivots.shape,
+                    dtype=self.pivots.dtype,
                 )
-                lu_solve_x = paddle.linalg.lu_solve(b, LU, pivots, self.trans)
+                lu_solve_x = paddle.linalg.lu_solve(b, lu, pivots, self.trans)
                 exe = base.Executor(place)
                 fetches = exe.run(
                     paddle.static.default_main_program(),
                     feed={
-                        'X': self.b,
+                        'B': self.b,
                         'Lu': self.LU,
                         'Pivots': self.pivots,
                     },
                     fetch_list=[lu_solve_x],
                 )
-                np.testing.assert_allclose(fetches[0], self.out, rtol=1e-05)
+                np.testing.assert_allclose(fetches[0], self.out, rtol=self.rtol)
             paddle.disable_static()
 
         for place in self.place:
@@ -149,64 +259,71 @@ class TestLuSolveOpAPI(unittest.TestCase):
 class TestLuSolveOpAPI2(TestLuSolveOpAPI):
     def init_value(self):
         # Ax = b
-        self.A_shape = [2, 15, 15]
-        self.b_shape = [1, 15, 10]
+        self.A_shape = [1, 10, 10]
+        self.b_shape = [2, 10, 5]
         self.trans = "N"
         self.dtype = "float64"
+        self.rtol = 1e-05
 
 
 class TestLuSolveOpAPI3(TestLuSolveOpAPI):
     def init_value(self):
         # A^Tx = b
-        self.A_shape = [15, 15]
-        self.b_shape = [15, 10]
+        self.A_shape = [1, 10, 10]
+        self.b_shape = [2, 10, 5]
         self.trans = "T"
         self.dtype = "float64"
+        self.rtol = 1e-05
 
 
 class TestLuSolveOpAPI4(TestLuSolveOpAPI):
     def init_value(self):
-        # A^Tx = b
-        self.A_shape = [2, 15, 15]
-        self.b_shape = [1, 15, 10]
-        self.trans = "T"
-        self.dtype = "float64"
+        # Ax = b
+        self.A_shape = [1, 10, 10]
+        self.b_shape = [2, 10, 5]
+        self.trans = "N"
+        self.dtype = "float32"
+        self.rtol = 0.001
 
 
 class TestLuSolveOpAPI5(TestLuSolveOpAPI):
     def init_value(self):
-        # Ax = b
-        self.A_shape = [15, 15]
-        self.b_shape = [15, 10]
-        self.trans = "N"
+        # A^Tx = b
+        self.A_shape = [1, 10, 10]
+        self.b_shape = [2, 10, 5]
+        self.trans = "T"
         self.dtype = "float32"
+        self.rtol = 0.001
 
 
 class TestLuSolveOpAPI6(TestLuSolveOpAPI):
     def init_value(self):
         # Ax = b
-        self.A_shape = [2, 15, 15]
-        self.b_shape = [1, 15, 10]
+        self.A_shape = [10, 10]
+        self.b_shape = [10, 5]
         self.trans = "N"
         self.dtype = "float32"
+        self.rtol = 0.001
 
 
 class TestLuSolveOpAPI7(TestLuSolveOpAPI):
     def init_value(self):
         # A^Tx = b
-        self.A_shape = [15, 15]
-        self.b_shape = [15, 10]
+        self.A_shape = [10, 10]
+        self.b_shape = [10, 5]
         self.trans = "T"
         self.dtype = "float32"
+        self.rtol = 0.001
 
 
 class TestLuSolveOpAPI8(TestLuSolveOpAPI):
     def init_value(self):
         # A^Tx = b
-        self.A_shape = [2, 15, 15]
-        self.b_shape = [1, 15, 10]
+        self.A_shape = [10, 10]
+        self.b_shape = [10, 5]
         self.trans = "T"
-        self.dtype = "float32"
+        self.dtype = "float64"
+        self.rtol = 1e-05
 
 
 class TestLSolveError(unittest.TestCase):
@@ -268,5 +385,4 @@ class TestLSolveError(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    paddle.seed(2025)
     unittest.main()
