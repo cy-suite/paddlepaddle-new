@@ -1,4 +1,4 @@
-// Copyright (c) 2023 PaddlePaddle Authors. All Rights Reserved.
+// Copyright (c) 2025 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,21 +14,8 @@
 
 #pragma once
 
-#include "paddle/phi/kernels/p_send_kernel.h"
-
-#include "glog/logging.h"
-
 #include "paddle/phi/backends/all_context.h"
 #include "paddle/phi/common/memory_utils.h"
-#include "paddle/phi/core/kernel_registry.h"
-#include "paddle/phi/core/utils/data_type.h"
-
-#if defined(PADDLE_WITH_NCCL) || \
-    defined(PADDLE_WITH_RCCL) && NCCL_VERSION_CODE >= 2703
-#include "paddle/phi/core/distributed/nccl_comm_context.h"
-#elif defined(PADDLE_WITH_XPU_BKCL)
-#include "paddle/phi/core/distributed/bkcl_comm_context.h"
-#endif
 
 namespace phi {
 
@@ -70,7 +57,6 @@ void send_shape_info(const Context& dev_ctx,
                      stream);
 
   comm_ctx->Send(*shape_size_tensor, shape_size_tensor->numel(), peer, stream);
-  VLOG(3) << "send the shape size: " << shape_size << " to peer";
 
   // step2: send the shape
   phi::DenseTensor cpu_shape_tensor(shape_dtype);
@@ -92,7 +78,74 @@ void send_shape_info(const Context& dev_ctx,
                      cpu_shape_tensor.numel() * sizeof(int),
                      stream);
   comm_ctx->Send(*shape_tensor, shape_tensor->numel(), peer, stream);
-  VLOG(3) << "send the shape: (" << dims << ") to peer";
+}
+#endif
+
+#if (defined(PADDLE_WITH_RCCL) || defined(PADDLE_WITH_NCCL)) && \
+        NCCL_VERSION_CODE >= 2703 ||                            \
+    defined(PADDLE_WITH_XPU_BKCL)
+template <typename Context, typename CommContext, typename StreamType>
+DDim recv_shape_info(const Context& dev_ctx,
+                     phi::DenseTensor* out,
+                     CommContext* comm_ctx,
+                     int peer) {
+  StreamType stream = dev_ctx.stream();
+  PADDLE_ENFORCE_EQ((stream != nullptr && comm_ctx != nullptr),
+                    true,
+                    errors::InvalidArgument(
+                        "NCCLComm and Stream should be provided if use NCCL "
+                        "to send the shape info."));
+  paddle::DataType shape_dtype = paddle::DataType::INT32;
+
+  // phi::DenseTensor shape_size_tensortensor(shape_dtype);
+  phi::DenseTensor* shape_size_tensortensor = new phi::DenseTensor(shape_dtype);
+  shape_size_tensortensor->Resize({1});
+  dev_ctx.Alloc(shape_size_tensortensor, shape_dtype);
+  comm_ctx->Recv(
+      shape_size_tensortensor, shape_size_tensortensor->numel(), peer, stream);
+
+  // copy the shape size tensor to cpu
+  phi::DenseTensor* cpu_shape_size_tensor = new phi::DenseTensor(shape_dtype);
+  cpu_shape_size_tensor->Resize({1});
+  dev_ctx.HostAlloc(cpu_shape_size_tensor, shape_dtype);
+
+  memory_utils::Copy(phi::CPUPlace(),
+                     cpu_shape_size_tensor->data(),
+                     dev_ctx.GetPlace(),
+                     shape_size_tensortensor->data(),
+                     shape_size_tensortensor->numel() * sizeof(int),
+                     stream);
+
+  auto* cpu_data = cpu_shape_size_tensor->data<int>();
+  int shape_size = cpu_data[0];
+
+  // step2: send the shape
+  // phi::DenseTensor shape_tensor(shape_dtype);
+  phi::DenseTensor* shape_tensor = new phi::DenseTensor(shape_dtype);
+  shape_tensor->Resize({shape_size});
+  dev_ctx.Alloc(shape_tensor, shape_dtype);
+  comm_ctx->Recv(shape_tensor, shape_tensor->numel(), peer, stream);
+
+  // copy the shape tensor to cpu
+  phi::DenseTensor* cpu_shape_tensor = new phi::DenseTensor(shape_dtype);
+  cpu_shape_tensor->Resize({shape_size});
+  dev_ctx.HostAlloc(cpu_shape_tensor, shape_dtype);
+
+  memory_utils::Copy(phi::CPUPlace(),
+                     cpu_shape_tensor->data(),
+                     dev_ctx.GetPlace(),
+                     shape_tensor->data(),
+                     shape_tensor->numel() * sizeof(int),
+                     stream);
+  auto* cpu_shape_data = cpu_shape_tensor->data<int>();
+  std::vector<int> all_shape;
+  for (int i = 0; i < shape_size; ++i) {
+    all_shape.emplace_back(cpu_shape_data[i]);
+  }
+  DDim new_dim;
+  new_dim = new_dim.reshape(all_shape);
+
+  return new_dim;
 }
 
 template <typename Context, typename CommContext>
@@ -121,76 +174,5 @@ CommContext* GetCommContext(const Context& dev_ctx, int peer) {
   return comm_ctx;
 }
 #endif
-
-template <typename T, typename Context>
-void PSendKernel(const Context& dev_ctx,
-                 const DenseTensor& x,
-                 int peer,
-                 bool dynamic_shape) {
-#if defined(PADDLE_WITH_NCCL) || \
-    defined(PADDLE_WITH_RCCL) && NCCL_VERSION_CODE >= 2703
-  auto comm_ctx =
-      GetCommContext<Context, distributed::NCCLCommContext>(dev_ctx, peer);
-  gpuStream_t stream = dev_ctx.stream();
-  if (dynamic_shape) {
-    send_shape_info<Context, distributed::NCCLCommContext, gpuStream_t>(
-        dev_ctx, x, comm_ctx, peer, stream);
-  }
-
-  comm_ctx->Send(x, x.numel(), peer, stream);
-#elif defined(PADDLE_WITH_XPU_BKCL)
-  auto comm_ctx =
-      GetCommContext<Context, distributed::BKCLCommContext>(dev_ctx, peer);
-  XPUStream stream = dev_ctx.stream();
-  if (dynamic_shape) {
-    send_shape_info<Context, distributed::BKCLCommContext, XPUStream>(
-        dev_ctx, x, comm_ctx, peer, stream);
-  }
-
-  comm_ctx->Send(x, x.numel(), peer, stream);
-#else
-  PADDLE_THROW(
-      errors::PreconditionNotMet("PaddlePaddle should compile with GPU."
-                                 "and NCCL version >= 2.7.3 is needed."));
-#endif
-}
-
-template <typename T, typename Context>
-void PSendArrayKernel(const Context& dev_ctx,
-                      const TensorArray& x_array,
-                      int peer) {
-#if defined(PADDLE_WITH_NCCL) || \
-    defined(PADDLE_WITH_RCCL) && NCCL_VERSION_CODE >= 2703
-  auto comm_ctx =
-      GetCommContext<Context, distributed::NCCLCommContext>(dev_ctx, peer);
-  gpuStream_t stream = dev_ctx.stream();
-  for (size_t idx = 0; idx < x_array.size(); idx++) {
-    VLOG(3) << "DenseTensorArray: idx(" << idx << ")";
-    auto x = x_array.at(idx);
-    int numel = x.numel();
-    ncclDataType_t dtype = ToNCCLDataType(x.type());
-    comm_ctx->Send(x, x.numel(), peer, stream);
-    VLOG(3) << "rank " << comm_ctx->GetRank() << " send "
-            << common::product(x.dims()) << " to " << peer;
-  }
-#elif defined(PADDLE_WITH_BKCL)
-  auto comm_ctx =
-      GetCommContext<Context, distributed::BKCLCommContext>(dev_ctx, peer);
-  XPUStream stream = dev_ctx.stream();
-  for (size_t idx = 0; idx < x_array.size(); idx++) {
-    VLOG(3) << "DenseTensorArray: idx(" << idx << ")";
-    auto x = x_array.at(idx);
-    int numel = x.numel();
-    bkclDataType_t dtype = ToBKCLDataType(x.type());
-    comm_ctx->Send(x, x.numel(), peer, stream);
-    VLOG(3) << "rank " << comm_ctx->GetRank() << " send "
-            << common::product(x.dims()) << " to " << peer;
-  }
-#else
-  PADDLE_THROW(errors::PreconditionNotMet(
-      "PaddlePaddle should compile with GPU."
-      "and NCCL version >= 2.7.3 is needed, or with XPU support."));
-#endif
-}
 
 }  // namespace phi

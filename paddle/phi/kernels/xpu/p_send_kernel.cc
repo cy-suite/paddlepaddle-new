@@ -12,7 +12,74 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/phi/kernels/impl/p_send_kernel_impl.h"
+#include "paddle/phi/kernels/p_send_kernel.h"
+#include "paddle/phi/kernels/funcs/send_recv_functor.h"
+
+#include "glog/logging.h"
+
+#include "paddle/phi/backends/all_context.h"
+#include "paddle/phi/common/memory_utils.h"
+#include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/core/utils/data_type.h"
+
+#if defined(PADDLE_WITH_XPU_BKCL)
+#include "paddle/phi/core/distributed/bkcl_comm_context.h"
+#endif
+
+namespace phi {
+
+template <typename T, typename Context>
+void PSendKernel(const Context& dev_ctx,
+                 const DenseTensor& x,
+                 int peer,
+                 bool dynamic_shape) {
+#if defined(PADDLE_WITH_XPU_BKCL)
+  VLOG(0) << "debug point0";
+  auto comm_ctx =
+      GetCommContext<Context, distributed::BKCLCommContext>(dev_ctx, peer);
+  VLOG(0) << "debug point1";
+  XPUStream stream = dev_ctx.stream();
+  VLOG(0) << "debug point2";
+  if (dynamic_shape) {
+    send_shape_info<Context, distributed::BKCLCommContext, XPUStream>(
+        dev_ctx, x, comm_ctx, peer, stream);
+  }
+  VLOG(0) << "debug point3";
+
+  comm_ctx->Send(x, x.numel(), peer, stream);
+  VLOG(0) << "debug point4";
+#else
+  PADDLE_THROW(
+      errors::PreconditionNotMet("PaddlePaddle should compile with GPU."
+                                 "and NCCL version >= 2.7.3 is needed."));
+#endif
+}
+
+template <typename T, typename Context>
+void PSendArrayKernel(const Context& dev_ctx,
+                      const TensorArray& x_array,
+                      int peer) {
+#if defined(PADDLE_WITH_BKCL)
+  auto comm_ctx =
+      GetCommContext<Context, distributed::BKCLCommContext>(dev_ctx, peer);
+  XPUStream stream = dev_ctx.stream();
+  for (size_t idx = 0; idx < x_array.size(); idx++) {
+    VLOG(3) << "DenseTensorArray: idx(" << idx << ")";
+    auto x = x_array.at(idx);
+    int numel = x.numel();
+    bkclDataType_t dtype = ToBKCLDataType(x.type());
+    comm_ctx->Send(x, x.numel(), peer, stream);
+    VLOG(3) << "rank " << comm_ctx->GetRank() << " send "
+            << common::product(x.dims()) << " to " << peer;
+  }
+#else
+  PADDLE_THROW(errors::PreconditionNotMet(
+      "PaddlePaddle should compile with GPU."
+      "and NCCL version >= 2.7.3 is needed, or with XPU support."));
+#endif
+}
+
+}  // namespace phi
 
 PD_REGISTER_KERNEL(p_send,
                    XPU,
