@@ -393,7 +393,7 @@ std::vector<ir::LoweredFunc> OpLowererImpl::PostProcess(
                            common::ARMArch>) {},
           [&](common::NVGPUArch) {
 #ifdef CINN_WITH_CUDA
-            optim::EliminateCommonGlobalMemoryRead(&(func_body));
+            // optim::EliminateCommonGlobalMemoryRead(&(func_body));
             ir::stmt::BlockRef func_body_block =
                 ir::ConvertExprBlockToStmtBlock(func_body);
             LOG(INFO) << "Before OptimizeExprGPU in op_lowering_impl: \n"
@@ -405,7 +405,7 @@ std::vector<ir::LoweredFunc> OpLowererImpl::PostProcess(
 #endif
           },
           [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
-            optim::EliminateCommonGlobalMemoryRead(&(func_body));
+            // optim::EliminateCommonGlobalMemoryRead(&(func_body));
             ir::stmt::BlockRef func_body_block =
                 ir::ConvertExprBlockToStmtBlock(func_body);
             LOG(INFO) << "Before OptimizeExprGPU in op_lowering_impl: \n"
