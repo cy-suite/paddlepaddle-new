@@ -1326,10 +1326,16 @@ void LongLong2Int(const std::unordered_set<std::string> symbol_args_set,
       };
   // The loop ranges product of Fusion group info is the max elements size
   // for output, we dont need to calculate every output independently.
-  ir::Expr outputs_element_max_size =
-      cinn::optim::ArithSimplify(common::FoldExpr(
-          [](const Expr& a, const Expr& b) { return ir::Mul::Make(a, b); },
-          loop_ranges_expr));
+  ir::Expr outputs_element_max_size = common::FoldExpr(
+      [](const Expr& a, const Expr& b) { return ir::Mul::Make(a, b); },
+      loop_ranges_expr);
+
+  // If the max output size is a null, we set output size to zero.
+  outputs_element_max_size =
+      outputs_element_max_size.defined() ? outputs_element_max_size : Expr(0);
+
+  outputs_element_max_size =
+      cinn::optim::ArithSimplify(outputs_element_max_size);
   bool is_dynamic = JudgeDynamic(inputs_element_size) ||
                     !outputs_element_max_size.is_constant();
   if (is_dynamic) {
@@ -1349,10 +1355,10 @@ void LongLong2Int(const std::unordered_set<std::string> symbol_args_set,
     *predicates = ir::And::Make(*predicates, ir::Not::Make(pred_longlong2int));
 
     // Enforce cast the func copied in dynamic branch.
-    VLOG(6) << "Before CastLonglong2Int In Dynamic Branch: \n" << func_copied;
+    VLOG(10) << "Before CastLonglong2Int In Dynamic Branch: \n" << func_copied;
     optim::TryCastLonglong2Int(
         func_copied, symbol_args_set, /*enforce_cast*/ true);
-    VLOG(6) << "After CastLonglong2Int In Dynamic Branch: \n" << func_copied;
+    VLOG(10) << "After CastLonglong2Int In Dynamic Branch: \n" << func_copied;
 
     // Add int32 func and predicate. int64 branch is handled by default.
     ret_predicates->push_back(std::move(predicate_int32));
@@ -1370,10 +1376,10 @@ void LongLong2Int(const std::unordered_set<std::string> symbol_args_set,
       return true;
     }();
 
-    VLOG(6) << "Before CastLonglong2Int In Static Branch: \n" << func;
+    VLOG(10) << "Before CastLonglong2Int In Static Branch: \n" << func;
     optim::TryCastLonglong2Int(
         *func, symbol_args_set, /*enforce_cast*/ can_cast);
-    VLOG(6) << "After CastLonglong2Int In Static Branch: \n" << func;
+    VLOG(10) << "After CastLonglong2Int In Static Branch: \n" << func;
   }
 }
 

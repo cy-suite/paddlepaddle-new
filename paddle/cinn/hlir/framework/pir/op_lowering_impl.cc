@@ -434,16 +434,17 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
     func->num_output_tensors = infer_shape_arg_tensor->size();
 
     // 5. Apply longlong2int pass
-    LongLong2Int(symbol_args_set,
-                 fusion_group_info->loop_ranges_expr,
-                 inputs_element_size,
-                 priorities[i],
-                 &predicates[i],
-                 &func,
-                 &ret_predicates,
-                 &ret_lowered_funcs,
-                 &ret_priorities);
-
+    if (i != func_bodies.size() - 1) {
+      LongLong2Int(symbol_args_set,
+                   fusion_group_info->loop_ranges_expr,
+                   inputs_element_size,
+                   priorities[i],
+                   &predicates[i],
+                   &func,
+                   &ret_predicates,
+                   &ret_lowered_funcs,
+                   &ret_priorities);
+    }
     ret_predicates.push_back(std::move(predicates[i]));
     ret_lowered_funcs.push_back(std::move(func));
     // host func has no priority, since tuples require alignment, set -1 here.
