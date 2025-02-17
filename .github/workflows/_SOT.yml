@@ -115,7 +115,7 @@ jobs:
         git pull upstream develop
         git fetch upstream develop
         git checkout test
-        git merge develop
+        git merge --no-edit develop
         '
 
     - name: Configure cache and ccache
