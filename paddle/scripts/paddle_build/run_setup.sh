@@ -323,4 +323,4 @@ EOF
     echo "ipipe_log_param_Build_Time: $[ $endTime_s - $startTime_s ]s" >> ${PADDLE_ROOT}/build/build_summary.txt
 }
 
-run_setup $@
+run_setup "$@"
