@@ -159,7 +159,7 @@ jobs:
         export CACHE_DIR=${{ env.CACHE_DIR }}
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         . ../proxy
-        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} sot 3.8
+        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.8
         '
 
     - name: Check sot with python3.8 and test
@@ -185,7 +185,7 @@ jobs:
         export CACHE_DIR=${{ env.CACHE_DIR }}
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         . ../proxy
-        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} sot 3.9
+        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.9
         '
 
     - name: Check sot with python3.9 and test
@@ -211,7 +211,7 @@ jobs:
         export CACHE_DIR=${{ env.CACHE_DIR }}
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         . ../proxy
-        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} sot 3.10
+        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.10
         '
 
     - name: Check sot with python3.10 and test
@@ -236,7 +236,7 @@ jobs:
         export CACHE_DIR=${{ env.CACHE_DIR }}
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         . ../proxy
-        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} sot 3.11
+        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.11
         '
 
     - name: Check sot with python3.11 and test
@@ -262,7 +262,7 @@ jobs:
         export CACHE_DIR=${{ env.CACHE_DIR }}
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         . ../proxy
-        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} sot 3.12
+        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.12
         '
 
     - name: Check sot with python3.12 and test
@@ -288,7 +288,7 @@ jobs:
         export CACHE_DIR=${{ env.CACHE_DIR }}
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         . ../proxy
-        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} sot 3.13
+        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.13
         '
 
     - name: Check sot with python3.13 and test

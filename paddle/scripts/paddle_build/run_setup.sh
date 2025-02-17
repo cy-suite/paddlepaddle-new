@@ -15,23 +15,13 @@
 source paddle/scripts/paddle_build/utils.sh
 init
 
-echo $PY_VERSION
-echo "1$1"
-echo "2$2"
-echo "3$3"
-echo "4$4"
-echo "5$5"
-
-
 if [ "$4" == "sot" ]; then
-    echo 4sot
     PY_VERSION=$5
     ln -sf $(which python${PY_VERSION}) /usr/local/bin/python
     ln -sf $(which pip${PY_VERSION}) /usr/local/bin/pip
 fi
 
 if [ "$4" == "py3" ]; then
-    echo 4py3
     PATH=/usr/local/bin:${PATH}
     ln -sf $(which python3.9) /usr/local/bin/python
     ln -sf $(which pip3.9) /usr/local/bin/pip
@@ -41,14 +31,6 @@ if [ "$4" == "py3" ]; then
 fi
 
 function run_setup(){
-
-    echo $PY_VERSION
-    echo "1$1"
-    echo "2$2"
-    echo "3$3"
-    echo "4$4"
-    echo "5$5"
-
     startTime_s=`date +%s`
     mkdir -p ${PADDLE_ROOT}/build
     cd ${PADDLE_ROOT}/build
