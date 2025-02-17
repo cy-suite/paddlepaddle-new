@@ -31,6 +31,8 @@ if [ "$4" == "py3" ]; then
 fi
 
 echo $PY_VERSION
+echo "1121"
+echo $1 $2 $3 $4 $5
 
 function run_setup(){
     startTime_s=`date +%s`
