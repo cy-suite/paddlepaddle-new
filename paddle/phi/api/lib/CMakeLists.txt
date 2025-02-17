@@ -153,7 +153,7 @@ if(WITH_DISTRIBUTE)
   execute_process(
     COMMAND
       ${PYTHON_EXECUTABLE} ${dist_api_gen_file} --api_yaml_path
-      ${api_yaml_file} ${legacy_api_yaml_file} --backward_yaml_path
+      ${api_yaml_file} ${legacy_api_yaml_file} --backward_api_yaml_path
       ${bw_api_yaml_file} ${legacy_bw_api_yaml_file} --api_header_path
       ${api_header_file_tmp} --api_source_path ${api_source_file_tmp}
       --backward_api_header_path ${backward_api_header_file_tmp}
@@ -180,7 +180,7 @@ else()
   # generate backward api
   execute_process(
     COMMAND
-      ${PYTHON_EXECUTABLE} ${bw_api_gen_file} --backward_yaml_path
+      ${PYTHON_EXECUTABLE} ${bw_api_gen_file} --backward_api_yaml_path
       ${bw_api_yaml_file} ${legacy_bw_api_yaml_file} --backward_header_path
       ${bw_api_header_file_tmp} --backward_source_path
       ${bw_api_source_file_tmp})

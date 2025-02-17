@@ -619,7 +619,7 @@ def main():
     parser.add_argument(
         '--backward_api_header_path',
         help='output of generated api header code file',
-        default='paddle/phi/api/include/backward_api.h',
+        default='paddle/phi/api/backward/backward_api.h',
     )
 
     parser.add_argument(
