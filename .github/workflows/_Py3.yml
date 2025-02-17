@@ -104,13 +104,15 @@ jobs:
           -w ${{ github.workspace }} --network host ${docker_image}
 
     - name: Download paddle and update
+      env:
+        work_dir: ${{ github.workspace }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         rm -rf * .[^.]*
         rm -rf /root/.cache && ln -s /home/data/cfs/.cache/python35-cpu /root/.cache
         wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/Paddle/${PR_ID}/${COMMIT_ID}/Paddle.tar.gz --no-check-certificate
         tar xf Paddle.tar.gz --strip-components=1
-        bash ${{ github.workspace }}/paddle/scripts/paddle_build/config_paddle.sh
+        bash ${work_dir}/paddle/scripts/paddle_build/config_paddle.sh
         . ../proxy
         git checkout develop
         git pull upstream develop
@@ -120,10 +122,14 @@ jobs:
         '
 
     - name: Configure cache and ccache
+      env:
+        work_dir: ${{ github.workspace }}
       run: |
-        docker exec -t ${container_name} /bin/bash -c 'bash ${{ github.workspace }}/paddle/scripts/paddle_build/config_cfs.sh ${{ github.env }}'
+        docker exec -t ${container_name} /bin/bash -c 'bash ${work_dir}/paddle/scripts/paddle_build/config_cfs.sh ${{ github.env }}'
 
     - name: Check py3 with build
+      env:
+        work_dir: ${{ github.workspace }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         export CACHE_DIR=${{ env.CACHE_DIR }}
@@ -133,6 +139,8 @@ jobs:
         '
 
     - name: Check py3 with test
+      env:
+        work_dir: ${{ github.workspace }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         . ../proxy
