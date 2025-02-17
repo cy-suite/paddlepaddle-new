@@ -559,13 +559,10 @@ Tensor Tensor::contiguous() {
   }
 }
 
-/* Part 13: Forward AD related*/
-// The Forward AD API functions below are low level and are not to be used by
-// end users who should use the API provided in torch/csrc/autograd.h
-
 const Tensor &Tensor::_fw_grad(uint64_t level) const {
-  if (!autograd_meta_) return singleton_undefined_tensor;
-
+  if (!autograd_meta_) {
+    return singleton_undefined_tensor;
+  }
   return autograd_meta_->fw_grad(level, *this);
 }
 
@@ -578,11 +575,6 @@ void Tensor::_set_fw_grad(const Tensor &new_grad,
   autograd_meta_->set_fw_grad(new_grad, *this, level, is_inplace_op);
 }
 
-std::shared_ptr<phi::TensorBase> Tensor::get_impl() const {
-  return this->impl_;
-}
-
-// Taken from codegened version
 Tensor Tensor::_fw_primal(int64_t level) const {
   // discard the fw grads reserved in autogradmeta
   // return a pure primal Tensor

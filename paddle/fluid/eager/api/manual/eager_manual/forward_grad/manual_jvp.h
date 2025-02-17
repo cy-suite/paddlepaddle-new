@@ -14,48 +14,20 @@
 
 // Manual jvp rules for dygraph forward_autograd
 // there are three kind of jvp rules
-// 1. elementwise functions, e.g. tanh, we can reuse their vjp rules and just
+// 1. Elementwise functions, e.g. tanh, we can reuse their vjp rules and just
 // replace the out_grad with input_tangent
-// 2. linear functions with single input, e.g. scale, we can reuse their forward
+// 2. Linear functions with single input, e.g. scale, we can reuse their forward
 // functions and just replace the input with input_tangent
-// 3. other case, e.g. concat/stack/batch_norm, we need to implement jvp rules
+// 3. Other case, e.g. concat/stack/batch_norm, we need to implement jvp rules
 // manually
 //
 #pragma once
 
 #include <vector>
-#include "paddle/common/flags.h"
-#include "paddle/fluid/eager/api/generated/eager_generated/forwards/dygraph_functions.h"
-#include "paddle/fluid/eager/api/manual/eager_manual/dygraph_forward_api.h"
-#include "paddle/fluid/eager/api/manual/eager_manual/nodes/nodes.h"
-#include "paddle/fluid/eager/api/utils/global_utils.h"
-#include "paddle/fluid/eager/nan_inf_utils.h"
-#include "paddle/fluid/imperative/amp_utils.h"
-#include "paddle/fluid/prim/api/composite_backward/composite_backward_api.h"
 #include "paddle/phi/api/include/tensor.h"
-#include "paddle/phi/common/amp_type_traits.h"
-#include "paddle/phi/common/int_array.h"
 #include "paddle/phi/common/scalar.h"
-#include "paddle/phi/core/platform/profiler/event_tracing.h"
 
 using Scalar = paddle::Scalar;
 using Tensor = paddle::Tensor;
-
-// void add_jvp(const paddle::Tensor& x_p,
-//              const paddle::Tensor& x_t,
-//              const paddle::Tensor& y_p,
-//              const paddle::Tensor& y_t,
-//              paddle::Tensor* out_t);
-
-// void scale_jvp(const paddle::Tensor& x_p,
-//                const paddle::Tensor& x_t,
-//                paddle::experimental::Scalar scale,
-//                paddle::experimental::Scalar bias,
-//                bool bias_after_scale,
-//                paddle::Tensor* out_t);
-
-// void tanh_jvp(const paddle::Tensor& x_t,
-//               const paddle::Tensor& out_p,
-//               paddle::Tensor* out_t);
 
 paddle::Tensor concat_jvp(const std::vector<Tensor>& x_ts, Scalar axis);

@@ -6,7 +6,7 @@ cc_library(
 cc_library(
   eager_fw_primal
   SRCS fw_primal.cc
-  DEPS phi autograd_meta fw_primal_node)
+  DEPS phi autograd_meta identity_node)
 
 if(NOT (NOT WITH_PYTHON AND ON_INFER))
   cc_library(

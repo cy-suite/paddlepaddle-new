@@ -857,6 +857,6 @@ set(FLUID_FRAMEWORK_MODULES
     phi
     common
     custom_operator
-    fwd_utils)
+    forward_grad)
 
 cc_library(paddle_framework DEPS ${FLUID_FRAMEWORK_MODULES})

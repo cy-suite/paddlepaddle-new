@@ -12,15 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/fluid/eager/fwd/forward.h"
-#include "/workspace/hesensen/Paddle_JH/paddle/fluid/eager/api/generated/eager_generated/forwards/fw_primal.h"
+#include "paddle/fluid/eager/forward_grad/functionality.h"
 #include "paddle/fluid/eager/api/generated/eager_generated/forwards/dygraph_functions.h"
-#include "paddle/fluid/eager/fwd/forward_grad.h"
+#include "paddle/fluid/eager/api/generated/eager_generated/forwards/fw_primal.h"
+#include "paddle/fluid/eager/forward_grad/forward_grad.h"
 
 namespace egr {
-
-// forward_ad namespace is used to implement forward automatic differentiation.
-// namespace forward_ad {
 
 uint64_t enter_dual_level() {
   return forward_ad::ForwardADLevel::get_next_idx();
@@ -52,7 +49,5 @@ std::tuple<paddle::Tensor, paddle::Tensor> unpack_dual(
   return std::tuple<paddle::Tensor, paddle::Tensor>(
       egr::fw_primal(tensor, level, true), tensor._fw_grad(level));
 }
-
-// } // namespace forward_ad
 
 }  // namespace egr

@@ -667,11 +667,7 @@ class PADDLE_API Tensor final {
   // end users who should use the API provided in torch/csrc/autograd.h
 
   const Tensor& _fw_grad(uint64_t level) const;
-
   void _set_fw_grad(const Tensor& new_grad, uint64_t level, bool is_inplace_op);
-
-  std::shared_ptr<phi::TensorBase> get_impl() const;
-
   Tensor _fw_primal(int64_t level) const;
 
  private:

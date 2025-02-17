@@ -4721,6 +4721,7 @@
     func : split
   backward : split_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  jvp_rule: auto_linear
 
 - op : split_with_num
   args : (Tensor x, int num, Scalar(int) axis)
@@ -4732,6 +4733,7 @@
     func : split_with_num
   backward : split_with_num_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  jvp_rule: auto_linear
 
 - op : sqrt
   args : (Tensor x)

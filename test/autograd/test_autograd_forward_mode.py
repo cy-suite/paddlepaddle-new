@@ -88,7 +88,9 @@ class TestDualContext(unittest.TestCase):
                 dx_t = paddle.grad(x_t_view, x_t, v)[0]
                 np.testing.assert_allclose(v.numpy(), dx_t.numpy())
 
-    def test_reverse_on_forward(self):
+
+class TestFwdAD_eager_ops(unittest.TestCase):
+    def test_auto_elementwise_jvp(self):
         x = paddle.randn([100, 100])
         x.stop_gradient = False
 
@@ -122,36 +124,38 @@ class TestDualContext(unittest.TestCase):
             ddy_ddx_bwdfwd.numpy(), ddy_ddx_bwdbwd.numpy(), 1e-6, 1e-6
         )
 
+    def test_auto_linear_jvp(self):
+        x = paddle.randn([4, 4])
+        x.stop_gradient = False
 
-class TestFwdAD_eager_ops(unittest.TestCase):
-    def test_concat_jvp(self):
-        xs = [paddle.randn([2, 2, 1]) for _ in range(4)]
-        vs = [paddle.randn(xs[i].shape) for i in range(4)]
-        for i in range(4):
-            xs[i].stop_gradient = False
-            vs[i].stop_gradient = False
+        def func(x, num_or_sections=4, axis=-1):
+            return paddle.split(x, num_or_sections, axis)
 
-        axis = 1
         with paddle.autograd.dual_level():
-            xs_dual = [paddle.autograd.make_dual(x, v) for x, v in zip(xs, vs)]
-            # test concat with one vanilla Tensor
-            xs_dual[2] = xs[i]
-            y_dual = paddle.concat(xs_dual, axis)
-            y_primal, y_tangent = paddle.autograd.unpack_dual(y_dual)
-            # print(y_tangent)
+            x_primal = x
+            x_tangent = paddle.randn(x.shape)
+            x_dual = paddle.autograd.forward_mode.make_dual(x_primal, x_tangent)
 
-        np.testing.assert_allclose(
-            y_primal.numpy(),
-            paddle.concat(xs, axis).numpy(),
-            1e-6,
-            1e-6,
-        )
-        np.testing.assert_allclose(
-            y_tangent.numpy(),
-            paddle.concat(vs, axis).numpy(),
-            1e-6,
-            1e-6,
-        )
+            y_dual = func(x_dual)  # List[Tensor]
+            # print(y_dual)
+
+            tmp = [
+                paddle.autograd.forward_mode.unpack_dual(y_dual_)
+                for y_dual_ in y_dual
+            ]
+            y_primal = [t[0] for t in tmp]
+            y_tangent = [t[1] for t in tmp]
+
+        y = func(x)
+
+        for out1, out2 in zip(y, y_primal):
+            np.testing.assert_allclose(out1.numpy(), out2.numpy(), 1e-6, 1e-6)
+
+        size = x.shape[-1] // 4
+        for i in range(4):
+            grad1 = y_tangent[i]
+            grad2 = x_tangent[:, i * size : (i + 1) * size]
+            np.testing.assert_allclose(grad1.numpy(), grad2.numpy(), 1e-6, 1e-6)
 
 
 if __name__ == "__main__":

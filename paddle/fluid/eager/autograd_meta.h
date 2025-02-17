@@ -15,7 +15,7 @@
 #pragma once
 
 #include "paddle/fluid/eager/api/utils/global_utils.h"
-#include "paddle/fluid/eager/fwd/forward_grad.h"
+#include "paddle/fluid/eager/forward_grad/forward_grad.h"
 #include "paddle/fluid/eager/grad_node_info.h"
 namespace egr {
 
@@ -135,9 +135,6 @@ class AutogradMeta : public AbstractAutogradMeta {
 
   const paddle::Tensor& fw_grad(uint64_t level,
                                 const paddle::Tensor& self) const {
-    // Ensure that concurrent fw_grad() "reads" are thread safe
-    // std::lock_guard<std::mutex> lock(mutex_);
-
     const auto& direct_fw_grad =
         fw_grad_ ? fw_grad_->value(level) : ForwardGrad::undef_grad();
 
@@ -145,9 +142,6 @@ class AutogradMeta : public AbstractAutogradMeta {
   }
 
   const paddle::Tensor& fw_grad(uint64_t level) const {
-    // Ensure that concurrent fw_grad() "reads" are thread safe
-    // std::lock_guard<std::mutex> lock(mutex_);
-
     const auto& direct_fw_grad =
         fw_grad_ ? fw_grad_->value(level) : ForwardGrad::undef_grad();
 
@@ -195,26 +189,25 @@ class AutogradMeta : public AbstractAutogradMeta {
   //   - This field is lazily populated.
   //   - This field is a shared_ptr but it must never be
   //     shared by multiple Tensors. See Note [ Using ForwardGrad ]
-  // Any transition from not_initialized to initialized
-  // must be protected by mutex_
   mutable std::shared_ptr<ForwardGrad> fw_grad_;
-  // mutable std::mutex mutex_;
 
-  // This function is will ensure that the fw_grad_ is properly a view of the
-  // base for inplace ops on Tensors that do not have forward grad originally.
+  /**
+   * NOTE: This function is will ensure that the fw_grad_ is properly a view of
+   * the base for inplace ops on Tensors that do not have forward grad
+   * originally.
+   */
   void set_fw_grad(const paddle::Tensor& new_grad_base,
                    const paddle::Tensor& self_base,
                    uint64_t level,
                    bool is_inplace_op) {
-    PD_CHECK(!new_grad_base._fw_grad(level).defined(),
-             "Setting a forward grad that "
-             "itself has a forward gradient at the same level"
-             // level,
-             // " is not supported."
-    );
+    PD_CHECK(
+        !new_grad_base._fw_grad(level).defined(),
+        "Setting a forward grad that "
+        "itself has a forward gradient at the same level %d is not supported.",
+        level);
+
     // Lazy initialization
     {
-      // std::lock_guard<std::mutex> lock(mutex_);
       if (!fw_grad_) {
         fw_grad_ = std::make_shared<ForwardGrad>();
       }
@@ -232,7 +225,7 @@ class AutogradMeta : public AbstractAutogradMeta {
                "Tensor that "
                "already has one.");
 
-      PD_CHECK(fw_grad_->value(level).get_impl() == new_grad_base.get_impl(),
+      PD_CHECK(fw_grad_->value(level).impl() == new_grad_base.impl(),
                "Cannot set a value of a forward grad if it "
                "already exists. Inplace operations should modify it inplace.");
     } else {

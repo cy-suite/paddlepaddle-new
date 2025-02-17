@@ -22,12 +22,12 @@
 // manually
 //
 #include "paddle/fluid/eager/api/manual/eager_manual/forward_grad/manual_jvp.h"
-#include <vector>
 #include "paddle/phi/api/include/tensor.h"
-#include "paddle/phi/common/data_type.h"
-#include "paddle/phi/common/place.h"
 #include "paddle/phi/common/scalar.h"
 #include "paddle/utils/optional.h"
+
+#include "paddle/fluid/eager/api/generated/eager_generated/forwards/dygraph_functions.h"
+#include "paddle/phi/common/int_array.h"
 
 Tensor concat_jvp(const std::vector<Tensor>& x_ts, Scalar axis) {
   std::vector<Tensor> fw_grads;

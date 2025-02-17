@@ -4,8 +4,8 @@ cc_library(
   DEPS global_utils phi grad_node_info)
 
 cc_library(
-  fw_primal_node
-  SRCS fw_primal_node.cc
+  identity_node
+  SRCS identity_node.cc
   DEPS global_utils phi grad_node_info)
 
 if(NOT (NOT WITH_PYTHON AND ON_INFER))

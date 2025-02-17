@@ -17,7 +17,7 @@
 #include "paddle/fluid/eager/api/generated/eager_generated/forwards/fw_primal.h"
 #include "paddle/fluid/eager/autograd_meta.h"
 #include "paddle/fluid/eager/eager_tensor.h"
-#include "paddle/fluid/eager/fwd/forward_grad.h"
+#include "paddle/fluid/eager/forward_grad/forward_grad.h"
 #include "paddle/fluid/eager/grad_node_info.h"
 #include "paddle/phi/api/all.h"
 #include "paddle/phi/api/lib/kernel_dispatch.h"
@@ -218,9 +218,8 @@ class TEST_API EagerUtils {
   static paddle::Tensor toNonOptPrimal(const paddle::Tensor& t) {
     if (t.has_allocation()) {
       return egr::fw_primal(t, /* level */ 0, true);
-      // return t._fw_primal(/* level */ 0);  // 否则返回0级primal
     }
-    return ForwardGrad::undef_grad();  // 返回一个临时的primal
+    return ForwardGrad::undef_grad();
   }
 
   template <typename T, typename... Args>
@@ -337,6 +336,68 @@ class TEST_API EagerUtils {
 
   static std::string TensorStr(
       const paddle::optional<std::vector<paddle::Tensor>>& tensors);
+
+  /**
+   * NOTE: Functions below are used to set forward gradient for different kind
+   * of tensors
+   */
+  // SetFwGrad for single Tensor
+  static void SetFwGrad(paddle::Tensor& t,  // NOLINT
+                        const paddle::Tensor& grad,
+                        uint64_t level,
+                        bool is_inplace_op) {
+    t._set_fw_grad(grad, level, is_inplace_op);
+  }
+
+  // SetFwGrad for vector of Tensor
+  static void SetFwGrad(std::vector<paddle::Tensor>& ts,  // NOLINT
+                        const std::vector<paddle::Tensor>& grads,
+                        uint64_t level,
+                        bool is_inplace_op) {
+    PADDLE_ENFORCE_EQ(
+        ts.size(),
+        grads.size(),
+        common::errors::InvalidArgument(
+            "The size of tensors(%d) and gradients(%d) should be equal.",
+            static_cast<int>(ts.size()),
+            static_cast<int>(grads.size())));
+    for (size_t i = 0; i < ts.size(); ++i) {
+      ts[i]._set_fw_grad(grads[i], level, is_inplace_op);
+    }
+  }
+
+  // SetFwGrad for tuple of Tensor with variable number of elements
+  template <size_t I = 0, typename... Tp>
+  inline typename std::enable_if<I == sizeof...(Tp), void>::type
+  _SetFwGradTuple(std::tuple<Tp...>&,  // NOLINT
+                  const std::tuple<Tp...>&,
+                  uint64_t,
+                  bool) {}
+
+  template <size_t I = 0, typename... Tp>
+      inline typename std::enable_if <
+      I<sizeof...(Tp), void>::type _SetFwGradTuple(
+          std::tuple<Tp...>& t,  // NOLINT
+          const std::tuple<Tp...>& grad,
+          uint64_t level,
+          bool is_inplace_op) {
+    std::get<I>(t)._set_fw_grad(std::get<I>(grad), level, is_inplace_op);
+    _SetFwGradTuple<I + 1, Tp...>(t, grad, level, is_inplace_op);
+  }
+
+  template <typename... Tp>
+  static void SetFwGrad(std::tuple<Tp...>& t,  // NOLINT
+                        const std::tuple<Tp...>& grad,
+                        uint64_t level,
+                        bool is_inplace_op) {
+    static_assert(sizeof...(Tp) >= 2, "Tuple must contain at least 2 elements");
+    PADDLE_ENFORCE_EQ(
+        std::tuple_size<std::tuple<Tp...>>::value,
+        std::tuple_size<std::tuple<Tp...>>::value,
+        common::errors::InvalidArgument(
+            "The size of tensor tuple and gradient tuple should be equal."));
+    _SetFwGradTuple(t, grad, level, is_inplace_op);
+  }
 };
 
 using paddle::experimental::detail::ArgsIterator;
