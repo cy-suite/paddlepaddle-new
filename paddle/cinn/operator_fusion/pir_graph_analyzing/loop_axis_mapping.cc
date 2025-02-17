@@ -977,10 +977,6 @@ LoopAxisMapping CreateLoopMappingForReduce(pir::Operation* op) {
 }
 
 LoopAxisMapping CreateLoopMappingForReshape(pir::Operation* op) {
-  PADDLE_ENFORCE(
-      op->num_operands() == 1 && op->num_results() == 1,
-      ::common::errors::InvalidArgument(
-          "num_operands and num_results of reshape_op shall be equal 1."));
   LoopAxisMapping result;
   result.input_values.push_back(op->operand_source(0));
   result.output_values.push_back(op->result(0));
@@ -1042,6 +1038,8 @@ LoopAxisMapping CreateLoopMapping(pir::Operation* op) {
     result = CreateLoopMappingForReshape(op);
   } else if (op->name() == "cinn_op.slice") {
     result = CreateLoopMappingForSlice(op);
+  } else if (op->name() == "cinn_op.generate_shape") {
+    result = CreateDefaultAxisMapping(op);
   } else if (op_kind == hlir::framework::kBroadcast) {
     result = CreateLoopMappingForBroadcast(op);
   } else if (op_kind == hlir::framework::kReduction) {
