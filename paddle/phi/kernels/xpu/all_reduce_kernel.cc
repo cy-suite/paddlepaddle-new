@@ -30,7 +30,6 @@ void AllReduceKernel(const Context& dev_ctx,
   out->Resize(x.dims());
   dev_ctx.template Alloc<T>(out);
 
-  XPUStream stream = nullptr;
   auto comm_ctx =
       static_cast<distributed::BKCLCommContext*>(dev_ctx.GetCommContext());
   PADDLE_ENFORCE_NE(comm_ctx,
@@ -38,7 +37,7 @@ void AllReduceKernel(const Context& dev_ctx,
                     common::errors::Unavailable(
                         "BKCLCommContext is nullptr, collective op should "
                         "has ring_id attr."));
-  stream = comm_ctx->GetStream();
+  XPUStream stream = comm_ctx->GetStream();
 
   BKCLOp bkcl_reduce_type = BKCL_ADD;
   switch (static_cast<ReduceType>(reduce_type)) {
