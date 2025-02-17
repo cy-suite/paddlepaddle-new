@@ -80,6 +80,13 @@ function make_ubuntu20_cu12_dockerfile(){
   sed -i "7i ENV TZ=Asia/Beijing" ${dockerfile_name}
   sed -i "8i RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone" ${dockerfile_name}
   sed -i "27i RUN apt-get update && apt-get install -y liblzma-dev openmpi-bin openmpi-doc libopenmpi-dev libsndfile1" ${dockerfile_name}
+  sed -i '57i\RUN bash /build_scripts/install_ucc.sh\
+ENV UCX_HOME=/usr/local/ucx\
+ENV UCC_HOME=/usr/local/ucc\
+ENV CPATH=$UCX_HOME/include:$UCC_HOME/include:$CPATH\
+ENV PATH=$UCX_HOME/bin:$UCC_HOME/bin:$PATH\
+ENV LD_LIBRARY_PATH=$UCX_HOME/lib:$UCC_HOME/lib:$LD_LIBRARY_PATH' ${dockerfile_name}
+  sed -i 's#<setcuda>#CUDA_HOME=/usr/local/cuda-12.0#g' ./build_scripts/install_ucc.sh
   dockerfile_line=$(wc -l ${dockerfile_name}|awk '{print $1}')
   sed -i "${dockerfile_line}i RUN wget --no-check-certificate -q https://paddle-edl.bj.bcebos.com/hadoop-2.7.7.tar.gz \&\& \
      tar -xzf  hadoop-2.7.7.tar.gz && mv hadoop-2.7.7 /usr/local/" ${dockerfile_name}
