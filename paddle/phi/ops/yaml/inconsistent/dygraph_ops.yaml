@@ -241,7 +241,7 @@
   kernel :
     func : matmul
   backward : matmul_grad
-  # jvp_rule: matmul_jvp
+  jvp_rule: matmul_jvp
 
 - op : maximum
   args : (Tensor x, Tensor y)

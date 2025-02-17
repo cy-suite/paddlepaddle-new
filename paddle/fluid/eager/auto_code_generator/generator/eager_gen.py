@@ -396,7 +396,6 @@ TEST_API {} {}({}) {{
 
   bool trace_backward = egr::Controller::Instance().HasGrad();
   bool require_any_grad = egr::EagerUtils::ComputeRequireGrad({});
-  // bool require_any_fwd_grad = egr::EagerUtils::ComputeRequireFwdGrad({});
 
   // Node Declaration
   std::shared_ptr<{}> grad_node;
@@ -600,6 +599,7 @@ FORWARD_CC_FILE_TEMPLATE = """
 #include "paddle/phi/common/type_promotion.h"
 #include "paddle/fluid/imperative/amp_utils.h"
 #include "paddle/fluid/eager/api/manual/eager_manual/forward_grad/manual_jvp.h"
+#include "paddle/phi/api/backward/backward_api.h"
 
 COMMON_DECLARE_bool(check_nan_inf);
 COMMON_DECLARE_int32(call_stack_level);
@@ -797,21 +797,14 @@ JVP_RULE_AUTO_LINEAR_TEMPLATE = """
   // forward autograd computation
   bool require_any_fwd_grad = egr::EagerUtils::ComputeRequireFwdGrad({autograd_meta_list});
   VLOG(4) << "require_any_fwd_grad = " << require_any_fwd_grad;
-  //if (require_any_fwd_grad && out.has_allocation()) {
   if (require_any_fwd_grad && {code_for_check_allocation}}) {
     VLOG(4) << "Running Forward AD: {op_name}";
     {out_type} {output_var_name};
     {define_all_arg_list}
-    // const paddle::Tensor& x_t_raw = egr::EagerUtils::toNonOptFwGrad(x);
-    // const paddle::Tensor& x_tensor = egr::EagerUtils::toNonOptTensor(x);
-    // const paddle::Tensor& x_t = (x_t_raw.has_allocation() || !x_tensor.has_allocation())
-    //   ? x_t_raw : paddle::experimental::zeros(x_t_raw.shape(), x_t_raw.dtype(), x_t_raw.place());
-    // const paddle::Tensor& x_p = egr::EagerUtils::toNonOptPrimal(x);
 
     VLOG(4) << "Running Forward: {op_name}";
-    {op_name}({fwd_ad_arg_list}, {if_ref}{output_var_name});
+    {op_name}_ad_func({fwd_ad_arg_list}, {if_ref}{output_var_name});
     // The hardcoded 0 here will need to be updated once we support multiple levels.
-    // out._set_fw_grad(out_fw_grad, /*level*/ 0, /*is_inplace_op*/ false);
     {code_for_fw_grad_set_to_output}
   }
 """
@@ -825,11 +818,10 @@ JVP_RULE_AUTO_ELEMENTWISE_TEMPLATE = """
   bool require_any_fwd_grad = egr::EagerUtils::ComputeRequireFwdGrad({autograd_meta_list});
   VLOG(4) << "require_any_fwd_grad = " << require_any_fwd_grad;
   if (require_any_fwd_grad && out.has_allocation()) {{
-    Paddle::Tensor out_fw_grad;
     {define_all_arg_list}
 
     VLOG(4) << "Running Forward AD: {op_name}";
-    {op_name}({fwd_ad_arg_list}, &out_fw_grad);
+    paddle::Tensor out_fw_grad = {op_name}_ad_func({fwd_ad_arg_list});
     VLOG(4) << "Finish Forward AD: {op_name}";
 
     // The hardcoded 0 here will need to be updated once we support multiple levels.
@@ -853,7 +845,7 @@ JVP_RULE_CUSTOM_JVP_TEMPLATE = """
     // const paddle::Tensor& x_p = egr::EagerUtils::toNonOptPrimal(x);
 
     VLOG(4) << "Running Forward: {op_name}";
-    {op_name}({fwd_ad_arg_list}, {if_ref}{output_var_name});
+    {op_name}_ad_func({fwd_ad_arg_list}, {if_ref}{output_var_name});
     // The hardcoded 0 here will need to be updated once we support multiple levels.
     // out._set_fw_grad(out_fw_grad, /*level*/ 0, /*is_inplace_op*/ false);
     {code_for_fw_grad_set_to_output}
@@ -2201,12 +2193,14 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
                     in_var_name = invar_tuple[0]
                     define_all_arg_list += "\n".join(
                         [
-                            f"const paddle::Tensor& {in_var_name}_t_raw = egr::EagerUtils::toNonOptFwGrad({in_var_name})",
-                            f"    const paddle::Tensor& {in_var_name}_t = ({in_var_name}_t_raw.has_allocation()) ?",
-                            f"        {in_var_name}_t_raw : paddle::experimental::zeros({in_var_name}_t_raw.shape(), {in_var_name}_t_raw.dtype(), {in_var_name}_t_raw.place());",
+                            f"const paddle::Tensor& {in_var_name}_t_raw = egr::EagerUtils::toNonOptFwGrad({in_var_name});",
+                            f"    const paddle::Tensor& {in_var_name}_t = ({in_var_name}_t_raw.has_allocation() ?",
+                            f"        {in_var_name}_t_raw : paddle::experimental::zeros({in_var_name}_t_raw.shape(), {in_var_name}_t_raw.dtype(), {in_var_name}_t_raw.place()));",
                             f"    const paddle::Tensor& {in_var_name}_p = egr::EagerUtils::toNonOptPrimal({in_var_name});",
                         ]
                     )
+                # NOTE: auto_elementwise rule use same args with backward
+                # operator but replace the grad_out with x_tangent only
                 fwd_ad_arg_list = [
                     input_list[0] for input_list in self.backward_inputs_list
                 ]
@@ -2313,7 +2307,6 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
                 forward_api_name,
                 before_log_str,
                 compute_require_grad_args_str,
-                compute_require_fwd_grad_args_str,
                 self.grad_node_name,
                 node_creation_pre_contiguous_str,
                 node_creation_before_call_str,

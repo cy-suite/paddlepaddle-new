@@ -16,7 +16,7 @@
   inplace: (x -> out)
   backward : abs_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-  # jvp_rule: auto_elementwise
+  jvp_rule: auto_elementwise
 
 - op : accuracy
   args : (Tensor x, Tensor indices, Tensor label)
@@ -51,7 +51,7 @@
   inplace: (x -> out)
   backward : acos_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-  # jvp_rule: auto_elementwise
+  jvp_rule: auto_elementwise
 
 - op : acosh
   args : (Tensor x)
@@ -63,7 +63,7 @@
   inplace: (x -> out)
   backward : acosh_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-  # jvp_rule: auto_elementwise
+  jvp_rule: auto_elementwise
 
 - op : adadelta_
   args : (Tensor param, Tensor grad, Tensor avg_squared_grad, Tensor avg_squared_update,
@@ -4160,7 +4160,7 @@
   view: (x -> out)
   backward: reshape_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-  # jvp_rule: auto_linear
+  jvp_rule: auto_linear
 
 - op : reverse
   args : (Tensor x, IntArray axis)
@@ -4948,7 +4948,7 @@
   inplace : (x -> out)
   backward : tanh_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-  # jvp_rule: auto_elementwise
+  jvp_rule: auto_elementwise
 
 - op : tanh_shrink
   args : (Tensor x)
