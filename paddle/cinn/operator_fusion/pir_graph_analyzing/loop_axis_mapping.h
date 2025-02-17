@@ -140,6 +140,7 @@ struct LoopAxisMapping {
 
   void SimplifyForwardMapping();
   void SetReverseMapping();
+  void DisableLoopMapping();
 
   std::string DebugStr() const;
 };

@@ -68,6 +68,12 @@ std::string LoopAxisMapping::DebugStr() const {
   return ss.str();
 }
 
+bool HasUnsupportedTransform(const AxisTransformRoute& route) {
+  return std::any_of(route.begin(), route.end(), [](const auto& transform) {
+    return std::holds_alternative<UnsupportedTransformPtr>(transform);
+  });
+}
+
 class AxisTransformSimulator {
  public:
   AxisTransformSimulator() = delete;
@@ -314,6 +320,20 @@ void LoopAxisMapping::SetReverseMapping() {
   }
 }
 
+void LoopAxisMapping::DisableLoopMapping() {
+  for (int i = 0; i < input_values.size(); ++i) {
+    input2loop[i].clear();
+    input2loop[i].push_back(UnsupportedTransform::InstancePtr());
+  }
+  for (int i = 0; i < output_values.size(); ++i) {
+    loop2output[i].clear();
+    loop2output[i].push_back(UnsupportedTransform::InstancePtr());
+  }
+  loop.clear();
+  reduce_axis_num = 0;
+  SetReverseMapping();
+}
+
 AxisTransformRoute GetLoopSinkRoute(const LoopAxisMapping& upstream,
                                     const LoopAxisMapping& downstream) {
   AxisTransformRoute result;
@@ -323,8 +343,13 @@ AxisTransformRoute GetLoopSinkRoute(const LoopAxisMapping& upstream,
     for (auto idx : indices) {
       AxisTransformRoute route =
           ConcatVector(upstream.loop2output[i], downstream.input2loop[idx]);
+      if (HasUnsupportedTransform(route)) continue;
       if (route.size() < result.size() || result.empty()) result = route;
     }
+  }
+  if (result.empty()) {
+    result.push_back(UnsupportedTransform::InstancePtr());
+    return result;
   }
   return SimplifyTransformRoute(result, upstream.loop);
 }
@@ -338,8 +363,13 @@ AxisTransformRoute GetLoopLiftRoute(const LoopAxisMapping& upstream,
     for (auto idx : indices) {
       AxisTransformRoute route =
           ConcatVector(downstream.loop2input[idx], upstream.output2loop[i]);
+      if (HasUnsupportedTransform(route)) continue;
       if (route.size() < result.size() || result.empty()) result = route;
     }
+  }
+  if (result.empty()) {
+    result.push_back(UnsupportedTransform::InstancePtr());
+    return result;
   }
   return SimplifyTransformRoute(result, downstream.loop);
 }
@@ -414,6 +444,13 @@ LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
       ::common::errors::InvalidArgument(
           "Upstream should be reduce pattern and "
           "downstream should be trivial pattern."));
+  auto loop_sink_route = GetLoopSinkRoute(upstream, downstream);
+  if (HasUnsupportedTransform(loop_sink_route)) {
+    // TODO(huangjiyi): fix unsupported transform in RT fusion
+    auto result = LoopMappingMergeImpl(upstream, downstream, false);
+    result.DisableLoopMapping();
+    return result;
+  }
   auto reduce_axis_num = upstream.reduce_axis_num;
   auto reduce_axis = ArangeVector<int64_t>(
       upstream.loop.size() - reduce_axis_num, upstream.loop.size());
@@ -421,8 +458,7 @@ LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
                                  upstream.loop.size() - reduce_axis_num,
                                  upstream.loop.size());
   // Check whether downstream trivial can reuse upstream reduce axis.
-  AxisTransformSimulator simulator(GetLoopSinkRoute(upstream, downstream),
-                                   upstream.loop);
+  AxisTransformSimulator simulator(loop_sink_route, upstream.loop);
   auto upstream_trivial_related_ids =
       simulator.GetRelatedAxisIds(simulator.source_ids_);
   std::set<std::string> downstream_non_related_ids;
@@ -459,6 +495,14 @@ LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
     result.loop = ConcatVector(downstream.loop, reduce_loop);
     for (auto& route : result.loop2output) {
       route.insert(route.begin(), delete_reduce_axis);
+    }
+    auto fake_reduce_axis = ArangeVector<int64_t>(
+        downstream.loop.size(), downstream.loop.size() + reduce_axis_num);
+    AxisTransform append_fake_reduce_axis =
+        std::make_shared<AppendAxisTransform>(fake_reduce_axis, reduce_loop);
+    for (int i = upstream.input2loop.size(); i < result.input2loop.size();
+         ++i) {
+      result.input2loop[i].push_back(append_fake_reduce_axis);
     }
   } else {
     result = LoopMappingMergeImpl(upstream, downstream, false);
@@ -882,11 +926,16 @@ LoopAxisMapping CreateLoopMappingForSlice(pir::Operation* op) {
 
 LoopAxisMapping CreateLoopMappingForBroadcast(pir::Operation* op) {
   LoopAxisMapping result;
-  result.input_values.push_back(op->operand_source(0));
+  for (int i = 0; i < op->num_operands(); ++i) {
+    result.input_values.push_back(op->operand_source(i));
+  }
+  result.input2loop.resize(op->num_operands());
+  for (int i = 1; i < op->num_operands(); ++i) {
+    result.input2loop[i].push_back(UnsupportedTransform::InstancePtr());
+  }
   result.output_values.push_back(op->result(0));
-  result.loop = GetValueAllDims(result.output_values[0]);
-  result.input2loop.resize(1);
   result.loop2output.resize(1);
+  result.loop = GetValueAllDims(result.output_values[0]);
 
   const auto& broad_cast_value = GetBroadcastOpInputOutputValue(op);
   PADDLE_ENFORCE(broad_cast_value.has_value(),
@@ -978,9 +1027,14 @@ LoopAxisMapping CreateLoopMappingForReduce(pir::Operation* op) {
 
 LoopAxisMapping CreateLoopMappingForReshape(pir::Operation* op) {
   LoopAxisMapping result;
-  result.input_values.push_back(op->operand_source(0));
+  for (int i = 0; i < op->num_operands(); ++i) {
+    result.input_values.push_back(op->operand_source(i));
+  }
+  result.input2loop.resize(op->num_operands());
+  for (int i = 1; i < op->num_operands(); ++i) {
+    result.input2loop[i].push_back(UnsupportedTransform::InstancePtr());
+  }
   result.output_values.push_back(op->result(0));
-  result.input2loop.resize(1);
   result.loop2output.resize(1);
   auto in_shape = GetCompatibleValueAllDims(op->operand_source(0));
   auto out_shape = GetValueAllDims(op->result(0));
@@ -1025,6 +1079,22 @@ LoopAxisMapping CreateLoopMappingForReshape(pir::Operation* op) {
         std::make_shared<ReshapeTransform>(in_shape, out_shape));
   }
   result.loop2output[0].push_back(IdentityTransform::InstancePtr());
+  return result;
+}
+
+LoopAxisMapping CreateLoopMappingForGenerateShape(pir::Operation* op) {
+  LoopAxisMapping result;
+  result.input2loop.resize(op->num_operands());
+  result.loop2output.resize(op->num_results());
+  for (int i = 0; i < op->num_operands(); ++i) {
+    result.input_values.push_back(op->operand_source(i));
+    result.input2loop[i].push_back(UnsupportedTransform::InstancePtr());
+  }
+  for (int i = 0; i < op->num_results(); ++i) {
+    result.output_values.push_back(op->result(i));
+    result.loop2output[i].push_back(IdentityTransform::InstancePtr());
+  }
+  result.loop = GetCompatibleValueAllDims(result.output_values[0]);
   return result;
 }
 
