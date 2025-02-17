@@ -1,9 +1,5 @@
-lite_mul_model_test
-preprocess_local_imagenet
-preprocess_local_pascalvoc
 test_accuracy_op
 test_adaptive_max_pool2d
-test_analyzer
 test_analyzer_bfloat16_googlenet
 test_analyzer_bfloat16_mobilenetv1
 test_analyzer_bfloat16_mobilenetv2
@@ -71,7 +67,6 @@ test_convert_operators
 test_cross_op
 test_custom_raw_op_kernel_op_deprecated
 test_data_transform
-test_debugger
 test_deform_conv2d
 test_deform_conv2d_deprecated
 test_delete_isolated_node_pass
@@ -85,7 +80,6 @@ test_distribution_lkj_cholesky
 test_distribution_multivariate_normal
 test_distribution_normal
 test_dlpack
-test_dygraph_multi_forward
 test_eager_tensor
 test_eager_trace_op
 test_eig_op
