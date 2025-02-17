@@ -15,13 +15,19 @@
 source paddle/scripts/paddle_build/utils.sh
 init
 
+echo $PY_VERSION
+echo "1111"
+echo $1 $2 $3 $4 $5
+
 if [ "$4" == "sot" ]; then
+    echo 4sot
     PY_VERSION=$5
     ln -sf $(which python${PY_VERSION}) /usr/local/bin/python
     ln -sf $(which pip${PY_VERSION}) /usr/local/bin/pip
 fi
 
 if [ "$4" == "py3" ]; then
+    echo 4py3
     PATH=/usr/local/bin:${PATH}
     ln -sf $(which python3.9) /usr/local/bin/python
     ln -sf $(which pip3.9) /usr/local/bin/pip
@@ -31,7 +37,7 @@ if [ "$4" == "py3" ]; then
 fi
 
 echo $PY_VERSION
-echo "1121"
+echo "2222"
 echo $1 $2 $3 $4 $5
 
 function run_setup(){
@@ -309,4 +315,4 @@ EOF
     echo "ipipe_log_param_Build_Time: $[ $endTime_s - $startTime_s ]s" >> ${PADDLE_ROOT}/build/build_summary.txt
 }
 
-run_setup $1 $2 $3
+run_setup $1 $2 $3 $4 $5
