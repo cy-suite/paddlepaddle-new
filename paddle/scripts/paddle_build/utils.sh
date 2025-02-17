@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+#sot
+
 function build_size() {
     cat <<EOF
     ============================================
@@ -72,6 +74,129 @@ function collect_ccache_hits() {
 
     echo "ipipe_log_param_Ccache_Hit_Rate: ${rate}%" >> ${PADDLE_ROOT}/build/build_summary.txt
 }
+
+#py3
+
+function get_quickly_disable_ut() {
+    python -m pip install httpx
+    if disable_ut_quickly=$(python ${PADDLE_ROOT}/tools/get_quick_disable_lt.py); then
+        echo "========================================="
+        echo "The following unittests have been disabled:"
+        echo ${disable_ut_quickly}
+        echo "========================================="
+    else
+
+        exit 102
+        disable_ut_quickly='disable_ut'
+    fi
+}
+
+function get_precision_ut_mac() {
+    on_precision=0
+    UT_list=$(ctest -N | awk -F ': ' '{print $2}' | sed '/^$/d' | sed '$d')
+    precision_cases=""
+    if [ ${PRECISION_TEST:-OFF} == "ON" ]; then
+        python $PADDLE_ROOT/tools/get_pr_ut.py
+        if [[ -f "ut_list" ]]; then
+            echo "PREC length: "`wc -l ut_list`
+            precision_cases=`cat ut_list`
+        fi
+    fi
+    if [ ${PRECISION_TEST:-OFF} == "ON" ] && [[ "$precision_cases" != "" ]];then
+        UT_list_re=''
+        on_precision=1
+        re=$(cat ut_list|awk -F ' ' '{print }' | awk 'BEGIN{ all_str=""}{if (all_str==""){all_str=$1}else{all_str=all_str"$|^"$1}} END{print "^"all_str"$"}')
+        UT_list_prec_1='ut_list_prec2'
+        for ut_case in $UT_list; do
+            flag=$(echo $ut_case|grep -oE $re)
+            if [ -n "$flag" ];then
+                if [ -z "$UT_list_prec" ];then
+                    UT_list_prec="^$ut_case$"
+                elif [[ "${#UT_list_prec}" -gt 10000 ]];then
+                    UT_list_prec_1="$UT_list_prec_1|^$ut_case$"
+                else
+                    UT_list_prec="$UT_list_prec|^$ut_case$"
+                fi
+            else
+                echo ${ut_case} "won't run in PRECISION_TEST mode."
+            fi
+        done
+    fi
+}
+
+function collect_failed_tests() {
+    for file in `ls $tmp_dir`; do
+        exit_code=0
+        grep -q 'The following tests FAILED:' $tmp_dir/$file||exit_code=$?
+        if [ $exit_code -ne 0 ]; then
+            failuretest=''
+        else
+            failuretest=`grep -A 10000 'The following tests FAILED:' $tmp_dir/$file | sed 's/The following tests FAILED://g'|sed '/^$/d'`
+            failed_test_lists="${failed_test_lists}
+            ${failuretest}"
+        fi
+    done
+}
+
+function show_ut_retry_result() {
+    if [ "$SYSTEM" == "Darwin" ]; then
+        exec_retry_threshold_count=10
+    else
+        exec_retry_threshold_count=80
+    fi
+    if [[ "$is_retry_execute" != "0" ]]  && [[ "${exec_times}" == "0" ]] ;then
+        failed_test_lists_ult=`echo "${failed_test_lists}" | grep -Po '[^ ].*$'`
+        echo "========================================="
+        echo "There are more than ${exec_retry_threshold_count} failed unit tests in parallel test, so no unit test retry!!!"
+        echo "========================================="
+        echo "The following tests FAILED: "
+        echo "${failed_test_lists_ult}"
+        exit 8;
+    elif [[ "$is_retry_execute" != "0" ]] && [[ "${exec_times}" == "1" ]];then
+        failed_test_lists_ult=`echo "${failed_test_lists}" | grep -Po '[^ ].*$'`
+        echo "========================================="
+        echo "There are more than 10 failed unit tests, so no unit test retry!!!"
+        echo "========================================="
+        echo "The following tests FAILED: "
+        echo "${failed_test_lists_ult}"
+        exit 8;
+    else
+        retry_unittests_ut_name=$(echo "$retry_unittests_record" | grep -oEi "\-.+\(" | sed 's/(//' | sed 's/- //' )
+        if [ "$SYSTEM" == "Darwin" ]; then
+            retry_unittests_record_judge=$(echo ${retry_unittests_ut_name}| tr ' ' '\n' | sort | uniq -c | awk '{if ($1 >=3) {print $2}}')
+        else
+            retry_unittests_record_judge=$(echo ${retry_unittests_ut_name}| tr ' ' '\n' | sort | uniq -c | awk '{if ($1 >=4) {print $2}}')
+        fi
+        if [ -z "${retry_unittests_record_judge}" ];then
+            echo "========================================"
+            echo "There are failed tests, which have been successful after re-run:"
+            echo "========================================"
+            echo "The following tests have been re-ran:"
+            echo "${retry_unittests_record}"
+        else
+            failed_ut_re=$(echo "${retry_unittests_record_judge}" | awk BEGIN{RS=EOF}'{gsub(/\n/,"|");print}')
+            echo "========================================"
+            echo "There are failed tests, which have been executed re-run,but success rate is less than 50%:"
+            echo "Summary Failed Tests... "
+            echo "========================================"
+            echo "The following tests FAILED: "
+            echo "${retry_unittests_record}" | sort -u | grep -E "$failed_ut_re"
+            exit 8;
+        fi
+    fi
+}
+
+function clean_build_files() {
+    clean_files=("paddle/fluid/pybind/libpaddle.so" "third_party/flashattn/src/extern_flashattn-build/libflashattn.so" "third_party/install/flashattn/lib/libflashattn.so")
+
+    for file in "${clean_files[@]}"; do
+      file=`echo "${PADDLE_ROOT}/build/${file}"`
+      if [ -f "$file" ]; then
+          rm -rf "$file"
+      fi
+    done
+}
+
 
 function check_excode() {
     if [[ $EXCODE -eq 0 ]];then

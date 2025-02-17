@@ -147,7 +147,7 @@ jobs:
         fi
         '
 
-      - name: Check sot with python3.8 and build
+    - name: Check sot with python3.8 and build
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -157,10 +157,10 @@ jobs:
         export CACHE_DIR=${{ env.CACHE_DIR }}
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         . ../proxy
-        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} 3.8
+        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} sot 3.8
         '
 
-      - name: Check sot with python3.8 and test
+    - name: Check sot with python3.8 and test
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -173,7 +173,7 @@ jobs:
         '
 
 
-      - name: Check sot with python3.9 and build
+    - name: Check sot with python3.9 and build
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -183,10 +183,10 @@ jobs:
         export CACHE_DIR=${{ env.CACHE_DIR }}
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         . ../proxy
-        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} 3.9
+        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} sot 3.9
         '
 
-      - name: Check sot with python3.9 and test
+    - name: Check sot with python3.9 and test
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -199,7 +199,7 @@ jobs:
         '
 
 
-      - name: Check sot with python3.10 and build
+    - name: Check sot with python3.10 and build
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -209,10 +209,10 @@ jobs:
         export CACHE_DIR=${{ env.CACHE_DIR }}
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         . ../proxy
-        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} 3.10
+        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} sot 3.10
         '
 
-      - name: Check sot with python3.10 and test
+    - name: Check sot with python3.10 and test
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -220,12 +220,12 @@ jobs:
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         . ../proxy
-        bash ${work_dir}/paddle/scripts/paddle_build/run_sot_test.sh 3.8
+        bash ${work_dir}/paddle/scripts/paddle_build/run_sot_test.sh 3.10
         rm -rf ${PADDLE_ROOT}/build/CMakeCache.txt
         '
 
 
-      - name: Check sot with python3.11 and build
+    - name: Check sot with python3.11 and build
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -235,10 +235,10 @@ jobs:
         export CACHE_DIR=${{ env.CACHE_DIR }}
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         . ../proxy
-        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} 3.11
+        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} sot 3.11
         '
 
-      - name: Check sot with python3.11 and test
+    - name: Check sot with python3.11 and test
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -251,7 +251,7 @@ jobs:
         '
 
 
-      - name: Check sot with python3.12 and build
+     - name: Check sot with python3.12 and build
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -261,10 +261,10 @@ jobs:
         export CACHE_DIR=${{ env.CACHE_DIR }}
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         . ../proxy
-        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} 3.12
+        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} sot 3.12
         '
 
-      - name: Check sot with python3.12 and test
+    - name: Check sot with python3.12 and test
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -277,7 +277,7 @@ jobs:
         '
 
 
-      - name: Check sot with python3.13 and build
+    - name: Check sot with python3.13 and build
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -287,10 +287,10 @@ jobs:
         export CACHE_DIR=${{ env.CACHE_DIR }}
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         . ../proxy
-        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} 3.13
+        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} sot 3.13
         '
 
-      - name: Check sot with python3.13 and test
+    - name: Check sot with python3.13 and test
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -305,6 +305,6 @@ jobs:
     - name: Terminate and delete the container
       if: always()
       run: |
-        docker exec -t ${container_name} /bin/bash -c 'rm -rf * .[^.]*'
+        # docker exec -t ${container_name} /bin/bash -c 'rm -rf * .[^.]*'
         docker stop ${container_name}
         docker rm ${container_name}

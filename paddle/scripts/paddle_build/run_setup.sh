@@ -14,10 +14,19 @@
 
 source ./utils.sh
 
-if [ "$4" != "" ]; then
-    PY_VERSION=$4
+if [ "$4" == "sot" ]; then
+    PY_VERSION=$5
     ln -sf $(which python${PY_VERSION}) /usr/local/bin/python
     ln -sf $(which pip${PY_VERSION}) /usr/local/bin/pip
+fi
+
+if [ "$4" == "py3" ]; then
+    PATH=/usr/local/bin:${PATH}
+    ln -sf $(which python3.9) /usr/local/bin/python
+    ln -sf $(which pip3.9) /usr/local/bin/pip
+    pip config set global.cache-dir "/home/data/cfs/.cache/pip"
+    pip install -r "${work_dir}/python/requirements.txt"
+    pip install -r "${work_dir}/python/unittest_py/requirements.txt"
 fi
 
 function run_setup(){
