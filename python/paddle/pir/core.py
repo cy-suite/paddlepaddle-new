@@ -591,3 +591,10 @@ def set_state_dict(program, state_dict, scope=None):
     if scope is None:
         scope = paddle.static.global_scope()
     program.set_state_dict(clear_state_dict, scope)
+
+
+def walk_block(block, fn):
+    for op in block.ops:
+        fn(op)
+        for subblock in op.blocks():
+            walk_block(subblock, fn)

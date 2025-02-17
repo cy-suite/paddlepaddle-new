@@ -43,7 +43,7 @@ from paddle.common_ops_import import (
     in_dygraph_mode,
 )
 from paddle.framework import use_pir_api
-from paddle.pir.core import _PADDLE_PIR_DTYPE_2_NUMPY_DTYPE
+from paddle.pir.core import _PADDLE_PIR_DTYPE_2_NUMPY_DTYPE, walk_block
 from paddle.utils import (
     assert_same_structure,
     copy_mutable_vars,
@@ -752,6 +752,21 @@ class LoopVar:
         return f"LoopVar(curr_var={self.curr_var}, next_var={self.next_var}, block_arg={self.block_arg})"
 
 
+def get_while_block_operands(while_op):
+    def create_operands_getter():
+        operands = []
+
+        def operands_getter(op):
+            operands.extend(op.operands())
+
+        return operands, operands_getter
+
+    operands, operands_getter = create_operands_getter()
+    for block in while_op.as_operation().blocks():
+        walk_block(block, operands_getter)
+    return operands
+
+
 def while_loop(cond, body, loop_vars, is_test=False, name=None):
     """
     :api_attr: Static Graph
@@ -949,6 +964,13 @@ def while_loop(cond, body, loop_vars, is_test=False, name=None):
                 ),
             )
             cf_yield([next_cond, *(var.next_var for var in variable_loop_vars)])
+
+        # Ensure all the variables inside the loop body use the block_arg if it is
+        # an input of the while block.
+        for operand in get_while_block_operands(while_op):
+            for loop_var in variable_loop_vars:
+                if operand.source().is_same(loop_var.curr_var):
+                    operand.set_source(loop_var.block_arg)
 
         # Restore the outputs by variable and constants
         optimized_results = while_op.optimize_update()
