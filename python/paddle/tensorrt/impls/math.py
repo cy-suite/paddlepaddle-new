@@ -215,6 +215,13 @@ def clip_converter(network, paddle_op, inputs):
     return layer.get_output(0)
 
 
+@converter_registry.register("pd_op.pow", trt_version="8.x")
+def pow_op_converter(network, paddle_op, inputs):
+    return add_elementwise_layer(
+        network, paddle_op, inputs, trt.ElementWiseOperation.POW
+    )
+
+
 @converter_registry.register("pd_op.remainder", trt_version="8.x")
 @converter_registry.register("pd_op.remainder_", trt_version="8.x")
 def remainder_converter(network, paddle_op, inputs):
