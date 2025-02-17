@@ -24,7 +24,7 @@ function check_run_sot_ci() {
     # check pr title
     TITLE_RUN_CI=$(curl -s https://github.com/PaddlePaddle/Paddle/pull/${GIT_PR_ID} | grep "<title>" | grep -i "sot" || true)
     if [[ ${COMMIT_RUN_CI} || ${TITLE_RUN_CI} ]]; then
-        set -x
+        # set -x
         return
     fi
 
