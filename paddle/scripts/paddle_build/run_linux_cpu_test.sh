@@ -12,7 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-source ./utils.sh
+source paddle/scripts/paddle_build/utils.sh
+init
 
 function run_linux_cpu_test() {
     export FLAGS_PIR_OPTEST=True

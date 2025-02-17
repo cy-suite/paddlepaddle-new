@@ -73,4 +73,7 @@ function run_sot_test() {
     fi
 }
 
+source paddle/scripts/paddle_build/utils.sh
+init
+
 run_sot_test $1

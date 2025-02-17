@@ -14,6 +14,24 @@
 
 #sot
 
+function init() {
+    RED='\033[0;31m'
+    BLUE='\033[0;34m'
+    BOLD='\033[1m'
+    NONE='\033[0m'
+
+    PADDLE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}")/../../" && pwd )"
+    export PADDLE_ROOT
+    if [ -z "${SCRIPT_NAME}" ]; then
+        SCRIPT_NAME=$0
+    fi
+
+    ENABLE_MAKE_CLEAN=${ENABLE_MAKE_CLEAN:-ON}
+
+    # NOTE(chenweihang): For easy debugging, CI displays the C++ error stacktrace by default
+    export FLAGS_call_stack_level=2
+}
+
 function build_size() {
     cat <<EOF
     ============================================

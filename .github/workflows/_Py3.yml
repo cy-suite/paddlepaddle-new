@@ -23,6 +23,7 @@ jobs:
     - name: Check docker image and run container
       env:
         env:
+        BRANCH: develop
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
         WITH_SHARED_PHI: "ON"
@@ -63,6 +64,7 @@ jobs:
           -v "/home/data/gzcfs:/home/data/gzcfs" \
           -v "/dev/shm:/dev/shm" \
           -v "${{ github.workspace }}/../../../..:${{ github.workspace }}/../../../.." \
+          -e BRANCH \
           -e PR_ID \
           -e COMMIT_ID \
           -e work_dir \
@@ -127,7 +129,7 @@ jobs:
         export CACHE_DIR=${{ env.CACHE_DIR }}
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         . ../proxy
-        bash ${work_dir}/paddle/scripts/paddle_build/run_step.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} py3
+        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} py3
         '
 
     - name: Check py3 with test
