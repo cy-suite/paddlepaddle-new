@@ -16,8 +16,12 @@ source paddle/scripts/paddle_build/utils.sh
 init
 
 echo $PY_VERSION
-echo "1111"
-echo $1 $2 $3 $4 $5
+echo "1$1"
+echo "2$2"
+echo "3$3"
+echo "4$4"
+echo "5$5"
+
 
 if [ "$4" == "sot" ]; then
     echo 4sot
@@ -36,11 +40,15 @@ if [ "$4" == "py3" ]; then
     pip install -r "${work_dir}/python/unittest_py/requirements.txt"
 fi
 
-echo $PY_VERSION
-echo "2222"
-echo $1 $2 $3 $4 $5
-
 function run_setup(){
+
+    echo $PY_VERSION
+    echo "1$1"
+    echo "2$2"
+    echo "3$3"
+    echo "4$4"
+    echo "5$5"
+
     startTime_s=`date +%s`
     mkdir -p ${PADDLE_ROOT}/build
     cd ${PADDLE_ROOT}/build
