@@ -47,6 +47,7 @@ class TestConverterDummy(unittest.TestCase):
         trt_config.precision_mode = PrecisionMode.FP16
         trt_config.ops_run_float = "pd_op.add"
         trt_config.optimization_level = 5
+        trt_config.allow_only_specified_trt_ops = "pd_op.add"
 
         output_var = program.list_vars()[-1]
 
