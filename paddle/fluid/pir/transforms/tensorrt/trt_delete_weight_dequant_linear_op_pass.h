@@ -1,4 +1,4 @@
-// Copyright (c) 2022 CINN Authors. All Rights Reserved.
+// Copyright (c) 2025 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,15 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-syntax ="proto3";
+#pragma once
 
-package cinn.auto_schedule.proto;
+#include <glog/logging.h>
+#include <memory>
+#include "paddle/pir/include/core/dll_decl.h"
 
-import "paddle/cinn/ir/schedule/schedule_desc.proto";
+namespace pir {
 
-message TuningRecord {
-  string task_key = 1;
-  double execution_cost = 2;
-  double predicted_cost = 3;
-  cinn.ir.proto.ScheduleDesc trace = 4;
-}
+class Pass;
+
+IR_API std::unique_ptr<Pass> CreateTrtDeleteWeightDequantLinearOpPass();
+
+}  // namespace pir

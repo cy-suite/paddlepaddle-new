@@ -90,7 +90,6 @@ SPARSE_OPS_API_TEMPLATE = """
 {{"sparse_{name}", (PyCFunction)(void (*)(void))sparse_{name}, METH_VARARGS | METH_KEYWORDS, "C++ interface function for sparse_{name}."}},"""
 
 NEED_GEN_STATIC_ONLY_APIS = [
-    'c_softmax_with_cross_entropy',
     'c_softmax_with_multi_label_cross_entropy',
     'distributed_fused_lamb_init',
     'distributed_fused_lamb_init_',
@@ -236,10 +235,8 @@ NO_NEED_GEN_STATIC_ONLY_APIS = [
     'push_box_sparse_',
     'send_and_recv',
     'send_and_recv_',
-    'cudnn_lstm_grad',
     'straight_through_estimator',
     "multiply_grad",
-    "embedding_grad",
     "scale_grad",
     "conv2d_grad",
 ]
@@ -256,8 +253,10 @@ class OpsAPIGen(CodeGen):
             if op_name[:-5] in NO_NEED_GEN_STATIC_ONLY_APIS:
                 return True
         if op_name.endswith("_grad_"):
-            return True
-
+            if op_name.endswith(
+                ("double_grad_", "_grad_grad_", "triple_grad_")
+            ):
+                return True
         return (
             super()._need_skip(op_info, op_name)
             or op_name.endswith('xpu')

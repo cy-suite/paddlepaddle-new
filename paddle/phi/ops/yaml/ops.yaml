@@ -490,6 +490,18 @@
   inplace : (in_sum_1 -> out_sum_1), (in_sum_2 -> out_sum_2), (in_sum_3 -> out_sum_3), (in_num_accumulates -> out_num_accumulates), (in_old_num_accumulates -> out_old_num_accumulates), (in_num_updates -> out_num_updates)
   traits : paddle::dialect::ForwardOnlyTrait
 
+- op : baddbmm
+  args : (Tensor input, Tensor x, Tensor y, float beta=1.0, float alpha=1.0)
+  output : Tensor(out)
+  infer_meta :
+    func : BaddbmmInferMeta
+  kernel :
+    func : baddbmm
+    data_type : x
+  inplace: (input -> out)
+  backward : baddbmm_grad
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
+
 - op : barrier
   args : (Tensor x, int ring_id=0)
   output : Tensor(out)
@@ -783,6 +795,19 @@
   kernel :
     func : c_scatter
   traits : paddle::dialect::ForwardOnlyTrait
+
+- op : c_softmax_with_cross_entropy
+  args: (Tensor logits, Tensor label,  int64_t ignore_index=-100, int ring_id=0, int rank=0, int nranks=0)
+  output: Tensor(softmax), Tensor(loss)
+  infer_meta:
+    func : CSoftmaxWithCrossEntropyInferMeta
+    spmd_rule : CSoftmaxWithCrossEntropyInferSpmd
+    param: [logits, label, ignore_index, rank, nranks]
+  kernel:
+    func: c_softmax_with_cross_entropy
+    data_type : logits
+    param: [logits, label, ignore_index, rank, nranks]
+  backward: c_softmax_with_cross_entropy_grad
 
 - op : c_split
   args : (Tensor x, int rank = 0, int nranks = 1, int ring_id = 0, bool use_model_parallel = true)
@@ -5280,16 +5305,6 @@
     data_type : input
   backward : view_dtype_grad
   no_need_buffer : input
-  interfaces : paddle::dialect::InferSymbolicShapeInterface
-
-- op : view_shape
-  args : (Tensor input, int64_t[] dims = {})
-  output : Tensor(out)
-  infer_meta :
-    func : ViewShapeInferMeta
-  kernel :
-    func : view_shape
-  backward : view_shape_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : view_slice
