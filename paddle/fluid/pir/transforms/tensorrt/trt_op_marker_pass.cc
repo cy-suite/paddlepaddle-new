@@ -2014,7 +2014,8 @@ class IndexPutOpPattern
     int value_num = std::accumulate(
         value_shape.begin(), value_shape.end(), 1, std::multiplies<int>());
     if (value_num != 1) {
-      VLOG(3) << " index_put op only support value_num = 1 in tensorrt." << value_num;
+      VLOG(3) << " index_put op only support value_num = 1 in tensorrt."
+              << value_num;
       return false;
     }
     pir::Value indices = op.operand_source(1);

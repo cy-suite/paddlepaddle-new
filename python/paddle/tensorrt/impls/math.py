@@ -215,11 +215,19 @@ def clip_converter(network, paddle_op, inputs):
     return layer.get_output(0)
 
 
-@converter_registry.register("pd_op.pow", trt_version="8.x")
-def pow_op_converter(network, paddle_op, inputs):
-    return add_elementwise_layer(
-        network, paddle_op, inputs, trt.ElementWiseOperation.POW
-    )
+@converter_registry.register("pd_op.pow", trt_version="trt_version_ge=8.0")
+def pow_converter(network, paddle_op, inputs):
+    from paddle.tensorrt.util import support_fp32_mix_precision
+
+    x = inputs[0]
+    factor = paddle_op.attrs()["y"]
+    dims_x = x.shape
+    trt_dims_y = trt.Dims([1] * len(dims_x))
+    w_data = np.array([factor], dtype=np.float32)
+    y = network.add_constant(trt_dims_y, w_data).get_output(0)
+    layer = network.add_elementwise(x, y, trt.ElementWiseOperation.POW)
+    support_fp32_mix_precision(paddle_op.name(), layer)
+    return layer.get_output(0)
 
 
 @converter_registry.register("pd_op.remainder", trt_version="8.x")
