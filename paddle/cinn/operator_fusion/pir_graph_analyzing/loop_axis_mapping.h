@@ -26,16 +26,16 @@ namespace cinn::fusion {
 DECLARE_TRANSFORM_PTR(UnsupportedTransform);
 DECLARE_TRANSFORM_PTR(IdentityTransform);
 DECLARE_TRANSFORM_PTR(TransposeTransform);
-DECLARE_TRANSFORM_PTR(DeleteAxisTransform);
 DECLARE_TRANSFORM_PTR(AppendAxisTransform);
+DECLARE_TRANSFORM_PTR(DeleteAxisTransform);
 DECLARE_TRANSFORM_PTR(ReshapeTransform);
 #undef DECLARE_TRANSFORM_PTR
 
 using AxisTransform = std::variant<UnsupportedTransformPtr,
                                    IdentityTransformPtr,
                                    TransposeTransformPtr,
-                                   DeleteAxisTransformPtr,
                                    AppendAxisTransformPtr,
+                                   DeleteAxisTransformPtr,
                                    ReshapeTransformPtr>;
 using AxisTransformRoute = std::vector<AxisTransform>;
 
@@ -76,19 +76,6 @@ struct TransposeTransform {
   }
 };
 
-struct DeleteAxisTransform {
-  explicit DeleteAxisTransform(const std::vector<int64_t>& axis,
-                               const std::vector<symbol::DimExpr>& shape)
-      : axis(axis), shape(shape) {}
-  std::vector<int64_t> axis;
-  std::vector<symbol::DimExpr> shape;
-  std::string DebugStr() const {
-    return "DeleteAxis{axis=(" + cinn::utils::Join(axis, ",") + "), shape=(" +
-           cinn::utils::Join(shape, ",") + ")}";
-  }
-  AxisTransform reverse();
-};
-
 struct AppendAxisTransform {
   AppendAxisTransform(const std::vector<int64_t>& axis,
                       const std::vector<symbol::DimExpr>& shape)
@@ -100,6 +87,19 @@ struct AppendAxisTransform {
   std::vector<symbol::DimExpr> shape;
   std::string DebugStr() const {
     return "AppendAxis{axis=(" + cinn::utils::Join(axis, ",") + "), shape=(" +
+           cinn::utils::Join(shape, ",") + ")}";
+  }
+  AxisTransform reverse();
+};
+
+struct DeleteAxisTransform {
+  explicit DeleteAxisTransform(const std::vector<int64_t>& axis,
+                               const std::vector<symbol::DimExpr>& shape)
+      : axis(axis), shape(shape) {}
+  std::vector<int64_t> axis;
+  std::vector<symbol::DimExpr> shape;
+  std::string DebugStr() const {
+    return "DeleteAxis{axis=(" + cinn::utils::Join(axis, ",") + "), shape=(" +
            cinn::utils::Join(shape, ",") + ")}";
   }
   AxisTransform reverse();

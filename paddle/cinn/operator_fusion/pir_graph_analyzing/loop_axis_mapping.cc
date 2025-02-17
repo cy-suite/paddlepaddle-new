@@ -25,11 +25,11 @@ std::ostream& operator<<(std::ostream& os, const AxisTransformRoute& route) {
   return os;
 }
 
-AxisTransform DeleteAxisTransform::reverse() {
-  return std::make_shared<AppendAxisTransform>(axis, shape);
-}
 AxisTransform AppendAxisTransform::reverse() {
   return std::make_shared<DeleteAxisTransform>(axis, shape);
+}
+AxisTransform DeleteAxisTransform::reverse() {
+  return std::make_shared<AppendAxisTransform>(axis, shape);
 }
 
 AxisTransform ReverseTransform(const AxisTransform& transform) {
@@ -68,47 +68,128 @@ std::string LoopAxisMapping::DebugStr() const {
   return ss.str();
 }
 
-AxisTransformRoute SimplifySimpleTransform(const AxisTransformRoute& route,
-                                           int in_size) {
+class AxisTransformSimulator {
+ public:
+  AxisTransformSimulator() = delete;
+  AxisTransformSimulator(const AxisTransformRoute& route,
+                         const std::vector<symbol::DimExpr>& inshape)
+      : route_(route) {
+    for (size_t i = 0; i < inshape.size(); ++i) {
+      source_ids_.push_back(UniqueAxisId());
+      axis_symbols_[source_ids_[i]] = inshape[i];
+    }
+    target_ids_ = source_ids_;
+    Simulate();
+  }
+
+  std::set<std::string> GetRelatedAxisIds(const std::vector<std::string>& ids) {
+    std::deque<std::string> queue(ids.begin(), ids.end());
+    std::set<std::string> related_ids;
+    while (!queue.empty()) {
+      auto cur_id = queue.front();
+      queue.pop_front();
+      if (related_ids.count(cur_id)) continue;
+      related_ids.insert(cur_id);
+      if (axis_relation_map_.count(cur_id)) {
+        for (const auto& id : axis_relation_map_.at(cur_id)) {
+          queue.push_back(id);
+        }
+      }
+    }
+    return related_ids;
+  }
+
+  const AxisTransformRoute& route_;
+  std::vector<std::string> source_ids_;
+  std::vector<std::string> target_ids_;
+  std::unordered_map<std::string, symbol::DimExpr> axis_symbols_;
+  std::map<std::string, std::set<std::string>> axis_relation_map_;
+
+ private:
+  void Simulate() {
+    auto simulate_transform = adt::match{
+        [&](const IdentityTransformPtr&) {},
+        [&](const TransposeTransformPtr& transform) {
+          target_ids_ = TransposeVector(target_ids_, transform->perm);
+        },
+        [&](const AppendAxisTransformPtr& transform) {
+          for (int i = 0; i < transform->axis.size(); ++i) {
+            auto new_id = UniqueAxisId();
+            target_ids_.insert(target_ids_.begin() + transform->axis[i],
+                               new_id);
+            axis_symbols_[new_id] = transform->shape[i];
+          }
+        },
+        [&](const DeleteAxisTransformPtr& transform) {
+          for (int i = transform->axis.size() - 1; i >= 0; --i) {
+            auto id_to_delete = target_ids_[transform->axis[i]];
+            target_ids_.erase(target_ids_.begin() + transform->axis[i]);
+            axis_symbols_[id_to_delete] = transform->shape[i];
+          }
+        },
+        [&](const ReshapeTransformPtr& transform) {
+          const auto& in_shape = transform->in_shape;
+          const auto& out_shape = transform->out_shape;
+          const auto& partition_indices =
+              PartitionReshapeAxes(in_shape, out_shape);
+          std::vector<std::string> new_ids;
+          for (int idx = 1; idx < partition_indices.size(); ++idx) {
+            const auto& [in_start, out_start] = partition_indices[idx - 1];
+            const auto& [in_end, out_end] = partition_indices[idx];
+            if (in_end == in_start + 1 && out_end == out_start + 1) {
+              new_ids.push_back(target_ids_[in_start]);
+            } else {
+              for (int i = out_start; i < out_end; ++i) {
+                if (out_shape[i] == symbol::DimExpr(1)) {
+                  new_ids.push_back(UniqueAxisId());
+                  axis_symbols_[new_ids.back()] = symbol::DimExpr(1);
+                } else {
+                  std::string axis_id;
+                  for (int j = in_start; j < in_end; ++j) {
+                    if (in_shape[j] == symbol::DimExpr(1)) {
+                      continue;
+                    } else if (in_shape[j] == out_shape[i]) {
+                      axis_id = target_ids_[j];
+                      break;
+                    } else {
+                      if (axis_id.empty()) axis_id = UniqueAxisId();
+                      axis_relation_map_[target_ids_[j]].insert(axis_id);
+                    }
+                  }
+                  new_ids.push_back(axis_id);
+                  if (!axis_symbols_.count(axis_id)) {
+                    axis_symbols_[axis_id] = out_shape[i];
+                  }
+                }
+              }
+            }
+          }
+        },
+        [&](const auto& trans) {
+          PADDLE_THROW(
+              ::common::errors::Unimplemented("Unsupported transform."));
+        },
+    };
+    for (const auto& trans : route_) {
+      std::visit(simulate_transform, trans);
+    }
+  }
+
+  int id_counter_ = 0;
+  std::string UniqueAxisId() { return "I" + std::to_string(id_counter_++); }
+};
+
+AxisTransformRoute SimplifySimpleTransform(
+    const AxisTransformRoute& route,
+    const std::vector<symbol::DimExpr>& inshape) {
   if (route.size() <= 1) return route;
   // 1. Simulate transform route
-  size_t id = 0;
-  auto unique_id = [&]() { return "I" + std::to_string(id++); };
-  std::vector<std::string> axis_ids;
-  std::unordered_map<std::string, symbol::DimExpr> axis_symbols;
-  for (size_t i = 0; i < in_size; ++i) {
-    axis_ids.push_back(unique_id());
-  }
-  auto source_ids = axis_ids;
-  auto simulate_transform = adt::match{
-      [&](const IdentityTransformPtr&) {},
-      [&](const TransposeTransformPtr& transform) {
-        axis_ids = TransposeVector(axis_ids, transform->perm);
-      },
-      [&](const AppendAxisTransformPtr& transform) {
-        for (int i = 0; i < transform->axis.size(); ++i) {
-          auto new_id = unique_id();
-          axis_ids.insert(axis_ids.begin() + transform->axis[i], new_id);
-          axis_symbols[new_id] = transform->shape[i];
-        }
-      },
-      [&](const DeleteAxisTransformPtr& transform) {
-        for (int i = transform->axis.size() - 1; i >= 0; --i) {
-          auto id_to_delete = axis_ids[transform->axis[i]];
-          axis_ids.erase(axis_ids.begin() + transform->axis[i]);
-          axis_symbols[id_to_delete] = transform->shape[i];
-        }
-      },
-      [&](const auto& trans) {
-        PADDLE_THROW(::common::errors::Unimplemented("Unsupported transform."));
-      },
-  };
-  for (const auto& trans : route) {
-    std::visit(simulate_transform, trans);
-  }
+  AxisTransformSimulator simulator(route, inshape);
   // 2. Get Simlplified transform route
   AxisTransformRoute result;
-  auto& target_ids = axis_ids;
+  auto& source_ids = simulator.source_ids_;
+  auto& target_ids = simulator.target_ids_;
+  auto& axis_symbols = simulator.axis_symbols_;
   if (source_ids == target_ids) {
     result.push_back(IdentityTransform::InstancePtr());
   } else {
@@ -141,7 +222,6 @@ AxisTransformRoute SimplifySimpleTransform(const AxisTransformRoute& route,
 
 AxisTransformRoute SimplifyContinuousReshape(const AxisTransformRoute& route) {
   if (route.size() <= 1) return route;
-  VLOG(4) << "Before SimplifyContinuousReshape: " << route;
   const auto simplify_reshape =
       [](const AxisTransformRoute& route) -> AxisTransformRoute {
     if (route.size() <= 1) return route;
@@ -175,46 +255,45 @@ AxisTransformRoute SimplifyContinuousReshape(const AxisTransformRoute& route) {
   if (!continuous_reshape.empty()) {
     result = ConcatVector(result, simplify_reshape(continuous_reshape));
   }
-  VLOG(4) << "After SimplifyContinuousReshape: " << result;
   return result;
 }
 
-AxisTransformRoute SimplifyTransformRoute(const AxisTransformRoute& route,
-                                          int in_size) {
-  AxisTransformRoute simplified_route = SimplifyContinuousReshape(route);
-  if (simplified_route.size() <= 1) return simplified_route;
+AxisTransformRoute SimplifyTransformRoute(
+    const AxisTransformRoute& route,
+    const std::vector<symbol::DimExpr>& input_shape) {
+  AxisTransformRoute reshape_simplified = SimplifyContinuousReshape(route);
+  if (reshape_simplified.size() <= 1) return reshape_simplified;
   // Simplify continuous non-reshape route.
-  VLOG(4) << "Before SimplifyTransformRoute: " << simplified_route;
   AxisTransformRoute result;
   AxisTransformRoute part;
-  for (const auto& trans : simplified_route) {
+  auto inshape = input_shape;
+  for (const auto& trans : reshape_simplified) {
     if (std::holds_alternative<UnsupportedTransformPtr>(trans)) {
       return {trans};
     } else if (std::holds_alternative<IdentityTransformPtr>(trans)) {
       // Do nothing.
     } else if (auto reshape_trans = std::get_if<ReshapeTransformPtr>(&trans)) {
       if (!part.empty()) {
-        result = ConcatVector(result, SimplifySimpleTransform(part, in_size));
+        result = ConcatVector(result, SimplifySimpleTransform(part, inshape));
         part.clear();
       }
       result.push_back(trans);
-      in_size = (*reshape_trans)->out_shape.size();
+      inshape = (*reshape_trans)->out_shape;
     } else {
       part.push_back(trans);
     }
   }
-  result = ConcatVector(result, SimplifySimpleTransform(part, in_size));
-  VLOG(4) << "After SimplifyTransformRoute: " << result;
+  result = ConcatVector(result, SimplifySimpleTransform(part, inshape));
   return result;
 }
 
 void LoopAxisMapping::SimplifyForwardMapping() {
   for (int i = 0; i < input_values.size(); ++i) {
-    input2loop[i] = SimplifyTransformRoute(input2loop[i],
-                                           GetCompatibleRank(input_values[i]));
+    input2loop[i] = SimplifyTransformRoute(
+        input2loop[i], GetCompatibleValueAllDims(input_values[i]));
   }
   for (int i = 0; i < output_values.size(); ++i) {
-    loop2output[i] = SimplifyTransformRoute(loop2output[i], loop.size());
+    loop2output[i] = SimplifyTransformRoute(loop2output[i], loop);
   }
 }
 
@@ -247,7 +326,7 @@ AxisTransformRoute GetLoopSinkRoute(const LoopAxisMapping& upstream,
       if (route.size() < result.size() || result.empty()) result = route;
     }
   }
-  return SimplifyTransformRoute(result, upstream.loop.size());
+  return SimplifyTransformRoute(result, upstream.loop);
 }
 
 AxisTransformRoute GetLoopLiftRoute(const LoopAxisMapping& upstream,
@@ -262,7 +341,7 @@ AxisTransformRoute GetLoopLiftRoute(const LoopAxisMapping& upstream,
       if (route.size() < result.size() || result.empty()) result = route;
     }
   }
-  return SimplifyTransformRoute(result, downstream.loop.size());
+  return SimplifyTransformRoute(result, downstream.loop);
 }
 
 LoopAxisMapping LoopMappingMergeImpl(const LoopAxisMapping& upstream,
@@ -320,13 +399,9 @@ LoopAxisMapping LoopMappingMergeImpl(const LoopAxisMapping& upstream,
 LoopAxisMapping LoopMappingMerge(const LoopAxisMapping& upstream,
                                  const LoopAxisMapping& downstream,
                                  bool upstream_is_anchor) {
-  VLOG(4) << "Start LoopMappingMerge: "
-          << "\nUpstream: " << upstream.DebugStr()
-          << "\nDownstream: " << downstream.DebugStr();
   auto result = LoopMappingMergeImpl(upstream, downstream, upstream_is_anchor);
   result.SimplifyForwardMapping();
   result.SetReverseMapping();
-  VLOG(4) << "\nMerged result: " << result.DebugStr();
   return result;
 }
 
@@ -334,9 +409,6 @@ LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
     const LoopAxisMapping& upstream, const LoopAxisMapping& downstream) {
   // Signal downstream reduce plus trivial fusion loop is downstream trivial
   // loop plus upstream reduce loop.
-  VLOG(4) << "Start LoopMappingMerge: "
-          << "\nUpstream: " << upstream.DebugStr()
-          << "\nDownstream: " << downstream.DebugStr();
   PADDLE_ENFORCE(
       upstream.reduce_axis_num > 0 && downstream.reduce_axis_num == 0,
       ::common::errors::InvalidArgument(
@@ -344,25 +416,55 @@ LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
           "downstream should be trivial pattern."));
   auto reduce_axis_num = upstream.reduce_axis_num;
   auto reduce_axis = ArangeVector<int64_t>(
-      downstream.loop.size(), downstream.loop.size() + reduce_axis_num);
+      upstream.loop.size() - reduce_axis_num, upstream.loop.size());
   auto reduce_loop = SliceVector(upstream.loop,
                                  upstream.loop.size() - reduce_axis_num,
                                  upstream.loop.size());
-  AxisTransform append_reduce_axis =
-      std::make_shared<AppendAxisTransform>(reduce_axis, reduce_loop);
-  AxisTransform delete_reduce_axis = ReverseTransform(append_reduce_axis);
-  auto upstream_copy = upstream;
-  for (auto& route : upstream_copy.input2loop) {
-    route.push_back(append_reduce_axis);
+  // Check whether downstream trivial can reuse upstream reduce axis.
+  AxisTransformSimulator simulator(GetLoopSinkRoute(upstream, downstream),
+                                   upstream.loop);
+  auto upstream_trivial_related_ids =
+      simulator.GetRelatedAxisIds(simulator.source_ids_);
+  std::set<std::string> downstream_non_related_ids;
+  for (const auto& axis_id : simulator.target_ids_) {
+    if (!upstream_trivial_related_ids.count(axis_id)) {
+      downstream_non_related_ids.insert(axis_id);
+    }
   }
-  auto result = LoopMappingMergeImpl(upstream_copy, downstream, false);
-  result.loop = ConcatVector(downstream.loop, reduce_loop);
-  for (auto& route : result.loop2output) {
-    route.insert(route.begin(), delete_reduce_axis);
+  std::vector<int> reuse_reduce_indices;
+  for (int i = 0; i < reduce_axis.size(); ++i) {
+    for (const auto& axis_id : downstream_non_related_ids) {
+      if (reduce_loop[i] == simulator.axis_symbols_.at(axis_id)) {
+        reuse_reduce_indices.push_back(i);
+        downstream_non_related_ids.erase(axis_id);
+        break;
+      }
+    }
+  }
+  PADDLE_ENFORCE(reuse_reduce_indices.size() == 0 ||
+                     reuse_reduce_indices.size() == reduce_axis_num,
+                 ::common::errors::PreconditionNotMet(
+                     "Downstream trivial loop should reuse all upstream reduce "
+                     "axis or none."));
+  LoopAxisMapping result;
+  if (reuse_reduce_indices.empty()) {
+    AxisTransform append_reduce_axis =
+        std::make_shared<AppendAxisTransform>(reduce_axis, reduce_loop);
+    AxisTransform delete_reduce_axis = ReverseTransform(append_reduce_axis);
+    auto upstream_copy = upstream;
+    for (auto& route : upstream_copy.input2loop) {
+      route.push_back(append_reduce_axis);
+    }
+    result = LoopMappingMergeImpl(upstream_copy, downstream, false);
+    result.loop = ConcatVector(downstream.loop, reduce_loop);
+    for (auto& route : result.loop2output) {
+      route.insert(route.begin(), delete_reduce_axis);
+    }
+  } else {
+    result = LoopMappingMergeImpl(upstream, downstream, false);
   }
   result.SimplifyForwardMapping();
   result.SetReverseMapping();
-  VLOG(4) << "\nMerged result: " << result.DebugStr();
   return result;
 }
 
@@ -677,7 +779,7 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
   }
 
   if (result.empty()) result.push_back(IdentityTransform::InstancePtr());
-  result = SimplifyTransformRoute(result, source_ids.size());
+  result = SimplifyTransformRoute(result, source.loop);
   VLOG(4) << "Found loop transform: " << result;
   return result;
 }
@@ -773,7 +875,7 @@ LoopAxisMapping CreateLoopMappingForSlice(pir::Operation* op) {
         std::make_shared<AppendAxisTransform>(std::vector<int64_t>{0}));
   }
   result.input2loop[0] =
-      SimplifyTransformRoute(result.input2loop[0], input_shape.size());
+      SimplifyTransformRoute(result.input2loop[0], input_shape);
   result.loop2output[0].push_back(IdentityTransform::InstancePtr());
   return result;
 }
