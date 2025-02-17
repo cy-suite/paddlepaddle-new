@@ -133,12 +133,9 @@ def forbid_op_lower_trt(program, disabled_ops):
             op.set_bool_attr("__l_trt__", False)
 
 
-def enforce_op_lower_trt(program, enable_ops):
-    if isinstance(enable_ops, str):
-        enable_ops = [enable_ops]
+def enforce_op_lower_trt(program, op_name):
     for op in program.global_block().ops:
-        op.set_bool_attr("__l_trt__", False)
-        if op.name() in enable_ops:
+        if op.name() == op_name:
             op.set_bool_attr("__l_trt__", True)
 
 
