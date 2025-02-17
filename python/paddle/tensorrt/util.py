@@ -68,7 +68,7 @@ def all_ops_into_trt(program):
     return True
 
 
-def run_pir_pass(program, disable_passes=[], scope=None):
+def run_pir_pass(program, disable_passes=[], scope=None, precision_mode=None):
     def _add_pass_(pm, passes, disable_passes):
         for pass_item in passes:
             for pass_name, pass_attr in pass_item.items():
@@ -78,7 +78,6 @@ def run_pir_pass(program, disable_passes=[], scope=None):
 
     pm = pir.PassManager(opt_level=4)
     pm.enable_print_statistics()
-    paddle.base.libpaddle.pir.infer_symbolic_shape_pass(pm, program)
     if scope is None:
         scope = paddle.static.global_scope()
     place = paddle.CUDAPlace(0)
@@ -87,6 +86,21 @@ def run_pir_pass(program, disable_passes=[], scope=None):
     passes = [
         {'trt_op_marker_pass': {}},
     ]
+    if precision_mode is not None and precision_mode.value == "INT8":
+        passes.append(
+            {
+                'delete_quant_dequant_linear_op_pass': {
+                    "__param_scope__": scope,
+                }
+            }
+        )
+        passes.append(
+            {
+                'trt_delete_weight_dequant_linear_op_pass': {
+                    "__param_scope__": scope,
+                }
+            }
+        )
     _add_pass_(pm, passes, disable_passes)
     pm.run(program)
 
@@ -121,7 +135,6 @@ def run_pir_pass(program, disable_passes=[], scope=None):
 def run_trt_partition(program):
     pm = pir.PassManager(opt_level=4)
     pm.enable_print_statistics()
-    paddle.base.libpaddle.pir.infer_symbolic_shape_pass(pm, program)
     pm.add_pass("trt_sub_graph_extract_pass", {})
     pm.run(program)
     return program
@@ -137,7 +150,8 @@ def forbid_op_lower_trt(program, disabled_ops):
 
 def enforce_op_lower_trt(program, op_name):
     for op in program.global_block().ops:
-        if op.name() == op_name:
+        op.set_bool_attr("__l_trt__", False)
+        if op.name() == op.name:
             op.set_bool_attr("__l_trt__", True)
 
 
@@ -223,6 +237,9 @@ class TensorRTConfigManager:
         if not cls._instance:
             cls._instance = super().__new__(cls)
             cls._instance.trt_config = trt_config
+        else:
+            if trt_config is not None:
+                cls._instance.trt_config = trt_config
         return cls._instance
 
     def _init(self, trt_config=None):
@@ -342,6 +359,15 @@ def remove_duplicate_value(value_list):
             ret_list.append(value)
             ret_list_id.append(value.id)
     return ret_list
+
+
+def set_dynamic_range(paddle_op, trt_inputs):
+    if paddle_op.has_attr("inputs_index"):
+        inputs_index = paddle_op.attrs()["inputs_index"]
+        inputs_scale = paddle_op.attrs()["inputs_scale"]
+        for i, index in enumerate(inputs_index):
+            scale = inputs_scale[i]
+            trt_inputs[index].set_dynamic_range(-scale, scale)
 
 
 def get_trt_version():
