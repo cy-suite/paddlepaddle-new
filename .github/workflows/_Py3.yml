@@ -121,7 +121,7 @@ jobs:
       run: |
         docker exec -t ${container_name} /bin/bash -c 'bash ${{ github.workspace }}/paddle/scripts/paddle_build/config_cfs.sh ${{ github.env }}'
 
-    - name: Check py37 with build
+    - name: Check py3 with build
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         export CACHE_DIR=${{ env.CACHE_DIR }}
@@ -130,7 +130,7 @@ jobs:
         bash ${work_dir}/paddle/scripts/paddle_build/run_step.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} py3
         '
 
-    - name: Check py37 with test
+    - name: Check py3 with test
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         . ../proxy
