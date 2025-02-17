@@ -426,7 +426,7 @@ class CpsInterpreter : public InterpreterBase<axpr::Value> {
         passed_args.insert(self_name);
         ADT_RETURN_IF_ERR(env->Set(self_name, self.value()));
       }
-      for (int pos_arg_idx = 0; pos_arg_idx < pos_args->size();
+      for (size_t pos_arg_idx = 0; pos_arg_idx < pos_args->size();
            ++pos_arg_idx, ++lambda_arg_idx) {
         const auto& arg_name = lambda->args.at(lambda_arg_idx).value();
         passed_args.insert(arg_name);
@@ -479,13 +479,13 @@ class CpsInterpreter : public InterpreterBase<axpr::Value> {
           ss << "<lambda>() missing " << (lambda->args.size() - args.size())
              << " required positional arguments: ";
           ss << "'" << lambda->args.at(args.size()).value() << "'";
-          for (int i = args.size() + 1; i < lambda->args.size(); ++i) {
+          for (size_t i = args.size() + 1; i < lambda->args.size(); ++i) {
             ss << "and '" << lambda->args.at(i).value() << "'";
           }
           return adt::errors::TypeError{ss.str()};
         }
       }
-      for (int i = 0; i < args.size(); ++i) {
+      for (size_t i = 0; i < args.size(); ++i) {
         const auto& arg_name = lambda->args.at(i).value();
         ADT_RETURN_IF_ERR(env->Set(arg_name, args.at(i)));
       }

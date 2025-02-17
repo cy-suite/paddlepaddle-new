@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <optional>
 #include <unordered_map>
 #include "paddle/ap/include/axpr/adt.h"
 #include "paddle/ap/include/axpr/error.h"

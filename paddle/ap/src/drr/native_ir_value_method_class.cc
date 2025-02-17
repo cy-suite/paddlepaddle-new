@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
-
 #include "paddle/ap/include/drr/native_ir_value_method_class.h"
 
 namespace ap::drr {

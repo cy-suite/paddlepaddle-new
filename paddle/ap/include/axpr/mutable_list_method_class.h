@@ -86,7 +86,7 @@ struct MethodClassImpl<ValueT, MutableList<ValueT>> {
           if (index < 0) {
             index += vec->size();
           }
-          if (index >= 0 && index < vec->size()) {
+          if (index >= 0 && index < static_cast<int64_t>(vec->size())) {
             return vec->at(index);
           }
           return adt::errors::IndexError{"list index out of range"};
@@ -115,7 +115,7 @@ struct MethodClassImpl<ValueT, MutableList<ValueT>> {
     if (idx < 0) {
       idx += self_ptr->size();
     }
-    ADT_CHECK(idx < self_ptr->size())
+    ADT_CHECK(idx < static_cast<int64_t>(self_ptr->size()))
         << adt::errors::IndexError{"list index out of range"};
     self_ptr->at(idx) = args.at(1);
     return adt::Nothing{};

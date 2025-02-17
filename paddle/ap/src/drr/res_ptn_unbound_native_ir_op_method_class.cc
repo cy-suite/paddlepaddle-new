@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
-
 #include "paddle/ap/include/drr/res_ptn_unbound_native_ir_op_method_class.h"
 #include "paddle/ap/include/axpr/callable_helper.h"
 #include "paddle/ap/include/drr/drr_pass_type_helper.h"

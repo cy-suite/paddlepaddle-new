@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
-
 #include "paddle/ap/include/kernel_dispatch/device_ctx_method_class.h"
 #include "paddle/ap/include/axpr/value.h"
 

@@ -571,7 +571,7 @@ struct ParseJsonToAnfExprHelperCallAnfExpr {
                              "should a valid atomic AnfExpr.");
     }
     std::vector<Atomic<AnfExpr>> args;
-    for (int i = 1; i < j_obj.size(); ++i) {
+    for (size_t i = 1; i < j_obj.size(); ++i) {
       const auto& arg = j_obj.at(i);
       const auto& arg_expr = ConvertJsonToAnfExpr(arg);
       if (!arg_expr.HasOkValue()) {
@@ -658,7 +658,7 @@ struct ParseJsonToAnfExprHelperLetAnfExpr {
     }
     std::vector<Bind<AnfExpr>> bindings;
     const auto& j_bindings = j_obj.at(1);
-    for (int i = 0; i < j_bindings.size(); ++i) {
+    for (size_t i = 0; i < j_bindings.size(); ++i) {
       const auto& binding = j_bindings.at(i);
       if (!binding.is_array()) {
         return JsonParseFailed(binding,

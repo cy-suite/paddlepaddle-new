@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
-
 #include "paddle/ap/include/paddle/pass/ap_lower_fusion_op_pass.h"
 #include "paddle/ap/include/memory/circlable_ref_list_base.h"
 

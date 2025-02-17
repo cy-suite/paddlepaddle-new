@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
-
 #include "paddle/ap/include/drr/unbound_opt_packed_ir_op_method_class.h"
 
 namespace ap::drr {

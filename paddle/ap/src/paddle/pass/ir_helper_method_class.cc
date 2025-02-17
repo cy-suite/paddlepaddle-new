@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
-
 #include "paddle/ap/include/paddle/pass/ir_helper_method_class.h"
 #include "paddle/ap/include/axpr/module_mgr.h"
 #include "paddle/ap/include/axpr/to_string.h"

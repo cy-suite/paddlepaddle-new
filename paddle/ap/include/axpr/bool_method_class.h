@@ -77,7 +77,6 @@ struct BoolMethodClass {
                                                                          rhs);
         },
         [&](const auto& impl) -> adt::Result<ValueT> {
-          using T = std::decay_t<decltype(impl)>;
           return adt::errors::TypeError{
               std::string() + "unsupported operand type(s) for " +
               ArithmeticOp::Name() + ": 'bool' and '" +

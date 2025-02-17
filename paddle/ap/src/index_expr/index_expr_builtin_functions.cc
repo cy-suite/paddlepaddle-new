@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
 #include "paddle/ap/include/axpr/builtin_functions.h"
 #include "paddle/ap/include/index_expr/index_expr_util.h"
 #include "paddle/ap/include/index_expr/valid_index_expr_builder.h"

@@ -140,7 +140,7 @@ struct Length : public std::monostate {
 
 PEXPR_FOR_EACH_UNARY_OP(DEFINE_UNARY_SYMBOL);
 
-#undef DEFINE_UNARY_SYMBOL;
+#undef DEFINE_UNARY_SYMBOL
 
 #define DEFINE_BINARY_SYMBOL(name, op)                               \
   struct name : public std::monostate {                              \
@@ -152,7 +152,7 @@ PEXPR_FOR_EACH_UNARY_OP(DEFINE_UNARY_SYMBOL);
 
 PEXPR_FOR_EACH_BINARY_OP(DEFINE_BINARY_SYMBOL);
 
-#undef DEFINE_BINARY_SYMBOL;
+#undef DEFINE_BINARY_SYMBOL
 
 #define AXPR_FOR_EACH_SYMBOL_OP(_) \
   PEXPR_FOR_EACH_BINARY_OP(_)      \

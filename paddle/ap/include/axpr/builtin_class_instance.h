@@ -100,10 +100,7 @@ template <typename ValueT, typename VisitorT>
 ClassAttrs<ValueT> MakeBuiltinClass(const std::string& class_name,
                                     const VisitorT& Visitor) {
   AttrMap<ValueT> attr_map;
-  Visitor([&](const auto& name, const auto& val) {
-    using TestType = decltype(BuiltinFrameValImpl<ValueT>{val});
-    attr_map->Set(name, val);
-  });
+  Visitor([&](const auto& name, const auto& val) { attr_map->Set(name, val); });
   adt::List<std::shared_ptr<ClassAttrsImpl<ValueT>>> empty_superclasses{};
   return ClassAttrs<ValueT>{class_name, empty_superclasses, attr_map};
 }

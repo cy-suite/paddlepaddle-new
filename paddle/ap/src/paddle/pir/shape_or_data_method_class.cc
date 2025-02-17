@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
-
 #include "paddle/ap/include/axpr/callable_helper.h"
 #include "paddle/ap/include/axpr/data_type_util.h"
 #include "paddle/ap/include/paddle/pir/type_adt_type_id.h"

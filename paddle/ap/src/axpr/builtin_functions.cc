@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
 #include "paddle/ap/include/axpr/builtin_functions.h"
 #include <functional>
 #include <sstream>
@@ -155,16 +154,10 @@ adt::Result<axpr::Value> ReplaceOrTrimLeftComma(
         if (start == std::string::npos) {
           return false;
         }
-        if (start < 0) {
-          return false;
-        }
         if (start >= self.size()) {
           return false;
         }
         if (end == std::string::npos) {
-          return false;
-        }
-        if (end < 0) {
           return false;
         }
         if (end >= self.size()) {
@@ -176,7 +169,7 @@ adt::Result<axpr::Value> ReplaceOrTrimLeftComma(
         if (self[start] != ',') {
           return false;
         }
-        for (int i = start + 1; i < end; ++i) {
+        for (size_t i = start + 1; i < end; ++i) {
           char ch = self[i];
           if (ch == ' ') {
             continue;
@@ -386,7 +379,7 @@ Result<axpr::Value> Zip(const axpr::Value&,
   }
   adt::List<axpr::Value> ret;
   ret->reserve(size.value());
-  for (int i = 0; i < size.value(); ++i) {
+  for (size_t i = 0; i < size.value(); ++i) {
     adt::List<axpr::Value> tuple;
     tuple->reserve(args.size());
     for (const auto& arg : args) {
@@ -423,7 +416,7 @@ Result<axpr::Value> Reduce(axpr::InterpreterBase<axpr::Value>* interpreter,
   ADT_CHECK(start.has_value());
   axpr::Value ret{init.value()};
   const auto& f = args.at(0);
-  for (int i = start.value(); i < lst_size; ++i) {
+  for (size_t i = start.value(); i < lst_size; ++i) {
     ADT_LET_CONST_REF(elt, lst.at(i));
     ADT_LET_CONST_REF(
         cur_reduced,

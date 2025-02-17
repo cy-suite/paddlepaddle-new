@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
-
 #include "paddle/ap/include/paddle/pir/program_method_class.h"
 #include "paddle/ap/include/axpr/dim_expr_method_class.h"
 #include "paddle/ap/include/paddle/pir/attribute_method_class.h"

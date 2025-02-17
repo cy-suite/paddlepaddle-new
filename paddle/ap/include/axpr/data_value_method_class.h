@@ -150,7 +150,6 @@ adt::Result<ValueT> ConstructDataValue(const ValueT&,
       [](int64_t c) -> adt::Result<ValueT> { return DataValue{c}; },
       [](const DataValue& c) -> adt::Result<ValueT> { return c; },
       [&](const auto& impl) -> adt::Result<ValueT> {
-        using T = std::decay_t<decltype(impl)>;
         return adt::errors::TypeError{
             std::string() +
             "unsupported operand type for constructor of 'DataValue': '" +
