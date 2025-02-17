@@ -224,7 +224,6 @@ jobs:
         rm -rf ${PADDLE_ROOT}/build/CMakeCache.txt
         '
 
-
     - name: Check sot with python3.11 and build
       env:
         work_dir: ${{ github.workspace }}
@@ -251,7 +250,7 @@ jobs:
         '
 
 
-     - name: Check sot with python3.12 and build
+    - name: Check sot with python3.12 and build
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
