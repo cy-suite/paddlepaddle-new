@@ -2585,9 +2585,7 @@ void InferSymbolicShapePass(
     pir::Program &program) {                          // NOLINT
   pir::IrContext *ctx = pir::IrContext::Instance();
   ctx->GetOrRegisterDialect<pir::shape::ShapeDialect>();
-  if (FLAGS_pir_apply_shape_optimization_pass) {
-    pass_manager->AddPass(pir::CreateShapeOptimizationPass());
-  }
+  pass_manager->AddPass(pir::CreateShapeOptimizationPass());
 }
 
 std::shared_ptr<Program> ApplyCommonSubexpressionEliminationPass(
@@ -2602,20 +2600,6 @@ std::shared_ptr<Program> ApplyCommonSubexpressionEliminationPass(
     std::cout << *program << std::endl;
   }
   return program;
-}
-
-void ApplyReduceAsToSumPass(
-    std::shared_ptr<pir::PassManager> &pass_manager,  // NOLINT
-    pir::Program &program) {                          // NOLINT
-#ifdef PADDLE_WITH_CINN
-  pass_manager->AddPass(cinn::dialect::ir::CreateReduceAsToSumPass());
-  pass_manager->AddPass(pir::CreateDeadCodeEliminationPass());
-#else
-  PADDLE_THROW(common::errors::Unimplemented(
-      "Currently we only support ReduceAsToSumPass Pass for Pir under "
-      "@to_static, please "
-      "compile PaddlePaddle with CINN"));
-#endif
 }
 
 std::shared_ptr<Program> ApplyFusedBnAddActPass(
@@ -2636,7 +2620,6 @@ void BindIrPass(pybind11::module *m) {
   m->def("infer_symbolic_shape_pass", InferSymbolicShapePass);
   m->def("apply_cse_pass", ApplyCommonSubexpressionEliminationPass);
   m->def("apply_bn_add_act_pass", ApplyFusedBnAddActPass);
-  m->def("reduce_as_sum_pass", ApplyReduceAsToSumPass);
 
   py::class_<Pass, std::shared_ptr<Pass>> pass(*m,
                                                "Pass",
