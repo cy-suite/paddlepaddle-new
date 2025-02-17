@@ -135,7 +135,7 @@ jobs:
         docker exec -t ${container_name} /bin/bash -c '
         . ../proxy
         bash ${work_dir}/paddle/scripts/paddle_build/run_linux_cpu_test.sh
-        source ./utils.sh; run_linux_cpu_test
+        source ./utils.sh; clean_build_files
         python -m pip install bce-python-sdk==0.8.74
         '
 
