@@ -28,10 +28,12 @@ tar -zxvf ucc-v1.3.0.tar.gz
 
 
 cd ucx-1.17.0/
+./autogen.sh
 ./contrib/configure-release --prefix=/usr/local/ucx --with-cuda=${CUDA_HOME} --enable-mt --enable-optimizations --enable-profiling --enable-stats --without-xpmem --without-knem --without-java
 make -j8
 make install
 
 cd ucc-1.3.0/
+./autogen.sh
 ./configure --prefix=/usr/local/ucc --with-ucx=/usr/local/ucx --with-cuda=${CUDA_HOME} --enable-profiling --enable-optimizations
 make install
