@@ -54,9 +54,9 @@ static StmtPattern ConvertToStmtPattern(const PatternContent& content) {
     return result;
   } else {
     PADDLE_THROW(::common::errors::InvalidArgument(
-        "Unsupport op for fusion: %s", OpsDebugStr({content.op})));
+        "Unsupported op for fusion: %s", OpsDebugStr({content.op})));
     auto result =
-        UnsupportPattern({content.op}, std::make_shared<FusionTracker>());
+        UnsupportedPattern({content.op}, std::make_shared<FusionTracker>());
     result.tracker_->append(
         std::make_shared<InitPatternInstr>(content.op, result.id()));
     return result;
@@ -186,9 +186,9 @@ static std::vector<pir::Operation*> GetOutputOpsInPattern(
     std::vector<pir::Operation*> operator()(const TrivialPattern& pattern) {
       return {pattern.sink_op()};
     }
-    std::vector<pir::Operation*> operator()(const UnsupportPattern& pattern) {
+    std::vector<pir::Operation*> operator()(const UnsupportedPattern& pattern) {
       PADDLE_THROW(::common::errors::Unimplemented(
-          "Get output ops in UnsupportPattern is not implement!"));
+          "Get output ops in UnsupportedPattern is not implement!"));
     }
     std::vector<pir::Operation*> operator()(const ReduceTreePattern& pattern) {
       return this->operator()(pattern.GetRootPattern());
@@ -304,7 +304,7 @@ struct LoopValueDimsVisitor {
     return res;
   }
 
-  std::vector<LoopValueDims> operator()(const UnsupportPattern& pattern) {
+  std::vector<LoopValueDims> operator()(const UnsupportedPattern& pattern) {
     PADDLE_ENFORCE(false, "Not support GetLoopRange.");
   }
 
@@ -374,7 +374,7 @@ static bool IsLoopFrameworkEqual(const StmtPattern& lhs,
   VLOG(4) << "lhs " << lhs_loops.DebugStr();
   VLOG(4) << "rhs " << rhs_loops.DebugStr();
 
-  // TODO(huangjiyi): support horizontal fusion without reduce dims euqal.
+  // TODO(huangjiyi): support horizontal fusion without reduce dims equal.
   const auto get_reduce_loop = [](const MaybeLoopFramework& loop) {
     LoopExprs reduce_loop;
     for (int i = 0; i < loop.is_reduce.size(); ++i) {
@@ -465,9 +465,9 @@ struct LoopFrameworkVisitor {
             CreateIsReduceVector(trivial_loop.size(), reduce_loop.size())};
   }
 
-  MaybeLoopFramework operator()(const UnsupportPattern& pattern) {
+  MaybeLoopFramework operator()(const UnsupportedPattern& pattern) {
     PADDLE_THROW(
-        ::common::errors::Unimplemented("Unsupport for GetLoopRange."));
+        ::common::errors::Unimplemented("Unsupported for GetLoopRange."));
   }
 
   MaybeLoopFramework operator()(const ItersPermutationPattern& pattern) {
