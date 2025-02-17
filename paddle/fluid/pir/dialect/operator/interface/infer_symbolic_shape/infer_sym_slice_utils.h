@@ -344,7 +344,6 @@ inline ExprVec GetStridedSliceDims(
       auto out_dim = (std::abs(end - start) + step_size - 1) / step_size;
       slice_dims[axis] = symbol::DimExpr({out_dim});
     } else {
-      // TODO(dev): Followed code is risky!
       int64_t start_i = 0;
 
       if (starts.at(i).isa<int64_t>()) {
@@ -382,13 +381,13 @@ inline ExprVec GetStridedSliceDims(
       bool start_positive_end_negative = start_i >= 0 && end_i <= 0;
 
       if (!both_negative_or_positive) {
-        // do nothing
         if (start_negative_end_positive) {
           starts.at(i) = starts.at(i) + in_dims.at(axis);
         } else if (start_positive_end_negative) {
           starts.at(i) = starts.at(i) - in_dims.at(axis);
         } else {
-          PADDLE_THROW(common::errors::Fatal("Dead code"));
+          PADDLE_THROW(common::errors::Fatal(
+              "Dead Code.This code should never be reached due to logical."));
         }
       }
 
