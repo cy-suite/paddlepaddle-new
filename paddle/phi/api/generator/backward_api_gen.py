@@ -394,7 +394,7 @@ def main():
     parser.add_argument(
         '--backward_source_path',
         help='output of generated backward source code file',
-        default='paddle/phi/api/lib/backward_api.cc',
+        default='paddle/phi/api/lib/backward_api_impl.cc',
     )
 
     options = parser.parse_args()

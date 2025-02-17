@@ -180,7 +180,7 @@ else()
   # generate backward api
   execute_process(
     COMMAND
-      ${PYTHON_EXECUTABLE} ${bw_api_gen_file} --backward_api_yaml_path
+      ${PYTHON_EXECUTABLE} ${bw_api_gen_file} --backward_yaml_path
       ${bw_api_yaml_file} ${legacy_bw_api_yaml_file} --backward_header_path
       ${bw_api_header_file_tmp} --backward_source_path
       ${bw_api_source_file_tmp})
