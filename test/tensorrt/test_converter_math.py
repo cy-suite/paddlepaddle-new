@@ -143,7 +143,7 @@ class TestPowCase2TRTPattern(TensorRTBaseTest):
         self.python_api = paddle.pow
         self.api_args = {
             "x": np.random.randn(2, 3).astype("float32"),
-            "y": int(2),
+            "y": 2,
         }
         self.program_config = {"feed_list": ["x"]}
         self.min_shape = {"x": [1, 3]}
