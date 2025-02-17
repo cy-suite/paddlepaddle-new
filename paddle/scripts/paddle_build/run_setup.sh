@@ -17,7 +17,6 @@ init
 
 if [ "$4" == "sot" ]; then
     PY_VERSION=$5
-    echo $5
     ln -sf $(which python${PY_VERSION}) /usr/local/bin/python
     ln -sf $(which pip${PY_VERSION}) /usr/local/bin/pip
 fi
@@ -30,6 +29,8 @@ if [ "$4" == "py3" ]; then
     pip install -r "${work_dir}/python/requirements.txt"
     pip install -r "${work_dir}/python/unittest_py/requirements.txt"
 fi
+
+echo $PY_VERSION
 
 function run_setup(){
     startTime_s=`date +%s`
