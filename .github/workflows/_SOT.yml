@@ -23,6 +23,9 @@ jobs:
     # sudo usermod -aG docker $USER
     - name: Check docker image and run container
       env:
+        work_dir: ${{ github.workspace }}
+        PADDLE_ROOT: ${{ github.workspace }}
+        WITH_SHARED_PHI: "ON"
         FLAGS_fraction_of_gpu_memory_to_use: 0.15
         CTEST_OUTPUT_ON_FAILURE: 1
         CTEST_PARALLEL_LEVEL: 2
@@ -62,6 +65,9 @@ jobs:
           -v "${{ github.workspace }}/../../../..:${{ github.workspace }}/../../../.." \
           -e PR_ID \
           -e COMMIT_ID \
+          -e work_dir \
+          -e PADDLE_ROOT \
+          -e WITH_SHARED_PHI \
           -e FLAGS_fraction_of_gpu_memory_to_use \
           -e CTEST_OUTPUT_ON_FAILURE \
           -e CTEST_PARALLEL_LEVEL \
@@ -126,35 +132,179 @@ jobs:
         fi
         '
 
-    - name: Check sot
-      id: check_sot
+    - name: Check if sot is necessary
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
-        export CACHE_DIR=${{ env.CACHE_DIR }}
-        export CCACHE_DIR=${{ env.CCACHE_DIR }}
-        export work_dir=${{ env.work_dir }}
-        export PADDLE_ROOT=${{ env.PADDLE_ROOT }}
-        PATH=/usr/local/bin:${PATH}
-        ln -sf $(which python3.10) /usr/local/bin/python
-        ln -sf $(which pip3.10) /usr/local/bin/pip
-        pip config set global.cache-dir "/home/data/cfs/.cache/pip"
         . ../proxy
-        EXCODE=0
-        bash -x ${work_dir}/paddle/scripts/paddle_build.sh cicheck_sot;EXCODE=$?
-        echo "EXCODE=${EXCODE}" >> ${{ github.env }}
+        bash ${work_dir}/paddle/scripts/paddle_build/check_run_sot_ci.sh
+        if [ $? -eq 0 ];then
+          echo "run_sot=true" >> ${{ github.env }}
+        else
+          echo "run_sot=false" >> ${{ github.env }}
+        fi
         '
 
-    - name: Check result
+      - name: Check sot with python3.8 and build
       env:
-        CHECK_SCRIPT: "${{ github.workspace }}/paddle/scripts/paddle_build/check_excode.sh"
+        work_dir: ${{ github.workspace }}
+        PADDLE_ROOT: ${{ github.workspace }}
+      if: ${{ env.run_sot }} == 'true'
       run: |
-        docker exec -t ${container_name} /bin/bash -c "export EXCODE=${{ env.EXCODE }} && bash $CHECK_SCRIPT"
+        docker exec -t ${container_name} /bin/bash -c '
+        export CACHE_DIR=${{ env.CACHE_DIR }}
+        export CCACHE_DIR=${{ env.CCACHE_DIR }}
+        . ../proxy
+        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} 3.8
+        '
+
+      - name: Check sot with python3.8 and test
+      env:
+        work_dir: ${{ github.workspace }}
+        PADDLE_ROOT: ${{ github.workspace }}
+      if: ${{ env.run_sot }} == 'true'
+      run: |
+        docker exec -t ${container_name} /bin/bash -c '
+        . ../proxy
+        bash ${work_dir}/paddle/scripts/paddle_build/run_sot_test.sh 3.8
+        rm -rf ${PADDLE_ROOT}/build/CMakeCache.txt
+        '
+
+
+      - name: Check sot with python3.9 and build
+      env:
+        work_dir: ${{ github.workspace }}
+        PADDLE_ROOT: ${{ github.workspace }}
+      if: ${{ env.run_sot }} == 'true'
+      run: |
+        docker exec -t ${container_name} /bin/bash -c '
+        export CACHE_DIR=${{ env.CACHE_DIR }}
+        export CCACHE_DIR=${{ env.CCACHE_DIR }}
+        . ../proxy
+        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} 3.9
+        '
+
+      - name: Check sot with python3.9 and test
+      env:
+        work_dir: ${{ github.workspace }}
+        PADDLE_ROOT: ${{ github.workspace }}
+      if: ${{ env.run_sot }} == 'true'
+      run: |
+        docker exec -t ${container_name} /bin/bash -c '
+        . ../proxy
+        bash ${work_dir}/paddle/scripts/paddle_build/run_sot_test.sh 3.9
+        rm -rf ${PADDLE_ROOT}/build/CMakeCache.txt
+        '
+
+
+      - name: Check sot with python3.10 and build
+      env:
+        work_dir: ${{ github.workspace }}
+        PADDLE_ROOT: ${{ github.workspace }}
+      if: ${{ env.run_sot }} == 'true'
+      run: |
+        docker exec -t ${container_name} /bin/bash -c '
+        export CACHE_DIR=${{ env.CACHE_DIR }}
+        export CCACHE_DIR=${{ env.CCACHE_DIR }}
+        . ../proxy
+        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} 3.10
+        '
+
+      - name: Check sot with python3.10 and test
+      env:
+        work_dir: ${{ github.workspace }}
+        PADDLE_ROOT: ${{ github.workspace }}
+      if: ${{ env.run_sot }} == 'true'
+      run: |
+        docker exec -t ${container_name} /bin/bash -c '
+        . ../proxy
+        bash ${work_dir}/paddle/scripts/paddle_build/run_sot_test.sh 3.8
+        rm -rf ${PADDLE_ROOT}/build/CMakeCache.txt
+        '
+
+
+      - name: Check sot with python3.11 and build
+      env:
+        work_dir: ${{ github.workspace }}
+        PADDLE_ROOT: ${{ github.workspace }}
+      if: ${{ env.run_sot }} == 'true'
+      run: |
+        docker exec -t ${container_name} /bin/bash -c '
+        export CACHE_DIR=${{ env.CACHE_DIR }}
+        export CCACHE_DIR=${{ env.CCACHE_DIR }}
+        . ../proxy
+        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} 3.11
+        '
+
+      - name: Check sot with python3.11 and test
+      env:
+        work_dir: ${{ github.workspace }}
+        PADDLE_ROOT: ${{ github.workspace }}
+      if: ${{ env.run_sot }} == 'true'
+      run: |
+        docker exec -t ${container_name} /bin/bash -c '
+        . ../proxy
+        bash ${work_dir}/paddle/scripts/paddle_build/run_sot_test.sh 3.11
+        rm -rf ${PADDLE_ROOT}/build/CMakeCache.txt
+        '
+
+
+      - name: Check sot with python3.12 and build
+      env:
+        work_dir: ${{ github.workspace }}
+        PADDLE_ROOT: ${{ github.workspace }}
+      if: ${{ env.run_sot }} == 'true'
+      run: |
+        docker exec -t ${container_name} /bin/bash -c '
+        export CACHE_DIR=${{ env.CACHE_DIR }}
+        export CCACHE_DIR=${{ env.CCACHE_DIR }}
+        . ../proxy
+        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} 3.12
+        '
+
+      - name: Check sot with python3.12 and test
+      env:
+        work_dir: ${{ github.workspace }}
+        PADDLE_ROOT: ${{ github.workspace }}
+      if: ${{ env.run_sot }} == 'true'
+      run: |
+        docker exec -t ${container_name} /bin/bash -c '
+        . ../proxy
+        bash ${work_dir}/paddle/scripts/paddle_build/run_sot_test.sh 3.12
+        rm -rf ${PADDLE_ROOT}/build/CMakeCache.txt
+        '
+
+
+      - name: Check sot with python3.13 and build
+      env:
+        work_dir: ${{ github.workspace }}
+        PADDLE_ROOT: ${{ github.workspace }}
+      if: ${{ env.run_sot }} == 'true'
+      run: |
+        docker exec -t ${container_name} /bin/bash -c '
+        export CACHE_DIR=${{ env.CACHE_DIR }}
+        export CCACHE_DIR=${{ env.CCACHE_DIR }}
+        . ../proxy
+        bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number} 3.13
+        '
+
+      - name: Check sot with python3.13 and test
+      env:
+        work_dir: ${{ github.workspace }}
+        PADDLE_ROOT: ${{ github.workspace }}
+      if: ${{ env.run_sot }} == 'true'
+      run: |
+        docker exec -t ${container_name} /bin/bash -c '
+        . ../proxy
+        bash ${work_dir}/paddle/scripts/paddle_build/run_sot_test.sh 3.13
+        rm -rf ${PADDLE_ROOT}/build/CMakeCache.txt
+        '
 
     - name: Terminate and delete the container
       if: always()
       run: |
+        docker exec -t ${container_name} /bin/bash -c 'rm -rf * .[^.]*'
         docker stop ${container_name}
         docker rm ${container_name}

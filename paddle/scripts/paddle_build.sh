@@ -990,7 +990,7 @@ function check_run_sot_ci() {
     if [[ "OFF" == ${run_sot_ut} ]]; then
         echo "No SOT-related changes were found"
         echo "Skip SOT UT CI"
-        exit 0
+        exit 1
     fi
     set -x
 }
