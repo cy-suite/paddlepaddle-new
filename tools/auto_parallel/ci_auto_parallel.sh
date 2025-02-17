@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+export FLAGS_trace_api="/workspace/Paddle/paddle/api.yaml,/workspace/Paddle/paddle/api_config.txt"
+
 source /workspace/Paddle/tools/auto_parallel/target_path_lists.sh
 
 export paddle=$1
@@ -267,3 +269,5 @@ else
     EXCODE=0
 fi
 exit $EXCODE
+
+sleep 10d

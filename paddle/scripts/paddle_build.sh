@@ -3684,6 +3684,7 @@ EOF
 }
 
 function distribute_test() {
+    export FLAGS_trace_api="/workspace/Paddle/paddle/api.yaml,/workspace/Paddle/paddle/api_config.txt"
     python ${PADDLE_ROOT}/tools/get_pr_title.py skip_distribute_test && CINN_OR_BUAA_PR=1
     if [[ "${CINN_OR_BUAA_PR}" = "1" ]];then
         echo "PR's title with 'CINN' or 'BUAA', skip the run distribute ci test !"
@@ -3737,7 +3738,7 @@ function distribute_test() {
     if [[ "$EXIT_CODE" != "0" ]]; then
       exit 8;
     fi
-
+    sleep 10d
 }
 
 function test_fluid_lib_train() {
