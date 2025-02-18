@@ -12,15 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.#pragma once
 
+#pragma once
+
 #include <memory>
 #include <string>
 #include <unordered_map>
 
-//#include "paddle/fluid/platform/device_context.h"
-//#include "paddle/phi/backends/xpu/xpu_context.h"
+// #include "paddle/fluid/platform/device_context.h"
+// #include "paddle/phi/backends/xpu/xpu_context.h"
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/platform/device_event_base.h"
-//#include "paddle/phi/core/places.h"
+// #include "paddle/phi/core/places.h"
 
 namespace paddle {
 namespace distributed {
@@ -53,7 +55,8 @@ class XpuAsyncLoad {
   };
 
   // Offload
-  std::shared_ptr<Task> Offload(phi::DenseTensor* dst, const phi::DenseTensor& src);
+  std::shared_ptr<Task> Offload(phi::DenseTensor* dst,
+                                const phi::DenseTensor& src);
 
   // OffloadWithOffset
   std::shared_ptr<Task> OffloadWithOffset(phi::DenseTensor* dst,
@@ -63,7 +66,8 @@ class XpuAsyncLoad {
                                           size_t offload_size);
 
   // Reload
-  std::shared_ptr<Task> Reload(phi::DenseTensor* dst, const phi::DenseTensor& src);
+  std::shared_ptr<Task> Reload(phi::DenseTensor* dst,
+                               const phi::DenseTensor& src);
 
  private:
   bool is_initialized_{false};
@@ -83,7 +87,7 @@ class XpuAsyncLoad {
   // If not XPU, do event sync. If XPU, skip
   void SyncCalcuStream(const Place& place,
                        phi::XPUContext* offload_ctx,
-                       platform::DeviceEvent& calc_event);
+                       platform::DeviceEvent* calc_event);
 };
 
 }  // namespace distributed
