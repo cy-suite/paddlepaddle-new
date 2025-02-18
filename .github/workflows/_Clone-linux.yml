@@ -44,17 +44,14 @@ jobs:
         git fetch origin pull/${{ github.event.pull_request.number }}/head:pr
         git merge --no-ff pr
         git branch -d pr
-        # git submodule foreach 'git fetch --tags --all'
         bash ${{ github.workspace }}/paddle/scripts/paddle_build/third_party_tag.sh
 
     - name: Download bos client
       env:
-        # bos_file: "/home/paddle/actions-runner/bos_upload.py"
         home_path: "/home/paddle/actions-runner/"
         bos_file: "/home/paddle/actions-runner/bos/BosClient.py"
       run: |
         if [ ! -f "${bos_file}" ]; then
-          # wget -q --no-proxy -O ${bos_file} https://paddle-docker-tar.cdn.bcebos.com/bos_upload.py --no-check-certificate
           wget -q --no-proxy -O ${home_path}/bos_new.tar.gz https://xly-devops.bj.bcebos.com/home/bos_new.tar.gz --no-check-certificate
           mkdir ${home_path}/bos
           tar xf ${home_path}/bos_new.tar.gz -C ${home_path}/bos
@@ -64,14 +61,13 @@ jobs:
       env:
         AK: paddle
         SK: paddle
-        # AK: ${{ vars.AK }}
-        # SK: ${{ vars.SK }}
-        # bos_file: "/home/paddle/actions-runner/bos_upload.py"
         bos_file: "/home/paddle/actions-runner/bos/BosClient.py"
       run: |
         cd ..
         tar -zcf Paddle.tar.gz Paddle
+        echo "::group::Install bce-python-sdk"
         python -m pip install bce-python-sdk==0.8.74
+        echo "::endgroup::"
         python ${bos_file} Paddle.tar.gz paddle-github-action/PR/Paddle/${PR_ID}/${COMMIT_ID}
         rm Paddle.tar.gz
         cd -

@@ -34,27 +34,26 @@ jobs:
         WITH_CACHE: "ON"
         WITH_AVX: "OFF"
         WITH_MKL: "OFF"
-        WITH_TESTING: "ON" #
+        WITH_TESTING: "ON"
         WITH_COVERAGE: "OFF"
         COVERALLS_UPLOAD: "OFF"
         GIT_PR_ID: ${{ inputs.PR_ID }}
         PADDLE_VERSION: 0.0.0
         CMAKE_BUILD_TYPE: Release
         PADDLE_FRACTION_GPU_MEMORY_TO_USE: 0.15
-        WITH_DISTRIBUTE: "ON" #
-        RUN_TEST: "ON" #
+        WITH_DISTRIBUTE: "ON"
+        RUN_TEST: "ON"
         PRECISION_TEST: "OFF"
         PREC_SUFFIX: .py3
         WITH_UNITY_BUILD: "ON"
         TIMEOUT_DEBUG_HEL: "OFF"
-        PY_VERSION: 3.9 #
+        PY_VERSION: 3.9
         CI_SKIP_CPP_TEST: "OFF"
         PROC_RUN: 12
         FLAGS_enable_eager_mode: 1
         WITH_TENSORRT: "OFF"
         WITH_NEWIR: "ON"
         GENERATOR: "Ninja"
-        # WITH_INFERENCE_API_TEST: "OFF"
         CCACHE_MAXSIZE: 150G
         CCACHE_LIMIT_MULTIPLE: 0.8
       run: |
@@ -103,7 +102,7 @@ jobs:
           -e GITHUB_ENV \
           -w ${{ github.workspace }} --network host ${docker_image}
 
-    - name: Download paddle and update
+    - name: Download paddle.tar.gz and merge develop
       env:
         work_dir: ${{ github.workspace }}
       run: |
@@ -125,9 +124,9 @@ jobs:
       env:
         work_dir: ${{ github.workspace }}
       run: |
-        docker exec -t ${container_name} /bin/bash -c 'bash ${work_dir}/paddle/scripts/paddle_build/config_cfs.sh ${{ github.env }}'
+        docker exec -t ${container_name} /bin/bash -c 'bash ${work_dir}/paddle/scripts/paddle_build/config_cfs.sh py3 ${{ github.env }}'
 
-    - name: Check py3 with build
+    - name: Build
       env:
         work_dir: ${{ github.workspace }}
       run: |
@@ -138,7 +137,7 @@ jobs:
         bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} py3
         '
 
-    - name: Check py3 with test
+    - name: Test
       env:
         work_dir: ${{ github.workspace }}
       run: |
@@ -146,7 +145,9 @@ jobs:
         . ../proxy
         bash ${work_dir}/paddle/scripts/paddle_build/run_linux_cpu_test.sh
         source paddle/scripts/paddle_build/utils.sh; clean_build_files
+        echo "::group::Install bce-python-sdk"
         python -m pip install bce-python-sdk==0.8.74
+        echo "::endgroup::"
         '
 
     - name: Upload paddle_whl
@@ -170,6 +171,6 @@ jobs:
     - name: Terminate and delete the container
       if: always()
       run: |
-        # docker exec -t ${container_name} /bin/bash -c 'rm -rf * .[^.]*'
+        docker exec -t ${container_name} /bin/bash -c 'rm -rf * .[^.]*'
         docker stop ${container_name}
         docker rm ${container_name}

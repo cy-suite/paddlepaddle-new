@@ -102,9 +102,8 @@ jobs:
           -e CCACHE_LIMIT_MULTIPLE \
           -e GITHUB_ENV \
           -w ${{ github.workspace }} --network host ${docker_image}
-      # working_directory: ./tools/dockerfile/
 
-    - name: Download paddle and update
+    - name: Download paddle.tar.gz and merge develop
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         rm -rf * .[^.]*
@@ -122,19 +121,9 @@ jobs:
 
     - name: Configure cache and ccache
       run: |
-        docker exec -t ${container_name} /bin/bash -c '
-        mkdir -p /home/data/cfs/.cache/build
-        echo "CACHE_DIR=/home/data/cfs/.cache/build" >> ${{ github.env }}
-        if [ -f '/home/data/gzcfs/gz.txt' ];then
-          mkdir -p /home/data/gzcfs/.ccache/sot
-          echo "CCACHE_DIR=/home/data/gzcfs/.ccache/sot" >> ${{ github.env }}
-        else
-          mkdir -p /home/data/cfs/.ccache/sot
-          echo "CCACHE_DIR=/home/data/cfs/.ccache/sot" >> ${{ github.env }}
-        fi
-        '
+        docker exec -t ${container_name} /bin/bash -c 'bash ${work_dir}/paddle/scripts/paddle_build/config_cfs.sh sot ${{ github.env }}'
 
-    - name: Check if sot is necessary
+    - name: Determine sot pipeline trigger
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -149,7 +138,7 @@ jobs:
         fi
         '
 
-    - name: Check sot with python3.8 and build
+    - name: Build with python3.8
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -162,7 +151,7 @@ jobs:
         bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.8
         '
 
-    - name: Check sot with python3.8 and test
+    - name: Test with python3.8
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -175,7 +164,7 @@ jobs:
         '
 
 
-    - name: Check sot with python3.9 and build
+    - name: Build with python3.9
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -188,7 +177,7 @@ jobs:
         bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.9
         '
 
-    - name: Check sot with python3.9 and test
+    - name: Test with python3.9
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -201,7 +190,7 @@ jobs:
         '
 
 
-    - name: Check sot with python3.10 and build
+    - name: Build with python3.10
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -214,7 +203,7 @@ jobs:
         bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.10
         '
 
-    - name: Check sot with python3.10 and test
+    - name: Test with python3.10
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -226,7 +215,7 @@ jobs:
         rm -rf ${PADDLE_ROOT}/build/CMakeCache.txt
         '
 
-    - name: Check sot with python3.11 and build
+    - name: Build with python3.11
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -239,7 +228,7 @@ jobs:
         bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.11
         '
 
-    - name: Check sot with python3.11 and test
+    - name: Test with python3.11
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -252,7 +241,7 @@ jobs:
         '
 
 
-    - name: Check sot with python3.12 and build
+    - name: Build with python3.12
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -265,7 +254,7 @@ jobs:
         bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.12
         '
 
-    - name: Check sot with python3.12 and test
+    - name: Test with python3.12
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -278,7 +267,7 @@ jobs:
         '
 
 
-    - name: Check sot with python3.13 and build
+    - name: Build with python3.13
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -291,7 +280,7 @@ jobs:
         bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.13
         '
 
-    - name: Check sot with python3.13 and test
+    - name: Test with python3.13
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -306,6 +295,6 @@ jobs:
     - name: Terminate and delete the container
       if: always()
       run: |
-        # docker exec -t ${container_name} /bin/bash -c 'rm -rf * .[^.]*'
+        docker exec -t ${container_name} /bin/bash -c 'rm -rf * .[^.]*'
         docker stop ${container_name}
         docker rm ${container_name}
