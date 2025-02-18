@@ -852,6 +852,21 @@ class Engine:
         # TODO(JZ-LIANG) Step 3.1: Partition Pass
         #   insert reshard op if operand tensor's placements is different from what the cumsumer op need.
         #   Partition the computation graph into different pipeline stage if need.
+        # print("xxx before auto_parallel_sync_shared_params_pass program :\n", dist_program)
+
+        shared_param_config = {}
+        shared_param_config["optimizer"] = self._optimizer
+        shared_param_config["loss"] = dist_program.get_output_value_by_name(
+            self._loss_names[0]
+        )
+
+        auto_parallel_sync_shared_params_pass = new_pass(
+            "auto_parallel_sync_shared_params", shared_param_config
+        )
+        auto_parallel_sync_shared_params_pass.pre_analysis(
+            dist_program, startup_program, params_grads
+        )
+
         apply_partition_pass(dist_program)
 
         if mode == "train" and self._loss and self._optimizer:
@@ -872,6 +887,13 @@ class Engine:
         self.program_helper.cache_whole_graph_dist_attr(all_params)
 
         RemovePasses.apply_all(dist_program, startup_program, params_grads)
+
+        auto_parallel_sync_shared_params_pass.apply(
+            [dist_program], [startup_program]
+        )
+        apply_mix2dist_pass(dist_program)
+        print("xxx startup_program : ", startup_program)
+        print("xxx dist_program :", dist_program)
 
         # Part 4: Optimization Pass
         # NOTE Only those Optimization Pass that related to Parallelism (need dist attr) should be placed here and all the Pass should be Optional.
@@ -1013,6 +1035,8 @@ class Engine:
         self._pir_dense_main_progs[mode] = dense_program
         self._pir_dist_main_progs[mode] = dist_program
         self._pir_dist_startup_progs[mode] = startup_program
+
+        print("xxx last dist_program: ", dist_program)
 
     def _prepare_program(self, mode, init_parameters=True):
         if self._in_pir_mode:
