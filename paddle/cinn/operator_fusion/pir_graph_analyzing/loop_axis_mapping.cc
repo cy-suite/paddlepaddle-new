@@ -518,11 +518,6 @@ LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
   auto fake_reduce_idx =
       GetFakeReduceAxisIdx(upstream.loop, loop_sink_route, reduce_axis_num);
   VLOG(4) << "fake_reduce_idx: " << cinn::utils::Join(fake_reduce_idx, ",");
-  PADDLE_ENFORCE(
-      fake_reduce_idx.size() == 0 || fake_reduce_idx.size() == reduce_axis_num,
-      ::common::errors::PreconditionNotMet(
-          "Downstream trivial loop should reuse all upstream reduce "
-          "axis or none."));
   LoopAxisMapping result;
   if (fake_reduce_idx.empty()) {
     AxisTransform append_reduce_axis =
@@ -558,14 +553,46 @@ LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
     for (auto index : fake_reduce_idx) {
       perm.erase(perm.begin() + index);
     }
-    auto transpose_trans = std::make_shared<TransposeTransform>(perm);
     result = LoopMappingMergeImpl(upstream, downstream, false);
-    result.loop = TransposeVector(result.loop, perm);
+    AxisTransformRoute fake_reduce_axis_transforms;
+    if (perm != ArangeVector<int>(0, downstream.loop.size())) {
+      result.loop = TransposeVector(result.loop, perm);
+      auto transpose_trans = std::make_shared<TransposeTransform>(perm);
+      fake_reduce_axis_transforms.push_back(transpose_trans);
+    }
+    // Check whether fake reduce axis reuse all reduce axis
+    if (fake_reduce_idx.size() < reduce_axis_num) {
+      std::vector<int64_t> one_reduce_axis;
+      for (int i = 0; i < reduce_loop.size(); ++i) {
+        bool has_reuse = false;
+        for (const auto& downstream_idx : fake_reduce_idx) {
+          if (reduce_loop[i] == downstream.loop[downstream_idx]) {
+            has_reuse = true;
+            break;
+          }
+        }
+        if (!has_reuse) {
+          PADDLE_ENFORCE_EQ(reduce_loop[i],
+                            symbol::DimExpr(1),
+                            ::common::errors::PreconditionNotMet(
+                                "Reduce axis not been reused must be 1."));
+          one_reduce_axis.push_back(downstream.loop.size() -
+                                    fake_reduce_idx.size() + i);
+        }
+      }
+      auto append_one_reduce_axis =
+          std::make_shared<AppendAxisTransform>(one_reduce_axis);
+      fake_reduce_axis_transforms.push_back(append_one_reduce_axis);
+    }
     for (auto& route : result.input2loop) {
-      route.push_back(transpose_trans);
+      route.insert(route.end(),
+                   fake_reduce_axis_transforms.begin(),
+                   fake_reduce_axis_transforms.end());
     }
     for (auto& route : result.loop2output) {
-      route.insert(route.begin(), transpose_trans);
+      route.insert(route.begin(),
+                   fake_reduce_axis_transforms.begin(),
+                   fake_reduce_axis_transforms.end());
     }
   }
   result.SimplifyForwardMapping();
