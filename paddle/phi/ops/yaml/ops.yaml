@@ -1006,6 +1006,7 @@
     data_type : x
   backward : concat_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface, paddle::dialect::LayoutTransformationInterface
+  jvp_rule: concat_jvp
 
 - op : conj
   args : (Tensor x)

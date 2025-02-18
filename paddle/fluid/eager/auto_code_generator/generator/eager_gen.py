@@ -598,7 +598,7 @@ FORWARD_CC_FILE_TEMPLATE = """
 #include "paddle/fluid/eager/type_promotion_utils.h"
 #include "paddle/phi/common/type_promotion.h"
 #include "paddle/fluid/imperative/amp_utils.h"
-#include "paddle/fluid/eager/api/manual/eager_manual/forward_grad/manual_jvp.h"
+#include "paddle/fluid/eager/api/manual/eager_manual/forward_grad/manual_jvp.cc"
 #include "paddle/phi/api/backward/backward_api.h"
 
 COMMON_DECLARE_bool(check_nan_inf);
@@ -834,8 +834,8 @@ JVP_RULE_AUTO_ELEMENTWISE_TEMPLATE = """
 # jvp rule with CUSTOM_JVP can be defined by users and always
 # receive same number of inputs and outputs and their tangents
 # e.g. y=scale(x, scale, bias), y_dot = scale_jvp(x_p, x_t, scale, bias)
-# y=concat(vector<Tensor> x), y_dot = concat_jvp(vector<Tensor> x_p, vector<Tensor> x_t)
-JVP_RULE_CUSTOM_JVP_TEMPLATE = """
+# y=concat(vector<Tensor> x), y_dot = concat_jvp(vector<Tensor> x_p, vector<Tensor> x_t, Scalar axis, Tensor out)
+JVP_RULE_CUSTOM_TEMPLATE = """
   bool require_any_fwd_grad = egr::EagerUtils::ComputeRequireFwdGrad({autograd_meta_list});
   VLOG(4) << "require_any_fwd_grad = " << require_any_fwd_grad;
   if (require_any_fwd_grad && {code_for_check_allocation}) {{
@@ -843,7 +843,7 @@ JVP_RULE_CUSTOM_JVP_TEMPLATE = """
     {define_all_fwd_arg_list}
 
     VLOG(4) << "Running Forward: {op_name}";
-    {out_type} {output_var_name} = {op_name}({fwd_ad_arg_list});
+    {out_type} {output_var_name} = {custom_jvp}({fwd_ad_arg_list});
     // The hardcoded 0 here will need to be updated once we support multiple levels.
     {code_for_fw_grad_set_to_output}
   }}
@@ -2018,7 +2018,9 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
                     compute_require_grad_args_list.append(
                         input_autograd_meta_name
                     )
-                    compute_require_fwd_grad_args_list.append(name)
+                    compute_require_fwd_grad_args_list.append(
+                        input_autograd_meta_name
+                    )
 
             inputs_autograd_meta_str = "\n".join(inputs_autograd_meta_list)
             compute_require_grad_args_str = ", ".join(
@@ -2178,6 +2180,8 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
         # Generate FwdAD code below
         forward_ad_computation_str = ""
         if not self.is_forward_only and self.jvp_rule is not None:
+            # NOTE: auto_elementwise rule use same args with backward
+            # operator but replace the grad_out with x_tangent only
             if self.jvp_rule == "auto_elementwise":
                 define_all_fwd_arg_list = ""
                 autograd_meta_list = ", ".join(
@@ -2196,8 +2200,6 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
                             f"    const paddle::Tensor& {in_var_name}_p = egr::EagerUtils::toNonOptPrimal({in_var_name});",
                         ]
                     )
-                # NOTE: auto_elementwise rule use same args with backward
-                # operator but replace the grad_out with x_tangent only
                 fwd_ad_arg_list = [
                     input_list[0] for input_list in self.backward_inputs_list
                 ]
@@ -2218,6 +2220,8 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
                     code_for_fw_grad_set_to_output="egr::EagerUtils::SetFwGrad(out, out_fw_grad, /*level*/ 0, /*is_inplace_op*/ false);",
                 )
 
+            # NOTE: auto_linear rule use same args with forward
+            # operator but replace the input with input_tangent only
             elif self.jvp_rule == "auto_linear":
                 define_all_fwd_arg_list = ""
                 autograd_meta_list = ", ".join(
@@ -2251,8 +2255,6 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
                             f"    const paddle::Tensor& {in_var_name}_p = egr::EagerUtils::toNonOptPrimal({in_var_name});",
                         ]
                     )
-                # NOTE: auto_linear rule use same args with forward
-                # operator but replace the input with input_tangent only
                 fwd_ad_arg_list = [
                     f"{var_name}_t"
                     for var_name, var_type, v_pos in self.forward_inputs_list
@@ -2275,8 +2277,89 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
                 )
                 pass
 
+            # NOTE: custom jvp rule is expected to receive primal args, tangent args, primal out, and forward attributes
+            # to be generic enough for all custom jvp.
             elif self.jvp_rule.endswith("_jvp"):
+                define_all_fwd_arg_list = ""
+                autograd_meta_list = compute_require_fwd_grad_args_str
+                code_for_check_allocation = []
+                # assert (
+                #     len(self.forward_inputs_position_map) == 1
+                # ), "Operator with multiple outputs is not supported with jvp_rule yet"
+                for name, (
+                    rtype,
+                    pos,
+                ) in self.forward_inputs_position_map.items():
+                    if IsPlainTensorType(rtype):
+                        code_for_check_allocation.append(
+                            f"{name}.has_allocation()"
+                        )
+                    elif IsVectorTensorType(rtype):
+                        code_for_check_allocation.append(
+                            f"std::any_of({name}.begin(), {name}.end(), [](const auto& obj) {{ return obj.has_allocation();  }})"
+                        )
+                    else:
+                        raise ValueError(
+                            f"Unsupported tensor type of {name}: {rtype}. Only plain or vector tensor types are allowed."
+                        )
+                code_for_check_allocation = (
+                    "(" + " || ".join(code_for_check_allocation) + ")"
+                )
+                fwd_ad_arg_list = []
+                for name, (
+                    ttype,
+                    pos,
+                ) in self.forward_inputs_position_map.items():
+                    if IsPlainTensorType(ttype):
+                        define_all_fwd_arg_list += "\n".join(
+                            [
+                                f"const paddle::Tensor& {name}_t_raw = egr::EagerUtils::toNonOptFwGrad({name});",
+                                f"    paddle::Tensor {name}_t = ({name}_t_raw.has_allocation() ?",
+                                f"        {name}_t_raw : paddle::experimental::zeros({name}_t_raw.shape(), {name}_t_raw.dtype(), {name}_t_raw.place()));",
+                                f"    const paddle::Tensor& {name}_p = egr::EagerUtils::toNonOptPrimal({name});",
+                            ]
+                        )
+                    else:
+                        define_all_fwd_arg_list += "\n".join(
+                            [
+                                f"const std::vector<paddle::Tensor>& {name}_t_raw = egr::EagerUtils::toNonOptFwGrad({name});",
+                                f"    std::vector<paddle::Tensor> {name}_t = {name}_t_raw;",
+                                f"    for (auto &t_: {name}_t) {{",
+                                "      if (!t_.has_allocation()) {",
+                                "        t_ = paddle::experimental::zeros(t_.shape(), t_.dtype(), t_.place());",
+                                "      }",
+                                "    }",
+                                f"    const std::vector<paddle::Tensor>& {name}_p = egr::EagerUtils::toNonOptPrimal({name});",
+                            ]
+                        )
+                    fwd_ad_arg_list += [
+                        f"/*fwd_in*/{name}_p",
+                        f"/*fwd_in*/{name}_t",
+                    ]
+                fwd_ad_arg_list += [
+                    f"/*fwd_attr*/{attr_list[0]}"
+                    for attr_list in self.forward_attrs_list
+                ]
+                for name, (
+                    rtype,
+                    pos,
+                ) in self.forward_outputs_position_map.items():
+                    fwd_ad_arg_list += [f"/*fwd_out*/{name}"]
+                fwd_ad_arg_list = ", ".join(fwd_ad_arg_list)
+
+                forward_ad_computation_str = JVP_RULE_CUSTOM_TEMPLATE.format(
+                    autograd_meta_list=autograd_meta_list,
+                    code_for_check_allocation=code_for_check_allocation,
+                    op_name=self.forward_api_name,
+                    define_all_fwd_arg_list=define_all_fwd_arg_list,
+                    out_type=rtype.replace("Tensor", "paddle::Tensor"),
+                    output_var_name="out_fw_grad",
+                    fwd_ad_arg_list=fwd_ad_arg_list,
+                    custom_jvp=self.jvp_rule,
+                    code_for_fw_grad_set_to_output="egr::EagerUtils::SetFwGrad(out, out_fw_grad, /*level*/ 0, /*is_inplace_op*/ false);",
+                )
                 pass
+
         # Forward layout autotune
         layout_autotune_list_str = "    ".join(layout_autotune_list) + "".join(
             [("    " + s) for s in layout_autotune_optional_list]

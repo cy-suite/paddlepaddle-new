@@ -30,4 +30,15 @@
 using Scalar = paddle::Scalar;
 using Tensor = paddle::Tensor;
 
-paddle::Tensor concat_jvp(const std::vector<Tensor>& x_ts, Scalar axis);
+Tensor concat_jvp(const std::vector<Tensor>& x_p,
+                  const std::vector<Tensor>& x_t,
+                  Scalar axis,
+                  const Tensor& out);
+
+Tensor matmul_jvp(const Tensor& x_p,
+                  const Tensor& x_t,
+                  const Tensor& y_p,
+                  const Tensor& y_t,
+                  bool transpose_x,
+                  bool transpose_y,
+                  const Tensor& out);

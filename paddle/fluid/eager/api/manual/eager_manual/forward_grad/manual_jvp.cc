@@ -18,8 +18,8 @@
 // replace the out_grad with input_tangent
 // 2. linear functions with single input, e.g. scale, we can reuse their forward
 // functions and just replace the input with input_tangent
-// 3. other case, e.g. concat/stack/batch_norm, we need to implement jvp rules
-// manually
+// 3. other case, e.g. concat/stack/batch_norm/matmul, we need to implement jvp
+// rules manually
 //
 #include "paddle/fluid/eager/api/manual/eager_manual/forward_grad/manual_jvp.h"
 #include "paddle/phi/api/include/tensor.h"
@@ -29,9 +29,12 @@
 #include "paddle/fluid/eager/api/generated/eager_generated/forwards/dygraph_functions.h"
 #include "paddle/phi/common/int_array.h"
 
-Tensor concat_jvp(const std::vector<Tensor>& x_ts, Scalar axis) {
+Tensor concat_jvp(const std::vector<Tensor>& x_p,
+                  const std::vector<Tensor>& x_t,
+                  Scalar axis,
+                  const Tensor& out) {
   std::vector<Tensor> fw_grads;
-  for (const Tensor& t : x_ts) {
+  for (const Tensor& t : x_t) {
     if (egr::EagerUtils::nullable_autograd_meta(t)) {
       fw_grads.push_back(t._fw_grad(/*level*/ 0));
     } else {
@@ -40,4 +43,15 @@ Tensor concat_jvp(const std::vector<Tensor>& x_ts, Scalar axis) {
     }
   }
   return concat_ad_func(fw_grads, axis);
+}
+
+Tensor matmul_jvp(const Tensor& x_p,
+                  const Tensor& x_t,
+                  const Tensor& y_p,
+                  const Tensor& y_t,
+                  bool transpose_x,
+                  bool transpose_y,
+                  const Tensor& out) {
+  return matmul_ad_func(x_t, y_p, transpose_x, transpose_y) +
+         matmul_ad_func(x_p, y_t, transpose_x, transpose_y);
 }

@@ -91,6 +91,7 @@ class TestDualContext(unittest.TestCase):
 
 class TestFwdAD_eager_ops(unittest.TestCase):
     def test_auto_elementwise_jvp(self):
+        # test elementwise jvp rule using tanh
         x = paddle.randn([100, 100])
         x.stop_gradient = False
 
@@ -109,6 +110,9 @@ class TestFwdAD_eager_ops(unittest.TestCase):
             )
 
         y = func(x)
+
+        np.testing.assert_allclose(y_primal.numpy(), y.numpy(), 1e-6, 1e-6)
+
         dy_dx_bwd = paddle.grad(y, x, x_tangent, create_graph=True)[0]
         np.testing.assert_allclose(
             dy_dx_bwd.numpy(), y_tangent.numpy(), 1e-6, 1e-6
@@ -125,6 +129,7 @@ class TestFwdAD_eager_ops(unittest.TestCase):
         )
 
     def test_auto_linear_jvp(self):
+        # test linear jvp rule using split
         x = paddle.randn([4, 4])
         x.stop_gradient = False
 
@@ -137,7 +142,6 @@ class TestFwdAD_eager_ops(unittest.TestCase):
             x_dual = paddle.autograd.forward_mode.make_dual(x_primal, x_tangent)
 
             y_dual = func(x_dual)  # List[Tensor]
-            # print(y_dual)
 
             tmp = [
                 paddle.autograd.forward_mode.unpack_dual(y_dual_)
@@ -156,6 +160,59 @@ class TestFwdAD_eager_ops(unittest.TestCase):
             grad1 = y_tangent[i]
             grad2 = x_tangent[:, i * size : (i + 1) * size]
             np.testing.assert_allclose(grad1.numpy(), grad2.numpy(), 1e-6, 1e-6)
+
+    @parameterized.expand(
+        [
+            (True, True),
+            (False, True),
+            (True, False),
+            (False, False),
+        ]
+    )
+    def test_custom_jvp(self, tr_x, tr_y):
+        # test custom jvp rule using matmul
+        x = paddle.randn([4, 5])
+        x.stop_gradient = False
+        if tr_x:
+            x = x.mT
+
+        y = paddle.randn([5, 6])
+        y.stop_gradient = False
+        if tr_y:
+            y = y.mT
+
+        def func(x_, y_, tr_x_, tr_y_):
+            return paddle.matmul(x_, y_, tr_x_, tr_y_)
+
+        with paddle.autograd.dual_level():
+            x_primal = x
+            x_tangent = paddle.randn(x.shape)
+            x_dual = paddle.autograd.forward_mode.make_dual(x_primal, x_tangent)
+
+            y_primal = y
+            y_tangent = paddle.randn(y.shape)
+            y_dual = paddle.autograd.forward_mode.make_dual(y_primal, y_tangent)
+
+            z_dual = func(x_dual, y_dual, tr_x, tr_y)
+
+            z_primal, z_tangent = paddle.autograd.forward_mode.unpack_dual(
+                z_dual
+            )
+
+        z = func(x, y, tr_x, tr_y)
+
+        np.testing.assert_allclose(z_primal, z, 1e-6, 1e-6)
+
+        def maybe_transpose(x_, tr):
+            return x_.mT if tr else x_
+
+        np.testing.assert_allclose(
+            z_tangent,
+            maybe_transpose(x_tangent, tr_x) @ maybe_transpose(y, tr_y)
+            + maybe_transpose(x, tr_x) @ maybe_transpose(y_tangent, tr_y),
+            1e-6,
+            1e-6,
+        )
 
 
 if __name__ == "__main__":

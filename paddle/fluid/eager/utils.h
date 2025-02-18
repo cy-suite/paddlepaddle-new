@@ -210,9 +210,26 @@ class TEST_API EagerUtils {
     return t;
   }
 
+  static const std::vector<paddle::Tensor>& toNonOptTensor(
+      const std::vector<paddle::Tensor>& t) {
+    return t;
+  }
+
   static const paddle::Tensor& toNonOptFwGrad(const paddle::Tensor& t) {
     return t.has_allocation() ? t._fw_grad(/*level */ 0)
                               : ForwardGrad::undef_grad();
+  }
+  static const std::vector<paddle::Tensor> toNonOptFwGrad(
+      const std::vector<paddle::Tensor>& ts) {
+    std::vector<paddle::Tensor> ret;
+    for (auto& t : ts) {
+      if (t.has_allocation()) {
+        ret.emplace_back(t._fw_grad(/*level */ 0));
+      } else {
+        ret.emplace_back(ForwardGrad::undef_grad());
+      }
+    }
+    return ret;
   }
 
   static paddle::Tensor toNonOptPrimal(const paddle::Tensor& t) {
@@ -220,6 +237,19 @@ class TEST_API EagerUtils {
       return egr::fw_primal(t, /* level */ 0, true);
     }
     return ForwardGrad::undef_grad();
+  }
+
+  static std::vector<paddle::Tensor> toNonOptPrimal(
+      const std::vector<paddle::Tensor>& ts) {
+    std::vector<paddle::Tensor> ret;
+    for (auto& t : ts) {
+      if (t.has_allocation()) {
+        ret.emplace_back(egr::fw_primal(t, /* level */ 0, true));
+      } else {
+        ret.emplace_back(ForwardGrad::undef_grad());
+      }
+    }
+    return ret;
   }
 
   template <typename T, typename... Args>

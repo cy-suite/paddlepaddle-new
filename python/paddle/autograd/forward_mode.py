@@ -14,9 +14,8 @@
 
 from __future__ import annotations
 
-from collections import namedtuple
 from contextlib import ContextDecorator
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NamedTuple
 
 from paddle.framework import core
 
@@ -33,13 +32,13 @@ __all__ = [
 ]
 
 
-_UnpackedDualTensor = namedtuple("_UnpackedDualTensor", ["primal", "tangent"])
-
-
-class UnpackedDualTensor(_UnpackedDualTensor):
+class UnpackedDualTensor(NamedTuple):
     """Namedtuple returned by `unpack_dual` containing the primal and tangent
     components of the dual tensor.
     """
+
+    primal: paddle.Tensor
+    tangent: paddle.Tensor
 
 
 # Global variable used to make the python API simpler to use
