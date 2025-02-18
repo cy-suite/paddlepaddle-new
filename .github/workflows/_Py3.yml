@@ -164,8 +164,8 @@ jobs:
           mkdir ${{ env.home_path }}/bos
           tar xf ${{ env.home_path }}/bos_new.tar.gz -C ${{ env.home_path }}/bos
         fi
-        set -x
-        python3.9 ${{ env.bos_file }} ${{ github.workspace }}/dist/${{ env.paddle_whl }} paddle-github-action/PR/cpu_whl/${{ env.PR_ID }}/${{ env.COMMIT_ID }}
+        cd ${{ github.workspace }}/dist
+        python3.9 ${{ env.bos_file }} ${{ env.paddle_whl }} paddle-github-action/PR/cpu_whl/${{ env.PR_ID }}/${{ env.COMMIT_ID }}
         '
 
     - name: Terminate and delete the container
