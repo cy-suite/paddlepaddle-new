@@ -124,18 +124,18 @@ void XpuAsyncLoad::PrepareLoadEnv(const std::string& key, const Place& place) {
 // Another fix in SyncCalcuStream():
 void XpuAsyncLoad::SyncCalcuStream(const Place& place,
                                    phi::XPUContext* offload_ctx,
-                                   platform::DeviceEvent& calc_event) {
+                                   platform::DeviceEvent* calc_event) {
   if (is_xpu_place(place)) {
     // skip or do fallback
     return;
   }
   auto* calc_ctx = phi::DeviceContextPool::Instance().Get(place);
-  calc_event.Record(calc_ctx);
+  calc_event->Record(calc_ctx);
   // OLD (won't compile):
   //   auto backend = place.GetBackend();
   //   calc_event.Wait(backend, offload_ctx);
   // NEW:
-  calc_event.Wait(platform::Place2DeviceType(place), offload_ctx);
+  calc_event->Wait(platform::Place2DeviceType(place), offload_ctx);
 }
 
 /* ------------ Offload (XPU -> CPU pinned or CPU) ------------ */
@@ -151,7 +151,7 @@ std::shared_ptr<XpuAsyncLoad::Task> XpuAsyncLoad::Offload(
   // retrieve or create the event
   auto& calc_event = GetOrCreateEvent(&place_to_calc_event_, key, src.place());
   // sync
-  SyncCalcuStream(xpu_place_, load_ctx_.get(), calc_event);
+  SyncCalcuStream(xpu_place_, load_ctx_.get(), &calc_event);
 
   // do synchronous copy to CPU
   dst->Resize(src.dims());
@@ -202,7 +202,7 @@ std::shared_ptr<XpuAsyncLoad::Task> XpuAsyncLoad::OffloadWithOffset(
   std::string key = "load_key";
   PrepareLoadEnv(key, src.place());
   auto& calc_event = GetOrCreateEvent(&place_to_calc_event_, key, src.place());
-  SyncCalcuStream(xpu_place_, load_ctx_.get(), calc_event);
+  SyncCalcuStream(xpu_place_, load_ctx_.get(), &calc_event);
 
   size_t elem_size = phi::SizeOf(src.dtype());
   size_t copy_bytes = offload_size * elem_size;
@@ -234,7 +234,7 @@ std::shared_ptr<XpuAsyncLoad::Task> XpuAsyncLoad::Reload(
   // We'll skip that check or treat it as CPU place
   std::string key = "load_key";
   auto& calc_event = GetOrCreateEvent(&place_to_calc_event_, key, xpu_place_);
-  SyncCalcuStream(xpu_place_, load_ctx_.get(), calc_event);
+  SyncCalcuStream(xpu_place_, load_ctx_.get(), &calc_event);
 
   // Now do CPU->XPU
   dst->Resize(src.dims());
