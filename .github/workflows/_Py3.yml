@@ -145,7 +145,7 @@ jobs:
         docker exec -t ${container_name} /bin/bash -c '
         . ../proxy
         bash ${work_dir}/paddle/scripts/paddle_build/run_linux_cpu_test.sh
-        source ./utils.sh; clean_build_files
+        source paddle/scripts/paddle_build/utils.sh; clean_build_files
         python -m pip install bce-python-sdk==0.8.74
         '
 
@@ -158,15 +158,13 @@ jobs:
         docker exec -t ${container_name} /bin/bash -c '
         export AK=paddle
         export SK=paddle
-        if [ ${{ env.EXCODE }} -eq 0 ]; then
-          if [ ! -f "${{ env.bos_file }}" ]; then
-            wget -q --no-proxy -O ${{ env.home_path }}/bos_new.tar.gz https://xly-devops.bj.bcebos.com/home/bos_new.tar.gz --no-check-certificate
-            mkdir ${{ env.home_path }}/bos
-            tar xf ${{ env.home_path }}/bos_new.tar.gz -C ${{ env.home_path }}/bos
-          fi
-          set -x
-          python3.9 ${{ env.bos_file }} ${{ github.workspace }}/dist/${{ env.paddle_whl }} paddle-github-action/PR/cpu_whl/${{ env.PR_ID }}/${{ env.COMMIT_ID }}
+        if [ ! -f "${{ env.bos_file }}" ]; then
+          wget -q --no-proxy -O ${{ env.home_path }}/bos_new.tar.gz https://xly-devops.bj.bcebos.com/home/bos_new.tar.gz --no-check-certificate
+          mkdir ${{ env.home_path }}/bos
+          tar xf ${{ env.home_path }}/bos_new.tar.gz -C ${{ env.home_path }}/bos
         fi
+        set -x
+        python3.9 ${{ env.bos_file }} ${{ github.workspace }}/dist/${{ env.paddle_whl }} paddle-github-action/PR/cpu_whl/${{ env.PR_ID }}/${{ env.COMMIT_ID }}
         '
 
     - name: Terminate and delete the container
