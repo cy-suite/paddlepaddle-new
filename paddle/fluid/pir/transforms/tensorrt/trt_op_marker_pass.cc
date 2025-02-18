@@ -2005,10 +2005,6 @@ class IndexPutOpPattern
         op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
       return false;
     }
-#if IS_TRT_VERSION_LT(8510)
-    VLOG(3) << "index_put is not supported when TensorRT < 8.5.1";
-    return false;
-#endif
     pir::Value value = op.operand_source(2);
     auto value_shape = pir::GetShapeFromValue(value);
     int value_num = std::accumulate(
