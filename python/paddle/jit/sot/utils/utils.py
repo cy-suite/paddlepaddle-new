@@ -340,7 +340,7 @@ class GraphLogger(metaclass=Singleton):
     graph_num: int
     op_num: int
     graphs: list[Program]
-    ops: list[paddle.base.framework.Operator]
+    ops: list[int]
 
     def __init__(self):
         self.clear()
@@ -361,10 +361,9 @@ class GraphLogger(metaclass=Singleton):
         self.graph_num += 1
         self.graphs.append(program)
 
-        sub_op_num = 0
-        for op in program.global_block().ops:
-            self.op_num += 1
-            sub_op_num += 1
+        sub_op_num = len(program.global_block().ops)
+        self.op_num += sub_op_num
+
         self.ops.append(sub_op_num)
 
     def add_subgraph_info(self, strs):
