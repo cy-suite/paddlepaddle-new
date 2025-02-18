@@ -28,11 +28,12 @@ struct MergeTrivialPatternOperation {
                           "The trivial pattern wait for sinking should has "
                           "at least 1 downstream , but got %d.",
                           upstream->downstream().size()));
-
+    VLOG(4) << "Sink trivial pattern: \nupstream: " << upstream->DebugStr();
     std::vector<PatternNodePtr> fusion_candidate = upstream->downstream();
     upstream->ClearDownstream();
 
-    for (const auto& downstream : fusion_candidate) {
+    for (int i = 0; i < fusion_candidate.size(); ++i) {
+      const auto& downstream = fusion_candidate[i];
       bool can_fuse =
           std::holds_alternative<ReducePattern>(downstream->stmt_pattern()) ||
           std::holds_alternative<TrivialPattern>(downstream->stmt_pattern()) ||
@@ -45,15 +46,13 @@ struct MergeTrivialPatternOperation {
           std::holds_alternative<AnchorPattern>(downstream->stmt_pattern());
 
       if (can_fuse) {
+        VLOG(4) << "\ndownstream [" << i << "]: " << downstream->DebugStr();
         auto merged_node = graph->MergeNode(upstream, downstream, MergePattern);
         merged_node->set_fusion_iters(
             graph->iters_fusion_policy()->SingleDownstreamItersFusion(
                 upstream, downstream));
         graph->RemoveNode(downstream);
-        VLOG(4) << "Splitting trivial pattern: \nupstream "
-                << upstream->DebugStr() << "\ndownstream "
-                << downstream->DebugStr() << "\nmerged "
-                << merged_node->DebugStr();
+        VLOG(4) << "\nmerged [" << i << "] " << merged_node->DebugStr();
         merged_node->AppendInstr(std::make_shared<TrivialInlineInstr>(
             upstream->id(), downstream->id(), merged_node->id()));
       } else {
@@ -98,6 +97,8 @@ struct MergeReduceTreeAndTrivialOperation {
             "The downstream of the ReduceTree node should be 1, but got %d.",
             node->downstream().size()));
     auto downstream = node->downstream().at(0);
+    VLOG(4) << "MergeReduceTreeAndTrivialOperation: \nupstream "
+            << node->DebugStr() << "\ndownstream " << downstream->DebugStr();
     auto fake_reduce_iter_idx = graph->policy_manager()
                                     .template GetPolicy<RelativeJudgePolicy>()
                                     ->GetFakeReduceIterIdx(node, downstream);
@@ -132,9 +133,7 @@ struct MergeReduceTreeAndTrivialOperation {
 
     graph->RemoveNode(downstream);
     graph->RemoveNode(node);
-    VLOG(4) << "MergeReduceTreeAndTrivialOperation: \nupstream "
-            << node->DebugStr() << "\ndownstream " << downstream->DebugStr()
-            << "\nmerged " << merged_node->DebugStr();
+    VLOG(4) << "merged " << merged_node->DebugStr();
     merged_node->UpdateTracker();
     return merged_node;
   }

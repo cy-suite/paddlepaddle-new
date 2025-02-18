@@ -74,7 +74,7 @@ static StmtPattern MergePatternImpl(const TrivialPattern& first,
       second.sink_op(),
       std::make_shared<FusionTracker>(first.tracker_, second.tracker_));
   result.set_loop_mapping(
-      LoopMappingMerge(first.loop_mapping(), second.loop_mapping(), false));
+      TrivialSinkLoopMappingMerge(first.loop_mapping(), second.loop_mapping()));
   return result;
 }
 
@@ -86,7 +86,7 @@ static StmtPattern MergePatternImpl(const TrivialPattern& first,
       contents,
       std::make_shared<FusionTracker>(first.tracker_, second.tracker_));
   result.set_loop_mapping(
-      LoopMappingMerge(first.loop_mapping(), second.loop_mapping(), false));
+      TrivialSinkLoopMappingMerge(first.loop_mapping(), second.loop_mapping()));
   return result;
 }
 
@@ -116,7 +116,7 @@ static StmtPattern MergePatternImpl(const TrivialPattern& first,
       FusePatternIfConnected(first, second.GetRootPattern(), connect_ops),
       std::make_shared<FusionTracker>(first.tracker_, second.tracker_));
   result.set_loop_mapping(
-      LoopMappingMerge(first.loop_mapping(), second.loop_mapping(), false));
+      TrivialSinkLoopMappingMerge(first.loop_mapping(), second.loop_mapping()));
   return result;
 }
 
@@ -129,7 +129,7 @@ static StmtPattern MergePatternImpl(
       std::make_shared<FusionTracker>(first.tracker_, second.tracker_));
   result.fake_reduce_iter_idx = second.fake_reduce_iter_idx;
   result.set_loop_mapping(
-      LoopMappingMerge(first.loop_mapping(), second.loop_mapping(), false));
+      TrivialSinkLoopMappingMerge(first.loop_mapping(), second.loop_mapping()));
   return result;
 }
 
@@ -140,7 +140,7 @@ static StmtPattern MergePatternImpl(const TrivialPattern& first,
       std::make_shared<FusionTracker>(first.tracker_, second.tracker_),
       second.loop_dims());
   result.set_loop_mapping(
-      LoopMappingMerge(first.loop_mapping(), second.loop_mapping(), false));
+      TrivialSinkLoopMappingMerge(first.loop_mapping(), second.loop_mapping()));
   return result;
 }
 
@@ -149,7 +149,7 @@ static StmtPattern MergePatternImpl(const TrivialPattern& first,
   return AnchorPattern(
       UniqueConcatVector(GetOpsInPattern(first), GetOpsInPattern(second)),
       std::make_shared<FusionTracker>(first.tracker_, second.tracker_),
-      LoopMappingMerge(first.loop_mapping(), second.loop_mapping(), false));
+      TrivialSinkLoopMappingMerge(first.loop_mapping(), second.loop_mapping()));
 }
 
 // RR & RT

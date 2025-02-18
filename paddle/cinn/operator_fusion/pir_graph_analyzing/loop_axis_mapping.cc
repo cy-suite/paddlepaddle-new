@@ -444,6 +444,22 @@ LoopAxisMapping LoopMappingMerge(const LoopAxisMapping& upstream,
   return result;
 }
 
+LoopAxisMapping TrivialSinkLoopMappingMerge(const LoopAxisMapping& upstream,
+                                            const LoopAxisMapping& downstream) {
+  auto result = LoopMappingMergeImpl(upstream, downstream, false);
+  auto upstream_out_value = upstream.output_values[0];
+  auto indices = FindPosInVector(result.output_values, upstream_out_value);
+  if (!indices.empty()) {
+    auto idx = indices.front();
+    result.output_values.erase(result.output_values.begin() + idx);
+    result.loop2output.erase(result.loop2output.begin() + idx);
+    result.outputs_use_count.erase(upstream_out_value);
+  }
+  result.SimplifyForwardMapping();
+  result.SetReverseMapping();
+  return result;
+}
+
 std::vector<int> GetFakeReduceAxisIdx(const std::vector<symbol::DimExpr>& loop,
                                       const AxisTransformRoute& route,
                                       int reduce_axis_num) {

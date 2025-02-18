@@ -155,11 +155,10 @@ std::vector<PatternNodePtr> PatternGraph::SortByReverseTopoOrder() const {
 }
 
 void PatternGraph::SinkTrivialPattern() {
-  GraphTransformer<NodePattern,
-                   And<StmtPatternGraphMatcher<TrivialPattern>,
-                       OnlyOneDownstreamMatcher,
-                       Not<ReshapeConnectionMatcher>>,
-                   MergeTrivialPatternOperation>(this);
+  GraphTransformer<
+      NodePattern,
+      And<StmtPatternGraphMatcher<TrivialPattern>, OnlyOneDownstreamMatcher>,
+      MergeTrivialPatternOperation>(this);
 
   // TODO(huangjiyi): remove sink multi downstream transpose after
   // supporting transpose plus reduce anchor fusion
