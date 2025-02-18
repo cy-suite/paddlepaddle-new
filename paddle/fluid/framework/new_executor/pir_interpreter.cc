@@ -1958,11 +1958,6 @@ void PirInterpreter::RunInstructionBase(InstructionBase* instr_node) {
             << "Before: " << cur_place << " "
             << instr_node->DebugStringEx(scope_, value_exe_info_.get());
 
-    if (FLAGS_enable_collect_shape) {
-      CollectShapeManager::Instance().CollectShapeInfo(
-          instr_node, value_exe_info_.get(), scope_);
-    }
-
     if (execution_config_.used_for_inference) {
       for (auto& hook : pir_input_hookfuncs_) {
         hook(instr_node, value_exe_info_.get(), scope_);
@@ -2009,6 +2004,12 @@ void PirInterpreter::RunInstructionBase(InstructionBase* instr_node) {
     }
 
     VLOG(5) << "after run kernel";
+
+    if (FLAGS_enable_collect_shape) {
+      CollectShapeManager::Instance().CollectShapeInfo(
+          instr_node, value_exe_info_.get(), scope_);
+    }
+
     instr_node->RecordEvent(cur_place);
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
     if (enable_job_schedule_profiler_) {
