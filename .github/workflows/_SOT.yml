@@ -111,7 +111,7 @@ jobs:
         tar xf Paddle.tar.gz --strip-components=1
         bash ${{ github.workspace }}/paddle/scripts/paddle_build/config_paddle.sh
         ln -s /home/data/cfs/.cache /root/.cache
-        . ../proxy
+        . ../../../proxy
         git checkout develop
         git pull upstream develop
         git fetch upstream develop
@@ -129,7 +129,7 @@ jobs:
         PADDLE_ROOT: ${{ github.workspace }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
-        . ../proxy
+        . ../../../proxy
         bash ${work_dir}/paddle/scripts/paddle_build/check_run_sot_ci.sh
         if [ $? -eq 0 ];then
           echo "run_sot=true" >> ${{ github.env }}
@@ -147,7 +147,7 @@ jobs:
         docker exec -t ${container_name} /bin/bash -c '
         export CACHE_DIR=${{ env.CACHE_DIR }}
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
-        . ../proxy
+        . ../../../proxy
         bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.8
         '
 
@@ -158,7 +158,7 @@ jobs:
       if: ${{ env.run_sot }} == 'true'
       run: |
         docker exec -t ${container_name} /bin/bash -c '
-        . ../proxy
+        . ../../../proxy
         bash ${work_dir}/paddle/scripts/paddle_build/run_sot_test.sh 3.8
         rm -rf ${PADDLE_ROOT}/build/CMakeCache.txt
         '
@@ -173,7 +173,7 @@ jobs:
         docker exec -t ${container_name} /bin/bash -c '
         export CACHE_DIR=${{ env.CACHE_DIR }}
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
-        . ../proxy
+        . ../../../proxy
         bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.9
         '
 
@@ -184,7 +184,7 @@ jobs:
       if: ${{ env.run_sot }} == 'true'
       run: |
         docker exec -t ${container_name} /bin/bash -c '
-        . ../proxy
+        . ../../../proxy
         bash ${work_dir}/paddle/scripts/paddle_build/run_sot_test.sh 3.9
         rm -rf ${PADDLE_ROOT}/build/CMakeCache.txt
         '
@@ -199,7 +199,7 @@ jobs:
         docker exec -t ${container_name} /bin/bash -c '
         export CACHE_DIR=${{ env.CACHE_DIR }}
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
-        . ../proxy
+        . ../../../proxy
         bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.10
         '
 
@@ -210,7 +210,7 @@ jobs:
       if: ${{ env.run_sot }} == 'true'
       run: |
         docker exec -t ${container_name} /bin/bash -c '
-        . ../proxy
+        . ../../../proxy
         bash ${work_dir}/paddle/scripts/paddle_build/run_sot_test.sh 3.10
         rm -rf ${PADDLE_ROOT}/build/CMakeCache.txt
         '
@@ -224,7 +224,7 @@ jobs:
         docker exec -t ${container_name} /bin/bash -c '
         export CACHE_DIR=${{ env.CACHE_DIR }}
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
-        . ../proxy
+        . ../../../proxy
         bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.11
         '
 
@@ -235,7 +235,7 @@ jobs:
       if: ${{ env.run_sot }} == 'true'
       run: |
         docker exec -t ${container_name} /bin/bash -c '
-        . ../proxy
+        . ../../../proxy
         bash ${work_dir}/paddle/scripts/paddle_build/run_sot_test.sh 3.11
         rm -rf ${PADDLE_ROOT}/build/CMakeCache.txt
         '
@@ -250,7 +250,7 @@ jobs:
         docker exec -t ${container_name} /bin/bash -c '
         export CACHE_DIR=${{ env.CACHE_DIR }}
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
-        . ../proxy
+        . ../../../proxy
         bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.12
         '
 
@@ -261,7 +261,7 @@ jobs:
       if: ${{ env.run_sot }} == 'true'
       run: |
         docker exec -t ${container_name} /bin/bash -c '
-        . ../proxy
+        . ../../../proxy
         bash ${work_dir}/paddle/scripts/paddle_build/run_sot_test.sh 3.12
         rm -rf ${PADDLE_ROOT}/build/CMakeCache.txt
         '
@@ -276,7 +276,7 @@ jobs:
         docker exec -t ${container_name} /bin/bash -c '
         export CACHE_DIR=${{ env.CACHE_DIR }}
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
-        . ../proxy
+        . ../../../proxy
         bash ${work_dir}/paddle/scripts/paddle_build/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.13
         '
 
@@ -287,7 +287,7 @@ jobs:
       if: ${{ env.run_sot }} == 'true'
       run: |
         docker exec -t ${container_name} /bin/bash -c '
-        . ../proxy
+        . ../../../proxy
         bash ${work_dir}/paddle/scripts/paddle_build/run_sot_test.sh 3.13
         rm -rf ${PADDLE_ROOT}/build/CMakeCache.txt
         '
