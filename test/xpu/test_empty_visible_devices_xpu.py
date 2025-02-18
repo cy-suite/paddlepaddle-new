@@ -12,34 +12,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
+import subprocess
+import sys
 import unittest
-from multiprocessing import Process
 
 
 def run_test_with_env(env_name):
-    import os
+    cmd = '''import paddle
+a = paddle.zeros([2, 2])
+b = paddle.ones([2, 2])
+c = a + b
+assert c.place.is_cpu_place(), f"The expected place is CPU, but got {c.place}"
+    '''
 
-    os.environ[env_name] = ""
-    import paddle
-
-    a = paddle.zeros([2, 2])
-    b = paddle.ones([2, 2])
-    c = a + b
-    assert c.place.is_cpu_place()
+    env = os.environ.copy()
+    env[env_name] = ""
+    return subprocess.run([sys.executable, "-c", cmd], env=env)
 
 
 class TestEmptyVisibleDevices(unittest.TestCase):
     def test_xpu_env(self):
-        p = Process(target=run_test_with_env, args=("XPU_VISIBLE_DEVICES",))
-        p.start()
-        p.join()
-        self.assertEqual(p.exitcode, 0)
+        ret = run_test_with_env("XPU_VISIBLE_DEVICES")
+        self.assertEqual(ret.returncode, 0)
 
     def test_cuda_env(self):
-        p = Process(target=run_test_with_env, args=("CUDA_VISIBLE_DEVICES",))
-        p.start()
-        p.join()
-        self.assertEqual(p.exitcode, 0)
+        ret = run_test_with_env("CUDA_VISIBLE_DEVICES")
+        self.assertEqual(ret.returncode, 0)
 
 
 if __name__ == "__main__":
