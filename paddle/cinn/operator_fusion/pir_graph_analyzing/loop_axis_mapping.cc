@@ -480,7 +480,8 @@ LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
   for (int i = 0; i < reduce_axis.size(); ++i) {
     for (const auto& axis_id : downstream_non_related_ids) {
       if (reduce_loop[i] == simulator.axis_symbols_.at(axis_id)) {
-        reuse_reduce_indices.push_back(i);
+        reuse_reduce_indices.push_back(
+            FindPosInVector(simulator.target_ids_, axis_id).front());
         downstream_non_related_ids.erase(axis_id);
         break;
       }
@@ -516,7 +517,25 @@ LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
       result.input2loop[i].push_back(append_fake_reduce_axis);
     }
   } else {
+    // Transpose fake reduce axis to the end
+    auto perm = ArangeVector<int>(0, downstream.loop.size());
+    for (auto index : reuse_reduce_indices) {
+      perm.push_back(index);
+    }
+    std::sort(reuse_reduce_indices.begin(), reuse_reduce_indices.end());
+    std::reverse(reuse_reduce_indices.begin(), reuse_reduce_indices.end());
+    for (auto index : reuse_reduce_indices) {
+      perm.erase(perm.begin() + index);
+    }
+    auto transpose_trans = std::make_shared<TransposeTransform>(perm);
     result = LoopMappingMergeImpl(upstream, downstream, false);
+    result.loop = TransposeVector(result.loop, perm);
+    for (auto& route : result.input2loop) {
+      route.push_back(transpose_trans);
+    }
+    for (auto& route : result.loop2output) {
+      route.insert(route.begin(), transpose_trans);
+    }
   }
   result.SimplifyForwardMapping();
   result.SetReverseMapping();
@@ -557,6 +576,22 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
         return std::nullopt;
       }
     }
+  } else if (source.reduce_axis_num == 0 && target.reduce_axis_num > 0) {
+    // Trivial -> Reduce ItersTransform
+    // Can fuse with non fake reduce dims or small inner reduce loop
+
+    // auto [target_flatten_iters, asd] = SplitReduceIters(target);
+    // if (!AllFirstInSecond(squeezed_source.loop_iters, target_flatten_iters))
+    // {
+    //   const auto reduce_dims_product =
+    //       iters_manager_->GetReduceDimsProduct(target);
+    //   if (reduce_dims_product.isa<std::int64_t>() &&
+    //       reduce_dims_product.dyn_cast<std::int64_t>() > 1024 * 8) {
+    //     VLOG(4) << "Can not fuse trivial to reduce with large reduce dims: "
+    //             << reduce_dims_product.dyn_cast<std::int64_t>();
+    //     return std::nullopt;
+    //   }
+    // }
   }
   bool rr_fusion = source.reduce_axis_num > 0 && target.reduce_axis_num > 0;
 
