@@ -50,8 +50,8 @@ limitations under the License. */
 #endif
 
 #if defined(PADDLE_WITH_XPU_BKCL)
-#include "paddle/fluid/distributed/collective/xpu_async_load.h"
 #include "paddle/fluid/distributed/collective/process_group_bkcl.h"
+#include "paddle/fluid/distributed/collective/xpu_async_load.h"
 #endif
 
 #include "paddle/phi/kernels/sync_batch_norm_kernel.h"
@@ -1427,7 +1427,8 @@ void BindDistributed(py::module *m) {
                       py::call_guard<py::gil_scoped_release>());
 
   py::class_<distributed::XpuAsyncLoad::Task,
-             std::shared_ptr<distributed::XpuAsyncLoad::Task>>(*m, "XpuAsyncLoadTask")
+             std::shared_ptr<distributed::XpuAsyncLoad::Task>>(
+      *m, "XpuAsyncLoadTask")
       .def("is_completed",
            &distributed::XpuAsyncLoad::Task::IsCompleted,
            py::call_guard<py::gil_scoped_release>())
@@ -1438,7 +1439,6 @@ void BindDistributed(py::module *m) {
            &distributed::XpuAsyncLoad::Task::CpuSynchronize,
            py::call_guard<py::gil_scoped_release>());
 
-                      
   auto XpuAsyncLoad =
       py::class_<distributed::XpuAsyncLoad>(*m, "XpuAsyncLoad")
           .def(py::init<>())
