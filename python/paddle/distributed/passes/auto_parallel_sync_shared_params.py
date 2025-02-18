@@ -149,9 +149,6 @@ class AutoParallelSyncSharedParamsPass(PassBase):
                             'param_name': param_name,
                             'new_param': None,
                             'new_param_grad': None,
-                            # 'mp_reshard_name': None,
-                            'mp_reshard_operand_dist_attr': None,
-                            'mp_reshard_result_dist_attr': None,
                         }
                     )
                     self.src_ranks.extend(src_mesh.process_ids)
@@ -310,23 +307,15 @@ class AutoParallelSyncSharedParamsPass(PassBase):
             reshard_op = recv_op.result(0).all_used_ops()[0]
 
             # hack!!!
-            reshard_dist_attr = reshard_op.dist_attr
-            reshard_operand_dist_attr = reshard_dist_attr.operand(
-                0
-            ).as_tensor_dist_attr()
-            reshard_result_dist_attr = reshard_dist_attr.result(
-                0
-            ).as_tensor_dist_attr()
-            param_mess['mp_reshard_operand_dist_attr'] = (
-                reshard_operand_dist_attr
-            )
-            param_mess['mp_reshard_result_dist_attr'] = reshard_result_dist_attr
+            print("xxx reshard_op: ", reshard_op)
 
             send_op.erase()
             sum_op.erase()
             combine_op.erase()
             reshard_op.erase()
             recv_op.erase()
+        # print("xxx startup_program : ", startup_program)
+        # print("xxx main_program : ", main_program)
         return
 
     def _is_forward_recv_backward_send_dst(
@@ -527,30 +516,20 @@ class AutoParallelSyncSharedParamsPass(PassBase):
                     dst_type = tmp_param_mess['dtype']
 
                     share_data_value = paddle._C_ops.share_data_(operand)
-                    share_data_value.set_type(dst_type)
 
                     share_data_op = share_data_value.get_defining_op()
-                    src_dist_attr = tmp_param_mess[
-                        'mp_reshard_operand_dist_attr'
-                    ]
-                    dst_dist_attr = tmp_param_mess[
-                        'mp_reshard_result_dist_attr'
-                    ]
+                    new_src_dist_attr = tmp_param_mess['new_src_dist_attr']
+                    dst_dist_attr = tmp_param_mess['dst_dist_attr']
 
-                    new_src_dist_attr = self._build_new_src_dist_attr(
-                        src_dist_attr, tmp_param_mess['dst_dist_attr']
-                    )
-                    new_dst_dist_attr = self._build_new_src_dist_attr(
-                        dst_dist_attr, tmp_param_mess['dst_dist_attr']
-                    )
                     share_data_op.dist_attr = (
                         paddle.base.libpaddle.pir.create_op_dist_attribute(
                             tmp_param_mess['dst_mesh'],
+                            [dst_dist_attr],
                             [new_src_dist_attr],
-                            [new_dst_dist_attr],
                             send_op.chunk_id,
                         )
                     )
+                    share_data_op.op_role = send_op.op_role
 
                     print("xxx share_data_op: ", share_data_op)
 
@@ -577,9 +556,6 @@ class AutoParallelSyncSharedParamsPass(PassBase):
         for op in del_ops:
             op.erase()
 
-        print("xxx startup_program : ", startup_program)
-        print("xxx main_program : ", main_program)
-
         # optimizer
         for param_mess in self.params_maybe_shared:
             new_param = param_mess['new_param']
@@ -598,6 +574,9 @@ class AutoParallelSyncSharedParamsPass(PassBase):
                         params_grads=new_params_grads,
                     )
             print("xxx 1234")
+
+        # print("xxx startup_program : ", startup_program)
+        # print("xxx main_program : ", main_program)
 
     def _apply_single_impl(self, main_program, startup_program, context):
         if len(self.params_maybe_shared) == 0:
