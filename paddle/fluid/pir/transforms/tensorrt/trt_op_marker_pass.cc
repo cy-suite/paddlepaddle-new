@@ -1034,8 +1034,12 @@ class PadOpPattern : public pir::OpRewritePattern<paddle::dialect::PadOp> {
     auto x_type = x.type().dyn_cast<paddle::dialect::DenseTensorType>();
     auto input_shape = x_type.dims();
     int nbDims = input_shape.size();
-    if (nbDims < 2 || nbDims * 2 != pad_size) {
-      VLOG(3) << "The paddings size is invalid for the input dimensions.";
+    if (nbDims < 2) {
+      VLOG(3) << "Input must have at least 2 dimensions.";
+      return false;
+    }
+    if (nbDims * 2 != pad_size) {
+      VLOG(3) << "Padding size must be twice the number of input dimensions.";
       return false;
     }
     for (int i = 0; i < pad_size - 4; i++) {
