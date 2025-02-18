@@ -26,8 +26,11 @@ if [ "$4" == "py3" ]; then
     ln -sf $(which python3.9) /usr/local/bin/python
     ln -sf $(which pip3.9) /usr/local/bin/pip
     pip config set global.cache-dir "/home/data/cfs/.cache/pip"
+
+    echo "::group::Installing python dependencies"
     pip install -r "${work_dir}/python/requirements.txt"
     pip install -r "${work_dir}/python/unittest_py/requirements.txt"
+    echo "::endgroup::"
 fi
 
 function run_setup(){
