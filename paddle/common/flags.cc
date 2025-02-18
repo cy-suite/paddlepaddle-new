@@ -1658,6 +1658,10 @@ PHI_DEFINE_EXPORTED_bool(prim_check_ops,
                          false,
                          "Whether to check the decomposed program, to ensure "
                          "that only the primitive operator is present.");
+PHI_DEFINE_EXPORTED_bool(prim_use_welford_var,
+                         false,
+                         "Whether to check the decomposed program, to ensure "
+                         "that only the primitive operator is present.");
 
 // PIR and prim related FLAG
 // Example: FLAGS_prim_forward_blacklist="pd_op.relu;pd_op.mean" would block

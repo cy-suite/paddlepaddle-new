@@ -146,16 +146,30 @@ class ReduceMinMaxOpPattern : public pir::OpRewritePattern<SOURCE_OP> {
 
   bool Match(SOURCE_OP op) const override {
     const bool is_denied = CompatibleInfo::IsDeniedForCinn(*op.operation());
-    return !is_denied && IsDefinedBy<FullIntArrayOp>(op, 1);
+    const auto attributes = op->attributes();
+    return !is_denied && (attributes.find("axis") != attributes.end() ||
+                          IsDefinedBy<FullIntArrayOp>(op, 1));
   }
 
   void Rewrite(SOURCE_OP op, pir::PatternRewriter &rewriter) const override {
-    const FullIntArrayOp axes_full_op = CastDefinedTo<FullIntArrayOp>(op, 1);
+    std::vector<int64_t> axis;
+    if (op->num_operands() == 1) {
+      const auto &attributes = op->attributes();
+      if (attributes.find("axis") != attributes.end()) {
+        axis = op.attribute("axis")
+                   .template dyn_cast<paddle::dialect::IntArrayAttribute>()
+                   .data()
+                   .GetData();
+      }
+    } else {
+      const FullIntArrayOp axes_full_op = CastDefinedTo<FullIntArrayOp>(op, 1);
 
-    // get attribute value from full_int_array op
-    const std::vector<int64_t> axis = GetVectorFromIntArrayAttribute<int64_t>(
-        axes_full_op.attribute("value")
-            .template dyn_cast<pir::ArrayAttribute>());
+      // get attribute value from full_int_array op
+      axis = GetVectorFromIntArrayAttribute<int64_t>(
+          axes_full_op.attribute("value")
+              .template dyn_cast<pir::ArrayAttribute>());
+    }
+
     const bool keepdim = op.attribute("keepdim")
                              .template dyn_cast<::pir::BoolAttribute>()
                              .data();
@@ -164,9 +178,6 @@ class ReduceMinMaxOpPattern : public pir::OpRewritePattern<SOURCE_OP> {
         rewriter.Build<TARGET_OP>(op->operand_source(0), axis, keepdim);
     rewriter.ReplaceAllUsesWith(op.result(0), cinn_reduce.result(0));
     rewriter.EraseOp(op);
-    if (axes_full_op->use_empty()) {
-      rewriter.EraseOp(axes_full_op);
-    }
   }
 };
 
@@ -1328,6 +1339,8 @@ pir::RewritePatternSet PdOpToCinnOpPass::InitializePatterns(
                                cinn::dialect::ReduceMinOp>>(context);
   ps.Add<ReduceMinMaxOpPattern<paddle::dialect::MaxOp,
                                cinn::dialect::ReduceMaxOp>>(context);
+  ps.Add<ReduceMinMaxOpPattern<paddle::dialect::VarianceOp,
+                               cinn::dialect::VarianceOp>>(context);
   ps.Add<ProdOpPattern>(context);
   ps.Add<ReshapeOpPattern>(context);
   ps.Add<PowOpPattern>(context);

@@ -4464,6 +4464,11 @@ bool UnstackOpInferSymbolicShape(
   return true;
 }
 
+bool VarianceOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  return MeanOpInferSymbolicShape(op, infer_context);
+}
+
 bool WeightQuantizeOpInferSymbolicShape(
     pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
   const auto &x_shape =
