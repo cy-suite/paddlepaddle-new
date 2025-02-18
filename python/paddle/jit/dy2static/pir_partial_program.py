@@ -637,9 +637,8 @@ class FullGraphPreProcessPass(ValuePreservePass):
             # NOTE(gongshaotian): execute infer_symbolic_shape_pass before reduce_as_sum_pass
             pm = paddle.base.libpaddle.pir.PassManager()
             pm.add_pass("delete_assert_op_pass", {})
-            pm.add_pass("shape_optimization_pass", {})
-            pm.add_pass("reduce_as_to_sum_pass", {})
-            pm.add_pass("dead_code_elimination_pass", {})
+            paddle.base.libpaddle.pir.infer_symbolic_shape_pass(pm, program)
+            paddle.base.libpaddle.pir.reduce_as_sum_pass(pm, program)
             pm.run(program)
         return program
 
