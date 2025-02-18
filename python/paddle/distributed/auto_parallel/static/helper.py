@@ -91,7 +91,7 @@ class ProxyLayer(Layer):
         self._label_vars[mode] = labels
 
         # step 2. call inner_layer.forward
-        self._output_vars[mode] = self.inner_layer(*inputs)
+        self._output_vars[mode] = self.inner_layer(*inputs, labels=labels[0])
 
         # step 3. calculate loss if needed
         new_inputs = self._prepare(self.output_vars, labels)
