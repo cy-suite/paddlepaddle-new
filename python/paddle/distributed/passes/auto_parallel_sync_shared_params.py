@@ -52,7 +52,6 @@ class AutoParallelSyncSharedParamsPass(PassBase):
 
     def _get_outptut_index_by_input_index(self, grad_op, input_value):
         input_idx = -1
-        print("xxx grad_op.operands_source(): ", grad_op)
         for idx, operand in enumerate(grad_op.operands_source()):
             if operand.is_same(input_value):
                 input_idx = idx
@@ -103,6 +102,16 @@ class AutoParallelSyncSharedParamsPass(PassBase):
                 # usually, only one reshard(diff mesh), it can return True directly
         return find_reshard
 
+    def _build_new_src_dist_attr(self, src_dist_attr, dst_dist_attr):
+        new_src_dist_attr = (
+            paddle.base.libpaddle.pir.create_tensor_dist_attribute(
+                dst_dist_attr.process_mesh,
+                src_dist_attr.dims_mapping,
+                src_dist_attr.partial_status,
+            )
+        )
+        return new_src_dist_attr
+
     def pre_analysis(self, main_program, startup_program, params_grads):
         params, _ = get_pir_parameters(main_program)
         for param in params:
@@ -133,10 +142,16 @@ class AutoParallelSyncSharedParamsPass(PassBase):
                             'shape': param.shape,
                             'dtype': param.dtype,
                             'src_dist_attr': src_dist_attr,  # not sure
+                            'new_src_dist_attr': self._build_new_src_dist_attr(
+                                src_dist_attr, dst_dist_attr
+                            ),  # not sure
                             'dst_dist_attr': dst_dist_attr,  # not sure
                             'param_name': param_name,
                             'new_param': None,
                             'new_param_grad': None,
+                            # 'mp_reshard_name': None,
+                            'mp_reshard_operand_dist_attr': None,
+                            'mp_reshard_result_dist_attr': None,
                         }
                     )
                     self.src_ranks.extend(src_mesh.process_ids)
@@ -147,7 +162,6 @@ class AutoParallelSyncSharedParamsPass(PassBase):
                     self._set_shared_attr_for_dst_mesh_op(
                         param, reshard_op, param_name, src_mesh, dst_mesh
                     )
-                    # print("xxx after _set_shared_attr_for_op: ", main_program)
 
         if len(self.params_maybe_shared) == 0:
             return
@@ -183,8 +197,6 @@ class AutoParallelSyncSharedParamsPass(PassBase):
         recv_op = reshard_op.operand_source(0).get_defining_op()
         if recv_op.name() != "pd_op.recv_v2":
             return None, None
-        # print("xxx recv_op : ", recv_op)
-        # print("xxx sum_op : ", sum_op)
         return recv_op, sum_op
 
     def _get_parameter_value_by_name_in_main_prog(
@@ -217,7 +229,6 @@ class AutoParallelSyncSharedParamsPass(PassBase):
                 main_program, param_name
             )
 
-            print("xxx add param_in_main: ", param_in_main)
             # param has 3 user at least: send/stage_1_op/op_grad/
             send_op = None
             recv_op = None
@@ -297,13 +308,25 @@ class AutoParallelSyncSharedParamsPass(PassBase):
 
             combine_op = sum_op.operand_source(0).get_defining_op()
             reshard_op = recv_op.result(0).all_used_ops()[0]
+
+            # hack!!!
+            reshard_dist_attr = reshard_op.dist_attr
+            reshard_operand_dist_attr = reshard_dist_attr.operand(
+                0
+            ).as_tensor_dist_attr()
+            reshard_result_dist_attr = reshard_dist_attr.result(
+                0
+            ).as_tensor_dist_attr()
+            param_mess['mp_reshard_operand_dist_attr'] = (
+                reshard_operand_dist_attr
+            )
+            param_mess['mp_reshard_result_dist_attr'] = reshard_result_dist_attr
+
             send_op.erase()
             sum_op.erase()
             combine_op.erase()
             reshard_op.erase()
             recv_op.erase()
-        # print("xxx startup_program : ", startup_program)
-        # print("xxx main_program : ", main_program)
         return
 
     def _is_forward_recv_backward_send_dst(
@@ -344,7 +367,7 @@ class AutoParallelSyncSharedParamsPass(PassBase):
             # print("xxx param_mess: ", param_mess)
             if param_mess['param_name'] == param_name:
                 if param_mess["new_param"] is None:
-                    print("xxx no new_param for param : ", param_name)
+                    print("xxx error")
                 return param_mess['new_param']
 
     def _find_parameter_insert_pos(self, main_program):
@@ -395,13 +418,21 @@ class AutoParallelSyncSharedParamsPass(PassBase):
                 True,
                 False,
             )
-            dst_mesh = paddle.distributed.ProcessMesh(dst_mesh_ids)
-            print("xxx dst_mesh: ", dst_mesh)
-            # recv_dist_attr = paddle.base.libpaddle.pir.create_tensor_dist_attribute(
-            #     dst_mesh, dst_dims_mapping, {}
-            # )
-            # print("xxx recv_dist_attr: ", recv_dist_attr)
-            recv_value.update_dist_attr(param_mess['dst_dist_attr'])
+            recv_value.update_dist_attr(param_mess['new_src_dist_attr'])
+            recv_op = recv_value.get_defining_op()
+            print(type(param_mess['dst_mesh']))
+            print(type(param_mess['new_src_dist_attr']))
+            recv_op.dist_attr = (
+                paddle.base.libpaddle.pir.create_op_dist_attribute(
+                    param_mess['dst_mesh'],
+                    [],
+                    [param_mess['new_src_dist_attr']],
+                    -1,
+                )
+            )
+
+            print("xxx recv_v2 : ", recv_op)
+
             paddle._pir_ops.set_parameter(recv_value, "shared_" + param_name)
             main_program.set_parameters_from(startup_program)
 
@@ -416,17 +447,25 @@ class AutoParallelSyncSharedParamsPass(PassBase):
 
             new_param.is_distributed = base_param.is_distributed
             new_param.is_parameter = base_param.is_parameter
-            new_param.need_clip = base_param.is_distributed
+            new_param.need_clip = base_param.need_clip
             new_param.persistable = base_param.persistable
             new_param.trainable = base_param.trainable
 
-            new_param.update_dist_attr(param_mess['dst_dist_attr'])
+            new_param.update_dist_attr(param_mess['new_src_dist_attr'])
 
             new_param_op = new_param.get_defining_op()
             new_param_op.op_role = 0
-            new_param_op.chunk_id = -1
+            new_param_op.dist_attr = (
+                paddle.base.libpaddle.pir.create_op_dist_attribute(
+                    param_mess['dst_mesh'],
+                    [],
+                    [param_mess['new_src_dist_attr']],
+                    -1,
+                )
+            )
             param_mess["new_param"] = new_param
             print("xxx new_param: ", new_param)
+            print("xxx new_param_op: ", new_param_op)
 
         # print("xxx main_program : ", main_program)
 
@@ -464,6 +503,8 @@ class AutoParallelSyncSharedParamsPass(PassBase):
                     new_param = self._find_new_param(param_name)
                     assert new_param is not None
                     son.replace_all_uses_with(new_param)
+                    print("xxx old recv_v2 : ", recv_op)
+                    print("xxx new new_param : ", new_param.get_defining_op())
                     del_ops += [recv_op]
 
         # param_grad -> send
@@ -471,23 +512,57 @@ class AutoParallelSyncSharedParamsPass(PassBase):
         for block in main_program.blocks:
             for send_op in block.ops:
                 if send_op.name() == "pd_op.send_v2":
-                    print("xxx send_v2 op: ", send_op)
+                    # print("xxx send_v2 op: ", send_op)
                     operand = send_op.operand_source(0)
                     ring_id = send_op.attrs()["ring_id"]
                     define_op = operand.get_defining_op()
                     if not define_op.has_attr("shared_parameter_name"):
-                        print("xxx send_v2 son have no shared_parameter_name")
+                        # print("xxx send_v2 son have no shared_parameter_name")
                         continue
                     param_name = define_op.attrs()["shared_parameter_name"]
                     paddle.pir.set_insertion_point_after(define_op)
+
+                    # shared_data mp reshard
+                    tmp_param_mess = self.params_maybe_shared[0]
+                    dst_type = tmp_param_mess['dtype']
+
+                    share_data_value = paddle._C_ops.share_data_(operand)
+                    share_data_value.set_type(dst_type)
+
+                    share_data_op = share_data_value.get_defining_op()
+                    src_dist_attr = tmp_param_mess[
+                        'mp_reshard_operand_dist_attr'
+                    ]
+                    dst_dist_attr = tmp_param_mess[
+                        'mp_reshard_result_dist_attr'
+                    ]
+
+                    new_src_dist_attr = self._build_new_src_dist_attr(
+                        src_dist_attr, tmp_param_mess['dst_dist_attr']
+                    )
+                    new_dst_dist_attr = self._build_new_src_dist_attr(
+                        dst_dist_attr, tmp_param_mess['dst_dist_attr']
+                    )
+                    share_data_op.dist_attr = (
+                        paddle.base.libpaddle.pir.create_op_dist_attribute(
+                            tmp_param_mess['dst_mesh'],
+                            [new_src_dist_attr],
+                            [new_dst_dist_attr],
+                            send_op.chunk_id,
+                        )
+                    )
+
+                    print("xxx share_data_op: ", share_data_op)
+
                     allreduce_value = paddle._C_ops.all_reduce(
-                        operand,
+                        share_data_value,
                         ring_id,
                         dist.ReduceOp.SUM,
                     )
                     allreduce_op = allreduce_value.get_defining_op()
                     allreduce_op.op_role = send_op.op_role
                     allreduce_op.chunk_id = send_op.chunk_id
+                    print("xxx allreduce_op: ", allreduce_op)
                     # allreduce_value.update_dist_attr(param_mess['dst_dist_attr'])
 
                     # set new_param_grad
@@ -502,39 +577,27 @@ class AutoParallelSyncSharedParamsPass(PassBase):
         for op in del_ops:
             op.erase()
 
-        # print("xxx main_program : ", main_program)
+        print("xxx startup_program : ", startup_program)
+        print("xxx main_program : ", main_program)
 
         # optimizer
-        new_params_grads = []
         for param_mess in self.params_maybe_shared:
-            param_name = param_mess['param_name']
             new_param = param_mess['new_param']
             new_param_grad = param_mess['new_param_grad']
 
-            # new_params_grads.append(tuple(new_param_grad, new_param_grad))
-            str_list1 = [new_param]
-            str_list2 = [new_param_grad]
-
             new_params_grads = [
-                (str1, str2) for str1, str2 in zip(str_list1, str_list2)
+                (p1, p2) for p1, p2 in zip([new_param], [new_param_grad])
             ]
-        # with auto_complete_op_role(
-        #     main_program, OpRole.Backward
-        # ):
-        #     params_grads = (
-        #         paddle.autograd.ir_backward.append_backward(
-        #             loss
-        #         )
-        #     )
-
-        with auto_complete_op_role(main_program, OpRole.Optimize):
-            # print("xxx default prog : ", paddle.static.default_main_program().global_block())
-            with paddle.static.program_guard(main_program, startup_program):
-                self.optimizer._apply_optimize(
-                    self.loss, startup_program, params_grads=new_params_grads
-                )
-        # print("xxx startup_program : ", startup_program)
-        # print("xxx main_program : ", main_program)
+            print("xxx new_param: ", type(new_param), new_param)
+            print("xxx new_param_grad: ", type(new_param_grad), new_param_grad)
+            with auto_complete_op_role(main_program, OpRole.Optimize):
+                with paddle.static.program_guard(main_program, startup_program):
+                    self.optimizer._apply_optimize(
+                        self.loss,
+                        startup_program,
+                        params_grads=new_params_grads,
+                    )
+            print("xxx 1234")
 
     def _apply_single_impl(self, main_program, startup_program, context):
         if len(self.params_maybe_shared) == 0:
@@ -556,6 +619,8 @@ class AutoParallelSyncSharedParamsPass(PassBase):
             self._apply_single_impl_stage_src(main_program, startup_program)
         if cur_rank in self.dst_ranks:
             self._apply_single_impl_stage_dst(main_program, startup_program)
+
+        # print("xxx tmp startup_program: ", startup_program)
 
         # TODO!!!!!
         return
