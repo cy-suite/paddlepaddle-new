@@ -20,9 +20,9 @@ set(bw_api_yaml_file ${CMAKE_SOURCE_DIR}/paddle/phi/ops/yaml/backward.yaml)
 set(legacy_bw_api_yaml_file
     ${CMAKE_SOURCE_DIR}/paddle/phi/ops/yaml/inconsistent/dygraph_backward.yaml)
 set(bw_api_header_file
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/backward/backward_api_impl.h)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/api/backward/backward_api_base.h)
 set(bw_api_source_file
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/lib/backward_api_impl.cc)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/api/lib/backward_api_base.cc)
 set(backward_api_header_file
     ${CMAKE_SOURCE_DIR}/paddle/phi/api/backward/backward_api.h)
 set(backward_api_source_file
@@ -59,9 +59,9 @@ set(fused_bw_api_gen_file
 set(fused_bw_api_yaml_file
     ${CMAKE_SOURCE_DIR}/paddle/phi/ops/yaml/fused_backward.yaml)
 set(fused_bw_api_header_file
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/backward/fused_backward_api_impl.h)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/api/backward/fused_backward_api_base.h)
 set(fused_bw_api_source_file
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/lib/fused_backward_api_impl.cc)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/api/lib/fused_backward_api_base.cc)
 set(fused_bw_api_header_file_tmp ${fused_bw_api_header_file}.tmp)
 set(fused_bw_api_source_file_tmp ${fused_bw_api_source_file}.tmp)
 set(fused_backward_api_header_file
@@ -87,9 +87,9 @@ set(sparse_bw_api_gen_file
 set(sparse_bw_api_yaml_file
     ${CMAKE_SOURCE_DIR}/paddle/phi/ops/yaml/sparse_backward.yaml)
 set(sparse_bw_api_header_file
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/backward/sparse_backward_api_impl.h)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/api/backward/sparse_backward_api_base.h)
 set(sparse_bw_api_source_file
-    ${CMAKE_SOURCE_DIR}/paddle/phi/api/lib/sparse_backward_api_impl.cc)
+    ${CMAKE_SOURCE_DIR}/paddle/phi/api/lib/sparse_backward_api_base.cc)
 set(sparse_bw_api_header_file_tmp ${sparse_bw_api_header_file}.tmp)
 set(sparse_bw_api_source_file_tmp ${sparse_bw_api_source_file}.tmp)
 set(sparse_backward_api_header_file
