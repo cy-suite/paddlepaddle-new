@@ -444,6 +444,38 @@ LoopAxisMapping LoopMappingMerge(const LoopAxisMapping& upstream,
   return result;
 }
 
+std::vector<int> GetFakeReduceAxisIdx(const std::vector<symbol::DimExpr>& loop,
+                                      const AxisTransformRoute& route,
+                                      int reduce_axis_num) {
+  AxisTransformSimulator simulator(route, loop);
+  auto reduce_trivial_related_ids =
+      simulator.GetRelatedAxisIds(simulator.source_ids_);
+  std::set<std::string> trivial_non_related_ids;
+  for (const auto& axis_id : simulator.target_ids_) {
+    if (!reduce_trivial_related_ids.count(axis_id)) {
+      trivial_non_related_ids.insert(axis_id);
+    }
+  }
+  std::vector<int> fake_reduce_idx;
+  for (int i = loop.size() - reduce_axis_num; i < loop.size(); ++i) {
+    auto reduce_axis_id = simulator.source_ids_[i];
+    auto indices = FindPosInVector(simulator.target_ids_, reduce_axis_id);
+    if (!indices.empty()) {
+      fake_reduce_idx.push_back(indices.front());
+      continue;
+    }
+    for (const auto& axis_id : trivial_non_related_ids) {
+      if (loop[i] == simulator.axis_symbols_.at(axis_id)) {
+        fake_reduce_idx.push_back(
+            FindPosInVector(simulator.target_ids_, axis_id).front());
+        trivial_non_related_ids.erase(axis_id);
+        break;
+      }
+    }
+  }
+  return fake_reduce_idx;
+}
+
 LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
     const LoopAxisMapping& upstream, const LoopAxisMapping& downstream) {
   // Signal downstream reduce plus trivial fusion loop is downstream trivial
@@ -467,33 +499,16 @@ LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
                                  upstream.loop.size() - reduce_axis_num,
                                  upstream.loop.size());
   // Check whether downstream trivial can reuse upstream reduce axis.
-  AxisTransformSimulator simulator(loop_sink_route, upstream.loop);
-  auto upstream_trivial_related_ids =
-      simulator.GetRelatedAxisIds(simulator.source_ids_);
-  std::set<std::string> downstream_non_related_ids;
-  for (const auto& axis_id : simulator.target_ids_) {
-    if (!upstream_trivial_related_ids.count(axis_id)) {
-      downstream_non_related_ids.insert(axis_id);
-    }
-  }
-  std::vector<int> reuse_reduce_indices;
-  for (int i = 0; i < reduce_axis.size(); ++i) {
-    for (const auto& axis_id : downstream_non_related_ids) {
-      if (reduce_loop[i] == simulator.axis_symbols_.at(axis_id)) {
-        reuse_reduce_indices.push_back(
-            FindPosInVector(simulator.target_ids_, axis_id).front());
-        downstream_non_related_ids.erase(axis_id);
-        break;
-      }
-    }
-  }
-  PADDLE_ENFORCE(reuse_reduce_indices.size() == 0 ||
-                     reuse_reduce_indices.size() == reduce_axis_num,
-                 ::common::errors::PreconditionNotMet(
-                     "Downstream trivial loop should reuse all upstream reduce "
-                     "axis or none."));
+  auto fake_reduce_idx =
+      GetFakeReduceAxisIdx(upstream.loop, loop_sink_route, reduce_axis_num);
+  VLOG(4) << "fake_reduce_idx: " << cinn::utils::Join(fake_reduce_idx, ",");
+  PADDLE_ENFORCE(
+      fake_reduce_idx.size() == 0 || fake_reduce_idx.size() == reduce_axis_num,
+      ::common::errors::PreconditionNotMet(
+          "Downstream trivial loop should reuse all upstream reduce "
+          "axis or none."));
   LoopAxisMapping result;
-  if (reuse_reduce_indices.empty()) {
+  if (fake_reduce_idx.empty()) {
     AxisTransform append_reduce_axis =
         std::make_shared<AppendAxisTransform>(reduce_axis, reduce_loop);
     AxisTransform delete_reduce_axis = ReverseTransform(append_reduce_axis);
@@ -508,23 +523,23 @@ LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
     for (auto& route : result.loop2output) {
       route.insert(route.begin(), delete_reduce_axis);
     }
-    auto fake_reduce_axis = ArangeVector<int64_t>(
+    auto fake_reduce_idx = ArangeVector<int64_t>(
         downstream.loop.size(), downstream.loop.size() + reduce_axis_num);
-    AxisTransform append_fake_reduce_axis =
-        std::make_shared<AppendAxisTransform>(fake_reduce_axis, reduce_loop);
+    AxisTransform append_fake_reduce_idx =
+        std::make_shared<AppendAxisTransform>(fake_reduce_idx, reduce_loop);
     for (int i = upstream.input2loop.size(); i < result.input2loop.size();
          ++i) {
-      result.input2loop[i].push_back(append_fake_reduce_axis);
+      result.input2loop[i].push_back(append_fake_reduce_idx);
     }
   } else {
     // Transpose fake reduce axis to the end
     auto perm = ArangeVector<int>(0, downstream.loop.size());
-    for (auto index : reuse_reduce_indices) {
+    for (auto index : fake_reduce_idx) {
       perm.push_back(index);
     }
-    std::sort(reuse_reduce_indices.begin(), reuse_reduce_indices.end());
-    std::reverse(reuse_reduce_indices.begin(), reuse_reduce_indices.end());
-    for (auto index : reuse_reduce_indices) {
+    std::sort(fake_reduce_idx.begin(), fake_reduce_idx.end());
+    std::reverse(fake_reduce_idx.begin(), fake_reduce_idx.end());
+    for (auto index : fake_reduce_idx) {
       perm.erase(perm.begin() + index);
     }
     auto transpose_trans = std::make_shared<TransposeTransform>(perm);
@@ -579,19 +594,23 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
   } else if (source.reduce_axis_num == 0 && target.reduce_axis_num > 0) {
     // Trivial -> Reduce ItersTransform
     // Can fuse with non fake reduce dims or small inner reduce loop
-
-    // auto [target_flatten_iters, asd] = SplitReduceIters(target);
-    // if (!AllFirstInSecond(squeezed_source.loop_iters, target_flatten_iters))
-    // {
-    //   const auto reduce_dims_product =
-    //       iters_manager_->GetReduceDimsProduct(target);
-    //   if (reduce_dims_product.isa<std::int64_t>() &&
-    //       reduce_dims_product.dyn_cast<std::int64_t>() > 1024 * 8) {
-    //     VLOG(4) << "Can not fuse trivial to reduce with large reduce dims: "
-    //             << reduce_dims_product.dyn_cast<std::int64_t>();
-    //     return std::nullopt;
-    //   }
-    // }
+    const auto& reduce_to_trivial_route =
+        upstream_is_anchor ? GetLoopSinkRoute(target, source)
+                           : GetLoopLiftRoute(target, source);
+    auto fake_reduce_idx = GetFakeReduceAxisIdx(
+        target.loop, reduce_to_trivial_route, target.reduce_axis_num);
+    if (!fake_reduce_idx.empty()) {
+      const auto reduce_dims_product =
+          GetShapeProduct(target.loop,
+                          target.loop.size() - target.reduce_axis_num,
+                          target.loop.size());
+      if (reduce_dims_product.isa<std::int64_t>() &&
+          reduce_dims_product.dyn_cast<std::int64_t>() > 1024 * 8) {
+        VLOG(4) << "Can not fuse trivial to reduce with large reduce dims: "
+                << reduce_dims_product.dyn_cast<std::int64_t>();
+        return std::nullopt;
+      }
+    }
   }
   bool rr_fusion = source.reduce_axis_num > 0 && target.reduce_axis_num > 0;
 
