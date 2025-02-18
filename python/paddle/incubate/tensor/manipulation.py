@@ -89,7 +89,7 @@ def _npu_identity(x, format=-1):
 
 def _load_reload_impl(src_tensor, func):
     """
-    Helper to create a new destination tensor and call 'func(dst, src)' 
+    Helper to create a new destination tensor and call 'func(dst, src)'
     which is either offload or reload.
     """
     if isinstance(src_tensor, EagerParamBase):
@@ -102,19 +102,22 @@ def _load_reload_impl(src_tensor, func):
         task = func(new_varbase, src_tensor)
         return new_varbase, task
 
+
 def create_async_load():
     """
-    Constructs a new AsyncLoad object. 
+    Constructs a new AsyncLoad object.
     It is used to load/reload data asynchronously on GPU.
     """
     return core.AsyncLoad()
 
+
 def create_xpu_async_load():
     """
-    Constructs a new AsyncLoad object. 
+    Constructs a new AsyncLoad object.
     It is used to load/reload data asynchronously on XPU.
     """
     return core.XpuAsyncLoad()
+
 
 def async_offload(src_tensor, async_load):
     """
