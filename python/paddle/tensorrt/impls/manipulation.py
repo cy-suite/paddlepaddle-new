@@ -973,7 +973,10 @@ def pad3d_converter(network, paddle_op, inputs):
     ), f"Expected paddings size is {input_dim * 2 - 4}, but received {pad_size}."
 
     shuffle_index = [4, 2, 0, 5, 3, 1]
-    shuffle_inputs = [get_shape_tensor_element(network, paddings, shuffle_index[i]) for i in range(pad_size)]
+    shuffle_inputs = [
+        get_shape_tensor_element(network, paddings, shuffle_index[i])
+        for i in range(pad_size)
+    ]
     paddings = trt_concat(network, shuffle_inputs)
 
     pre_zeros = add_1D_constant_layer(network, [0, 0])
@@ -1008,11 +1011,19 @@ def pad3d_converter(network, paddle_op, inputs):
     if padding_mode == "constant":
         slice_layer.mode = trt.SampleMode.FILL
         if value != 0.0:
-            if input_tensor.dtype in (trt.DataType.FLOAT, trt.DataType.HALF, trt.DataType.INT8):
-                fill_value = add_1D_constant_layer(network, value, dtype=np.float32)
+            if input_tensor.dtype in (
+                trt.DataType.FLOAT,
+                trt.DataType.HALF,
+                trt.DataType.INT8,
+            ):
+                fill_value = add_1D_constant_layer(
+                    network, value, dtype=np.float32
+                )
             else:
                 value_int = int(value)
-                fill_value = add_1D_constant_layer(network, value_int, dtype=np.int32)
+                fill_value = add_1D_constant_layer(
+                    network, value_int, dtype=np.int32
+                )
             slice_layer.set_input(4, fill_value)
     elif padding_mode == "reflect":
         slice_layer.mode = trt.SampleMode.REFLECT
