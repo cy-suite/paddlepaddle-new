@@ -160,7 +160,9 @@ function run_setup(){
                 pip3.12 install -r ${PADDLE_ROOT}/paddle/scripts/compile_requirements.txt
            fi
         else
+            echo "::group::Installing python dependencies"
             pip install -r ${PADDLE_ROOT}/python/requirements.txt
+            echo "::endgroup::"
         fi
     fi
 
@@ -174,7 +176,9 @@ function run_setup(){
     fi
 
     if [ -z "${WITH_CPP_TEST}" ] && [ "${WITH_TESTING}" == "ON" ];then
+      echo "::group::Installing PyGithub"
       pip install PyGithub
+      echo "::endgroup::"
       python ${PADDLE_ROOT}/tools/check_only_change_python_files.py
       if [ -f "${PADDLE_ROOT}/build/only_change_python_file.txt" ];then
           export WITH_CPP_TEST=OFF

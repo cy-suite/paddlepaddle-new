@@ -24,7 +24,9 @@ function run_sot_test() {
     export FLAGS_cudnn_deterministic=True
 
     # Install PaddlePaddle
+    echo "::group::Installing paddle wheel..."
     $PYTHON_WITH_SPECIFY_VERSION -m pip install ${PADDLE_ROOT}/dist/paddlepaddle-0.0.0-cp${PY_VERSION_NO_DOT}-cp${PY_VERSION_NO_DOT}-linux_x86_64.whl
+    echo "::endgroup::"
     # cd to sot test dir
     cd $PADDLE_ROOT/test/sot/
 

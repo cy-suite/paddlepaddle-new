@@ -37,7 +37,7 @@ jobs:
         WITH_TESTING: "ON"
         WITH_COVERAGE: "OFF"
         COVERALLS_UPLOAD: "OFF"
-        GIT_PR_ID: ${{ inputs.PR_ID }}
+        GIT_PR_ID: ${{ github.event.pull_request.number }}
         PADDLE_VERSION: 0.0.0
         CMAKE_BUILD_TYPE: Release
         PADDLE_FRACTION_GPU_MEMORY_TO_USE: 0.15

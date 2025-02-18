@@ -20,9 +20,13 @@ function run_linux_cpu_test() {
     export FLAGS_CI_PIPELINE=py3
     mkdir -p ${PADDLE_ROOT}/build
     cd ${PADDLE_ROOT}/build
+    echo "::group::Installing hypothesis..."
     pip install hypothesis
+    echo "::endgroup::"
     if [ -d "${PADDLE_ROOT}/dist/" ]; then
+        echo "::group::Installing paddle wheel..."
         pip install ${PADDLE_ROOT}/dist/*whl
+        echo "::endgroup::"
     fi
     cp ${PADDLE_ROOT}/build/test/legacy_test/op_test.py ${PADDLE_ROOT}/build/python
     cp ${PADDLE_ROOT}/build/test/legacy_test/testsuite.py ${PADDLE_ROOT}/build/python
@@ -34,7 +38,7 @@ function run_linux_cpu_test() {
     Running unit tests ...
     ========================================
 EOF
-set -x
+# set -x
         export TEST_NUM_PERCENT_CASES=0.15
         if [ -a "$PADDLE_ROOT/duplicate_ut" ];then
             duplicate_uts=$(cat $PADDLE_ROOT/duplicate_ut|sed -e 's/\r//g')
