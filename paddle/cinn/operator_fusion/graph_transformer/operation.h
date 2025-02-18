@@ -341,12 +341,12 @@ struct SplitRecomputeOperation {
         upstream->sink_op(),
         std::make_shared<FusionTracker>(
             std::get<AnchorPattern>(upstream->stmt_pattern()).tracker_));
+    auto loop_mapping = upstream->loop_mapping();
     upstream->set_stmt_pattern(trivial_pattern);
+    upstream->set_loop_mapping(loop_mapping);
     VLOG(4) << "Make CopyInstr: " << origin_name << " -> " << upstream->id();
     upstream->AppendInstr(
         std::make_shared<CopyInstr>(origin_name, upstream->id()));
-    VLOG(4) << "After SplitRecomputeOperation: upstream tracker is: "
-            << GetFusionTracker(upstream->stmt_pattern())->DebugStr();
     MergeTrivialPatternOperation()(graph, upstream);
   }
 };
