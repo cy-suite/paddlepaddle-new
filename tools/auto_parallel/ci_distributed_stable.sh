@@ -99,6 +99,7 @@ if [[ $1 -ne 0 ]] && [[ $1 -ne 250 ]];then
         echo -e "\033[31m ${log_path}/$2_FAIL \033"
         tail -70 ${log_path}/$2_FAIL.log
     fi
+    sleep 1d
     exit $EXCODE
 else
     echo -e "\033[32m run $3 CI SUCCESS \033"
@@ -166,4 +167,5 @@ else
     echo -e "\033[32m Changed Not CI case, Skips \033"
     EXCODE=0
 fi
+sleep 1d
 exit $EXCODE

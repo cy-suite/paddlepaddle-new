@@ -2407,6 +2407,7 @@ EOF
         echo "GPUPS testCase Time: $[ $ut_endTime_s - $ut_startTime_s ]s"
 
         if [[ "$EXIT_CODE" != "0" ]]; then
+            sleep 1d
             exit 8;
         fi
     fi
@@ -2826,6 +2827,7 @@ if [ -n "$failed_test_lists" ];then
     echo "========================================"
     echo "The following tests FAILED: "
     echo "${failed_test_lists}"| sort -u
+    sleep 1d
     exit 8
 fi
 
