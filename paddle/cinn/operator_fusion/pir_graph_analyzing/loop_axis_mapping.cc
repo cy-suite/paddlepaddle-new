@@ -591,26 +591,6 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
         return std::nullopt;
       }
     }
-  } else if (source.reduce_axis_num == 0 && target.reduce_axis_num > 0) {
-    // Trivial -> Reduce ItersTransform
-    // Can fuse with non fake reduce dims or small inner reduce loop
-    const auto& reduce_to_trivial_route =
-        upstream_is_anchor ? GetLoopSinkRoute(target, source)
-                           : GetLoopLiftRoute(target, source);
-    auto fake_reduce_idx = GetFakeReduceAxisIdx(
-        target.loop, reduce_to_trivial_route, target.reduce_axis_num);
-    if (!fake_reduce_idx.empty()) {
-      const auto reduce_dims_product =
-          GetShapeProduct(target.loop,
-                          target.loop.size() - target.reduce_axis_num,
-                          target.loop.size());
-      if (reduce_dims_product.isa<std::int64_t>() &&
-          reduce_dims_product.dyn_cast<std::int64_t>() > 1024 * 8) {
-        VLOG(4) << "Can not fuse trivial to reduce with large reduce dims: "
-                << reduce_dims_product.dyn_cast<std::int64_t>();
-        return std::nullopt;
-      }
-    }
   }
   bool rr_fusion = source.reduce_axis_num > 0 && target.reduce_axis_num > 0;
 
@@ -824,7 +804,7 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
            "], cur_size: " + std::to_string(cur_axis_size);
   };
 
-  VLOG(4) << "Source " << axis_debug_info();
+  VLOG(4) << "Source axis ids: " << axis_debug_info();
   for (auto& transform : loop_transform_route) {
     if (std::holds_alternative<UnsupportedTransformPtr>(transform)) {
       VLOG(4) << "Can not find valid loop transform because of unsupported "
@@ -832,12 +812,13 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
       return std::nullopt;
     } else {
       std::visit(apply_transform, transform);
-      VLOG(4) << "After Applying " << transform << ", " << axis_debug_info();
+      VLOG(4) << "After Applying " << transform
+              << ", axis ids: " << axis_debug_info();
     }
   }
 
-  // Check if all deleted axes are used, otherwise the transform is invalid.
   if (!deleted_axes.empty()) {
+    // Check if all deleted axes are used, otherwise the transform is invalid.
     VLOG(4) << "Can not find valid loop transform because of unreused deleted "
                "axes.";
     return std::nullopt;
@@ -886,7 +867,26 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
     result.push_back(
         std::make_shared<DeleteAxisTransform>(reduce_axis, reduce_shape));
   }
-
+  if (source.reduce_axis_num == 0 && target.reduce_axis_num > 0) {
+    // Check whether reduce trivial fusion with larger reduce dims.
+    const auto& reduce_to_trivial_route =
+        upstream_is_anchor ? GetLoopSinkRoute(target, source)
+                           : GetLoopLiftRoute(source, target);
+    auto fake_reduce_idx = GetFakeReduceAxisIdx(
+        target.loop, reduce_to_trivial_route, target.reduce_axis_num);
+    if (!fake_reduce_idx.empty()) {
+      const auto reduce_dims_product =
+          GetShapeProduct(target.loop,
+                          target.loop.size() - target.reduce_axis_num,
+                          target.loop.size());
+      if (reduce_dims_product.isa<std::int64_t>() &&
+          reduce_dims_product.dyn_cast<std::int64_t>() > 1024 * 8) {
+        VLOG(4) << "Can not fuse trivial to reduce with large reduce dims: "
+                << reduce_dims_product.dyn_cast<std::int64_t>();
+        return std::nullopt;
+      }
+    }
+  }
   if (result.empty()) result.push_back(IdentityTransform::InstancePtr());
   result = SimplifyTransformRoute(result, source.loop);
   VLOG(4) << "Found loop transform: " << result;
