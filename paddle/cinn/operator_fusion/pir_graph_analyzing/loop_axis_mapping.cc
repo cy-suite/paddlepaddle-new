@@ -1117,16 +1117,16 @@ LoopAxisMapping CreateLoopMappingForReshape(pir::Operation* op) {
     return CreateDefaultLoopMappingForTrivialOp(op);
   }
 
-  // auto has_dynamic_shape = [](const std::vector<symbol::DimExpr>& shape) {
-  //   return std::any_of(
-  //       shape.begin(), shape.end(), [](const symbol::DimExpr& sym) {
-  //         return !sym.isa<std::int64_t>();
-  //       });
-  // };
-  // // TODO(huangjiyi): Support dynamic shape for reshape anchor fusion
-  // if (has_dynamic_shape(in_shape) || has_dynamic_shape(out_shape)) {
-  //   return CreateDefaultLoopMappingForTrivialOp(op);
-  // }
+  auto has_dynamic_shape = [](const std::vector<symbol::DimExpr>& shape) {
+    return std::any_of(
+        shape.begin(), shape.end(), [](const symbol::DimExpr& sym) {
+          return !sym.isa<std::int64_t>();
+        });
+  };
+  // TODO(huangjiyi): Support dynamic shape for reshape anchor fusion
+  if (has_dynamic_shape(in_shape) || has_dynamic_shape(out_shape)) {
+    return CreateDefaultLoopMappingForTrivialOp(op);
+  }
 
   // If Reshape only appends or deletes dims with size 1,
   // we can use DeleteAxisTransform and AppendAxisTransform.
