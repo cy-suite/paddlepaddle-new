@@ -35,6 +35,9 @@ class TestEluTRTPattern(TensorRTBaseTest):
     def test_trt_result(self):
         self.check_trt_result()
 
+    def test_trt_result_fp16(self):
+        self.check_trt_result(rtol=1e-3, atol=1e-3, precision_mode="fp16")
+
 
 class TestHardSigmoidTRTPattern(TensorRTBaseTest):
     def setUp(self):
