@@ -155,9 +155,18 @@ def async_offload_with_offset(
     src_tensor, dst_tensor, src_offset, dst_offset, offload_size, async_loader
 ):
     """
-    Offload from src_tensor to pinned/CPU dst_tensor with offset/size.
+    Offloading the source tensor into the destination tensor asynchronously with offset and size customized.
 
-    Returns a task (AsyncLoad::Task).
+    Args:
+        src_tensor (EagerParamBase|paddle.Tensor): The source tensor.
+        dst_tensor (EagerParamBase|paddle.Tensor): The destination tensor.
+        src_offset (int): The element offset of the source tensor.
+        dst_offset (int): The element offset of the destination tensor.
+        offload_size (int): The size of the data to be loaded.
+        async_loader (core.AsyncLoad): The AsyncLoad object.
+
+    Returns:
+        task (Task): The task that operates partial offloading.
     """
     assert len(src_tensor.shape) <= 1, "Only support 1-D tensor"
     assert len(dst_tensor.shape) <= 1, "Only support 1-D tensor"
