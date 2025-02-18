@@ -890,7 +890,7 @@ def flash_attn_unpadded(
             >>> output = paddle.nn.functional.flash_attention.flash_attn_unpadded(qq, qq, qq, cu, cu, 128, 128, 0.25, 0.0, False, False)
 
     """
-    if in_dynamic_mode():
+    if in_dynamic_or_pir_mode():
         (
             result_attention,
             result_softmax,
