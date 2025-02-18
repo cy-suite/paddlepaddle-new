@@ -563,7 +563,7 @@ const Tensor &Tensor::_fw_grad(uint64_t level) const {
   if (!autograd_meta_) {
     return singleton_undefined_tensor;
   }
-  return autograd_meta_->fw_grad(level, *this);
+  return autograd_meta_->fw_grad(level);
 }
 
 void Tensor::_set_fw_grad(const Tensor &new_grad,
@@ -572,7 +572,7 @@ void Tensor::_set_fw_grad(const Tensor &new_grad,
   if (!autograd_meta_) {
     autograd_meta_ = std::make_shared<egr::AutogradMeta>();
   }
-  autograd_meta_->set_fw_grad(new_grad, *this, level, is_inplace_op);
+  autograd_meta_->set_fw_grad(new_grad, level, is_inplace_op);
 }
 
 Tensor Tensor::_fw_primal(int64_t level) const {

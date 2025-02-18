@@ -398,14 +398,14 @@ class TEST_API EagerUtils {
 
   // SetFwGrad for tuple of Tensor with variable number of elements
   template <size_t I = 0, typename... Tp>
-  inline typename std::enable_if<I == sizeof...(Tp), void>::type
+  inline static typename std::enable_if<I == sizeof...(Tp), void>::type
   _SetFwGradTuple(std::tuple<Tp...>&,  // NOLINT
                   const std::tuple<Tp...>&,
                   uint64_t,
                   bool) {}
 
   template <size_t I = 0, typename... Tp>
-      inline typename std::enable_if <
+      inline static typename std::enable_if <
       I<sizeof...(Tp), void>::type _SetFwGradTuple(
           std::tuple<Tp...>& t,  // NOLINT
           const std::tuple<Tp...>& grad,

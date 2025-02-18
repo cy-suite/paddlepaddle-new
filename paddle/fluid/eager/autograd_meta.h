@@ -133,15 +133,7 @@ class AutogradMeta : public AbstractAutogradMeta {
 
   void SetRetainGrads(bool value) { retain_grads_ = value; }
 
-  const paddle::Tensor& fw_grad(uint64_t level,
-                                const paddle::Tensor& self) const {
-    const auto& direct_fw_grad =
-        fw_grad_ ? fw_grad_->value(level) : ForwardGrad::undef_grad();
-
-    return direct_fw_grad;
-  }
-
-  const paddle::Tensor& fw_grad(uint64_t level) const {
+  const paddle::Tensor& fw_grad(uint64_t level) const override {
     const auto& direct_fw_grad =
         fw_grad_ ? fw_grad_->value(level) : ForwardGrad::undef_grad();
 
@@ -196,12 +188,11 @@ class AutogradMeta : public AbstractAutogradMeta {
    * the base for inplace ops on Tensors that do not have forward grad
    * originally.
    */
-  void set_fw_grad(const paddle::Tensor& new_grad_base,
-                   const paddle::Tensor& self_base,
+  void set_fw_grad(const paddle::Tensor& new_grad,
                    uint64_t level,
-                   bool is_inplace_op) {
+                   bool is_inplace_op) override {
     PD_CHECK(
-        !new_grad_base._fw_grad(level).defined(),
+        !new_grad._fw_grad(level).defined(),
         "Setting a forward grad that "
         "itself has a forward gradient at the same level %d is not supported.",
         level);
@@ -215,7 +206,7 @@ class AutogradMeta : public AbstractAutogradMeta {
     if (fw_grad_->contains(level)) {
       // Setting the forward grad again is only allowed if it is a no-op.
       // We do allow this case to simplify writing codegen for inplace ops.
-      PD_CHECK(new_grad_base.defined(),
+      PD_CHECK(new_grad.defined(),
                "Cannot set a forward grad that is an undefined Tensor. Use "
                "_fw_primal(level) to get a new Tensor with this forward grad "
                "unset.");
@@ -225,14 +216,11 @@ class AutogradMeta : public AbstractAutogradMeta {
                "Tensor that "
                "already has one.");
 
-      PD_CHECK(fw_grad_->value(level).impl() == new_grad_base.impl(),
+      PD_CHECK(fw_grad_->value(level).impl() == new_grad.impl(),
                "Cannot set a value of a forward grad if it "
                "already exists. Inplace operations should modify it inplace.");
     } else {
-      paddle::Tensor self_ref(new_grad_base);
-      const paddle::Tensor& self = self_ref;
-
-      fw_grad_->set_value(self, level);
+      fw_grad_->set_value(new_grad, level);
     }
   }
 };

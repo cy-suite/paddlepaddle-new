@@ -19,6 +19,7 @@ import numpy as np
 from parameterized import parameterized
 
 import paddle
+from paddle import nn
 
 sys.path.insert(0, '.')
 
@@ -27,11 +28,11 @@ class TestDualContext(unittest.TestCase):
     def test_dual_level(self):
         paddle.autograd.enter_dual_level()
         assert (
-            paddle.autograd.forward_mode._current_level == 0
+            paddle.autograd._current_level == 0
         ), "The first enter dual level should be 0."
         paddle.autograd.exit_dual_level()
         assert (
-            paddle.autograd.forward_mode._current_level == -1
+            paddle.autograd._current_level == -1
         ), "The current dual level should be -1."
 
     @parameterized.expand(
@@ -101,13 +102,11 @@ class TestFwdAD_eager_ops(unittest.TestCase):
         with paddle.autograd.dual_level():
             x_primal = x
             x_tangent = paddle.randn(x.shape)
-            x_dual = paddle.autograd.forward_mode.make_dual(x_primal, x_tangent)
+            x_dual = paddle.autograd.make_dual(x_primal, x_tangent)
 
             y_dual = func(x_dual)
 
-            y_primal, y_tangent = paddle.autograd.forward_mode.unpack_dual(
-                y_dual
-            )
+            y_primal, y_tangent = paddle.autograd.unpack_dual(y_dual)
 
         y = func(x)
 
@@ -139,14 +138,11 @@ class TestFwdAD_eager_ops(unittest.TestCase):
         with paddle.autograd.dual_level():
             x_primal = x
             x_tangent = paddle.randn(x.shape)
-            x_dual = paddle.autograd.forward_mode.make_dual(x_primal, x_tangent)
+            x_dual = paddle.autograd.make_dual(x_primal, x_tangent)
 
             y_dual = func(x_dual)  # List[Tensor]
 
-            tmp = [
-                paddle.autograd.forward_mode.unpack_dual(y_dual_)
-                for y_dual_ in y_dual
-            ]
+            tmp = [paddle.autograd.unpack_dual(y_dual_) for y_dual_ in y_dual]
             y_primal = [t[0] for t in tmp]
             y_tangent = [t[1] for t in tmp]
 
@@ -187,17 +183,15 @@ class TestFwdAD_eager_ops(unittest.TestCase):
         with paddle.autograd.dual_level():
             x_primal = x
             x_tangent = paddle.randn(x.shape)
-            x_dual = paddle.autograd.forward_mode.make_dual(x_primal, x_tangent)
+            x_dual = paddle.autograd.make_dual(x_primal, x_tangent)
 
             y_primal = y
             y_tangent = paddle.randn(y.shape)
-            y_dual = paddle.autograd.forward_mode.make_dual(y_primal, y_tangent)
+            y_dual = paddle.autograd.make_dual(y_primal, y_tangent)
 
             z_dual = func(x_dual, y_dual, tr_x, tr_y)
 
-            z_primal, z_tangent = paddle.autograd.forward_mode.unpack_dual(
-                z_dual
-            )
+            z_primal, z_tangent = paddle.autograd.unpack_dual(z_dual)
 
         z = func(x, y, tr_x, tr_y)
 
@@ -212,6 +206,27 @@ class TestFwdAD_eager_ops(unittest.TestCase):
             + maybe_transpose(x, tr_x) @ maybe_transpose(y_tangent, tr_y),
             1e-6,
             1e-6,
+        )
+
+    def test_jvp(self):
+        # test custom jvp rule using matmul
+        x = paddle.randn([4, 5])
+        x.stop_gradient = False
+
+        model = nn.Linear(5, 6)
+
+        with paddle.autograd.dual_level():
+            x_primal = x
+            x_tangent = paddle.randn(x.shape)
+            x_dual = paddle.autograd.make_dual(x_primal, x_tangent)
+
+            y_dual = paddle.matmul(x_dual, model.weight)
+            y_primal, y_tangent = paddle.autograd.unpack_dual(y_dual)
+
+        y_primal.backward()
+
+        np.testing.assert_allclose(
+            model.weight.grad.numpy(), y_tangent.numpy(), 1e-6, 1e-6
         )
 
 

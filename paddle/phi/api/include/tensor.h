@@ -53,11 +53,8 @@ using IntArray = experimental::IntArray;
 class AbstractAutogradMeta {
  public:
   // No AbstractAutogradMeta should be created
-  virtual const paddle::Tensor& fw_grad(uint64_t level,
-                                        const paddle::Tensor& self) const = 0;
   virtual const paddle::Tensor& fw_grad(uint64_t level) const = 0;
   virtual void set_fw_grad(const paddle::Tensor& new_grad,
-                           const paddle::Tensor& self_base,
                            uint64_t level,
                            bool is_inplace_op) = 0;
   virtual ~AbstractAutogradMeta() = default;

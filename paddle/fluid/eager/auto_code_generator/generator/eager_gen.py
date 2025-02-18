@@ -2194,10 +2194,10 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
                     in_var_name = invar_tuple[0]
                     define_all_fwd_arg_list += "\n".join(
                         [
+                            f"    const paddle::Tensor& {in_var_name}_p = egr::EagerUtils::toNonOptPrimal({in_var_name});",
                             f"const paddle::Tensor& {in_var_name}_t_raw = egr::EagerUtils::toNonOptFwGrad({in_var_name});",
                             f"    const paddle::Tensor& {in_var_name}_t = ({in_var_name}_t_raw.has_allocation() ?",
-                            f"        {in_var_name}_t_raw : paddle::experimental::zeros({in_var_name}_t_raw.shape(), {in_var_name}_t_raw.dtype(), {in_var_name}_t_raw.place()));",
-                            f"    const paddle::Tensor& {in_var_name}_p = egr::EagerUtils::toNonOptPrimal({in_var_name});",
+                            f"        {in_var_name}_t_raw : paddle::experimental::zeros({in_var_name}_p.shape(), {in_var_name}_p.dtype(), {in_var_name}_p.place()));",
                         ]
                     )
                 fwd_ad_arg_list = [
@@ -2249,10 +2249,10 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
                     in_var_name = invar_tuple[0]
                     define_all_fwd_arg_list += "\n".join(
                         [
+                            f"    const paddle::Tensor& {in_var_name}_p = egr::EagerUtils::toNonOptPrimal({in_var_name});",
                             f"const paddle::Tensor& {in_var_name}_t_raw = egr::EagerUtils::toNonOptFwGrad({in_var_name});",
                             f"    const paddle::Tensor& {in_var_name}_t = ({in_var_name}_t_raw.has_allocation() ?",
-                            f"        {in_var_name}_t_raw : paddle::experimental::zeros({in_var_name}_t_raw.shape(), {in_var_name}_t_raw.dtype(), {in_var_name}_t_raw.place()));",
-                            f"    const paddle::Tensor& {in_var_name}_p = egr::EagerUtils::toNonOptPrimal({in_var_name});",
+                            f"        {in_var_name}_t_raw : paddle::experimental::zeros({in_var_name}_p.shape(), {in_var_name}_p.dtype(), {in_var_name}_p.place()));",
                         ]
                     )
                 fwd_ad_arg_list = [
@@ -2313,23 +2313,23 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
                     if IsPlainTensorType(ttype):
                         define_all_fwd_arg_list += "\n".join(
                             [
+                                f"    const paddle::Tensor& {name}_p = egr::EagerUtils::toNonOptPrimal({name});",
                                 f"const paddle::Tensor& {name}_t_raw = egr::EagerUtils::toNonOptFwGrad({name});",
                                 f"    paddle::Tensor {name}_t = ({name}_t_raw.has_allocation() ?",
-                                f"        {name}_t_raw : paddle::experimental::zeros({name}_t_raw.shape(), {name}_t_raw.dtype(), {name}_t_raw.place()));",
-                                f"    const paddle::Tensor& {name}_p = egr::EagerUtils::toNonOptPrimal({name});",
+                                f"        {name}_t_raw : paddle::experimental::zeros({name}_p.shape(), {name}_p.dtype(), {name}_p.place()));",
                             ]
                         )
                     else:
                         define_all_fwd_arg_list += "\n".join(
                             [
+                                f"    const std::vector<paddle::Tensor>& {name}_p = egr::EagerUtils::toNonOptPrimal({name});",
                                 f"const std::vector<paddle::Tensor>& {name}_t_raw = egr::EagerUtils::toNonOptFwGrad({name});",
                                 f"    std::vector<paddle::Tensor> {name}_t = {name}_t_raw;",
-                                f"    for (auto &t_: {name}_t) {{",
-                                "      if (!t_.has_allocation()) {",
-                                "        t_ = paddle::experimental::zeros(t_.shape(), t_.dtype(), t_.place());",
+                                f"    for (size_t i = 0; i < {name}_t.size(); ++i) {{",
+                                f"      if (!{name}_t[i].has_allocation()) {{",
+                                f"        {name}_t[i] = paddle::experimental::zeros({name}_p[i].shape(), {name}_p[i].dtype(), {name}_p[i].place());",
                                 "      }",
                                 "    }",
-                                f"    const std::vector<paddle::Tensor>& {name}_p = egr::EagerUtils::toNonOptPrimal({name});",
                             ]
                         )
                     fwd_ad_arg_list += [
