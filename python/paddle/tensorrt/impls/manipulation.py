@@ -981,12 +981,19 @@ def index_put_converter(network, paddle_op, inputs):
     rank = len(input_dims)
 
     # indices
-    indices_shape_vec = [add_1D_constant_layer(network, indices_dims[i] if i < len(indices_dims) else 1) for i in
-                         range(rank)]
+    indices_shape_vec = [
+        add_1D_constant_layer(
+            network, indices_dims[i] if i < len(indices_dims) else 1
+        )
+        for i in range(rank)
+    ]
     start_tensor_vec = [add_1D_constant_layer(network, 0)] * rank
     stride_tensor_vec = [add_1D_constant_layer(network, 1)] * rank
     indices_tensor_temp = trt_reshape(
-        network, indices_tensor, trt_concat(network, indices_shape_vec), is_shape_tensor=True
+        network,
+        indices_tensor,
+        trt_concat(network, indices_shape_vec),
+        is_shape_tensor=True,
     )
     start_tensor = trt_concat(network, start_tensor_vec)
     stride_tensor = trt_concat(network, stride_tensor_vec)
