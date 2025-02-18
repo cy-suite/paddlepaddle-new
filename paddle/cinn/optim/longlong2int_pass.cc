@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "paddle/cinn/optim/longlong2int_pass.h"
+#include "paddle/cinn/common/ir_util.h"
 #include "paddle/cinn/ir/ir_mutator.h"
 #include "paddle/cinn/ir/ir_printer.h"
 #include "paddle/cinn/ir/ir_utils.h"
@@ -117,9 +118,14 @@ class CastLonglong2IntMutator : public ir::IRMutator<> {
   }
   void Visit(const ir::Load* op, Expr* expr) override {
     auto node = expr->As<ir::Load>();
-    std::for_each(node->indices.begin(),
-                  node->indices.end(),
-                  [&](cinn::ir::Expr& e) { ir::IRMutator<>::Visit(&e, &e); });
+    std::for_each(
+        node->indices.begin(), node->indices.end(), [&](cinn::ir::Expr& e) {
+          ir::TryElevateInt64ToInt32({e});
+          if (cinn::common::VerifyIndex(e) == cinn::common::IndexType::kLoad ||
+              cinn::common::VerifyIndex(e) == cinn::common::IndexType::kCast) {
+            ir::IRMutator<>::Visit(&e, &e);
+          }
+        });
     ir::IRMutator<>::Visit(&node->tensor, &node->tensor);
   }
   void Visit(const ir::Select* op, Expr* expr) override {
@@ -127,17 +133,22 @@ class CastLonglong2IntMutator : public ir::IRMutator<> {
     auto cond = node->condition;
     if (cond.is_cmp() && cond->operand(0).is_index() &&
         cond->operand(1).is_index()) {
-      ir::IRMutator<>::Visit(&cond->operands[0], &cond->operands[0]);
-      ir::IRMutator<>::Visit(&cond->operands[1], &cond->operands[1]);
+      ir::TryElevateInt64ToInt32({cond->operands[0], cond->operands[1]});
+      if (cinn::common::VerifyIndex(cond->operands[0]) ==
+              cinn::common::IndexType::kLoad ||
+          cinn::common::VerifyIndex(cond->operands[0]) ==
+              cinn::common::IndexType::kCast) {
+        ir::IRMutator<>::Visit(&cond->operands[0], &cond->operands[0]);
+      }
+      if (cinn::common::VerifyIndex(cond->operands[1]) ==
+              cinn::common::IndexType::kLoad ||
+          cinn::common::VerifyIndex(cond->operands[1]) ==
+              cinn::common::IndexType::kCast) {
+        ir::IRMutator<>::Visit(&cond->operands[1], &cond->operands[1]);
+      }
     }
     ir::IRMutator<>::Visit(&node->true_value, &node->true_value);
     ir::IRMutator<>::Visit(&node->false_value, &node->false_value);
-  }
-  void Visit(const ir::IntImm* op, Expr* expr) override {
-    ir::TryElevateInt64ToInt32({*expr});
-  }
-  void Visit(const ir::_Var_* op, Expr* expr) override {
-    ir::TryElevateInt64ToInt32({*expr});
   }
 };
 
@@ -161,10 +172,12 @@ LogicalResult LongLong2IntStmtPass::Run(ir::stmt::StmtRef stmt) {
   auto CastStore = [&](StmtRef stmt) {
     Store store_stmt = stmt.as<Store>();
     for (Expr index : store_stmt->indices()) {
-      narrow(&index);
+      ir::TryElevateInt64ToInt32({index});
+      if (cinn::common::VerifyIndex(index) == cinn::common::IndexType::kLoad ||
+          cinn::common::VerifyIndex(index) == cinn::common::IndexType::kCast) {
+        narrow(&index);
+      }
     }
-    ir::Expr value = store_stmt->value();
-    narrow(&value);
   };
 
   auto CastIfThenElse = [&](StmtRef stmt) {
@@ -172,8 +185,19 @@ LogicalResult LongLong2IntStmtPass::Run(ir::stmt::StmtRef stmt) {
     Expr cond = if_stmt->condition();
     if (cond.is_cmp() && cond->operand(0).is_index() &&
         cond->operand(1).is_index()) {
-      narrow(&cond->operands[0]);
-      narrow(&cond->operands[1]);
+      ir::TryElevateInt64ToInt32({cond->operands[0], cond->operands[1]});
+      if (cinn::common::VerifyIndex(cond->operands[0]) ==
+              cinn::common::IndexType::kLoad ||
+          cinn::common::VerifyIndex(cond->operands[0]) ==
+              cinn::common::IndexType::kCast) {
+        narrow(&cond->operands[0]);
+      }
+      if (cinn::common::VerifyIndex(cond->operands[1]) ==
+              cinn::common::IndexType::kLoad ||
+          cinn::common::VerifyIndex(cond->operands[1]) ==
+              cinn::common::IndexType::kCast) {
+        narrow(&cond->operands[1]);
+      }
     }
   };
 
