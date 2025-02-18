@@ -52,7 +52,7 @@ def scale_converter(network, paddle_op, inputs):
     bias = paddle_op.attrs().get("bias", 0.0)
     bias_after_scale = paddle_op.attrs().get("bias_after_scale", True)
 
-    is_int = x.dtype == trt.int32
+    is_int = x.dtype == trt.DataType.INT32
     if is_int:
         bias_tensor = add_1D_constant_layer(
             network, int(bias + 0.5) if bias > 0 else int(bias - 0.5)
@@ -87,7 +87,10 @@ def scale_converter(network, paddle_op, inputs):
     reshape_layer_scale = network.add_shuffle(scale_tensor)
     reshape_layer_scale.set_input(1, scale_shapes_tensor)
 
-    if has_scale_tensor and is_scale_1 and is_bias_0:
+    # Initialize the layer variable to ensure it's defined in all branches
+    layer = None
+
+    if not has_scale_tensor and is_scale_1 and is_bias_0:
         layer = network.add_identity(x)
     else:
         if bias_after_scale:
@@ -157,7 +160,7 @@ def divide_converter(network, paddle_op, inputs):
 
 
 @converter_registry.register("pd_op.subtract", trt_version="trt_version_ge=8.0")
-def substract_converter(network, paddle_op, inputs):
+def subtract_converter(network, paddle_op, inputs):
     return add_elementwise_layer(
         network, paddle_op, inputs, trt.ElementWiseOperation.SUB
     )
@@ -278,6 +281,11 @@ def sum_converter(network, paddle_op, inputs):
     return add_reduce_layer(network, paddle_op, inputs, trt.ReduceOperation.SUM)
 
 
+@converter_registry.register("pd_op.mean", trt_version="8.x")
+def mean_converter(network, paddle_op, inputs):
+    return add_reduce_layer(network, paddle_op, inputs, trt.ReduceOperation.AVG)
+
+
 @converter_registry.register("pd_op.any", trt_version="8.x")
 def any_converter(network, paddle_op, inputs):
     return add_cast_reduce_layer(
@@ -388,7 +396,7 @@ def floor_divide_converter(network, paddle_op, inputs):
 
 
 @converter_registry.register("pd_op.log", trt_version="8.x")
-def sqrt_converter(network, paddle_op, inputs):
+def log_converter(network, paddle_op, inputs):
     input_tensor = trt_cast(network, inputs[0], trt.float32)
     layer = network.add_unary(input_tensor, trt.UnaryOperation.LOG)
     return layer.get_output(0)
