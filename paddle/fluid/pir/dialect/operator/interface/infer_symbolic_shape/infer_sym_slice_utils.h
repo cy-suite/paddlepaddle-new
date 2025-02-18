@@ -520,7 +520,7 @@ inline ShapeOrData StridedSliceRawInferSymbolicShape(
         out_data.push_back(in_shapeordata.data().value().at(i));
       }
     } else {
-      for (int64_t i = starts_int[0]; i > ends_int[0]; i -= strides_int[0]) {
+      for (int64_t i = starts_int[0]; i > ends_int[0]; i += strides_int[0]) {
         out_data.push_back(in_shapeordata.data().value().at(i));
       }
     }

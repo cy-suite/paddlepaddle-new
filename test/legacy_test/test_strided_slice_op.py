@@ -96,7 +96,9 @@ class TestStrideSliceOp(OpTest):
         }
 
     def test_check_output(self):
-        self.check_output(check_cinn=True, check_pir=True)
+        self.check_output(
+            check_cinn=True, check_pir=True, check_symbol_infer=True
+        )
 
     def test_check_grad(self):
         self.check_grad({'Input'}, 'Out', check_cinn=True, check_pir=True)
