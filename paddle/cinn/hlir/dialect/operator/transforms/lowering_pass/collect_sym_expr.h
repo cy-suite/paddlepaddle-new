@@ -22,7 +22,7 @@ using OpLoweringGroupPtr = std::shared_ptr<OpLoweringGroup>;
 
 std::unordered_map<::pir::Value, symbol::ShapeOrDataDimExprs>
 CreateGroupShapeOrDataExprs(
-    const OpLoweringGroupPtr& group,
+    OpLoweringGroupPtr group,
     pir::ShapeConstraintIRAnalysis& shape_analysis  // NOLINT
 );
 

@@ -161,8 +161,25 @@ void RunItersTransformInstr(const std::shared_ptr<ItersTransformInstr>& instr,
 
 void RunAxisTransformInstr(const std::shared_ptr<AxisTransformInstr>& instr,
                            FusionInterpreter* interpreter) {
+  auto substitute_dimexpr_for_shape = [&](std::vector<symbol::DimExpr>& shape) {
+    for (auto& dim_expr : shape) {
+      if (dim_expr.isa<std::int64_t>()) continue;
+      dim_expr = symbol::SubstituteDimExpr(dim_expr,
+                                           interpreter->substitute_dimexpr_map);
+    }
+  };
+  auto substitute_dimexpr_for_transform =
+      adt::match{[&](const AppendAxisTransformPtr& transform) {
+                   substitute_dimexpr_for_shape(transform->shape);
+                 },
+                 [&](const ReshapeTransformPtr& transform) {
+                   substitute_dimexpr_for_shape(transform->in_shape);
+                   substitute_dimexpr_for_shape(transform->out_shape);
+                 },
+                 [&](const auto& transform) {}};
   auto axis_transform = [&](ir::Expr op_expr) -> ir::Expr {
     for (auto trans : instr->axis_transform_route_) {
+      std::visit(substitute_dimexpr_for_transform, trans);
       op_expr = std::visit(ApplyAxisTransform(op_expr), trans);
     }
     return op_expr;

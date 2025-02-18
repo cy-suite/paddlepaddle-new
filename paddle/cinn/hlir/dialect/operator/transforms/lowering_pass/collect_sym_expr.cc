@@ -221,10 +221,11 @@ namespace cinn::dialect::ir::details {
 
 std::unordered_map<::pir::Value, symbol::ShapeOrDataDimExprs>
 CreateGroupShapeOrDataExprs(
-    const OpLoweringGroupPtr& group,
+    OpLoweringGroupPtr group,
     pir::ShapeConstraintIRAnalysis& global_shape_analysis) {  // NOLINT
   std::unordered_map<symbol::DimExpr, symbol::DimExpr> dim_expr_map =
       CollectSubstituteDimExprMap(group, global_shape_analysis);
+  group->set_substitute_dimexpr_map(dim_expr_map);
   std::unordered_map<::pir::Value, symbol::ShapeOrDataDimExprs> value2shape;
   if (dim_expr_map.size() == 0) {
     return GetGroupValue2Shape(group, global_shape_analysis);
