@@ -170,6 +170,10 @@ class AxisTransformSimulator {
               }
             }
           }
+          for (int i = in_shape.size(); i < target_ids_.size(); ++i) {
+            new_ids.push_back(target_ids_[i]);
+          }
+          target_ids_ = new_ids;
         },
         [&](const auto& trans) {
           PADDLE_THROW(
@@ -284,7 +288,12 @@ AxisTransformRoute SimplifyTransformRoute(
         part.clear();
       }
       result.push_back(trans);
-      inshape = (*reshape_trans)->out_shape;
+      // Reshape transform only change the first dims in some cases.
+      auto next_shape = (*reshape_trans)->out_shape;
+      for (int i = (*reshape_trans)->in_shape.size(); i < inshape.size(); ++i) {
+        next_shape.push_back(inshape[i]);
+      }
+      inshape = next_shape;
     } else {
       part.push_back(trans);
     }
@@ -491,6 +500,8 @@ LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
     for (auto& route : upstream_copy.input2loop) {
       route.push_back(append_reduce_axis);
     }
+    upstream_copy.loop.insert(
+        upstream_copy.loop.end(), reduce_loop.begin(), reduce_loop.end());
     result = LoopMappingMergeImpl(upstream_copy, downstream, false);
     result.loop = ConcatVector(downstream.loop, reduce_loop);
     for (auto& route : result.loop2output) {
@@ -828,7 +839,7 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
   return result;
 }
 
-LoopAxisMapping CreateDefaultAxisMapping(pir::Operation* op) {
+LoopAxisMapping CreateDefaultLoopMapping(pir::Operation* op) {
   LoopAxisMapping result;
   result.input2loop.resize(op->num_operands());
   result.loop2output.resize(op->num_results());
@@ -840,6 +851,14 @@ LoopAxisMapping CreateDefaultAxisMapping(pir::Operation* op) {
     result.output_values.push_back(op->result(i));
     result.loop2output[i].push_back(UnsupportedTransform::InstancePtr());
   }
+  return result;
+}
+
+LoopAxisMapping CreateDefaultLoopMappingForTrivialOp(pir::Operation* op) {
+  auto result = CreateDefaultLoopMapping(op);
+  result.loop = GetCompatibleValueAllDims(result.output_values[0]);
+  result.loop2output[0].clear();
+  result.loop2output[0].push_back(IdentityTransform::InstancePtr());
   return result;
 }
 
@@ -901,7 +920,7 @@ LoopAxisMapping CreateLoopMappingForSlice(pir::Operation* op) {
   auto input_shape = GetValueAllDims(op->operand_source(0));
   for (int i = axes.size() - 1; i >= 0; --i) {
     int64_t slice_size = ends[i] - starts[i];
-    if (slice_size != 1) {
+    if (!decrease_axis_set.count(axes[i]) && slice_size != 1) {
       // TODO(huangjiyi): Support slice size greater than 1.
       result.input2loop[0].push_back(UnsupportedTransform::InstancePtr());
       break;
@@ -1040,6 +1059,21 @@ LoopAxisMapping CreateLoopMappingForReshape(pir::Operation* op) {
   auto out_shape = GetValueAllDims(op->result(0));
   result.loop = out_shape;
 
+  if (!ShapeProductEqual(in_shape, out_shape)) {
+    return CreateDefaultLoopMappingForTrivialOp(op);
+  }
+
+  // auto has_dynamic_shape = [](const std::vector<symbol::DimExpr>& shape) {
+  //   return std::any_of(
+  //       shape.begin(), shape.end(), [](const symbol::DimExpr& sym) {
+  //         return !sym.isa<std::int64_t>();
+  //       });
+  // };
+  // // TODO(huangjiyi): Support dynamic shape for reshape anchor fusion
+  // if (has_dynamic_shape(in_shape) || has_dynamic_shape(out_shape)) {
+  //   return CreateDefaultLoopMappingForTrivialOp(op);
+  // }
+
   // If Reshape only appends or deletes dims with size 1,
   // we can use DeleteAxisTransform and AppendAxisTransform.
   bool only_append_or_delete_ones = true;
@@ -1082,23 +1116,10 @@ LoopAxisMapping CreateLoopMappingForReshape(pir::Operation* op) {
   return result;
 }
 
-LoopAxisMapping CreateLoopMappingForGenerateShape(pir::Operation* op) {
-  LoopAxisMapping result;
-  result.input2loop.resize(op->num_operands());
-  result.loop2output.resize(op->num_results());
-  for (int i = 0; i < op->num_operands(); ++i) {
-    result.input_values.push_back(op->operand_source(i));
-    result.input2loop[i].push_back(UnsupportedTransform::InstancePtr());
-  }
-  for (int i = 0; i < op->num_results(); ++i) {
-    result.output_values.push_back(op->result(i));
-    result.loop2output[i].push_back(IdentityTransform::InstancePtr());
-  }
-  result.loop = GetCompatibleValueAllDims(result.output_values[0]);
-  return result;
-}
-
 LoopAxisMapping CreateLoopMapping(pir::Operation* op) {
+  auto is_special_trivial = [&](const pir::Operation* op) {
+    return op->name() == "cinn_op.concat" || op->name() == "pd_op.gather_nd";
+  };
   VLOG(4) << "CreateLoopMapping for op: " << OpsDebugStr({op});
   LoopAxisMapping result;
   auto op_kind = GetOpPatternKind(op);
@@ -1109,7 +1130,9 @@ LoopAxisMapping CreateLoopMapping(pir::Operation* op) {
   } else if (op->name() == "cinn_op.slice") {
     result = CreateLoopMappingForSlice(op);
   } else if (op->name() == "cinn_op.generate_shape") {
-    result = CreateDefaultAxisMapping(op);
+    result = CreateDefaultLoopMapping(op);
+  } else if (is_special_trivial(op)) {
+    result = CreateDefaultLoopMappingForTrivialOp(op);
   } else if (op_kind == hlir::framework::kBroadcast) {
     result = CreateLoopMappingForBroadcast(op);
   } else if (op_kind == hlir::framework::kReduction) {
@@ -1117,7 +1140,7 @@ LoopAxisMapping CreateLoopMapping(pir::Operation* op) {
   } else if (op_kind == hlir::framework::kElementWise) {
     result = CreateLoopMappingForElementwise(op);
   } else {
-    result = CreateDefaultAxisMapping(op);
+    result = CreateDefaultLoopMapping(op);
   }
   result.SetReverseMapping();
   for (auto value : result.output_values) {
