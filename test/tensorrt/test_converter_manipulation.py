@@ -785,6 +785,28 @@ class TestPad3dCase1TRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
+class TestPad3dCaseINTTRTPattern(TensorRTBaseTest):
+    def setUp(self):
+        self.python_api = wrapper_pad3d
+        self.api_args = {
+            "x": np.random.random([1, 1, 1, 2, 3]).astype("int32"),
+            "paddings": np.array([1, 0, 1, 2, 0, 0], dtype="int32"),
+            "mode": "constant",
+            "value": 1.0,
+            "data_format": "NCDHW",
+        }
+        self.program_config = {"feed_list": ["x", "paddings"]}
+        self.min_shape = {"x": [1, 1, 1, 2, 3]}
+        self.opt_shape = {"x": [1, 1, 1, 2, 3]}
+        self.max_shape = {"x": [10, 1, 1, 2, 3]}
+
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
+
+    def test_trt_result_fp32(self):
+        self.check_trt_result()
+
+
 class TestPad3dOtherformat1TRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = wrapper_pad3d

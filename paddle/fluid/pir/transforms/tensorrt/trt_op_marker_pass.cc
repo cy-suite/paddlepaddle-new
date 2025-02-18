@@ -2231,6 +2231,7 @@ class Pad3dOpPattern : public pir::OpRewritePattern<paddle::dialect::Pad3dOp> {
     }
     pir::Value paddings_tensor = op.operand_source(1);
     if (!paddings_tensor) {
+      VLOG(3) << "pad3d should have paddings.";
       return false;
     }
     if (op->HasAttribute("mode")) {
