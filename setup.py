@@ -1072,7 +1072,7 @@ def get_paddle_extra_install_requirements():
     if env_dict.get("WITH_PIP_CUDA_LIBRARIES") == "ON":
         if platform.system() == 'Linux':
             PADDLE_CUDA_INSTALL_REQUIREMENTS = {
-                "V11": (
+                "11.8": (
                     "nvidia-cuda-runtime-cu11==11.8.89; platform_system == 'Linux' and platform_machine == 'x86_64' | "
                     "nvidia-cuda-cupti-cu11==11.8.87; platform_system == 'Linux' and platform_machine == 'x86_64' | "
                     "nvidia-cudnn-cu11==8.9.6.50; platform_system == 'Linux' and platform_machine == 'x86_64' | "
@@ -1085,7 +1085,7 @@ def get_paddle_extra_install_requirements():
                     "nvidia-nvtx-cu11==11.8.86; platform_system == 'Linux' and platform_machine == 'x86_64' | "
                     "nvidia-cuda-nvrtc-cu11==11.8.89; platform_system == 'Linux' and platform_machine == 'x86_64'"
                 ),
-                "V12": (
+                "12.3": (
                     "nvidia-cuda-runtime-cu12==12.3.101; platform_system == 'Linux' and platform_machine == 'x86_64' | "
                     "nvidia-cuda-cupti-cu12==12.3.101; platform_system == 'Linux' and platform_machine == 'x86_64' | "
                     "nvidia-cudnn-cu12==9.1.1.17; platform_system == 'Linux' and platform_machine == 'x86_64' | "
@@ -1148,7 +1148,7 @@ def get_paddle_extra_install_requirements():
             }
         elif platform.system() == 'Windows':
             PADDLE_CUDA_INSTALL_REQUIREMENTS = {
-                "V11": (
+                "11.8": (
                     "nvidia-cuda-runtime-cu11==11.8.89 | "
                     "nvidia-cudnn-cu11==8.9.4.19 | "
                     "nvidia-cublas-cu11==11.11.3.6 | "
@@ -1157,7 +1157,7 @@ def get_paddle_extra_install_requirements():
                     "nvidia-cusolver-cu11==11.4.1.48 | "
                     "nvidia-cusparse-cu11==11.7.5.86 "
                 ),
-                "V12": (
+                "12.3": (
                     "nvidia-cuda-runtime-cu12==12.3.101 | "
                     "nvidia-cudnn-cu12==9.1.1.17 | "
                     "nvidia-cublas-cu12==12.3.4.1 | "
