@@ -191,6 +191,7 @@ def _rebuild_cuda_tensor(
 
     return lodtensor
 
+
 def _rebuild_xpu_tensor(
     cls, handle, offset_bytes, size, type_idx, dims, lod, device_idx
 ):
@@ -261,7 +262,9 @@ def _reduce_lodtensor(lodtensor):
         metadata = lodtensor._share_xpu()
         rebuild = _rebuild_xpu_tensor
     else:
-        raise RuntimeError("We only support pass cpu/gpu/xpu lodtensor for now!")
+        raise RuntimeError(
+            "We only support pass cpu/gpu/xpu lodtensor for now!"
+        )
 
     return (rebuild, (type(lodtensor), *metadata))
 

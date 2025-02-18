@@ -10,10 +10,10 @@ See the License for the specific language governing permissions and
 limitations under the License. */
 #pragma once
 
+#include <cuda.h>
+#include <cuda_runtime.h>
 #include <string>
 #include <vector>
-#include <cuda_runtime.h>
-#include <cuda.h>
 
 #include "paddle/phi/common/place.h"
 

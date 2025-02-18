@@ -16,18 +16,17 @@
 
 #include "paddle/phi/core/memory/allocation/xpu_ipc_allocator.h"
 
+#include <cuda.h>
+#include <cuda_runtime.h>
 #include <fcntl.h>
 #include <sys/mman.h>
 #include <cstdlib>
 #include <random>
 #include <string>
-#include <cuda_runtime.h>
-#include <cuda.h>
 
 #include "glog/logging.h"
-#include "paddle/phi/core/platform/device/xpu/xpu_info.h"
 #include "paddle/phi/backends/xpu/enforce_xpu.h"
-
+#include "paddle/phi/core/platform/device/xpu/xpu_info.h"
 
 namespace paddle::memory::allocation {
 
@@ -55,9 +54,12 @@ std::shared_ptr<void> GetIpcBasePtr(std::string handle) {
   // so we cache the opened pointer.
   void *baseptr = nullptr;
   // Interpret the provided handle string as an XPU IPC memory handle.
-  auto ipc_handle = reinterpret_cast<const cudaIpcMemHandle_t *>(handle.c_str());
-  //PADDLE_ENFORCE_XPU_SUCCESS(cudaIpcOpenMemHandle(&baseptr, *ipc_handle, cudaIpcMemLazyEnablePeerAccess));
-  int ret = cudaIpcOpenMemHandle(&baseptr, *ipc_handle, cudaIpcMemLazyEnablePeerAccess);
+  auto ipc_handle =
+      reinterpret_cast<const cudaIpcMemHandle_t *>(handle.c_str());
+  // PADDLE_ENFORCE_XPU_SUCCESS(cudaIpcOpenMemHandle(&baseptr, *ipc_handle,
+  // cudaIpcMemLazyEnablePeerAccess));
+  int ret = cudaIpcOpenMemHandle(
+      &baseptr, *ipc_handle, cudaIpcMemLazyEnablePeerAccess);
   std::cout << "cudaIpcOpenMemHandle returned: " << ret << std::endl;
   PADDLE_ENFORCE_XPU_SUCCESS(ret);
 
@@ -67,7 +69,8 @@ std::shared_ptr<void> GetIpcBasePtr(std::string handle) {
     std::lock_guard<std::mutex> lock(ipc_mutex_);
     PADDLE_ENFORCE_XPU_SUCCESS(cudaIpcCloseMemHandle(ptr));
     ipc_handle_to_baseptr_.erase(handle);
-    VLOG(6) << "cudaIpcCloseMemHandle for ptr:" << "\t" << ptr;
+    VLOG(6) << "cudaIpcCloseMemHandle for ptr:"
+            << "\t" << ptr;
   });
   std::weak_ptr<void> wp = sp;
   ipc_handle_to_baseptr_.insert({handle, wp});
@@ -78,7 +81,8 @@ std::shared_ptr<void> GetIpcBasePtr(std::string handle) {
 XpuIpcAllocation::~XpuIpcAllocation() {
   // Release the underlying IPC resource.
   shared_ptr_.reset();
-  VLOG(6) << "tensor deleted cudaIpcCloseMemHandle for ptr:" << "\t" << this->ptr();
+  VLOG(6) << "tensor deleted cudaIpcCloseMemHandle for ptr:"
+          << "\t" << this->ptr();
 }
 
 }  // namespace paddle::memory::allocation

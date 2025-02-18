@@ -10,11 +10,11 @@ See the License for the specific language governing permissions and
 limitations under the License. */
 #include "paddle/phi/backends/xpu/xpu_info.h"
 
+#include <cuda.h>
+#include <cuda_runtime.h>
 #include <algorithm>
 #include <cstdlib>
 #include <string>
-#include <cuda_runtime.h>
-#include <cuda.h>
 
 #include "glog/logging.h"
 

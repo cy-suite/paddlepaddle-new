@@ -16,7 +16,7 @@
 #pragma once
 
 #include <memory>
-#include <mutex>    // NOLINT
+#include <mutex>  // NOLINT
 #include <string>
 #include <unordered_set>
 #include <utility>
@@ -29,7 +29,8 @@ namespace paddle {
 namespace memory {
 namespace allocation {
 
-// Returns a shared pointer that holds the IPC base pointer for the given handle.
+// Returns a shared pointer that holds the IPC base pointer for the given
+// handle.
 std::shared_ptr<void> GetIpcBasePtr(std::string handle);
 
 class XpuIpcAllocation : public Allocation {

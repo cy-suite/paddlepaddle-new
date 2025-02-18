@@ -261,7 +261,7 @@ void Copy<phi::XPUPlace, phi::CPUPlace>(phi::XPUPlace dst_place,
     VLOG(1) << "memcpy XPU_HOST_TO_DEVICE size <= 0 (" << num << ")";
     return;
   }
-  //platform::MemcpySyncH2D(dst, src, num, dst_place);
+  // platform::MemcpySyncH2D(dst, src, num, dst_place);
   xpu_memcpy_async(dst, src, num, XPU_HOST_TO_DEVICE, stream);
 }
 
@@ -276,7 +276,7 @@ void Copy<phi::CPUPlace, phi::XPUPlace>(phi::CPUPlace dst_place,
     VLOG(1) << "memcpy XPU_DEVICE_TO_HOST size <= 0 (" << num << ")";
     return;
   }
-  //platform::MemcpySyncD2H(dst, src, num, src_place);
+  // platform::MemcpySyncD2H(dst, src, num, src_place);
   xpu_memcpy_async(dst, src, num, XPU_DEVICE_TO_HOST, stream);
 }
 
@@ -330,11 +330,11 @@ void Copy<phi::Place, phi::XPUPlace>(phi::Place dst_place,
 
 template <>
 void Copy<phi::Place, phi::Place>(phi::Place dst_place,
-                                     void* dst,
-                                     phi::Place src_place,
-                                     const void* src,
-                                     size_t num,
-                                     void* stream) {
+                                  void* dst,
+                                  phi::Place src_place,
+                                  const void* src,
+                                  size_t num,
+                                  void* stream) {
   if (dst_place.GetType() == phi::AllocationType::CPU) {
     phi::CPUPlace place_dst;
     if (src_place.GetType() == phi::AllocationType::XPU) {

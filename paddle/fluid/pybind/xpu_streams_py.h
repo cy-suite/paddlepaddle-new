@@ -17,7 +17,6 @@
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
 
-
 #ifdef PADDLE_WITH_XPU
 #include "paddle/phi/core/xpu_cuda_stream.h"
 #include "xpu/runtime.h"

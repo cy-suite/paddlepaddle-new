@@ -14,10 +14,10 @@
 
 #include "paddle/fluid/pybind/xpu_streams_py.h"
 
+#include <cuda.h>
+#include <cuda_runtime.h>
 #include <string>
 #include <vector>
-#include <cuda_runtime.h>
-#include <cuda.h>
 #include "xpu/runtime.h"
 #include "xpu/runtime_ex.h"
 

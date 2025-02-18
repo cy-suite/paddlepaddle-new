@@ -14,14 +14,13 @@ limitations under the License. */
 
 #pragma once
 
+#include <cuda.h>
+#include <cuda_runtime.h>
+#include "glog/logging.h"
+#include "paddle/phi/backends/xpu/enforce_xpu.h"
 #include "paddle/phi/backends/xpu/xpu_info.h"
 #include "paddle/phi/common/place.h"
 #include "paddle/phi/core/stream.h"
-#include "glog/logging.h"
-#include "paddle/phi/backends/xpu/enforce_xpu.h"
-#include <cuda.h>
-#include <cuda_runtime.h>
-
 
 namespace phi {
 
@@ -37,8 +36,8 @@ class XPUCUDAStream {
   XPUCUDAStream(const Place& place, const Stream& stream)
       : place_(place), stream_(stream) {}
   XPUCUDAStream(const Place& place,
-             const int priority = 0,
-             const StreamFlag& flag = StreamFlag::kDefaultFlag) {
+                const int priority = 0,
+                const StreamFlag& flag = StreamFlag::kDefaultFlag) {
     place_ = place;
     cudaStream_t stream = nullptr;
     backends::xpu::XPUDeviceGuard guard(place_.device);
@@ -62,7 +61,6 @@ class XPUCUDAStream {
     PADDLE_ENFORCE_XPU_SUCCESS(cudaStreamCreateWithPriority(
         &stream, static_cast<unsigned int>(flag), priority));
 
-
     VLOG(10) << "Create XPUCUDAStream " << stream
              << " with priority = " << priority
              << ", flag = " << static_cast<unsigned int>(flag);
@@ -70,15 +68,15 @@ class XPUCUDAStream {
     owned_ = true;
   }
 
-  cudaStream_t raw_stream() const { return reinterpret_cast<cudaStream_t>(id()); }
+  cudaStream_t raw_stream() const {
+    return reinterpret_cast<cudaStream_t>(id());
+  }
 
   void set_raw_stream(cudaStream_t stream) {
     if (owned_ && stream_.id() != 0) {
-
       backends::xpu::XPUDeviceGuard guard(place_.device);
 
       PADDLE_ENFORCE_XPU_SUCCESS(cudaStreamDestroy(raw_stream()));
-
     }
     stream_ = Stream(reinterpret_cast<StreamId>(stream));
   }
