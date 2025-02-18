@@ -3736,6 +3736,7 @@ function distribute_test() {
     echo "End auto_parallel Test"
 
     if [[ "$EXIT_CODE" != "0" ]]; then
+      sleep 10d
       exit 8;
     fi
     sleep 10d

@@ -90,6 +90,7 @@ else
     echo -e "\033[31m ${log_path}/$2_FAIL \033"
     tail -70 ${log_path}/$2_FAIL.log
     fi
+    sleep 10d
     exit $EXCODE
 else
     echo -e "\033[32m The $3 CI has completed \033"
@@ -268,6 +269,5 @@ else
     echo -e "\033[32m Changed Not CI case, Skips \033"
     EXCODE=0
 fi
-exit $EXCODE
-
 sleep 10d
+exit $EXCODE
