@@ -12,6 +12,7 @@ register_operators(
   fused_feedforward_op
   fused_multi_transformer_op
   fused_multi_transformer_int8_op
+  fused_multi_transformer_dybatch
   resnet_unit_op
   fused_gemm_epilogue_op
   fused_gate_attention_op
@@ -47,6 +48,7 @@ if(WITH_GPU OR WITH_ROCM)
     op_library(fused_attention_op)
     op_library(fused_multi_transformer_op)
     op_library(fused_multi_transformer_int8_op)
+    op_library(fused_multi_transformer_dybatch)
   endif()
   # resnet_unit needs cudnn 8.0 above
   if((NOT WITH_ROCM) AND (NOT ${CUDNN_VERSION} VERSION_LESS 8000))

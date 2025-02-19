@@ -84,7 +84,7 @@ repos:
         exclude:  |
             (?x)^(
                 paddle/utils/flat_hash_map\.h
-            )$
+            )$|^paddle/phi/kernels/fusion/gpu/append_attention/.*$
 -   repo: local
     hooks:
     -   id: clang-tidy

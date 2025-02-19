@@ -1799,6 +1799,15 @@ PHI_DEFINE_EXPORTED_double(accuracy_check_rtol_bf16,
                            1e-3,
                            "It controls the rtol of accuracy_check op");
 
+PHI_DEFINE_EXPORTED_int64(cascade_attention_max_partition_size, 256, "");
+PHI_DEFINE_EXPORTED_int64(cascade_encoder_attention_max_partition_size,
+                          256,
+                          "");
+PHI_DEFINE_EXPORTED_int32(speculate_max_draft_token_num, 5, "");
+
+PHI_DEFINE_EXPORTED_int64(flag_block_shape_q, 64, "");
+PHI_DEFINE_EXPORTED_int64(flag_dec_block_shape_q, 16, "");
+
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
 /**
  * FlashAttention related FLAG

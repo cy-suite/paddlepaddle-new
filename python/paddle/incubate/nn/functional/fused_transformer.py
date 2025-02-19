@@ -1306,3 +1306,263 @@ def fused_multi_transformer(
         )
 
         return (final_out, cache_kvs) if cache_kvs else final_out
+
+
+def fused_multi_transformer_dybatch(
+    x,
+    ln_scales,
+    ln_biases,
+    qkv_weights,
+    qkv_biases,
+    cache_kvs,
+    pre_caches,
+    rotary_embs,
+    cum_offsets,
+    padding_offset,
+    seq_lengths_this_time,
+    seq_lengths_encoder,
+    seq_lengths_decoder,
+    cum_offsets_merged,
+    padding_offset_merged,
+    seq_lengths_this_time_merged,
+    seq_lengths_encoder_merged,
+    seq_lengths_decoder_merged,
+    seq_mapping,
+    system_lens,
+    system_lens_merged,
+    group_ids,
+    seq_lengths_encoder_cum,
+    seq_lengths_decoder_cum,
+    src_mask,
+    tgt_mask,
+    block_tables,
+    linear_weights,
+    linear_biases,
+    ffn_ln_scales,
+    ffn_ln_biases,
+    ffn1_weights,
+    ffn1_biases,
+    ffn2_weights,
+    ffn2_biases,
+    pre_layer_norm=True,
+    rotary_emb_dims=0,
+    max_input_length=8192,
+    epsilon=1e-05,
+    residual_alpha=1.0,
+    activation="gelu",
+    training=False,
+    mode='upscale_in_train',
+    trans_qkvw=True,
+    ring_id=-1,
+    norm_type="layernorm",
+    use_neox_rotary_style=False,
+    block_size=64,
+    inv_compression_ratio=1.0,
+    gqa_group_size=-1,
+    rope_theta=10000.0,
+    name=None,
+):
+    r""" """
+    if mode not in ('downscale_in_infer', 'upscale_in_train'):
+        raise ValueError(
+            "mode argument should be 'downscale_in_infer' or 'upscale_in_train'"
+        )
+    mode = (
+        'downgrade_in_infer' if mode == 'downscale_in_infer' else mode
+    )  # semantic transfer
+
+    if in_dynamic_or_pir_mode():
+        # Note: Implementation for dynamic or PIR mode
+        cache_kv_out, final_out = _legacy_C_ops.fused_multi_transformer_dybatch(
+            x,
+            ln_scales,
+            ln_biases,
+            qkv_weights,
+            qkv_biases,
+            cache_kvs,
+            pre_caches,
+            rotary_embs,
+            cum_offsets,
+            padding_offset,
+            seq_lengths_this_time,
+            seq_lengths_encoder,
+            seq_lengths_decoder,
+            cum_offsets_merged,
+            padding_offset_merged,
+            seq_lengths_this_time_merged,
+            seq_lengths_encoder_merged,
+            seq_lengths_decoder_merged,
+            seq_mapping,
+            system_lens,
+            system_lens_merged,
+            group_ids,
+            seq_lengths_encoder_cum,
+            seq_lengths_decoder_cum,
+            src_mask,
+            tgt_mask,
+            block_tables,
+            linear_weights,
+            linear_biases,
+            ffn_ln_scales,
+            ffn_ln_biases,
+            ffn1_weights,
+            ffn1_biases,
+            ffn2_weights,
+            ffn2_biases,
+            cache_kvs,
+            'pre_layer_norm',
+            pre_layer_norm,
+            'rotary_emb_dims',
+            rotary_emb_dims,
+            'max_input_length',
+            max_input_length,
+            'epsilon',
+            epsilon,
+            'residual_alpha',
+            residual_alpha,
+            'is_test',
+            not training,
+            'act_method',
+            activation,
+            'trans_qkvw',
+            trans_qkvw,
+            'ring_id',
+            ring_id,
+            'norm_type',
+            norm_type,
+            'use_neox_rotary_style',
+            use_neox_rotary_style,
+            'block_size',
+            block_size,
+            'inv_compression_ratio',
+            inv_compression_ratio,
+            'gqa_group_size',
+            gqa_group_size,
+            'rope_theta',
+            rope_theta,
+        )
+        if cache_kvs is not None:
+            return final_out, cache_kv_out
+        return final_out
+    else:
+        helper = LayerHelper('fused_multi_transformer_dybatch', **locals())
+        dtype = x.dtype
+        # check dtypes
+        check_variable_and_dtype(
+            x, 'x', ['uint16', 'float16'], 'fused_multi_transformer_dybatch'
+        )
+        check_dtype(
+            dtype,
+            'dtype',
+            ['uint16', 'float16'],
+            'fused_multi_transformer_dybatch',
+        )
+
+        # set inputs
+        inputs = {}
+        inputs['X'] = [x]
+        inputs['LnScale'] = ln_scales
+        inputs['LnBias'] = ln_biases if ln_biases is not None else []
+        inputs['QKVW'] = qkv_weights
+        inputs['QKVBias'] = qkv_biases if qkv_biases is not None else []
+        inputs['CacheKV'] = cache_kvs if cache_kvs is not None else []
+        inputs['PreCaches'] = pre_caches if pre_caches is not None else []
+        inputs['RotaryPosEmb'] = rotary_embs if rotary_emb_dims > 0 else []
+        inputs['CumOffsets'] = cum_offsets if cum_offsets is not None else []
+        inputs['PaddingOffset'] = (
+            padding_offset if padding_offset is not None else []
+        )
+        inputs['SeqLengthsThisTime'] = (
+            seq_lengths_this_time if seq_lengths_this_time is not None else []
+        )
+        inputs['SeqLengthsEncoder'] = (
+            seq_lengths_encoder if seq_lengths_encoder is not None else []
+        )
+        inputs['SeqLengthsDecoder'] = (
+            seq_lengths_decoder if seq_lengths_decoder is not None else []
+        )
+        inputs['CumOffsetsMerged'] = (
+            cum_offsets_merged if cum_offsets_merged is not None else []
+        )
+        inputs['PaddingOffsetMerged'] = (
+            padding_offset_merged if padding_offset_merged is not None else []
+        )
+        inputs['SeqLengthsThisTimeMerged'] = (
+            seq_lengths_this_time_merged
+            if seq_lengths_this_time_merged is not None
+            else []
+        )
+        inputs['SeqLengthsEncoderMerged'] = (
+            seq_lengths_encoder_merged
+            if seq_lengths_encoder_merged is not None
+            else []
+        )
+        inputs['SeqLengthsDecoderMerged'] = (
+            seq_lengths_decoder_merged
+            if seq_lengths_decoder_merged is not None
+            else []
+        )
+        inputs['SeqMapping'] = seq_mapping if seq_mapping is not None else []
+        inputs['SystemLens'] = system_lens if system_lens is not None else []
+        inputs['SystemLensMerged'] = (
+            system_lens_merged if system_lens_merged is not None else []
+        )
+        inputs['GroupIds'] = group_ids if group_ids is not None else []
+        inputs['SeqLengthsEncoderCum'] = (
+            seq_lengths_encoder_cum
+            if seq_lengths_encoder_cum is not None
+            else []
+        )
+        inputs['SeqLengthsDecoderCum'] = (
+            seq_lengths_decoder_cum
+            if seq_lengths_decoder_cum is not None
+            else []
+        )
+        inputs['SrcMask'] = src_mask if src_mask is not None else []
+        inputs['TgtMask'] = tgt_mask if tgt_mask is not None else []
+        inputs['BlockTables'] = block_tables if block_tables is not None else []
+        inputs['OutLinearW'] = linear_weights
+        inputs['OutLinearBias'] = (
+            linear_biases if linear_biases is not None else []
+        )
+        inputs['FFNLnScale'] = ffn_ln_scales
+        inputs['FFNLnBias'] = ffn_ln_biases if ffn_ln_biases is not None else []
+        inputs['FFN1Weight'] = ffn1_weights
+        inputs['FFN1Bias'] = ffn1_biases if ffn1_biases is not None else []
+        inputs['FFN2Weight'] = ffn2_weights
+        inputs['FFN2Bias'] = ffn2_biases if ffn2_biases is not None else []
+
+        # set attrs
+        attrs = {
+            'pre_layer_norm': pre_layer_norm,
+            'rotary_emb_dims': rotary_emb_dims,
+            'max_input_length': max_input_length,
+            'epsilon': epsilon,
+            'residual_alpha': residual_alpha,
+            'is_test': not training,
+            'act_method': activation,
+            'trans_qkvw': trans_qkvw,
+            'ring_id': ring_id,
+            'norm_type': norm_type,
+            'use_neox_rotary_style': use_neox_rotary_style,
+            'block_size': block_size,
+            'inv_compression_ratio': inv_compression_ratio,
+            'gqa_group_size': gqa_group_size,
+            'rope_theta': rope_theta,
+        }
+
+        outputs = {}
+        final_out = helper.create_variable_for_type_inference(dtype=dtype)
+        outputs['Out'] = final_out
+        if cache_kvs:
+            # NOTE: inplace
+            outputs['CacheKVOut'] = cache_kvs
+
+        helper.append_op(
+            type='fused_multi_transformer_dybatch',
+            inputs=inputs,
+            outputs=outputs,
+            attrs=attrs,
+        )
+
+        return (final_out, cache_kvs) if cache_kvs else final_out
