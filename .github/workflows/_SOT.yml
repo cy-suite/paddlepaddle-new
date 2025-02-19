@@ -129,7 +129,7 @@ jobs:
         PADDLE_ROOT: ${{ github.workspace }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
-        .  ../../../proxy
+        . ../../../proxy
         bash ${work_dir}/paddle/scripts/paddle_build/check_run_sot_ci.sh
         if [ $? -eq 0 ];then
           echo "run_sot=true" >> ${{ github.env }}
