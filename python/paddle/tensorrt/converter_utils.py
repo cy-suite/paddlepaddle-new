@@ -555,7 +555,6 @@ def convert_conv2d(network, paddle_op, inputs):
             kernel=filter,
             bias=bias,
         )
-        set_layer_name(layer, paddle_op)
     elif (
         paddle_op.name() == "pd_op.conv2d_transpose"
         or paddle_op.name() == "pd_op.depthwise_conv2d_transpose"
