@@ -22,7 +22,6 @@ jobs:
     steps:
     - name: Check docker image and run container
       env:
-        env:
         BRANCH: develop
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
