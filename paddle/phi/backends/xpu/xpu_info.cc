@@ -185,6 +185,37 @@ void MemcpySyncD2D(void* dst,
   }
 }
 
+void XpuMemcpyAsync(void* dst,
+                    const void* src,
+                    size_t count,
+                    XPUMemcpyKind kind,
+                    XPUStream stream) {
+  PADDLE_ENFORCE_XPU_SUCCESS(xpu_memcpy_async(dst, src, count, kind, stream));
+}
+
+void XpuMemcpySync(void* dst,
+                   const void* src,
+                   size_t count,
+                   XPUMemcpyKind kind) {
+  PADDLE_ENFORCE_XPU_SUCCESS(xpu_memcpy(dst, src, count, kind));
+}
+
+void XpuMemcpyPeerAsync(void* dst,
+                        int dst_device,
+                        const void* src,
+                        int src_device,
+                        size_t count,
+                        XPUStream stream) {
+  PADDLE_THROW(
+      errors::PreconditionNotMet("MemcpyPeerAsync is not supported in XPU."));
+}
+
+void XpuMemcpyPeerSync(
+    void* dst, int dst_device, const void* src, int src_device, size_t count) {
+  PADDLE_ENFORCE_XPU_SUCCESS(
+      xpu_memcpy_peer(dst_device, dst, src_device, src, count));
+}
+
 /**************************** Others **************************/
 
 XPUVersion get_xpu_version(int dev_id) {

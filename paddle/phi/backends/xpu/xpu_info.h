@@ -15,6 +15,10 @@ limitations under the License. */
 
 #include "paddle/phi/common/place.h"
 
+#if defined(PADDLE_WITH_XPU)
+#include "paddle/phi/backends/xpu/xpu_header.h"
+#endif
+
 namespace phi {
 
 class XPUContext;
@@ -68,6 +72,24 @@ void MemcpySyncD2D(void *dst,
                    const phi::XPUPlace &src_place,
                    size_t count,
                    const phi::XPUContext &dev_ctx);
+void XpuMemcpyAsync(void *dst,
+                    const void *src,
+                    size_t count,
+                    XPUMemcpyKind kind,
+                    XPUStream stream);
+void XpuMemcpySync(void *dst,
+                   const void *src,
+                   size_t count,
+                   XPUMemcpyKind kind);
+void XpuMemcpyPeerAsync(void *dst,
+                        int dst_device,
+                        const void *src,
+                        int src_device,
+                        size_t count,
+                        XPUStream stream);
+
+void XpuMemcpyPeerSync(
+    void *dst, int dst_device, const void *src, int src_device, size_t count);
 
 class XPUDeviceGuard {
  public:

@@ -88,6 +88,37 @@ void MemcpySyncD2D(void* dst,
       dst, dst_place, src, src_place, count, *dev_ctx);
 }
 
+void XpuMemcpyAsync(void* dst,
+                    const void* src,
+                    size_t count,
+                    XPUMemcpyKind kind,
+                    XPUStream stream) {
+  phi::backends::xpu::XpuMemcpyAsync(dst, src, count, kind, stream);
+}
+
+void XpuMemcpySync(void* dst,
+                   const void* src,
+                   size_t count,
+                   XPUMemcpyKind kind) {
+  phi::backends::xpu::XpuMemcpySync(dst, src, count, kind);
+}
+
+void XpuMemcpyPeerAsync(void* dst,
+                        int dst_device,
+                        const void* src,
+                        int src_device,
+                        size_t count,
+                        XPUStream stream) {
+  phi::backends::xpu::XpuMemcpyPeerAsync(
+      dst, dst_device, src, src_device, count, stream);
+}
+
+void XpuMemcpyPeerSync(
+    void* dst, int dst_device, const void* src, int src_device, size_t count) {
+  phi::backends::xpu::XpuMemcpyPeerSync(
+      dst, dst_device, src, src_device, count);
+}
+
 void XPUStreamSync(xpuStream stream) {
   PADDLE_ENFORCE_XDNN_SUCCESS(xpu_wait(stream), "xpu_wait");
 }

@@ -177,6 +177,16 @@ void Copy<phi::Place, phi::IPUPlace>(phi::Place dst_place,
 #endif
 
 #ifdef PADDLE_WITH_XPU
+
+inline void SyncXPUStream(XPUStream stream) {
+  PADDLE_ENFORCE_XDNN_SUCCESS(xpu_wait(stream), "xpu_wait");
+}
+
+inline void SyncXPUStream() {
+  PADDLE_ENFORCE_XDNN_SUCCESS(xpu_wait(nullptr), "xpu_wait");
+}
+
+static constexpr size_t kMaxXpuAsyncCopyBytes = 64 * 1024;  // 64K
 template <>
 void Copy<phi::XPUPlace, phi::CPUPlace>(phi::XPUPlace dst_place,
                                         void* dst,
@@ -245,6 +255,146 @@ void Copy<phi::Place, phi::XPUPlace>(phi::Place dst_place,
   } else if (dst_place.GetType() == phi::AllocationType::XPU) {
     phi::XPUPlace place_dst(dst_place.GetDeviceId());
     return Copy(place_dst, dst, src_place, src, num);
+  }
+}
+
+template <>
+TEST_API void Copy<phi::CPUPlace, phi::XPUPlace>(phi::CPUPlace dst_place,
+                                                 void* dst,
+                                                 phi::XPUPlace src_place,
+                                                 const void* src,
+                                                 size_t num,
+                                                 void* stream) {
+  if (UNLIKELY(num == 0)) return;
+
+  platform::SetXPUDeviceId(src_place.device);
+  VLOG(4) << "memory::Copy " << num << " Bytes from " << src_place << " to "
+          << dst_place << " by stream(" << stream << ")";
+  if (stream) {
+    phi::RecordEvent record_event(
+        "XpuMemcpyAsync:XPU->CPU", phi::TracerEventType::UserDefined, 1);
+    platform::XpuMemcpyAsync(dst,
+                             src,
+                             num,
+                             XPUMemcpyKind::XPU_DEVICE_TO_HOST,
+                             reinterpret_cast<XPUStream>(stream));
+  } else {
+    phi::RecordEvent record_event(
+        "XpuMemcpySync:XPU->CPU", phi::TracerEventType::UserDefined, 1);
+    platform::XpuMemcpySync(dst, src, num, XPUMemcpyKind::XPU_DEVICE_TO_HOST);
+
+    // FIXME(zjl): do we really need it?
+    if (num <= kMaxXpuAsyncCopyBytes) {
+      SyncXPUStream();
+    }
+  }
+}
+
+template <>
+TEST_API void Copy<phi::XPUPlace, phi::CPUPlace>(phi::XPUPlace dst_place,
+                                                 void* dst,
+                                                 phi::CPUPlace src_place,
+                                                 const void* src,
+                                                 size_t num,
+                                                 void* stream) {
+  if (UNLIKELY(num == 0)) return;
+
+  platform::SetXPUDeviceId(dst_place.device);
+  VLOG(4) << "memory::Copy " << num << " Bytes from " << src_place << " to "
+          << dst_place << " by stream(" << stream << ")";
+  if (stream) {
+    phi::RecordEvent record_event(
+        "XpuMemcpyAsync:CPU->XPU", phi::TracerEventType::UserDefined, 1);
+    platform::XpuMemcpyAsync(dst,
+                             src,
+                             num,
+                             XPUMemcpyKind::XPU_HOST_TO_DEVICE,
+                             reinterpret_cast<XPUStream>(stream));
+  } else {
+    phi::RecordEvent record_event(
+        "XpuMemcpySync:CPU->XPU", phi::TracerEventType::UserDefined, 1);
+    platform::XpuMemcpySync(dst, src, num, XPUMemcpyKind::XPU_HOST_TO_DEVICE);
+    // FIXME(zjl): do we really need it?
+    if (num <= kMaxXpuAsyncCopyBytes) {
+      SyncXPUStream();
+    }
+  }
+}
+
+template <>
+void Copy<phi::XPUPlace, phi::XPUPlace>(phi::XPUPlace dst_place,
+                                        void* dst,
+                                        phi::XPUPlace src_place,
+                                        const void* src,
+                                        size_t num,
+                                        void* stream) {
+  if (UNLIKELY(num == 0)) return;
+
+  VLOG(4) << "memory::Copy " << num << " Bytes from " << src_place << " to "
+          << dst_place << " by stream(" << stream << ")";
+  if (dst_place == src_place) {
+    platform::SetXPUDeviceId(src_place.device);
+    if (stream) {
+      phi::RecordEvent record_event("XpuMemcpyAsync(same_xpu):XPU->XPU",
+                                    phi::TracerEventType::UserDefined,
+                                    1);
+      platform::XpuMemcpyAsync(dst,
+                               src,
+                               num,
+                               XPUMemcpyKind::XPU_DEVICE_TO_DEVICE,
+                               reinterpret_cast<XPUStream>(stream));
+    } else {
+      phi::RecordEvent record_event("XpuMemcpySync(same_xpu):XPU->XPU",
+                                    phi::TracerEventType::UserDefined,
+                                    1);
+      platform::XpuMemcpySync(
+          dst, src, num, XPUMemcpyKind::XPU_DEVICE_TO_DEVICE);
+    }
+  } else {
+    if (stream) {
+      phi::RecordEvent record_event(
+          "XpuMemcpyPeerAsync:XPU->XPU", phi::TracerEventType::UserDefined, 1);
+      platform::XpuMemcpyPeerAsync(dst,
+                                   dst_place.device,
+                                   src,
+                                   src_place.device,
+                                   num,
+                                   reinterpret_cast<XPUStream>(stream));
+    } else {
+      phi::RecordEvent record_event(
+          "XpuMemcpyPeerSync:XPU->XPU", phi::TracerEventType::UserDefined, 1);
+      platform::XpuMemcpyPeerSync(
+          dst, dst_place.device, src, src_place.device, num);
+    }
+  }
+}
+
+template <>
+void Copy<phi::Place, phi::Place>(phi::Place dst_place,
+                                  void* dst,
+                                  phi::Place src_place,
+                                  const void* src,
+                                  size_t num,
+                                  void* stream) {
+  if (src_place.GetType() == phi::AllocationType::CPU &&
+      dst_place.GetType() == phi::AllocationType::CPU) {
+    phi::CPUPlace place_dst, place_src;
+    return Copy(place_dst, dst, place_src, src, num);
+  } else if (src_place.GetType() == phi::AllocationType::CPU &&
+             dst_place.GetType() == phi::AllocationType::XPU) {
+    phi::XPUPlace place_dst(dst_place.GetDeviceId());
+    phi::CPUPlace place_src;
+    return Copy(place_dst, dst, place_src, src, num, stream);
+  } else if (src_place.GetType() == phi::AllocationType::XPU &&
+             dst_place.GetType() == phi::AllocationType::CPU) {
+    phi::XPUPlace place_src(src_place.GetDeviceId());
+    phi::CPUPlace place_dst;
+    return Copy(place_dst, dst, place_src, src, num, stream);
+  } else if (src_place.GetType() == phi::AllocationType::XPU &&
+             dst_place.GetType() == phi::AllocationType::XPU) {
+    phi::XPUPlace place_src(src_place.GetDeviceId());
+    phi::XPUPlace place_dst(dst_place.GetDeviceId());
+    return Copy(place_dst, dst, place_src, src, num, stream);
   }
 }
 

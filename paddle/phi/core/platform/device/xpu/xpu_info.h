@@ -66,6 +66,24 @@ void MemcpySyncD2D(void *dst,
                    const void *src,
                    const phi::XPUPlace &src_place,
                    size_t count);
+void XpuMemcpyAsync(void *dst,
+                    const void *src,
+                    size_t count,
+                    XPUMemcpyKind kind,
+                    XPUStream stream);
+void XpuMemcpySync(void *dst,
+                   const void *src,
+                   size_t count,
+                   XPUMemcpyKind kind);
+void XpuMemcpyPeerAsync(void *dst,
+                        int dst_device,
+                        const void *src,
+                        int src_device,
+                        size_t count,
+                        XPUStream stream);
+
+void XpuMemcpyPeerSync(
+    void *dst, int dst_device, const void *src, int src_device, size_t count);
 
 //! Blocks until stream has completed all operations.
 void XPUStreamSync(xpuStream stream);
