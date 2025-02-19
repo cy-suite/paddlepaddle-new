@@ -1015,6 +1015,27 @@ def monkey_patch_value():
 
     @fake_interface_only
     def tolist(self):
+        """
+        **Notes**:
+            **This API is ONLY available in Dygraph mode**
+        Returns a Python list that contains the elements of current :ref:`api_guide_Variable_en`
+
+        Returns:
+            list: The Python list containing the elements of current Variable.
+
+        Returns type:
+            list: Elements have the same dtype as current Variable
+
+        Examples:
+            .. code-block:: python
+                >>> import paddle
+                >>> import paddle.base as base
+                >>> import numpy as np
+                >>> data = np.random.uniform(-1, 1, [2, 3]).astype('float32')
+                >>> with base.dygraph.guard():
+                ...     x = paddle.to_tensor(data)
+                ...     print(x.tolist())  # Convert tensor to Python list
+        """
         pass
 
     @fake_interface_only
