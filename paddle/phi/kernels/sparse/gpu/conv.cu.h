@@ -871,8 +871,10 @@ int ProductRuleBook(const Context& dev_ctx,
                                              out_index_ptr,
                                              unique_key_ptr);
 
-    int out_nnz = 0;
-    phi::backends::gpu::GpuMemcpyAsync(&out_nnz,
+    int* out_nnz_ptr{nullptr};
+    PADDLE_ENFORCE_GPU_SUCCESS(cudaHostAlloc(
+        (void**)&out_nnz_ptr, sizeof(int), cudaHostAllocDefault));  // NOLINT
+    phi::backends::gpu::GpuMemcpyAsync(out_nnz_ptr,
                                        unique_key_ptr,
                                        sizeof(int),
                                        gpuMemcpyDeviceToHost,
@@ -895,30 +897,31 @@ int ProductRuleBook(const Context& dev_ctx,
         <<<blocks, threads, 0, dev_ctx.stream()>>>(index_flags_ptr,
                                                    index_flags.numel(),
                                                    out_index_table_ptr,
-                                                   out_nnz,
+                                                   *out_nnz_ptr,
                                                    out_index_ptr);
 
     const int64_t sparse_dim = is2D ? 3 : 4;
     phi::DenseTensor out_indices =
-        phi::Empty<IntT>(dev_ctx, {sparse_dim, out_nnz});
+        phi::Empty<IntT>(dev_ctx, {sparse_dim, *out_nnz_ptr});
     phi::DenseTensor out_values =
-        phi::Empty<T>(dev_ctx, {out_nnz, kernel_sizes[sparse_dim]});
+        phi::Empty<T>(dev_ctx, {*out_nnz_ptr, kernel_sizes[sparse_dim]});
     out->SetMember(out_indices, out_values, out_dims, false);
 
     IntT* out_indices_ptr = out_indices.data<IntT>();
 
-    config = phi::backends::gpu::GetGpuLaunchConfig1D(dev_ctx, out_nnz, 1);
+    config = phi::backends::gpu::GetGpuLaunchConfig1D(dev_ctx, *out_nnz_ptr, 1);
     GetOutIndexTable<IntT><<<config.block_per_grid,
                              config.thread_per_block,
                              0,
                              dev_ctx.stream()>>>(out_index_ptr,
-                                                 out_nnz,
+                                                 *out_nnz_ptr,
                                                  d_out_dims,
                                                  is2D,
                                                  out_index_table_ptr,
                                                  out_indices_ptr);
     config = phi::backends::gpu::GetGpuLaunchConfig1D(dev_ctx, rulebook_len, 1);
-    unique_value->ResizeAndAllocate({static_cast<int>(out_nnz * kernel_size)});
+    unique_value->ResizeAndAllocate(
+        {static_cast<int>(*out_nnz_ptr * kernel_size)});
     int* unique_value_ptr = unique_value->data<int>();
 
     GroupIndices<<<config.block_per_grid,
