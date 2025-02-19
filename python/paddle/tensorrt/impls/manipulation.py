@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-
+import numpy as np
 import tensorrt as trt
 
 from paddle.tensorrt.converter_utils import (
@@ -26,6 +26,7 @@ from paddle.tensorrt.converter_utils import (
     get_shape_tensor_element,
     has_dynamic_shape,
     resize_to_1d,
+    trt_cast,
     trt_concat,
     trt_expand,
     trt_floor_div,
@@ -971,11 +972,159 @@ def pad_converter(network, paddle_op, inputs):
     return layer.get_output(0)
 
 
+@converter_registry.register("pd_op.pad3d", trt_version="8.x")
+def pad3d_converter(network, paddle_op, inputs):
+    input_tensor, paddings = inputs
+
+    value = paddle_op.attrs().get("pad_value", 0.0)
+    padding_mode = paddle_op.attrs().get("mode", "constant")
+    input_dim = len(input_tensor.shape)
+    pad_size = paddings.shape[0]
+    assert (
+        input_dim * 2 - 4 == pad_size
+    ), f"Expected paddings size is {input_dim * 2 - 4}, but received {pad_size}."
+
+    shuffle_index = [4, 2, 0, 5, 3, 1]
+    shuffle_inputs = [
+        get_shape_tensor_element(network, paddings, shuffle_index[i])
+        for i in range(pad_size)
+    ]
+    paddings = trt_concat(network, shuffle_inputs)
+
+    pre_zeros = add_1D_constant_layer(network, [0, 0])
+    start_slice1 = [0]
+    start_slice2 = [3]
+    size_slice = [3]
+    stride_slice = [1]
+    pre_pad = network.add_slice(
+        paddings, start_slice1, size_slice, stride_slice
+    ).get_output(0)
+    pre_pad = trt_concat(network, [pre_zeros, pre_pad])
+    post_pad = network.add_slice(
+        paddings, start_slice2, size_slice, stride_slice
+    ).get_output(0)
+    post_pad = trt_concat(network, [pre_zeros, post_pad])
+
+    zeros = add_1D_constant_layer(network, [0] * input_dim)
+
+    start = trt_sub(network, zeros, pre_pad)
+    total_padding = trt_sum(network, pre_pad, post_pad)
+    input_shape = trt_shape(network, input_tensor)
+    size = trt_sum(network, input_shape, total_padding)
+
+    # Add slice layer
+    stride = [1] * input_dim
+    dummy = stride
+    slice_layer = network.add_slice(input_tensor, dummy, dummy, stride)
+    slice_layer.set_input(1, start)
+    slice_layer.set_input(2, size)
+
+    # Set padding mode
+    if padding_mode == "constant":
+        slice_layer.mode = trt.SampleMode.FILL
+        if value != 0.0:
+            if input_tensor.dtype in (
+                trt.DataType.FLOAT,
+                trt.DataType.HALF,
+                trt.DataType.INT8,
+            ):
+                fill_value = add_1D_constant_layer(
+                    network, value, dtype=np.float32
+                )
+            else:
+                value_int = int(value)
+                fill_value = add_1D_constant_layer(
+                    network, value_int, dtype=np.int32
+                )
+            slice_layer.set_input(4, fill_value)
+    elif padding_mode == "reflect":
+        slice_layer.mode = trt.SampleMode.REFLECT
+    elif padding_mode == "replicate":
+        slice_layer.mode = trt.SampleMode.CLAMP
+    else:
+        raise ValueError(f"Unsupported padding mode: {padding_mode}")
+
+    return slice_layer.get_output(0)
+
+
 @converter_registry.register("pd_op.numel", trt_version="8.x")
 def numel_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
     shape_tensor = network.add_shape(input_tensor).get_output(0)
     layer = network.add_reduce(
         shape_tensor, trt.ReduceOperation.PROD, axes=1, keep_dims=False
+    )
+    return layer.get_output(0)
+
+
+@converter_registry.register("pd_op.index_put", trt_version="8.x")
+def index_put_converter(network, paddle_op, inputs):
+    input_tensor, indices_list, value_tensor = inputs
+    indices_tensor = indices_list[0]
+    input_shape_tensor = trt_shape(network, input_tensor)
+    input_dims = input_tensor.shape
+    indices_dims = indices_tensor.shape
+    rank = len(input_dims)
+
+    # indices
+    indices_shape_vec = [
+        add_1D_constant_layer(
+            network, indices_dims[i] if i < len(indices_dims) else 1
+        )
+        for i in range(rank)
+    ]
+    start_tensor_vec = [add_1D_constant_layer(network, 0)] * rank
+    stride_tensor_vec = [add_1D_constant_layer(network, 1)] * rank
+    indices_tensor_temp = trt_reshape(
+        network,
+        indices_tensor,
+        trt_concat(network, indices_shape_vec),
+        is_shape_tensor=True,
+    )
+    start_tensor = trt_concat(network, start_tensor_vec)
+    stride_tensor = trt_concat(network, stride_tensor_vec)
+
+    # slice
+    stride = [1] * rank
+    indices_slice_layer = network.add_slice(
+        trt_cast(network, indices_tensor_temp, trt.float32),
+        stride,
+        stride,
+        stride,
+    )
+    indices_slice_layer.set_input(1, start_tensor)
+    indices_slice_layer.set_input(2, input_shape_tensor)
+    indices_slice_layer.set_input(3, stride_tensor)
+    indices_slice_layer.mode = trt.SampleMode.CLAMP
+
+    bool_indices_tensor = trt_cast(
+        network, indices_slice_layer.get_output(0), trt.bool
+    )
+
+    # nonzero
+    nonzero_layer = network.add_non_zero(bool_indices_tensor)
+    indices_tensor = nonzero_layer.get_output(0)
+    permutation = trt.Permutation([1, 0])
+    trans_layer = network.add_shuffle(indices_tensor)
+    trans_layer.first_transpose = permutation
+    indices_tensor = trans_layer.get_output(0)
+    indices_new_shape_tensor = trt_shape(network, indices_tensor)
+    indices_count_tensor = get_shape_tensor_element(
+        network, indices_new_shape_tensor, 0
+    )
+
+    # value
+    value_stride = [1]
+    value_slice_layer = network.add_slice(
+        value_tensor, value_stride, value_stride, value_stride
+    )
+    value_slice_layer.set_input(1, add_1D_constant_layer(network, 0))
+    value_slice_layer.set_input(2, indices_count_tensor)
+    value_slice_layer.set_input(3, add_1D_constant_layer(network, 1))
+    value_slice_layer.mode = trt.SampleMode.CLAMP
+    value_tensor = value_slice_layer.get_output(0)
+
+    layer = network.add_scatter(
+        input_tensor, indices_tensor, value_tensor, trt.ScatterMode.ND
     )
     return layer.get_output(0)

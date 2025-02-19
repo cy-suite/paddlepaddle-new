@@ -24,6 +24,7 @@ from api_gen import (
     backward_api_black_list,
     declare_extension_api,
     header_include,
+    manual_impl,
     source_include,
 )
 
@@ -83,22 +84,21 @@ AUTO_PARALLEL_COND_TEMPLATE = """
 """
 
 NCCL_COMMCONTEXT_INIT = """
-#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
+#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || defined(PADDLE_WITH_XPU_BKCL)
   const auto & comm_context_manager_ = phi::distributed::CommContextManager::GetInstance();
   if (nranks > 1 && !comm_context_manager_.Has(std::to_string(ring_id))) {{
     auto store = phi::distributed::CreateOrGetGlobalTCPStore();
-    phi::distributed::CommContextManager::CreateNCCLCommContext(
-            store, std::to_string(ring_id), rank, nranks);
+    CREATE_COMM_CONTEXT(store, std::to_string(ring_id), rank, nranks);
   }}
 #endif
 """
 
 SET_NCCL_COMMCONTEXT = """
-#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
+#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || defined(PADDLE_WITH_XPU_BKCL)
   const auto & comm_context_manager = phi::distributed::CommContextManager::GetInstance();
-  phi::distributed::NCCLCommContext* comm_context = nullptr;
+  COMM_CONTEXT* comm_context = nullptr;
   if (comm_context_manager.Has(std::to_string(ring_id))) {{
-    comm_context = static_cast<phi::distributed::NCCLCommContext *>(
+    comm_context = static_cast<COMM_CONTEXT*>(
           comm_context_manager.Get(std::to_string(ring_id)));
     PADDLE_ENFORCE_NE(
         comm_context,
@@ -2074,7 +2074,11 @@ class DistForwardAPI(ForwardAPI):
 
 
 def generate_api(
-    api_yaml_path, is_fused_ops_yaml, header_file_path, source_file_path
+    api_yaml_path,
+    is_fused_ops_yaml,
+    header_file_path,
+    source_file_path,
+    grad_flag,
 ):
     apis = []
 
@@ -2125,7 +2129,10 @@ def generate_api(
             dist_forward_api.is_dygraph_api = True
 
         header_file.write(dist_forward_api.gene_api_declaration())
-        source_file.write(dist_forward_api.gene_api_code())
+        if dist_forward_api.api not in ["embedding_grad", "cudnn_lstm_grad"]:
+            source_file.write(dist_forward_api.gene_api_code())
+    if not is_fused_ops_yaml and grad_flag:
+        source_file.write(manual_impl)
 
     header_file.write(namespace[1])
     source_file.write(namespace[1])
@@ -2148,6 +2155,13 @@ def main():
     )
 
     parser.add_argument(
+        '--backward_api_yaml_path',
+        help='path to api yaml file',
+        nargs='+',
+        default=['paddle/phi/ops/yaml/backward.yaml'],
+    )
+
+    parser.add_argument(
         '--is_fused_ops_yaml',
         help='flag of fused ops yaml',
         action='store_true',
@@ -2165,14 +2179,41 @@ def main():
         default='paddle/phi/api/lib/api.cc',
     )
 
+    parser.add_argument(
+        '--backward_api_header_path',
+        help='output of generated api header code file',
+        default='paddle/phi/api/backward/backward_api.h',
+    )
+
+    parser.add_argument(
+        '--backward_api_source_path',
+        help='output of generated api source code file',
+        default='paddle/phi/api/lib/backward_api.cc',
+    )
+
     options = parser.parse_args()
     api_yaml_path = options.api_yaml_path
+    backward_api_yaml_path = options.backward_api_yaml_path
     is_fused_ops_yaml = options.is_fused_ops_yaml
     header_file_path = options.api_header_path
     source_file_path = options.api_source_path
+    backward_header_file_path = options.backward_api_header_path
+    backward_source_file_path = options.backward_api_source_path
 
     generate_api(
-        api_yaml_path, is_fused_ops_yaml, header_file_path, source_file_path
+        api_yaml_path,
+        is_fused_ops_yaml,
+        header_file_path,
+        source_file_path,
+        False,
+    )
+
+    generate_api(
+        backward_api_yaml_path,
+        is_fused_ops_yaml,
+        backward_header_file_path,
+        backward_source_file_path,
+        True,
     )
 
 
