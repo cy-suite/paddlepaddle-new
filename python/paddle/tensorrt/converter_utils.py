@@ -835,7 +835,9 @@ def set_layer_name(layer, second_param):
             # Retrieve the output id of the layer
             output_name = layer.get_output(0).name
             if "Unnamed Layer" in output_name:
-                sequence_number = output_name.split("*")[1].split(")")[0].strip()
+                sequence_number = (
+                    output_name.split("*")[1].split(")")[0].strip()
+                )
             else:
                 sequence_number = output_name
 
