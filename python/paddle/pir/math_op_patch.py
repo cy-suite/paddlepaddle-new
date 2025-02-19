@@ -1014,6 +1014,10 @@ def monkey_patch_value():
         pass
 
     @fake_interface_only
+    def tolist(self):
+        pass
+
+    @fake_interface_only
     def register_hook(self, hook):
         """
         Value don't have 'register_hook' interface in static graph mode
