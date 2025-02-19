@@ -18,6 +18,7 @@ import tensorrt as trt
 from paddle.tensorrt.converter_utils import (
     add_1D_constant_layer,
     add_cast_reduce_layer,
+    add_constant_layer,
     add_elementwise_layer,
     add_reduce_layer,
     broadcast,
@@ -29,6 +30,7 @@ from paddle.tensorrt.converter_utils import (
     get_shape_tensor_element,
     trt_cast,
     trt_concat,
+    trt_equal,
     trt_expand,
     trt_max,
     trt_reshape,
@@ -51,7 +53,7 @@ def scale_converter(network, paddle_op, inputs):
     bias = paddle_op.attrs().get("bias", 0.0)
     bias_after_scale = paddle_op.attrs().get("bias_after_scale", True)
 
-    is_int = x.dtype == trt.int32
+    is_int = x.dtype == trt.DataType.INT32
     if is_int:
         bias_tensor = add_1D_constant_layer(
             network, int(bias + 0.5) if bias > 0 else int(bias - 0.5)
@@ -86,7 +88,10 @@ def scale_converter(network, paddle_op, inputs):
     reshape_layer_scale = network.add_shuffle(scale_tensor)
     reshape_layer_scale.set_input(1, scale_shapes_tensor)
 
-    if has_scale_tensor and is_scale_1 and is_bias_0:
+    # Initialize the layer variable to ensure it's defined in all branches
+    layer = None
+
+    if not has_scale_tensor and is_scale_1 and is_bias_0:
         layer = network.add_identity(x)
     else:
         if bias_after_scale:
@@ -156,7 +161,7 @@ def divide_converter(network, paddle_op, inputs):
 
 
 @converter_registry.register("pd_op.subtract", trt_version="trt_version_ge=8.0")
-def substract_converter(network, paddle_op, inputs):
+def subtract_converter(network, paddle_op, inputs):
     return add_elementwise_layer(
         network, paddle_op, inputs, trt.ElementWiseOperation.SUB
     )
@@ -211,6 +216,21 @@ def clip_converter(network, paddle_op, inputs):
     layer = network.add_elementwise(
         lower_clip, beta_t, trt.ElementWiseOperation.MIN
     )
+    return layer.get_output(0)
+
+
+@converter_registry.register("pd_op.pow", trt_version="trt_version_ge=8.0")
+def pow_converter(network, paddle_op, inputs):
+    from paddle.tensorrt.util import support_fp32_mix_precision
+
+    x = inputs[0]
+    factor = paddle_op.attrs()["y"]
+    dims_x = x.shape
+    trt_dims_y = trt.Dims([1] * len(dims_x))
+    w_data = [factor]
+    y = add_constant_layer(network, w_data, trt_dims_y, np.float32)
+    layer = network.add_elementwise(x, y, trt.ElementWiseOperation.POW)
+    support_fp32_mix_precision(paddle_op.name(), layer)
     return layer.get_output(0)
 
 
@@ -275,6 +295,11 @@ def min_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.sum", trt_version="8.x")
 def sum_converter(network, paddle_op, inputs):
     return add_reduce_layer(network, paddle_op, inputs, trt.ReduceOperation.SUM)
+
+
+@converter_registry.register("pd_op.mean", trt_version="8.x")
+def mean_converter(network, paddle_op, inputs):
+    return add_reduce_layer(network, paddle_op, inputs, trt.ReduceOperation.AVG)
 
 
 @converter_registry.register("pd_op.any", trt_version="8.x")
@@ -387,7 +412,7 @@ def floor_divide_converter(network, paddle_op, inputs):
 
 
 @converter_registry.register("pd_op.log", trt_version="8.x")
-def sqrt_converter(network, paddle_op, inputs):
+def log_converter(network, paddle_op, inputs):
     input_tensor = trt_cast(network, inputs[0], trt.float32)
     layer = network.add_unary(input_tensor, trt.UnaryOperation.LOG)
     return layer.get_output(0)
@@ -398,6 +423,14 @@ def elementwise_pow_converter(network, paddle_op, inputs):
     return add_elementwise_layer(
         network, paddle_op, inputs, trt.ElementWiseOperation.POW
     )
+
+
+@converter_registry.register("pd_op.isnan", trt_version="8.x")
+def isnan_converter(network, paddle_op, inputs):
+    input_tensor = inputs[0]
+    equal_tensor = trt_equal(network, input_tensor, input_tensor)
+    layer = network.add_unary(equal_tensor, trt.UnaryOperation.NOT)
+    return layer.get_output(0)
 
 
 @converter_registry.register("pd_op.minimum", trt_version="8.x")
@@ -414,3 +447,39 @@ def maximum_converter(network, paddle_op, inputs):
         network, paddle_op, inputs, trt.ElementWiseOperation.MAX
     )
     return max_layer
+
+
+@converter_registry.register("pd_op.greater_equal", trt_version="8.x")
+@converter_registry.register("pd_op.greater_equal_", trt_version="8.x")
+def greater_equal_converter(network, paddle_op, inputs):
+    greater_layer_output = add_elementwise_layer(
+        network, paddle_op, inputs, trt.ElementWiseOperation.GREATER
+    )
+    equal_layer_output = add_elementwise_layer(
+        network, paddle_op, inputs, trt.ElementWiseOperation.EQUAL
+    )
+    or_layer = add_elementwise_layer(
+        network,
+        paddle_op,
+        [greater_layer_output, equal_layer_output],
+        trt.ElementWiseOperation.OR,
+    )
+    return or_layer
+
+
+@converter_registry.register("pd_op.less_equal", trt_version="8.x")
+@converter_registry.register("pd_op.less_equal_", trt_version="8.x")
+def less_equal_converter(network, paddle_op, inputs):
+    less_layer_output = add_elementwise_layer(
+        network, paddle_op, inputs, trt.ElementWiseOperation.LESS
+    )
+    equal_layer_output = add_elementwise_layer(
+        network, paddle_op, inputs, trt.ElementWiseOperation.EQUAL
+    )
+    or_layer = add_elementwise_layer(
+        network,
+        paddle_op,
+        [less_layer_output, equal_layer_output],
+        trt.ElementWiseOperation.OR,
+    )
+    return or_layer

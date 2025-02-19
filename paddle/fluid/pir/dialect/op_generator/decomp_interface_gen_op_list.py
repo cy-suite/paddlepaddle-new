@@ -31,8 +31,8 @@ MANUAL_IMPL_DECOMP = [
 GENERATE_IMPL_DECOMP = [
     "add_n",
     "addmm",
-    "allclose",
     "any",
+    "baddbmm",
     "bce_loss",
     "bmm",
     "diag",
@@ -84,7 +84,7 @@ decomp_rule_interface_declare_gen_op_list = (
 )
 decomp_rule_interface_implementation_gen_op_list = GENERATE_IMPL_DECOMP
 # xshape output will no longer used after decomp, but return none to keep output num the same as origin op
-  = ["squeeze", "unsqueeze"]
+decomp_ops_contain_unused_output = ["squeeze", "unsqueeze"]
 
 ##################### decomp_vjp ####################
 # come into effect in generated file op_decomp_vjp.cc

@@ -846,6 +846,7 @@ class TrtLayerAutoScanTest(AutoScanTest):
                     with paddle.static.program_guard(
                         pir_main_program, startup_program
                     ):
+
                         feed_dict = {}
                         feed_data = prog_config.get_feed_data()
                         for key, value in feed_data.items():
