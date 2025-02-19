@@ -105,6 +105,8 @@ jobs:
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         . ../../../proxy
         bash ${ci_scripts}/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} py3
+        EXCODE=$?
+        exit $EXCODE
         '
 
     - name: Test
@@ -112,10 +114,12 @@ jobs:
         docker exec -t ${container_name} /bin/bash -c '
         . ../../../proxy
         bash ${ci_scripts}/run_linux_cpu_test.sh
-        source paddle/scripts/paddle_build/utils.sh; clean_build_files
+        EXCODE=$?
+        source ${ci_scripts}/utils.sh; clean_build_files
         echo "::group::Install bce-python-sdk"
         python -m pip install bce-python-sdk==0.8.74
         echo "::endgroup::"
+        exit $EXCODE
         '
 
     - name: Upload paddle_whl

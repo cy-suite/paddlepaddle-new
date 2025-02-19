@@ -122,6 +122,8 @@ jobs:
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         . ../../../proxy
         bash ${ci_scripts}/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.8
+        EXCODE=$?
+        exit $EXCODE
         '
 
     - name: Test with python3.8
@@ -133,7 +135,9 @@ jobs:
         docker exec -t ${container_name} /bin/bash -c '
         . ../../../proxy
         bash ${ci_scripts}/run_sot_test.sh 3.8
+        EXCODE=$?
         rm -rf ${PADDLE_ROOT}/build/CMakeCache.txt
+        exit $EXCODE
         '
 
 
@@ -148,6 +152,8 @@ jobs:
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         . ../../../proxy
         bash ${ci_scripts}/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.9
+        EXCODE=$?
+        exit $EXCODE
         '
 
     - name: Test with python3.9
@@ -159,7 +165,9 @@ jobs:
         docker exec -t ${container_name} /bin/bash -c '
         . ../../../proxy
         bash ${ci_scripts}/run_sot_test.sh 3.9
+        EXCODE=$?
         rm -rf ${PADDLE_ROOT}/build/CMakeCache.txt
+        exit $EXCODE
         '
 
 
@@ -174,6 +182,8 @@ jobs:
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         . ../../../proxy
         bash ${ci_scripts}/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.10
+        EXCODE=$?
+        exit $EXCODE
         '
 
     - name: Test with python3.10
@@ -185,7 +195,9 @@ jobs:
         docker exec -t ${container_name} /bin/bash -c '
         . ../../../proxy
         bash ${ci_scripts}/run_sot_test.sh 3.10
+        EXCODE=$?
         rm -rf ${PADDLE_ROOT}/build/CMakeCache.txt
+        exit $EXCODE
         '
 
     - name: Build with python3.11
@@ -199,6 +211,8 @@ jobs:
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         . ../../../proxy
         bash ${ci_scripts}/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.11
+        EXCODE=$?
+        exit $EXCODE
         '
 
     - name: Test with python3.11
@@ -210,7 +224,9 @@ jobs:
         docker exec -t ${container_name} /bin/bash -c '
         . ../../../proxy
         bash ${ci_scripts}/run_sot_test.sh 3.11
+        EXCODE=$?
         rm -rf ${PADDLE_ROOT}/build/CMakeCache.txt
+        exit $EXCODE
         '
 
 
@@ -225,6 +241,8 @@ jobs:
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         . ../../../proxy
         bash ${ci_scripts}/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.12
+        EXCODE=$?
+        exit $EXCODE
         '
 
     - name: Test with python3.12
@@ -236,7 +254,9 @@ jobs:
         docker exec -t ${container_name} /bin/bash -c '
         . ../../../proxy
         bash ${ci_scripts}/run_sot_test.sh 3.12
+        EXCODE=$?
         rm -rf ${PADDLE_ROOT}/build/CMakeCache.txt
+        exit $EXCODE
         '
 
 
@@ -251,6 +271,8 @@ jobs:
         export CCACHE_DIR=${{ env.CCACHE_DIR }}
         . ../../../proxy
         bash ${ci_scripts}/run_setup.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} sot 3.13
+        EXCODE=$?
+        exit $EXCODE
         '
 
     - name: Test with python3.13
@@ -262,7 +284,9 @@ jobs:
         docker exec -t ${container_name} /bin/bash -c '
         . ../../../proxy
         bash ${ci_scripts}/run_sot_test.sh 3.13
+        EXCODE=$?
         rm -rf ${PADDLE_ROOT}/build/CMakeCache.txt
+        exit $EXCODE
         '
 
     - name: Terminate and delete the container
