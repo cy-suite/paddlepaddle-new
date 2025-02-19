@@ -767,21 +767,11 @@ ExprTransformer InsertForsTransformer(const std::vector<int32_t>& axis,
         vars.size(),
         ::common::errors::InvalidArgument(
             "The number of axis to insert and vars should be equal."));
-    const size_t reduce_size =
-        std::count_if(iters.begin(), iters.end(), [](const ir::Var& v) {
-          return v->is_reduce_axis;
-        });
     for (size_t i = 0; i < axis.size(); ++i) {
-      PADDLE_ENFORCE_LE(axis[i],
-                        iters.size() - reduce_size,
-                        ::common::errors::OutOfRange(
-                            "Insert axis should not be behind reduce axis."));
       iters.insert(iters.begin() + axis[i], vars[i]);
     }
-    const auto non_reduce_iters =
-        cinn::fusion::SliceVector(iters, 0, iters.size() - reduce_size);
     const auto body_block = GetBodyBlock(root);
-    return ir::Block::Make({(WrapForsTransformer(non_reduce_iters) *
+    return ir::Block::Make({(WrapForsTransformer(iters) *
                              WrapScheduleRealizer({}, "root"))(body_block)});
   };
   return ExprTransformer(f);
@@ -900,6 +890,12 @@ void CheckFusionInputValid(const std::vector<ir::Expr>& op_compute_bodies,
           "The number of op_compute_bodies and op_patterns should be equal."));
 }
 
+bool IsReducePattern(const ir::Expr& root) {
+  return !(ExprSetFinderUtils::ChildScheduleBlockRealizes *
+           ExprSetFinderUtils::ScheduleBlockRealizeIsInit)(root)
+              .empty();
+}
+
 std::vector<ir::Var> AppendBound(const std::vector<ir::Var> vars,
                                  const ir::Expr& root) {
   return ExprSetFinderUtils::MapVector<ir::Var>(
@@ -933,8 +929,11 @@ std::vector<ir::Var> GetNonReduceLoopVars(const ir::Expr& root) {
   for (const auto& for_expr : fors_expr) {
     loop_vars.push_back(for_expr.As<ir::For>()->loop_var);
   }
-  const auto non_reduce_loop_vars = cinn::fusion::FilterVector(
-      loop_vars, [](const ir::Var& v) { return !v->is_reduce_axis; });
+  const auto non_reduce_loop_vars =
+      IsReducePattern(root)
+          ? cinn::fusion::FilterVector(
+                loop_vars, [](const ir::Var& v) { return !v->is_reduce_axis; })
+          : loop_vars;
   return AppendBound(non_reduce_loop_vars, root);
 }
 
@@ -965,24 +964,9 @@ std::vector<ir::Var> GetReduceLoopVars(const ir::Expr& root) {
 
 ir::Expr GetBodyBlock(const ir::Expr& root) {
   const auto& iters = GetNonReduceLoopVars(root);
-  if (iters.empty()) {
-    return ir::Block::Make(
-        {ExprSetFinderUtils::ChildScheduleBlockRealizes.GetSingle(root)});
-  }
-  const size_t reduce_size =
-      std::count_if(iters.begin(), iters.end(), [](const ir::Var& v) {
-        return v->is_reduce_axis;
-      });
-  PADDLE_ENFORCE_LT(reduce_size,
-                    iters.size(),
-                    ::common::errors::InvalidArgument(
-                        "The reduce size should be less than the total size."));
-  return (ExprSetFinderUtils::ChildFors *
-          ExprSetFinderUtils::IsForIterVar(
-              iters[iters.size() - reduce_size - 1]))
-      .GetSingle(root)
-      .As<ir::For>()
-      ->body;
+  auto block_realize =
+      ExprSetFinderUtils::ChildScheduleBlockRealizes(root).front();
+  return ExprSetFinderUtils::DirectlyFather(root).GetSingle(block_realize);
 }
 
 ir::Expr ReshapeLoop(const ir::Expr& root,
