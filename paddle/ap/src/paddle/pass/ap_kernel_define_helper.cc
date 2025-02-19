@@ -19,7 +19,8 @@
 #include "paddle/ap/include/code_gen/value_method_class.h"
 #include "paddle/ap/include/drr/drr_graph_descriptor.h"
 #include "paddle/ap/include/drr/drr_node_descriptor.h"
-#include "paddle/ap/include/paddle/op_cuda_code_gen_impl.h"
+#include "paddle/ap/include/paddle/pir_graph_descriptor.h"
+#include "paddle/ap/include/paddle/pir_node_descriptor.h"
 #include "paddle/ap/include/paddle/pir_node_method_class.h"
 
 namespace cinn::dialect::ir {

@@ -25,8 +25,6 @@
 #include "paddle/ap/include/code_module/adt.h"
 #include "paddle/ap/include/code_module/code_module.h"
 #include "paddle/ap/include/code_module/data_type.h"
-#include "paddle/ap/include/index_expr/index_expr.h"
-#include "paddle/ap/include/index_expr/index_tuple_expr.h"
 #include "paddle/ap/include/ir_match/op_match_ctx.h"
 #include "paddle/ap/include/ir_match/tensor_match_ctx.h"
 

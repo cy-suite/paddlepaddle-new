@@ -22,9 +22,6 @@
 #include "paddle/ap/include/code_module/func_declare_method_class.h"
 #include "paddle/ap/include/code_module/package_method_class.h"
 #include "paddle/ap/include/code_module/project_method_class.h"
-#include "paddle/ap/include/index_expr/index_expr_method_class.h"
-#include "paddle/ap/include/index_expr/index_tuple_expr_method_class.h"
-#include "paddle/ap/include/index_expr/slice_method_class.h"
 
 namespace ap::code_gen {
 
@@ -35,9 +32,6 @@ void VisitEachBuiltinFrameClass(const DoEachT& DoEach) {
   DoEach(code_module::GetFuncDeclareClass());
   DoEach(code_module::GetCodeModuleClass());
   DoEach(axpr::GetDimExprClass<ValueT>());
-  DoEach(index_expr::GetSliceClass<ValueT>());
-  DoEach(index_expr::GetIndexExprClass<ValueT>());
-  DoEach(index_expr::GetIndexTupleExprClass<ValueT>());
   DoEach(GetCodeGenResultClass());
 }
 

@@ -5,13 +5,6 @@ cc_library(
   SRCS ${axpr_srcs}
   DEPS ${axpr_deps})
 
-file(GLOB_RECURSE index_expr_srcs "src/index_expr/*.cc")
-set(index_expr_deps axpr)
-cc_library(
-  index_expr
-  SRCS ${index_expr_srcs}
-  DEPS ${index_expr_deps})
-
 file(GLOB_RECURSE ap_drr_srcs "src/drr/*.cc")
 set(ap_drr_deps axpr)
 cc_library(
@@ -62,14 +55,7 @@ cc_library(
   DEPS ${ap_reified_drr_deps})
 
 file(GLOB_RECURSE ap_pass_srcs "src/paddle/pass/*.cc")
-set(ap_pass_deps
-    axpr
-    ap_pir
-    index_expr
-    ap_drr
-    ap_code_module
-    ap_code_gen
-    ap_reified_drr)
+set(ap_pass_deps axpr ap_pir ap_drr ap_code_module ap_code_gen ap_reified_drr)
 cc_library(
   ap_pass
   SRCS ${ap_pass_srcs}

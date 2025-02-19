@@ -18,7 +18,6 @@
 #include "paddle/ap/include/axpr/type.h"
 #include "paddle/ap/include/code_gen/kernel_arg_id.h"
 #include "paddle/ap/include/code_gen/loop_anchor_flags.h"
-#include "paddle/ap/include/index_expr/index_tuple_expr.h"
 #include "paddle/ap/include/ir_match/native_or_ref_ir_value.h"
 
 namespace ap::code_gen {

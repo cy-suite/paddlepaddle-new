@@ -23,9 +23,12 @@
 namespace ap::graph {
 
 template <typename NodeT, typename TopoKind>
-struct GraphDescriptor {
-  GraphDescriptor(const GraphDescriptor&) = default;
-  GraphDescriptor(GraphDescriptor&&) = default;
+struct GraphDescriptor;
+
+template <typename NodeT, typename TopoKind>
+struct GraphDescriptorInterface {
+  GraphDescriptorInterface(const GraphDescriptorInterface&) = default;
+  GraphDescriptorInterface(GraphDescriptorInterface&&) = default;
 
   template <typename DoEachT>
   adt::Result<adt::Ok> VisitUpstreamNodes(const NodeT&,
