@@ -10,14 +10,13 @@ See the License for the specific language governing permissions and
 limitations under the License. */
 #pragma once
 
+#if defined(PADDLE_WITH_XPU)
+
 #include <string>
 #include <vector>
 
-#include "paddle/phi/common/place.h"
-
-#if defined(PADDLE_WITH_XPU)
 #include "paddle/phi/backends/xpu/xpu_header.h"
-#endif
+#include "paddle/phi/common/place.h"
 
 namespace phi {
 
@@ -128,3 +127,4 @@ int get_xpu_max_ptr_size(int dev_id);
 }  // namespace xpu
 }  // namespace backends
 }  // namespace phi
+#endif
