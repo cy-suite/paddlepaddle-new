@@ -1979,6 +1979,10 @@ void PirInterpreter::RunInstructionBase(InstructionBase* instr_node) {
                 << "): context wait and get last error";
 #endif
       }
+      if (FLAGS_enable_collect_shape) {
+        CollectShapeManager::Instance().CollectShapeInfo(
+            instr_node, value_exe_info_.get(), scope_);
+      }
       if (FLAGS_check_nan_inf) {
         CheckTensorHasNanOrInf(instr_node, scope_, value_exe_info_.get());
       }
@@ -2004,11 +2008,6 @@ void PirInterpreter::RunInstructionBase(InstructionBase* instr_node) {
     }
 
     VLOG(5) << "after run kernel";
-
-    if (FLAGS_enable_collect_shape) {
-      CollectShapeManager::Instance().CollectShapeInfo(
-          instr_node, value_exe_info_.get(), scope_);
-    }
 
     instr_node->RecordEvent(cur_place);
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
