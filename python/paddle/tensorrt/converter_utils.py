@@ -802,10 +802,10 @@ def WithFp16():
 
 def set_layer_name(layer, second_param):
     if isinstance(second_param, list):
-        # Handling for gen_layer_name
+        # Handling for public function layer
         op_name, layer_var_name = second_param
     else:
-        # Handling for set_layer_name
+        # Handling for layer
         op_name = second_param.name()
         layer_var_name = None
         if op_name is not None:
@@ -817,6 +817,8 @@ def set_layer_name(layer, second_param):
                 if var_val is layer:
                     layer_var_name = var_name
                     break
+
+    # Retrieve the input id of the layer
     if op_name is not None and layer_var_name is not None:
         input_ids = []
         i = 0
@@ -829,6 +831,7 @@ def set_layer_name(layer, second_param):
             input_ids.append(input_id)
             i += 1
 
+        # Retrieve the output id of the layer
         output_name = layer.get_output(0).name
         if "Unnamed Layer" in output_name:
             sequence_number = output_name.split("*")[1].split(")")[0].strip()
