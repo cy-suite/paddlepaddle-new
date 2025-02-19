@@ -170,7 +170,9 @@ def add_elementwise_layer(network, paddle_op, inputs, op_type):
 
 
 # Create and add 1D constant layer
-def add_1D_constant_layer(network, data, dtype=np.int32, is_scalar=False, name=None):
+def add_1D_constant_layer(
+    network, data, dtype=np.int32, is_scalar=False, name=None
+):
     if not isinstance(data, list):
         data = [data]
     shape = () if is_scalar else (len(data),)
@@ -253,7 +255,9 @@ def trt_cast(network, input, dtype, name=None):
     return identity_layer.get_output(0)
 
 
-def trt_shape(network: INetworkDefinition, input: ITensor, name=None) -> ITensor:
+def trt_shape(
+    network: INetworkDefinition, input: ITensor, name=None
+) -> ITensor:
     """
     Add a IShapeLayer to get the shape of `input` ITensor.
     This includes a workaround that casting the shape result(int64) from TRT10 back to int32.
@@ -267,7 +271,9 @@ def trt_shape(network: INetworkDefinition, input: ITensor, name=None) -> ITensor
         # workaround
         if name is not None:
             name = [name[0], "trt_cast"]
-        return trt_cast(network, shape_layer.get_output(0), trt.int32, name=name)
+        return trt_cast(
+            network, shape_layer.get_output(0), trt.int32, name=name
+        )
     return shape_layer.get_output(0)
 
 
@@ -352,7 +358,7 @@ def trt_equal(network, a, b):
 
 def trt_gather(network, input, indices, axis=0, name=None):
     if name is not None:
-        name=[name[0], "indices_tensor"]
+        name = [name[0], "indices_tensor"]
     indices_tensor = add_1D_constant_layer(network, indices, name=name)
     gather_layer = network.add_gather(input, indices_tensor, axis)
     set_layer_name(gather_layer, name)

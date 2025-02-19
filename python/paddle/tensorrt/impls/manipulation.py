@@ -56,13 +56,17 @@ def reshape_converter(network, paddle_op, inputs):
         is_constant_shape = True
     elif isinstance(inputs[1], list):
         # shape tensor is a list value
-        shape_tensor = trt_concat(network, inputs[1], name=[paddle_op.name(), "shape_tensor"])
+        shape_tensor = trt_concat(
+            network, inputs[1], name=[paddle_op.name(), "shape_tensor"]
+        )
     else:
         # shape tensor is a value
         shape_tensor = inputs[1]
 
     if not is_constant_shape:
-        shape_tensor = resize_to_1d(network, shape_tensor, name=[paddle_op.name(), "shape_tensor"])
+        shape_tensor = resize_to_1d(
+            network, shape_tensor, name=[paddle_op.name(), "shape_tensor"]
+        )
 
     layer = network.add_shuffle(x)
     if is_constant_shape:
@@ -248,12 +252,21 @@ def unsqueeze_converter(network, paddle_op, inputs):
         gather_indices.append(in_rank_i)
         in_rank_i += 1
 
-    shape_tensor = trt_shape(network, x, name=[paddle_op.name(), "shape_tensor"])
+    shape_tensor = trt_shape(
+        network, x, name=[paddle_op.name(), "shape_tensor"]
+    )
     all_one = [1] * len(axes)
-    all_one_tensor = add_1D_constant_layer(network, all_one, name=[paddle_op.name(), "all_one_tensor"])
+    all_one_tensor = add_1D_constant_layer(
+        network, all_one, name=[paddle_op.name(), "all_one_tensor"]
+    )
     concat_inputs = [shape_tensor, all_one_tensor]
     real_shape_tensor = trt_gather(
-        network, trt_concat(network, concat_inputs, name=[paddle_op.name(), "trt_concat"]), gather_indices, name=[paddle_op.name(), "real_shape_tensor"]
+        network,
+        trt_concat(
+            network, concat_inputs, name=[paddle_op.name(), "trt_concat"]
+        ),
+        gather_indices,
+        name=[paddle_op.name(), "real_shape_tensor"],
     )
     layer = network.add_shuffle(x)
     layer.set_input(1, real_shape_tensor)
@@ -310,8 +323,15 @@ def squeeze_converter(network, paddle_op, inputs):
     ]
 
     # Add Shuffle layer
-    shape_tensor = trt_shape(network, input_val, name=[paddle_op.name(), 'shape_tensor'])
-    real_shape_tensor = trt_gather(network, shape_tensor, gather_indices, name=[paddle_op.name(), 'real_shape_tensor'])
+    shape_tensor = trt_shape(
+        network, input_val, name=[paddle_op.name(), 'shape_tensor']
+    )
+    real_shape_tensor = trt_gather(
+        network,
+        shape_tensor,
+        gather_indices,
+        name=[paddle_op.name(), 'real_shape_tensor'],
+    )
     layer = network.add_shuffle(input_val)
     layer.set_input(1, real_shape_tensor)
     set_layer_name(layer, paddle_op)

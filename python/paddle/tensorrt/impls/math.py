@@ -57,13 +57,22 @@ def scale_converter(network, paddle_op, inputs):
     is_int = x.dtype == trt.DataType.INT32
     if is_int:
         bias_tensor = add_1D_constant_layer(
-            network, int(bias + 0.5) if bias > 0 else int(bias - 0.5), name=[paddle_op.name(), "bias_tensor"]
+            network,
+            int(bias + 0.5) if bias > 0 else int(bias - 0.5),
+            name=[paddle_op.name(), "bias_tensor"],
         )
     else:
-        bias_tensor = add_1D_constant_layer(network, bias, dtype=np.float32, name=[paddle_op.name(), "bias_tensor"])
+        bias_tensor = add_1D_constant_layer(
+            network,
+            bias,
+            dtype=np.float32,
+            name=[paddle_op.name(), "bias_tensor"],
+        )
     is_bias_0 = bias == 0
     bias_shapes = [1] * len(x.shape)
-    bias_shapes_tensor = add_1D_constant_layer(network, bias_shapes, name=[paddle_op.name(), "bias_shapes_tensor"])
+    bias_shapes_tensor = add_1D_constant_layer(
+        network, bias_shapes, name=[paddle_op.name(), "bias_shapes_tensor"]
+    )
     reshape_layer_bias = network.add_shuffle(bias_tensor)
     reshape_layer_bias.set_input(1, bias_shapes_tensor)
     set_layer_name(reshape_layer_bias, paddle_op)
@@ -74,11 +83,16 @@ def scale_converter(network, paddle_op, inputs):
         has_scale_tensor = False
         if is_int:
             scale_tensor = add_1D_constant_layer(
-                network, int(scale + 0.5 if scale > 0 else scale - 0.5), name=[paddle_op.name(), "scale_tensor"]
+                network,
+                int(scale + 0.5 if scale > 0 else scale - 0.5),
+                name=[paddle_op.name(), "scale_tensor"],
             )
         else:
             scale_tensor = add_1D_constant_layer(
-                network, scale, dtype=np.float32, name=[paddle_op.name(), "scale_tensor"]
+                network,
+                scale,
+                dtype=np.float32,
+                name=[paddle_op.name(), "scale_tensor"],
             )
         is_scale_1 = scale == 1
     else:
@@ -86,7 +100,9 @@ def scale_converter(network, paddle_op, inputs):
         scale_tensor = inputs[1]
         is_scale_1 = False
     scale_shapes = [1] * len(x.shape)
-    scale_shapes_tensor = add_1D_constant_layer(network, scale_shapes, name=[paddle_op.name(), "scale_shapes_tensor"])
+    scale_shapes_tensor = add_1D_constant_layer(
+        network, scale_shapes, name=[paddle_op.name(), "scale_shapes_tensor"]
+    )
     reshape_layer_scale = network.add_shuffle(scale_tensor)
     reshape_layer_scale.set_input(1, scale_shapes_tensor)
     set_layer_name(reshape_layer_scale, paddle_op)
