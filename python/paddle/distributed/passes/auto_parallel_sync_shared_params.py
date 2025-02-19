@@ -15,11 +15,9 @@
 
 import paddle
 import paddle.distributed as dist
-from paddle.base.framework import auto_complete_op_role
 from paddle.distributed.auto_parallel.static.process_group import (
     new_process_group,
 )
-from paddle.distributed.fleet.meta_optimizers.common import OpRole
 from paddle.static.pir_io import get_pir_parameters
 
 from .pass_base import PassBase, register_pass
@@ -222,6 +220,8 @@ class AutoParallelSyncSharedParamsPass(PassBase):
         print("xxx apply single impl stage src")
         for param_mess in self.params_maybe_shared:
             param_name = param_mess['param_name']
+            src_mesh_ids = param_mess['src_mesh'].process_ids
+            dst_mesh_ids = param_mess['dst_mesh'].process_ids
             param_in_main = self._get_parameter_value_by_name_in_main_prog(
                 main_program, param_name
             )
@@ -246,43 +246,43 @@ class AutoParallelSyncSharedParamsPass(PassBase):
             if send_op is None or recv_op is None or sum_op is None:
                 return
 
-            # broadcast + set_parameter
-            # op -> set_parameter("para")
-            # op -> broadcast -> set_parameter("shared_para")
-            param_in_startup = (
-                self._get_parameter_value_by_name_in_startup_prog(
-                    startup_program, param_name
-                )
-            )
-            param_op = param_in_startup.get_defining_op()
-            paddle.pir.set_insertion_point_after(param_op)
-            src_mesh_ids = param_mess['src_mesh'].process_ids
-            dst_mesh_ids = param_mess['dst_mesh'].process_ids
-
-            src_rank = paddle.distributed.get_rank()
-            idx = src_mesh_ids.index(src_rank)
-            dst_rank = dst_mesh_ids[idx]
-
-            # bc_group = new_process_group(sorted(src_mesh_ids + dst_mesh_ids))
-            # bc_value = paddle._C_ops.broadcast(
-            #     op.operand_source(0), bc_group.id, 0
+            # # broadcast + set_parameter
+            # # op -> set_parameter("para")
+            # # op -> broadcast -> set_parameter("shared_para")
+            # param_in_startup = (
+            #     self._get_parameter_value_by_name_in_startup_prog(
+            #         startup_program, param_name
+            #     )
             # )
-            # paddle._pir_ops.set_parameter(
-            #     bc_value, "shared_" + var_name
+            # param_op = param_in_startup.get_defining_op()
+            # paddle.pir.set_insertion_point_after(param_op)
+            # src_mesh_ids = param_mess['src_mesh'].process_ids
+            # dst_mesh_ids = param_mess['dst_mesh'].process_ids
+
+            # src_rank = paddle.distributed.get_rank()
+            # idx = src_mesh_ids.index(src_rank)
+            # dst_rank = dst_mesh_ids[idx]
+
+            # # bc_group = new_process_group(sorted(src_mesh_ids + dst_mesh_ids))
+            # # bc_value = paddle._C_ops.broadcast(
+            # #     op.operand_source(0), bc_group.id, 0
+            # # )
+            # # paddle._pir_ops.set_parameter(
+            # #     bc_value, "shared_" + var_name
+            # # )
+
+            # comm_group = new_process_group(
+            #     [src_rank, dst_rank], group_type="p2p"
+            # )
+            # paddle._C_ops.send_v2(
+            #     param_in_startup,
+            #     comm_group.id,
+            #     comm_group.ranks.index(dst_rank),
+            #     True,
+            #     False,
             # )
 
-            comm_group = new_process_group(
-                [src_rank, dst_rank], group_type="p2p"
-            )
-            paddle._C_ops.send_v2(
-                param_in_startup,
-                comm_group.id,
-                comm_group.ranks.index(dst_rank),
-                True,
-                False,
-            )
-
-            main_program.set_parameters_from(startup_program)
+            # main_program.set_parameters_from(startup_program)
 
             # all_reduce
             # param -> grad  \
@@ -298,8 +298,7 @@ class AutoParallelSyncSharedParamsPass(PassBase):
             )
             allreduce_op = allreduce_val.get_defining_op()
             allreduce_op.op_role = grad_op.op_role
-            allreduce_op.chunk_id = grad_op.chunk_id
-            allreduce_val.update_dist_attr(param_mess['dst_dist_attr'])
+            allreduce_val.update_dist_attr(param_mess['src_dist_attr'])
 
             sum_op.result(0).replace_all_uses_with(allreduce_val)
 
@@ -318,38 +317,6 @@ class AutoParallelSyncSharedParamsPass(PassBase):
         # print("xxx main_program : ", main_program)
         return
 
-    def _is_forward_recv_backward_send_dst(
-        self, main_program, recv_op, src_mesh
-    ):
-        assert recv_op.name() == "pd_op.recv_v2"
-        if (
-            recv_op.has_attr("peer")
-            or recv_op.attr("peer") not in src_mesh.process_ids
-            or recv_op.op_role != 0
-        ):
-            return False
-
-        peer = recv_op.has_attr("peer")
-        send_op = None
-
-        def is_send_dfs(op):
-            if op.name() == "pd_op.send_v2":
-                if (
-                    op.has_attr("peer")
-                    and op.attr("peer") == peer
-                    and op.op_role == 1
-                ):
-                    send_op = op
-                    return True
-            for res in op.results():
-                for user in res.all_used_ops():
-                    if is_send_dfs(user):
-                        return True
-            return False
-
-        is_send_dfs(recv_op)
-        return send_op
-
     def _find_new_param(self, param_name):
         # print("xxx find_new_param: ", param_name)
         for param_mess in self.params_maybe_shared:
@@ -359,102 +326,126 @@ class AutoParallelSyncSharedParamsPass(PassBase):
                     print("xxx error")
                 return param_mess['new_param']
 
-    def _find_parameter_insert_pos(self, main_program):
-        pos = None
-        for block in main_program.blocks:
-            for op in block.ops:
-                if op.name() == "builtin.parameter":
-                    pos = op
-                elif pos is None:
-                    continue
-                else:
-                    return pos
+    # def _find_parameter_insert_pos(self, main_program):
+    #     pos = None
+    #     for block in main_program.blocks:
+    #         for op in block.ops:
+    #             if op.name() == "builtin.parameter":
+    #                 pos = op
+    #             elif pos is None:
+    #                 continue
+    #             else:
+    #                 return pos
 
     def _apply_single_impl_stage_dst(self, main_program, startup_program):
         print("xxx apply single impl stage dst ")
         # print("xxx self.xuexixi: ", self.xuexixi)
 
         # broadcast/recv + set_parameter
+        src_mesh_ids = self.params_maybe_shared[0]['src_mesh'].process_ids
+        dst_mesh_ids = self.params_maybe_shared[0]['dst_mesh'].process_ids
         for param_mess in self.params_maybe_shared:
             # param = param_mess['param']
+            param_name = param_mess['param_name']
             src_mesh_ids = param_mess['src_mesh'].process_ids
             dst_mesh_ids = param_mess['dst_mesh'].process_ids
             shape = param_mess['shape']
             dtype = param_mess['dtype']
             print("xxx add param_mess: ", param_mess)
-            # broadcast + set_parameter
-            # op -> set_parameter("para")
-            # op -> broadcast -> set_parameter("shared_para")
-            print("xxx add bc")
-            param_name = param_mess['param_name']
-            print("xxx param_name: ", param_name)
 
-            paddle.pir.set_insertion_point_after(
-                startup_program.global_block().ops[0]
-            )
-            dst_rank = paddle.distributed.get_rank()
-            index = dst_mesh_ids.index(dst_rank)
-            src_rank = src_mesh_ids[index]
-
-            comm_group = new_process_group(
-                [src_rank, dst_rank], group_type="p2p"
-            )
-            recv_value = paddle._C_ops.recv_v2(
-                shape,
-                dtype,
-                comm_group.ranks.index(src_rank),
-                comm_group.id,
-                True,
-                False,
-            )
-            recv_value.update_dist_attr(param_mess['new_src_dist_attr'])
-            recv_op = recv_value.get_defining_op()
-            print(type(param_mess['dst_mesh']))
-            print(type(param_mess['new_src_dist_attr']))
-            recv_op.dist_attr = (
-                paddle.base.libpaddle.pir.create_op_dist_attribute(
-                    param_mess['dst_mesh'],
-                    [],
-                    [param_mess['new_src_dist_attr']],
-                    -1,
+            # create parameter
+            # hack full 0
+            with paddle.static.program_guard(main_program, startup_program):
+                shared_param = paddle.pir.core.create_parameter(
+                    dtype=param_mess['dtype'],
+                    shape=param_mess['shape'],
+                    name="shared_" + param_name,
+                    process_mesh=param_mess['dst_mesh'],
+                    placements=param_mess['src_dist_attr'].placements,
+                    initializer=paddle.nn.initializer.Constant(value=0),
                 )
-            )
-
-            print("xxx recv_v2 : ", recv_op)
-
-            paddle._pir_ops.set_parameter(recv_value, "shared_" + param_name)
             main_program.set_parameters_from(startup_program)
+
+            # # broadcast + set_parameter
+            # # op -> set_parameter("para")
+            # # op -> broadcast -> set_parameter("shared_para")
+            # print("xxx add bc")
+            # param_name = param_mess['param_name']
+            # print("xxx param_name: ", param_name)
+
+            # paddle.pir.set_insertion_point_after(
+            #     startup_program.global_block().ops[0]
+            # )
+            # dst_rank = paddle.distributed.get_rank()
+            # index = dst_mesh_ids.index(dst_rank)
+            # src_rank = src_mesh_ids[index]
+
+            # comm_group = new_process_group(
+            #     [src_rank, dst_rank], group_type="p2p"
+            # )
+            # recv_value = paddle._C_ops.recv_v2(
+            #     shape,
+            #     dtype,
+            #     comm_group.ranks.index(src_rank),
+            #     comm_group.id,
+            #     True,
+            #     False,
+            # )
+            # recv_value.update_dist_attr(param_mess['new_src_dist_attr'])
+            # recv_op = recv_value.get_defining_op()
+            # print(type(param_mess['dst_mesh']))
+            # print(type(param_mess['new_src_dist_attr']))
+            # recv_op.dist_attr = (
+            #     paddle.base.libpaddle.pir.create_op_dist_attribute(
+            #         param_mess['dst_mesh'],
+            #         [],
+            #         [param_mess['new_src_dist_attr']],
+            #         -1,
+            #     )
+            # )
+
+            # print("xxx recv_v2 : ", recv_op)
+
+            # paddle._pir_ops.set_parameter(recv_value, "shared_" + param_name)
+            # main_program.set_parameters_from(startup_program)
 
             # print("xxx startup_program: ", startup_program)
 
             # builtin.parameter in main_program
-            insert_op = self._find_parameter_insert_pos(main_program)
-            paddle.pir.set_insertion_point_after(insert_op)
-            new_param = paddle._pir_ops.parameter("shared_" + param_name)
+            # insert_op = self._find_parameter_insert_pos(main_program)
+            # paddle.pir.set_insertion_point_after(insert_op)
+            # new_param = paddle._pir_ops.parameter("shared_" + param_name)
 
-            base_param = insert_op.result(0)
+            # base_param = insert_op.result(0)
 
-            new_param.is_distributed = base_param.is_distributed
-            new_param.is_parameter = base_param.is_parameter
-            new_param.need_clip = base_param.need_clip
-            new_param.persistable = base_param.persistable
-            new_param.trainable = base_param.trainable
+            # new_param.is_distributed = base_param.is_distributed
+            # new_param.is_parameter = base_param.is_parameter
+            # new_param.need_clip = base_param.need_clip
+            # new_param.persistable = base_param.persistable
+            # new_param.trainable = base_param.trainable
 
-            new_param.update_dist_attr(param_mess['new_src_dist_attr'])
+            # new_param.update_dist_attr(param_mess['new_src_dist_attr'])
 
+            # new_param_op = new_param.get_defining_op()
+            # new_param_op.op_role = 0
+            # new_param_op.dist_attr = (
+            #     paddle.base.libpaddle.pir.create_op_dist_attribute(
+            #         param_mess['dst_mesh'],
+            #         [],
+            #         [param_mess['new_src_dist_attr']],
+            #         -1,
+            #     )
+            # )
+
+            new_param = self._get_parameter_value_by_name_in_main_prog(
+                main_program, "shared_" + param_name
+            )
             new_param_op = new_param.get_defining_op()
             new_param_op.op_role = 0
-            new_param_op.dist_attr = (
-                paddle.base.libpaddle.pir.create_op_dist_attribute(
-                    param_mess['dst_mesh'],
-                    [],
-                    [param_mess['new_src_dist_attr']],
-                    -1,
-                )
-            )
+
             param_mess["new_param"] = new_param
-            print("xxx new_param: ", new_param)
-            print("xxx new_param_op: ", new_param_op)
+            # print("xxx new_param: ", new_param)
+            # print("xxx new_param_op: ", new_param_op)
 
         # print("xxx main_program : ", main_program)
 
@@ -503,7 +494,6 @@ class AutoParallelSyncSharedParamsPass(PassBase):
                 if send_op.name() == "pd_op.send_v2":
                     # print("xxx send_v2 op: ", send_op)
                     operand = send_op.operand_source(0)
-                    ring_id = send_op.attrs()["ring_id"]
                     define_op = operand.get_defining_op()
                     if not define_op.has_attr("shared_parameter_name"):
                         # print("xxx send_v2 son have no shared_parameter_name")
@@ -521,6 +511,10 @@ class AutoParallelSyncSharedParamsPass(PassBase):
                     new_src_dist_attr = tmp_param_mess['new_src_dist_attr']
                     dst_dist_attr = tmp_param_mess['dst_dist_attr']
 
+                    # print("xxx share_data tmp_param_mess['dst_mesh']: ",tmp_param_mess['dst_mesh'] )
+                    # print("xxx share_data dst_dist_attr: ",dst_dist_attr )
+                    # print("xxx share_data new_src_dist_attr: ",new_src_dist_attr )
+
                     share_data_op.dist_attr = (
                         paddle.base.libpaddle.pir.create_op_dist_attribute(
                             tmp_param_mess['dst_mesh'],
@@ -533,15 +527,18 @@ class AutoParallelSyncSharedParamsPass(PassBase):
 
                     print("xxx share_data_op: ", share_data_op)
 
+                    # hack use all mesh group? or user send&recv group?
+                    ar_group = new_process_group(
+                        sorted(src_mesh_ids + dst_mesh_ids)
+                    )
                     allreduce_value = paddle._C_ops.all_reduce(
                         share_data_value,
-                        ring_id,
+                        ar_group.id,
                         dist.ReduceOp.SUM,
                     )
                     allreduce_op = allreduce_value.get_defining_op()
                     allreduce_op.op_role = send_op.op_role
-                    allreduce_op.chunk_id = send_op.chunk_id
-                    print("xxx allreduce_op: ", allreduce_op)
+                    # print("xxx allreduce_op: ", allreduce_op)
                     # allreduce_value.update_dist_attr(param_mess['dst_dist_attr'])
 
                     # set new_param_grad
@@ -564,19 +561,31 @@ class AutoParallelSyncSharedParamsPass(PassBase):
             new_params_grads = [
                 (p1, p2) for p1, p2 in zip([new_param], [new_param_grad])
             ]
-            print("xxx new_param: ", type(new_param), new_param)
-            print("xxx new_param_grad: ", type(new_param_grad), new_param_grad)
-            with auto_complete_op_role(main_program, OpRole.Optimize):
-                with paddle.static.program_guard(main_program, startup_program):
-                    self.optimizer._apply_optimize(
-                        self.loss,
-                        startup_program,
-                        params_grads=new_params_grads,
-                    )
+            print("xxx optimize")
+            # with auto_complete_op_role(main_program, OpRole.Optimize):
+            #     with paddle.static.program_guard(main_program, startup_program):
+            #         self.optimizer._apply_optimize(
+            #             self.loss,
+            #             None,
+            #             params_grads=new_params_grads,
+            #         )
+            # hack learning rate
+            # new_adam_op = None
+            # old_adam_op = None
+            # for block in main_program.blocks:
+            #     for op in block.ops:
+            #         if op.name() == 'pd_op.adamw_':
+            #             new_adam_op = op
+            #             if old_adam_op is None:
+            #                 old_adam_op = op
+
+            # assert new_adam_op is not None
+            # assert old_adam_op is not None
+            # new_adam_op.operand(2).set_source(old_adam_op.operand_source(2))
             print("xxx 1234")
 
-        # print("xxx startup_program : ", startup_program)
-        # print("xxx main_program : ", main_program)
+        print("xxx mid startup_program : ", startup_program)
+        print("xxx mid main_program : ", main_program)
 
     def _apply_single_impl(self, main_program, startup_program, context):
         if len(self.params_maybe_shared) == 0:
