@@ -1016,6 +1016,14 @@ LoopAxisMapping CreateLoopMappingForSlice(pir::Operation* op) {
   auto decrease_axis_set = ToUnorderedSet(decrease_axis);
   auto input_shape = GetValueAllDims(op->operand_source(0));
   for (int i = axes.size() - 1; i >= 0; --i) {
+    auto start = starts[i] < 0 ? starts[i] + input_shape.size() : starts[i];
+    auto end = ends[i] < 0 ? ends[i] + input_shape.size() : ends[i];
+    end = end > input_shape.size() ? input_shape.size() : end;
+    if (start > 0) {
+      // TODO(huangjiyi): Support slice axis start > 0.
+      result.input2loop[0].push_back(UnsupportedTransform::InstancePtr());
+      break;
+    }
     int64_t slice_size = ends[i] - starts[i];
     if (!decrease_axis_set.count(axes[i]) && slice_size != 1) {
       // TODO(huangjiyi): Support slice size greater than 1.
