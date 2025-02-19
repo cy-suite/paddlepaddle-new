@@ -28,7 +28,7 @@
 #include "paddle/pir/include/pass/pass_manager.h"
 
 #include "paddle/ap/include/memory/guard.h"
-#include "paddle/ap/include/paddle/pass/ap_lower_fusion_op_pass.h"
+#include "paddle/ap/include/paddle/pass/ap_generic_drr_pass.h"
 #include "paddle/cinn/hlir/dialect/operator/ir/manual_op.h"
 #include "paddle/cinn/hlir/dialect/operator/ir/op_dialect.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/accuracy_check_pass.h"
@@ -228,24 +228,23 @@ void ApplyCinnLowerPass(
   }
   if (FLAGS_enable_ap) {
     ap::memory::Guard guard{};
-    if (auto pass =
-            CreateApLowerFusionOpClassicDrrPass(guard.circlable_ref_list())) {
+    if (auto pass = CreateApGenericClassicDrrPass(guard.circlable_ref_list())) {
       pass_manager->AddPass(std::move(pass.value()));
       pass_manager->AddPass(pir::CreateDeadCodeEliminationPass());
-      pir::IrPrinter(LOG(ERROR) << "before ApLowerFusionOpClassicDrrPass:\n")
+      pir::IrPrinter(LOG(ERROR) << "before ApGenericClassicDrrPass:\n")
           .PrintProgram(program);
       pass_manager->Run(program);
-      pir::IrPrinter(LOG(ERROR) << "after ApLowerFusionOpClassicDrrPass:\n")
+      pir::IrPrinter(LOG(ERROR) << "after ApGenericClassicDrrPass:\n")
           .PrintProgram(program);
     }
     if (auto pass =
-            CreateApLowerFusionOpAbstractDrrPass(guard.circlable_ref_list())) {
+            CreateApGenericAbstractDrrPass(guard.circlable_ref_list())) {
       pass_manager->AddPass(std::move(pass.value()));
       pass_manager->AddPass(pir::CreateDeadCodeEliminationPass());
-      pir::IrPrinter(LOG(ERROR) << "before ApLowerFusionOpAbstractDrrPass:\n")
+      pir::IrPrinter(LOG(ERROR) << "before ApGenericAbstractDrrPass:\n")
           .PrintProgram(program);
       pass_manager->Run(program);
-      pir::IrPrinter(LOG(ERROR) << "after ApLowerFusionOpAbstractDrrPass:\n")
+      pir::IrPrinter(LOG(ERROR) << "after ApGenericAbstractDrrPass:\n")
           .PrintProgram(program);
       pass_manager = CreatePassManager();
       pass_manager->AddPass(cinn::dialect::ir::CreateFusionFallbackPass());

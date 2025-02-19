@@ -34,10 +34,9 @@ namespace cinn {
 namespace dialect {
 namespace ir {
 
-std::optional<std::unique_ptr<::pir::Pass>>
-CreateApLowerFusionOpAbstractDrrPass(
+std::optional<std::unique_ptr<::pir::Pass>> CreateApGenericAbstractDrrPass(
     const std::weak_ptr<ap::memory::CirclableRefListBase>& circlable_ref_list);
-std::optional<std::unique_ptr<::pir::Pass>> CreateApLowerFusionOpClassicDrrPass(
+std::optional<std::unique_ptr<::pir::Pass>> CreateApGenericClassicDrrPass(
     const std::weak_ptr<ap::memory::CirclableRefListBase>& circlable_ref_list);
 
 std::optional<std::unique_ptr<::pir::Pass>> CreateAccessTopoDrrPass(

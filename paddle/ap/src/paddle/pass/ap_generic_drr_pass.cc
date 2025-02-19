@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/ap/include/paddle/pass/ap_lower_fusion_op_pass.h"
+#include "paddle/ap/include/paddle/pass/ap_generic_drr_pass.h"
 #include "paddle/ap/include/memory/circlable_ref_list_base.h"
 
 #include "paddle/ap/include/adt/topo_walker.h"
@@ -223,7 +223,7 @@ class NaiveDrrCtxProvider : public DrrCtxProvider {
   }
 };
 
-struct ApLowerFusionOpPatternCtx {
+struct ApGenericDrrPatternCtx {
   std::shared_ptr<DrrCtxProvider> drr_ctx_provider_;
   DrrCtx drr_ctx;
   std::vector<DrrIrValue> res_ptn_outputs;
@@ -236,7 +236,7 @@ struct ApLowerFusionOpPatternCtx {
     return drr_ctx_provider_;
   }
 
-  static adt::Result<ApLowerFusionOpPatternCtx> MakeFromDrrCtx(
+  static adt::Result<ApGenericDrrPatternCtx> MakeFromDrrCtx(
       const DrrCtx& drr_ctx,
       std::optional<int64_t> steps_limit,
       const std::shared_ptr<DrrCtxProvider>& drr_ctx_provider) {
@@ -253,13 +253,13 @@ struct ApLowerFusionOpPatternCtx {
     }
     ADT_LET_CONST_REF(anchor_op_name,
                       GetAnchorOpName(opt_native_op_anchor, default_anchor));
-    return ApLowerFusionOpPatternCtx{drr_ctx_provider,
-                                     drr_ctx,
-                                     res_ptn_outputs,
-                                     default_anchor,
-                                     opt_native_op_anchor,
-                                     anchor_op_name,
-                                     steps_limit};
+    return ApGenericDrrPatternCtx{drr_ctx_provider,
+                                  drr_ctx,
+                                  res_ptn_outputs,
+                                  default_anchor,
+                                  opt_native_op_anchor,
+                                  anchor_op_name,
+                                  steps_limit};
   }
 
   static adt::Result<std::string> GetAnchorOpName(
@@ -289,12 +289,12 @@ struct ApLowerFusionOpPatternCtx {
 };
 
 struct ApRewriter {
-  ApLowerFusionOpPatternCtx ctx_;
+  ApGenericDrrPatternCtx ctx_;
   adt::Result<std::optional<GraphMatchCtx>> (*Match_)(const DrrCtx&,
                                                       pir::Operation* op);
   mutable ApDrrHelper ap_drr_helper_;
 
-  ApRewriter(const ApLowerFusionOpPatternCtx& ctx,
+  ApRewriter(const ApGenericDrrPatternCtx& ctx,
              adt::Result<std::optional<GraphMatchCtx>> (*Match)(
                  const DrrCtx&, pir::Operation* op))
       : ctx_(ctx),
@@ -1644,15 +1644,15 @@ struct ConstraintApplier {
   }
 };
 
-struct NativeOpAnchorApLowerFusionOpPatternMatcher {
-  const ApLowerFusionOpPatternCtx& ctx_;
+struct NativeOpAnchorApGenericDrrPatternMatcher {
+  const ApGenericDrrPatternCtx& ctx_;
 
-  using Self = NativeOpAnchorApLowerFusionOpPatternMatcher;
+  using Self = NativeOpAnchorApGenericDrrPatternMatcher;
 
   static adt::Result<std::optional<GraphMatchCtx>> Match(const DrrCtx& drr_ctx,
                                                          pir::Operation* op) {
     ADT_LET_CONST_REF(pattern_ctx,
-                      ApLowerFusionOpPatternCtx::MakeFromDrrCtx(
+                      ApGenericDrrPatternCtx::MakeFromDrrCtx(
                           drr_ctx,
                           /*steps_limit=*/std::nullopt,
                           std::make_shared<NaiveDrrCtxProvider>(drr_ctx)));
@@ -2251,20 +2251,19 @@ struct OpEraseHelepr {
   }
 };
 
-class NativeOpAnchorApLowerFusionOpPattern : public pir::RewritePattern {
+class NativeOpAnchorApGenericDrrPattern : public pir::RewritePattern {
  private:
-  ApLowerFusionOpPatternCtx ctx_;
+  ApGenericDrrPatternCtx ctx_;
   ApRewriter ap_rewriter_;
   mutable std::size_t times_;
 
  public:
-  NativeOpAnchorApLowerFusionOpPattern(pir::IrContext* ir_context,
-                                       const ApLowerFusionOpPatternCtx& ctx)
+  NativeOpAnchorApGenericDrrPattern(pir::IrContext* ir_context,
+                                    const ApGenericDrrPatternCtx& ctx)
       : pir::RewritePattern(ctx.anchor_op_name, 1, ir_context, {}),
         ctx_(ctx),
         times_(0),
-        ap_rewriter_(ctx, &NativeOpAnchorApLowerFusionOpPatternMatcher::Match) {
-  }
+        ap_rewriter_(ctx, &NativeOpAnchorApGenericDrrPatternMatcher::Match) {}
 
   bool MatchAndRewrite(
       pir::Operation* op,
@@ -2310,19 +2309,19 @@ class NativeOpAnchorApLowerFusionOpPattern : public pir::RewritePattern {
 
   adt::Result<std::optional<GraphMatchCtx>> GetMatchCtx(
       pir::Operation* op) const {
-    return NativeOpAnchorApLowerFusionOpPatternMatcher{ctx_}.GetMatchCtx(op);
+    return NativeOpAnchorApGenericDrrPatternMatcher{ctx_}.GetMatchCtx(op);
   }
 };
 
-struct DefaultAnchorApLowerFusionOpPatternMatcher {
-  const ApLowerFusionOpPatternCtx& ctx_;
+struct DefaultAnchorApGenericDrrPatternMatcher {
+  const ApGenericDrrPatternCtx& ctx_;
 
-  using Self = DefaultAnchorApLowerFusionOpPatternMatcher;
+  using Self = DefaultAnchorApGenericDrrPatternMatcher;
 
   static adt::Result<std::optional<GraphMatchCtx>> Match(const DrrCtx& drr_ctx,
                                                          pir::Operation* op) {
     ADT_LET_CONST_REF(pattern_ctx,
-                      ApLowerFusionOpPatternCtx::MakeFromDrrCtx(
+                      ApGenericDrrPatternCtx::MakeFromDrrCtx(
                           drr_ctx,
                           /*times_step=*/std::nullopt,
                           std::make_shared<NaiveDrrCtxProvider>(drr_ctx)));
@@ -2386,19 +2385,19 @@ struct DefaultAnchorApLowerFusionOpPatternMatcher {
   }
 };
 
-class DefaultAnchorApLowerFusionOpPattern : public pir::RewritePattern {
+class DefaultAnchorApGenericDrrPattern : public pir::RewritePattern {
  private:
-  ApLowerFusionOpPatternCtx ctx_;
+  ApGenericDrrPatternCtx ctx_;
   mutable std::size_t times_;
   ApRewriter ap_rewriter_;
 
  public:
-  DefaultAnchorApLowerFusionOpPattern(pir::IrContext* ir_context,
-                                      const ApLowerFusionOpPatternCtx& ctx)
+  DefaultAnchorApGenericDrrPattern(pir::IrContext* ir_context,
+                                   const ApGenericDrrPatternCtx& ctx)
       : pir::RewritePattern(ctx.anchor_op_name, 1, ir_context, {}),
         ctx_(ctx),
         times_(0),
-        ap_rewriter_(ctx, &DefaultAnchorApLowerFusionOpPatternMatcher::Match) {}
+        ap_rewriter_(ctx, &DefaultAnchorApGenericDrrPatternMatcher::Match) {}
 
   bool MatchAndRewrite(
       pir::Operation* op,
@@ -2445,17 +2444,17 @@ class DefaultAnchorApLowerFusionOpPattern : public pir::RewritePattern {
 
   adt::Result<std::optional<GraphMatchCtx>> GetMatchCtx(
       pir::Operation* op) const {
-    return DefaultAnchorApLowerFusionOpPatternMatcher{ctx_}.GetMatchCtx(op);
+    return DefaultAnchorApGenericDrrPatternMatcher{ctx_}.GetMatchCtx(op);
   }
 };
 
-class ApLowerFusionOpPass : public pir::PatternRewritePass {
+class ApGenericDrrPass : public pir::PatternRewritePass {
  private:
   std::shared_ptr<DrrCtxProvider> drr_ctx_provider_;
   std::optional<int64_t> steps_limit_;
 
  public:
-  explicit ApLowerFusionOpPass(
+  explicit ApGenericDrrPass(
       const std::shared_ptr<DrrCtxProvider>& drr_ctx_provider,
       const std::string& name,
       std::optional<int64_t> steps_limit)
@@ -2480,13 +2479,13 @@ class ApLowerFusionOpPass : public pir::PatternRewritePass {
                                              pir::IrContext* context) {
     auto AddFusionOpPattern = [&](const auto& drr_ctx) -> adt::Result<adt::Ok> {
       ADT_LET_CONST_REF(pattern_ctx,
-                        ApLowerFusionOpPatternCtx::MakeFromDrrCtx(
+                        ApGenericDrrPatternCtx::MakeFromDrrCtx(
                             drr_ctx, steps_limit_, drr_ctx_provider_));
       if (pattern_ctx.native_op_anchor.has_value()) {
-        ps->Add(std::make_unique<NativeOpAnchorApLowerFusionOpPattern>(
+        ps->Add(std::make_unique<NativeOpAnchorApGenericDrrPattern>(
             context, pattern_ctx));
       } else {
-        ps->Add(std::make_unique<DefaultAnchorApLowerFusionOpPattern>(
+        ps->Add(std::make_unique<DefaultAnchorApGenericDrrPattern>(
             context, pattern_ctx));
       }
       return adt::Ok{};
@@ -3103,8 +3102,7 @@ std::optional<ap::registry::Registry> GetRegistrySingleton() {
 
 }  // namespace
 
-std::optional<std::unique_ptr<::pir::Pass>>
-CreateApLowerFusionOpAbstractDrrPass(
+std::optional<std::unique_ptr<::pir::Pass>> CreateApGenericAbstractDrrPass(
     const std::weak_ptr<ap::memory::CirclableRefListBase>& circlable_ref_list) {
   if (!GetRegistrySingleton().has_value()) {
     return std::nullopt;
@@ -3123,13 +3121,13 @@ CreateApLowerFusionOpAbstractDrrPass(
     return std::nullopt;
   }
   std::unique_ptr<::pir::Pass> pass =
-      std::make_unique<ApLowerFusionOpPass>(drr_ctx_provider,
-                                            /*name=*/"abstract",
-                                            /*steps_limit=*/std::nullopt);
+      std::make_unique<ApGenericDrrPass>(drr_ctx_provider,
+                                         /*name=*/"abstract",
+                                         /*steps_limit=*/std::nullopt);
   return std::move(pass);
 }
 
-std::optional<std::unique_ptr<::pir::Pass>> CreateApLowerFusionOpClassicDrrPass(
+std::optional<std::unique_ptr<::pir::Pass>> CreateApGenericClassicDrrPass(
     const std::weak_ptr<ap::memory::CirclableRefListBase>& circlable_ref_list) {
   if (!GetRegistrySingleton().has_value()) {
     return std::nullopt;
@@ -3148,9 +3146,9 @@ std::optional<std::unique_ptr<::pir::Pass>> CreateApLowerFusionOpClassicDrrPass(
     return std::nullopt;
   }
   std::unique_ptr<::pir::Pass> pass =
-      std::make_unique<ApLowerFusionOpPass>(drr_ctx_provider,
-                                            /*name=*/"classic",
-                                            /*steps_limit=*/std::nullopt);
+      std::make_unique<ApGenericDrrPass>(drr_ctx_provider,
+                                         /*name=*/"classic",
+                                         /*steps_limit=*/std::nullopt);
   return std::move(pass);
 }
 
@@ -3175,9 +3173,9 @@ std::optional<std::unique_ptr<::pir::Pass>> CreateAccessTopoDrrPass(
     return std::nullopt;
   }
   std::unique_ptr<::pir::Pass> pass =
-      std::make_unique<ApLowerFusionOpPass>(drr_ctx_provider,
-                                            /*name=*/"tag_access_topo",
-                                            /*steps_limit=*/steps_limit);
+      std::make_unique<ApGenericDrrPass>(drr_ctx_provider,
+                                         /*name=*/"tag_access_topo",
+                                         /*steps_limit=*/steps_limit);
   return std::move(pass);
 }
 
@@ -3200,9 +3198,9 @@ std::optional<std::unique_ptr<::pir::Pass>> CreateCustomAccessTopoDrrPass(
     return std::nullopt;
   }
   std::unique_ptr<::pir::Pass> pass =
-      std::make_unique<ApLowerFusionOpPass>(drr_ctx_provider,
-                                            /*name=*/"custom_access_topo",
-                                            /*steps_limit=*/steps_limit);
+      std::make_unique<ApGenericDrrPass>(drr_ctx_provider,
+                                         /*name=*/"custom_access_topo",
+                                         /*steps_limit=*/steps_limit);
   return std::move(pass);
 }
 
