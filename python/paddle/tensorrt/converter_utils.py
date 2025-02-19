@@ -842,8 +842,8 @@ def set_layer_name(layer, second_param):
                 sequence_number = output_name
 
             formatted_name = (
-                f"{op_name}"
-                f"({sequence_number})->"
+                f"{sequence_number}_"
+                f"{op_name}->"
                 f"{layer_var_name}"
                 f"({', '.join(input_ids)})"
             )
