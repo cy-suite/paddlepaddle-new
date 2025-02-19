@@ -179,10 +179,11 @@ def add_1D_constant_layer(network, data, dtype=np.int32, is_scalar=False):
 
 
 # Create and add ND constant layer
-def add_constant_layer(network, data, shape, dtype=np.int32):
+def add_constant_layer(network, data, shape, dtype=np.int32, name=None):
     constant_data = np.array(data, dtype=dtype)
     constant_data = np.resize(constant_data, shape)
     constant_layer = network.add_constant(shape, constant_data)
+    set_layer_name(constant_layer, name)
     return constant_layer.get_output(0)
 
 
@@ -305,8 +306,9 @@ def trt_less(network, a, b):
     return layer.get_output(0)
 
 
-def trt_sum(network, a, b):
+def trt_sum(network, a, b, name=None):
     layer = network.add_elementwise(a, b, trt.ElementWiseOperation.SUM)
+    set_layer_name(layer, name)
     return layer.get_output(0)
 
 
@@ -346,13 +348,15 @@ def trt_gather(network, input, indices, axis=0):
     return result
 
 
-def trt_prod(network, a, b):
+def trt_prod(network, a, b, name=None):
     layer = network.add_elementwise(a, b, trt.ElementWiseOperation.PROD)
+    set_layer_name(layer, name)
     return layer.get_output(0)
 
 
-def trt_pow(network, a, b):
+def trt_pow(network, a, b, name=None):
     layer = network.add_elementwise(a, b, trt.ElementWiseOperation.POW)
+    set_layer_name(layer, name)
     return layer.get_output(0)
 
 
@@ -806,7 +810,10 @@ def set_layer_name(layer, second_param):
         layer_var_name = None
         if op_name is not None:
             # Retrieve the name of the variable that refers to the layer
-            for var_name, var_val in inspect.currentframe().f_back.f_locals.items():
+            for (
+                var_name,
+                var_val,
+            ) in inspect.currentframe().f_back.f_locals.items():
                 if var_val is layer:
                     layer_var_name = var_name
                     break

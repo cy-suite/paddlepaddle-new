@@ -87,45 +87,129 @@ def gelu_converter(network, paddle_op, inputs):
     const_shape = [1] * len(input_val.shape)
 
     if approximate:
-        constant_layer_pow = add_constant_layer(network, [3.0], const_shape, np.float32, name=[paddle_op.name(), "constant_layer_pow"])
+        constant_layer_pow = add_constant_layer(
+            network,
+            [3.0],
+            const_shape,
+            np.float32,
+            name=[paddle_op.name(), "constant_layer_pow"],
+        )
         constant_layer_multiply = add_constant_layer(
-            network, [0.044715], const_shape, np.float32, name=[paddle_op.name(), "constant_layer_multiply"]
+            network,
+            [0.044715],
+            const_shape,
+            np.float32,
+            name=[paddle_op.name(),"constant_layer_multiply"],
         )
         constant_layer_sqrt = add_constant_layer(
-            network, [0.7978845608028654], const_shape, np.float32, name=[paddle_op.name(), "constant_layer_sqrt"]
+            network,
+            [0.7978845608028654],
+            const_shape,
+            np.float32,
+            name=[paddle_op.name(), "constant_layer_sqrt"],
         )
-        constant_layer_one = add_constant_layer(network, [1.0], const_shape, np.float32, name=[paddle_op.name(), "constant_layer_one"])
-        constant_layer_half = add_constant_layer(network, [0.5], const_shape, np.float32, name=[paddle_op.name(), "constant_layer_half"])
-
-        layer_pow = trt_pow(network, input_val, constant_layer_pow, name=[paddle_op.name(), "layer_pow"])
-        layer_mul = trt_prod(network, layer_pow, constant_layer_multiply, name=[paddle_op.name(), "layer_mul"])
-        layer_add = trt_sum(network, layer_mul, input_val, name=[paddle_op.name(), "layer_add"])
-        layer_sqrt = trt_prod(network, layer_add, constant_layer_sqrt, name=[paddle_op.name(), "layer_sqrt"])
-
-        layer_tanh = network.add_activation(
-            layer_sqrt, trt.ActivationType.TANH
+        constant_layer_one = add_constant_layer(
+            network,
+            [1.0],
+            const_shape,
+            np.float32,
+            name=[paddle_op.name(), "constant_layer_one"],
         )
+        constant_layer_half = add_constant_layer(
+            network,
+            [0.5],
+            const_shape,
+            np.float32,
+            name=[paddle_op.name(), "constant_layer_half"],
+        )
+
+        layer_pow = trt_pow(
+            network,
+            input_val,
+            constant_layer_pow,
+            name=[paddle_op.name(), "layer_pow"],
+        )
+        layer_mul = trt_prod(
+            network,
+            layer_pow,
+            constant_layer_multiply,
+            name=[paddle_op.name(), "layer_mul"],
+        )
+        layer_add = trt_sum(
+            network, layer_mul, input_val, name=[paddle_op.name(), "layer_add"]
+        )
+        layer_sqrt = trt_prod(
+            network,
+            layer_add,
+            constant_layer_sqrt,
+            name=[paddle_op.name(), "layer_sqrt"],
+        )
+
+        layer_tanh = network.add_activation(layer_sqrt, trt.ActivationType.TANH)
         set_layer_name(layer_tanh, paddle_op)
-        layer_one = trt_sum(network, layer_tanh.get_output(0), constant_layer_one, name=[paddle_op.name(), "layer_one"])
-        layer_cdf = trt_prod(network, layer_one, constant_layer_half, name=[paddle_op.name(), "layer_cdf"])
-        y = trt_prod(network, layer_cdf, input_val, name=[paddle_op.name(), "y"])
+        layer_one = trt_sum(
+            network,
+            layer_tanh.get_output(0),
+            constant_layer_one,
+            name=[paddle_op.name(), "layer_one"],
+        )
+        layer_cdf = trt_prod(
+            network,
+            layer_one,
+            constant_layer_half,
+            name=[paddle_op.name(), "layer_cdf"],
+        )
+        y = trt_prod(
+            network, layer_cdf, input_val, name=[paddle_op.name(), "y"]
+        )
 
         return y
     else:
-        constant_layer_one = add_constant_layer(network, [1.0], const_shape, np.float32, name=[paddle_op.name(), "constant_layer_one"])
-        constant_layer_half = add_constant_layer(network, [0.5], const_shape, np.float32, name=[paddle_op.name(), "constant_layer_half"])
+        constant_layer_one = add_constant_layer(
+            network,
+            [1.0],
+            const_shape,
+            np.float32,
+            name=[paddle_op.name(), "constant_layer_one"],
+        )
+        constant_layer_half = add_constant_layer(
+            network,
+            [0.5],
+            const_shape,
+            np.float32,
+            name=[paddle_op.name(), "constant_layer_half"],
+        )
         constant_layer_rsqrt2 = add_constant_layer(
-            network, [0.70710678118], const_shape, np.float32, name=[paddle_op.name(), "constant_layer_rsqrt2"]
+            network,
+            [0.70710678118],
+            const_shape,
+            np.float32,
+            name=[paddle_op.name(), "constant_layer_rsqrt2"],
         )
 
-        layer_mul = trt_prod(network, input_val, constant_layer_rsqrt2, name=[paddle_op.name(), "layer_mul"])
-        layer_erf = network.add_unary(
-            layer_mul, trt.UnaryOperation.ERF
+        layer_mul = trt_prod(
+            network,
+            input_val,
+            constant_layer_rsqrt2,
+            name=[paddle_op.name(), "layer_mul"],
         )
+        layer_erf = network.add_unary(layer_mul, trt.UnaryOperation.ERF)
         set_layer_name(layer_erf, paddle_op)
-        layer_add = trt_sum(network, layer_erf.get_output(0), constant_layer_one, [paddle_op.name(), "layer_add"])
-        layer_cdf = trt_prod(network, layer_add, constant_layer_half, name=[paddle_op.name(), "layer_cdf"])
-        y = trt_prod(network, layer_cdf, input_val, name=[paddle_op.name(), "y"])
+        layer_add = trt_sum(
+            network,
+            layer_erf.get_output(0),
+            constant_layer_one,
+            name=[paddle_op.name(), "layer_add"],
+        )
+        layer_cdf = trt_prod(
+            network,
+            layer_add,
+            constant_layer_half,
+            name=[paddle_op.name(), "layer_cdf"],
+        )
+        y = trt_prod(
+            network, layer_cdf, input_val, name=[paddle_op.name(), "y"]
+        )
 
         return y
 
