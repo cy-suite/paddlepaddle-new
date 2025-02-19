@@ -265,6 +265,28 @@ using FloorDivideOpPattern =
 using RemainderOpPattern =
     ElementwiseCommonOpPattern<paddle::dialect::RemainderOp>;
 
+class PowOpPattern : public pir::OpRewritePattern<paddle::dialect::PowOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::PowOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::PowOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    pir::Value x = op.operand_source(0);
+    auto x_dtype = pir::GetDataTypeFromValue(x);
+    if (x_dtype.isa<pir::Int32Type>()) {
+      VLOG(3) << "These operations (pow) do not support int32 "
+                 "datatype.";
+      return false;
+    }
+
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 template <typename OpType>
 class ActOpPattern : public pir::OpRewritePattern<OpType> {
  public:
@@ -1992,6 +2014,41 @@ class FullWithTensorPattern
   }
 };
 
+class IndexPutOpPattern
+    : public pir::OpRewritePattern<paddle::dialect::IndexPutOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::IndexPutOp>::OpRewritePattern;
+  bool MatchAndRewrite(paddle::dialect::IndexPutOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    pir::Value value = op.operand_source(2);
+    auto value_shape = pir::GetShapeFromValue(value);
+    int value_num = std::accumulate(
+        value_shape.begin(), value_shape.end(), 1, std::multiplies<int>());
+    if (value_num != 1) {
+      VLOG(3) << " index_put op only support value_num = 1 in tensorrt."
+              << value_num;
+      return false;
+    }
+    pir::Value indices = op.operand_source(1);
+    pir::VectorType vec_type = indices.type().dyn_cast<pir::VectorType>();
+    size_t output_num = vec_type.size();
+    for (size_t j = 0; j < output_num; j++) {
+      auto dtype =
+          vec_type[j].dyn_cast<paddle::dialect::DenseTensorType>().dtype();
+      if (!dtype.isa<pir::BoolType>()) {
+        VLOG(3) << "index_put op only support bool indices in tensorrt.";
+        return false;
+      }
+    }
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
 class TakeAlongAxisOpPattern
     : public pir::OpRewritePattern<paddle::dialect::TakeAlongAxisOp> {
  public:
@@ -2286,6 +2343,42 @@ class OneHotOpPattern
     }
 #endif
 
+    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
+    return true;
+  }
+};
+
+class Pad3dOpPattern : public pir::OpRewritePattern<paddle::dialect::Pad3dOp> {
+ public:
+  using pir::OpRewritePattern<paddle::dialect::Pad3dOp>::OpRewritePattern;
+
+  bool MatchAndRewrite(paddle::dialect::Pad3dOp op,
+                       pir::PatternRewriter &rewriter) const override {
+    if (op->HasAttribute(kCanRunTrtAttr) &&
+        op->attribute<pir::BoolAttribute>(kCanRunTrtAttr).data()) {
+      return false;
+    }
+    pir::Value paddings_tensor = op.operand_source(1);
+    if (!paddings_tensor) {
+      VLOG(3) << "pad3d should have paddings.";
+      return false;
+    }
+    if (op->HasAttribute("mode")) {
+      auto mode = op->attribute<pir::StrAttribute>("mode").AsString();
+      if (mode != "constant" && mode != "reflect" && mode != "replicate") {
+        VLOG(3) << "The pad3d layer of TRT only support "
+                   "constant/reflect/replicate mode.";
+        return false;
+      }
+    }
+    if (op->HasAttribute("data_format")) {
+      auto data_format =
+          op->attribute<pir::StrAttribute>("data_format").AsString();
+      if (data_format != "NCDHW") {
+        VLOG(3) << "The pad3d layer of TRT only support NCDHW data format.";
+        return false;
+      }
+    }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }
@@ -2764,6 +2857,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<ElementwisePowOpPattern>(context));
     ps.Add(std::make_unique<MeanOpPattern>(context));
     ps.Add(std::make_unique<RemainderOpPattern>(context));
+    ps.Add(std::make_unique<PowOpPattern>(context));
     ps.Add(std::make_unique<MulticlassNms3OpPattern>(context));
     ps.Add(std::make_unique<ArgmaxOpPattern>(context));
     ps.Add(std::make_unique<ArgminOpPattern>(context));
@@ -2796,7 +2890,9 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ps.Add(std::make_unique<CeluOpPattern>(context));
     ps.Add(std::make_unique<OneHotOpPattern>(context));
     ps.Add(std::make_unique<TemporalShiftOpPattern>(context));
+    ps.Add(std::make_unique<IndexPutOpPattern>(context));
     ps.Add(std::make_unique<InstanceNormOpPattern>(context));
+    ps.Add(std::make_unique<Pad3dOpPattern>(context));
     ps.Add(std::make_unique<EinsumOpPattern>(context));
     ps.Add(std::make_unique<PNormOpPattern>(context));
     ps.Add(std::make_unique<AffineChannelOpPattern>(context));
