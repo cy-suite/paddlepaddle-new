@@ -99,7 +99,7 @@ def gelu_converter(network, paddle_op, inputs):
             [0.044715],
             const_shape,
             np.float32,
-            name=[paddle_op.name(),"constant_layer_multiply"],
+            name=[paddle_op.name(), "constant_layer_multiply"],
         )
         constant_layer_sqrt = add_constant_layer(
             network,
