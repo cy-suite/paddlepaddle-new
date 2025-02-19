@@ -1066,27 +1066,37 @@ LoopAxisMapping CreateLoopMappingForBroadcast(pir::Operation* op) {
                  ::common::errors::InvalidArgument(
                      "Required broad_cast_value is not empty."));
   const auto& [input_value, output_value] = broad_cast_value.value();
-  const auto& input_shape = GetCompatibleValueAllDims(input_value);
-  const auto& output_shape = GetValueAllDims(output_value);
+  const auto& in_shape = GetCompatibleValueAllDims(input_value);
+  const auto& out_shape = GetCompatibleValueAllDims(output_value);
   std::vector<int64_t> broadcast_axes;
   std::vector<int64_t> input_keepdims;
-  int append_size = output_shape.size() - input_shape.size();
-  for (int i = 0; i < append_size; i++) {
-    broadcast_axes.push_back(i);
-  }
-  for (int i = append_size; i < output_shape.size(); i++) {
-    if (input_shape[i - append_size] == symbol::DimExpr(1) &&
-        output_shape[i] != symbol::DimExpr(1)) {
-      broadcast_axes.push_back(i);
-      input_keepdims.push_back(i - append_size);
+  int i = 0, j = 0;
+  while (i < in_shape.size() && j < out_shape.size()) {
+    if (in_shape[i] == out_shape[j]) {
+      ++i;
+      ++j;
+      continue;
+    } else if (in_shape[i] == symbol::DimExpr(1)) {
+      input_keepdims.push_back(i++);
+      broadcast_axes.push_back(j++);
+    } else {
+      broadcast_axes.push_back(j++);
     }
   }
-  if (!input_keepdims.empty()) {
-    result.input2loop[0].push_back(std::make_shared<DeleteAxisTransform>(
-        input_keepdims, GatherVector(input_shape, input_keepdims)));
+  // each axis in input shape must be 1 or equal to output shape
+  if (i < in_shape.size()) {
+    result.input2loop[0].push_back(UnsupportedTransform::InstancePtr());
+  } else {
+    while (j < out_shape.size()) {
+      broadcast_axes.push_back(j++);
+    }
+    if (!input_keepdims.empty()) {
+      result.input2loop[0].push_back(std::make_shared<DeleteAxisTransform>(
+          input_keepdims, GatherVector(in_shape, input_keepdims)));
+    }
+    result.input2loop[0].push_back(std::make_shared<AppendAxisTransform>(
+        broadcast_axes, GatherVector(out_shape, broadcast_axes)));
   }
-  result.input2loop[0].push_back(std::make_shared<AppendAxisTransform>(
-      broadcast_axes, GatherVector(output_shape, broadcast_axes)));
   result.loop2output[0].push_back(IdentityTransform::InstancePtr());
   result.SetReverseMapping();
   return result;
