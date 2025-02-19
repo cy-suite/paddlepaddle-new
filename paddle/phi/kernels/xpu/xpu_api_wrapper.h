@@ -42,7 +42,7 @@ enum XPUFCCalcType {
   FC_FLOAT16,
 };
 
-using XPUFCCalcTypeMap = std::unordered_map<const char*, XPUFCCalcType>;
+using XPUFCCalcTypeMap = std::vector<std::pair<const char*, XPUFCCalcType>>;
 
 inline XPUFCCalcType GetFCCalcTypeFromEnv(const XPUFCCalcTypeMap& env_map,
                                           XPUFCCalcType default_calc_type) {
@@ -58,15 +58,15 @@ template <typename T>
 inline XPUFCCalcType FCCalcType() {
   // FLOAT32
   XPUFCCalcTypeMap calc_type_map = {
-      {"XPU_PADDLE_FC_TF32", XPUFCCalcType::FC_TF32},
       {"XPU_PADDLE_FC_FLOAT", XPUFCCalcType::FC_FLOAT},
       {"XPU_PADDLE_FC_LOCAL_INT16", XPUFCCalcType::FC_FLOAT},
+      {"XPU_PADDLE_FC_TF32", XPUFCCalcType::FC_TF32},
       {"XPU_PADDLE_FC_INT16", XPUFCCalcType::FC_INT16},
       {"XPU_PADDLE_FC_INT32", XPUFCCalcType::FC_INT32},
       {"XPU_PADDLE_FC_INT32_WITH_LL", XPUFCCalcType::FC_INT32_WITH_LL},
   };
 #ifdef PADDLE_WITH_XPU_XRE5
-  auto default_calc_type = XPUFCCalcType::FC_FLOAT;
+  auto default_calc_type = XPUFCCalcType::FC_TF32;
 #else
   auto default_calc_type = XPUFCCalcType::FC_INT16;
 #endif
