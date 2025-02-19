@@ -23,6 +23,7 @@ from paddle.tensorrt.converter_utils import (
     cast_tensor,
     get_input_constant_value,
     resize_to_1d,
+    set_layer_name,
     trt_cast,
     trt_floor_div,
     trt_max,
@@ -44,6 +45,7 @@ def full_int_array_converter(network, paddle_op, inputs):
         return ()
     value_weight = trt.Weights(np.array(value, dtype=np.int32))
     full_int_array_layer = network.add_constant([len(value)], value_weight)
+    set_layer_name(full_int_array_layer, paddle_op)
     return full_int_array_layer.get_output(0)
 
 
@@ -60,6 +62,7 @@ def full_converter(network, paddle_op, inputs):
     full_layer = network.add_constant(
         shape, np.full(shape, value, dtype=out_dtype)
     )
+    set_layer_name(full_layer, paddle_op)
     return full_layer.get_output(0)
 
 
