@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/ap/include/kernel_dispatch/ap_unary_kernel.h"
+#include "paddle/ap/include/kernel_dispatch/ap_variadic_kernel.h"
 
 #include <cstdlib>
 #include <mutex>
@@ -271,7 +271,7 @@ adt::Result<adt::List<Val>> MakeMutableTensors(
   return ret;
 }
 
-adt::Result<adt::Ok> ApUnaryKernel(
+adt::Result<adt::Ok> ApVariadicKernel(
     const DeviceCtx& device_ctx,
     const std::vector<const phi::DenseTensor*>& xs,
     int num_outputs,

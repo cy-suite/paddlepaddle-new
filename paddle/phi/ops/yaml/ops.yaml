@@ -269,13 +269,13 @@
   traits : paddle::dialect::ForwardOnlyTrait
   interfaces : paddle::dialect::InferSymbolicShapeInterface
 
-- op : ap_unary
+- op : ap_variadic
   args : (Tensor[] xs, int num_outputs, str code_module_lambda, str infer_meta_lambda, str rnel_dispatch_lambda, str kernel_dispatch_const_data_lambda)
   output : Tensor[](out){num_outputs}
   infer_meta :
-    func : ApUnaryInferMeta
+    func : ApVariadicInferMeta
   kernel :
-    func : ap_unary
+    func : ap_variadic
 
 - op : apply_per_channel_scale
   args: (Tensor x, Tensor scales)

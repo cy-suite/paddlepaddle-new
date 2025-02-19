@@ -25,20 +25,20 @@
 #include "paddle/phi/kernels/impl/activation_grad_impl.h"
 #include "paddle/phi/kernels/impl/activation_impl.h"
 
-#include "paddle/ap/include/kernel_dispatch/ap_unary_kernel.h"
+#include "paddle/ap/include/kernel_dispatch/ap_variadic_kernel.h"
 #include "paddle/ap/include/paddle/phi/device_ctx.h"
 
 namespace phi {
 
 template <typename T, typename Context>
-void ApUnaryKernel(const Context& dev_ctx,
-                   const std::vector<const DenseTensor*>& xs,
-                   int num_outputs,
-                   const std::string& code_module_lambda,
-                   const std::string& infer_meta_lambda,
-                   const std::string& kernel_dispatch_lambda,
-                   const std::string& kernel_dispatch_const_data_lambda,
-                   std::vector<DenseTensor*> outs) {
+void ApVariadicKernel(const Context& dev_ctx,
+                      const std::vector<const DenseTensor*>& xs,
+                      int num_outputs,
+                      const std::string& code_module_lambda,
+                      const std::string& infer_meta_lambda,
+                      const std::string& kernel_dispatch_lambda,
+                      const std::string& kernel_dispatch_const_data_lambda,
+                      std::vector<DenseTensor*> outs) {
   PADDLE_ENFORCE_GT(
       xs.size(),
       0,
@@ -58,14 +58,14 @@ void ApUnaryKernel(const Context& dev_ctx,
       std::make_shared<ap::paddle::DeviceCtx<Context>>(&dev_ctx);
   ap::kernel_dispatch::DeviceCtx ap_device_ctx{impl};
   const auto& ret =
-      ap::kernel_dispatch::ApUnaryKernel(ap_device_ctx,
-                                         xs,
-                                         num_outputs,
-                                         code_module_lambda,
-                                         infer_meta_lambda,
-                                         kernel_dispatch_lambda,
-                                         kernel_dispatch_const_data_lambda,
-                                         outs);
+      ap::kernel_dispatch::ApVariadicKernel(ap_device_ctx,
+                                            xs,
+                                            num_outputs,
+                                            code_module_lambda,
+                                            infer_meta_lambda,
+                                            kernel_dispatch_lambda,
+                                            kernel_dispatch_const_data_lambda,
+                                            outs);
   PADDLE_ENFORCE(
       !ret.HasError(),
       "ap_kernel failed. \nTraceback (most recent call last):\n%s\n%s: %s. ",
@@ -77,18 +77,18 @@ void ApUnaryKernel(const Context& dev_ctx,
 }  // namespace phi
 
 #ifdef PADDLE_WITH_HIP
-PD_REGISTER_KERNEL(ap_unary,
+PD_REGISTER_KERNEL(ap_variadic,
                    GPU,
                    ALL_LAYOUT,
-                   phi::ApUnaryKernel,
+                   phi::ApVariadicKernel,
                    float,
                    double,
                    phi::dtype::float16) {}
 #else
-PD_REGISTER_KERNEL(ap_unary,
+PD_REGISTER_KERNEL(ap_variadic,
                    GPU,
                    ALL_LAYOUT,
-                   phi::ApUnaryKernel,
+                   phi::ApVariadicKernel,
                    float,
                    double,
                    phi::dtype::float16,

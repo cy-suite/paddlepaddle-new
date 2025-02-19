@@ -1140,14 +1140,14 @@ struct ApRewriter {
       const std::string& infer_meta_lambda_str,
       const std::string& kernel_dispatch_lambda_str,
       const std::string& kernel_dispatch_const_data_lambda_str) const {
-    auto ap_unary = rewriter->Build<paddle::dialect::ApUnaryOp>(
+    auto ap_variadic = rewriter->Build<paddle::dialect::ApVariadicOp>(
         input,
         num_outputs,
         code_gen_lambda_str,
         infer_meta_lambda_str,
         kernel_dispatch_lambda_str,
         kernel_dispatch_const_data_lambda_str);
-    return ap_unary.out();
+    return ap_variadic.out();
   }
 
   adt::Result<std::vector<pir::Value>> GetPackedOpOutputValues(

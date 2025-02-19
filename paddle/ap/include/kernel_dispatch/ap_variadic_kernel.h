@@ -28,7 +28,7 @@ class DenseTensor;
 
 namespace ap::kernel_dispatch {
 
-adt::Result<adt::Ok> ApUnaryKernel(
+adt::Result<adt::Ok> ApVariadicKernel(
     const DeviceCtx& device_ctx,
     const std::vector<const phi::DenseTensor*>& xs,
     int num_outputs,

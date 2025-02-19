@@ -469,18 +469,18 @@ void AddNInferMeta(const std::vector<const MetaTensor*>& x,
   out->set_dtype(x[0]->dtype());
 }
 
-void ApUnaryInferMeta(const std::vector<const MetaTensor*>& xs,
-                      int num_outputs,
-                      const std::string& code_module_lambda,
-                      const std::string& infer_meta_lambda,
-                      const std::string& kernel_dispatch_lambda,
-                      const std::string& kernel_dispatch_const_data_lambda,
-                      std::vector<MetaTensor*> outs,
-                      MetaConfig config) {
+void ApVariadicInferMeta(const std::vector<const MetaTensor*>& xs,
+                         int num_outputs,
+                         const std::string& code_module_lambda,
+                         const std::string& infer_meta_lambda,
+                         const std::string& kernel_dispatch_lambda,
+                         const std::string& kernel_dispatch_const_data_lambda,
+                         std::vector<MetaTensor*> outs,
+                         MetaConfig config) {
   ApInferMetaHelper helper{};
   const auto& ret = helper.InferMeta(infer_meta_lambda, &xs, &outs);
   PADDLE_ENFORCE(!ret.HasError(),
-                 "ApUnaryInferMeta failed. \nTraceback (most recent call "
+                 "ApVariadicInferMeta failed. \nTraceback (most recent call "
                  "last):\n%s\n%s: %s. ",
                  ret.GetError().CallStackToString(),
                  ret.GetError().class_name(),
