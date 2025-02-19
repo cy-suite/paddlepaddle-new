@@ -52,7 +52,7 @@ class TrtConvertActivationTest(TrtLayerAutoScanTest):
                 "stanh",
                 "thresholded_relu",
                 "celu",
-                # "logsigmoid",
+                "logsigmoid",
                 "tanh_shrink",
                 "softplus",
                 # "hard_swish",

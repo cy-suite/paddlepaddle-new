@@ -122,40 +122,42 @@ class TrtConvertYoloBoxTest(TrtLayerAutoScanTest):
 
             yield program_config
 
+    def generate_dynamic_shape(self, attrs):
+        if attrs[0]['iou_aware']:
+            channel = 3 * (attrs[0]['class_num'] + 6)
+            self.dynamic_shape.min_input_shape = {
+                "yolo_box_input": [1, channel, 12, 12],
+                "imgsize": [1, 2],
+            }
+            self.dynamic_shape.max_input_shape = {
+                "yolo_box_input": [4, channel, 24, 24],
+                "imgsize": [4, 2],
+            }
+            self.dynamic_shape.opt_input_shape = {
+                "yolo_box_input": [1, channel, 24, 24],
+                "imgsize": [1, 2],
+            }
+        else:
+            channel = 3 * (attrs[0]['class_num'] + 5)
+            self.dynamic_shape.min_input_shape = {
+                "yolo_box_input": [1, channel, 12, 12],
+                "imgsize": [1, 2],
+            }
+            self.dynamic_shape.max_input_shape = {
+                "yolo_box_input": [4, channel, 24, 24],
+                "imgsize": [4, 2],
+            }
+            self.dynamic_shape.opt_input_shape = {
+                "yolo_box_input": [1, channel, 24, 24],
+                "imgsize": [1, 2],
+            }
+        return self.dynamic_shape
+
     def sample_predictor_configs(
-        self, program_config
+        self, program_config, run_pir=False
     ) -> Generator[
         Any, Any, tuple[paddle_infer.Config, list[int], float] | None
     ]:
-        def generate_dynamic_shape(attrs):
-            if attrs[0]['iou_aware']:
-                channel = 3 * (attrs[0]['class_num'] + 6)
-                self.dynamic_shape.min_input_shape = {
-                    "yolo_box_input": [1, channel, 12, 12],
-                    "imgsize": [1, 2],
-                }
-                self.dynamic_shape.max_input_shape = {
-                    "yolo_box_input": [4, channel, 24, 24],
-                    "imgsize": [4, 2],
-                }
-                self.dynamic_shape.opt_input_shape = {
-                    "yolo_box_input": [1, channel, 24, 24],
-                    "imgsize": [1, 2],
-                }
-            else:
-                channel = 3 * (attrs[0]['class_num'] + 5)
-                self.dynamic_shape.min_input_shape = {
-                    "yolo_box_input": [1, channel, 12, 12],
-                    "imgsize": [1, 2],
-                }
-                self.dynamic_shape.max_input_shape = {
-                    "yolo_box_input": [4, channel, 24, 24],
-                    "imgsize": [4, 2],
-                }
-                self.dynamic_shape.opt_input_shape = {
-                    "yolo_box_input": [1, channel, 24, 24],
-                    "imgsize": [1, 2],
-                }
 
         def clear_dynamic_shape():
             self.dynamic_shape.min_input_shape = {}
@@ -170,7 +172,7 @@ class TrtConvertYoloBoxTest(TrtLayerAutoScanTest):
         ]
 
         # for dynamic_shape
-        generate_dynamic_shape(attrs)
+        self.generate_dynamic_shape()
         self.trt_param.precision = paddle_infer.PrecisionType.Float32
         yield self.create_inference_config(), generate_trt_nodes_num(
             attrs, True
@@ -194,7 +196,7 @@ class TrtConvertYoloBoxTest(TrtLayerAutoScanTest):
 
     def test(self):
         self.add_skip_trt_case()
-        self.run_test()
+        self.run_test(run_pir=True)
 
 
 if __name__ == "__main__":
