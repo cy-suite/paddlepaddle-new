@@ -37,6 +37,10 @@ from paddle.tensorrt.register import converter_registry
 @converter_registry.register("pd_op.acosh", trt_version="trt_version_ge=8.0")
 @converter_registry.register("pd_op.atanh", trt_version="trt_version_ge=8.0")
 @converter_registry.register("pd_op.ceil", trt_version="trt_version_ge=8.0")
+@converter_registry.register("pd_op.tan", trt_version="trt_version_ge=8.0")
+@converter_registry.register("pd_op.asin", trt_version="trt_version_ge=8.0")
+@converter_registry.register("pd_op.acos", trt_version="trt_version_ge=8.0")
+@converter_registry.register("pd_op.atan", trt_version="trt_version_ge=8.0")
 @converter_registry.register(
     "pd_op.reciprocal", trt_version="trt_version_ge=8.0"
 )
@@ -135,34 +139,42 @@ def YoloBoxOpConverter(network, paddle_op, inputs):
         trt.PluginField(
             "conf_thresh",
             np.array(conf_thresh, dtype=np.float32),
+            trt.PluginFieldType.FLOAT32,
         ),
         trt.PluginField(
             "downsample_ratio",
             np.array(downsample_ratio, dtype=np.int32),
+            trt.PluginFieldType.INT32,
         ),
         trt.PluginField(
             "clip_bbox",
-            np.array(clip_bbox, dtype=np.bool),
+            np.array(clip_bbox, dtype=np.bool_),
+            trt.PluginFieldType.INT32,
         ),
         trt.PluginField(
             "scale_x_y",
             np.array(scale_x_y, dtype=np.float32),
+            trt.PluginFieldType.FLOAT32,
         ),
         trt.PluginField(
             "iou_aware",
-            np.array(iou_aware, dtype=np.bool),
+            np.array(iou_aware, dtype=np.bool_),
+            trt.PluginFieldType.INT32,
         ),
         trt.PluginField(
             "iou_aware_factor",
             np.array(iou_aware_factor, dtype=np.float32),
+            trt.PluginFieldType.FLOAT32,
         ),
         trt.PluginField(
             "h",
             np.array(input_h, dtype=np.int32),
+            trt.PluginFieldType.INT32,
         ),
         trt.PluginField(
             "w",
             np.array(input_w, dtype=np.int32),
+            trt.PluginFieldType.INT32,
         ),
     ]
     plugin_field_collection = trt.PluginFieldCollection(plugin_fields)
