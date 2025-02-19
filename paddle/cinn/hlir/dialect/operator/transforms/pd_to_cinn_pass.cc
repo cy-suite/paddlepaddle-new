@@ -170,38 +170,6 @@ class ReduceMinMaxOpPattern : public pir::OpRewritePattern<SOURCE_OP> {
   }
 };
 
-class VarianceOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::VarianceOp> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::VarianceOp>::OpRewritePattern;
-
-  bool Match(paddle::dialect::VarianceOp op) const override {
-    const bool is_denied = CompatibleInfo::IsDeniedForCinn(*op.operation());
-    return !is_denied;
-  }
-
-  void Rewrite(paddle::dialect::VarianceOp op,
-               pir::PatternRewriter &rewriter) const override {
-    std::vector<int64_t> axis;
-    const auto &attributes = op->attributes();
-    if (attributes.find("axis") != attributes.end()) {
-      axis = op.attribute("axis")
-                 .template dyn_cast<paddle::dialect::IntArrayAttribute>()
-                 .data()
-                 .GetData();
-    }
-    const bool keepdim =
-        op.attribute("keepdim").dyn_cast<::pir::BoolAttribute>().data();
-    const bool reduce_all =
-        op.attribute("reduce_all").dyn_cast<::pir::BoolAttribute>().data();
-
-    auto cinn_reduce = rewriter.Build<cinn::dialect::VarianceOp>(
-        op->operand_source(0), axis, keepdim);
-    rewriter.ReplaceAllUsesWith(op.result(0), cinn_reduce.result(0));
-    rewriter.EraseOp(op);
-  }
-};
-
 class ProdOpPattern : public pir::OpRewritePattern<paddle::dialect::ProdOp> {
  public:
   using pir::OpRewritePattern<paddle::dialect::ProdOp>::OpRewritePattern;
@@ -1360,7 +1328,6 @@ pir::RewritePatternSet PdOpToCinnOpPass::InitializePatterns(
                                cinn::dialect::ReduceMinOp>>(context);
   ps.Add<ReduceMinMaxOpPattern<paddle::dialect::MaxOp,
                                cinn::dialect::ReduceMaxOp>>(context);
-  ps.Add<VarianceOpPattern>(context);
   ps.Add<ProdOpPattern>(context);
   ps.Add<ReshapeOpPattern>(context);
   ps.Add<PowOpPattern>(context);

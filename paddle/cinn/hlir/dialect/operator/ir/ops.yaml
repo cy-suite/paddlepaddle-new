@@ -126,14 +126,3 @@
     func : full_int_array
     param : [shape, dtype]
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-
-- op : variance
-  args : (Tensor x, int64_t[] axis, bool keepdim)
-  output : Tensor(out)
-  infer_meta :
-    func : ReduceInferMeta
-    param : [x, axis, keepdim]
-  kernel :
-    func : frobenius_norm
-    param : [x, axis, keepdim]
-  interfaces : paddle::dialect::InferSymbolicShapeInterface
