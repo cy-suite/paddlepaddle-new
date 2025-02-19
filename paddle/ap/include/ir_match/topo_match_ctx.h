@@ -85,7 +85,7 @@ struct TopoMatchCtxImpl {
 
   adt::Result<adt::Ok> InitBigGraphNodes(const sg_node_t& sg_node,
                                          const std::list<bg_node_t>& val) {
-    VLOG(0) << "InitBigGraphNodes. sg_node: "
+    VLOG(4) << "InitBigGraphNodes. sg_node: "
             << graph::NodeDescriptor<sg_node_t>{}.DebugId(sg_node)
             << ", val:" <<
         [&] {
@@ -125,7 +125,7 @@ struct TopoMatchCtxImpl {
                  "'val'"};
     }
     auto* ptr = &this->sg_node2bg_nodes_[sg_node];
-    VLOG(0) << "UpdateBigGraphNodes: sg_node: "
+    VLOG(4) << "UpdateBigGraphNodes: sg_node: "
             << graph::NodeDescriptor<sg_node_t>{}.DebugId(sg_node)
             << ", old_val:" <<
         [&] {
@@ -135,7 +135,7 @@ struct TopoMatchCtxImpl {
           }
           return ss.str();
         }();
-    VLOG(0) << "UpdateBigGraphNodes: sg_node: "
+    VLOG(4) << "UpdateBigGraphNodes: sg_node: "
             << graph::NodeDescriptor<sg_node_t>{}.DebugId(sg_node)
             << ", arg_val:" <<
         [&] {
@@ -152,7 +152,7 @@ struct TopoMatchCtxImpl {
         lhs_iter = ptr->erase(lhs_iter);
       }
     }
-    VLOG(0) << "UpdateBigGraphNodes: sg_node: "
+    VLOG(4) << "UpdateBigGraphNodes: sg_node: "
             << graph::NodeDescriptor<sg_node_t>{}.DebugId(sg_node)
             << ", new_val: " <<
         [&] {

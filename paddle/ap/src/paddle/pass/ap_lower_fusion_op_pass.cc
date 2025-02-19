@@ -305,7 +305,7 @@ struct ApRewriter {
                             pir::Operation* op,
                             pir::PatternRewriter* rewriter) const {
     ADT_CHECK(ctx_.drr_ctx->pass_name.has_value());
-    LOG(ERROR) << "drr: " << ctx_.drr_ctx->pass_name.value() << " matched.";
+    VLOG(0) << "drr: " << ctx_.drr_ctx->pass_name.value() << " matched.";
     return RewriteByResultPattern(match_ctx, op, rewriter);
   }
 
@@ -2296,7 +2296,7 @@ class NativeOpAnchorApLowerFusionOpPattern : public pir::RewritePattern {
       return false;
     }
     ADT_CHECK(ctx_.drr_ctx->pass_name.has_value());
-    LOG(ERROR) << "drr: " << ctx_.drr_ctx->pass_name.value() << " matched.";
+    VLOG(0) << "drr: " << ctx_.drr_ctx->pass_name.value() << " matched.";
     ADT_LET_CONST_REF(
         success, ap_rewriter_.Rewrite(opt_match_ctx.value(), op, rewriter));
     if (success) {
@@ -2410,10 +2410,11 @@ class DefaultAnchorApLowerFusionOpPattern : public pir::RewritePattern {
     }
     const auto& ret = this->TryMatchAndRewrite(op, &rewriter);
     if (ret.HasError()) {
-      LOG(ERROR) << "\nTraceback (most recent call last):\n"
-                 << ret.GetError().CallStackToString() << "\n"
-                 << ret.GetError().class_name() << ": " << ret.GetError().msg()
-                 << "\npass_name: " << ctx_.drr_ctx->pass_name.value();
+      VLOG(0) << "drr: " << ctx_.drr_ctx->pass_name.value() << " mismatched.";
+      VLOG(6) << "\nTraceback (most recent call last):\n"
+              << ret.GetError().CallStackToString() << "\n"
+              << ret.GetError().class_name() << ": " << ret.GetError().msg()
+              << "\npass_name: " << ctx_.drr_ctx->pass_name.value();
       return false;
     }
     bool success = ret.GetOkValue();
@@ -2430,7 +2431,7 @@ class DefaultAnchorApLowerFusionOpPattern : public pir::RewritePattern {
       return false;
     }
     ADT_CHECK(ctx_.drr_ctx->pass_name.has_value());
-    LOG(ERROR) << "drr: " << ctx_.drr_ctx->pass_name.value() << " matched.";
+    VLOG(0) << "drr: " << ctx_.drr_ctx->pass_name.value() << " matched.";
     ADT_LET_CONST_REF(
         success, ap_rewriter_.Rewrite(opt_match_ctx.value(), op, rewriter));
     if (success) {
