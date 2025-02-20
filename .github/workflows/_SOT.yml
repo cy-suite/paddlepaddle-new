@@ -94,7 +94,7 @@ jobs:
 
     - name: Configure cache and ccache
       run: |
-        docker exec -t ${container_name} /bin/bash -c 'bash ${work_dir}/.github/ci/config_cfs.sh sot ${{ github.env }}'
+        docker exec -t ${container_name} /bin/bash -c 'bash ${ci_scripts}/config_cfs.sh sot ${{ github.env }}'
 
     - name: Determine sot ci trigger
       env:
