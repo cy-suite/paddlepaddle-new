@@ -42,35 +42,27 @@ def tensor_method_passed_by_user(a: paddle.Tensor, func: paddle.Tensor):
     return func(a)
 
 
-def tensor_method_property1(a: paddle.Tensor, b: paddle.Tensor):
+@check_no_breakgraph
+def tensor_method_property_without_breakgraph(
+    a: paddle.Tensor, b: paddle.Tensor
+):
     return (
         a.name,
-        str(a.place),
         a.persistable,
         a.dtype,
         a.type,
         a.is_tensor(),
-        a.clear_gradient(),
-        a.tolist(),
-        a @ b.T.astype(a.dtype)
-        + len(a.shape)
-        + b.size
-        + a.ndim
-        + a.dim()
-        + a.rank(),
+        len(a.shape) + b.size + a.ndim + a.dim() + a.rank(),
+        a @ b.T.astype(a.dtype),
     )
 
 
-def tensor_method_property2(a: paddle.Tensor, b: paddle.Tensor):
+def tensor_method_property_with_breakgraph(a: paddle.Tensor, b: paddle.Tensor):
     return (
-        a.name,
-        str(a.place),
-        a.persistable,
-        a.dtype,
-        a.type,
-        a.is_tensor(),
-        a.clear_gradient(),
         a.numpy(),
+        a.tolist(),
+        str(a.place),
+        a.clear_gradient(),
         a @ b.T.astype(a.dtype)
         + len(a.shape)
         + b.size
@@ -112,8 +104,8 @@ class TestTensorMethod(TestCaseBase):
     def test_tensor_method_property(self):
         x = paddle.rand([42, 24], dtype='float64')
         y = paddle.rand([42, 24], dtype='float32')
-        self.assert_results(tensor_method_property1, x, y)
-        self.assert_results(tensor_method_property2, x, y)
+        self.assert_results(tensor_method_property_without_breakgraph, x, y)
+        self.assert_results(tensor_method_property_with_breakgraph, x, y)
 
     @unittest.skip("TODO: dynamic tensor name is different")
     def test_middle_tensor_name(self):

@@ -1000,6 +1000,7 @@ def monkey_patch_value():
             ndarray: dtype is same as current Variable
         Examples:
             .. code-block:: python
+
                 >>> import paddle
                 >>> import paddle.base as base
                 >>> from paddle.nn import Linear
@@ -1028,6 +1029,7 @@ def monkey_patch_value():
 
         Examples:
             .. code-block:: python
+
                 >>> import paddle
                 >>> import paddle.base as base
                 >>> import numpy as np
