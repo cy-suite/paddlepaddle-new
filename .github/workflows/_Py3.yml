@@ -28,6 +28,7 @@ jobs:
         PADDLE_ROOT: ${{ github.workspace }}
         WITH_SHARED_PHI: "ON"
         WITH_MKL: "OFF"
+        WITH_TESTING: "ON"
         COVERALLS_UPLOAD: "OFF"
         GIT_PR_ID: ${{ github.event.pull_request.number }}
         PADDLE_VERSION: 0.0.0
@@ -55,6 +56,7 @@ jobs:
           -e PADDLE_ROOT \
           -e WITH_SHARED_PHI \
           -e WITH_MKL \
+          -e WITH_TESTING \
           -e COVERALLS_UPLOAD \
           -e GIT_PR_ID \
           -e PADDLE_VERSION \
