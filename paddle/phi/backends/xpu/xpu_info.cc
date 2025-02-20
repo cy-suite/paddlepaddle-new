@@ -197,6 +197,8 @@ void XpuMemcpySync(void* dst,
                    const void* src,
                    size_t count,
                    XPUMemcpyKind kind) {
+  // in kl3 version, xpu_memcpy will not do sync before memcpy, so we need to
+  // call xpu_wait() to make sure all previous operations are finished.
   xpu_wait();
   PADDLE_ENFORCE_XPU_SUCCESS(xpu_memcpy(dst, src, count, kind));
 }
