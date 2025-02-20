@@ -23,7 +23,6 @@ namespace inference {
 namespace tensorrt {
 namespace plugin {
 
-// 添加以下宏定义
 #ifndef PADDLE_CUDA_NUM_THREADS
 #define PADDLE_CUDA_NUM_THREADS 256
 #endif
@@ -969,13 +968,10 @@ nvinfer1::DimsExprs YoloBoxPluginDynamic::getOutputDimensions(
     const nvinfer1::DimsExprs* inputs,
     int nb_inputs,
     nvinfer1::IExprBuilder& expr_builder) TRT_NOEXCEPT {
-  // inputs[0] is x with shape [batch_size, C, H, W]
-  // inputs[1] is img_size with shape [batch_size, 2]
-
-  auto batch_size = inputs[0].d[0];      // batch_size
-  auto h = inputs[0].d[2];               // height
-  auto w = inputs[0].d[3];               // width
-  int anchor_num = anchors_.size() / 2;  // 应该是2，而不是3
+  auto batch_size = inputs[0].d[0];
+  auto h = inputs[0].d[2];
+  auto w = inputs[0].d[3];
+  int anchor_num = anchors_.size() / 2;
 
   VLOG(3) << "YoloBox Plugin input shape: batch_size="
           << batch_size->getConstantValue() << ", h=" << h->getConstantValue()
