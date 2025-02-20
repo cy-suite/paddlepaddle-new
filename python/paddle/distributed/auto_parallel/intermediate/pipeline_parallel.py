@@ -303,7 +303,7 @@ def pipeline_parallel(model, optimizer=None, config=None):
         ), "No layer match the split_spec, please check its correctness"
         assert (
             layer_num >= pp_size
-        ), "The number of layers must be greater than the pp size"
+        ), "The number of layers must not be less than the pp size"
         if layer_num % pp_size != 0:
             logger.warning(
                 f"The number of layers({layer_num}) must be divisible by the pp size({pp_size}), but got {layer_num} and {pp_size}"
