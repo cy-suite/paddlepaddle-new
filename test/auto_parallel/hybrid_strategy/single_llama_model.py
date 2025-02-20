@@ -156,11 +156,10 @@ class GlobalOutputNet(nn.Layer):
         self.config = config
 
     def forward(self, input):
-        return (
-            input
-            if input is not None
-            else paddle.rand([self.config.hidden_size], dtype="float32")
-        )
+        # first tensor is DenseTensor, will 'shard_tensor'
+        # second tensor is DistTensor, will 'reshard'
+        # which test two different behaviors
+        return paddle.rand([self.config.hidden_size], dtype="float32"), input
 
 
 class LlamaModel(nn.Layer):
@@ -202,7 +201,7 @@ class LlamaModel(nn.Layer):
             position_embeddings = self.position_embedding(position_ids)
             hidden_states = hidden_states + position_embeddings
 
-        global_tensor = self.global_layer(None)
+        global_tensor, _ = self.global_layer(input_ids)
 
         for idx, (decoder_layer) in enumerate(self.layers):
             hidden_states = decoder_layer(hidden_states, global_tensor)
