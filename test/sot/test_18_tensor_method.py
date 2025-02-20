@@ -50,25 +50,23 @@ def tensor_method_property_without_breakgraph(
         a.name,
         a.persistable,
         a.dtype,
-        a.type,
         a.is_tensor(),
-        len(a.shape) + b.size + a.ndim + a.dim() + a.rank(),
-        a @ b.T.astype(a.dtype),
-    )
-
-
-def tensor_method_property_with_breakgraph(a: paddle.Tensor, b: paddle.Tensor):
-    return (
-        a.numpy(),
-        a.tolist(),
-        str(a.place),
-        a.clear_gradient(),
         a @ b.T.astype(a.dtype)
         + len(a.shape)
         + b.size
         + a.ndim
         + a.dim()
         + a.rank(),
+    )
+
+
+def tensor_method_property_with_breakgraph(a: paddle.Tensor, b: paddle.Tensor):
+    return (
+        a.type,
+        a.numpy(),
+        a.tolist(),
+        str(a.place),
+        a.clear_gradient(),
     )
 
 
