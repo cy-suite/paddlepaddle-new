@@ -12,7 +12,7 @@ defaults:
 env:
   PR_ID: ${{ github.event.pull_request.number }}
   COMMIT_ID: ${{ github.event.pull_request.head.sha }}
-  ci_scripts: ${{ github.workspace }}/.github/ci
+  ci_scripts: ${{ github.workspace }}/ci
 
 jobs:
   Clone:

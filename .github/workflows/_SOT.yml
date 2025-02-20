@@ -9,7 +9,7 @@ env:
   PR_ID: ${{ github.event.pull_request.number }}
   COMMIT_ID: ${{ github.event.pull_request.head.sha }}
   container_name: paddle-CI-${{ github.event.pull_request.number }}-sot
-  ci_scripts: ${{ github.workspace }}/.github/ci
+  ci_scripts: ${{ github.workspace }}/ci
 
 defaults:
   run:
