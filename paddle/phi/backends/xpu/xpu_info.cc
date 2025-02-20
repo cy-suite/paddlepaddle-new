@@ -197,6 +197,7 @@ void XpuMemcpySync(void* dst,
                    const void* src,
                    size_t count,
                    XPUMemcpyKind kind) {
+  xpu_wait();
   PADDLE_ENFORCE_XPU_SUCCESS(xpu_memcpy(dst, src, count, kind));
 }
 
@@ -212,6 +213,7 @@ void XpuMemcpyPeerAsync(void* dst,
 
 void XpuMemcpyPeerSync(
     void* dst, int dst_device, const void* src, int src_device, size_t count) {
+  xpu_wait();
   PADDLE_ENFORCE_XPU_SUCCESS(
       xpu_memcpy_peer(dst_device, dst, src_device, src, count));
 }
