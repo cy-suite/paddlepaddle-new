@@ -18,6 +18,5 @@
 
 #if defined(PADDLE_WITH_CUDA)
 PD_REGISTER_KERNEL(
-    lu_solve_grad, GPU, ALL_LAYOUT, phi::LUSolveGradKernel, float, double) {
-}
+    lu_solve_grad, GPU, ALL_LAYOUT, phi::LUSolveGradKernel, float, double) {}
 #endif

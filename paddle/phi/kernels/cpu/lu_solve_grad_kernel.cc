@@ -17,5 +17,4 @@
 #include "paddle/phi/kernels/impl/lu_solve_grad_kernel_impl.h"
 
 PD_REGISTER_KERNEL(
-    lu_solve_grad, CPU, ALL_LAYOUT, phi::LUSolveGradKernel, float, double) {
-}
+    lu_solve_grad, CPU, ALL_LAYOUT, phi::LUSolveGradKernel, float, double) {}

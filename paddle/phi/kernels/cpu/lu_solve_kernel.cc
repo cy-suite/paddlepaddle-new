@@ -40,5 +40,4 @@ class LUSolveFunctor<T, CPUContext> {
 }  // namespace phi
 
 PD_REGISTER_KERNEL(
-    lu_solve, CPU, ALL_LAYOUT, phi::LUSolveKernel, float, double) {
-}
+    lu_solve, CPU, ALL_LAYOUT, phi::LUSolveKernel, float, double) {}
