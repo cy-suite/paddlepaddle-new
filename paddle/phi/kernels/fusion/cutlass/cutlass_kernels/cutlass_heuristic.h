@@ -77,6 +77,7 @@ static std::vector<CutlassTileConfig> get_candidate_tiles(
   };
   std::vector<CutlassTileConfig> quant_B_configs;
   switch (sm) {
+    case 90:
     case 86:
     case 80: {
       quant_B_configs = group_size > 0 ? quant_B_configs_sm80_finegrained
