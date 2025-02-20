@@ -877,18 +877,6 @@ void PirInterpreter::BuildInstruction() {
         while_instr_ptr->CheckGCEarly([this](InstructionBase* instr) {
           std::unordered_map<pir::Value, std::vector<int>> inputs;
           GetInputIds(instr->Operation(), *this->value_exe_info_, &inputs);
-          auto HasUserInLoopBody = [instr](pir::Value value) {
-            for (auto it = value.use_begin(); it != value.use_end(); ++it) {
-              auto user_parent_op = it->owner()->GetParentOp();
-              while (user_parent_op) {
-                if (user_parent_op == instr->Operation()) {
-                  return true;
-                }
-                user_parent_op = user_parent_op->GetParentOp();
-              }
-            }
-            return false;
-          };
           for (const auto& kv : inputs) {
             if (kv.first ==
                 instr->Operation()->operand_source(0 /*cond var*/)) {
@@ -896,9 +884,6 @@ void PirInterpreter::BuildInstruction() {
               continue;
             }
             if (kv.first.isa<pir::BlockArgument>()) {
-              continue;
-            }
-            if (HasUserInLoopBody(kv.first)) {
               continue;
             }
             auto var_id = this->value_exe_info_->GetVarId(kv.first);
@@ -1958,6 +1943,11 @@ void PirInterpreter::RunInstructionBase(InstructionBase* instr_node) {
             << "Before: " << cur_place << " "
             << instr_node->DebugStringEx(scope_, value_exe_info_.get());
 
+    if (FLAGS_enable_collect_shape) {
+      CollectShapeManager::Instance().CollectShapeInfo(
+          instr_node, value_exe_info_.get(), scope_);
+    }
+
     if (execution_config_.used_for_inference) {
       for (auto& hook : pir_input_hookfuncs_) {
         hook(instr_node, value_exe_info_.get(), scope_);
@@ -2004,12 +1994,6 @@ void PirInterpreter::RunInstructionBase(InstructionBase* instr_node) {
     }
 
     VLOG(5) << "after run kernel";
-
-    if (FLAGS_enable_collect_shape) {
-      CollectShapeManager::Instance().CollectShapeInfo(
-          instr_node, value_exe_info_.get(), scope_);
-    }
-
     instr_node->RecordEvent(cur_place);
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
     if (enable_job_schedule_profiler_) {
