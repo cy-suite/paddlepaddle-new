@@ -256,7 +256,8 @@ bool RelativeJudgePolicy::ReducePlusTrivialCanMerge(
       GetValueUsage(downstream->sink_op()->result(0), 0), fakes);
 
   // TODO(huangjiyi): support fusion when fake_reduce.size < reduce.size
-  bool res = ElementwiseEqual(non_related_dims, upstream_reduce_dims) ||
+  bool res = (ElementwiseEqual(non_related_dims, upstream_reduce_dims) &&
+              fakes.size() == upstream_reduce_dims.size()) ||
              (IsProductSmallerOrEqual(downstream_free_dims,
                                       upstream_non_reduce_dims) &&
               (fakes.empty() || fakes.size() == upstream_reduce_dims.size()));
