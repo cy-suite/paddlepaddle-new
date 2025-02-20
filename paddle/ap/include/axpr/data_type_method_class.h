@@ -65,7 +65,7 @@ struct DataTypeMethodClass {
                                         builtin_symbol::NE>) {
       return &This::NE;
     } else {
-      std::nullopt;
+      return adt::Nothing{};
     }
   }
 

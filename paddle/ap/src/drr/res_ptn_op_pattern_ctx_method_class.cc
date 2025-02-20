@@ -95,7 +95,6 @@ struct ResPtnOpPatternCtxMethodClass {
     ADT_CHECK(args.size() == 1);
     const auto& arg = args.at(0);
     ADT_LET_CONST_REF(self, self_val.template CastTo<Self>());
-    using RetT = adt::Result<axpr::Value>;
     ADT_LET_CONST_REF(attr_name, arg.template CastTo<std::string>());
     ADT_CHECK(!This{}.IsBasicAttrName(attr_name)) << adt::errors::RuntimeError{
         std::string() + "Dead code encounterred. attr_name: " + attr_name};

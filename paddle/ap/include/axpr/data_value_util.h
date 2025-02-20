@@ -67,12 +67,11 @@ struct ArithmeticBinaryOpHelper<ArithmeticMod> {
         return adt::errors::ZeroDivisionError{"division or modulo by zero"};
       }
       return ArithmeticMod::Call(lhs, rhs);
-    } else if constexpr (!std::is_integral_v<LhsT>) {
-      return adt::errors::TypeError{
-          "'%' only support intergral type. 'lhs' is not a intergral type"};
     } else {
       return adt::errors::TypeError{
-          "'%' only support intergral type. 'rhs' is not a intergral type"};
+          std::string() + "'%' only support intergral type, but receive: '" +
+          CppDataType<LhsT>{}.Name() + "' and '" + CppDataType<RhsT>{}.Name() +
+          "'."};
     }
   }
 };

@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <cstring>
 #include <functional>
 #include <optional>
 #include <ostream>
@@ -115,7 +116,9 @@ inline size_t GetHashValue(const Atomic<CoreExpr>& atomic) {
       [](const bool val) -> size_t { return val; },
       [](const int64_t val) -> size_t { return val; },
       [](const double val) -> size_t {
-        return *reinterpret_cast<const size_t*>(&val);
+        size_t res;
+        std::memcpy(&res, &val, sizeof(double));
+        return res;
       },
       [](const std::string& val) -> size_t {
         return std::hash<std::string>()(val);
