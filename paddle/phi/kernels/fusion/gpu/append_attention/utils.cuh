@@ -498,6 +498,14 @@ __forceinline__ __host__ __device__  void vec_cast<nv_bfloat16, float>(nv_bfloat
   if (group_size == 4) {                                     \
     constexpr size_t GROUP_SIZE = 4;                         \
     __VA_ARGS__                                              \
+  } else if (group_size == 8) {                              \
+    constexpr size_t GROUP_SIZE = 8;                         \
+    __VA_ARGS__                                              \
+  } else if (group_size == 12) {                             \
+    constexpr size_t GROUP_SIZE = 12;                        \
+    __VA_ARGS__                                              \
+  } else {                                \
+    PADDLE_THROW(phi::errors::InvalidArgument("not support the group_size")); \
   }
   // } else if (group_size == 4) {                              \
   //   constexpr size_t GROUP_SIZE = 4;                         \
@@ -508,10 +516,7 @@ __forceinline__ __host__ __device__  void vec_cast<nv_bfloat16, float>(nv_bfloat
   // } else if (group_size == 8) {                              \
   //   constexpr size_t GROUP_SIZE = 8;                         \
   //   __VA_ARGS__                                              \
-  // } else if (group_size == 12) {                             \
-  //   constexpr size_t GROUP_SIZE = 12;                        \
-  //   __VA_ARGS__                                              \
-  // }
+
 
 #define DISPATCH_HEAD_DIM(head_dim, HEAD_DIM, ...)              \
   switch (head_dim) {                                           \
@@ -521,7 +526,7 @@ __forceinline__ __host__ __device__  void vec_cast<nv_bfloat16, float>(nv_bfloat
       break;                                                    \
     }                                                           \
     default: {                                                  \
-      phi::errors::InvalidArgument("not support the head_dim"); \
+      PADDLE_THROW(phi::errors::InvalidArgument("not support the head_dim")); \
     }                                                           \
   }
 
@@ -529,6 +534,8 @@ __forceinline__ __host__ __device__  void vec_cast<nv_bfloat16, float>(nv_bfloat
   if (block_size == 64) {                                  \
     constexpr size_t BLOCK_SIZE = 64;                      \
     __VA_ARGS__                                            \
+  } else { \
+    PADDLE_THROW(phi::errors::InvalidArgument("not support the head_dim")); \
   }
 
 #define DISPATCH_BLOCKSHAPE_Q(block_shape_q, BLOCK_SHAPE_Q, NUM_WARP_Q, ...)  \

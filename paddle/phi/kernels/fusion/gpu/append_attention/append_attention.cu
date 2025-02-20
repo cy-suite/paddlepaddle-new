@@ -1584,6 +1584,8 @@ void MultiQueryAppendForFuseMtAttention(const Context &dev_ctx,
   // " << num_heads << ", kv_num_heads: " << kv_num_heads << ", group_size: " <<
   // GROUP_SIZE;
 
+  VLOG(1) << "bsz: " << bsz << ", token_num: " << token_num;
+
   constexpr uint32_t num_warps = 4;
   constexpr uint32_t NUM_WARP_KV = num_warps / NUM_WARP_Q;
   constexpr uint32_t num_frags_x = BLOCK_SHAPE_Q / (16 * NUM_WARP_Q);  // 1 or 2
@@ -1651,7 +1653,7 @@ void MultiQueryAppendForFuseMtAttention(const Context &dev_ctx,
           FLAGS_cascade_encoder_attention_max_partition_size);
     }
     const int num_chunks = div_up(max_dec_len, chunk_size);
-    VLOG(2) << "chunk_size: " << chunk_size;
+    VLOG(1) << "chunk_size: " << chunk_size;
     // VLOG(2) << "num_blocks_per_wave: " << num_blocks_per_wave << ",
     // num_blocks_need: " << num_blocks_need << ", max_num_chunks: " <<
     // max_num_chunks << ", ratio: " << ratio; VLOG(2) << "num_chunks: " <<
@@ -1745,37 +1747,34 @@ void MultiQueryAppendForFuseMtAttention(const Context &dev_ctx,
       dev_ctx.template Alloc<T>(&tmp_workspace);
       dev_ctx.template Alloc<float>(&tmp_m);
       dev_ctx.template Alloc<float>(&tmp_d);
-      if (tmp_workspace.dims()[0] <
-          6)  // VLOG(2) << "tmp_workspace1: " << tmp_workspace;
-        // VLOG(2) << "tmp_m1: " << tmp_m;
-        // VLOG(2) << "tmp_d1: " << tmp_d;
-        split_kv_kernel<<<grids, blocks, smem_size, stream>>>(
-            reinterpret_cast<NV_TYPE *>(const_cast<T *>(q.data<T>())),
-            reinterpret_cast<NV_TYPE *>(const_cast<T *>(cache_k.data<T>())),
-            reinterpret_cast<NV_TYPE *>(const_cast<T *>(cache_v.data<T>())),
-            seq_lens_q.data<int>(),
-            seq_lens_kv.data<int>(),
-            batch_ids.data<int>(),
-            tile_ids_per_batch.data<int>(),
-            cum_offsets.data<int>(),
-            block_table.data<int>(),
-            seq_mapping ? seq_mapping->data<int>() : nullptr,
-            rope_emb ? reinterpret_cast<NV_TYPE *>(
-                           const_cast<T *>(rope_emb->data<T>()))
-                     : nullptr,
-            // rope_emb ? reinterpret_cast<const NV_TYPE*>(rope_emb->data<T>())
-            // : nullptr,
-            max_seq_len,
-            max_dec_len,
-            max_block_num_per_seq,
-            scale,
-            chunk_size,
-            layer_id,
-            reinterpret_cast<NV_TYPE *>(tmp_workspace.data<T>()),
-            tmp_m.data<float>(),
-            tmp_d.data<float>(),
-            reinterpret_cast<OUT_NV_TYPE *>(out->data<OutT>()),
-            FLAGS_speculate_max_draft_token_num);
+
+      split_kv_kernel<<<grids, blocks, smem_size, stream>>>(
+          reinterpret_cast<NV_TYPE *>(const_cast<T *>(q.data<T>())),
+          reinterpret_cast<NV_TYPE *>(const_cast<T *>(cache_k.data<T>())),
+          reinterpret_cast<NV_TYPE *>(const_cast<T *>(cache_v.data<T>())),
+          seq_lens_q.data<int>(),
+          seq_lens_kv.data<int>(),
+          batch_ids.data<int>(),
+          tile_ids_per_batch.data<int>(),
+          cum_offsets.data<int>(),
+          block_table.data<int>(),
+          seq_mapping ? seq_mapping->data<int>() : nullptr,
+          rope_emb ? reinterpret_cast<NV_TYPE *>(
+                         const_cast<T *>(rope_emb->data<T>()))
+                   : nullptr,
+          // rope_emb ? reinterpret_cast<const NV_TYPE*>(rope_emb->data<T>())
+          // : nullptr,
+          max_seq_len,
+          max_dec_len,
+          max_block_num_per_seq,
+          scale,
+          chunk_size,
+          layer_id,
+          reinterpret_cast<NV_TYPE *>(tmp_workspace.data<T>()),
+          tmp_m.data<float>(),
+          tmp_d.data<float>(),
+          reinterpret_cast<OUT_NV_TYPE *>(out->data<OutT>()),
+          FLAGS_speculate_max_draft_token_num);
       // merge
       // if (tmp_workspace.dims()[0] < 6)
       // VLOG(2) << "tmp_workspace: " << tmp_workspace;
@@ -1848,8 +1847,8 @@ void MultiQueryAppendForFuseMtAttention(const Context &dev_ctx,
       }
     }
   } else {
-    VLOG(2) << "NUM_WARP_Q: " << NUM_WARP_Q;
-    VLOG(2) << "NUM_WARP_KV: " << NUM_WARP_KV;
+    VLOG(1) << "NUM_WARP_Q: " << NUM_WARP_Q;
+    VLOG(1) << "NUM_WARP_KV: " << NUM_WARP_KV;
     constexpr uint32_t num_frags_z = BLOCK_SIZE / 16 / NUM_WARP_KV;  // !!!
     // VLOG(2) << "num_frags_z: " << num_frags_z;
     constexpr uint32_t smem_size =
@@ -1907,11 +1906,11 @@ void MultiQueryAppendForFuseMtAttention(const Context &dev_ctx,
     dim3 grids(num_blocks_x_cpu, num_chunks, kv_num_heads);
     // dim3 grids(num_blocks_x_cpu, num_chunks, 1);
     dim3 blocks(32, num_warps);
-    // VLOG(2) << "grids: " << grids.x << " " << grids.y << " " << grids.z;
-    // VLOG(2) << "blocks: " << blocks.x << " " << blocks.y;
+    VLOG(1) << "grids: " << grids.x << " " << grids.y << " " << grids.z;
+    VLOG(1) << "blocks: " << blocks.x << " " << blocks.y;
 
     if (num_chunks <= 1) {
-      VLOG(2) << "nosplit_kv_kernel";
+      VLOG(1) << "nosplit_kv_kernel";
       auto nosplit_kv_kernel =
           multi_query_append_attention_for_fusemt_warp1_4_kernel<
               NV_TYPE,
@@ -1967,7 +1966,7 @@ void MultiQueryAppendForFuseMtAttention(const Context &dev_ctx,
           reinterpret_cast<OUT_NV_TYPE *>(out->data<OutT>()),
           FLAGS_speculate_max_draft_token_num);
     } else {
-      VLOG(2) << "split kv";
+      VLOG(1) << "split kv";
       phi::DenseTensor tmp_workspace, tmp_m, tmp_d;
       if (is_decoder) {
         tmp_workspace.Resize({bsz, num_chunks, num_heads, HEAD_DIM});
@@ -1994,34 +1993,30 @@ void MultiQueryAppendForFuseMtAttention(const Context &dev_ctx,
       dev_ctx.template Alloc<T>(&tmp_workspace);
       dev_ctx.template Alloc<float>(&tmp_m);
       dev_ctx.template Alloc<float>(&tmp_d);
-      if (tmp_workspace.dims()[0] <
-          6)  // VLOG(2) << "tmp_workspace1: " << tmp_workspace;
-        // VLOG(2) << "tmp_m1: " << tmp_m;
-        // VLOG(2) << "tmp_d1: " << tmp_d;
-        split_kv_kernel<<<grids, blocks, smem_size, stream>>>(
-            reinterpret_cast<NV_TYPE *>(const_cast<T *>(q.data<T>())),
-            reinterpret_cast<NV_TYPE *>(const_cast<T *>(cache_k.data<T>())),
-            reinterpret_cast<NV_TYPE *>(const_cast<T *>(cache_v.data<T>())),
-            seq_lens_q.data<int>(),
-            seq_lens_kv.data<int>(),
-            batch_ids.data<int>(),
-            tile_ids_per_batch.data<int>(),
-            cum_offsets.data<int>(),
-            block_table.data<int>(),
-            rope_emb ? reinterpret_cast<NV_TYPE *>(
-                           const_cast<T *>(rope_emb->data<T>()))
-                     : nullptr,
-            max_seq_len,
-            max_dec_len,
-            max_block_num_per_seq,
-            scale,
-            chunk_size,
-            layer_id,
-            reinterpret_cast<NV_TYPE *>(tmp_workspace.data<T>()),
-            tmp_m.data<float>(),
-            tmp_d.data<float>(),
-            reinterpret_cast<OUT_NV_TYPE *>(out->data<OutT>()),
-            FLAGS_speculate_max_draft_token_num);
+      split_kv_kernel<<<grids, blocks, smem_size, stream>>>(
+          reinterpret_cast<NV_TYPE *>(const_cast<T *>(q.data<T>())),
+          reinterpret_cast<NV_TYPE *>(const_cast<T *>(cache_k.data<T>())),
+          reinterpret_cast<NV_TYPE *>(const_cast<T *>(cache_v.data<T>())),
+          seq_lens_q.data<int>(),
+          seq_lens_kv.data<int>(),
+          batch_ids.data<int>(),
+          tile_ids_per_batch.data<int>(),
+          cum_offsets.data<int>(),
+          block_table.data<int>(),
+          rope_emb ? reinterpret_cast<NV_TYPE *>(
+                         const_cast<T *>(rope_emb->data<T>()))
+                   : nullptr,
+          max_seq_len,
+          max_dec_len,
+          max_block_num_per_seq,
+          scale,
+          chunk_size,
+          layer_id,
+          reinterpret_cast<NV_TYPE *>(tmp_workspace.data<T>()),
+          tmp_m.data<float>(),
+          tmp_d.data<float>(),
+          reinterpret_cast<OUT_NV_TYPE *>(out->data<OutT>()),
+          FLAGS_speculate_max_draft_token_num);
       // merge
       // if (tmp_workspace.dims()[0] < 6)
       // VLOG(2) << "tmp_workspace: " << tmp_workspace;
@@ -2094,6 +2089,9 @@ void MultiQueryAppendForFuseMtAttention(const Context &dev_ctx,
       }
     }
   }
+
+  // PADDLE_ENFORCE_GPU_SUCCESS(cudaDeviceSynchronize());
+  // PADDLE_ENFORCE_GPU_SUCCESS(cudaGetLastError());
 }
 
 template <typename T, typename Context, typename OutT>
@@ -2127,6 +2125,7 @@ void CascadeAppendAttentionForFuseMtKernel(
     bool causal,
     bool is_decoder,
     DenseTensor *out) {
+  VLOG(1) << "max_dec_len " << max_dec_len;
   if (max_dec_len <= 0) {
     return;
   }
@@ -2135,10 +2134,11 @@ void CascadeAppendAttentionForFuseMtKernel(
   const auto &cum_offsets_dims = cum_offsets.dims();
   const uint32_t token_num = q_dims[0];
   const uint32_t block_size = k_dims[2];
+  VLOG(1) << "block_size" << block_size;
   const uint32_t bsz = cum_offsets_dims[0];
   kv_num_heads = kv_num_heads == -1 ? num_heads : kv_num_heads;
   const uint32_t group_size = num_heads / kv_num_heads;
-  VLOG(2) << "block_shape_q: " << block_shape_q;
+  VLOG(1) << "block_shape_q: " << block_shape_q;
 
   const uint32_t use_system = seq_mapping ? 1 : 0;
   DISPATCH_CAUSAL(

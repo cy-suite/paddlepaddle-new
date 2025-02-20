@@ -774,9 +774,9 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
       VLOG(1) << "step8.0";
 #ifdef _DEBUG_FUSED_MULTI_TRANSFORMER_PRINT_TENSOR
       if (pre_layer_norm) {
-        VLOG(1) << "ffn2_out, buf1:" << *buf1;
+        VLOG(2) << "ffn2_out, buf1:" << *buf1;
       } else {
-        VLOG(1) << "ffn2_out, buf0:" << *buf0;
+        VLOG(2) << "ffn2_out, buf0:" << *buf0;
       }
 #endif
 #endif
