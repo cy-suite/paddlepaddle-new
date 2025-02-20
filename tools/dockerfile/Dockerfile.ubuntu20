@@ -69,26 +69,6 @@ RUN rm /usr/bin/python && ln -s /usr/bin/python3.9 /usr/bin/python && \
     rm /usr/bin/python3 && ln -s /usr/bin/python3.9 /usr/bin/python3
 
 WORKDIR /home
-RUN wget -q https://files.pythonhosted.org/packages/a7/e0/30642b9c2df516506d40b563b0cbd080c49c6b3f11a70b4c7a670f13a78b/setuptools-50.3.2.zip && unzip setuptools-50.3.2.zip
-WORKDIR /home/setuptools-50.3.2
-
-RUN python3.8 setup.py build && python3.8 setup.py install && \
-    python3.9 setup.py build && python3.9 setup.py install
-
-WORKDIR /home
-RUN wget https://files.pythonhosted.org/packages/ac/e0/4ccbb616e5f30d3595fa44ccc66ba5ac38e68885bcd888916d39f8ba480a/setuptools-68.2.0.tar.gz && tar xf setuptools-68.2.0.tar.gz
-WORKDIR /home/setuptools-68.2.0
-RUN python3.10 setup.py build && python3.10 setup.py install && \
-    python3.11 setup.py build && python3.11 setup.py install && \
-    python3.12 setup.py build && python3.12 setup.py install
-
-WORKDIR /home
-RUN wget https://files.pythonhosted.org/packages/76/6c/a1e240d85b63e04b2f6786a39e32ea78ad9ec7a9e8193b5510b63b5add94/setuptools-69.5.0.tar.gz && tar xf setuptools-69.5.0.tar.gz
-WORKDIR /home/setuptools-69.5.0
-RUN python3.13 setup.py build && python3.13 setup.py install && \
-    python3.13t setup.py build && python3.13t setup.py install
-
-WORKDIR /home
 RUN wget -q https://bootstrap.pypa.io/get-pip.py
 RUN python3.8 get-pip.py && \
   python3.9 get-pip.py && \
@@ -100,9 +80,14 @@ RUN python3.13t get-pip.py && \
   mv /usr/local/bin/pip3.13 /usr/local/bin/pip3.13t && \
   python3.13 get-pip.py
 
-WORKDIR /home
-RUN rm setuptools-50.3.2.zip setuptools-68.2.0.tar.gz setuptools-69.5.0.tar.gz && \
-    rm -r setuptools-50.3.2 setuptools-68.2.0 setuptools-69.5.0
+RUN python3.8 -m pip install setuptools==69.5.1 && \
+  python3.9 -m pip install setuptools==69.5.1 && \
+  python3.10 -m pip install setuptools==69.5.1 && \
+  python3.11 -m pip install setuptools==69.5.1 && \
+  python3.12 -m pip install --break-system-packages setuptools==69.5.1 && \
+  python3.13 -m pip install setuptools==69.5.1 && \
+  python3.13t -m pip install setuptools==69.5.1
+
 
 RUN wget -q https://ftp.gnu.org/gnu/binutils/binutils-2.33.1.tar.gz && \
     tar -xzf binutils-2.33.1.tar.gz && \
