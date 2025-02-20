@@ -87,6 +87,8 @@ void MergedMomentumKernel(
   std::vector<const float*> lr_list(op_num);
   std::vector<int> sizes(op_num);
   std::vector<float> l2_weight_decay(op_num);
+
+  int lr_len = learning_rate.size();
   if (op_num > 0) {
     for (int j = 0; j < op_num; j++) {
       param_list[j] =
@@ -98,7 +100,9 @@ void MergedMomentumKernel(
       param_out_list[j] = reinterpret_cast<XPUType*>(params_out[j]->data<T>());
       velocity_out_list[j] =
           reinterpret_cast<XPUType*>(velocity_out[j]->data<T>());
-      lr_list[j] = learning_rate[j]->data<float>();
+      if (lr_len == op_num) {
+        lr_list[j] = learning_rate[j]->data<float>();
+      }
       sizes[j] = static_cast<int>(params[j]->numel());
       if (regularization_method[j] != "l2_decay") {
         l2_weight_decay[j] = 0.0f;
@@ -119,22 +123,36 @@ void MergedMomentumKernel(
   } else {
     return;
   }
-  for (int j = 0; j < op_num; j++) {
-    int r = xpu::momentum(dev_ctx.x_context(),
-                          param_list[j],
-                          velocity_list[j],
-                          grad_list[j],
-                          param_out_list[j],
-                          velocity_out_list[j],
-                          sizes[j],
-                          lr_list[j],
-                          use_nesterov,
-                          mu,
-                          l2_weight_decay[j]);
-    PADDLE_ENFORCE_XDNN_SUCCESS(r, "momentum");
+  if (lr_len == op_num) {
+    for (int j = 0; j < op_num; j++) {
+      int r = xpu::momentum(dev_ctx.x_context(),
+                            param_list[j],
+                            velocity_list[j],
+                            grad_list[j],
+                            param_out_list[j],
+                            velocity_out_list[j],
+                            sizes[j],
+                            lr_list[j],
+                            use_nesterov,
+                            mu,
+                            l2_weight_decay[j]);
+      PADDLE_ENFORCE_XDNN_SUCCESS(r, "momentum");
+    }
+    return;
   }
+  auto lr = learning_rate[0];
+  int r = xpu::merged_momentum(dev_ctx.x_context(),
+                               param_list,
+                               velocity_list,
+                               grad_list,
+                               param_out_list,
+                               velocity_out_list,
+                               l2_weight_decay,
+                               sizes,
+                               lr->data<float>(),
+                               mu,
+                               use_nesterov);
 }
-
 }  // namespace phi
 
 PD_REGISTER_KERNEL(merged_momentum,
