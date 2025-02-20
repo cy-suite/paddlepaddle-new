@@ -1189,8 +1189,7 @@ class TestSaveLoadRngState(unittest.TestCase):
         }
         rand_b = paddle.rand([2, 2])
         path = os.path.join(temp_dir.name, "test_save_load_rng_/rng_state.pth")
-        with self.assertRaises(ValueError):
-            paddle.save(checkpoint_rng_state, path)
+        paddle.save(checkpoint_rng_state, path)
         checkpoint_rng_state = paddle.load(path, return_numpy=True)
         core.default_cpu_generator().set_state(checkpoint_rng_state["cpu"])
         rand_c = paddle.rand([2, 2])
