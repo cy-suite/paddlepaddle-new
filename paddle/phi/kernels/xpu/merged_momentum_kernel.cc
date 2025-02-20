@@ -19,6 +19,7 @@
 #include <vector>
 
 #include "paddle/phi/kernels/merged_momentum_kernel.h"
+#include "paddle/phi/kernels/momentum_kernel.h"
 
 #include "paddle/phi/backends/xpu/enforce_xpu.h"
 #include "paddle/phi/core/kernel_registry.h"
@@ -43,7 +44,6 @@ void MergedMomentumKernel(
     std::vector<DenseTensor*> velocity_out,
     std::vector<DenseTensor*> master_param_out) {
   using XPUType = typename XPUTypeTrait<T>::Type;
-  auto lr = learning_rate[0];
   T mu = static_cast<T>(mu_in);
   int op_num = params.size();
   PADDLE_ENFORCE_EQ(op_num,
@@ -83,6 +83,7 @@ void MergedMomentumKernel(
   std::vector<XPUType*> grad_list(op_num);
   std::vector<XPUType*> velocity_out_list(op_num);
   std::vector<XPUType*> param_out_list(op_num);
+  std::vector<const float*> lr_list(op_num);
   std::vector<int> sizes(op_num);
   std::vector<float> l2_weight_decay(op_num);
   if (op_num > 0) {
@@ -96,6 +97,7 @@ void MergedMomentumKernel(
       param_out_list[j] = reinterpret_cast<XPUType*>(params_out[j]->data<T>());
       velocity_out_list[j] =
           reinterpret_cast<XPUType*>(velocity_out[j]->data<T>());
+      lr_list[j] = learning_rate[j]->data<float>();
       sizes[j] = static_cast<int>(params[j]->numel());
       if (regularization_method[j] != "l2_decay") {
         l2_weight_decay[j] = 0.0f;
@@ -116,18 +118,20 @@ void MergedMomentumKernel(
   } else {
     return;
   }
-  int r = xpu::merged_momentum(dev_ctx.x_context(),
-                               param_list,
-                               velocity_list,
-                               grad_list,
-                               param_out_list,
-                               velocity_out_list,
-                               l2_weight_decay,
-                               sizes,
-                               lr->data<float>(),
-                               mu,
-                               use_nesterov);
-  PADDLE_ENFORCE_XDNN_SUCCESS(r, "merged_momentum");
+  for (int j = 0; j < op_num; j++) {
+    int r = xpu::momentum(dev_ctx.x_context(), 
+                          param_list[j], 
+                          velocity_list[j], 
+                          grad_list[j], 
+                          param_out_list[j], 
+                          velocity_out_list[j], 
+                          sizes[j], 
+                          lr_list[j], 
+                          use_nesterov, 
+                          mu, 
+                          l2_weight_decay[j]);
+    PADDLE_ENFORCE_XDNN_SUCCESS(r, "momentum");
+  }
 }
 
 }  // namespace phi
