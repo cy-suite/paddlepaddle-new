@@ -55,12 +55,16 @@ class FusedBnAddActPattern : public paddle::drr::DrrPatternBase {
     pat.Tensor("relu_out") = relu(pat.Tensor("add_out"));
 
     pat.AddConstraint([](const paddle::drr::MatchContext &match_ctx) -> bool {
-      auto x = pir::GetDataTypeFromValue(match_ctx.Tensor("x"));
-      if (!x.isa<pir::Float16Type>()) {
+      auto x = match_ctx.Tensor("x");
+      if (!pir::GetDataTypeFromValue(x).isa<pir::Float16Type>()) {
         return false;
       }
       auto data_format = match_ctx.Attr<std::string>("data_format");
       if (data_format != "NHWC") {
+        return false;
+      }
+      if (x.type().dyn_cast<paddle::dialect::DenseTensorType>().dims()[3] % 8 !=
+          0) {
         return false;
       }
       return true;
@@ -166,12 +170,16 @@ class FusedBnAddActGradPattern : public paddle::drr::DrrPatternBase {
         });
 
     pat.AddConstraint([](const paddle::drr::MatchContext &match_ctx) -> bool {
-      auto x = pir::GetDataTypeFromValue(match_ctx.Tensor("x"));
-      if (!x.isa<pir::Float16Type>()) {
+      auto x = match_ctx.Tensor("x");
+      if (!pir::GetDataTypeFromValue(x).isa<pir::Float16Type>()) {
         return false;
       }
       auto data_format = match_ctx.Attr<std::string>("data_format");
       if (data_format != "NHWC") {
+        return false;
+      }
+      if (x.type().dyn_cast<paddle::dialect::DenseTensorType>().dims()[3] % 8 !=
+          0) {
         return false;
       }
       return true;
