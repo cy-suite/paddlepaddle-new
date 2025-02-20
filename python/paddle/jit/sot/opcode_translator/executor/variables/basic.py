@@ -1202,19 +1202,21 @@ class NumpyVariable(VariableBase):
     def get_py_value(self, allow_tensor=False) -> Any:
         return self.value
 
+    @staticmethod
+    def format_dtype(dtype: np.dtype):
+        return f"np.{dtype}"
+
+    @staticmethod
+    def format_number(number: np.number):
+        return f"{NumpyVariable.format_dtype(number.dtype)}({number.item()})"
+
     @check_guard
     def make_stringified_guard(self) -> list[StringifiedExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
         obj_free_var_name = f"__{self.id}"
 
-        def format_dtype(dtype: np.dtype):
-            return f"np.{dtype}"
-
-        def format_number(number: np.number):
-            return f"{format_dtype(number.dtype)}({number.item()})"
-
         dtype_guard = StringifiedExpression(
-            f"{{}}.dtype == {format_dtype(self.get_py_value().dtype)}",
+            f"{{}}.dtype == {NumpyVariable.format_dtype(self.get_py_value().dtype)}",
             [frame_value_tracer],
             union_free_vars(frame_value_tracer.free_vars, {"np": np}),
         )
@@ -1222,29 +1224,38 @@ class NumpyVariable(VariableBase):
             return [
                 dtype_guard,
                 StringifiedExpression(
-                    f"{{}} == {format_number(self.get_py_value())}",
+                    f"{{}} == {NumpyVariable.format_number(self.get_py_value())}",
                     [frame_value_tracer],
                     union_free_vars(frame_value_tracer.free_vars, {"np": np}),
                 ),
             ]
-        else:
-            return [
-                dtype_guard,
-                StringifiedExpression(
-                    f"({{}} == {obj_free_var_name}).all()",
-                    [frame_value_tracer],
-                    union_free_vars(
-                        frame_value_tracer.free_vars,
-                        {obj_free_var_name: self.get_py_value()},
-                    ),
+
+        return [
+            dtype_guard,
+            StringifiedExpression(
+                f"({{}} == {obj_free_var_name}).all()",
+                [frame_value_tracer],
+                union_free_vars(
+                    frame_value_tracer.free_vars,
+                    {obj_free_var_name: self.get_py_value()},
                 ),
-            ]
+            ),
+        ]
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if isinstance(value, (np.ndarray, np.number)):
-            return NumpyVariable(value, graph, tracker)
+        if isinstance(value, (np.number)):
+            return NumpyNumVariable(value, graph, tracker)
+        if isinstance(value, (np.ndarray)):
+            return NumpyArrVariable(value, graph, tracker)
         return None
+
+
+class NumpyNumVariable(NumpyVariable):
+    pass
+
+
+class NumpyArrVariable(NumpyVariable): ...
 
 
 class NullVariable(VariableBase):
