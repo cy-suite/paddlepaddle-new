@@ -271,8 +271,7 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
         VLOG(1) << "encoder_tile_ids_per_batch: " << tile_ids_per_batch;
         VLOG(1) << "encoder_num_blocks_x: " << num_blocks_x;
       }
-      if (max_just_dec_len_this_time > 0 && decoder_use_cascade_inference &&
-          max_just_dec_merged_len_this_time > 0) {
+      if (max_just_dec_len_this_time > 0) {
         decoder_num_qrow_per_block =
             FLAGS_flag_dec_block_shape_q;  // get_block_shape_q_fuse_mt(1 *
                                            // GROUP_SIZE);
@@ -304,37 +303,40 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
         VLOG(1) << "decoder_tile_ids_per_batch: " << decoder_tile_ids_per_batch;
         VLOG(1) << "decoder_num_blocks_x: " << decoder_num_blocks_x;
 
-        const uint32_t decoder_system_max_tile_size_per_bs_q =
-            div_up((max_just_dec_merged_len_this_time * GROUP_SIZE),
-                   decoder_num_qrow_per_block);
-        system_decoder_batch_ids.Resize(
-            {bsz * decoder_system_max_tile_size_per_bs_q});
-        system_decoder_tile_ids_per_batch.Resize(
-            {bsz * decoder_system_max_tile_size_per_bs_q});
-        system_decoder_num_blocks_x.Resize({1});
-        dev_ctx.template Alloc<int>(&system_decoder_batch_ids);
-        dev_ctx.template Alloc<int>(&system_decoder_tile_ids_per_batch);
-        dev_ctx.template Alloc<int>(&system_decoder_num_blocks_x);
-        get_block_shape(dev_ctx,
-                        *seq_lens_this_time_merged,
-                        seq_lens_encoder_merged,
-                        &system_decoder_batch_ids,
-                        &system_decoder_tile_ids_per_batch,
-                        &system_decoder_num_blocks_x,
-                        GROUP_SIZE,
-                        bsz,
-                        decoder_num_qrow_per_block);
-        paddle::memory::Copy(paddle::platform::CPUPlace(),
-                             &system_decoder_num_blocks_x_cpu,
-                             dev_ctx.GetPlace(),
-                             system_decoder_num_blocks_x.data<int>(),
-                             sizeof(int),
-                             dev_ctx.stream());
-        VLOG(1) << "system_decoder_batch_ids: " << system_decoder_batch_ids;
-        VLOG(1) << "system_decoder_tile_ids_per_batch: "
-                << system_decoder_tile_ids_per_batch;
-        VLOG(1) << "system_decoder_num_blocks_x: "
-                << system_decoder_num_blocks_x;
+        if (decoder_use_cascade_inference &&
+            max_just_dec_merged_len_this_time > 0) {
+          const uint32_t decoder_system_max_tile_size_per_bs_q =
+              div_up((max_just_dec_merged_len_this_time * GROUP_SIZE),
+                     decoder_num_qrow_per_block);
+          system_decoder_batch_ids.Resize(
+              {bsz * decoder_system_max_tile_size_per_bs_q});
+          system_decoder_tile_ids_per_batch.Resize(
+              {bsz * decoder_system_max_tile_size_per_bs_q});
+          system_decoder_num_blocks_x.Resize({1});
+          dev_ctx.template Alloc<int>(&system_decoder_batch_ids);
+          dev_ctx.template Alloc<int>(&system_decoder_tile_ids_per_batch);
+          dev_ctx.template Alloc<int>(&system_decoder_num_blocks_x);
+          get_block_shape(dev_ctx,
+                          *seq_lens_this_time_merged,
+                          seq_lens_encoder_merged,
+                          &system_decoder_batch_ids,
+                          &system_decoder_tile_ids_per_batch,
+                          &system_decoder_num_blocks_x,
+                          GROUP_SIZE,
+                          bsz,
+                          decoder_num_qrow_per_block);
+          paddle::memory::Copy(paddle::platform::CPUPlace(),
+                               &system_decoder_num_blocks_x_cpu,
+                               dev_ctx.GetPlace(),
+                               system_decoder_num_blocks_x.data<int>(),
+                               sizeof(int),
+                               dev_ctx.stream());
+          VLOG(1) << "system_decoder_batch_ids: " << system_decoder_batch_ids;
+          VLOG(1) << "system_decoder_tile_ids_per_batch: "
+                  << system_decoder_tile_ids_per_batch;
+          VLOG(1) << "system_decoder_num_blocks_x: "
+                  << system_decoder_num_blocks_x;
+        }
       }
     }
 
@@ -641,6 +643,9 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
                                     seq_mapping,
                                     gqa_group_size,
                                     nullptr);
+
+        VLOG(2) << "decoder key_cache " << *key_cache;
+        VLOG(2) << "decoder value_cache " << *value_cache;
         // 用append attention 来构建decoder的attn
         phi::fusion::
             CascadeAppendAttentionForFuseMtKernel<T, phi::GPUContext, T>(

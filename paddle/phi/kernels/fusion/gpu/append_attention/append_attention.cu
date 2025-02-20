@@ -1934,6 +1934,14 @@ void MultiQueryAppendForFuseMtAttention(const Context &dev_ctx,
                              cudaFuncAttributeMaxDynamicSharedMemorySize,
                              smem_size);
       }
+      VLOG(1) << "seq_lens_q.data<int>()" << seq_lens_q.data<int>();
+      VLOG(1) << "seq_lens_kv.data<int>()" << seq_lens_kv.data<int>();
+      VLOG(1) << "batch_ids.data<int>()" << batch_ids.data<int>();
+      VLOG(1) << "tile_ids_per_batch.data<int>()"
+              << tile_ids_per_batch.data<int>();
+      VLOG(1) << "cum_offsets.data<int>()" << cum_offsets.data<int>();
+      VLOG(1) << "block_table.data<int>()" << block_table.data<int>();
+
       nosplit_kv_kernel<<<grids, blocks, smem_size, stream>>>(
           reinterpret_cast<NV_TYPE *>(const_cast<T *>(q.data<T>())),
           reinterpret_cast<NV_TYPE *>(const_cast<T *>(cache_k.data<T>())),

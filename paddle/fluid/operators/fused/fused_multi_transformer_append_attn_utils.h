@@ -605,6 +605,11 @@ void CacheAppendRoPEKernel(
   }
   VLOG(1) << "gqa_group_size: " << gqa_group_size;
   VLOG(2) << "qkv: " << qkv;
+  VLOG(1) << "seq_lens" << seq_lens;
+  VLOG(1) << "block_tables" << block_tables;
+  VLOG(1) << "padding_offsets" << padding_offsets;
+  VLOG(1) << "cum_offsets" << cum_offsets;
+  VLOG(1) << "seq_lens_encoder" << seq_lens_encoder;
   // const int32_t block_size = key_cache_out->dims()[2];
   const int32_t block_size = 64;
 
