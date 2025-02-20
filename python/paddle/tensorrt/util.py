@@ -68,7 +68,7 @@ def all_ops_into_trt(program):
     return True
 
 
-def run_pir_pass(program, disable_passes=[], scope=None):
+def run_pir_pass(program, disable_passes=[], scope=None, precision_mode=None):
     def _add_pass_(pm, passes, disable_passes):
         for pass_item in passes:
             for pass_name, pass_attr in pass_item.items():
@@ -86,6 +86,21 @@ def run_pir_pass(program, disable_passes=[], scope=None):
     passes = [
         {'trt_op_marker_pass': {}},
     ]
+    if precision_mode is not None and precision_mode.value == "INT8":
+        passes.append(
+            {
+                'delete_quant_dequant_linear_op_pass': {
+                    "__param_scope__": scope,
+                }
+            }
+        )
+        passes.append(
+            {
+                'trt_delete_weight_dequant_linear_op_pass': {
+                    "__param_scope__": scope,
+                }
+            }
+        )
     _add_pass_(pm, passes, disable_passes)
     pm.run(program)
 
@@ -221,6 +236,9 @@ class TensorRTConfigManager:
         if not cls._instance:
             cls._instance = super().__new__(cls)
             cls._instance.trt_config = trt_config
+        else:
+            if trt_config is not None:
+                cls._instance.trt_config = trt_config
         return cls._instance
 
     def _init(self, trt_config=None):
@@ -281,6 +299,7 @@ def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name):
         "pd_op.depthwise_conv2d_transpose",
         "pd_op.fused_conv2d_add_act",
         "pd_op.affine_channel",
+        "pd_op.prelu",
         "pd_op.fused_bias_dropout_residual_layer_norm",
         "pd_op.deformable_conv",
     ]
@@ -339,6 +358,15 @@ def remove_duplicate_value(value_list):
             ret_list.append(value)
             ret_list_id.append(value.id)
     return ret_list
+
+
+def set_dynamic_range(paddle_op, trt_inputs):
+    if paddle_op.has_attr("inputs_index"):
+        inputs_index = paddle_op.attrs()["inputs_index"]
+        inputs_scale = paddle_op.attrs()["inputs_scale"]
+        for i, index in enumerate(inputs_index):
+            scale = inputs_scale[i]
+            trt_inputs[index].set_dynamic_range(-scale, scale)
 
 
 def get_trt_version():
