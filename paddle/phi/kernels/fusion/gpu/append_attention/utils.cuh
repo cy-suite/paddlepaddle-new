@@ -495,22 +495,23 @@ __forceinline__ __host__ __device__  void vec_cast<nv_bfloat16, float>(nv_bfloat
 
 
 #define DISPATCH_GQA_GROUP_SIZE(group_size, GROUP_SIZE, ...) \
-  if (group_size == 1) {                                     \
-    constexpr size_t GROUP_SIZE = 1;                         \
-    __VA_ARGS__                                              \
-  } else if (group_size == 4) {                              \
+  if (group_size == 4) {                                     \
     constexpr size_t GROUP_SIZE = 4;                         \
     __VA_ARGS__                                              \
-  } else if (group_size == 7) {                              \
-    constexpr size_t GROUP_SIZE = 7;                         \
-    __VA_ARGS__                                              \
-  } else if (group_size == 8) {                              \
-    constexpr size_t GROUP_SIZE = 8;                         \
-    __VA_ARGS__                                              \
-  } else if (group_size == 12) {                             \
-    constexpr size_t GROUP_SIZE = 12;                        \
-    __VA_ARGS__                                              \
   }
+  // } else if (group_size == 4) {                              \
+  //   constexpr size_t GROUP_SIZE = 4;                         \
+  //   __VA_ARGS__                                              \
+  // } else if (group_size == 7) {                              \
+  //   constexpr size_t GROUP_SIZE = 7;                         \
+  //   __VA_ARGS__                                              \
+  // } else if (group_size == 8) {                              \
+  //   constexpr size_t GROUP_SIZE = 8;                         \
+  //   __VA_ARGS__                                              \
+  // } else if (group_size == 12) {                             \
+  //   constexpr size_t GROUP_SIZE = 12;                        \
+  //   __VA_ARGS__                                              \
+  // }
 
 #define DISPATCH_HEAD_DIM(head_dim, HEAD_DIM, ...)              \
   switch (head_dim) {                                           \
@@ -568,6 +569,19 @@ __forceinline__ __host__ __device__  void vec_cast<nv_bfloat16, float>(nv_bfloat
     __VA_ARGS__                                           \
   }
 
+
+template<typename T>
+void print_tensor(const phi::DenseTensor& x, const std::string file, const int line, const int num = 100) {
+  if (VLOG_IS_ON(2)) {
+    std::vector<T> tmp(num);
+    PADDLE_ENFORCE_GPU_SUCCESS(cudaMemcpy(tmp.data(), x.data<T>(), num * sizeof(T), cudaMemcpyDeviceToHost));
+    std::cout << "File " << file << " : " << line << "\n";
+    for (int i = 0; i < num; i++) {
+      std::cout << tmp[i] << " ";
+    }
+    std::cout << std::endl;
+  }
+}
 
 } // namespace fusion
 } // namespace phi

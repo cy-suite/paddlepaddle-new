@@ -472,7 +472,6 @@ __device__ __forceinline__ void write_o_reg_gmem_shift_smooth_quant(float (*o_fr
                                                                     OutT* o_ptr_base,
                                                                     uint32_t o_idx_base,
                                                                     const uint32_t q_head_idx_base,
-                                                                    const float in_scale,
                                                                     const uint32_t qo_upper_bound,
                                                                     const uint32_t qo_n_stride,
                                                                     const uint32_t qo_h_stride,

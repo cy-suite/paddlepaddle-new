@@ -431,6 +431,13 @@ __global__ void multi_query_append_for_fuse_mt_attention_kernel(
   wait_group<0>();
   __syncthreads();
 
+  //// Debug
+  // if (threadIdx.x == PRINT_TID) {
+  //   printf("end load q \n");
+  // }
+  // __syncthreads();
+  //// end debug
+
   q_smem_inplace_multiply_sm_scale<num_frags_x, num_frags_y, T>(&qo_smem,
                                                                 scale);
 
@@ -526,6 +533,7 @@ __global__ void multi_query_append_for_fuse_mt_attention_kernel(
                                    kv_b_stride,
                                    kv_idx_base,
                                    chunk_end);
+
   if constexpr (CAL_ROPE) {
     produce_kv_blockwise<SharedMemFillMode::kNoFill,
                          NUM_WARPS,
@@ -558,6 +566,13 @@ __global__ void multi_query_append_for_fuse_mt_attention_kernel(
                                    kv_idx_base,
                                    chunk_end);
   commit_group();
+
+  //// Debug
+  // if (threadIdx.x == PRINT_TID) {
+  //   printf("end prlogue \n");
+  // }
+  // __syncthreads();
+  //// end debug
 #pragma unroll 1
   for (uint32_t iter = 0; iter < num_iterations; ++iter) {
     wait_group<1>();
@@ -712,6 +727,12 @@ __global__ void multi_query_append_for_fuse_mt_attention_kernel(
   }
   wait_group<0>();
   __syncthreads();
+  //// Debug
+  // if (threadIdx.x == PRINT_TID) {
+  //   printf("end compute \n");
+  // }
+  // __syncthreads();
+  //// end debug
 #ifdef DEBUG_ATTN
   if (layer_id == 0 && threadIdx.x == PRINT_TID && threadIdx.y == PRINT_WID &&
       blockIdx.z == 0) {
@@ -737,6 +758,12 @@ __global__ void multi_query_append_for_fuse_mt_attention_kernel(
   if constexpr (!partition_kv) {
     normalize_d<num_frags_x, num_frags_y>(o_frag, d_frag);
   }
+  //// Debug
+  // if (threadIdx.x == PRINT_TID) {
+  //   printf("end normalize_d \n");
+  // }
+  // __syncthreads();
+  //// end debug
 
   // write o
   // [num_frags_x, 16, num_frags_y, 16]
@@ -771,6 +798,12 @@ __global__ void multi_query_append_for_fuse_mt_attention_kernel(
         HEAD_DIM,
         layer_id);
   }
+  //// Debug
+  // if (threadIdx.x == PRINT_TID) {
+  //   printf("write_o_reg_gmem_shift_smooth_quant \n");
+  // }
+  // __syncthreads();
+  //// end debug
 
   if constexpr (partition_kv) {
 #pragma unroll
@@ -1618,7 +1651,7 @@ void MultiQueryAppendForFuseMtAttention(const Context &dev_ctx,
           FLAGS_cascade_encoder_attention_max_partition_size);
     }
     const int num_chunks = div_up(max_dec_len, chunk_size);
-    // VLOG(2) << "chunk_size: " << chunk_size;
+    VLOG(2) << "chunk_size: " << chunk_size;
     // VLOG(2) << "num_blocks_per_wave: " << num_blocks_per_wave << ",
     // num_blocks_need: " << num_blocks_need << ", max_num_chunks: " <<
     // max_num_chunks << ", ratio: " << ratio; VLOG(2) << "num_chunks: " <<
@@ -1626,9 +1659,10 @@ void MultiQueryAppendForFuseMtAttention(const Context &dev_ctx,
 
     dim3 grids(num_blocks_x_cpu, num_chunks, kv_num_heads);
     dim3 blocks(32, num_warps);
-    // VLOG(2) << "grids: " << grids.x << " " << grids.y << " " << grids.z;
-    // VLOG(2) << "blocks: " << blocks.x << " " << blocks.y;
+    VLOG(1) << "grids: " << grids.x << " " << grids.y << " " << grids.z;
+    VLOG(1) << "blocks: " << blocks.x << " " << blocks.y;
     if (num_chunks <= 1) {
+      VLOG(1) << "nosplit_kv_kernel";
       auto nosplit_kv_kernel =
           multi_query_append_for_fuse_mt_attention_kernel<NV_TYPE,
                                                           false,
@@ -1651,6 +1685,18 @@ void MultiQueryAppendForFuseMtAttention(const Context &dev_ctx,
                              cudaFuncAttributeMaxDynamicSharedMemorySize,
                              smem_size);
       }
+      VLOG(1) << "max_seq_len " << max_seq_len;
+      VLOG(1) << "max_dec_len " << max_dec_len;
+      VLOG(1) << "max_block_num_per_seq " << max_block_num_per_seq;
+      VLOG(1) << "scale " << scale;
+      VLOG(1) << "max_seq_len " << max_seq_len;
+
+      VLOG(1) << "q " << q.dims();
+      print_tensor<OutT>(q, __FILE__, __LINE__);
+      VLOG(1) << "cache_k.data<T>() " << cache_k.data<T>();
+      VLOG(1) << "cache_v.data<T>() " << cache_v.data<T>();
+      VLOG(1) << "out " << out->dims();
+
       nosplit_kv_kernel<<<grids, blocks, smem_size, stream>>>(
           reinterpret_cast<NV_TYPE *>(const_cast<T *>(q.data<T>())),
           reinterpret_cast<NV_TYPE *>(const_cast<T *>(cache_k.data<T>())),
@@ -1678,8 +1724,9 @@ void MultiQueryAppendForFuseMtAttention(const Context &dev_ctx,
           nullptr,
           reinterpret_cast<OUT_NV_TYPE *>(out->data<OutT>()),
           FLAGS_speculate_max_draft_token_num);
+      print_tensor<OutT>(*out, __FILE__, __LINE__);
     } else {
-      // VLOG(2) << "split kv";
+      VLOG(1) << "split kv";
       phi::DenseTensor tmp_workspace, tmp_m, tmp_d;
       if (ENABLE_PREFILL) {
         tmp_workspace.Resize({token_num, num_chunks, num_heads, HEAD_DIM});
@@ -1801,8 +1848,8 @@ void MultiQueryAppendForFuseMtAttention(const Context &dev_ctx,
       }
     }
   } else {
-    // VLOG(2) << "NUM_WARP_Q: " << NUM_WARP_Q;
-    // VLOG(2) << "NUM_WARP_KV: " << NUM_WARP_KV;
+    VLOG(2) << "NUM_WARP_Q: " << NUM_WARP_Q;
+    VLOG(2) << "NUM_WARP_KV: " << NUM_WARP_KV;
     constexpr uint32_t num_frags_z = BLOCK_SIZE / 16 / NUM_WARP_KV;  // !!!
     // VLOG(2) << "num_frags_z: " << num_frags_z;
     constexpr uint32_t smem_size =
@@ -1851,7 +1898,7 @@ void MultiQueryAppendForFuseMtAttention(const Context &dev_ctx,
           FLAGS_cascade_encoder_attention_max_partition_size);
     }
     const int num_chunks = div_up(max_dec_len, chunk_size);
-    // VLOG(2) << "chunk_size: " << chunk_size;
+    VLOG(2) << "chunk_size: " << chunk_size;
     // VLOG(2) << "num_blocks_per_wave: " << num_blocks_per_wave << ",
     // num_blocks_need: " << num_blocks_need << ", max_num_chunks: " <<
     // max_num_chunks << ", ratio: " << ratio; VLOG(2) << "num_chunks: " <<
@@ -1864,6 +1911,7 @@ void MultiQueryAppendForFuseMtAttention(const Context &dev_ctx,
     // VLOG(2) << "blocks: " << blocks.x << " " << blocks.y;
 
     if (num_chunks <= 1) {
+      VLOG(2) << "nosplit_kv_kernel";
       auto nosplit_kv_kernel =
           multi_query_append_attention_for_fusemt_warp1_4_kernel<
               NV_TYPE,
@@ -1911,7 +1959,7 @@ void MultiQueryAppendForFuseMtAttention(const Context &dev_ctx,
           reinterpret_cast<OUT_NV_TYPE *>(out->data<OutT>()),
           FLAGS_speculate_max_draft_token_num);
     } else {
-      // VLOG(2) << "split kv";
+      VLOG(2) << "split kv";
       phi::DenseTensor tmp_workspace, tmp_m, tmp_d;
       if (is_decoder) {
         tmp_workspace.Resize({bsz, num_chunks, num_heads, HEAD_DIM});
@@ -2082,7 +2130,7 @@ void CascadeAppendAttentionForFuseMtKernel(
   const uint32_t bsz = cum_offsets_dims[0];
   kv_num_heads = kv_num_heads == -1 ? num_heads : kv_num_heads;
   const uint32_t group_size = num_heads / kv_num_heads;
-  // VLOG(2) << "block_shape_q: " << block_shape_q;
+  VLOG(2) << "block_shape_q: " << block_shape_q;
 
   const uint32_t use_system = seq_mapping ? 1 : 0;
   DISPATCH_CAUSAL(

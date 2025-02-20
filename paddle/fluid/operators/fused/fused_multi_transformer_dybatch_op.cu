@@ -24,8 +24,8 @@ limitations under the License. */
 #include "paddle/phi/kernels/fusion/gpu/fused_multi_transformer_helper.cu.h"
 #include "paddle/phi/kernels/reduce_sum_kernel.h"
 
-// #define _DEBUG_FUSED_MULTI_TRANSFORMER
-// #define _DEBUG_FUSED_MULTI_TRANSFORMER_PRINT_TENSOR
+#define _DEBUG_FUSED_MULTI_TRANSFORMER
+#define _DEBUG_FUSED_MULTI_TRANSFORMER_PRINT_TENSOR
 
 COMMON_DECLARE_int64(flag_block_shape_q);
 COMMON_DECLARE_int64(flag_dec_block_shape_q);
@@ -482,9 +482,6 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
       VLOG(1) << "step1";
 #ifdef _DEBUG_FUSED_MULTI_TRANSFORMER_PRINT_TENSOR
       VLOG(2) << "ln1_out:" << *buf1;
-      PrintMatrix(buf1->data<T>(),
-                  buf1->numel(),
-                  "ln1_out_" + std::to_string(buf1->place().GetDeviceId()));
 #endif
 #endif
 
@@ -522,9 +519,6 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
       VLOG(1) << "step2";
 #ifdef _DEBUG_FUSED_MULTI_TRANSFORMER_PRINT_TENSOR
       VLOG(2) << "qkv_out:" << qkv_out;
-      PrintMatrix(qkv_out.data<T>(),
-                  qkv_out.numel(),
-                  "qkv_out_" + std::to_string(qkv_out.place().GetDeviceId()));
 #endif
 #endif
 
@@ -532,6 +526,7 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
 
       phi::DenseTensor *key_cache = cache_kv_outs[2 * i];
       phi::DenseTensor *value_cache = cache_kv_outs[2 * i + 1];
+
       if (max_enc_len_this_time > 0) {  // generation context stage
         const int *sequence_lengths_data =
             sequence_lengths_encoder->data<int>();
@@ -567,6 +562,11 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
                                    gqa_group_size);
           }
         }
+        VLOG(2) << "qkv_out " << qkv_out;
+        VLOG(1) << "num_head " << num_head;
+        VLOG(1) << "dim_head " << dim_head;
+        VLOG(1) << "gqa_group_size " << gqa_group_size;
+        VLOG(1) << "seq_len " << seq_len;
 
         CacheKernel<T>(dev_ctx,
                        qkv_out,
@@ -581,6 +581,9 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
                        dim_head,
                        seq_mapping,  // seq_mapping,
                        gqa_group_size);
+
+        VLOG(2) << "key_cache " << *key_cache;
+        VLOG(2) << "value_cache " << *value_cache;
         cudaStream_t exec_stream = dev_ctx.stream();
         phi::fusion::
             CascadeAppendAttentionForFuseMtKernel<T, phi::GPUContext, T>(
@@ -880,7 +883,7 @@ PD_REGISTER_STRUCT_KERNEL(fused_multi_transformer_dybatch,
                           ALL_LAYOUT,
                           ops::FusedMultiTransformerDybatchOpKernel,
 // float,
-#if CUDA_VERSION >= 11000 && defined(CUDA_BFLOAT16_AVALIABLE)
+#if CUDA_VERSION >= 11000
                           plat::bfloat16,
 #endif
                           plat::float16) {

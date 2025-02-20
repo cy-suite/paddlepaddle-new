@@ -39,6 +39,7 @@ from .fused_transformer import (
     fused_feedforward,
     fused_multi_head_attention,
     fused_multi_transformer,
+    fused_multi_transformer_dybatch,
 )
 from .masked_multihead_attention import masked_multihead_attention
 from .swiglu import swiglu
@@ -68,4 +69,5 @@ __all__ = [
     "blha_get_max_len",
     "block_multihead_attention",
     "swiglu",
+    "fused_multi_transformer_dybatch",
 ]
