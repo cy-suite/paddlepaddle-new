@@ -387,9 +387,7 @@ class PaddleToTensorRTConverter:
                 continue
             if not is_shape_tensor(result_value):
                 if len(result_value.shape) == 0:
-                    min_shape = []
-                    opt_shape = []
-                    max_shape = []
+                    continue
                 else:
                     min_shape = get_value_shape_range_info(
                         result_value, False, paddle.base.core.ShapeMode.kMIN
