@@ -129,7 +129,7 @@ static std::vector<CutlassTileConfig> get_candidate_tiles(
       CutlassTileConfig::CtaShape32x128x64_WarpShape32x32x64,
       CutlassTileConfig::CtaShape64x128x64_WarpShape64x64x64,
       CutlassTileConfig::CtaShape128x128x64_WarpShape64x64x64,
-      // CutlassTileConfig::CtaShape128x256x64_WarpShape64x64x64,
+      CutlassTileConfig::CtaShape128x256x64_WarpShape64x64x64,
   };
   if (is_moe) {
     quant_B_configs_sm80.push_back(
@@ -185,7 +185,8 @@ static std::vector<CutlassGemmConfig> get_candidate_configs(
 
   std::vector<CutlassGemmConfig> candidate_configs;
   const int min_stages = 2;
-  const int max_stages = sm >= 80 ? 5 : 2;
+  // Note(yuanlehome): max_stages must smaller than 5!
+  const int max_stages = sm >= 80 ? 4 : 2;
 
   for (const auto& tile_config : tiles) {
     for (int stages = min_stages; stages <= max_stages; ++stages) {

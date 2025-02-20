@@ -621,6 +621,7 @@ void CutlassFpAIntBGemmRunner<T, WeightType>::run_gemm<EpilogueTag,
                              gemmConfigManager.getMaxProfileM());
     bool found_one = false;
 
+    VLOG(4) << "candidate_configs.size(): " << candidate_configs.size();
     for (size_t ii = 0; ii < candidate_configs.size(); ++ii) {
       for (int i = 0; i < warm_time; i++) {
         dispatch_to_arch<EpilogueTag, FineGrained>(A,
