@@ -41,6 +41,4 @@ class LUSolveFunctor<T, CPUContext> {
 
 PD_REGISTER_KERNEL(
     lu_solve, CPU, ALL_LAYOUT, phi::LUSolveKernel, float, double) {
-  kernel->InputAt(1).SetDataType(phi::DataType::INT32);
-  kernel->InputAt(1).SetBackend(phi::Backend::ALL_BACKEND);
 }

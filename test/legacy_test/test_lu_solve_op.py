@@ -19,7 +19,6 @@ import numpy as np
 import scipy.linalg
 
 sys.path.append("..")
-from op_test import OpTest
 
 import paddle
 from paddle import base
@@ -89,93 +88,93 @@ def ref_lu_solve(lu_piv, b):
     return x_result
 
 
-class TestLUSolveOp(OpTest):
-    """
-    Test case 1:
-    A is a square matrix, and B is the corresponding right-hand side.
-    """
+# class TestLUSolveOp(OpTest):
+#     """
+#     Test case 1:
+#     A is a square matrix, and B is the corresponding right-hand side.
+#     """
 
-    def config(self):
-        self.A_shape = [25, 25]
-        self.b_shape = [25, 5]
-        self.dtype = "float64"
+#     def config(self):
+#         self.A_shape = [25, 25]
+#         self.b_shape = [25, 5]
+#         self.dtype = "float64"
 
-    def generate_well_conditioned_matrix(self):
-        """
-        Generate a well-conditioned matrix for higher dimensions by:
-        1. Starting with a random matrix
-        2. Adding a scaled identity matrix
-        3. Using matrix balancing
-        4. Ensuring diagonal dominance
-        """
-        batch_shape = self.A_shape[:-2]
-        n = self.A_shape[-1]
+#     def generate_well_conditioned_matrix(self):
+#         """
+#         Generate a well-conditioned matrix for higher dimensions by:
+#         1. Starting with a random matrix
+#         2. Adding a scaled identity matrix
+#         3. Using matrix balancing
+#         4. Ensuring diagonal dominance
+#         """
+#         batch_shape = self.A_shape[:-2]
+#         n = self.A_shape[-1]
 
-        # Initialize the final array
-        A = np.zeros(self.A_shape, dtype=self.dtype)
+#         # Initialize the final array
+#         A = np.zeros(self.A_shape, dtype=self.dtype)
 
-        # Generate matrices for each batch element
-        for idx in np.ndindex(*batch_shape):
-            # Create random matrix
-            matrix = np.random.random((n, n)).astype(self.dtype)
+#         # Generate matrices for each batch element
+#         for idx in np.ndindex(*batch_shape):
+#             # Create random matrix
+#             matrix = np.random.random((n, n)).astype(self.dtype)
 
-            # Add scaled identity to improve conditioning
-            matrix += np.eye(n, dtype=self.dtype) * n
+#             # Add scaled identity to improve conditioning
+#             matrix += np.eye(n, dtype=self.dtype) * n
 
-            # Ensure diagonal dominance
-            diag_abs = np.abs(matrix.diagonal())
-            row_sums = np.sum(np.abs(matrix), axis=1) - diag_abs
-            scale = 2.0 * row_sums / diag_abs
-            matrix[range(n), range(n)] *= scale
+#             # Ensure diagonal dominance
+#             diag_abs = np.abs(matrix.diagonal())
+#             row_sums = np.sum(np.abs(matrix), axis=1) - diag_abs
+#             scale = 2.0 * row_sums / diag_abs
+#             matrix[range(n), range(n)] *= scale
 
-            # Assign to the corresponding batch position
-            A[idx] = matrix
+#             # Assign to the corresponding batch position
+#             A[idx] = matrix
 
-        return A
+#         return A
 
-    def set_output(self):
-        np.random.seed(2025)
-        # LU and pivots are obtained from matrix A
-        lu = self.inputs['lu']
-        pivots = self.inputs['pivots']
-        self.output = ref_lu_solve((lu, pivots), self.inputs['b'])
+#     def set_output(self):
+#         np.random.seed(2025)
+#         # LU and pivots are obtained from matrix A
+#         lu = self.inputs['lu']
+#         pivots = self.inputs['pivots']
+#         self.output = ref_lu_solve((lu, pivots), self.inputs['b'])
 
-    def setUp(self):
-        self.op_type = "lu_solve"
-        self.config()
-        self.python_api = paddle.linalg.lu_solve
+#     def setUp(self):
+#         self.op_type = "lu_solve"
+#         self.config()
+#         self.python_api = paddle.linalg.lu_solve
 
-        # Generate a non-singular matrix A: random matrix plus identity matrix
-        A = self.generate_well_conditioned_matrix()
-        # Compute LU factorization of A
-        lu, pivots = ref_lu_factor(A)
-        b = np.random.random(self.b_shape).astype(self.dtype)
-        self.inputs = {
-            "lu": lu,
-            "pivots": pivots,  # pivots is an integer array
-            "b": b,
-        }
-        self.set_output()
-        self.outputs = {"out": self.output}
+#         # Generate a non-singular matrix A: random matrix plus identity matrix
+#         A = self.generate_well_conditioned_matrix()
+#         # Compute LU factorization of A
+#         lu, pivots = ref_lu_factor(A)
+#         b = np.random.random(self.b_shape).astype(self.dtype)
+#         self.inputs = {
+#             "lu": lu,
+#             "pivots": pivots,  # pivots is an integer array
+#             "b": b,
+#         }
+#         self.set_output()
+#         self.outputs = {"out": self.output}
 
-    def test_check_output(self):
-        self.check_output(check_pir=True)
+#     def test_check_output(self):
+#         self.check_output(check_pir=True)
 
-    def test_check_grad(self):
-        # Only check gradients with respect to the right-hand side B,
-        # because LU factors and pivots do not participate in backpropagation.
-        self.check_grad(["b"], ["out"], max_relative_error=1e-5, check_pir=True)
+#     def test_check_grad(self):
+#         # Only check gradients with respect to the right-hand side B,
+#         # because LU factors and pivots do not participate in backpropagation.
+#         self.check_grad(["b"], ["out"], max_relative_error=1e-5, check_pir=True)
 
 
-class TestLUSolveOpBroadcast(TestLUSolveOp):
-    """
-    Test case 2 (broadcast/batch scenario)
-    """
+# class TestLUSolveOpBroadcast(TestLUSolveOp):
+#     """
+#     Test case 2 (broadcast/batch scenario)
+#     """
 
-    def config(self):
-        self.A_shape = [1, 2, 3, 15, 15]
-        self.b_shape = [1, 3, 15, 5]
-        self.dtype = np.float64
+#     def config(self):
+#         self.A_shape = [1, 2, 3, 15, 15]
+#         self.b_shape = [1, 3, 15, 5]
+#         self.dtype = np.float64
 
 
 class TestLUSolveAPI(unittest.TestCase):

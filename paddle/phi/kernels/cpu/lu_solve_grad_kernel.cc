@@ -18,6 +18,4 @@
 
 PD_REGISTER_KERNEL(
     lu_solve_grad, CPU, ALL_LAYOUT, phi::LUSolveGradKernel, float, double) {
-  kernel->InputAt(1).SetDataType(phi::DataType::INT32);
-  kernel->InputAt(1).SetBackend(phi::Backend::ALL_BACKEND);
 }
