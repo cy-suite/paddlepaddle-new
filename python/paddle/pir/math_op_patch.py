@@ -1076,6 +1076,7 @@ def monkey_patch_value():
         ('values', values),
         ("_to", _to),
         ("to", to),
+        ("tolist", tolist),
         ("numpy", numpy),
         ("register_hook", register_hook),
         # For basic operators
