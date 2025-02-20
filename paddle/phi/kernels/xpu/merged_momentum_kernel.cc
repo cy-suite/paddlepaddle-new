@@ -29,44 +29,56 @@ namespace phi {
 
 template <typename T, typename Context>
 void MergedMomentumKernel(
-    const Context& dev_ctx, const std::vector<const DenseTensor*>& params,
+    const Context& dev_ctx,
+    const std::vector<const DenseTensor*>& params,
     const std::vector<const DenseTensor*>& grad,
     const std::vector<const DenseTensor*>& velocity,
     const std::vector<const DenseTensor*>& learning_rate,
     const paddle::optional<std::vector<const DenseTensor*>>& master_param,
-    float mu_in, bool use_nesterov,
+    float mu_in,
+    bool use_nesterov,
     const std::vector<std::string>& regularization_method,
-    const std::vector<float>& regularization_coeff, bool multi_precision,
-    float rescale_grad, std::vector<DenseTensor*> params_out,
+    const std::vector<float>& regularization_coeff,
+    bool multi_precision,
+    float rescale_grad,
+    std::vector<DenseTensor*> params_out,
     std::vector<DenseTensor*> velocity_out,
     std::vector<DenseTensor*> master_param_out) {
   using XPUType = typename XPUTypeTrait<T>::Type;
   T mu = static_cast<T>(mu_in);
   int op_num = params.size();
-  PADDLE_ENFORCE_EQ(op_num, params_out.size(),
+  PADDLE_ENFORCE_EQ(op_num,
+                    params_out.size(),
                     errors::InvalidArgument(
                         "The size of Output(ParamOut) must be equal to "
                         "Input(Param), but got the size of Output(ParamOut) "
                         "is %d, the size of Input(Param) is %d.",
-                        params_out.size(), op_num));
-  PADDLE_ENFORCE_EQ(op_num, velocity.size(),
+                        params_out.size(),
+                        op_num));
+  PADDLE_ENFORCE_EQ(op_num,
+                    velocity.size(),
                     errors::InvalidArgument(
                         "The size of Output(Velocity) must be equal to "
                         "Input(Param), but got the size of Output(Velocity) "
                         "is %d, the size of Input(Param) is %d.",
-                        velocity.size(), op_num));
-  PADDLE_ENFORCE_EQ(op_num, velocity_out.size(),
+                        velocity.size(),
+                        op_num));
+  PADDLE_ENFORCE_EQ(op_num,
+                    velocity_out.size(),
                     errors::InvalidArgument(
                         "The size of Output(VelocityOut) must be equal to "
                         "Input(Param), but got the size of Output(VelocityOut) "
                         "is %d, the size of Input(Param) is %d.",
-                        velocity_out.size(), op_num));
+                        velocity_out.size(),
+                        op_num));
   PADDLE_ENFORCE_EQ(
-      op_num, grad.size(),
+      op_num,
+      grad.size(),
       errors::InvalidArgument(
           "The size of Input(Grad) must be equal to Input(Param), but got "
           "the size of Input(Grad) is %d, the size of Input(Param) is %d.",
-          grad.size(), op_num));
+          grad.size(),
+          op_num));
   std::vector<XPUType*> param_list(op_num);
   std::vector<XPUType*> velocity_list(op_num);
   std::vector<XPUType*> grad_list(op_num);
@@ -93,11 +105,13 @@ void MergedMomentumKernel(
       } else {
         l2_weight_decay[j] = static_cast<float>(regularization_coeff[j]);
       }
-      PADDLE_ENFORCE_EQ(params[j]->IsSharedBufferWith(*params_out[j]), true,
+      PADDLE_ENFORCE_EQ(params[j]->IsSharedBufferWith(*params_out[j]),
+                        true,
                         errors::InvalidArgument(
                             "The size of Input(Param) and Output(ParamOut) "
                             "must be the same Tensors."));
-      PADDLE_ENFORCE_EQ(velocity[j], velocity_out[j],
+      PADDLE_ENFORCE_EQ(velocity[j],
+                        velocity_out[j],
                         errors::InvalidArgument(
                             "The size of Input(velocity) and Output(velocity) "
                             "must be the same Tensors."));
@@ -106,9 +120,16 @@ void MergedMomentumKernel(
     return;
   }
   for (int j = 0; j < op_num; j++) {
-    int r = xpu::momentum(dev_ctx.x_context(), param_list[j], velocity_list[j],
-                          grad_list[j], param_out_list[j], velocity_out_list[j],
-                          sizes[j], lr_list[j], use_nesterov, mu,
+    int r = xpu::momentum(dev_ctx.x_context(),
+                          param_list[j],
+                          velocity_list[j],
+                          grad_list[j],
+                          param_out_list[j],
+                          velocity_out_list[j],
+                          sizes[j],
+                          lr_list[j],
+                          use_nesterov,
+                          mu,
                           l2_weight_decay[j]);
     PADDLE_ENFORCE_XDNN_SUCCESS(r, "momentum");
   }
@@ -116,5 +137,9 @@ void MergedMomentumKernel(
 
 }  // namespace phi
 
-PD_REGISTER_KERNEL(merged_momentum, XPU, ALL_LAYOUT, phi::MergedMomentumKernel,
-                   float, phi::dtype::float16) {}
+PD_REGISTER_KERNEL(merged_momentum,
+                   XPU,
+                   ALL_LAYOUT,
+                   phi::MergedMomentumKernel,
+                   float,
+                   phi::dtype::float16) {}
