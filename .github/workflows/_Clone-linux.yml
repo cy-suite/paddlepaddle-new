@@ -19,7 +19,7 @@ jobs:
     # Don't run on forked repos.
     if: github.repository_owner == 'PaddlePaddle'
     runs-on:
-      group: HK-Clone
+      group: clone-test
 
     steps:
     - name: Clone paddle
