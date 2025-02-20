@@ -2291,10 +2291,11 @@ class NativeOpAnchorApGenericDrrPattern : public pir::RewritePattern {
   adt::Result<bool> TryMatchAndRewrite(pir::Operation* op,
                                        pir::PatternRewriter* rewriter) const {
     ADT_LET_CONST_REF(opt_match_ctx, GetMatchCtx(op));
+    ADT_CHECK(ctx_.drr_ctx->pass_name.has_value());
     if (!opt_match_ctx.has_value()) {
+      VLOG(0) << "drr: " << ctx_.drr_ctx->pass_name.value() << " mismatched.";
       return false;
     }
-    ADT_CHECK(ctx_.drr_ctx->pass_name.has_value());
     VLOG(0) << "drr: " << ctx_.drr_ctx->pass_name.value() << " matched.";
     ADT_LET_CONST_REF(
         success, ap_rewriter_.Rewrite(opt_match_ctx.value(), op, rewriter));

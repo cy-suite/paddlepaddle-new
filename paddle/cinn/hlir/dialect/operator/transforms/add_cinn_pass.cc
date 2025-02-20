@@ -74,6 +74,7 @@ COMMON_DECLARE_bool(enable_cinn_accuracy_check);
 COMMON_DECLARE_bool(enable_fuse_parallel_matmul_pass);
 COMMON_DECLARE_bool(enable_fusion_fallback);
 COMMON_DECLARE_bool(enable_ap);
+COMMON_DECLARE_bool(ap_enable_classic_gemm_epilogue);
 COMMON_DECLARE_bool(logging_pir_py_code_dump_symbolic_dims);
 
 namespace cinn::dialect::ir {
@@ -130,7 +131,9 @@ void ApplyPdToCinnPass(
   std::shared_ptr<pir::PassManager> pass_manager = CreatePassManager();
   pass_manager->AddPass(cinn::dialect::ir::CreateReduceAsToSumPass());
   pass_manager->AddPass(cinn::dialect::ir::CreateReplaceZeroScaleToFullPass());
-  pass_manager->AddPass(pir::CreateFusedGemmEpiloguePass());
+  if (!FLAGS_enable_ap || FLAGS_ap_enable_classic_gemm_epilogue) {
+    pass_manager->AddPass(pir::CreateFusedGemmEpiloguePass());
+  }
   if (FLAGS_enable_fuse_parallel_matmul_pass) {
     pass_manager->AddPass(cinn::dialect::ir::CreateFuseParallelMatmulPass());
   }
@@ -205,6 +208,32 @@ void ApplyDivideGroupOpToFusionOpPass(
   pass_manager->Run(program);
 }
 
+void ApplyApGenericDrrPass(
+    ::pir::Program* program,
+    const std::function<std::shared_ptr<pir::PassManager>()>&
+        CreatePassManager) {
+  std::shared_ptr<pir::PassManager> pass_manager = CreatePassManager();
+  ap::memory::Guard guard{};
+  if (auto pass = CreateApGenericClassicDrrPass(guard.circlable_ref_list())) {
+    pass_manager->AddPass(std::move(pass.value()));
+    pass_manager->AddPass(pir::CreateDeadCodeEliminationPass());
+    pir::IrPrinter(LOG(ERROR) << "before ApGenericClassicDrrPass:\n")
+        .PrintProgram(program);
+    pass_manager->Run(program);
+    pir::IrPrinter(LOG(ERROR) << "after ApGenericClassicDrrPass:\n")
+        .PrintProgram(program);
+  }
+  if (auto pass = CreateApGenericAbstractDrrPass(guard.circlable_ref_list())) {
+    pass_manager->AddPass(std::move(pass.value()));
+    pass_manager->AddPass(pir::CreateDeadCodeEliminationPass());
+    pir::IrPrinter(LOG(ERROR) << "before ApGenericAbstractDrrPass:\n")
+        .PrintProgram(program);
+    pass_manager->Run(program);
+    pir::IrPrinter(LOG(ERROR) << "after ApGenericAbstractDrrPass:\n")
+        .PrintProgram(program);
+  }
+}
+
 void ApplyCinnLowerPass(
     ::pir::Program* program,
     const std::function<std::shared_ptr<pir::PassManager>()>&
@@ -227,44 +256,23 @@ void ApplyCinnLowerPass(
     pass_manager->AddPass(cinn::dialect::ir::CreateAccuracyCheckPass());
   }
   if (FLAGS_enable_ap) {
-    ap::memory::Guard guard{};
-    if (auto pass = CreateApGenericClassicDrrPass(guard.circlable_ref_list())) {
-      pass_manager->AddPass(std::move(pass.value()));
-      pass_manager->AddPass(pir::CreateDeadCodeEliminationPass());
-      pir::IrPrinter(LOG(ERROR) << "before ApGenericClassicDrrPass:\n")
-          .PrintProgram(program);
-      pass_manager->Run(program);
-      pir::IrPrinter(LOG(ERROR) << "after ApGenericClassicDrrPass:\n")
-          .PrintProgram(program);
-    }
-    if (auto pass =
-            CreateApGenericAbstractDrrPass(guard.circlable_ref_list())) {
-      pass_manager->AddPass(std::move(pass.value()));
-      pass_manager->AddPass(pir::CreateDeadCodeEliminationPass());
-      pir::IrPrinter(LOG(ERROR) << "before ApGenericAbstractDrrPass:\n")
-          .PrintProgram(program);
-      pass_manager->Run(program);
-      pir::IrPrinter(LOG(ERROR) << "after ApGenericAbstractDrrPass:\n")
-          .PrintProgram(program);
-      pass_manager = CreatePassManager();
-      pass_manager->AddPass(cinn::dialect::ir::CreateFusionFallbackPass());
-      pass_manager->Run(program);
-    }
-  } else {
-    if (FLAGS_enable_fusion_fallback) {
-      VLOG(0) << "Enable Fusion Fallback Pass";
-      pass_manager->AddPass(cinn::dialect::ir::CreateFusionFallbackPass());
-    }
-    if (has_dynamic_shape && !force_static_shape) {
-      pass_manager->AddPass(
-          cinn::dialect::ir::CreateLowerCinnDyShapeFusionOpPass());
-    } else {
-      pass_manager->AddPass(cinn::dialect::ir::CreateLowerCinnFusionOpPass());
-    }
-    pass_manager->AddPass(
-        cinn::dialect::ir::CreateSplitGenerateShapeIntoShapeOpsPass());
-    pass_manager->Run(program);
+    VLOG(0) << "Enable AP Generic DRR Pass";
+    ApplyApGenericDrrPass(program, CreatePassManager);
   }
+  if (FLAGS_enable_fusion_fallback) {
+    VLOG(0) << "Enable Fusion Fallback Pass";
+    pass_manager->AddPass(cinn::dialect::ir::CreateFusionFallbackPass());
+  }
+  if (has_dynamic_shape && !force_static_shape) {
+    pass_manager->AddPass(
+        cinn::dialect::ir::CreateLowerCinnDyShapeFusionOpPass());
+  } else {
+    pass_manager->AddPass(cinn::dialect::ir::CreateLowerCinnFusionOpPass());
+  }
+  pass_manager->AddPass(
+      cinn::dialect::ir::CreateSplitGenerateShapeIntoShapeOpsPass());
+
+  pass_manager->Run(program);
 }
 
 template <typename OP_TYPE>
