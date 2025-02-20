@@ -1888,6 +1888,34 @@ class Variable(metaclass=VariableMetaClass):
         """
         pass
 
+
+@fake_interface_only
+def tolist(self):
+    """
+    **Notes**:
+        **This API is ONLY available in Dygraph mode**
+
+    Returns a Python list shows the value of current :ref:`api_guide_Variable_en`
+
+    Returns:
+        list: The Python list value of current Variable.
+
+    Returns type:
+        list: dtype is same as current Variable
+
+    Examples:
+        .. code-block:: python
+
+            >>> import paddle
+            >>> import paddle.base as base
+
+            >>> with base.dygraph.guard():
+            ...     data_tensor = paddle.randn([2, 3])
+            ...     print(data_tensor.tolist())
+
+    """
+    pass
+
     @non_static_only
     def backward(self, retain_graph=False):
         """
