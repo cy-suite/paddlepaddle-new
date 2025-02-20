@@ -33,6 +33,17 @@ void CollectShapeManager::CollectShapeInfo(
     auto var_name = value_exe_info->GetVarName(output.first);
     auto *var = scope->FindVar(var_name);
     if (!var || !var->IsType<phi::DenseTensor>()) continue;
+
+    // inplace var in kernel program has same value between input and output,
+    // we should use ‘continue’ to prevent duplicate data entries.
+    bool is_inplace_var = false;
+    for (const auto &inplace_var_pair : instr->InplaceInfo()) {
+      if (inplace_var_pair.first == var) {
+        is_inplace_var = true;
+      }
+    }
+    if (is_inplace_var) continue;
+
     auto tensor = var->Get<phi::DenseTensor>();
     if (!tensor.initialized() && !instr->NoNeedBuffer().count(output.first)) {
       continue;
