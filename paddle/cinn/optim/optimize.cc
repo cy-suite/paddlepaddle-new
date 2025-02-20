@@ -103,7 +103,7 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
         VLOG(10) << "After Optimize TransBufferWithDynamicShape:" << copied;
 #endif
       },
-      [&](common::HygonDCUArchHIP) {
+      [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
 #ifdef CINN_WITH_HIP
         ir::SetCudaAxisInfo(copied);
         if (remove_gpu_for_loops) {
@@ -120,7 +120,6 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
         VLOG(10) << "After Optimize CudaSyncThreadsDropIfThenElse:" << copied;
 #endif
       },
-      [&](common::HygonDCUArchSYCL) { CINN_NOT_IMPLEMENTED },
       [](auto) {});
 
   SimplifyBlocks(&copied->body);
