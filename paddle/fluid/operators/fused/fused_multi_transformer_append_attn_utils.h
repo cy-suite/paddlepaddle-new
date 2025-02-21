@@ -22,6 +22,7 @@ limitations under the License. */
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/core/tensor_utils.h"
 #include "paddle/phi/kernels/funcs/aligned_vector.h"
+#include "paddle/phi/kernels/fusion/cacade_append_attn.h"
 
 namespace paddle {
 namespace operators {
@@ -413,6 +414,19 @@ void CacheKernel(const phi::GPUContext &dev_ctx,
   GetNumBlocks(pack_num, &grid_size);
 
   VLOG(1) << "cache kv not quant";
+  VLOG(1) << "num_tokens " << num_tokens;
+  VLOG(1) << "num_heads " << num_heads;
+  VLOG(1) << "head_size " << head_size;
+  VLOG(1) << "gqa_group_size " << gqa_group_size;
+
+  VLOG(1) << "print query";
+  phi::fusion::print_tensor<T>(qkv, __FILE__, __LINE__, 10);
+  VLOG(1) << "print key";
+  phi::fusion::print_tensor<T>(
+      qkv, __FILE__, __LINE__, 10, num_heads * head_size);
+  VLOG(1) << "print value";
+  phi::fusion::print_tensor<T>(
+      qkv, __FILE__, __LINE__, 10, (num_heads + gqa_group_size) * head_size);
   if (seq_mapping) {
     cache_kernel<DataType_, PackSize, true>
         <<<grid_size, blocksize, 0, dev_ctx.stream()>>>(
@@ -613,6 +627,14 @@ void CacheAppendRoPEKernel(
   // const int32_t block_size = key_cache_out->dims()[2];
   const int32_t block_size = 64;
 
+  VLOG(1) << "num_heads";
+  VLOG(1) << "head_size";
+  VLOG(1) << "print_q ";
+  phi::fusion::print_tensor<T>(qkv, __FILE__, __LINE__, 10);
+  VLOG(1) << "print_key ";
+  phi::fusion::print_tensor<T>(
+      qkv, __FILE__, __LINE__, 10, num_heads * head_size);
+
   const float *cos_emb = rotary_emb.data<float>();
   const float *sin_emb = rotary_emb.data<float>() + max_seq_len * head_size / 2;
 
@@ -624,6 +646,7 @@ void CacheAppendRoPEKernel(
   int grid_size = 1;
   GetNumBlocks(pack_num, &grid_size);
   if (seq_mapping) {
+    VLOG(2) << "seq_mapping " << seq_mapping;
     append_decode_cache_T_rope_kernel<DataType_, true, PackSize>
         <<<grid_size, blocksize, 0, stream>>>(
             reinterpret_cast<const QKV_Data_TYPE *>(qkv_ptr),
@@ -649,6 +672,9 @@ void CacheAppendRoPEKernel(
             gqa_group_size,
             seq_lens_this_time ? seq_lens_this_time->data<int>() : nullptr);
   } else {
+    VLOG(1) << "key cache 1";
+    phi::fusion::print_tensor<T>(
+        *key_cache_out, __FILE__, __LINE__, 10, 9 * head_size);
     append_decode_cache_T_rope_kernel<DataType_, false, PackSize>
         <<<grid_size, blocksize, 0, stream>>>(
             reinterpret_cast<const QKV_Data_TYPE *>(qkv_ptr),
@@ -673,6 +699,9 @@ void CacheAppendRoPEKernel(
             elem_nums,
             gqa_group_size,
             seq_lens_this_time ? seq_lens_this_time->data<int>() : nullptr);
+    VLOG(1) << "key cache 2";
+    phi::fusion::print_tensor<T>(
+        *key_cache_out, __FILE__, __LINE__, 10, 9 * head_size);
   }
 }
 

@@ -642,7 +642,7 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
                                     i,
                                     seq_mapping,
                                     gqa_group_size,
-                                    nullptr);
+                                    sequence_lengths);
 
         VLOG(2) << "decoder key_cache " << *key_cache;
         VLOG(2) << "decoder value_cache " << *value_cache;
@@ -668,7 +668,7 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
                 decoder_num_blocks_x_cpu,
                 decoder_num_qrow_per_block,
                 seq_len,
-                max_just_dec_len_this_time,
+                max_just_dec_len_this_time + 1,
                 num_head,
                 gqa_group_size > 0 ? gqa_group_size : num_head,
                 dim_head,

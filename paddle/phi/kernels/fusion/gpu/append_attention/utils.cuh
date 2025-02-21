@@ -578,13 +578,13 @@ __forceinline__ __host__ __device__  void vec_cast<nv_bfloat16, float>(nv_bfloat
 
 
 template<typename T>
-void print_tensor(const phi::DenseTensor& x, const std::string file, const int line, const int num = 100) {
+void print_tensor(const phi::DenseTensor& x, const std::string file, const int line, const int num = 100, const int offset = 0) {
   if (VLOG_IS_ON(2)) {
     std::vector<T> tmp(num);
-    PADDLE_ENFORCE_GPU_SUCCESS(cudaMemcpy(tmp.data(), x.data<T>(), num * sizeof(T), cudaMemcpyDeviceToHost));
+    PADDLE_ENFORCE_GPU_SUCCESS(cudaMemcpy(tmp.data(), x.data<T>() + offset, num * sizeof(T), cudaMemcpyDeviceToHost));
     std::cout << "File " << file << " : " << line << "\n";
     for (int i = 0; i < num; i++) {
-      std::cout << tmp[i] << " ";
+      std::cout << (float)tmp[i] << " ";
     }
     std::cout << std::endl;
   }
