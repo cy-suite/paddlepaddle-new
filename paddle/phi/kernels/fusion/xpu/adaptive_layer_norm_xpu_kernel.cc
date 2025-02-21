@@ -12,9 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include <iostream>
 #include <vector>
 #include "paddle/common/ddim.h"
 #include "paddle/phi/backends/xpu/enforce_xpu.h"
+#include "paddle/phi/common/data_type.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/core/tensor_meta.h"
 #include "paddle/phi/kernels/unsqueeze_kernel.h"
@@ -40,11 +42,11 @@ void AdaptiveLayerNormXPUKernel(const Context& ctx,
   using XPUType = typename XPUTypeTrait<T>::Type;
 
   auto* in_data = reinterpret_cast<const XPUType*>(x.data<T>());
-  auto* scale_data = reinterpret_cast<const float*>(scale.data<float>());
-  auto* bias_data = reinterpret_cast<const float*>(bias.data<float>());
+  auto* scale_data = reinterpret_cast<const XPUType*>(scale.data<T>());
+  auto* bias_data = reinterpret_cast<const XPUType*>(bias.data<T>());
   auto* out_data = reinterpret_cast<XPUType*>(ctx.template Alloc<T>(out));
-  auto* tensor1_data = reinterpret_cast<const XPUType*>(tensor1.data<T>());
-  auto* tensor2_data = reinterpret_cast<const XPUType*>(tensor2.data<T>());
+  // auto* tensor1_data = reinterpret_cast<const XPUType*>(tensor1.data<T>());
+  // auto* tensor2_data = reinterpret_cast<const XPUType*>(tensor2.data<T>());
 
   int r = xpu::SUCCESS;
   auto xpu_ctx = static_cast<const phi::XPUContext*>(&ctx);
@@ -70,50 +72,134 @@ void AdaptiveLayerNormXPUKernel(const Context& ctx,
                                   nullptr);
   PADDLE_ENFORCE_XDNN_SUCCESS(r, "layer_norm");
 
-  if (tensor1_data) {
-    DenseTensor* tensor1_unsqueezed = new phi::DenseTensor();
-    UnsqueezeKernel<T, Context>(
-        ctx, tensor1, unsqueeze_1_axis, tensor1_unsqueezed);
+  phi::DenseTensor* tensor1_unsqueezed = new phi::DenseTensor();
+  UnsqueezeKernel<T, Context>(
+      ctx, tensor1, unsqueeze_1_axis, tensor1_unsqueezed);
 
-    DenseTensor* scale_out = new phi::DenseTensor();
-    auto scale_out_ptr =
-        reinterpret_cast<XPUType*>(ctx.template Alloc<T>(scale_out));
+  phi::DenseTensor* tensor2_unsqueezed = new phi::DenseTensor();
+  UnsqueezeKernel<T, Context>(
+      ctx, tensor2, unsqueeze_2_axis, tensor2_unsqueezed);
+
+  // DenseTensor* scale_out_f32 = new phi::DenseTensor();
+  // ctx.template Alloc<phi::dtype::float>(scale_out_f32);
+
+  if (tensor1_unsqueezed->dtype() ==
+      phi::CppTypeToDataType<phi::dtype::bfloat16>::Type()) {
+    DenseTensor* scale_out_bfp16 = new phi::DenseTensor();
+    ctx.template Alloc<phi::dtype::bfloat16>(scale_out_bfp16);
     r = baidu::xpu::api::scale(
         xpu_ctx->x_context(),
-        reinterpret_cast<const XPUType*>(tensor1_unsqueezed->data<T>()),
-        scale_out_ptr,
+        reinterpret_cast<const XPUType*>(
+            tensor1_unsqueezed->data<phi::dtype::bfloat16>()),
+        reinterpret_cast<XPUType*>(
+            scale_out_bfp16->data<phi::dtype::bfloat16>()),
         tensor1_unsqueezed->numel(),
         bias_after_scale,
         factor,
         scale_bias);
     PADDLE_ENFORCE_XDNN_SUCCESS(r, "scale");
-    r = baidu::xpu::api::broadcast_mul(
-        xpu_ctx->x_context(),
-        out_data,
-        scale_out_ptr,
-        out_data,
-        x_shape_vec,
-        common::vectorize<int>(tensor1_unsqueezed->dims()));
-    PADDLE_ENFORCE_XDNN_SUCCESS(r, "broadcast_mul");
-    delete scale_out;
-    delete tensor1_unsqueezed;
-  }
-  if (tensor2_data) {
-    phi::DenseTensor* tensor2_unsqueezed = new phi::DenseTensor();
-    UnsqueezeKernel<T, Context>(
-        ctx, tensor2, unsqueeze_2_axis, tensor2_unsqueezed);
-    std::vector<int> tensor2_shape_vec =
-        common::vectorize<int>(tensor2_unsqueezed->dims());
-    r = baidu::xpu::api::broadcast_add(
-        xpu_ctx->x_context(),
-        out_data,
-        reinterpret_cast<const XPUType*>(tensor2_unsqueezed->data<T>()),
-        out_data,
-        x_shape_vec,
-        tensor2_shape_vec);
-    PADDLE_ENFORCE_XDNN_SUCCESS(r, "broadcast_add");
-    delete tensor2_unsqueezed;
-  }
+    // r = baidu::xpu::api::cast<XPUType, float>(xpu_ctx->x_context(),
+    //                                           reinterpret_cast<XPUType*>(scale_out_bfp16->data<phi::dtype::float16>()),
+    //                                           scale_out_f32->data<phi::dtype::float>(),
+    //                                           tensor1_unsqueezed->numel());
+    // PADDLE_ENFORCE_XDNN_SUCCESS(r, "cast");
+
+    // DenseTensor* tmp_mul_out_fp32 = new phi::DenseTensor();
+    // ctx.template Alloc<phi::dtype::float>(tmp_mul_out_fp32);
+    // r = baidu::xpu::api::broadcast_mul<float>(xpu_ctx->x_context(),
+    //                                    out.data<phi::dtype::float>(),
+    //                                    scale_out_f32->data<phi::dtype::float>(),
+    //                                    reinterpret_cast<XPUType*>(tmp_mul_out_fp32->data<phi::dtype::float>()),
+    //                                    common::vectorize<int>(out->dims())),
+    //                                    common::vectorize<int>(tensor1_unsqueezed->dims());
+    // PADDLE_ENFORCE_XDNN_SUCCESS(r, "broadcast_mul");
+
+    // if(tensor2.dtype()  == phi::DataType::bfloat16_t || tensor2.dtype() ==
+    // phi::DataType::float16_t){
+    //   DenseTensor* tensor2_unsqueezed_fp32 = new phi::DenseTensor();
+    //   auto tensor2_unsqueezed_fp32_ptr =
+    //   reinterpret_cast<float*>(ctx.template
+    //   Alloc<float>(tensor2_unsqueezed_fp32));
+
+    //   r = baidu::xpu::api::cast(xpu_ctx->x_context(),
+    //     reinterpret_cast<const XPUType*>(tensor2_unsqueezed->data<T>()),
+    //     tensor2_unsqueezed_fp32_ptr,
+    //     tensor1_unsqueezed->numel());
+    //   PADDLE_ENFORCE_XDNN_SUCCESS(r, "cast");
+
+    //   r = baidu::xpu::api::broadcast_add(
+    //       xpu_ctx->x_context(),
+    //       tmp_mul_out_fp32_ptr,
+    //       tensor2_unsqueezed_fp32_ptr,
+    //       out_data,//
+    //       x_shape_vec,
+    //       tensor2_shape_vec);
+    //   PADDLE_ENFORCE_XDNN_SUCCESS(r, "broadcast_add");
+    // }else{
+    //   //
+    //   r = baidu::xpu::api::broadcast_add(
+    //       xpu_ctx->x_context(),
+    //       tmp_mul_out_fp32_ptr,
+    //       reinterpret_cast<const XPUType*>(tensor2_unsqueezed->data<T>()),
+    //       out_data,//
+    //       x_shape_vec,
+    //       tensor2_shape_vec);
+    //   PADDLE_ENFORCE_XDNN_SUCCESS(r, "broadcast_add");
+    // }
+  } else {
+    // r = baidu::xpu::api::scale(
+    //     xpu_ctx->x_context(),
+    //     reinterpret_cast<const XPUType*>(tensor1_unsqueezed->data<T>()),
+    //     scale_out_ptr,
+    //     tensor1_unsqueezed->numel(),
+    //     bias_after_scale,
+    //     factor,
+    //     scale_bias);
+    // PADDLE_ENFORCE_XDNN_SUCCESS(r, "scale");
+
+    // r = baidu::xpu::api::broadcast_mul(
+    //     xpu_ctx->x_context(),
+    //     out_data,
+    //     scale_out_ptr,
+    //     out_data,
+    //     x_shape_vec,
+    //     common::vectorize<int>(tensor1_unsqueezed->dims()));
+    // PADDLE_ENFORCE_XDNN_SUCCESS(r, "broadcast_mul");
+
+    // if(tensor2.dtype()  == phi::DataType::bfloat16 || tensor2.dtype() ==
+    // phi::DataType::float16){
+    //   DenseTensor* tensor2_unsqueezed_fp32 = new phi::DenseTensor();
+    //   auto tensor2_unsqueezed_fp32_ptr =
+    //   reinterpret_cast<float*>(ctx.template
+    //   Alloc<float>(tensor2_unsqueezed_fp32));
+
+    //   r = baidu::xpu::api::cast(xpu_ctx->x_context(),
+    //     reinterpret_cast<const XPUType*>(tensor2_unsqueezed->data<T>()),,
+    //     tensor2_unsqueezed_fp32_ptr,
+    //     tensor1_unsqueezed->numel());
+    //   PADDLE_ENFORCE_XDNN_SUCCESS(r, "cast");
+
+    //   r = baidu::xpu::api::broadcast_add(
+    //       xpu_ctx->x_context(),
+    //       tmp_mul_out_fp32_ptr,
+    //       tensor2_unsqueezed_fp32_ptr,
+    //       out_data,//
+    //       x_shape_vec,
+    //       tensor2_shape_vec);
+    //   PADDLE_ENFORCE_XDNN_SUCCESS(r, "broadcast_add");
+    // }else{
+    //   //
+    //   r = baidu::xpu::api::broadcast_add(
+    //       xpu_ctx->x_context(),
+    //       tmp_mul_out_fp32_ptr,
+    //       reinterpret_cast<const XPUType*>(tensor2_unsqueezed->data<T>()),
+    //       out_data,//
+    //       x_shape_vec,
+    //       tensor2_shape_vec);
+    //   PADDLE_ENFORCE_XDNN_SUCCESS(r, "broadcast_add");
+    // }     // end of if
+  }  // end of else
+
   return;
 }
 
