@@ -173,6 +173,25 @@ void RoundKernel(const Context& dev_ctx,
       dev_ctx, x, out, functor);
 }
 
+template <typename T, typename Context>
+void PowKernel(const Context& dev_ctx,
+               const DenseTensor& x,
+               const Scalar& factor,
+               DenseTensor* out) {
+  PADDLE_ENFORCE_NOT_NULL(out,
+                          errors::NotFound("Output Out should not be nullptr"));
+  dev_ctx.template Alloc<T>(out);
+  auto x_flatten = phi::EigenVector<T>::Flatten(
+      GET_DATA_SAFELY(&x, "Input", "X", "Activation"));
+  auto out_flatten = phi::EigenVector<T>::Flatten(
+      GET_DATA_SAFELY(out, "Output", "Out", "Activation"));
+  auto* place = dev_ctx.eigen_device();
+  phi::funcs::PowFunctor<T> functor;
+  auto attrs = functor.GetAttrs();
+  *(attrs[0].second) = factor.to<float>();
+  functor(*place, x_flatten, out_flatten);
+}
+
 }  // namespace phi
 PD_REGISTER_KERNEL(relu, CPU, ALL_LAYOUT, phi::ReluKernel, float, double) {}
 
@@ -215,6 +234,18 @@ PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(reciprocal, ReciprocalKernel)
 PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(sqrt, SqrtKernel)
 PD_REGISTER_ACTIVATION_KERNEL(rsqrt, RsqrtKernel)
 PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(softplus, SoftplusKernel)
+PD_REGISTER_ACTIVATION_KERNEL(logit, LogitKernel)
+PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(softsign, SoftsignKernel)
+PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(sigmoid, SigmoidKernel)
+PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(logsigmoid, LogSigmoidKernel)
+PD_REGISTER_ACTIVATION_KERNEL(hardsigmoid, HardSigmoidKernel)
+PD_REGISTER_ACTIVATION_KERNEL(swish, SwishKernel)
+PD_REGISTER_ACTIVATION_KERNEL(relu6, Relu6Kernel)
+PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(hardswish, HardSwishKernel)
+PD_REGISTER_ACTIVATION_KERNEL(round, RoundKernel)
+PD_REGISTER_ACTIVATION_KERNEL(floor, FloorKernel)
+PD_REGISTER_ACTIVATION_KERNEL(ceil, CeilKernel)
+PD_REGISTER_ACTIVATION_KERNEL(celu, CeluKernel)
 
 PD_REGISTER_KERNEL(exp,
                    CPU,
@@ -227,7 +258,6 @@ PD_REGISTER_KERNEL(exp,
                    phi::dtype::float16,
                    phi::dtype::complex<float>,
                    phi::dtype::complex<double>) {}
-
 PD_REGISTER_KERNEL(expm1,
                    CPU,
                    ALL_LAYOUT,
@@ -239,8 +269,6 @@ PD_REGISTER_KERNEL(expm1,
                    phi::dtype::float16,
                    phi::dtype::complex<float>,
                    phi::dtype::complex<double>) {}
-
-PD_REGISTER_KERNEL(logit, CPU, ALL_LAYOUT, phi::LogitKernel, float, double) {}
 PD_REGISTER_KERNEL(square,
                    CPU,
                    ALL_LAYOUT,
@@ -251,13 +279,6 @@ PD_REGISTER_KERNEL(square,
                    int64_t,
                    phi::dtype::complex<float>,
                    phi::dtype::complex<double>) {}
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(softsign, SoftsignKernel)
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(sigmoid, SigmoidKernel)
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(logsigmoid, LogSigmoidKernel)
-PD_REGISTER_ACTIVATION_KERNEL(hardsigmoid, HardSigmoidKernel)
-PD_REGISTER_ACTIVATION_KERNEL(swish, SwishKernel)
-PD_REGISTER_ACTIVATION_KERNEL(relu6, Relu6Kernel)
-
 PD_REGISTER_KERNEL(log,
                    CPU,
                    ALL_LAYOUT,
@@ -306,11 +327,6 @@ PD_REGISTER_KERNEL(log1p,
                    phi::dtype::bfloat16,
                    phi::dtype::complex<float>,
                    phi::dtype::complex<double>) {}
-
-PD_REGISTER_ACTIVATION_KERNEL_WITH_COMPLEX(hardswish, HardSwishKernel)
-PD_REGISTER_ACTIVATION_KERNEL(round, RoundKernel)
-PD_REGISTER_ACTIVATION_KERNEL(floor, FloorKernel)
-PD_REGISTER_ACTIVATION_KERNEL(ceil, CeilKernel)
 PD_REGISTER_KERNEL(negative,
                    CPU,
                    ALL_LAYOUT,
@@ -322,6 +338,13 @@ PD_REGISTER_KERNEL(negative,
                    int64_t,
                    phi::dtype::complex<float>,
                    phi::dtype::complex<double>) {}
-PD_REGISTER_ACTIVATION_KERNEL(celu, CeluKernel)
-PD_REGISTER_KERNEL(
-    pow, CPU, ALL_LAYOUT, phi::PowKernel, float, double, int, int64_t) {}
+PD_REGISTER_KERNEL(pow,
+                   CPU,
+                   ALL_LAYOUT,
+                   phi::PowKernel,
+                   float,
+                   double,
+                   int,
+                   int64_t,
+                   phi::dtype::complex<float>,
+                   phi::dtype::complex<double>) {}
