@@ -163,7 +163,7 @@ class ModuleMgr {
 
 struct ApBuiltinModuleBuilder {
   std::string module_name;
-  axpr::AttrMap<SerializableValue> attr_map;
+  axpr::AttrMap<SerializableValue> attr_map{};
 
   void Def(const std::string& name,
            const axpr::BuiltinFuncType<axpr::Value>& func) {

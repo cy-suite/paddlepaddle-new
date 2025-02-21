@@ -30,7 +30,7 @@ template <typename NodeT>
 struct PackedIrOpDeclareImpl {
   std::string op_name;
   std::weak_ptr<OpPatternCtxImpl> op_pattern_ctx;
-  std::optional<std::shared_ptr<PackedIrOpDeclareData>> data;
+  std::optional<std::shared_ptr<PackedIrOpDeclareData>> data{};
 
   bool operator==(const PackedIrOpDeclareImpl& other) const {
     return this->op_name == other.op_name &&

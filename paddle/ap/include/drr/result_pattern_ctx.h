@@ -30,7 +30,7 @@ struct ResultPatternCtxImpl {
   OpPatternCtx op_pattern_ctx;
   TensorPatternCtx tensor_pattern_ctx;
   SourcePatternCtx source_pattern_ctx;
-  std::unordered_set<std::string> internal_native_ir_value_names;
+  std::unordered_set<std::string> internal_native_ir_value_names{};
 
   bool operator==(const ResultPatternCtxImpl& other) const {
     return this != &other;

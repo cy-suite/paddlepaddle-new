@@ -25,7 +25,7 @@ namespace ap::code_gen {
 template <typename BirNode>
 struct OutTensorDataPtrKernelArgIdImpl {
   BirNode ir_value;
-  std::optional<axpr::Function<axpr::SerializableValue>> runtime_getter;
+  std::optional<axpr::Function<axpr::SerializableValue>> runtime_getter{};
 
   bool operator==(const OutTensorDataPtrKernelArgIdImpl& other) const {
     return this->ir_value == other.ir_value;

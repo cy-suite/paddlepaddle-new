@@ -101,7 +101,8 @@ struct ResPtnUnboundNativeIrOpMethodClass {
     ADT_RETURN_IF_ERR(CheckNoRedundantTensorNames(inputs, outputs));
     ADT_LET_CONST_REF(native_op,
                       Helper{}.GetNativeIrOpByUnboundNativeIrOp(self.value()));
-    Helper{}.ConnectIrOpAndIrValue(native_op, inputs, outputs);
+    ADT_RETURN_IF_ERR(
+        Helper{}.ConnectIrOpAndIrValue(native_op, inputs, outputs));
     return adt::Nothing{};
   }
 

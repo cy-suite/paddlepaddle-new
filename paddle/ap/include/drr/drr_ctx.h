@@ -28,11 +28,11 @@ namespace ap::drr {
 
 struct DrrCtxImpl {
   std::weak_ptr<ap::memory::CirclableRefListBase> circlable_ref_list;
-  std::optional<std::string> pass_name;
-  std::optional<SourcePatternCtx> source_pattern_ctx;
-  std::optional<ResultPatternCtx> result_pattern_ctx;
-  std::optional<axpr::Value> constraint_func;
-  std::optional<drr::DrrPassType> drr_pass_type;
+  std::optional<std::string> pass_name{};
+  std::optional<SourcePatternCtx> source_pattern_ctx{};
+  std::optional<ResultPatternCtx> result_pattern_ctx{};
+  std::optional<axpr::Value> constraint_func{};
+  std::optional<drr::DrrPassType> drr_pass_type{};
 
   adt::Result<SourcePatternCtx> GetSourcePatternCtx() const {
     ADT_CHECK(this->source_pattern_ctx.has_value());

@@ -119,7 +119,8 @@ struct SrcPtnUnboundNativeIrOp {
     ADT_LET_CONST_REF(native_outputs, ConvertOutputs(outputs));
     ADT_LET_CONST_REF(native_op,
                       Helper{}.GetNativeIrOpByUnboundNativeIrOp(self.value()));
-    Helper{}.ConnectIrOpAndIrValue(native_op, native_inputs, native_outputs);
+    ADT_RETURN_IF_ERR(Helper{}.ConnectIrOpAndIrValue(
+        native_op, native_inputs, native_outputs));
     return adt::Nothing{};
   }
 

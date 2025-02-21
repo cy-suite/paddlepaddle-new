@@ -26,9 +26,9 @@ struct SrcPtnPackedIrOpDeclareData : public PackedIrOpDeclareData {
   SrcPtnPackedIrOpDeclareData() : PackedIrOpDeclareData() {}
 
   std::optional<axpr::Function<axpr::SerializableValue>>
-      inner_source_pattern_func;
+      inner_source_pattern_func{};
 
-  std::optional<SourcePatternCtx> inner_source_pattern_ctx;
+  std::optional<SourcePatternCtx> inner_source_pattern_ctx{};
 };
 
 }  // namespace ap::drr

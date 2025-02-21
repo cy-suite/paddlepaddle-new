@@ -539,12 +539,12 @@ adt::Result<std::shared_ptr<T>> WeakPtrLock(const std::weak_ptr<T>& weak_ptr) {
   }())
 
 // clang-format off
-#define ADT_CHECK(...)                                                  /* NOLINT */  \
-  if (!(__VA_ARGS__))                                                   /* NOLINT */  \
-    return ::ap::adt::errors::Error{::ap::adt::errors::ValueError{  /* NOLINT */  \
-        "Check '" #__VA_ARGS__ "' failed."                              /* NOLINT */  \
-    }} << ADT_CURRENT_CODE_LOCATION(                                    /* NOLINT */  \
-      __FILE__, __LINE__, __FUNCTION__, #__VA_ARGS__                    /* NOLINT */  \
+#define ADT_CHECK(...)                                             /* NOLINT */ \
+  if (!(__VA_ARGS__))                                              /* NOLINT */ \
+    return ::ap::adt::errors::Error{::ap::adt::errors::ValueError{ /* NOLINT */ \
+        "Check '" #__VA_ARGS__ "' failed."                         /* NOLINT */ \
+    }} << ADT_CURRENT_CODE_LOCATION(                               /* NOLINT */ \
+      __FILE__, __LINE__, __FUNCTION__, #__VA_ARGS__               /* NOLINT */ \
     )
 // clang-format on
 

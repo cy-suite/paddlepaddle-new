@@ -28,7 +28,7 @@ template <typename NodeT>
 struct NativeIrOpDeclareImpl {
   std::string op_name;
   std::weak_ptr<OpPatternCtxImpl> op_pattern_ctx;
-  axpr::AttrMap<axpr::Value> attr_map;
+  axpr::AttrMap<axpr::Value> attr_map{};
 
   bool operator==(const NativeIrOpDeclareImpl& other) const {
     return this->op_name == other.op_name &&

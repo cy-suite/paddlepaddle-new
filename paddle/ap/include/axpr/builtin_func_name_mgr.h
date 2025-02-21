@@ -21,7 +21,7 @@
 namespace ap::axpr {
 
 struct BuiltinFuncName {
-  std::optional<std::string> module_name;
+  std::optional<std::string> module_name{};
   std::string func_name;
 
   std::string ToString() const {

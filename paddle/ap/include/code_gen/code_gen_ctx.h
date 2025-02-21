@@ -29,7 +29,7 @@ namespace ap::code_gen {
 
 template <typename BirNode>
 struct CodeGenCtxImpl {
-  std::optional<ir_match::IrMatchCtx<BirNode>> ir_match_ctx;
+  std::optional<ir_match::IrMatchCtx<BirNode>> ir_match_ctx{};
 
   using DrrNode = drr::Node;
   using DrrPackedIrOp = drr::PackedIrOp<DrrNode>;

@@ -24,7 +24,7 @@ namespace ap::axpr {
 template <typename SerializableValueT>
 struct FunctionImpl {
   Lambda<CoreExpr> lambda;
-  std::optional<Frame<SerializableValueT>> global_frame;
+  std::optional<Frame<SerializableValueT>> global_frame{};
 
   bool operator==(const FunctionImpl& other) const { return this == &other; }
 
