@@ -128,7 +128,7 @@ class PipelineParallel(ParallelModel):
         split_layer_names = list(self.split_spec.keys())
         sublayer_names = [name for name, _ in model.named_sublayers()]
         # Mark which layer is the next pipeline stage
-        pipline_layer_mark = [0 for _ in range(len(sublayer_names))]
+        pipeline_layer_mark = [0 for _ in range(len(sublayer_names))]
         for split_layer_name in split_layer_names:
             split_point = self.split_spec[split_layer_name]
             index = sublayer_names.index(split_layer_name)
@@ -136,7 +136,7 @@ class PipelineParallel(ParallelModel):
                 is_valid = False
                 for i in range(index + 1, len(sublayer_names)):
                     if not sublayer_names[i].startswith(split_layer_name):
-                        pipline_layer_mark[i] = 1
+                        pipeline_layer_mark[i] = 1
                         is_valid = True
                         break
                 assert (
@@ -146,11 +146,11 @@ class PipelineParallel(ParallelModel):
                 raise NotImplementedError(
                     "SplitPoint.BEGINNING is not supported currently"
                 )
-                pipline_layer_mark[index] = 1
-        # the inclusiveSum of pipline_layer_mark is the pipeline stage index
-        pipline_stage_index = list(itertools.accumulate(pipline_layer_mark))
+                pipeline_layer_mark[index] = 1
+        # the inclusiveSum of pipeline_layer_mark is the pipeline stage index
+        pipeline_stage_index = list(itertools.accumulate(pipeline_layer_mark))
         for index, (name, layer) in enumerate(model.named_sublayers()):
-            layer.pipeline_stage_index = pipline_stage_index[index]
+            layer.pipeline_stage_index = pipeline_stage_index[index]
 
         # step2: insert reshard
         for name in split_layer_names:
@@ -176,24 +176,42 @@ class PipelineParallel(ParallelModel):
             if isinstance(output, (list, tuple)):
                 global_output = list(output)
                 for ind in range(len(global_output)):
-                    if is_tensor(global_output[ind]):
-                        global_output[ind] = dist.shard_tensor(
-                            global_output[ind],
-                            g_mesh,
-                            [
-                                dist.Replicate()
-                                for _ in range(len(g_mesh._shape))
-                            ],
-                        )
+                    output_i = global_output[ind]
+                    if is_tensor(output_i):
+                        if output_i.is_dist():
+                            global_output[ind] = dist.reshard(
+                                output_i,
+                                g_mesh,
+                                [
+                                    dist.Replicate()
+                                    for _ in range(len(g_mesh._shape))
+                                ],
+                            )
+                        else:
+                            global_output[ind] = dist.shard_tensor(
+                                output_i,
+                                g_mesh,
+                                [
+                                    dist.Replicate()
+                                    for _ in range(len(g_mesh._shape))
+                                ],
+                            )
                 if isinstance(output, tuple):
                     global_output = tuple(global_output)
                 return global_output
             elif is_tensor(output):
-                return dist.shard_tensor(
-                    output,
-                    g_mesh,
-                    [dist.Replicate() for _ in range(len(g_mesh._shape))],
-                )
+                if output.is_dist():
+                    return dist.reshard(
+                        output,
+                        g_mesh,
+                        [dist.Replicate() for _ in range(len(g_mesh._shape))],
+                    )
+                else:
+                    return dist.shard_tensor(
+                        output,
+                        g_mesh,
+                        [dist.Replicate() for _ in range(len(g_mesh._shape))],
+                    )
             else:
                 raise TypeError(
                     "layer output can only be tensor or list/tuple of tensor"

@@ -131,21 +131,21 @@ ext_suffix = (
 
 
 def get_header_install_dir(header):
-    if 'pb.h' in header:
+    if 'pb.h' in header or 'pd_op.h' in header:
         install_dir = re.sub(
-            env_dict.get("PADDLE_BINARY_DIR") + '/', '', header
+            env_dict.get("PADDLE_BINARY_DIR") + '/', '', header, count=1
         )
     elif 'third_party' not in header:
         # paddle headers
         install_dir = re.sub(
-            env_dict.get("PADDLE_SOURCE_DIR") + '/', '', header
+            env_dict.get("PADDLE_SOURCE_DIR") + '/', '', header, count=1
         )
         if 'fluid/jit' in install_dir:
-            install_dir = re.sub('fluid/jit', 'jit', install_dir)
+            install_dir = re.sub('fluid/jit', 'jit', install_dir, count=1)
     else:
         # third_party
         install_dir = re.sub(
-            env_dict.get("THIRD_PARTY_PATH"), 'third_party', header
+            env_dict.get("THIRD_PARTY_PATH"), 'third_party', header, count=1
         )
         patterns = [
             'install/mkldnn/include/',
@@ -153,7 +153,7 @@ def get_header_install_dir(header):
             'third_party/xpu/src/extern_xpu/xpu/include/',
         ]
         for pattern in patterns:
-            install_dir = re.sub(pattern, '', install_dir)
+            install_dir = re.sub(pattern, '', install_dir, count=1)
     return install_dir
 
 
@@ -1835,6 +1835,102 @@ def get_headers():
                 paddle_source_dir + '/paddle/pir/src/core/parser',
             )
         )
+        + list(
+            find_files(
+                'pd_op.h',
+                paddle_binary_dir + '/paddle/fluid/pir/dialect/operator/ir',
+            )
+        )
+        + list(
+            find_files(
+                'pd_op_sig.h',
+                paddle_source_dir + '/paddle/fluid/ir_adaptor/translator',
+            )
+        )
+        + list(
+            find_files(
+                '*.h',
+                paddle_source_dir
+                + '/paddle/fluid/pir/dialect/operator/interface',
+            )
+        )
+        + list(
+            find_files(
+                '*.hpp',
+                paddle_source_dir
+                + '/paddle/fluid/pir/dialect/operator/interface',
+            )
+        )
+        + list(
+            find_files(
+                '*.h',
+                paddle_source_dir + '/paddle/fluid/pir/dialect/operator/trait',
+            )
+        )
+        + list(
+            find_files(
+                '*.h',
+                paddle_source_dir + '/paddle/fluid/pir/dialect/operator/utils',
+            )
+        )
+        + list(
+            find_files(
+                '*.h',
+                paddle_source_dir + '/paddle/fluid/pir/dialect/kernel/ir',
+            )
+        )
+        + list(
+            find_files(
+                '*.h',
+                paddle_source_dir + '/paddle/pir/include/core',
+            )
+        )
+        + list(
+            find_files(
+                'pd_op_to_kernel_pass.h',
+                paddle_source_dir + '/paddle/fluid/pir/transforms',
+            )
+        )
+        + list(
+            find_files(
+                'custom_engine_ext.h',
+                paddle_source_dir + '/paddle/fluid/custom_engine',
+            )
+        )
+        + list(
+            find_files(
+                'pir_adaptor_util.h',
+                paddle_source_dir
+                + '/paddle/fluid/framework/new_executor/pir_adaptor',
+            )
+        )
+        + list(
+            find_files(
+                'custom_engine_instruction.h',
+                paddle_source_dir
+                + '/paddle/fluid/framework/new_executor/instruction',
+            )
+        )
+        + list(
+            find_files(
+                'instruction_defs.h',
+                paddle_source_dir
+                + '/paddle/fluid/framework/new_executor/instruction',
+            )
+        )
+        + list(
+            find_files(
+                'instruction_base.h',
+                paddle_source_dir
+                + '/paddle/fluid/framework/new_executor/instruction',
+            )
+        )
+        + list(
+            find_files(
+                'sub_graph_detector.h',
+                paddle_source_dir + '/paddle/fluid/pir/transforms',
+            )
+        )
     )
 
     jit_layer_headers = [
@@ -2080,9 +2176,16 @@ def get_setup_parameters():
         'paddle.decomposition',
         'paddle._typing',
         'paddle._typing.libs',
-        'paddle.tensorrt',
+        'paddle.api_tracer',
     ]
 
+    if env_dict.get("WITH_TENSORRT") == 'ON':
+        packages.extend(
+            [
+                'paddle.tensorrt',
+                'paddle.tensorrt.impls',
+            ]
+        )
     paddle_bins = ''
     if not env_dict.get("WIN32"):
         paddle_bins = [

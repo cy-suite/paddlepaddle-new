@@ -72,7 +72,7 @@ COMMON_DECLARE_bool(use_mkldnn);
 
 COMMON_DECLARE_bool(print_ir);
 COMMON_DECLARE_bool(enable_collect_shape);
-
+REGISTER_FILE_SYMBOLS(pd_op_to_kernel_pass);
 namespace paddle::dialect {
 
 pir::Type ConvertOpTypeToKernelType(pir::IrContext* ctx,
@@ -101,6 +101,8 @@ pir::Type ConvertOpTypeToKernelType(pir::IrContext* ctx,
           ConvertOpTypeToKernelType(ctx, vec_type[i], place));
     }
     return pir::VectorType::get(ctx, vec_target_type);
+  } else if (!op_type) {
+    return pir::Type();
   }
   PADDLE_THROW(common::errors::Unimplemented(
       "Not support op type %s in ConvertOpTypeToKernelType.", op_type));
@@ -1336,7 +1338,7 @@ phi::KernelKey GetKernelKey(
   }
 
   if (kernel_backend == phi::Backend::UNDEFINED) {
-    VLOG(8) << "Kernel backend cannot be infered from op operands";
+    VLOG(8) << "Kernel backend cannot be inferred from op operands";
     kernel_backend = paddle::experimental::ParseBackend(place);
   }
 
@@ -1348,7 +1350,7 @@ phi::KernelKey GetKernelKey(
 #endif
   phi::KernelKey res(kernel_backend, kernel_layout, kernel_dtype);
 
-  // kernel backend infered incorrectly from memcpy op operands,
+  // kernel backend inferred incorrectly from memcpy op operands,
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
   // case that place from (not GPU) to GPU.
   // We handle this special case by following code to fix up the problem.
@@ -1731,6 +1733,8 @@ void AddShadowFeedForValue(
     block->push_back(shadow_tensors_op);
     (*map_op_pair)[op_item] = shadow_tensors_op;
     (*map_value_pair)[op_item->result(index)] = shadow_tensors_op->result(0);
+  } else if (!op_item->result(index).type()) {
+    return;
   } else {
     PADDLE_THROW(
         common::errors::Unimplemented("AddShadowFeed for value only support "
@@ -3361,7 +3365,7 @@ void ProcessBlock(
       new_arg.set_attribute(name, attr);
     }
     if (auto dense_tensor_type = arg.type().dyn_cast<DenseTensorType>()) {
-      auto place_attr = arg.attribute<PlaceAttribute>("palce");
+      auto place_attr = arg.attribute<PlaceAttribute>("place");
       auto var_place = place_attr ? place_attr.data() : phi::Place();
       new_arg.set_type(
           AllocatedDenseTensorType::get(ctx, var_place, dense_tensor_type));
@@ -3371,7 +3375,7 @@ void ProcessBlock(
   if (phi::is_accelerat_place(place)) {
     for (auto& [keyword, arg] : block->kwargs()) {
       if (auto dense_tensor_type = arg.type().dyn_cast<DenseTensorType>()) {
-        auto place_attr = arg.attribute<PlaceAttribute>("palce");
+        auto place_attr = arg.attribute<PlaceAttribute>("place");
         if (place_attr && place_attr.data() == place) continue;
         auto dtype = dense_tensor_type.dtype();
         phi::KernelKey shadow_key{paddle::experimental::get_accelerat_backend(),
