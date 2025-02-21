@@ -35,7 +35,7 @@ struct FunctionHelper {
                std::to_string(func_declare->arg_types->size()) +
                " arguments, but " + std::to_string(args.size()) +
                " were given"};
-    for (int i = 0; i < args.size(); ++i) {
+    for (size_t i = 0; i < args.size(); ++i) {
       const auto& arg_axpr_value = args.at(i);
       {
         // check arg type

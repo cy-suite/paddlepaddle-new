@@ -82,7 +82,7 @@ struct ApiWrapperProjectMaker {
                                             const std::string& args_var_name) {
     std::ostringstream ss;
     ss << func_var_name << "(";
-    for (int i = 0; i < func_declare->arg_types->size(); ++i) {
+    for (size_t i = 0; i < func_declare->arg_types->size(); ++i) {
       if (i > 0) {
         ss << ", ";
       }

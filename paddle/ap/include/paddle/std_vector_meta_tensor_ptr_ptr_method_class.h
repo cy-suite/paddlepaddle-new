@@ -53,7 +53,7 @@ struct StdVectorMetaTensorPtrPtrMethodClass {
     if (index < 0) {
       index += self->size();
     }
-    if (index >= 0 && index < self->size()) {
+    if (index >= 0 && index < static_cast<int64_t>(self->size())) {
       return CastItem(self->at(index));
     }
     return adt::errors::IndexError{"vector index out of range"};

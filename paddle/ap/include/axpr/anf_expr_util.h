@@ -115,7 +115,7 @@ struct CoreExprToAnfExprConverter {
     const auto& outer_func = composed_call->outer_func;
     return outer_func.Match(
         [&](const Lambda<CoreExpr>& lambda) -> AnfExpr {
-          CHECK_EQ(lambda->args.size(), 1);
+          CHECK_EQ(lambda->args.size(), 1U);
           const auto& val = ConvertComposedCallToCombined(composed_call);
           Bind<AnfExpr> binding{lambda->args.at(0), val};
           bindings->emplace_back(std::move(binding));

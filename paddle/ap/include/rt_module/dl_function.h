@@ -41,6 +41,7 @@ class DlFunction {
   adt::Result<adt::Ok> Apply(void* ret, void** args) const {
     ADT_LET_CONST_REF(dl_handle_guard, adt::WeakPtrLock(dl_handle_));
     api_wrapper_(ret, func_, args);
+    (void)dl_handle_guard;
     return adt::Ok{};
   }
 

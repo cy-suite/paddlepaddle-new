@@ -162,7 +162,7 @@ adt::Result<adt::Ok> VisitTensorIdxOrRange(
     const DoEachIdxT& DoEachIdx,
     const DoEachRangeT& DoEachRange) {
   using Ok = adt::Result<adt::Ok>;
-  for (int i = 0; i < list->size(); ++i) {
+  for (size_t i = 0; i < list->size(); ++i) {
     const auto& elt = list->at(i);
     ADT_RETURN_IF_ERR(elt.Match(
         [&](int64_t idx) -> Ok {
@@ -214,7 +214,7 @@ adt::Result<adt::List<Val>> MakeConstTensors(
     ADT_CHECK(start <= end);
     adt::List<Val> tensor_list;
     tensor_list->reserve(end - start);
-    for (int i = start; i < end; ++i) {
+    for (size_t i = start; i < end; ++i) {
       ADT_CHECK(i < xs.size());
       const auto* x = xs.at(i);
       ADT_RETURN_IF_ERR(CollectTensor(&tensor_list, x));
@@ -258,7 +258,7 @@ adt::Result<adt::List<Val>> MakeMutableTensors(
     ADT_CHECK(start <= end);
     adt::List<Val> tensor_list;
     tensor_list->reserve(end - start);
-    for (int i = start; i < end; ++i) {
+    for (size_t i = start; i < end; ++i) {
       ADT_CHECK(i < xs.size());
       auto* x = xs.at(i);
       ADT_RETURN_IF_ERR(CollectTensor(&tensor_list, x));

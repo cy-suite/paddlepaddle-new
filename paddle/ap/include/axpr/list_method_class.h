@@ -120,7 +120,7 @@ struct MethodClassImpl<ValueT, adt::List<ValueT>> {
           if (index < 0) {
             index += self->size();
           }
-          if (index >= 0 && index < self->size()) {
+          if (index >= 0 && index < static_cast<int64_t>(self->size())) {
             return self->at(index);
           }
           return adt::errors::IndexError{"list index out of range"};

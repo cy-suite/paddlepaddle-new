@@ -414,7 +414,7 @@ class CpsInterpreter : public InterpreterBase<axpr::Value> {
       ADT_LET_CONST_REF(packed_args,
                         packed.template TryGet<PackedArgs<axpr::Value>>());
       const auto& [pos_args, kwargs] = *packed_args;
-      int lambda_arg_idx = (self.has_value() ? 1 : 0);
+      size_t lambda_arg_idx = (self.has_value() ? 1 : 0);
       ADT_CHECK(lambda_arg_idx + pos_args->size() <= lambda->args.size())
           << TypeError{std::string("<lambda>() takes ") +
                        std::to_string(lambda->args.size()) +

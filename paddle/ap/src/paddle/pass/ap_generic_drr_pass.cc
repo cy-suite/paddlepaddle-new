@@ -2275,10 +2275,11 @@ class NativeOpAnchorApGenericDrrPattern : public pir::RewritePattern {
     }
     const auto& ret = this->TryMatchAndRewrite(op, &rewriter);
     if (ret.HasError()) {
-      LOG(ERROR) << "\nTraceback (most recent call last):\n"
-                 << ret.GetError().CallStackToString() << "\n"
-                 << ret.GetError().class_name() << ": " << ret.GetError().msg()
-                 << "\npass_name: " << ctx_.drr_ctx->pass_name.value();
+      VLOG(0) << "drr: " << ctx_.drr_ctx->pass_name.value() << " mismatched.";
+      VLOG(6) << "\nTraceback (most recent call last):\n"
+              << ret.GetError().CallStackToString() << "\n"
+              << ret.GetError().class_name() << ": " << ret.GetError().msg()
+              << "\npass_name: " << ctx_.drr_ctx->pass_name.value();
       return false;
     }
     bool success = ret.GetOkValue();

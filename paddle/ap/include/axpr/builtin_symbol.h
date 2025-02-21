@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <unordered_map>
 #include "paddle/ap/include/axpr/adt.h"
 #include "paddle/ap/include/axpr/binary_func.h"
 #include "paddle/ap/include/axpr/type.h"

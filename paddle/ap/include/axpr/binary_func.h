@@ -37,7 +37,8 @@ namespace ap::axpr {
                                                          \
     template <typename LhsT, typename RhsT>              \
     static auto Call(const LhsT& lhs, const RhsT& rhs) { \
-      return lhs op rhs;                                 \
+      using T = std::common_type_t<LhsT, RhsT>;          \
+      return static_cast<T>(lhs) op static_cast<T>(rhs); \
     }                                                    \
   };
 PEXPR_FOR_EACH_BINARY_OP(DEFINE_ARITHMETIC_BINARY_OP);
