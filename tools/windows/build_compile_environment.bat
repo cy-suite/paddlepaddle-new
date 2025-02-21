@@ -22,17 +22,20 @@
 ::   Include:
 ::     1. CMake 3.18.0
 ::     2. Git 2.28.0
-::     3. Python 3.8.3\3.9.7\3.10.0
+::     3. Python 3.8.3\3.9.7\3.10.0\3.11.8\3.12.8
 ::     4. Visual Studio 2017\2019\2022 Community
-::     5. CUDA 11.2\12\12.3  cudnn 8.1\8.9\9.6
+::     5. CUDA 11.2\12\12.3  cudnn 8.1\8.4\8.9\9.6
 ::     6. java jre
 ::     7. sccache
-::     8. TensorRT 8.0\8.6\10.7
+::     8. TensorRT 8.0\8.4\8.5\8.6\10.7
 ::     9. xly agent
 ::     tools
 
 :: Echo command is not required.
 :: This script is executed in the Downloads directory
+:: 输入参数 1：若需要安装 python3.11 及 3.12，设为need_more_python，不需要则随意设置一个占位符
+:: 输入参数 2：vs 版本，可选vs2017, vs2019, vs2022
+:: 输入参数 3：cuda 版本，自动选定对应的 cudnn 及 tensorrt 版本，可选cuda112, cuda116, cuda118, cuda12, cuda123
 
 @echo off
 setlocal enabledelayedexpansion
@@ -105,6 +108,13 @@ echo ">>>>>>>> step [3/9]: Python"
 where python 2>&1 | findstr /C:"Python38" > nul 2> nul || call :install_python3.8.3
 where python 2>&1 | findstr /C:"Python39" > nul 2> nul || call :install_python3.9.7
 where python 2>&1 | findstr /C:"Python310" > nul 2> nul || call :install_python3.10.0
+
+set NEED_MORE_PY=%~1
+if /i "%NEED_MORE_PY%"=="need_more_python" (
+  where python 2>&1 | findstr /C:"Python311" > nul 2> nul || call :install_python3.11.8
+  where python 2>&1 | findstr /C:"Python312" > nul 2> nul || call :install_python3.12.8
+  where python 2>&1 | findstr /C:"Python313" > nul 2> nul || call :install_python3.13.2
+)
 goto vs
 
 :install_python3.8.3
@@ -150,6 +160,45 @@ if %errorlevel% == 0 (
 )
 goto :eof
 
+:install_python3.11.8
+echo There is not Python in this PC, will install Python-3.11.8
+echo Download package from https://www.python.org/ftp/python/3.11.8/python-3.11.8-amd64.exe ...
+wget --no-check-certificate -O python-3.11.8-amd64.exe https://www.python.org/ftp/python/3.11.8/python-3.11.8-amd64.exe
+echo Install Python-3.11.8 ...
+start /wait python-3.11.8-amd64.exe /passive InstallAllUsers=1 PrependPath=1 TargetDir=C:\Python311
+if %errorlevel% == 0 (
+  echo Install python-3.11.8 success!
+) else (
+  echo Error***** Install python-3.11.8 failed, please re-install it manually.
+)
+goto :eof
+
+:install_python3.12.8
+echo There is not Python in this PC, will install Python-3.12.0
+echo Download package from https://www.python.org/ftp/python/3.12.8/python-3.12.8-amd64.exe ...
+wget --no-check-certificate -O python-3.12.8-amd64.exe https://www.python.org/ftp/python/3.12.8/python-3.12.8-amd64.exe
+echo Install Python-3.12.8 ...
+start /wait python-3.12.8-amd64.exe /passive InstallAllUsers=1 PrependPath=1 TargetDir=C:\Python312
+if %errorlevel% == 0 (
+  echo Install python-3.12.8 success!
+) else (
+  echo Error***** Install python-3.12.8 failed, please re-install it manually.
+)
+goto :eof
+
+:install_python3.13.2
+echo There is not Python in this PC, will install Python-3.13.0
+echo Download package from https://www.python.org/ftp/python/3.13.2/python-3.13.2-amd64.exe ...
+wget --no-check-certificate -O python-3.13.2-amd64.exe https://www.python.org/ftp/python/3.13.2/python-3.13.2-amd64.exe
+echo Install Python-3.13.2 ...
+start /wait python-3.13.2-amd64.exe /passive InstallAllUsers=1 PrependPath=1 TargetDir=C:\Python313
+if %errorlevel% == 0 (
+  echo Install python-3.13.2 success!
+) else (
+  echo Error***** Install python-3.13.2 failed, please re-install it manually.
+)
+goto :eof
+
 ::Windows:vs2019, cuda12.0
 ::Inference:vs2019, cdua11.2
 
@@ -157,11 +206,11 @@ goto :eof
 :vs
 echo ">>>>>>>> step [4/9]: Visual Studio"
 
-if "%~1"=="" (
-    echo 请提供参数1: vs2017, vs2019, vs2022
+if "%~2"=="" (
+    echo 请提供参数2: vs2017, vs2019, vs2022
     exit /b 1
 )
-set VS_FLAG=%~1
+set VS_FLAG=%~2
 
 if /i "%VS_FLAG%"=="vs2017" (
     if exist "C:\Program Files (x86)\Microsoft Visual Studio\2017\Community\VC\Auxiliary\Build\vcvars64.bat" (
@@ -189,13 +238,13 @@ goto cuda
 :install_visual_studio2017
 echo There is not Visual Studio in this PC, will install VS2017.
 echo Download package from "https://paddle-ci.gz.bcebos.com/window_requirement/VS2017/vs_Community.exe"
-wget --no-check-certificate -O vs_Community.exe "https://paddle-ci.gz.bcebos.com/window_requirement/VS2017/vs_Community.exe"
+wget --no-check-certificate -O vs_Community_2017.exe "https://paddle-ci.gz.bcebos.com/window_requirement/VS2017/vs_Community.exe"
 :: /passive [silent install]
 :: /norestart [no restart]
 :: /NoRefresh [no refresh]
 :: /InstallSelectableItems NativeLanguageSupport_Group [select Visual C++ for installing]
 ::start /wait vs_Community.exe --passive --add Microsoft.VisualStudio.Workload.NativeDesktop --add Microsoft.VisualStudio.Workload.Universal --includeRecommended
-powershell -Command "Start-Process -FilePath 'vs_Community.exe' -ArgumentList '--passive', '--add', 'Microsoft.VisualStudio.Workload.NativeDesktop', '--add', 'Microsoft.VisualStudio.Workload.Universal', '--includeRecommended' -Wait"
+powershell -Command "Start-Process -FilePath 'vs_Community_2017.exe' -ArgumentList '--passive', '--add', 'Microsoft.VisualStudio.Workload.NativeDesktop', '--add', 'Microsoft.VisualStudio.Workload.Universal', '--includeRecommended' -Wait"
 if %errorlevel% == 0 (
   echo Install Visual Studio 2017 success!
 ) else (
@@ -206,10 +255,10 @@ goto :eof
 :install_visual_studio2019
 echo There is not Visual Studio in this PC, will install VS2019.
 echo Download package from "https://paddle-ci.gz.bcebos.com/window_requirement/vs_community__2019.exe"
-wget --no-check-certificate -O vs_Community.exe "https://paddle-ci.gz.bcebos.com/window_requirement/vs_community__2019.exe"
+wget --no-check-certificate -O vs_Community_2019.exe "https://paddle-ci.gz.bcebos.com/window_requirement/vs_community__2019.exe"
 echo Install Visual Studio 2019 ...
 ::start /wait vs_Community.exe --passive --add Microsoft.VisualStudio.Workload.NativeDesktop --add Microsoft.VisualStudio.Workload.Universal --includeRecommended
-powershell -Command "Start-Process -FilePath 'vs_Community.exe' -ArgumentList '--passive', '--add', 'Microsoft.VisualStudio.Workload.NativeDesktop', '--add', 'Microsoft.VisualStudio.Workload.Universal', '--includeRecommended' -Wait"
+powershell -Command "Start-Process -FilePath 'vs_Community_2019.exe' -ArgumentList '--passive', '--add', 'Microsoft.VisualStudio.Workload.NativeDesktop', '--add', 'Microsoft.VisualStudio.Workload.Universal', '--includeRecommended' -Wait"
 if %errorlevel% == 0 (
   echo Install Visual Studio 2019 success!
 ) else (
@@ -221,9 +270,9 @@ goto :eof
 echo There is not Visual Studio in this PC, will install VS2022.
 echo Download package from "https://paddle-ci.gz.bcebos.com/window_requirement/VisualStudioSetup.exe"
 echo Install Visual Studio 2022 ...
-wget --no-check-certificate -O VisualStudioSetup.exe "https://paddle-ci.gz.bcebos.com/window_requirement/VisualStudioSetup.exe"
+wget --no-check-certificate -O VisualStudioSetup_2022.exe "https://paddle-ci.gz.bcebos.com/window_requirement/VisualStudioSetup.exe"
 ::start /wait VisualStudioSetup.exe --passive --add Microsoft.VisualStudio.Workload.NativeDesktop --add Microsoft.VisualStudio.Workload.Universal --includeRecommended
-powershell -Command "Start-Process -FilePath 'VisualStudioSetup.exe' -ArgumentList '--passive', '--add', 'Microsoft.VisualStudio.Workload.NativeDesktop', '--add', 'Microsoft.VisualStudio.Workload.Universal', '--includeRecommended' -Wait"
+powershell -Command "Start-Process -FilePath 'VisualStudioSetup_2022.exe' -ArgumentList '--passive', '--add', 'Microsoft.VisualStudio.Workload.NativeDesktop', '--add', 'Microsoft.VisualStudio.Workload.Universal', '--includeRecommended' -Wait"
 if %errorlevel% == 0 (
   echo Install Visual Studio 2022 success!
 ) else (
@@ -235,11 +284,11 @@ goto :eof
 :cuda
 echo ">>>>>>>> step [5/9]: CUDA "
 
-if "%~2"=="" (
-    echo 请提供参数2: cuda112, cuda12, cuda123
+if "%~3"=="" (
+    echo 请提供参数3: cuda112, cuda116, cuda118, cuda12, cuda123
     exit /b 1
 )
-set CUDA_FLAG=%~2
+set CUDA_FLAG=%~3
 
 if /i "%CUDA_FLAG%"=="cuda112" (
   if not exist "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat" (
@@ -248,29 +297,43 @@ if /i "%CUDA_FLAG%"=="cuda112" (
   )
   cmd /C nvcc --version 2> nul | findstr /C:"11.2" > nul 2> nul || call :install_cuda112
 )
+if /i "%CUDA_FLAG%"=="cuda116" (
+  if not exist "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat" (
+    echo "Please install vs2019 first."
+    exit /b 1
+  )
+  cmd /C nvcc --version 2> nul | findstr /C:"11.6" > nul 2> nul || call :install_cuda116
+)
+if /i "%CUDA_FLAG%"=="cuda118" (
+  if not exist "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat" (
+    echo "Please install vs2019 first."
+    exit /b 1
+  )
+  cmd /C nvcc --version 2> nul | findstr /C:"11.8" > nul 2> nul || call :install_cuda118
+)
 if /i "%CUDA_FLAG%"=="cuda12" (
   if not exist "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvars64.bat" (
     echo "Please install vs2019 first."
     exit /b 1
   )
-  cmd /C nvcc --version 2> nul | findstr /C:"12" > nul 2> nul || call :install_cuda112
+  cmd /C nvcc --version 2> nul | findstr /C:"12" > nul 2> nul || call :install_cuda12
 )
 if /i "%CUDA_FLAG%"=="cuda123" (
   if not exist "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\\vcvars64.bat" (
     echo "Please install vs2022 first."
     exit /b 1
   )
-  cmd /C nvcc --version 2> nul | findstr /C:"12.3" > nul 2> nul || call :install_cuda112
+  cmd /C nvcc --version 2> nul | findstr /C:"12.3" > nul 2> nul || call :install_cuda123
 )
 goto java-jre
 
 :install_cuda112
 echo There is not CUDA in this PC, will install CUDA-11.2.
 echo Download package from "https://paddle-ci.gz.bcebos.com/window_requirement/cuda_11.2.0_460.89_win10.exe"
-wget --no-check-certificate -O cuda_installer.exe "https://paddle-ci.gz.bcebos.com/window_requirement/cuda_11.2.0_460.89_win10.exe"
+wget --no-check-certificate -O cuda_installer_112.exe "https://paddle-ci.gz.bcebos.com/window_requirement/cuda_11.2.0_460.89_win10.exe"
 echo Install CUDA-11.2 ...
 :: -s [silent install]
-start /wait cuda_installer.exe -s
+start /wait cuda_installer_112.exe -s
 if %errorlevel% == 0 (
   echo Install CUDA-11.2 success!
 ) else (
@@ -286,35 +349,79 @@ xcopy /E /Y /R "cuda\lib\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\
 rd /s /q cuda
 goto :eof
 
+:install_cuda116
+echo There is not CUDA in this PC, will install CUDA-11.6.
+echo Download package from "https://paddle-ci.gz.bcebos.com/window_requirement/cuda_11.6.0_511.23_windows.exe"
+wget --no-check-certificate -O cuda_installer_116.exe "https://paddle-ci.gz.bcebos.com/window_requirement/cuda_11.6.0_511.23_windows.exe"
+echo Install CUDA-11.6 ...
+:: -s [silent install]
+start /wait cuda_installer_116.exe -s
+if %errorlevel% == 0 (
+  echo Install CUDA-11.6 success!
+) else (
+  echo Error***** Install CUDA-11.6 failed, please re-install it manually.
+  goto :eof
+)
+echo Download cudnn from "https://paddle-ci.gz.bcebos.com/window_requirement/cudnn-windows-x86_64-8.4.0.27_cuda10.2-archive.zip"
+wget -O cudnn-windows-x86_64-8.4.0.27_cuda10.2-archive.zip "https://paddle-ci.gz.bcebos.com/window_requirement/cudnn-windows-x86_64-8.4.0.27_cuda10.2-archive.zip"
+PowerShell -Command "Expand-Archive -Path 'cudnn-windows-x86_64-8.4.0.27_cuda10.2-archive.zip' -DestinationPath '.' -Force"
+xcopy /E /Y /R "cudnn-windows-x86_64-8.4.0.27_cuda10.2-archive\bin\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.6\bin"
+xcopy /E /Y /R "cudnn-windows-x86_64-8.4.0.27_cuda10.2-archive\include\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.6\include"
+xcopy /E /Y /R "cudnn-windows-x86_64-8.4.0.27_cuda10.2-archive\lib\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.6\lib"
+rd /s /q cuda
+goto :eof
+
+:install_cuda118
+echo There is not CUDA in this PC, will install CUDA-11.8.
+echo Download package from "https://paddle-ci.gz.bcebos.com/window_requirement/cuda_11.8.0_522.06_windows.exe"
+wget --no-check-certificate -O cuda_installer_118.exe "https://paddle-ci.gz.bcebos.com/window_requirement/cuda_11.8.0_522.06_windows.exe"
+echo Install CUDA-11.8 ...
+:: -s [silent install]
+start /wait cuda_installer_118.exe -s
+if %errorlevel% == 0 (
+  echo Install CUDA-11.8 success!
+) else (
+  echo Error***** Install CUDA-11.8 failed, please re-install it manually.
+  goto :eof
+)
+echo Download cudnn from "https://paddle-ci.gz.bcebos.com/window_requirement/cudnn-windows-x86_64-8.6.0.163_cuda11-archive.zip"
+wget -O cudnn-windows-x86_64-8.6.0.163_cuda11-archive.zip "https://paddle-ci.gz.bcebos.com/window_requirement/cudnn-windows-x86_64-8.6.0.163_cuda11-archive.zip"
+PowerShell -Command "Expand-Archive -Path 'cudnn-windows-x86_64-8.6.0.163_cuda11-archive.zip' -DestinationPath '.' -Force"
+xcopy /E /Y /R "cudnn-windows-x86_64-8.6.0.163_cuda11-archive\bin\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8\bin"
+xcopy /E /Y /R "cudnn-windows-x86_64-8.6.0.163_cuda11-archive\include\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8\include"
+xcopy /E /Y /R "cudnn-windows-x86_64-8.6.0.163_cuda11-archive\lib\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v11.8\lib"
+rd /s /q cuda
+goto :eof
+
 :install_cuda12
-echo There is not CUDA in this PC, will install CUDA-12.
+echo There is not CUDA in this PC, will install CUDA-12.0
 echo Download package from "https://paddle-ci.gz.bcebos.com/window_requirement/cuda_12.0.1_528.33_windows.exe"
-wget --no-check-certificate -O cuda_installer.exe "https://paddle-ci.gz.bcebos.com/window_requirement/cuda_12.0.1_528.33_windows.exe"
+wget --no-check-certificate -O cuda_installer_12.exe "https://paddle-ci.gz.bcebos.com/window_requirement/cuda_12.0.1_528.33_windows.exe"
 echo Install CUDA-12 ...
 :: -s [silent install]
-start /wait cuda_installer.exe -s
+start /wait cuda_installer_12.exe -s
 if %errorlevel% == 0 (
-  echo Install CUDA-12 success!
+  echo Install CUDA-12.0 success!
 ) else (
-  echo Error***** Install CUDA-12 failed, please re-install it manually.
+  echo Error***** Install CUDA-12.0 failed, please re-install it manually.
   goto :eof
 )
 wget -O cudnn-windows-x86_64-8.9.1.23_cuda12-archive.zip "https://paddle-ci.gz.bcebos.com/window_requirement/cudnn-windows-x86_64-8.9.1.23_cuda12-archive.zip"
 tar xf cudnn-windows-x86_64-8.9.1.23_cuda12-archive.zip
 ren cudnn-windows-x86_64-8.9.1.23_cuda12-archive cuda
-xcopy /E /Y /R "cuda\bin\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12\bin"
-xcopy /E /Y /R "cuda\include\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12\include"
-xcopy /E /Y /R "cuda\lib\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12\lib"
+xcopy /E /Y /R "cuda\bin\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.0\bin"
+xcopy /E /Y /R "cuda\include\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.0\include"
+xcopy /E /Y /R "cuda\lib\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.0\lib"
 rd /s /q cuda
 goto :eof
 
 :install_cuda123
 echo There is not CUDA in this PC, will install CUDA-12.3.
 echo Download package from "https://paddle-ci.gz.bcebos.com/window_requirement/cuda_12.3.0_545.84_windows.exe"
-wget --no-check-certificate -O cuda_installer.exe "https://paddle-ci.gz.bcebos.com/window_requirement/cuda_12.3.0_545.84_windows.exe"
+wget --no-check-certificate -O cuda_installer_123.exe "https://paddle-ci.gz.bcebos.com/window_requirement/cuda_12.3.0_545.84_windows.exe"
 echo Install CUDA-12 ...
 :: -s [silent install]
-start /wait cuda_installer.exe -s
+start /wait cuda_installer_123.exe -s
 if %errorlevel% == 0 (
   echo Install CUDA-12.3 success!
 ) else (
@@ -368,20 +475,40 @@ goto :eof
 :tensorrt
 echo ">>>>>>>> step [8/9]: TensorRT"
 
-set TARGET_PATH=D:\TensorRT
-
-if not exist "%TARGET_PATH%" (
-    mkdir "%TARGET_PATH%"
-)
-
 if /i "%CUDA_FLAG%"=="cuda112" (
-    call :download_TensorRT_8_0_1_6
+  set TARGET_PATH=D:\TensorRT-8.0.1.6\
+  if not exist "%TARGET_PATH%" (
+    mkdir "%TARGET_PATH%"
+  )
+  call :download_TensorRT_8_0_1_6
+)
+if /i "%CUDA_FLAG%"=="cuda116" (
+  set TARGET_PATH=D:\TensorRT-8.4.1.5\
+  if not exist "%TARGET_PATH%" (
+    mkdir "%TARGET_PATH%"
+  )
+  call :download_TensorRT_8_4_1_5
+)
+if /i "%CUDA_FLAG%"=="cuda118" (
+  set TARGET_PATH=D:\TensorRT-8.5.1.7\
+  if not exist "%TARGET_PATH%" (
+    mkdir "%TARGET_PATH%"
+  )
+  call :download_TensorRT_8_5_1_7
 )
 if /i "%CUDA_FLAG%"=="cuda12" (
-    call :download_TensorRT_8_6_1_6
+  set TARGET_PATH=D:\TensorRT-8.6.1.6\
+  if not exist "%TARGET_PATH%" (
+    mkdir "%TARGET_PATH%"
+  )
+  call :download_TensorRT_8_6_1_6
 )
 if /i "%CUDA_FLAG%"=="cuda123" (
-    call :download_TensorRT_10_7_0_23
+  set TARGET_PATH=D:\TensorRT-10.7.0.23\
+  if not exist "%TARGET_PATH%" (
+    mkdir "%TARGET_PATH%"
+  )
+  call :download_TensorRT_10_7_0_23
 )
 goto xly-agent
 
@@ -390,7 +517,23 @@ echo "Downloading TensorRT 8.0.1.6..."
 if not exist TensorRT-8.0.1.6.Windows10.x86_64.cuda-11.3.cudnn8.2.zip wget -O TensorRT-8.0.1.6.Windows10.x86_64.cuda-11.3.cudnn8.2.zip ^
 "https://paddle-ci.gz.bcebos.com/window_requirement/TensorRT-8.0.1.6.Windows10.x86_64.cuda-11.3.cudnn8.2.zip"
 PowerShell -Command "Expand-Archive -Path 'TensorRT-8.0.1.6.Windows10.x86_64.cuda-11.3.cudnn8.2.zip' -DestinationPath '.' -Force"
-xcopy /E /Y /R "TensorRT-8.0.1.6\*" %TARGET_PATH%
+xcopy /E /Y /R /I "TensorRT-8.0.1.6\*" %TARGET_PATH%
+goto :eof
+
+:download_TensorRT_8_4_1_5
+echo "Downloading TensorRT 8.4.1.5..."
+if not exist TensorRT-8.4.1.5.Windows10.x86_64.cuda-11.6.cudnn8.4.zip wget -O TensorRT-8.4.1.5.Windows10.x86_64.cuda-11.6.cudnn8.4.zip ^
+"https://paddle-ci.gz.bcebos.com/window_requirement/TensorRT-8.4.1.5.Windows10.x86_64.cuda-11.6.cudnn8.4.zip"
+PowerShell -Command "Expand-Archive -Path 'TensorRT-8.4.1.5.Windows10.x86_64.cuda-11.6.cudnn8.4.zip' -DestinationPath '.' -Force"
+xcopy /E /Y /R /I "TensorRT-8.4.1.5\*" %TARGET_PATH%
+goto :eof
+
+:download_TensorRT_8_5_1_7
+echo "Downloading TensorRT 8.5.1.7..."
+if not exist TensorRT-8.5.1.7.Windows10.x86_64.cuda-11.8.cudnn8.6.zip wget -O TensorRT-8.5.1.7.Windows10.x86_64.cuda-11.8.cudnn8.6.zip ^
+"https://paddle-ci.gz.bcebos.com/window_requirement/TensorRT-8.5.1.7.Windows10.x86_64.cuda-11.8.cudnn8.6.zip"
+PowerShell -Command "Expand-Archive -Path 'TensorRT-8.5.1.7.Windows10.x86_64.cuda-11.8.cudnn8.6.zip' -DestinationPath '.' -Force"
+xcopy /E /Y /R /I "TensorRT-8.5.1.7\*" %TARGET_PATH%
 goto :eof
 
 :download_TensorRT_8_6_1_6
@@ -398,7 +541,7 @@ echo "Downloading TensorRT 8.6.1.6..."
 if not exist TensorRT-8.6.1.6.Windows10.x86_64.cuda-12.0.zip wget -O TensorRT-8.6.1.6.Windows10.x86_64.cuda-12.0.zip ^
 "https://paddle-ci.gz.bcebos.com/window_requirement/TensorRT-8.6.1.6.Windows10.x86_64.cuda-12.0.zip"
 PowerShell -Command "Expand-Archive -Path 'TensorRT-8.6.1.6.Windows10.x86_64.cuda-12.0.zip' -DestinationPath '.' -Force"
-xcopy /E /Y /R "TensorRT-8.6.1.6\*" %TARGET_PATH%
+xcopy /E /Y /R /I "TensorRT-8.6.1.6\*" %TARGET_PATH%
 goto :eof
 
 :download_TensorRT_10_7_0_23
@@ -406,7 +549,7 @@ echo "Downloading TensorRT 10.7.0.23..."
 if not exist TensorRT-10.7.0.23.Windows.win10.cuda-12.6.zip wget -O TensorRT-10.7.0.23.Windows.win10.cuda-12.6.zip ^
 "https://paddle-ci.gz.bcebos.com/window_requirement/TensorRT-10.7.0.23.Windows.win10.cuda-12.6.zip"
 PowerShell -Command "Expand-Archive -Path 'TensorRT-10.7.0.23.Windows.win10.cuda-12.6.zip' -DestinationPath '.' -Force"
-xcopy /E /Y /R "TensorRT-10.7.0.23\*" %TARGET_PATH%
+xcopy /E /Y /R /I "TensorRT-10.7.0.23\*" %TARGET_PATH%
 goto :eof
 
 :: Step 9: xly agent
@@ -425,7 +568,7 @@ wget --no-check-certificate -O agent.jar "https://paddle-ci.gz.bcebos.com/window
 goto :eof
 
 :download_tools
-if not exist tools.zip (
+if not exist "C:\home\workspace\cache\tools\.git" (
     wget -O tools.zip "https://paddle-ci.gz.bcebos.com/window_requirement/tools.zip"
     PowerShell -Command "Expand-Archive -Path 'tools.zip' -DestinationPath '.' -Force"
     mkdir C:\home\workspace\cache\tools
@@ -435,8 +578,8 @@ if not exist tools.zip (
 if /i "%CUDA_FLAG%"=="cuda12" (
     wget -O zlipwapi123x64.zip "https://paddle-ci.gz.bcebos.com/window_requirement/zlipwapi123x64.zip"
     tar xf zlipwapi123x64.zip
-    xcopy /E /Y /R  "zlipwapi\lib\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.0\lib"
-    xcopy /E /Y /R  "zlipwapi\bin\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.0\bin"
+    xcopy /E /Y /R /I "zlipwapi\lib\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.0\lib"
+    xcopy /E /Y /R /I "zlipwapi\bin\*" "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v12.0\bin"
 )
 
 pause
