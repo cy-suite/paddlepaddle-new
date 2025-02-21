@@ -36,53 +36,18 @@ void rocsolver_getrs(const solverHandle_t& handle,
                      T* Bdata,
                      int ldb);
 
-#define FUNC_WITH_TYPES(m) m(float, s, float) m(double, d, double)
-
-#define GETRS_INSTANCE(T, C, CastType)                                    \
-  template <>                                                             \
-  void rocsolver_getrs<T>(const solverHandle_t& handle,                   \
-                          rocblas_operation trans,                        \
-                          int M,                                          \
-                          int N,                                          \
-                          T* Adata,                                       \
-                          int lda,                                        \
-                          const int* ipiv,                                \
-                          T* Bdata,                                       \
-                          int ldb) {                                      \
-    PADDLE_ENFORCE_GPU_SUCCESS(                                           \
-        dynload::rocsolver_##C##getrs(handle,                             \
-                                      trans,                              \
-                                      M,                                  \
-                                      N,                                  \
-                                      reinterpret_cast<CastType*>(Adata), \
-                                      lda,                                \
-                                      ipiv,                               \
-                                      reinterpret_cast<CastType*>(Bdata), \
-                                      ldb));                              \
-  }
-
-FUNC_WITH_TYPES(GETRS_INSTANCE);
-
-template <typename T>
-void rocsolver_getrs(const solverHandle_t& handle,
-                     rocblas_operation trans,
-                     int M,
-                     int N,
-                     T* Adata,
-                     int lda,
-                     const int* ipiv,
-                     T* Bdata,
-                     int ldb) {
-  PADDLE_ENFORCE_GPU_SUCCESS(
-      dynload::rocsolver_sgetrs(handle,
-                                trans,
-                                M,
-                                N,
-                                reinterpret_cast<float*>(Adata),
-                                lda,
-                                ipiv,
-                                reinterpret_cast<float*>(Bdata),
-                                ldb));
+template <>
+void rocsolver_getrs<float>(const solverHandle_t& handle,
+                            rocblas_operation trans,
+                            int M,
+                            int N,
+                            float* Adata,
+                            int lda,
+                            const int* ipiv,
+                            float* Bdata,
+                            int ldb) {
+  PADDLE_ENFORCE_GPU_SUCCESS(dynload::rocsolver_sgetrs(
+      handle, trans, M, N, Adata, lda, ipiv, Bdata, ldb));
 }
 
 template <>
@@ -98,7 +63,6 @@ void rocsolver_getrs<double>(const solverHandle_t& handle,
   PADDLE_ENFORCE_GPU_SUCCESS(dynload::rocsolver_dgetrs(
       handle, trans, M, N, Adata, lda, ipiv, Bdata, ldb));
 }
-
 #endif
 
 template <typename T>
