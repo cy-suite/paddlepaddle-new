@@ -63,6 +63,42 @@ void rocsolver_getrs(const solverHandle_t& handle,
 
 FUNC_WITH_TYPES(GETRS_INSTANCE);
 
+template <typename T>
+void rocsolver_getrs(const solverHandle_t& handle,
+                     rocblas_operation trans,
+                     int M,
+                     int N,
+                     T* Adata,
+                     int lda,
+                     const int* ipiv,
+                     T* Bdata,
+                     int ldb) {
+  PADDLE_ENFORCE_GPU_SUCCESS(
+      dynload::rocsolver_sgetrs(handle,
+                                trans,
+                                M,
+                                N,
+                                reinterpret_cast<float*>(Adata),
+                                lda,
+                                ipiv,
+                                reinterpret_cast<float*>(Bdata),
+                                ldb));
+}
+
+template <>
+void rocsolver_getrs<double>(const solverHandle_t& handle,
+                             rocblas_operation trans,
+                             int M,
+                             int N,
+                             double* Adata,
+                             int lda,
+                             const int* ipiv,
+                             double* Bdata,
+                             int ldb) {
+  PADDLE_ENFORCE_GPU_SUCCESS(dynload::rocsolver_dgetrs(
+      handle, trans, M, N, Adata, lda, ipiv, Bdata, ldb));
+}
+
 #endif
 
 template <typename T>

@@ -62,7 +62,9 @@ extern void *rocsolver_dso_handle;
   __macro(rocsolver_sorgqr);            \
   __macro(rocsolver_dorgqr);            \
   __macro(rocsolver_dormqr);            \
-  __macro(rocsolver_sormqr);
+  __macro(rocsolver_sormqr);            \
+  __macro(rocsolver_sgetrs);            \
+  __macro(rocsolver_dgetrs);
 
 ROCSOLVER_ROUTINE_EACH(DECLARE_DYNAMIC_LOAD_ROCSOLVER_WRAP);
 
