@@ -16,7 +16,7 @@ defaults:
     shell: bash
 
 jobs:
-  build-test:
+  build-and-test:
     runs-on:
       group: GZ_BD-CPU
 
