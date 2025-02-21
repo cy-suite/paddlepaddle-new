@@ -10,8 +10,11 @@ See the License for the specific language governing permissions and
 limitations under the License. */
 #pragma once
 
+#ifdef PADDLE_WITH_XPU
 #include <cuda.h>
 #include <cuda_runtime.h>
+#endif
+
 #include <string>
 #include <vector>
 
