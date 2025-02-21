@@ -43,10 +43,11 @@ RUN bash /build_scripts/install_patchelf.sh
 #RUN apt-get install -y gcc-8 g++-8
 RUN bash /build_scripts/install_gcc.sh gcc82
 RUN cp gcc gcc.bak && cp g++ g++.bak && rm gcc && rm g++
-RUN ln -s /usr/bin/gcc-8.2 /usr/local/bin/gcc
-RUN ln -s /usr/bin/g++-8.2 /usr/local/bin/g++
-RUN ln -s /usr/bin/gcc-8.2 /usr/bin/gcc
-RUN ln -s /usr/bin/g++-8.2 /usr/bin/g++
+RUN ln -sf /usr/local/gcc-8.2/bin/gcc /usr/local/bin/gcc
+RUN ln -sf /usr/local/gcc-8.2/bin/g++ /usr/local/bin/g++
+RUN ln -sf /usr/local/gcc-8.2/bin/gcc /usr/bin/gcc
+RUN ln -sf /usr/local/gcc-8.2/bin/g++ /usr/bin/g++
+RUN ln -sf /usr/local/gcc-8.2/bin/gcc /usr/bin/cc
 ENV PATH=/usr/local/gcc-8.2/bin:$PATH
 
 RUN bash /build_scripts/install_cudnn.sh cudnn841
