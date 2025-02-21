@@ -314,7 +314,7 @@ def pipeline_parallel(model, optimizer=None, config=None):
                 extra = n % k
 
                 indices = []
-                current_index = 0
+                current_index = -1
 
                 for i in range(k - 1):
                     current_index += base_size
