@@ -117,7 +117,5 @@ class LUSolveFunctor<T, GPUContext> {
 
 }  // namespace phi
 
-#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
 PD_REGISTER_KERNEL(
     lu_solve, GPU, ALL_LAYOUT, phi::LUSolveKernel, float, double) {}
-#endif
