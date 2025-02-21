@@ -43,7 +43,7 @@ struct TopoMatchCtxImpl {
 
   adt::Result<bg_node_t> GetSoleBigGraphNode(const sg_node_t& node) const {
     ADT_LET_CONST_REF(bg_nodes, GetBigGraphNodes(node));
-    ADT_CHECK(bg_nodes->size(), 1);
+    ADT_CHECK(bg_nodes->size() == 1);
     return *bg_nodes->begin();
   }
 

@@ -68,7 +68,7 @@ struct OpTensorPatternCtxHelper {
         op_pattern_ctx,
         adt::WeakPtrLock(native_ir_op->op_declare->op_pattern_ctx));
     const auto& node_arena = op_pattern_ctx->node_arena;
-    for (int i = 0; i < inputs->size(); ++i) {
+    for (size_t i = 0; i < inputs->size(); ++i) {
       const auto& native_ir_op_operand = node_arena->New([&](const auto& node) {
         return NativeIrOpOperand<drr::Node>{node, i};
       });
@@ -81,7 +81,7 @@ struct OpTensorPatternCtxHelper {
           graph::IndexedTag<std::monostate>{},
           graph::IndexedTag<std::monostate>{}));
     }
-    for (int i = 0; i < outputs->size(); ++i) {
+    for (size_t i = 0; i < outputs->size(); ++i) {
       ADT_LET_CONST_REF(output_upstream_nodes,
                         outputs->at(i)->node.UpstreamNodes());
       ADT_CHECK(output_upstream_nodes.size() == 0);
@@ -114,7 +114,7 @@ struct OpTensorPatternCtxHelper {
         op_pattern_ctx,
         adt::WeakPtrLock(packed_ir_op->op_declare->op_pattern_ctx));
     const auto& node_arena = op_pattern_ctx->node_arena;
-    for (int i = 0; i < inputs->size(); ++i) {
+    for (size_t i = 0; i < inputs->size(); ++i) {
       const auto& packed_ir_op_operand = node_arena->New([&](const auto& node) {
         return PackedIrOpOperand<drr::Node>{node, i};
       });
@@ -127,7 +127,7 @@ struct OpTensorPatternCtxHelper {
           graph::IndexedTag<std::monostate>{},
           graph::UnindexedTag<std::monostate>{}));
     }
-    for (int i = 0; i < outputs->size(); ++i) {
+    for (size_t i = 0; i < outputs->size(); ++i) {
       ADT_LET_CONST_REF(output_upstream_nodes,
                         outputs->at(i).node().UpstreamNodes());
       ADT_CHECK(output_upstream_nodes.size() == 0);
@@ -160,7 +160,7 @@ struct OpTensorPatternCtxHelper {
         op_pattern_ctx,
         adt::WeakPtrLock(packed_ir_op->op_declare->op_pattern_ctx));
     const auto& node_arena = op_pattern_ctx->node_arena;
-    for (int i = 0; i < inputs->size(); ++i) {
+    for (size_t i = 0; i < inputs->size(); ++i) {
       const auto& packed_ir_op_operand = node_arena->New([&](const auto& node) {
         return OptPackedIrOpOperand<drr::Node>{node, i};
       });
@@ -173,7 +173,7 @@ struct OpTensorPatternCtxHelper {
           graph::IndexedTag<std::monostate>{},
           graph::UnindexedTag<std::monostate>{}));
     }
-    for (int i = 0; i < outputs->size(); ++i) {
+    for (size_t i = 0; i < outputs->size(); ++i) {
       ADT_LET_CONST_REF(output_upstream_nodes,
                         outputs->at(i).node().UpstreamNodes());
       ADT_CHECK(output_upstream_nodes.size() == 0);

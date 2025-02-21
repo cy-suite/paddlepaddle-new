@@ -155,13 +155,13 @@ struct DefaultDrrGraphDescriptor {
         [](const DrrPackedIrValue&) -> adt::Result<bool> { return true; },
         [&](const DrrPackedIrOpOperand& impl) -> adt::Result<bool> {
           ADT_LET_CONST_REF(upstreams, impl->node.UpstreamNodes());
-          ADT_CHECK(upstreams.size(), 1);
+          ADT_CHECK(upstreams.size() == 1);
           ADT_LET_CONST_REF(upstream_node, upstreams.Sole());
           return IgnoredNode(upstream_node);
         },
         [&](const DrrPackedIrOpResult& impl) -> adt::Result<bool> {
           ADT_LET_CONST_REF(downstreams, impl->node.DownstreamNodes());
-          ADT_CHECK(downstreams.size(), 1);
+          ADT_CHECK(downstreams.size() == 1);
           ADT_LET_CONST_REF(downstream_node, downstreams.Sole());
           return IgnoredNode(downstream_node);
         },
@@ -172,14 +172,14 @@ struct DefaultDrrGraphDescriptor {
         [](const DrrNativeIrOpOperand&) -> adt::Result<bool> { return false; },
         [&](const DrrOptPackedIrOpOperand& impl) -> adt::Result<bool> {
           ADT_LET_CONST_REF(upstreams, impl->node.UpstreamNodes());
-          ADT_CHECK(upstreams.size(), 1);
+          ADT_CHECK(upstreams.size() == 1);
           ADT_LET_CONST_REF(upstream_node, upstreams.Sole());
           return IgnoredNode(upstream_node);
         },
         [](const DrrNativeIrOpResult&) -> adt::Result<bool> { return false; },
         [&](const DrrOptPackedIrOpResult& impl) -> adt::Result<bool> {
           ADT_LET_CONST_REF(downstreams, impl->node.DownstreamNodes());
-          ADT_CHECK(downstreams.size(), 1);
+          ADT_CHECK(downstreams.size() == 1);
           ADT_LET_CONST_REF(downstream_node, downstreams.Sole());
           return IgnoredNode(downstream_node);
         });

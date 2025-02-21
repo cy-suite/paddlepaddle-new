@@ -84,7 +84,7 @@ struct NodeList : public ListTag<adt::List<Node<T>>> {
           return adt::errors::TypeError{"UndefinedList has no sole data"};
         },
         [](const auto& l) -> adt::Result<Node<T>> {
-          ADT_CHECK(l.data->size(), 1);
+          ADT_CHECK(l.data->size() == 1);
           return l.data->at(0);
         });
   }
