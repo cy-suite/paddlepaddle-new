@@ -1128,7 +1128,8 @@ class PadOpPattern : public pir::OpRewritePattern<paddle::dialect::PadOp> {
     }
     int pad_size = paddings.size();
     pir::Value x = op.operand_source(0);
-    auto x_type = pir::GetDataTypeFromValue(x) auto input_shape = x_type.dims();
+    auto x_type = pir::GetDataTypeFromValue(x);
+    auto input_shape = x_type.dims();
     int nbDims = input_shape.size();
     if (nbDims < 2) {
       VLOG(3) << "Input must have at least 2 dimensions.";
