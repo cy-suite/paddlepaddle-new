@@ -55,7 +55,12 @@ def matmul_converter(network, paddle_op, inputs):
         weight_tensor = layer.get_output(0)
 
     lhs_val, rhs_val = broadcast(
-        network, inputs[0], weight_tensor, inputs[0].name, "weight_tensor_broadcast", paddle_op
+        network,
+        inputs[0],
+        weight_tensor,
+        inputs[0].name,
+        "weight_tensor_broadcast",
+        paddle_op,
     )
     out = network.add_matrix_multiply(
         lhs_val, self_matrix_op, rhs_val, other_matrix_op
