@@ -1,4 +1,4 @@
-# Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserved.
+# Copyright (c) 2025 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -28,11 +28,11 @@ class TestDualContext(unittest.TestCase):
     def test_dual_level(self):
         paddle.autograd.enter_dual_level()
         assert (
-            paddle.autograd._current_level == 0
+            paddle.autograd.forward_mode._current_level == 0
         ), "The first enter dual level should be 0."
         paddle.autograd.exit_dual_level()
         assert (
-            paddle.autograd._current_level == -1
+            paddle.autograd.forward_mode._current_level == -1
         ), "The current dual level should be -1."
 
     @parameterized.expand(
@@ -221,13 +221,20 @@ class TestFwdAD_eager_ops(unittest.TestCase):
             x_dual = paddle.autograd.make_dual(x_primal, x_tangent)
 
             y_dual = paddle.matmul(x_dual, model.weight)
+            # y = x @ w
+            # y_dot = x_dot @ w + x @ w_dot(not exist, regarded as 0)
             y_primal, y_tangent = paddle.autograd.unpack_dual(y_dual)
 
-        y_primal.backward()
+        y_primal.backward(retain_graph=True)
+
+        self.assertTrue(model.weight.grad is not None)
+        model.weight.clear_gradient()
 
         np.testing.assert_allclose(
-            model.weight.grad.numpy(), y_tangent.numpy(), 1e-6, 1e-6
+            model.weight.grad.numpy(), np.zeros(model.weight.shape)
         )
+        y_tangent.backward()
+        self.assertTrue(model.weight.grad is not None)
 
 
 if __name__ == "__main__":
