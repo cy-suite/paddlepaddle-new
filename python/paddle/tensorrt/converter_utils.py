@@ -69,7 +69,7 @@ def append_ones(network, input, num_prepend_ones):
     return layer.get_output(0)
 
 
-def broadcast(network, a, b, a_name, b_name, preset_diff=0, paddle_op):
+def broadcast(network, a, b, a_name, b_name, paddle_op, preset_diff=0):
     a_shape = tuple(a.shape)
     b_shape = tuple(b.shape)
 
