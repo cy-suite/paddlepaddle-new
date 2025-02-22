@@ -233,7 +233,7 @@ class TestLocalViewCompute:
             out = model(img)
             loss_func = LocalViewMaskLoss(
                 out_dist_attrs=[(out_process_mesh, out_placements)],
-                grad_dist_attrs=[(out.process_mesh, out.placement)],
+                grad_dist_attrs=[None, None],
             )
             avg_loss = loss_func(out, label)
             avg_loss.backward()
@@ -268,10 +268,8 @@ class TestLocalViewCompute:
         out_placements = [dist.Partial(dist.ReduceType.kRedAvg)]
         in_grad_placements = [dist.Shard(0)]
         loss_func = LocalViewMaskLoss(
-            out_dist_attrs=[
-                (process_mesh, out_placements),
-                (process_mesh, in_grad_placements),
-            ]
+            out_dist_attrs=[(process_mesh, out_placements)],
+            grad_dist_attrs=[(process_mesh, in_grad_placements), None],
         )
         dist_model = dist.to_static(
             model, dist_dataloader, loss_func, optimizer
