@@ -150,8 +150,7 @@ def forbid_op_lower_trt(program, disabled_ops):
 
 def enforce_op_lower_trt(program, op_name):
     for op in program.global_block().ops:
-        op.set_bool_attr("__l_trt__", False)
-        if op.name() == op.name:
+        if op.name() == op_name:
             op.set_bool_attr("__l_trt__", True)
 
 
@@ -300,6 +299,7 @@ def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name):
         "pd_op.depthwise_conv2d_transpose",
         "pd_op.fused_conv2d_add_act",
         "pd_op.affine_channel",
+        "pd_op.prelu",
         "pd_op.fused_bias_dropout_residual_layer_norm",
         "pd_op.deformable_conv",
     ]
