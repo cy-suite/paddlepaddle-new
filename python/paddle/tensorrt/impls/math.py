@@ -281,8 +281,9 @@ def remainder_converter(network, paddle_op, inputs):
         network,
         input_tensor,
         weight_tensor,
-        input_tensor.name,
-        weight_tensor.name,
+        "input_tensor_broadcast",
+        "weight_tensor_broadcast",
+        paddle_op,
     )
     is_floor_div = input_tensor.dtype != trt.DataType.INT32
     if is_floor_div:
@@ -399,8 +400,9 @@ def cumsum_converter(network, paddle_op, inputs):
         network,
         squeeze_output,
         zero,
-        squeeze_output.name,
-        zero.name,
+        "squeeze_output_broadcast",
+        "zero_output_broadcast",
+        paddle_op,
     )
     cast_tensor = trt_cast(network, rhs_val, dtype)
     zero_tensor = network.add_elementwise(

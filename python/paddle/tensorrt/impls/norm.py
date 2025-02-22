@@ -58,14 +58,14 @@ def layernorm_converter(network, paddle_op, inputs):
     scale_tensor = append_ones(
         network,
         scale_tensor,
-        f"{scale_tensor.name}_broadcast",
+        [paddle_op.name(), "scale_tensor_broadcast"],
         len(input_a.shape) - len(scale_tensor.shape),
     )
 
     bias_tensor = append_ones(
         network,
         bias_tensor,
-        f"{bias_tensor.name}_broadcast",
+        [paddle_op.name(), "bias_tensor_broadcast"],
         len(input_a.shape) - len(bias_tensor.shape),
     )
 

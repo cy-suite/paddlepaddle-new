@@ -49,33 +49,35 @@ def append_ones(network, input, name, num_prepend_ones):
 
     if has_dynamic_shape(input.shape):
         input_shape_layer = network.add_shape(input)
-        input_shape_layer.name = f"{name}_broadcast_orig_shape"
         prepend_shape_layer = network.add_constant(
             (num_prepend_ones,), np.ones((num_prepend_ones,), dtype=np.int32)
         )
-        prepend_shape_layer.name = f"{name}_broadcast_prepend_ones"
         reshape_dim_layer = network.add_concatenation(
             [prepend_shape_layer.get_output(0), input_shape_layer.get_output(0)]
         )
         reshape_dim_layer.axis = 0
-        reshape_dim_layer.name = f"{name}_broadcast_final_shape"
         layer.set_input(1, reshape_dim_layer.get_output(0))
+        if name is not None:
+            set_layer_name(input_shape_layer, [name[0], "input_shape_layer"])
+            set_layer_name(prepend_shape_layer, [name[0], "prepend_shape_layer"])
+            set_layer_name(reshape_dim_layer, [name[0], "reshape_dim_layer"])
     else:
         layer.reshape_dims = (1,) * num_prepend_ones + tuple(input.shape)
 
-    layer.name = name
+    if name is not None:
+        set_layer_name(layer, name)
     return layer.get_output(0)
 
 
-def broadcast(network, a, b, a_name, b_name, preset_diff=0):
+def broadcast(network, a, b, a_name, b_name, preset_diff=0, paddle_op):
     a_shape = tuple(a.shape)
     b_shape = tuple(b.shape)
 
     diff = len(a_shape) - len(b_shape) - preset_diff
     if diff > 0:
-        b = append_ones(network, b, f"{b_name}_broadcast", diff)
+        b = append_ones(network, b, [paddle_op.name(), b_name], diff)
     elif diff < 0:
-        a = append_ones(network, a, f"{a_name}_broadcast", -diff)
+        a = append_ones(network, a, [paddle_op.name(), a_name], -diff)
 
     return a, b
 
@@ -160,8 +162,9 @@ def add_elementwise_layer(network, paddle_op, inputs, op_type):
         network,
         input_tensor,
         weight_tensor,
-        input_tensor.name,
-        weight_tensor.name,
+        "input_tensor_broadcast",
+        "weight_tensor_broadcast",
+        paddle_op,
     )
     layer = network.add_elementwise(lhs_val, rhs_val, op_type)
     set_layer_name(layer, paddle_op)
