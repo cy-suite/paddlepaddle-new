@@ -42,6 +42,7 @@ from paddle.tensorrt.util import (
     run_trt_partition,
     warmup_shape_infer,
 )
+import warnings
 
 
 class Input:
@@ -80,15 +81,27 @@ class Input:
 
     def __init__(
         self,
-        min_input_shape: tuple,
-        max_input_shape: tuple,
+        input_data: tuple[np.ndarray, ...] | None = None,
+        min_input_shape: tuple | None = None,
+        max_input_shape: tuple | None = None,
         optim_input_shape: tuple | None = None,
         input_data_type: str | None = 'float32',
         input_range: tuple | None = None,
     ) -> None:
-        self.min_input_shape = min_input_shape
-        self.max_input_shape = max_input_shape
-        self.optim_input_shape = optim_input_shape
+        if input_data is not None:
+            if min_input_shape or max_input_shape or optim_input_shape:
+                warnings.warn("Input data provided; min/max/optim shapes are ignored.", UserWarning)
+            self.min_input_shape = None
+            self.max_input_shape = None
+            self.optim_input_shape = None
+        else:
+            if None in (min_input_shape, max_input_shape, optim_input_shape):
+                raise ValueError("When input_data is None, min/max/optim shapes must be specified.")
+            self.min_input_shape = min_input_shape
+            self.max_input_shape = max_input_shape
+            self.optim_input_shape = optim_input_shape
+
+        self.input_data = input_data
         self.input_data_type = input_data_type
         self.input_range = input_range
 
@@ -112,38 +125,41 @@ class Input:
             >>> input.input_range=(1,10)
             >>> input_min_data, input_optim_data, input_max_data = input_config.generate_input_data()
         """
-        if self.input_data_type is None:
-            self.input_data_type = 'float32'
-
-        if self.input_range is None:
-            self.input_range = (
-                (0.0, 1.0) if 'float' in self.input_data_type else (1, 10)
-            )
-
-        if 'int' in self.input_data_type:
-            low, high = self.input_range
-            self.input_min_data = np.random.randint(
-                low, high, size=self.min_input_shape
-            ).astype(self.input_data_type)
-            self.input_optim_data = np.random.randint(
-                low, high, size=self.optim_input_shape
-            ).astype(self.input_data_type)
-            self.input_max_data = np.random.randint(
-                low, high, size=self.max_input_shape
-            ).astype(self.input_data_type)
+        if self.input_data is not None:
+            return self.input_data
         else:
-            low, high = self.input_range if self.input_range else (0, 1)
-            self.input_min_data = np.random.uniform(
-                low, high, size=self.min_input_shape
-            ).astype(self.input_data_type)
-            self.input_optim_data = np.random.uniform(
-                low, high, size=self.optim_input_shape
-            ).astype(self.input_data_type)
-            self.input_max_data = np.random.uniform(
-                low, high, size=self.max_input_shape
-            ).astype(self.input_data_type)
+            if self.input_data_type is None:
+                self.input_data_type = 'float32'
 
-        return self.input_min_data, self.input_optim_data, self.input_max_data
+            if self.input_range is None:
+                self.input_range = (
+                    (0.0, 1.0) if 'float' in self.input_data_type else (1, 10)
+                )
+
+            if 'int' in self.input_data_type:
+                low, high = self.input_range
+                self.input_min_data = np.random.randint(
+                    low, high, size=self.min_input_shape
+                ).astype(self.input_data_type)
+                self.input_optim_data = np.random.randint(
+                    low, high, size=self.optim_input_shape
+                ).astype(self.input_data_type)
+                self.input_max_data = np.random.randint(
+                    low, high, size=self.max_input_shape
+                ).astype(self.input_data_type)
+            else:
+                low, high = self.input_range if self.input_range else (0, 1)
+                self.input_min_data = np.random.uniform(
+                    low, high, size=self.min_input_shape
+                ).astype(self.input_data_type)
+                self.input_optim_data = np.random.uniform(
+                    low, high, size=self.optim_input_shape
+                ).astype(self.input_data_type)
+                self.input_max_data = np.random.uniform(
+                    low, high, size=self.max_input_shape
+                ).astype(self.input_data_type)
+
+            return self.input_min_data, self.input_optim_data, self.input_max_data
 
 
 class PrecisionMode(Enum):
@@ -175,6 +191,7 @@ class TensorRTConfig:
         optimization_level: int | None = 3,
         disable_passes: list = [],
         workspace_size: int | None = 1 << 30,
+        enable_collect_shape: bool = False,
     ) -> None:
         """
         A class for configuring TensorRT optimizations.
@@ -228,6 +245,19 @@ class TensorRTConfig:
             >>> trt_config.ops_run_float = "pd_op.conv2d"
             >>> trt_config.workspace_size = 2 << 30
         """
+        # Checking Input Consistency
+        has_input_data = [i.input_data is not None for i in inputs]
+        if any(has_input_data):
+            if not all(has_input_data):
+                raise ValueError("All Inputs must have input_data if any does.")
+            self.enable_collect_shape = True
+            if enable_collect_shape is False:
+                warnings.warn("enable_collect_shape is forced to True because input_data exists.")
+        else:
+            self.enable_collect_shape = enable_collect_shape
+            if self.enable_collect_shape:
+                raise ValueError("enable_collect_shape=True requires all Inputs to have input_data.")
+
         self.inputs = inputs
         self.min_subgraph_size = min_subgraph_size
         self.save_model_dir = save_model_dir
@@ -256,16 +286,17 @@ def convert_to_trt(program, trt_config, scope):
             feed_name.append(param_name)
 
     with paddle.pir_utils.IrGuard():
-        min_shape_feed = {}
-        max_shape_feed = {}
-        opt_shape_feed = {}
-        for i, input_instance in enumerate(trt_config.inputs):
-            # get fake inputs
-            min_data, opt_data, max_data = input_instance.generate_input_data()
-            program_with_output = program.list_vars()[-1]
-            min_shape_feed[feed_name[i]] = min_data
-            opt_shape_feed[feed_name[i]] = opt_data
-            max_shape_feed[feed_name[i]] = max_data
+        feeds = []
+        if trt_config.enable_collect_shape:
+            input_tuples = [i.generate_input_data() for i in trt_config.inputs]
+            feeds = [{name: t[i] for t, name in zip(input_tuples, feed_name)}
+                     for i in range(len(input_tuples[0]))]
+        else:
+            feeds = [{} for _ in range(3)]
+            for idx, inp in enumerate(trt_config.inputs):
+                min_d, opt_d, max_d = inp.generate_input_data()
+                for feed, data in zip(feeds, (min_d, opt_d, max_d)):
+                    feed[feed_name[idx]] = data
 
         # run pir pass (including trt_op_marker_pass)
         program_with_pir = run_pir_pass(
@@ -278,9 +309,7 @@ def convert_to_trt(program, trt_config, scope):
         # run warmup for collecting shape
         program = warmup_shape_infer(
             program_with_pir,
-            min_shape_feed=min_shape_feed,
-            opt_shape_feed=opt_shape_feed,
-            max_shape_feed=max_shape_feed,
+            feeds=feeds,
             scope=scope,
         )
 
