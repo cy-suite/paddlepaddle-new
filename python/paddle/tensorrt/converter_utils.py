@@ -44,7 +44,7 @@ def has_dynamic_shape(shape):
     return any(s == -1 for s in shape)
 
 
-def append_ones(network, input, name, num_prepend_ones):
+def append_ones(network, input, num_prepend_ones):
     layer = network.add_shuffle(input)
 
     if has_dynamic_shape(input.shape):
