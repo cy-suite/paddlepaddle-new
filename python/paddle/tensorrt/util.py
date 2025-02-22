@@ -168,9 +168,7 @@ def predict_program(program, feed_data, fetch_var_list, scope=None):
             return output
 
 
-def warmup_shape_infer(
-    program, feeds, scope=None
-):
+def warmup_shape_infer(program, feeds, scope=None):
     paddle.framework.set_flags({"FLAGS_enable_collect_shape": True})
     with paddle.pir_utils.IrGuard():
         with paddle.static.program_guard(program):

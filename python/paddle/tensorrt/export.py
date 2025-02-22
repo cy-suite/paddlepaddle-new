@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import os
+import warnings
 from enum import Enum
 
 import numpy as np
@@ -42,7 +43,6 @@ from paddle.tensorrt.util import (
     run_trt_partition,
     warmup_shape_infer,
 )
-import warnings
 
 
 class Input:
@@ -52,6 +52,8 @@ class Input:
     This class supports generating random input data for minimum, optimal, and maximum shapes, with configurable data types (e.g., 'int' or 'float') and value ranges.
 
     Args:
+        input_data (tuple):
+            The tuple of Input data arrays (possibly different shapes).
         min_input_shape (tuple):
             The shape of the minimum input tensor.
         max_input_shape (tuple):
@@ -74,7 +76,13 @@ class Input:
         ...    optim_input_shape=(4,100),
         ...    max_input_shape=(8,100),
         ... )
-
+        >>> input = Input(
+        ...    (
+        ...     np.random.rand(1, 100),
+        ...     np.random.rand(4, 100),
+        ...     np.random.rand(8, 100),
+        ...     )
+        ... )
         >>> input.input_data_type='int64'
         >>> input.input_range=(1,10)
     """
@@ -90,13 +98,17 @@ class Input:
     ) -> None:
         if input_data is not None:
             if min_input_shape or max_input_shape or optim_input_shape:
-                warnings.warn("Input data provided; min/max/optim shapes are ignored.", UserWarning)
+                warnings.warn(
+                    "Input data provided; min/max/optim shapes are ignored.",
+                )
             self.min_input_shape = None
             self.max_input_shape = None
             self.optim_input_shape = None
         else:
             if None in (min_input_shape, max_input_shape, optim_input_shape):
-                raise ValueError("When input_data is None, min/max/optim shapes must be specified.")
+                raise ValueError(
+                    "When input_data is None, min/max/optim shapes must be specified."
+                )
             self.min_input_shape = min_input_shape
             self.max_input_shape = max_input_shape
             self.optim_input_shape = optim_input_shape
@@ -120,6 +132,13 @@ class Input:
             ...    min_input_shape=(1,100),
             ...    optim_input_shape=(4,100),
             ...    max_input_shape=(8,100),
+            ... )
+            >>> input = Input(
+            ...    (
+            ...     np.random.rand(1, 100),
+            ...     np.random.rand(4, 100),
+            ...     np.random.rand(8, 100),
+            ...     )
             ... )
             >>> input.input_data_type='int64'
             >>> input.input_range=(1,10)
@@ -159,7 +178,11 @@ class Input:
                     low, high, size=self.max_input_shape
                 ).astype(self.input_data_type)
 
-            return self.input_min_data, self.input_optim_data, self.input_max_data
+            return (
+                self.input_min_data,
+                self.input_optim_data,
+                self.input_max_data,
+            )
 
 
 class PrecisionMode(Enum):
@@ -220,6 +243,8 @@ class TensorRTConfig:
                 A list of string representing the names of pass that should not be used for origin program (default is []).
             workspace_size (int, optional):
                 Specifies the maximum GPU memory (in bytes) that TensorRT can use for the optimization process (default is 1 << 30).
+            enable_collect_shape (bool, optional):
+                A flag to enable or disable the collection of input shapes during inference, which can be useful for dynamic shape optimization (default is False).
         Returns:
             None
 
@@ -235,6 +260,13 @@ class TensorRTConfig:
             ...    min_input_shape=(1,100),
             ...    optim_input_shape=(4,100),
             ...    max_input_shape=(8,100),
+            ... )
+            >>> input = Input(
+            ...    (
+            ...     np.random.rand(1, 100),
+            ...     np.random.rand(4, 100),
+            ...     np.random.rand(8, 100),
+            ...     )
             ... )
             >>> input.input_data_type='int64'
             >>> input.input_range=(1,10)
@@ -252,11 +284,15 @@ class TensorRTConfig:
                 raise ValueError("All Inputs must have input_data if any does.")
             self.enable_collect_shape = True
             if enable_collect_shape is False:
-                warnings.warn("enable_collect_shape is forced to True because input_data exists.")
+                warnings.warn(
+                    "enable_collect_shape is forced to True because input_data exists."
+                )
         else:
             self.enable_collect_shape = enable_collect_shape
             if self.enable_collect_shape:
-                raise ValueError("enable_collect_shape=True requires all Inputs to have input_data.")
+                raise ValueError(
+                    "enable_collect_shape=True requires all Inputs to have input_data."
+                )
 
         self.inputs = inputs
         self.min_subgraph_size = min_subgraph_size
@@ -289,8 +325,10 @@ def convert_to_trt(program, trt_config, scope):
         feeds = []
         if trt_config.enable_collect_shape:
             input_tuples = [i.generate_input_data() for i in trt_config.inputs]
-            feeds = [{name: t[i] for t, name in zip(input_tuples, feed_name)}
-                     for i in range(len(input_tuples[0]))]
+            feeds = [
+                {name: t[i] for t, name in zip(input_tuples, feed_name)}
+                for i in range(len(input_tuples[0]))
+            ]
         else:
             feeds = [{} for _ in range(3)]
             for idx, inp in enumerate(trt_config.inputs):

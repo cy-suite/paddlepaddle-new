@@ -76,12 +76,16 @@ class TestConverterDummy(unittest.TestCase):
         program, scope, param_dict = get_dummy_program()
 
         # Set input
-        input_data = tuple(np.random.rand(n, 64).astype(np.float32) for n in (1, 4, 8))
+        input_data = tuple(
+            np.random.rand(n, 64).astype(np.float32) for n in (1, 4, 8)
+        )
         input_optim_data = input_data[1]
         input_config = Input(input_data=input_data)
 
         # Create a TensorRTConfig with inputs as a required field.
-        trt_config = TensorRTConfig(inputs=[input_config], enable_collect_shape=True)
+        trt_config = TensorRTConfig(
+            inputs=[input_config], enable_collect_shape=True
+        )
         trt_config.precision_mode = PrecisionMode.FP16
         trt_config.ops_run_float = "pd_op.add"
         trt_config.optimization_level = 5
@@ -109,7 +113,7 @@ class TestConverterDummy(unittest.TestCase):
             output_converted[0],
             rtol=1e-2,
             atol=1e-2,
-            err_msg="Auto shape collection outputs mismatch"
+            err_msg="Auto shape collection outputs mismatch",
         )
 
 

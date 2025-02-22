@@ -99,12 +99,16 @@ class TestConverterResNet50(unittest.TestCase):
         program, scope, param_dict = get_r50_program()
 
         # Set input
-        input_data = tuple(np.random.rand(n, 3, 224, 224).astype(np.float32) for n in (1, 2, 4))
+        input_data = tuple(
+            np.random.rand(n, 3, 224, 224).astype(np.float32) for n in (1, 2, 4)
+        )
         input_optim_data = input_data[1]
         input_config = Input(input_data=input_data)
 
         # Create a TensorRTConfig with inputs as a required field.
-        trt_config = TensorRTConfig(inputs=[input_config], enable_collect_shape=True)
+        trt_config = TensorRTConfig(
+            inputs=[input_config], enable_collect_shape=True
+        )
 
         output_var = program.list_vars()[-1]
 
