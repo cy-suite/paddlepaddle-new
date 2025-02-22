@@ -44,7 +44,7 @@ def has_dynamic_shape(shape):
     return any(s == -1 for s in shape)
 
 
-def append_ones(network, input, num_prepend_ones):
+def append_ones(network, input, num_prepend_ones, name=None):
     layer = network.add_shuffle(input)
 
     if has_dynamic_shape(input.shape):
@@ -59,7 +59,9 @@ def append_ones(network, input, num_prepend_ones):
         layer.set_input(1, reshape_dim_layer.get_output(0))
         if name is not None:
             set_layer_name(input_shape_layer, [name[0], "input_shape_layer"])
-            set_layer_name(prepend_shape_layer, [name[0], "prepend_shape_layer"])
+            set_layer_name(
+                prepend_shape_layer, [name[0], "prepend_shape_layer"]
+            )
             set_layer_name(reshape_dim_layer, [name[0], "reshape_dim_layer"])
     else:
         layer.reshape_dims = (1,) * num_prepend_ones + tuple(input.shape)
