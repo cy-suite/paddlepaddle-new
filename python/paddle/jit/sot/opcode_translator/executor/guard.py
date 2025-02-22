@@ -143,7 +143,7 @@ def make_guard(stringified_guards: list[StringifiedExpression]) -> Guard:
             guard.expr = "lambda frame: True"
             guard.original_guard = guard
             if True:
-                guard.faster_guard = lambda frame: True
+                guard.faster_guard = guard
             return guard
 
         free_vars = union_free_vars(
