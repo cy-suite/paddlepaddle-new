@@ -65,6 +65,7 @@ class CollectShapeManager {
     max_values_.clear();
     opt_values_.clear();
     op_value2kernel_value_.clear();
+    op_value2instr_id_.clear();
     is_shape_range_info_ready_ = false;
   }
 
