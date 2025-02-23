@@ -143,12 +143,12 @@ struct LiftReduceToReduceTreeOperation {
   PatternNodePtr operator()(PatternGraph* graph, PatternNodePtr node) {
     auto origin_name = node->id();
     const auto& reduce_pattern = std::get<ReducePattern>(node->stmt_pattern());
-    const auto& loop_mapping = node->loop_mapping();
+    const auto& loop_axis_mapping = node->loop_axis_mapping();
     node->set_stmt_pattern(ReduceTreePattern(
         {},
         reduce_pattern,
         std::make_shared<FusionTracker>(reduce_pattern.tracker_)));
-    node->set_loop_mapping(loop_mapping);
+    node->set_loop_axis_mapping(loop_axis_mapping);
     node->AppendInstr(std::make_shared<CopyInstr>(origin_name, node->id()));
     VLOG(4) << "Make CopyInstr: " << origin_name << " -> " << node->id();
     return node;
@@ -175,7 +175,7 @@ struct LiftToAnchorPatternOperation {
     node->set_stmt_pattern(AnchorPattern(
         GetOpsInPattern(node->stmt_pattern()),
         std::make_shared<FusionTracker>(GetFusionTracker(node->stmt_pattern())),
-        node->loop_mapping()));
+        node->loop_axis_mapping()));
     node->AppendInstr(std::make_shared<CopyInstr>(origin_name, node->id()));
     VLOG(4) << "Make CopyInstr: " << origin_name << " -> " << node->id();
     return node;
@@ -189,13 +189,15 @@ struct AnchorFusionOperation {
     bool upstream_is_anchor;
     AxisTransformRoute loop_transform;
     auto loop_lift_transform = GetValidLoopTransformRoute(
-        upstream->loop_mapping(), downstream->loop_mapping(), true);
+        upstream->loop_axis_mapping(), downstream->loop_axis_mapping(), true);
     if (loop_lift_transform.has_value()) {
       loop_transform = loop_lift_transform.value();
       upstream_is_anchor = true;
     } else {
-      auto loop_sink_transform = GetValidLoopTransformRoute(
-          upstream->loop_mapping(), downstream->loop_mapping(), false);
+      auto loop_sink_transform =
+          GetValidLoopTransformRoute(upstream->loop_axis_mapping(),
+                                     downstream->loop_axis_mapping(),
+                                     false);
       if (!loop_sink_transform.has_value()) {
         return upstream;
       }
@@ -213,9 +215,9 @@ struct AnchorFusionOperation {
                              GetOpsInPattern(downstream)),
           std::make_shared<FusionTracker>(GetFusionTracker(upstream),
                                           GetFusionTracker(downstream)),
-          LoopMappingMerge(GetPatternLoopMapping(upstream),
-                           GetPatternLoopMapping(downstream),
-                           upstream_is_anchor));
+          LoopAxisMappingMerge(GetPatternLoopAxisMapping(upstream),
+                               GetPatternLoopAxisMapping(downstream),
+                               upstream_is_anchor));
     };
     auto merged_node = graph->MergeNode(upstream, downstream, merge_pattern_fn);
     // Update tracker
@@ -249,12 +251,12 @@ struct LiftToItersPermutationPatternOperation {
                           "Op with multi output value can not lift to "
                           "ItersPermutationPattern"));
     std::string origin_name = node->id();
-    const auto& loop_mapping = node->loop_mapping();
+    const auto& loop_axis_mapping = node->loop_axis_mapping();
     node->set_stmt_pattern(ItersPermutationPattern(
         GetOpsInPattern(node->stmt_pattern()),
         std::make_shared<FusionTracker>(GetFusionTracker(node->stmt_pattern())),
         graph->iters_fusion_policy()->GetLoopDims(node->fusion_iters())));
-    node->set_loop_mapping(loop_mapping);
+    node->set_loop_axis_mapping(loop_axis_mapping);
     node->AppendInstr(std::make_shared<CopyInstr>(origin_name, node->id()));
     VLOG(4) << "Make CopyInstr: " << origin_name << " -> " << node->id();
     return node;
@@ -298,8 +300,10 @@ struct FuseItersPermutatioOperation {
                   : downstream_pattern.loop_dims_);
     };
     auto merged_node = graph->MergeNode(upstream, downstream, merge_pattern_fn);
-    merged_node->set_loop_mapping(LoopMappingMerge(
-        upstream->loop_mapping(), downstream->loop_mapping(), is_rise));
+    merged_node->set_loop_axis_mapping(
+        LoopAxisMappingMerge(upstream->loop_axis_mapping(),
+                             downstream->loop_axis_mapping(),
+                             is_rise));
     merged_node->set_fusion_iters(
         graph->iters_fusion_policy()->MultiDownstreamItersFusion(
             upstream,
@@ -341,9 +345,9 @@ struct SplitRecomputeOperation {
         upstream->sink_op(),
         std::make_shared<FusionTracker>(
             std::get<AnchorPattern>(upstream->stmt_pattern()).tracker_));
-    auto loop_mapping = upstream->loop_mapping();
+    auto loop_axis_mapping = upstream->loop_axis_mapping();
     upstream->set_stmt_pattern(trivial_pattern);
-    upstream->set_loop_mapping(loop_mapping);
+    upstream->set_loop_axis_mapping(loop_axis_mapping);
     VLOG(4) << "Make CopyInstr: " << origin_name << " -> " << upstream->id();
     upstream->AppendInstr(
         std::make_shared<CopyInstr>(origin_name, upstream->id()));

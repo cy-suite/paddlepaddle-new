@@ -63,7 +63,7 @@ struct PatternNode {
     ss << "\nOps in pattern:" << std::endl;
     ss << OpsDebugStr(GetOpsInPattern(this->stmt_pattern()));
     ss << "Loop Framework is: " << GetLoopFramework(this->stmt_pattern()).loop;
-    ss << "\nLoop Mapping is: " << loop_mapping().DebugStr();
+    ss << "\nLoop Mapping is: " << loop_axis_mapping().DebugStr();
     return ss.str();
   }
 
@@ -99,12 +99,15 @@ struct PatternNode {
     fusion_iters_ = fusion_iters;
   }
   FusionTrackerPtr fusion_tracker() { return GetFusionTracker(stmt_pattern_); }
-  void set_loop_mapping(const LoopAxisMapping& loop_mapping) {
-    std::visit([&](auto& pattern) { pattern.set_loop_mapping(loop_mapping); },
-               stmt_pattern_);
+  void set_loop_axis_mapping(const LoopAxisMapping& loop_axis_mapping) {
+    std::visit(
+        [&](auto& pattern) {
+          pattern.set_loop_axis_mapping(loop_axis_mapping);
+        },
+        stmt_pattern_);
   }
-  LoopAxisMapping loop_mapping() const {
-    return GetPatternLoopMapping(stmt_pattern_);
+  LoopAxisMapping loop_axis_mapping() const {
+    return GetPatternLoopAxisMapping(stmt_pattern_);
   }
 
  private:

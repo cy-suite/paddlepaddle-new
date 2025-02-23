@@ -284,7 +284,7 @@ class TestAnchorFusion(unittest.TestCase):
             x = paddle.rand((1, 3, 1, 16, 1, 32, 1))
             return (x,)
 
-        self.check_accuracy_and_kernel_num(init, func, kernel_num=1)
+        self.check_accuracy_and_kernel_num(init, func, kernel_num=2)
 
     def test_0d_fusion(self):
         def func(x):

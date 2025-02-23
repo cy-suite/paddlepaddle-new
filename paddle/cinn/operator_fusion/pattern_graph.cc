@@ -235,9 +235,6 @@ void PatternGraph::ItersPermutationFusion() {
 void PatternGraph::SplitRecomputePattern() {
   GraphTransformer<NodePattern, RecomputeNodeMatcher, SplitRecomputeOperation>(
       this);
-  // GraphTransformer<NodePattern,
-  //                  StmtPatternGraphMatcher<TrivialPattern>,
-  //                  LiftToItersPermutationPatternOperation>(this);
   GraphTransformer<NodePattern,
                    StmtPatternGraphMatcher<TrivialPattern>,
                    LiftToAnchorPatternOperation>(this);
@@ -259,7 +256,7 @@ PatternGraph::PatternGraph(const std::vector<PatternContent>& contents,
         iters_fusion_policy()->iters_manager()->GetItersSignature(content.op);
     PatternNodePtr node = std::make_shared<PatternNode>(content, fusion_iters);
     op_to_node_map[content.op] = node;
-    node->set_loop_mapping(CreateLoopMapping(content.op));
+    node->set_loop_axis_mapping(CreateLoopAxisMapping(content.op));
     all_pattern_nodes_.emplace(node);
   }
 

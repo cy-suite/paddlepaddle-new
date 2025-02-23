@@ -85,7 +85,7 @@ void LoopAxisMapping::SetReverseMapping() {
   }
 }
 
-void LoopAxisMapping::DisableLoopMapping() {
+void LoopAxisMapping::DisableLoopAxisMapping() {
   for (int i = 0; i < input_values.size(); ++i) {
     input2loop[i].clear();
     input2loop[i].push_back(UnsupportedTransform::InstancePtr());
@@ -323,7 +323,7 @@ void LoopAxisMapping::SimplifyForwardMapping() {
   }
 }
 
-LoopAxisMapping CreateDefaultLoopMapping(pir::Operation* op) {
+LoopAxisMapping CreateDefaultLoopAxisMapping(pir::Operation* op) {
   LoopAxisMapping result;
   result.input2loop.resize(op->num_operands());
   result.loop2output.resize(op->num_results());
@@ -338,15 +338,15 @@ LoopAxisMapping CreateDefaultLoopMapping(pir::Operation* op) {
   return result;
 }
 
-LoopAxisMapping CreateDefaultLoopMappingForTrivialOp(pir::Operation* op) {
-  auto result = CreateDefaultLoopMapping(op);
+LoopAxisMapping CreateDefaultLoopAxisMappingForTrivialOp(pir::Operation* op) {
+  auto result = CreateDefaultLoopAxisMapping(op);
   result.loop = GetCompatibleValueAllDims(result.output_values[0]);
   result.loop2output[0].clear();
   result.loop2output[0].push_back(IdentityTransform::InstancePtr());
   return result;
 }
 
-LoopAxisMapping CreateLoopMappingForElementwise(pir::Operation* op) {
+LoopAxisMapping CreateLoopAxisMappingForElementwise(pir::Operation* op) {
   LoopAxisMapping result;
   result.input2loop.resize(op->num_operands());
   result.loop2output.resize(op->num_results());
@@ -362,7 +362,7 @@ LoopAxisMapping CreateLoopMappingForElementwise(pir::Operation* op) {
   return result;
 }
 
-LoopAxisMapping CreateLoopMappingForTranspose(pir::Operation* op) {
+LoopAxisMapping CreateLoopAxisMappingForTranspose(pir::Operation* op) {
   PADDLE_ENFORCE(
       op->num_operands() == 1 && op->num_results() == 1,
       ::common::errors::InvalidArgument(
@@ -380,7 +380,7 @@ LoopAxisMapping CreateLoopMappingForTranspose(pir::Operation* op) {
   return result;
 }
 
-LoopAxisMapping CreateLoopMappingForSlice(pir::Operation* op) {
+LoopAxisMapping CreateLoopAxisMappingForSlice(pir::Operation* op) {
   PADDLE_ENFORCE(
       op->num_operands() == 1 && op->num_results() == 1,
       ::common::errors::InvalidArgument(
@@ -435,7 +435,7 @@ LoopAxisMapping CreateLoopMappingForSlice(pir::Operation* op) {
   return result;
 }
 
-LoopAxisMapping CreateLoopMappingForBroadcast(pir::Operation* op) {
+LoopAxisMapping CreateLoopAxisMappingForBroadcast(pir::Operation* op) {
   LoopAxisMapping result;
   for (int i = 0; i < op->num_operands(); ++i) {
     result.input_values.push_back(op->operand_source(i));
@@ -489,7 +489,7 @@ LoopAxisMapping CreateLoopMappingForBroadcast(pir::Operation* op) {
   return result;
 }
 
-LoopAxisMapping CreateLoopMappingForReduce(pir::Operation* op) {
+LoopAxisMapping CreateLoopAxisMappingForReduce(pir::Operation* op) {
   PADDLE_ENFORCE(
       op->num_operands() == 1 && op->num_results() == 1,
       ::common::errors::InvalidArgument(
@@ -546,7 +546,7 @@ LoopAxisMapping CreateLoopMappingForReduce(pir::Operation* op) {
   return result;
 }
 
-LoopAxisMapping CreateLoopMappingForReshape(pir::Operation* op) {
+LoopAxisMapping CreateLoopAxisMappingForReshape(pir::Operation* op) {
   LoopAxisMapping result;
   for (int i = 0; i < op->num_operands(); ++i) {
     result.input_values.push_back(op->operand_source(i));
@@ -562,7 +562,7 @@ LoopAxisMapping CreateLoopMappingForReshape(pir::Operation* op) {
   result.loop = out_shape;
 
   if (!ShapeProductEqual(in_shape, out_shape)) {
-    return CreateDefaultLoopMappingForTrivialOp(op);
+    return CreateDefaultLoopAxisMappingForTrivialOp(op);
   }
 
   auto has_dynamic_shape = [](const std::vector<symbol::DimExpr>& shape) {
@@ -573,7 +573,7 @@ LoopAxisMapping CreateLoopMappingForReshape(pir::Operation* op) {
   };
   // TODO(huangjiyi): Support dynamic shape for reshape anchor fusion
   if (has_dynamic_shape(in_shape) || has_dynamic_shape(out_shape)) {
-    return CreateDefaultLoopMappingForTrivialOp(op);
+    return CreateDefaultLoopAxisMappingForTrivialOp(op);
   }
 
   // If Reshape only appends or deletes dims with size 1,
@@ -618,37 +618,37 @@ LoopAxisMapping CreateLoopMappingForReshape(pir::Operation* op) {
   return result;
 }
 
-LoopAxisMapping CreateLoopMapping(pir::Operation* op) {
+LoopAxisMapping CreateLoopAxisMapping(pir::Operation* op) {
   auto is_special_trivial = [&](const pir::Operation* op) {
     return op->name() == "cinn_op.concat" || op->name() == "pd_op.gather_nd";
   };
-  VLOG(4) << "CreateLoopMapping for op: " << OpsDebugStr({op});
+  VLOG(4) << "CreateLoopAxisMapping for op: " << OpsDebugStr({op});
   LoopAxisMapping result;
   auto op_kind = GetOpPatternKind(op);
   if (op->name() == "pd_op.transpose") {
-    result = CreateLoopMappingForTranspose(op);
+    result = CreateLoopAxisMappingForTranspose(op);
   } else if (op->name() == "cinn_op.reshape" || op->name() == "pd_op.reshape") {
-    result = CreateLoopMappingForReshape(op);
+    result = CreateLoopAxisMappingForReshape(op);
   } else if (op->name() == "cinn_op.slice") {
-    result = CreateLoopMappingForSlice(op);
+    result = CreateLoopAxisMappingForSlice(op);
   } else if (op->name() == "cinn_op.generate_shape") {
-    result = CreateDefaultLoopMapping(op);
+    result = CreateDefaultLoopAxisMapping(op);
   } else if (is_special_trivial(op)) {
-    result = CreateDefaultLoopMappingForTrivialOp(op);
+    result = CreateDefaultLoopAxisMappingForTrivialOp(op);
   } else if (op_kind == hlir::framework::kBroadcast) {
-    result = CreateLoopMappingForBroadcast(op);
+    result = CreateLoopAxisMappingForBroadcast(op);
   } else if (op_kind == hlir::framework::kReduction) {
-    result = CreateLoopMappingForReduce(op);
+    result = CreateLoopAxisMappingForReduce(op);
   } else if (op_kind == hlir::framework::kElementWise) {
-    result = CreateLoopMappingForElementwise(op);
+    result = CreateLoopAxisMappingForElementwise(op);
   } else {
-    result = CreateDefaultLoopMapping(op);
+    result = CreateDefaultLoopAxisMapping(op);
   }
   result.SetReverseMapping();
   for (auto value : result.output_values) {
     result.outputs_use_count[value] = value.use_count();
   }
-  VLOG(4) << "LoopMapping Result: " << result.DebugStr();
+  VLOG(4) << "LoopAxisMapping Result: " << result.DebugStr();
   return result;
 }
 

@@ -57,10 +57,10 @@ struct PatternBase {
   std::vector<pir::Operation*> ops() const { return ops_; }
   FusionTrackerPtr tracker_;
   void update_tracker() const {}
-  LoopAxisMapping loop_mapping_;
-  LoopAxisMapping loop_mapping() const { return loop_mapping_; }
-  void set_loop_mapping(const LoopAxisMapping& loop_mapping) {
-    loop_mapping_ = loop_mapping;
+  LoopAxisMapping loop_axis_mapping_;
+  LoopAxisMapping loop_axis_mapping() const { return loop_axis_mapping_; }
+  void set_loop_axis_mapping(const LoopAxisMapping& loop_axis_mapping) {
+    loop_axis_mapping_ = loop_axis_mapping;
   }
 };
 
@@ -213,9 +213,9 @@ struct ItersPermutationPattern : public PatternBase {
 struct AnchorPattern : public PatternBase {
   explicit AnchorPattern(const std::vector<pir::Operation*>& ops,
                          const FusionTrackerPtr& tracker,
-                         const LoopAxisMapping& loop_mapping)
+                         const LoopAxisMapping& loop_axis_mapping)
       : PatternBase(UniqueId(), tracker, ops) {
-    set_loop_mapping(loop_mapping);
+    set_loop_axis_mapping(loop_axis_mapping);
   }
   DEFINE_PATTERN_STATIC_ATTR(Anchor);
 };
@@ -309,8 +309,9 @@ static std::vector<pir::Operation*> GetOpsInPattern(
   return std::visit([](const auto& impl) { return impl.ops(); }, pattern);
 }
 
-static LoopAxisMapping GetPatternLoopMapping(const StmtPattern& s) {
-  return std::visit([](const auto& impl) { return impl.loop_mapping(); }, s);
+static LoopAxisMapping GetPatternLoopAxisMapping(const StmtPattern& s) {
+  return std::visit([](const auto& impl) { return impl.loop_axis_mapping(); },
+                    s);
 }
 
 static std::unordered_set<pir::Value> GetPatternInputValuesIncludeInner(

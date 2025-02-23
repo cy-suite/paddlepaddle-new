@@ -73,8 +73,8 @@ static StmtPattern MergePatternImpl(const TrivialPattern& first,
       contents,
       second.sink_op(),
       std::make_shared<FusionTracker>(first.tracker_, second.tracker_));
-  result.set_loop_mapping(
-      TrivialSinkLoopMappingMerge(first.loop_mapping(), second.loop_mapping()));
+  result.set_loop_axis_mapping(TrivialSinkLoopAxisMappingMerge(
+      first.loop_axis_mapping(), second.loop_axis_mapping()));
   return result;
 }
 
@@ -85,8 +85,8 @@ static StmtPattern MergePatternImpl(const TrivialPattern& first,
   auto result = ReducePattern(
       contents,
       std::make_shared<FusionTracker>(first.tracker_, second.tracker_));
-  result.set_loop_mapping(
-      TrivialSinkLoopMappingMerge(first.loop_mapping(), second.loop_mapping()));
+  result.set_loop_axis_mapping(TrivialSinkLoopAxisMappingMerge(
+      first.loop_axis_mapping(), second.loop_axis_mapping()));
   return result;
 }
 
@@ -115,8 +115,8 @@ static StmtPattern MergePatternImpl(const TrivialPattern& first,
       new_children,
       FusePatternIfConnected(first, second.GetRootPattern(), connect_ops),
       std::make_shared<FusionTracker>(first.tracker_, second.tracker_));
-  result.set_loop_mapping(
-      TrivialSinkLoopMappingMerge(first.loop_mapping(), second.loop_mapping()));
+  result.set_loop_axis_mapping(TrivialSinkLoopAxisMappingMerge(
+      first.loop_axis_mapping(), second.loop_axis_mapping()));
   return result;
 }
 
@@ -128,8 +128,8 @@ static StmtPattern MergePatternImpl(
       FusePatternIfConnected(first, second.sink_trivial, connect_ops),
       std::make_shared<FusionTracker>(first.tracker_, second.tracker_));
   result.fake_reduce_iter_idx = second.fake_reduce_iter_idx;
-  result.set_loop_mapping(
-      TrivialSinkLoopMappingMerge(first.loop_mapping(), second.loop_mapping()));
+  result.set_loop_axis_mapping(TrivialSinkLoopAxisMappingMerge(
+      first.loop_axis_mapping(), second.loop_axis_mapping()));
   return result;
 }
 
@@ -139,8 +139,8 @@ static StmtPattern MergePatternImpl(const TrivialPattern& first,
       UniqueConcatVector(GetOpsInPattern(first), GetOpsInPattern(second)),
       std::make_shared<FusionTracker>(first.tracker_, second.tracker_),
       second.loop_dims());
-  result.set_loop_mapping(
-      TrivialSinkLoopMappingMerge(first.loop_mapping(), second.loop_mapping()));
+  result.set_loop_axis_mapping(TrivialSinkLoopAxisMappingMerge(
+      first.loop_axis_mapping(), second.loop_axis_mapping()));
   return result;
 }
 
@@ -149,7 +149,8 @@ static StmtPattern MergePatternImpl(const TrivialPattern& first,
   return AnchorPattern(
       UniqueConcatVector(GetOpsInPattern(first), GetOpsInPattern(second)),
       std::make_shared<FusionTracker>(first.tracker_, second.tracker_),
-      TrivialSinkLoopMappingMerge(first.loop_mapping(), second.loop_mapping()));
+      TrivialSinkLoopAxisMappingMerge(first.loop_axis_mapping(),
+                                      second.loop_axis_mapping()));
 }
 
 // RR & RT
@@ -183,8 +184,8 @@ static StmtPattern MergePatternImpl(const ReduceTreePattern& upstream,
       std::make_shared<FusionTracker>(upstream.tracker_,
                                       downstream.tracker_));  // copy first.
   int insert_num = InsertUpstreamIntoTree(upstream, result);
-  result.set_loop_mapping(LoopMappingMerge(
-      upstream.loop_mapping(), downstream.loop_mapping(), false));
+  result.set_loop_axis_mapping(LoopAxisMappingMerge(
+      upstream.loop_axis_mapping(), downstream.loop_axis_mapping(), false));
   PADDLE_ENFORCE_EQ(insert_num,
                     1,
                     ::common::errors::PreconditionNotMet(
@@ -198,8 +199,8 @@ static StmtPattern MergePatternImpl(const ReduceTreePattern& first,
       first,
       second,
       std::make_shared<FusionTracker>(first.tracker_, second.tracker_));
-  result.set_loop_mapping(ReducePlusTrivialLoopMappingMerge(
-      first.loop_mapping(), second.loop_mapping()));
+  result.set_loop_axis_mapping(ReducePlusTrivialLoopAxisMappingMerge(
+      first.loop_axis_mapping(), second.loop_axis_mapping()));
   return result;
 }
 
@@ -468,8 +469,8 @@ struct LoopFrameworkVisitor {
 
   MaybeLoopFramework operator()(const AnchorPattern& pattern) {
     MaybeLoopFramework result;
-    result.loop = pattern.loop_mapping().loop;
-    auto reduce_num = pattern.loop_mapping().reduce_axis_num;
+    result.loop = pattern.loop_axis_mapping().loop;
+    auto reduce_num = pattern.loop_axis_mapping().reduce_axis_num;
     result.is_reduce =
         CreateIsReduceVector(result.loop.size() - reduce_num, reduce_num);
     return result;

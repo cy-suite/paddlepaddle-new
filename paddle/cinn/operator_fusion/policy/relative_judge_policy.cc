@@ -313,7 +313,7 @@ std::vector<size_t> RelativeJudgePolicy::GetFakeReduceIterIdx(
   // Skip fake reduce dim which is 1
   std::vector<size_t> result;
   for (auto& fake_reduce_idx : fake_reduce_indices) {
-    if (downstream->loop_mapping().loop[fake_reduce_idx] !=
+    if (downstream->loop_axis_mapping().loop[fake_reduce_idx] !=
         symbol::DimExpr(1)) {
       result.push_back(fake_reduce_idx);
     }

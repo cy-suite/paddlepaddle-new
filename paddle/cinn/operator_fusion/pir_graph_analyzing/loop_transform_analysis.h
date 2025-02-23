@@ -18,12 +18,12 @@
 
 namespace cinn::fusion {
 
-LoopAxisMapping LoopMappingMerge(const LoopAxisMapping& upstream,
-                                 const LoopAxisMapping& downstream,
-                                 bool upstream_is_anchor);
-LoopAxisMapping TrivialSinkLoopMappingMerge(const LoopAxisMapping& upstream,
-                                            const LoopAxisMapping& downstream);
-LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
+LoopAxisMapping LoopAxisMappingMerge(const LoopAxisMapping& upstream,
+                                     const LoopAxisMapping& downstream,
+                                     bool upstream_is_anchor);
+LoopAxisMapping TrivialSinkLoopAxisMappingMerge(
+    const LoopAxisMapping& upstream, const LoopAxisMapping& downstream);
+LoopAxisMapping ReducePlusTrivialLoopAxisMappingMerge(
     const LoopAxisMapping& upstream, const LoopAxisMapping& downstream);
 
 std::optional<AxisTransformRoute> GetValidLoopTransformRoute(

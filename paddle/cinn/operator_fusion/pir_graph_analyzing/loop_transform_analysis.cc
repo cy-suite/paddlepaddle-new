@@ -68,9 +68,9 @@ AxisTransformRoute GetLoopLiftRoute(const LoopAxisMapping& upstream,
   return SimplifyTransformRoute(result, downstream.loop);
 }
 
-LoopAxisMapping LoopMappingMergeImpl(const LoopAxisMapping& upstream,
-                                     const LoopAxisMapping& downstream,
-                                     bool upstream_is_anchor) {
+LoopAxisMapping LoopAxisMappingMergeImpl(const LoopAxisMapping& upstream,
+                                         const LoopAxisMapping& downstream,
+                                         bool upstream_is_anchor) {
   const auto& loop_sink_route = GetLoopSinkRoute(upstream, downstream);
   const auto& loop_lift_route = GetLoopLiftRoute(upstream, downstream);
 
@@ -120,18 +120,19 @@ LoopAxisMapping LoopMappingMergeImpl(const LoopAxisMapping& upstream,
   return result;
 }
 
-LoopAxisMapping LoopMappingMerge(const LoopAxisMapping& upstream,
-                                 const LoopAxisMapping& downstream,
-                                 bool upstream_is_anchor) {
-  auto result = LoopMappingMergeImpl(upstream, downstream, upstream_is_anchor);
+LoopAxisMapping LoopAxisMappingMerge(const LoopAxisMapping& upstream,
+                                     const LoopAxisMapping& downstream,
+                                     bool upstream_is_anchor) {
+  auto result =
+      LoopAxisMappingMergeImpl(upstream, downstream, upstream_is_anchor);
   result.SimplifyForwardMapping();
   result.SetReverseMapping();
   return result;
 }
 
-LoopAxisMapping TrivialSinkLoopMappingMerge(const LoopAxisMapping& upstream,
-                                            const LoopAxisMapping& downstream) {
-  auto result = LoopMappingMergeImpl(upstream, downstream, false);
+LoopAxisMapping TrivialSinkLoopAxisMappingMerge(
+    const LoopAxisMapping& upstream, const LoopAxisMapping& downstream) {
+  auto result = LoopAxisMappingMergeImpl(upstream, downstream, false);
   auto upstream_out_value = upstream.output_values[0];
   auto indices = FindPosInVector(result.output_values, upstream_out_value);
   if (!indices.empty()) {
@@ -177,7 +178,7 @@ std::vector<int> GetFakeReduceAxisIdx(const std::vector<symbol::DimExpr>& loop,
   return fake_reduce_idx;
 }
 
-LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
+LoopAxisMapping ReducePlusTrivialLoopAxisMappingMerge(
     const LoopAxisMapping& upstream, const LoopAxisMapping& downstream) {
   // Signal downstream reduce plus trivial fusion loop is downstream trivial
   // loop plus upstream reduce loop.
@@ -189,8 +190,8 @@ LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
   auto loop_sink_route = GetLoopSinkRoute(upstream, downstream);
   if (HasUnsupportedTransform(loop_sink_route)) {
     // TODO(huangjiyi): fix unsupported transform in RT fusion
-    auto result = LoopMappingMergeImpl(upstream, downstream, false);
-    result.DisableLoopMapping();
+    auto result = LoopAxisMappingMergeImpl(upstream, downstream, false);
+    result.DisableLoopAxisMapping();
     return result;
   }
   auto reduce_axis_num = upstream.reduce_axis_num;
@@ -214,7 +215,7 @@ LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
     }
     upstream_copy.loop.insert(
         upstream_copy.loop.end(), reduce_loop.begin(), reduce_loop.end());
-    result = LoopMappingMergeImpl(upstream_copy, downstream, false);
+    result = LoopAxisMappingMergeImpl(upstream_copy, downstream, false);
     result.loop = ConcatVector(downstream.loop, reduce_loop);
     for (auto& route : result.loop2output) {
       route.insert(route.begin(), delete_reduce_axis);
@@ -238,7 +239,7 @@ LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
     for (auto index : fake_reduce_idx) {
       perm.erase(perm.begin() + index);
     }
-    result = LoopMappingMergeImpl(upstream, downstream, false);
+    result = LoopAxisMappingMergeImpl(upstream, downstream, false);
     AxisTransformRoute fake_reduce_axis_transforms;
     if (perm != ArangeVector<int>(0, downstream.loop.size())) {
       result.loop = TransposeVector(result.loop, perm);

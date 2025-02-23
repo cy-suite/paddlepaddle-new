@@ -139,13 +139,13 @@ struct LoopAxisMapping {
   std::vector<AxisTransformRoute> output2loop;
 
   void SetReverseMapping();
-  void DisableLoopMapping();
+  void DisableLoopAxisMapping();
   void SimplifyForwardMapping();
 
   std::string DebugStr() const;
 };
 
-LoopAxisMapping CreateLoopMapping(pir::Operation* op);
+LoopAxisMapping CreateLoopAxisMapping(pir::Operation* op);
 
 class AxisTransformSimulator {
  public:

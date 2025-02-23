@@ -181,7 +181,7 @@ struct RecomputeNodeMatcher {
       // 1. It didn't go through any pattern merging during prior fusions,
       // which means it only has one output value.
       // 2. It only contains trivial ops.
-      if (node->loop_mapping().output_values.size() > 1) {
+      if (node->loop_axis_mapping().output_values.size() > 1) {
         return false;
       }
       bool has_combine_fusion =
