@@ -22,6 +22,12 @@ bool HasUnsupportedTransform(const AxisTransformRoute& route) {
   });
 }
 
+bool HasReshapeTransform(const AxisTransformRoute& route) {
+  return std::any_of(route.begin(), route.end(), [](const auto& transform) {
+    return std::holds_alternative<ReshapeTransformPtr>(transform);
+  });
+}
+
 AxisTransformRoute GetLoopSinkRoute(const LoopAxisMapping& upstream,
                                     const LoopAxisMapping& downstream) {
   AxisTransformRoute result;
@@ -611,6 +617,11 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
   }
   if (result.empty()) result.push_back(IdentityTransform::InstancePtr());
   result = SimplifyTransformRoute(result, source.loop);
+  if (HasReshapeTransform(result)) {
+    // Temporarily disable reshape transform because of accuracy issue.
+    VLOG(4) << "Can not find valid loop transform because of reshape.";
+    return std::nullopt;
+  }
   VLOG(4) << "Found loop transform: " << result;
   return result;
 }
