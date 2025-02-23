@@ -148,29 +148,6 @@ void PatternGraph::SinkTrivialPattern() {
       NodePattern,
       And<StmtPatternGraphMatcher<TrivialPattern>, TransposeOpMatcher>,
       MergeTrivialPatternOperation>(this);
-
-  // // Sink Trivial pattern whose downstream containing related iters.
-  // // TODO(huangjiyi): Only sink to the related iters pattern.
-  // GraphTransformer<NodePattern,
-  //                  And<StmtPatternGraphMatcher<TrivialPattern>,
-  //                      DownstreamHasItersRelationMatcher,
-  //                      Not<ReshapeConnectionMatcher>>,
-  //                  MergeTrivialPatternOperation>(this);
-
-  // // Sink non-leaf reshape pattern.
-  // GraphTransformer<
-  //     NodePattern,
-  //     And<StmtPatternGraphMatcher<TrivialPattern>,
-  //         Or<OnlyOneDownstreamMatcher, DownstreamHasItersRelationMatcher>,
-  //         Not<LeafReshapeConnectionMatcher>>,
-  //     MergeTrivialPatternOperation>(this);
-
-  // // Align leaf reshape pattern to the input shape
-  // GraphTransformer<NodePattern,
-  //                  And<StmtPatternGraphMatcher<TrivialPattern>,
-  //                      ReshapeOpMatcher,
-  //                      LeafReshapeConnectionMatcher>,
-  //                  ReshapeAlignInputOperation>(this);
 }
 
 void PatternGraph::ReduceLiftReduceTree() {
