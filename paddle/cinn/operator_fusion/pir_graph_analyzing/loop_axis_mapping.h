@@ -138,28 +138,38 @@ struct LoopAxisMapping {
   std::vector<AxisTransformRoute> loop2input;
   std::vector<AxisTransformRoute> output2loop;
 
-  void SimplifyForwardMapping();
   void SetReverseMapping();
   void DisableLoopMapping();
+  void SimplifyForwardMapping();
 
   std::string DebugStr() const;
 };
 
 LoopAxisMapping CreateLoopMapping(pir::Operation* op);
 
-LoopAxisMapping LoopMappingMerge(const LoopAxisMapping& upstream,
-                                 const LoopAxisMapping& downstream,
-                                 bool upstream_is_anchor);
-LoopAxisMapping TrivialSinkLoopMappingMerge(const LoopAxisMapping& upstream,
-                                            const LoopAxisMapping& downstream);
-LoopAxisMapping ReducePlusTrivialLoopMappingMerge(
-    const LoopAxisMapping& upstream, const LoopAxisMapping& downstream);
+class AxisTransformSimulator {
+ public:
+  AxisTransformSimulator() = delete;
+  AxisTransformSimulator(const AxisTransformRoute& route,
+                         const std::vector<symbol::DimExpr>& inshape);
 
-AxisTransformRoute SimplifyTransformRoute(const AxisTransformRoute& route);
+  std::set<std::string> GetRelatedAxisIds(const std::vector<std::string>& ids);
 
-std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
-    const LoopAxisMapping& upstream,
-    const LoopAxisMapping& downstream,
-    bool upstream_is_anchor);
+  const AxisTransformRoute& route_;
+  std::vector<std::string> source_ids_;
+  std::vector<std::string> target_ids_;
+  std::unordered_map<std::string, symbol::DimExpr> axis_symbols_;
+  std::map<std::string, std::set<std::string>> axis_relation_map_;
+
+ private:
+  void Simulate();
+
+  int id_counter_ = 0;
+  std::string UniqueAxisId() { return "I" + std::to_string(id_counter_++); }
+};
+
+AxisTransformRoute SimplifyTransformRoute(
+    const AxisTransformRoute& route,
+    const std::vector<symbol::DimExpr>& input_shape);
 
 }  // namespace cinn::fusion

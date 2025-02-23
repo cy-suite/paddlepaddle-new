@@ -21,6 +21,7 @@
 #include "glog/logging.h"
 #include "paddle/cinn/operator_fusion/fusion_tracker/tracker.h"
 #include "paddle/cinn/operator_fusion/pir_graph_analyzing/loop_axis_mapping.h"
+#include "paddle/cinn/operator_fusion/pir_graph_analyzing/loop_transform_analysis.h"
 #include "paddle/cinn/operator_fusion/utils.h"
 #include "paddle/pir/include/core/operation.h"
 
