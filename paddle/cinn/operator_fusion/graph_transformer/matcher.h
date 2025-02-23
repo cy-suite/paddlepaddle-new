@@ -213,65 +213,6 @@ struct TransposeOpMatcher {
   }
 };
 
-struct ReshapeOpMatcher {
-  bool operator()(const PatternGraph& graph, const PatternNodePtr& node) {
-    return false;
-    auto has_dynamic_shape = [](const PatternNodePtr& node) {
-      const auto in_value = node->sink_op()->operand_source(0);
-      const auto out_value = node->sink_op()->result(0);
-      const auto in_shape = GetDimExprsFromValue(in_value);
-      const auto out_shape = GetDimExprsFromValue(out_value);
-      return GetShapeProduct(in_shape, 0, in_shape.size())
-                 .isa<std::int64_t>() &&
-             GetShapeProduct(out_shape, 0, out_shape.size())
-                 .isa<std::int64_t>();
-    };
-    return node->ops().size() == 1 &&
-           node->sink_op()->name() == "cinn_op.reshape" &&
-           has_dynamic_shape(node);
-  }
-};
-
-struct ReshapeConnectionMatcher {
-  bool operator()(const PatternGraph& graph, const PatternNodePtr& node) {
-    bool upstream_match = node->downstream().size() == 1 &&
-                          ReshapeOpMatcher()(graph, node->downstream()[0]) &&
-                          node->downstream()[0]->downstream().size() == 1;
-    bool downstream_match =
-        ReshapeOpMatcher()(graph, node) && node->downstream().size() == 1;
-    return upstream_match || downstream_match;
-  }
-};
-
-struct LeafReshapeConnectionMatcher {
-  bool operator()(const PatternGraph& graph, const PatternNodePtr& node) {
-    const auto match_upstream = [&graph](const PatternNodePtr& upstream) {
-      return StmtPatternGraphMatcher<TrivialPattern>()(graph, upstream) &&
-             upstream->downstream().size() == 1 &&
-             !upstream->upstream().empty() &&
-             std::any_of(upstream->upstream().begin(),
-                         upstream->upstream().end(),
-                         [&graph](const PatternNodePtr& node) {
-                           return DownstreamGreaterThan<1>()(graph, node);
-                         });
-    };
-    const auto match_downstream = [&graph](const PatternNodePtr& downstream) {
-      return ReshapeOpMatcher()(graph, downstream) &&
-             downstream->downstream().size() == 1 &&
-             downstream->downstream()[0]->downstream().empty() &&
-             downstream->fusion_iters().loop_iters ==
-                 downstream->downstream()[0]->fusion_iters().loop_iters;
-    };
-    bool upstream_match = match_upstream(node) &&
-                          node->downstream().size() == 1 &&
-                          match_downstream(node->downstream()[0]);
-    bool downstream_match = match_downstream(node) &&
-                            node->upstream().size() == 1 &&
-                            match_upstream(node->upstream()[0]);
-    return upstream_match || downstream_match;
-  }
-};
-
 struct NotAllElementWiseDownstreamMatcher {
   bool operator()(const PatternGraph& graph, const PatternNodePtr& node) {
     size_t count = 0;
