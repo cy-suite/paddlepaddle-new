@@ -975,6 +975,10 @@ class TestWhereDygraphAPINonBoolCondition(unittest.TestCase):
                     x = x.where_(cond_wrong_dtype, x, x)
 
 
+@unittest.skipIf(
+    core.is_compiled_with_xpu(),
+    "Skip XPU for zero size tensor is not fully supported",
+)
 class TestWhereZeroSizeTensor(unittest.TestCase):
     def init_inputs_outputs(self, shapes):
         cond = np.random.randint(0, 2, size=shapes[0]).astype('bool')
@@ -1022,6 +1026,10 @@ class TestWhereZeroSizeTensor(unittest.TestCase):
         self._test_with_shapes([(0, 5, 17, 6), (0, 5, 17, 6), (0, 5, 17, 6)])
 
 
+@unittest.skipIf(
+    core.is_compiled_with_xpu(),
+    "Skip XPU for bool dtype is not fully supported",
+)
 class TestWhereBoolInput(unittest.TestCase):
     def test_api_with_dygraph(self):
         cond = np.random.randint(0, 2, size=[2, 3, 5]).astype('bool')
