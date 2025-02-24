@@ -83,9 +83,7 @@ class TestConverterDummy(unittest.TestCase):
         input_config = Input(input_data=input_data)
 
         # Create a TensorRTConfig with inputs as a required field.
-        trt_config = TensorRTConfig(
-            inputs=[input_config], enable_collect_shape=True
-        )
+        trt_config = TensorRTConfig(inputs=[input_config])
         trt_config.precision_mode = PrecisionMode.FP16
         trt_config.ops_run_float = "pd_op.add"
         trt_config.optimization_level = 5

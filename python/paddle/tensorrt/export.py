@@ -214,7 +214,6 @@ class TensorRTConfig:
         optimization_level: int | None = 3,
         disable_passes: list = [],
         workspace_size: int | None = 1 << 30,
-        enable_collect_shape: bool = False,
     ) -> None:
         """
         A class for configuring TensorRT optimizations.
@@ -243,8 +242,6 @@ class TensorRTConfig:
                 A list of string representing the names of pass that should not be used for origin program (default is []).
             workspace_size (int, optional):
                 Specifies the maximum GPU memory (in bytes) that TensorRT can use for the optimization process (default is 1 << 30).
-            enable_collect_shape (bool, optional):
-                A flag to enable or disable the collection of input shapes during inference, which can be useful for dynamic shape optimization (default is False).
         Returns:
             None
 
@@ -282,17 +279,6 @@ class TensorRTConfig:
         if any(has_input_data):
             if not all(has_input_data):
                 raise ValueError("All Inputs must have input_data if any does.")
-            self.enable_collect_shape = True
-            if enable_collect_shape is False:
-                warnings.warn(
-                    "enable_collect_shape is forced to True because input_data exists."
-                )
-        else:
-            self.enable_collect_shape = enable_collect_shape
-            if self.enable_collect_shape:
-                raise ValueError(
-                    "enable_collect_shape=True requires all Inputs to have input_data."
-                )
 
         self.inputs = inputs
         self.min_subgraph_size = min_subgraph_size
@@ -322,19 +308,11 @@ def convert_to_trt(program, trt_config, scope):
             feed_name.append(param_name)
 
     with paddle.pir_utils.IrGuard():
-        feeds = []
-        if trt_config.enable_collect_shape:
-            input_tuples = [i.generate_input_data() for i in trt_config.inputs]
-            feeds = [
-                {name: t[i] for t, name in zip(input_tuples, feed_name)}
-                for i in range(len(input_tuples[0]))
-            ]
-        else:
-            feeds = [{} for _ in range(3)]
-            for idx, inp in enumerate(trt_config.inputs):
-                min_d, opt_d, max_d = inp.generate_input_data()
-                for feed, data in zip(feeds, (min_d, opt_d, max_d)):
-                    feed[feed_name[idx]] = data
+        input_tuples = [i.generate_input_data() for i in trt_config.inputs]
+        feeds = [
+            {name: t[i] for t, name in zip(input_tuples, feed_name)}
+            for i in range(len(input_tuples[0]))
+        ]
 
         # run pir pass (including trt_op_marker_pass)
         program_with_pir = run_pir_pass(
