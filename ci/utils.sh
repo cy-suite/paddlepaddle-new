@@ -197,12 +197,12 @@ function show_ut_retry_result() {
             echo "${retry_unittests_record}"
         else
             failed_ut_re=$(echo "${retry_unittests_record_judge}" | awk BEGIN{RS=EOF}'{gsub(/\n/,"|");print}')
-            echo "========================================"
-            echo "There are failed tests, which have been executed re-run,but success rate is less than 50%:"
-            echo "Summary Failed Tests... "
-            echo "========================================"
-            echo "The following tests FAILED: "
-            echo "${retry_unittests_record}" | sort -u | grep -E "$failed_ut_re"
+            echo -e "${RED}========================================${NONE}"
+            echo -e "${RED}There are failed tests, which have been executed re-run,but success rate is less than 50%:${NONE}"
+            echo -e "${RED}Summary Failed Tests... ${NONE}"
+            echo -e "${RED}========================================${NONE}"
+            echo -e "${RED}The following tests FAILED: ${NONE}"
+            echo -e "${RED}${retry_unittests_record}" | sort -u | grep -E "$failed_ut_re${NONE}"
             exit 8;
         fi
     fi

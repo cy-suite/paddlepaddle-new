@@ -100,13 +100,8 @@ class FasterStringifiedExpression(StringifiedExpression):
         self.faster_guard = faster_guard
         if ENV_SOT_ENABLE_FASTER_GUARD.get():
             original_expr_template = expr_template
-            guard_cls_name = faster_guard.__class__.__name__
-            guard_name = f"{guard_cls_name}_{id(faster_guard)}"
-            expr_template = (
-                guard_name + "(" + ", ".join(["{}"] * len(sub_exprs)) + ")"
-            )
-            free_vars = union_free_vars(
-                free_vars, {guard_name: faster_guard.check}
+            expr_template, free_vars = gen_faster_guard_expr_template(
+                faster_guard, sub_exprs, free_vars
             )
             log(
                 3,
@@ -114,6 +109,18 @@ class FasterStringifiedExpression(StringifiedExpression):
             )
 
         super().__init__(expr_template, sub_exprs, free_vars)
+
+
+def gen_faster_guard_expr_template(
+    faster_guard: GuardBase,
+    sub_exprs: list[StringifiedExpression],
+    free_vars: dict[str, Any],
+) -> tuple[str, dict[str, Any]]:
+    guard_cls_name = faster_guard.__class__.__name__
+    guard_name = f"{guard_cls_name}_{id(faster_guard)}"
+    expr_template = guard_name + "(" + ", ".join(["{}"] * len(sub_exprs)) + ")"
+    free_vars = union_free_vars(free_vars, {guard_name: faster_guard.check})
+    return expr_template, free_vars
 
 
 def union_free_vars(*free_vars: dict[str, Any]):
@@ -135,6 +142,8 @@ def make_guard(stringified_guards: list[StringifiedExpression]) -> Guard:
             guard = lambda frame: True
             guard.expr = "lambda frame: True"
             guard.original_guard = guard
+            if True:
+                guard.faster_guard = guard
             return guard
 
         free_vars = union_free_vars(
@@ -152,6 +161,33 @@ def make_guard(stringified_guards: list[StringifiedExpression]) -> Guard:
         log(3, f"[Guard]: {inlined_guard_expr}\n")
         guard.inlined_expr = inlined_guard_expr
         guard.expr = guard_expr
+        # TODO: add flag to enable faster guard
+        if True:
+            faster_guard_expr_list: list[str] = []
+            faster_guard_temp_free_vars: dict[str, Any] = {}
+            for expr in stringified_guards:
+                if isinstance(expr, FasterStringifiedExpression):
+                    expr_template, expr_free_vars = (
+                        gen_faster_guard_expr_template(
+                            expr.faster_guard, expr.sub_exprs, expr.free_vars
+                        )
+                    )
+                    expr = StringifiedExpression(
+                        expr_template, expr.sub_exprs, expr_free_vars
+                    )
+                faster_guard_expr_list.append(expr.inlined_expr)
+                faster_guard_temp_free_vars.update(expr.free_vars)
+            faster_guard_expr = "lambda frame: " + " and ".join(
+                faster_guard_expr_list
+            )
+            faster_guard_free_vars = union_free_vars(
+                faster_guard_temp_free_vars
+            )
+            guard.faster_guard = eval(faster_guard_expr, faster_guard_free_vars)
+            guard.faster_guard.expr = faster_guard_expr
+            assert callable(
+                guard.faster_guard
+            ), "faster guard must be callable."
 
         assert callable(guard), "guard must be callable."
 

@@ -129,6 +129,14 @@ class OpcodeExecutorCache(metaclass=Singleton):
             try:
                 with EventGuard("try guard"):
                     guard_result = guard_fn(frame)
+                    if True:
+                        faster_guard_result: bool = guard_fn.faster_guard(frame)
+                if True:
+                    assert faster_guard_result == guard_result, (
+                        "faster guard result is not equal to guard result, "
+                        f"guard_expr: {getattr(guard_fn, 'expr', 'None')}, "
+                        f"faster_guard_expr: {getattr(guard_fn.faster_guard, 'expr', 'None')},"
+                    )
                 if guard_result:
                     log(
                         2,
