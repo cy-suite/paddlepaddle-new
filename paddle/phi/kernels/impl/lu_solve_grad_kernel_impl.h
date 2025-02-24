@@ -14,6 +14,8 @@
 
 #pragma once
 
+#include "glog/logging.h"
+
 #include "paddle/phi/infermeta/binary.h"
 #include "paddle/phi/kernels/funcs/blas/blas.h"
 #include "paddle/phi/kernels/funcs/math_function.h"
@@ -48,9 +50,11 @@ void LuSolveGradKernel(const Context& dev_ctx,
     std::string trans_t = (trans == "N") ? "T" : "N";
     phi::LuSolveKernel<T, Context>(
         dev_ctx, out_grad, lu, pivots, trans_t, b_grad);
+    VLOG(4) << "Test Lu_SOLVE_GRAD Coverage_B";
   }
 
   if (lu_grad != nullptr) {
+    VLOG(4) << "Test Lu_SOLVE_GRAD Coverage_B";
     dev_ctx.template Alloc<T>(lu_grad);
 
     DenseTensor p, l, u, l_mH, u_mH;
