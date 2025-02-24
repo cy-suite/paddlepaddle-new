@@ -92,15 +92,9 @@ class TrtConvertAffineChannelTest(TrtLayerAutoScanTest):
             self.dynamic_shape.max_input_shape = {"input_data": [4, 64]}
             self.dynamic_shape.opt_input_shape = {"input_data": [2, 64]}
         if self.dims == 4:
-            self.dynamic_shape.min_input_shape = {
-                "input_data": [1, 3, 64, 64]
-            }
-            self.dynamic_shape.max_input_shape = {
-                "input_data": [4, 3, 64, 64]
-            }
-            self.dynamic_shape.opt_input_shape = {
-                "input_data": [1, 3, 64, 64]
-            }
+            self.dynamic_shape.min_input_shape = {"input_data": [1, 3, 64, 64]}
+            self.dynamic_shape.max_input_shape = {"input_data": [4, 3, 64, 64]}
+            self.dynamic_shape.opt_input_shape = {"input_data": [1, 3, 64, 64]}
         return self.dynamic_shape
 
     def sample_predictor_configs(
