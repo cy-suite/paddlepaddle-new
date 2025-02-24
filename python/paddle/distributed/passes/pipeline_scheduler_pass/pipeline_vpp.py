@@ -26,9 +26,6 @@ from ..pass_base import register_pass
 from ..pass_utils import (
     _pir_program_for_vpp,
     _pir_split_matmul_grad_to_matmul,
-    _program_for_vpp,
-    _program_for_vpp_split_bwk,
-    split_matmul_grad_to_matmul,
 )
 from .pipeline_pass_base import PipelinePassBase
 
@@ -171,23 +168,6 @@ class PipelineVirtualPipelinePass(PipelinePassBase):
         job_list.append(opt_job)
         return job_list
 
-    def _split_matmul_grad_ops_to_matmul(self, program, dist_context):
-        for block in program.blocks:
-            matmul_grad_op_idx = []
-            ops = block.ops
-            for i, op_i in enumerate(ops):
-                if (
-                    op_i.type == "matmul_v2_grad"
-                    and not op_i.attr("trans_x")
-                    and not op_i.attr("trans_y")
-                ):
-                    matmul_grad_op_idx.append(i)
-
-            for matmul_grad_id in reversed(matmul_grad_op_idx):
-                split_matmul_grad_to_matmul(
-                    block, matmul_grad_id, dist_context=dist_context
-                )
-
     def _pir_split_matmul_grad_ops_to_matmul(self, program):
         for block in program.blocks:
             matmul_grad_op_idx = []
@@ -303,38 +283,7 @@ class PipelineVirtualPipelinePass(PipelinePassBase):
         return True
 
     def _partial_programs(self, program):
-        dist_context = self.get_attr("dist_context")
-        num_model_chunks = self.get_attr("vpp_degree")
-        enable_send_recv_overlap = self.get_attr("enable_send_recv_overlap")
-        accumulate_steps = self.get_attr("num_micro_batches")
-        num_stages = self.get_attr("pp_degree")
-        split_backward = self.get_attr("split_backward", False)
-        grad_to_global_grad = self.get_attr("grad_to_global_grad", {})
-        global_grads = [
-            global_grad for _, global_grad in grad_to_global_grad.items()
-        ]
-        if split_backward and accumulate_steps == num_stages:
-            self._split_matmul_grad_ops_to_matmul(program, dist_context)
-            types, sub_program_list = _program_for_vpp_split_bwk(
-                program,
-                num_model_chunks,
-                dist_context,
-                enable_send_recv_overlap,
-            )
-            self._real_overlap_sharding_reduce = (
-                self._move_sharding_comm_to_backward(
-                    types, sub_program_list, global_grads
-                )
-            )
-        else:
-            types, sub_program_list = _program_for_vpp(
-                program,
-                num_model_chunks,
-                dist_context,
-                enable_send_recv_overlap,
-            )
-
-        return types, sub_program_list
+        raise NotImplementedError("pipeline_vpp_pass() only support PIR now.")
 
     def _partial_pir_programs(self, program):
         num_model_chunks = self.get_attr("vpp_degree")
