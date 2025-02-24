@@ -27,6 +27,7 @@ from op_test import OpTest
 
 os.environ['FLAGS_enable_pir_api'] = '0'
 
+
 def _transpose_last_2dim(x):
     """transpose the last 2 dimension of a tensor"""
     x_new_dims = list(range(len(x.shape)))
