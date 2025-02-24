@@ -71,11 +71,10 @@ class TrtConvertTemporalShiftTest(TrtLayerAutoScanTest):
 
                     yield program_config
 
-    def generate_dynamic_shape(self, attrs):
-        t = attrs[0]['seg_num']
-        self.dynamic_shape.min_input_shape = {"input_data": [2 * t, 10, 64, 64]}
-        self.dynamic_shape.max_input_shape = {"input_data": [5 * t, 10, 64, 64]}
-        self.dynamic_shape.opt_input_shape = {"input_data": [3 * t, 10, 64, 64]}
+    def generate_dynamic_shape(self):
+        self.dynamic_shape.min_input_shape = {"input_data": [4, 10, 64, 64]}
+        self.dynamic_shape.max_input_shape = {"input_data": [20, 10, 64, 64]}
+        self.dynamic_shape.opt_input_shape = {"input_data": [12, 10, 64, 64]}
         return self.dynamic_shape
 
     def sample_predictor_configs(
@@ -117,7 +116,7 @@ class TrtConvertTemporalShiftTest(TrtLayerAutoScanTest):
             ), 1e-3
 
         # for dynamic_shape
-        self.generate_dynamic_shape(attrs)
+        self.generate_dynamic_shape()
         self.trt_param.precision = paddle_infer.PrecisionType.Float32
         program_config.set_input_type(np.float32)
         yield self.create_inference_config(), generate_trt_nodes_num(

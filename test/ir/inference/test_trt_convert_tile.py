@@ -68,7 +68,7 @@ class TrtConvertTileTest(TrtLayerAutoScanTest):
 
         yield program_config
 
-    def generate_dynamic_shape(self, attrs):
+    def generate_dynamic_shape(self):
         self.dynamic_shape.min_input_shape = {"input_data": [1, 2]}
         self.dynamic_shape.max_input_shape = {"input_data": [4, 3]}
         self.dynamic_shape.opt_input_shape = {"input_data": [1, 3]}
@@ -109,7 +109,7 @@ class TrtConvertTileTest(TrtLayerAutoScanTest):
             ), 1e-3
 
         # for dynamic_shape
-        self.generate_dynamic_shape(attrs)
+        self.generate_dynamic_shape()
         self.trt_param.precision = paddle_infer.PrecisionType.Float32
         program_config.set_input_type(np.float32)
         yield self.create_inference_config(), generate_trt_nodes_num(

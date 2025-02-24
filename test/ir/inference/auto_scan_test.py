@@ -258,6 +258,7 @@ class AutoScanTest(unittest.TestCase):
         config = paddle_infer.Config()
         config.switch_ir_debug(True)
         config.set_optim_cache_dir(self.cache_dir)
+        config.disable_glog_info()
         if ir_optim is not None:
             config.switch_ir_optim(ir_optim)
         if use_gpu:
@@ -637,6 +638,7 @@ class PassAutoScanTest(AutoScanTest):
 
     def create_trt_inference_config(self) -> paddle_infer.Config:
         config = paddle_infer.Config()
+        config.disable_glog_info()
         config.enable_use_gpu(100, 0)
         config.set_optim_cache_dir(self.cache_dir)
         config.switch_ir_debug()
@@ -703,6 +705,7 @@ class TrtLayerAutoScanTest(AutoScanTest):
 
     def create_inference_config(self, use_trt=True) -> paddle_infer.Config:
         config = paddle_infer.Config()
+        config.disable_glog_info()
         config.enable_use_gpu(100, 0)
         config.set_optim_cache_dir(self.cache_dir)
         if use_trt:
@@ -922,7 +925,7 @@ class TrtLayerAutoScanTest(AutoScanTest):
                                 prog_config.ops[i].attrs
                                 for i in range(len(prog_config.ops))
                             ]
-                            dynamic_shape = self.generate_dynamic_shape(attrs)
+                            dynamic_shape = self.generate_dynamic_shape()
 
                             main_program_desc, util_program = create_fake_model(
                                 prog_config,
@@ -963,13 +966,6 @@ class TrtLayerAutoScanTest(AutoScanTest):
                             trt_program = self.transform_to_trt_program(
                                 pir_main_program, trt_config
                             )
-                            if not any(
-                                op.name() == "pd_op.tensorrt_engine"
-                                for op in trt_program.global_block().ops
-                            ):
-                                print("No tensorrt_engine op")
-                            else:
-                                print("Has tensorrt_engine op")
 
                             assert any(
                                 op.name() == "pd_op.tensorrt_engine"
