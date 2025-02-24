@@ -101,9 +101,7 @@ class Input:
                 warnings.warn(
                     "Input data provided; min/max/optim shapes are ignored.",
                 )
-            self.min_input_shape = None
-            self.max_input_shape = None
-            self.optim_input_shape = None
+            self.min_input_shape = self.max_input_shape = self.optim_input_shape = None
         else:
             if None in (min_input_shape, max_input_shape, optim_input_shape):
                 raise ValueError(
