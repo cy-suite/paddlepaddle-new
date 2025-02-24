@@ -201,7 +201,7 @@ function show_ut_retry_result() {
             echo -e "${RED}There are failed tests, which have been executed re-run,but success rate is less than 50%:${NONE}"
             echo -e "${RED}Summary Failed Tests... ${NONE}"
             echo -e "${RED}========================================${NONE}"
-            echo -e "${RED}The following tests FAILED:  ${NONE}"
+            echo -e "${RED}The following tests FAILED: ${NONE}"
             echo "${retry_unittests_record}" | sort -u | grep -E "$failed_ut_re" | while IFS= read -r line; do
                 echo -e "${RED}${line}${NONE}"
             done
