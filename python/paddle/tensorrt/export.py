@@ -15,9 +15,9 @@
 from __future__ import annotations
 
 import os
-import warnings
 from enum import Enum
 
+import logging
 import numpy as np
 
 import paddle
@@ -98,9 +98,7 @@ class Input:
     ) -> None:
         if input_data is not None:
             if min_input_shape or max_input_shape or optim_input_shape:
-                warnings.warn(
-                    "Input data provided; min/max/optim shapes are ignored.",
-                )
+                logging.warning("Input data provided; min/max/optim shapes are ignored.")
         else:
             if None in (min_input_shape, max_input_shape, optim_input_shape):
                 raise ValueError(
