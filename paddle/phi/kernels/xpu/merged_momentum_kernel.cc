@@ -84,8 +84,7 @@ void MergedMomentumKernel(
       lr_len == 1 || lr_len == op_num,
       true,
       errors::InvalidArgument(
-          "The len of learning_rate should be either 1 or %d.",
-          op_num));
+          "The len of learning_rate should be either 1 or %d.", op_num));
   std::vector<XPUType*> param_list(op_num);
   std::vector<XPUType*> velocity_list(op_num);
   std::vector<XPUType*> grad_list(op_num);
