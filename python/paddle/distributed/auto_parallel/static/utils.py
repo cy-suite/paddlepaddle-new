@@ -58,7 +58,6 @@ _g_gradient_clip_ops = [
 
 partition_skip_op_list = [
     "builtin.combine",
-    "builtin.split",
     "pd_op.pylayer",
     "cf.yield",
     "cf.tuple_push",

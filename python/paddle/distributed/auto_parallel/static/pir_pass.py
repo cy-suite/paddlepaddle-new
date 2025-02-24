@@ -86,9 +86,8 @@ def reshard_single_value(program, op, operand, attr):
 def reshard_combine_value(program, op, operand, attr):
     prev_var = operand.source()
 
-    assert (
-        prev_var.get_defining_op().name() == 'builtin.combine'
-    ), f"TensorList must be defined by builtin.combine op, but is {prev_var.get_defining_op().name()}."
+    if prev_var.get_defining_op().name() != 'builtin.combine':
+        return
 
     combine_op = prev_var.get_defining_op()
     array_attr = attr.as_array_attr()
