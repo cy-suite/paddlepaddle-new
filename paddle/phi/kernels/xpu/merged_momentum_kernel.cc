@@ -47,6 +47,7 @@ void MergedMomentumKernel(
   using XPUType = typename XPUTypeTrait<T>::Type;
   T mu = static_cast<T>(mu_in);
   int op_num = params.size();
+  int lr_len = learning_rate.size();
   PADDLE_ENFORCE_EQ(op_num,
                     params_out.size(),
                     errors::InvalidArgument(
@@ -79,6 +80,12 @@ void MergedMomentumKernel(
           "the size of Input(Grad) is %d, the size of Input(Param) is %d.",
           grad.size(),
           op_num));
+  PADDLE_ENFORCE_EQ(
+      lr_len == 1 || lr_len == op_num,
+      true,
+      errors::InvalidArgument(
+          "The len of learning_rate should be either 1 or %d.",
+          op_num));
   std::vector<XPUType*> param_list(op_num);
   std::vector<XPUType*> velocity_list(op_num);
   std::vector<XPUType*> grad_list(op_num);
@@ -87,7 +94,6 @@ void MergedMomentumKernel(
   std::vector<const float*> lr_list(op_num);
   std::vector<int> sizes(op_num);
   std::vector<float> l2_weight_decay(op_num);
-  int lr_len = learning_rate.size();
   if (op_num > 0) {
     for (int j = 0; j < op_num; j++) {
       param_list[j] =
