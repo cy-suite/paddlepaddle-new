@@ -1389,3 +1389,31 @@ Dispatcher.register(
         tracker=DummyTracker([x]),
     ),
 )
+
+
+# any for list
+@Dispatcher.register_decorator(any)
+def dispatch_list_any(var: ListVariable):
+    graph = var.graph
+    to_bool = BuiltinVariable(bool, graph, DanglingTracker())
+    for i in range(len(var)):
+        item = var.getitem(ConstantVariable.wrap_literal(i, graph))
+        bool_item = to_bool(item)
+        assert isinstance(bool_item, ConstantVariable)
+        if bool_item.get_py_value():
+            return ConstantVariable(True, graph, DummyTracker([var]))
+    return ConstantVariable(False, graph, DummyTracker([var]))
+
+
+# all for list
+@Dispatcher.register_decorator(all)
+def dispatch_list_all(var: ListVariable):
+    graph = var.graph
+    to_bool = BuiltinVariable(bool, graph, DanglingTracker())
+    for i in range(len(var)):
+        item = var.getitem(ConstantVariable.wrap_literal(i, graph))
+        bool_item = to_bool(item)
+        assert isinstance(bool_item, ConstantVariable)
+        if not bool_item.get_py_value():
+            return ConstantVariable(False, graph, DummyTracker([var]))
+    return ConstantVariable(True, graph, DummyTracker([var]))
