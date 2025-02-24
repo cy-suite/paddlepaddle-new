@@ -978,13 +978,13 @@ void BindVjp(pybind11::module *m) {
                   if (paddle::dialect::HasDistInput(input_values, &op_mesh)) {
                     std::vector<pir::Attribute> dist_operand_attrs,
                         dist_result_attrs;
-                    for (int input_id = 0; input_id < input_values.size();
+                    for (size_t input_id = 0; input_id < input_values.size();
                          ++input_id) {
                       dist_operand_attrs.push_back(
                           paddle::dialect::GetTensorDistAttr(
                               input_values[input_id].type()));
                     }
-                    for (int output_id = 0; output_id < output_values.size();
+                    for (size_t output_id = 0; output_id < output_values.size();
                          ++output_id) {
                       dist_result_attrs.push_back(
                           paddle::dialect::GetTensorDistAttr(
