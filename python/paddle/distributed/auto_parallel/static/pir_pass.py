@@ -87,7 +87,7 @@ def reshard_combine_value(program, op, operand, attr):
     prev_var = operand.source()
 
     if prev_var.get_defining_op().name() != 'builtin.combine':
-        return
+        return prev_var
 
     combine_op = prev_var.get_defining_op()
     array_attr = attr.as_array_attr()
