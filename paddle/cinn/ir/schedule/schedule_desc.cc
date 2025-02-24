@@ -340,33 +340,34 @@ struct ApplyFuncImpl<Return (*)(Args...), impl_fn> {
       ::cinn::ir::StepKindRegistry::Global()->__REGISTER_OR_GET__(#TypeName)
 
 // register StepKindInfo for every type of scheduling operation
-CINN_BUILD_STEP_KIND(GetAllBlocks)
+CINN_BUILD_STEP_KIND(GetAllSchedStmts)
     .SetApplyFn(APPLY_FUNC_UNIFORM(FREE_FUNCTION_CONVERTER(
         static_cast<std::vector<Expr> (IRSchedule::*)() const>(
-            &IRSchedule::GetAllBlocks))));
+            &IRSchedule::GetAllSchedStmts))));
 
-CINN_BUILD_STEP_KIND(GetChildBlocks)
-    .Inputs({"expr"})
+CINN_BUILD_STEP_KIND(GetChildSchedStmts)
+    .Inputs({"stmt"})
     .SetApplyFn(APPLY_FUNC_UNIFORM(FREE_FUNCTION_CONVERTER(
         static_cast<std::vector<Expr> (IRSchedule::*)(const Expr&) const>(
-            &IRSchedule::GetChildBlocks))));
+            &IRSchedule::GetChildSchedStmts))));
 
-CINN_BUILD_STEP_KIND(GetLoops).Inputs({"block"}).SetApplyFn(
-    APPLY_FUNC_UNIFORM(FREE_FUNCTION_CONVERTER(
+CINN_BUILD_STEP_KIND(GetLoops)
+    .Inputs({"target_sched"})
+    .SetApplyFn(APPLY_FUNC_UNIFORM(FREE_FUNCTION_CONVERTER(
         static_cast<std::vector<Expr> (IRSchedule::*)(const Expr&) const>(
             &IRSchedule::GetLoops))));
 
 CINN_BUILD_STEP_KIND(GetLoopsWithName)
-    .Attrs({"block_name"})
+    .Attrs({"target_sched_name"})
     .SetApplyFn(APPLY_FUNC_UNIFORM(FREE_FUNCTION_CONVERTER(
         static_cast<std::vector<Expr> (IRSchedule::*)(const std::string&)
                         const>(&IRSchedule::GetLoops))));
 
-CINN_BUILD_STEP_KIND(GetBlock)
-    .Attrs({"block_name"})
+CINN_BUILD_STEP_KIND(GetSchedStmt)
+    .Attrs({"sched_name"})
     .SetApplyFn(APPLY_FUNC_UNIFORM(FREE_FUNCTION_CONVERTER(
         static_cast<Expr (IRSchedule::*)(const std::string&) const>(
-            &IRSchedule::GetBlock))));
+            &IRSchedule::GetSchedStmt))));
 
 CINN_BUILD_STEP_KIND(Split)
     .Inputs({"loop", "factors"})
@@ -411,8 +412,8 @@ CINN_BUILD_STEP_KIND(ReverseComputeAt)
 
 CINN_BUILD_STEP_KIND(GetRootBlock)
     .Inputs({"expr"})
-    .SetApplyFn(
-        APPLY_FUNC_UNIFORM(FREE_FUNCTION_CONVERTER(&IRSchedule::GetRootBlock)));
+    .SetApplyFn(APPLY_FUNC_UNIFORM(
+        FREE_FUNCTION_CONVERTER(&IRSchedule::GetRootSchedStmt)));
 
 CINN_BUILD_STEP_KIND(CacheRead)
     .Inputs({"block"})
@@ -505,7 +506,7 @@ CINN_BUILD_STEP_KIND(FactorizeReduction)
 
 CINN_BUILD_STEP_KIND(MergeExprs)
     .SetApplyFn(
-        APPLY_FUNC_UNIFORM(FREE_FUNCTION_CONVERTER(&IRSchedule::MergeExprs)));
+        APPLY_FUNC_UNIFORM(FREE_FUNCTION_CONVERTER(&IRSchedule::MergeBlocks)));
 
 template <typename AttrType>
 void Annotate(IRSchedule* ir_sch, const Expr&, const std::string&, AttrType);

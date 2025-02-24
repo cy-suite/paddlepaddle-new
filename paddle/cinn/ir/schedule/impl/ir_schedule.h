@@ -33,21 +33,21 @@ namespace ir {
 class DyScheduleImpl : public ScheduleBase {
  public:
   DyScheduleImpl() = delete;
-  explicit DyScheduleImpl(const ModuleExpr& module_expr,
+  explicit DyScheduleImpl(const ScheduleModule& sched_module,
                           bool debug_flag = false,
                           utils::ErrorMessageLevel err_msg_level =
                               utils::ErrorMessageLevel::kGeneral)
-      : ScheduleBase(module_expr, false, err_msg_level) {}
-  explicit DyScheduleImpl(ModuleExpr&& module_expr)
-      : ScheduleBase(std::move(module_expr)) {}
+      : ScheduleBase(sched_module, false, err_msg_level) {}
+  explicit DyScheduleImpl(ScheduleModule&& sched_module)
+      : ScheduleBase(std::move(sched_module)) {}
 
-  void MergeExprs();
-  bool HasBlock(const std::string& block_name) const;
-  std::vector<Expr> GetLoops(const Expr& block) const;
-  std::vector<Expr> GetLoops(const std::string& block_name) const;
-  std::vector<Expr> GetAllBlocks() const;
-  std::vector<Expr> GetChildBlocks(const Expr& expr) const;
-  Expr GetBlock(const std::string& block_name) const;
+  void MergeBlocks();
+  bool HasSchedStmt(const std::string& sched_name) const;
+  std::vector<Expr> GetLoops(const Expr& target_sched) const;
+  std::vector<Expr> GetLoops(const std::string& target_sched_name) const;
+  std::vector<Expr> GetAllSchedStmts() const;
+  std::vector<Expr> GetChildSchedStmts(const Expr& stmt) const;
+  Expr GetSchedStmt(const std::string& sched_name) const;
   std::vector<Expr> Split(const Expr& loop, const std::vector<int>& factors);
   std::vector<Expr> Split(const Expr& loop, const std::vector<Expr>& factors);
   std::vector<Expr> SamplePerfectTile(
@@ -63,7 +63,7 @@ class DyScheduleImpl : public ScheduleBase {
   void ReverseComputeAt(const Expr& block,
                         const Expr& loop,
                         bool keep_unit_loops);
-  Expr GetRootBlock(const Expr& expr) const;
+  Expr GetRootSchedStmt(const Expr& expr) const;
   Expr CacheRead(const Expr& block,
                  int read_buffer_index,
                  const std::string& memory_type);

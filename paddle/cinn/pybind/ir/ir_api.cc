@@ -572,8 +572,8 @@ void BindIrIr(py::module *m) {
   py::class_<ir::Buffer> buffer(*m, "Buffer");
   buffer.def(py::init<>());
 
-  py::class_<ir::ModuleExpr> module_expr(*m, "ModuleExpr");
-  module_expr.def(py::init<const std::vector<Expr> &>());
+  py::class_<ir::ScheduleModule> sched_module(*m, "ScheduleModule");
+  sched_module.def(py::init<const std::vector<Expr> &>());
 
   DefineExprNode<ir::IfThenElse>(m, "IfThenElse");
   py::class_<ir::IfThenElse> if_then_else(*m, "IfThenElse");

@@ -50,17 +50,17 @@ namespace cinn {
 namespace ir {
 
 std::unique_ptr<ScheduleBase> ScheduleBase::Make(
-    const ModuleExpr& module_expr,
+    const ScheduleModule& sched_module,
     bool debug_flag,
     utils::ErrorMessageLevel err_msg_level,
     bool is_dynamic) {
   return std::make_unique<DyScheduleImpl>(
-      module_expr, debug_flag, err_msg_level);
+      sched_module, debug_flag, err_msg_level);
 }
 
-std::unique_ptr<ScheduleBase> ScheduleBase::Make(ModuleExpr&& module_expr,
+std::unique_ptr<ScheduleBase> ScheduleBase::Make(ScheduleModule&& sched_module,
                                                  bool is_dynamic) {
-  return std::make_unique<DyScheduleImpl>(std::move(module_expr));
+  return std::make_unique<DyScheduleImpl>(std::move(sched_module));
 }
 
 /** \brief A macro that guards the beginning of each implementation of schedule
@@ -156,7 +156,7 @@ Expr ComputeInliner::ReplaceInlinedTensor(Expr* load) {
 }
 
 bool ComputeInlineChecker::Check() {
-  Expr root = ir_schedule_.GetRootBlock(block_);
+  Expr root = ir_schedule_.GetRootSchedStmt(block_);
   store_ = CheckComputeInlineValidationAndGetStore(block_, root);
   IRMutator::Visit(&root, &root);
   return !should_skip_;
@@ -251,22 +251,22 @@ Expr ReverseComputeInliner::ReplaceTargetTensor(Expr* store) {
 
 IRSchedule::IRSchedule() {}
 
-IRSchedule::IRSchedule(const ModuleExpr& module_expr,
+IRSchedule::IRSchedule(const ScheduleModule& sched_module,
                        utils::LinearRandomEngine::StateType rand_seed,
                        bool debug_flag,
                        utils::ErrorMessageLevel err_msg_level,
                        bool is_dynamic_shape)
     : impl_(ScheduleBase::Make(
-          module_expr, debug_flag, err_msg_level, is_dynamic_shape)),
+          sched_module, debug_flag, err_msg_level, is_dynamic_shape)),
       is_dynamic_shape_(is_dynamic_shape) {
   this->InitSeed(rand_seed);
 }
 
-IRSchedule::IRSchedule(ir::ModuleExpr&& mod_expr,
+IRSchedule::IRSchedule(ir::ScheduleModule&& sched_module,
                        ScheduleDesc&& trace,
                        utils::LinearRandomEngine::StateType rand_seed,
                        bool is_dynamic_shape)
-    : impl_(ScheduleBase::Make(std::move(mod_expr), is_dynamic_shape)),
+    : impl_(ScheduleBase::Make(std::move(sched_module), is_dynamic_shape)),
       trace_(std::move(trace)),
       is_dynamic_shape_(is_dynamic_shape) {
   this->InitSeed(rand_seed);
@@ -314,24 +314,24 @@ utils::LinearRandomEngine::StateType IRSchedule::ForkSeed() const {
   return utils::ForkRandomState(&rand_seed_);
 }
 
-void IRSchedule::SetExprs(const std::vector<Expr>& exprs) {
-  return impl_->SetExprs(exprs);
+void IRSchedule::SetBlocks(const std::vector<Expr>& blocks) {
+  return impl_->SetBlocks(blocks);
   // no need to trace
 }
 
-const ModuleExpr& IRSchedule::GetModule() const {
+const ScheduleModule& IRSchedule::GetModule() const {
   return impl_->GetModule();
   // no need to trace
 }
 
-bool IRSchedule::HasBlock(const std::string& block_name) const {
-  return impl_->HasBlock(block_name);
+bool IRSchedule::HasSchedStmt(const std::string& sched_name) const {
+  return impl_->HasSchedStmt(sched_name);
   // no need to trace
 }
 
-void IRSchedule::MergeExprs() {
-  impl_->MergeExprs();
-  trace_.Append(ScheduleDesc::Step("MergeExprs", {}, {}, {}));
+void IRSchedule::MergeBlocks() {
+  impl_->MergeBlocks();
+  trace_.Append(ScheduleDesc::Step("MergeBlocks", {}, {}, {}));
 }
 
 std::vector<Expr> IRSchedule::GetLoops(const Expr& block) const {
@@ -348,23 +348,25 @@ std::vector<Expr> IRSchedule::GetLoops(const std::string& block_name) const {
   return results;
 }
 
-std::vector<Expr> IRSchedule::GetAllBlocks() const {
-  auto results = impl_->GetAllBlocks();
-  trace_.Append(ScheduleDesc::Step("GetAllBlocks", {}, {}, results));
+std::vector<Expr> IRSchedule::GetAllSchedStmts() const {
+  auto results = impl_->GetAllSchedStmts();
+  trace_.Append(ScheduleDesc::Step("GetAllSchedStmts", {}, {}, results));
   return results;
 }
 
-std::vector<Expr> IRSchedule::GetChildBlocks(const Expr& expr) const {
-  auto results = impl_->GetChildBlocks(expr);
-  trace_.Append(ScheduleDesc::Step(
-      "GetChildBlocks", {{"expr", std::vector<Expr>({expr})}}, {}, results));
+std::vector<Expr> IRSchedule::GetChildSchedStmts(const Expr& expr) const {
+  auto results = impl_->GetChildSchedStmts(expr);
+  trace_.Append(ScheduleDesc::Step("GetChildSchedStmts",
+                                   {{"expr", std::vector<Expr>({expr})}},
+                                   {},
+                                   results));
   return results;
 }
 
-Expr IRSchedule::GetBlock(const std::string& block_name) const {
-  auto result = impl_->GetBlock(block_name);
+Expr IRSchedule::GetSchedStmt(const std::string& block_name) const {
+  auto result = impl_->GetSchedStmt(block_name);
   trace_.Append(ScheduleDesc::Step(
-      "GetBlock", {}, {{"block_name", block_name}}, {result}));
+      "GetSchedStmt", {}, {{"block_name", block_name}}, {result}));
   return result;
 }
 
@@ -474,10 +476,10 @@ void IRSchedule::ReverseComputeAt(const Expr& block,
                                    {}));
 }
 
-Expr IRSchedule::GetRootBlock(const Expr& expr) const {
-  auto result = impl_->GetRootBlock(expr);
+Expr IRSchedule::GetRootSchedStmt(const Expr& expr) const {
+  auto result = impl_->GetRootSchedStmt(expr);
   trace_.Append(ScheduleDesc::Step(
-      "GetRootBlock", {{"expr", std::vector<Expr>({expr})}}, {}, {result}));
+      "GetRootSchedStmt", {{"expr", std::vector<Expr>({expr})}}, {}, {result}));
   return result;
 }
 
@@ -673,14 +675,14 @@ void IRSchedule::CopyTransformAndLoopInfo(const Expr& block,
                                           const Expr& block_target) {
   impl_->CopyTransformAndLoopInfo(block, block_target);
   // don't support to trace, because we can't ensure both blocks are from the
-  // same ModuleExpr
+  // same ScheduleModule
 }
 
 void IRSchedule::CopyTransformAndLoopInfo(
     const std::string& block_name, const std::string& block_target_name) {
   impl_->CopyTransformAndLoopInfo(block_name, block_target_name);
   // don't support to trace, because we can't ensure both blocks are from the
-  // same ModuleExpr
+  // same ScheduleModule
 }
 
 std::vector<Expr> IRSchedule::SamplePerfectTile(

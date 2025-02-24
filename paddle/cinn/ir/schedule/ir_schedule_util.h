@@ -139,7 +139,7 @@ void ReplaceExpr(Expr* source,
  */
 std::vector<int> ValidateFactors(const std::vector<int>& factors,
                                  int total_extent,
-                                 const ModuleExpr& module_expr);
+                                 const ScheduleModule& sched_module);
 
 void CHECKRfactorValidation(const Expr& rf_loop, int rf_axis);
 

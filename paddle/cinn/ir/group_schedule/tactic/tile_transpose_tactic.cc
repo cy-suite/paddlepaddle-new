@@ -185,7 +185,7 @@ void TileTransposeTactic::Init(ScheduleContext* context, ir::IRSchedule* sch) {
   can_apply_ = false;
   if (!FLAGS_cinn_enable_tile_transpose) return;
 
-  ir::Expr module_root = sch->GetModule().GetExprs().front();
+  ir::Expr module_root = sch->GetModule().GetBlocks().front();
   ir::Expr root_block = ir::analyzer::GetRootSBlock(module_root);
   auto* root_node = root_block.As<ir::ScheduleBlockRealize>()
                         ->schedule_block.As<ir::ScheduleBlock>();
@@ -226,7 +226,7 @@ void TileTransposeTactic::InitUnconditionalLoads(ir::IRSchedule* sch) {
   };
 
   Collector collector;
-  for (auto& block : sch->GetAllBlocks()) {
+  for (auto& block : sch->GetAllSchedStmts()) {
     std::vector<ir::Expr> loops = sch->GetLoops(block);
     ir::Expr store = ir::analyzer::GetStoreOfSBlock(block);
     store = ir::analyzer::ExpandIterVar(store, block);
@@ -242,7 +242,7 @@ void TileTransposeTactic::InitCandidates(ir::IRSchedule* sch) {
   block2candidates_.clear();
   processed_loads_.clear();
 
-  for (auto& block : sch->GetAllBlocks()) {
+  for (auto& block : sch->GetAllSchedStmts()) {
     std::vector<ir::Expr> loops = sch->GetLoops(block);
     std::string block_id = ir::analyzer::GetBlockName(block);
 
@@ -273,7 +273,7 @@ void TileTransposeTactic::InitCandidates(ir::IRSchedule* sch) {
       // 3. The load tensor should not be defined by a previous schedule block,
       //    otherwise we should do CacheRead on that block rather than here.
       auto* tensor = load.As<ir::Load>()->tensor.as_tensor();
-      if (sch->HasBlock(tensor->name)) continue;
+      if (sch->HasSchedStmt(tensor->name)) continue;
 
       std::vector<int> perm =
           GetTransposePerm(load.As<ir::Load>()->indices, loops.size());
@@ -350,7 +350,7 @@ void TileTransposeTactic::Apply(ir::IRSchedule* sch,
   TileBlock(sch, block_id);
 
   VLOG(4) << "After TileTransposeTactic on [" << block_id
-          << "]: " << sch->GetModule().GetExprs().front();
+          << "]: " << sch->GetModule().GetBlocks().front();
 }
 
 std::string TileTransposeTactic::CreateCacheBlock(
@@ -358,7 +358,7 @@ std::string TileTransposeTactic::CreateCacheBlock(
     const std::string& block_id,
     int buffer_index,
     const std::string& memory_type) {
-  ir::Expr block = sch->GetBlock(block_id);
+  ir::Expr block = sch->GetSchedStmt(block_id);
   ir::Expr cache_block = sch->CacheRead(block, buffer_index, memory_type);
 
   std::string transpose_stage = (memory_type == "shared") ? "write" : "read";
@@ -417,7 +417,7 @@ void TileTransposeTactic::TileBlock(ir::IRSchedule* sch,
   FuseAndBind(sch, block_id);
 
   if (context_->output_names.count(block_id) == 0) {
-    ir::Expr block = sch->GetBlock(block_id);
+    ir::Expr block = sch->GetSchedStmt(block_id);
     sch->SetBuffer(block, "local");
   }
 }

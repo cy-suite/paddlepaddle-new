@@ -36,7 +36,7 @@ void OptimizeReductionTactic::Init(ScheduleContext* context) {
 }
 
 bool CanApply(const std::string& block_name, ir::IRSchedule* sch) {
-  ir::Expr block_expr = sch->GetBlock(block_name);
+  ir::Expr block_expr = sch->GetSchedStmt(block_name);
   ir::ScheduleBlockRealize* block_realize =
       block_expr.As<ir::ScheduleBlockRealize>();
   PADDLE_ENFORCE_NOT_NULL(block_realize,
@@ -139,31 +139,31 @@ void OptimizeReductionTactic::Apply(ir::IRSchedule* sch,
       loops.size(),
       ::common::errors::InvalidArgument(
           "first_reduce_loop_idx should be less than number of loop."));
-  ir::Expr block = sch->GetBlock(block_id);
+  ir::Expr block = sch->GetSchedStmt(block_id);
   ir::Tensor reduce_tensor = analyzer::GetStoreTensorOfSBlock(block);
   int non_reduce_memory_space_rank =
       reduce_tensor->domain_without_reduce_axis().size();
   // Apply FactorizeReduction
-  VLOG(6) << "before FactorizeReduction: " << sch->GetModule().GetExprs()[0];
+  VLOG(6) << "before FactorizeReduction: " << sch->GetModule().GetBlocks()[0];
   sch->FactorizeReduction(loops[first_reduce_loop_idx],
                           non_reduce_memory_space_rank);
-  VLOG(6) << "after FactorizeReduction: " << sch->GetModule().GetExprs()[0];
+  VLOG(6) << "after FactorizeReduction: " << sch->GetModule().GetBlocks()[0];
 
   // Loop fusion and cross thread reduction
   std::vector<ir::Expr> rb_loops = sch->GetLoops(block_id);
   std::string rf_block_id = block_id + "_rf";
-  ir::Expr rf_block = sch->GetBlock(rf_block_id);
+  ir::Expr rf_block = sch->GetSchedStmt(rf_block_id);
   sch->SimpleComputeAt(rf_block, rb_loops.back());
 
   rb_loops = sch->GetLoops(block_id);
   ir::Expr rf_init_block =
-      sch->GetBlock(ir::GenReduceInitTensorNameOf(rf_block_id));
+      sch->GetSchedStmt(ir::GenReduceInitTensorNameOf(rf_block_id));
   sch->SimpleComputeAt(rf_init_block, rb_loops.back());
 
   context_->target.arch.Match(
       [&](common::NVGPUArch) {
         rb_loops = sch->GetLoops(block_id);
-        rf_block = sch->GetBlock(rf_block_id);
+        rf_block = sch->GetSchedStmt(rf_block_id);
         sch->Bind(rb_loops.back(), "threadIdx.x");
         sch->SetBuffer(rf_block, "local");
       },
@@ -171,13 +171,13 @@ void OptimizeReductionTactic::Apply(ir::IRSchedule* sch,
       },
       [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
         rb_loops = sch->GetLoops(block_id);
-        rf_block = sch->GetBlock(rf_block_id);
+        rf_block = sch->GetSchedStmt(rf_block_id);
         sch->Bind(rb_loops.back(), "threadIdx.x");
         sch->SetBuffer(rf_block, "local");
       });
 
   VLOG(6) << "Loop fusion and cross thread reduction: "
-          << sch->GetModule().GetExprs()[0];
+          << sch->GetModule().GetBlocks()[0];
 }
 
 std::unique_ptr<ScheduleTactic> CreateOptimizeReductionTactic() {

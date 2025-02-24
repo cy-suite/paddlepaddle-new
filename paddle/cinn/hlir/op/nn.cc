@@ -451,9 +451,9 @@ std::shared_ptr<OpStrategy> StrategyForConv2d(
         false,
         ::common::errors::NotFound(
             "The vec_ast of conv2d schedule is empty! Please check."));
-    ir::ModuleExpr mod_expr(vec_ast);
-    ir::IRSchedule ir_sch(mod_expr);
-    ir_sch.MergeExprs();
+    ir::ScheduleModule sched_module(vec_ast);
+    ir::IRSchedule ir_sch(sched_module);
+    ir_sch.MergeBlocks();
     target.arch.Match(
         [&](common::UnknownArch) {
           PADDLE_THROW(::common::errors::InvalidArgument(
@@ -482,7 +482,7 @@ std::shared_ptr<OpStrategy> StrategyForConv2d(
                     vec_ast.size()));
             pe::IRGpuScheduleInjective(ir_sch, output_shapes.front(), target);
             std::vector<CINNValue> res{
-                CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+                CINNValue(ir_sch.GetModule().GetBlocks().at(0))};
             *ret = CINNValuePack{res};
             return;
           }
@@ -491,9 +491,9 @@ std::shared_ptr<OpStrategy> StrategyForConv2d(
           if (expr_size == 2) {
             pe::IRCudaScheduleConv(ir_sch, target);
             VLOG(3) << "After IRCudaScheduleConv, arg_pack[0] is : "
-                    << ir_sch.GetModule().GetExprs().at(0);
+                    << ir_sch.GetModule().GetBlocks().at(0);
             std::vector<CINNValue> res{
-                CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+                CINNValue(ir_sch.GetModule().GetBlocks().at(0))};
             *ret = CINNValuePack{res};
             return;
           } else {
@@ -669,9 +669,9 @@ std::shared_ptr<OpStrategy> StrategyForDepthwiseConv2d(
         vec_ast.empty(),
         false,
         ::common::errors::NotFound("The vec_ast is empty! Please check."));
-    ir::ModuleExpr mod_expr(vec_ast);
-    ir::IRSchedule ir_sch(mod_expr);
-    ir_sch.MergeExprs();
+    ir::ScheduleModule sched_module(vec_ast);
+    ir::IRSchedule ir_sch(sched_module);
+    ir_sch.MergeBlocks();
     target.arch.Match(
         [&](std::variant<common::UnknownArch,
                          common::X86Arch,
@@ -684,7 +684,7 @@ std::shared_ptr<OpStrategy> StrategyForDepthwiseConv2d(
               ::common::errors::Unimplemented("CINN old obsolete code!"));
         });
     std::vector<cinn::common::CINNValue> res{
-        cinn::common::CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+        cinn::common::CINNValue(ir_sch.GetModule().GetBlocks().at(0))};
     *ret = cinn::common::CINNValuePack{res};
   });
 
@@ -950,9 +950,9 @@ std::shared_ptr<OpStrategy> StrategyForPool1d(
         false,
         ::common::errors::NotFound(
             "The input vec_ast of pool1d schedule is empty! Please check."));
-    ir::ModuleExpr mod_expr(vec_ast);
-    ir::IRSchedule ir_sch(mod_expr);
-    ir_sch.MergeExprs();
+    ir::ScheduleModule sched_module(vec_ast);
+    ir::IRSchedule ir_sch(sched_module);
+    ir_sch.MergeBlocks();
     if (arg_pack.size() == 3UL) {
       PADDLE_ENFORCE_EQ(
           vec_tensor.size(),
@@ -964,7 +964,7 @@ std::shared_ptr<OpStrategy> StrategyForPool1d(
       PADDLE_ENFORCE(input_pad.as_tensor(),
                      ::common::errors::InvalidArgument(
                          "Datatype error! input_pad is not a tensor."));
-      auto block_input_pad = ir_sch.GetBlock(input_pad.as_tensor()->name);
+      auto block_input_pad = ir_sch.GetSchedStmt(input_pad.as_tensor()->name);
       ir_sch.ComputeInline(block_input_pad);
     }
     auto schedule_nv_hygon = [&] {
@@ -994,7 +994,7 @@ std::shared_ptr<OpStrategy> StrategyForPool1d(
         [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
           schedule_nv_hygon();
         });
-    std::vector<CINNValue> res{CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+    std::vector<CINNValue> res{CINNValue(ir_sch.GetModule().GetBlocks().at(0))};
     *ret = CINNValuePack{res};
   });
 
@@ -1169,9 +1169,9 @@ std::shared_ptr<OpStrategy> StrategyForPool2d(
         vec_ast.empty(),
         false,
         ::common::errors::NotFound("The vec_ast is empty! Please check."));
-    ir::ModuleExpr mod_expr(vec_ast);
-    ir::IRSchedule ir_sch(mod_expr);
-    ir_sch.MergeExprs();
+    ir::ScheduleModule sched_module(vec_ast);
+    ir::IRSchedule ir_sch(sched_module);
+    ir_sch.MergeBlocks();
     target.arch.Match(
         [&](std::variant<common::UnknownArch,
                          common::X86Arch,
@@ -1180,7 +1180,7 @@ std::shared_ptr<OpStrategy> StrategyForPool2d(
         [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
           pe::IRGlobalPoolScheduleGPU(ir_sch, target);
         });
-    std::vector<CINNValue> res{CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+    std::vector<CINNValue> res{CINNValue(ir_sch.GetModule().GetBlocks().at(0))};
     *ret = CINNValuePack{res};
   });
 
@@ -1256,9 +1256,9 @@ std::shared_ptr<OpStrategy> StrategyForPool2d(
         vec_ast.empty(),
         false,
         ::common::errors::NotFound("The vec_ast is empty! Please check."));
-    ir::ModuleExpr mod_expr(vec_ast);
-    ir::IRSchedule ir_sch(mod_expr);
-    ir_sch.MergeExprs();
+    ir::ScheduleModule sched_module(vec_ast);
+    ir::IRSchedule ir_sch(sched_module);
+    ir_sch.MergeBlocks();
     int arg_pack_size = arg_pack.size();
     // arg_pack_size == 3 case: input, input_pad, output
     // arg_pack_size == 4 case: input, input_pad, output, stage
@@ -1275,7 +1275,7 @@ std::shared_ptr<OpStrategy> StrategyForPool2d(
                          "Datatype error! input_pad is not a tensor."));
       const std::string &input_pad_name = input_pad.as_tensor()->name;
       VLOG(6) << "ComputeInline on " << input_pad_name;
-      auto block_input_pad = ir_sch.GetBlock(input_pad_name);
+      auto block_input_pad = ir_sch.GetSchedStmt(input_pad_name);
       ir_sch.ComputeInline(block_input_pad);
     }
     target.arch.Match(
@@ -1288,7 +1288,7 @@ std::shared_ptr<OpStrategy> StrategyForPool2d(
         [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
           pe::IRPoolScheduleGPU(ir_sch, target, arg_pack_size);
         });
-    std::vector<CINNValue> res{CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+    std::vector<CINNValue> res{CINNValue(ir_sch.GetModule().GetBlocks().at(0))};
     *ret = CINNValuePack{res};
   });
 
@@ -1451,9 +1451,9 @@ std::shared_ptr<OpStrategy> StrategyForPool3d(
         vec_ast.empty(),
         false,
         ::common::errors::NotFound("The vec_ast is empty! Please check."));
-    ir::ModuleExpr mod_expr(vec_ast);
-    ir::IRSchedule ir_sch(mod_expr);
-    ir_sch.MergeExprs();
+    ir::ScheduleModule sched_module(vec_ast);
+    ir::IRSchedule ir_sch(sched_module);
+    ir_sch.MergeBlocks();
     if (arg_pack.size() == 3UL) {
       PADDLE_ENFORCE_EQ(
           vec_tensor.size(),
@@ -1465,7 +1465,7 @@ std::shared_ptr<OpStrategy> StrategyForPool3d(
       PADDLE_ENFORCE(input_pad.as_tensor(),
                      ::common::errors::InvalidArgument(
                          "Datatype error! input_pad is not a tensor."));
-      auto block_input_pad = ir_sch.GetBlock(input_pad.as_tensor()->name);
+      auto block_input_pad = ir_sch.GetSchedStmt(input_pad.as_tensor()->name);
       ir_sch.ComputeInline(block_input_pad);
     }
     target.arch.Match(
@@ -1502,7 +1502,7 @@ std::shared_ptr<OpStrategy> StrategyForPool3d(
           ir_sch.Bind(loops[0], "blockIdx.x");
           ir_sch.Bind(loops[1], "threadIdx.x");
         });
-    std::vector<CINNValue> res{CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+    std::vector<CINNValue> res{CINNValue(ir_sch.GetModule().GetBlocks().at(0))};
     *ret = CINNValuePack{res};
   });
 
@@ -1609,12 +1609,12 @@ std::shared_ptr<OpStrategy> StrategyForSoftmax(
         vec_ast.empty(),
         false,
         ::common::errors::NotFound("The vec_ast is empty! Please check."));
-    ir::ModuleExpr mod_expr(vec_ast);
-    ir::IRSchedule ir_sch(mod_expr);
-    ir_sch.MergeExprs();
+    ir::ScheduleModule sched_module(vec_ast);
+    ir::IRSchedule ir_sch(sched_module);
+    ir_sch.MergeBlocks();
     auto schedule_nv_hygon = [&] {
       if (output_shapes[0].size() > 1) {
-        auto all_blocks = ir_sch.GetAllBlocks();
+        auto all_blocks = ir_sch.GetAllSchedStmts();
         PADDLE_ENFORCE_EQ(all_blocks.size(),
                           3,
                           ::common::errors::InvalidArgument(
@@ -1639,13 +1639,13 @@ std::shared_ptr<OpStrategy> StrategyForSoftmax(
                               loops.size()));
         auto splited_loops = ir_sch.Split(loops[loop_index], {-1, 5});
 
-        all_blocks = ir_sch.GetAllBlocks();
+        all_blocks = ir_sch.GetAllSchedStmts();
         loops = ir_sch.GetLoops(all_blocks[2]);
         ir_sch.Bind(loops[0], "blockIdx.x");
         ir_sch.Bind(loops[1], "threadIdx.x");
       }
       std::vector<CINNValue> res{
-          CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+          CINNValue(ir_sch.GetModule().GetBlocks().at(0))};
       *ret = CINNValuePack{res};
     };
     target.arch.Match(
@@ -1653,7 +1653,7 @@ std::shared_ptr<OpStrategy> StrategyForSoftmax(
         [&](common::X86Arch) {
           pe::IRSoftmaxScheduleCPU(ir_sch, axis);
           std::vector<CINNValue> res{
-              CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+              CINNValue(ir_sch.GetModule().GetBlocks().at(0))};
           *ret = CINNValuePack{res};
         },
         [&](common::ARMArch) { CINN_NOT_IMPLEMENTED; },

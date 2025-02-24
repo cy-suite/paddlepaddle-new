@@ -135,7 +135,7 @@ void TileTactic::Apply(ir::IRSchedule* sch, const std::string& block_id) {
     sch->Split(loops[1], rb_factors);
     loops = sch->GetLoops(block_id);
     VLOG(6) << "after split rb loop of " << block_id << ": "
-            << sch->GetModule().GetExprs()[0];
+            << sch->GetModule().GetBlocks()[0];
   }
   std::vector<ir::Expr> sp_factors;
   for (const auto& axis : context_->iter_space_info.sp_space) {
@@ -143,7 +143,7 @@ void TileTactic::Apply(ir::IRSchedule* sch, const std::string& block_id) {
   }
   sch->Split(loops[0], sp_factors);
   VLOG(6) << "after split sp loop of " << block_id << ": "
-          << sch->GetModule().GetExprs()[0];
+          << sch->GetModule().GetBlocks()[0];
 }
 
 std::unique_ptr<ScheduleTactic> CreateTileTactic() {

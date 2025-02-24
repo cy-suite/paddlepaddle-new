@@ -54,12 +54,12 @@ CINNSchedule GetElementwiseScheduleFunc(
                           "The vector of AbstractSyntaxTree is empty!"
                           "Please ensure that the argument pack "
                           "contains at least one valid expression."));
-    ir::ModuleExpr mod_expr(vec_ast);
-    ir::IRSchedule ir_sch(mod_expr);
-    ir_sch.MergeExprs();
+    ir::ScheduleModule sched_module(vec_ast);
+    ir::IRSchedule ir_sch(sched_module);
+    ir_sch.MergeBlocks();
     pe::IRElementwiseSchedule(ir_sch, output_shapes.front(), target);
     std::vector<cinn::common::CINNValue> res{
-        cinn::common::CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+        cinn::common::CINNValue(ir_sch.GetModule().GetBlocks().at(0))};
     *ret = cinn::common::CINNValuePack{res};
   });
 }
@@ -88,12 +88,12 @@ CINNSchedule GetInjectiveScheduleFunc(
                           "The vector of AbstractSyntaxTree is empty!"
                           "Please ensure that the argument pack "
                           "contains at least one valid expression."));
-    ir::ModuleExpr mod_expr(vec_ast);
-    ir::IRSchedule ir_sch(mod_expr);
-    ir_sch.MergeExprs();
+    ir::ScheduleModule sched_module(vec_ast);
+    ir::IRSchedule ir_sch(sched_module);
+    ir_sch.MergeBlocks();
     pe::IRInjectiveSchedule(ir_sch, output_shapes.front(), target);
     std::vector<cinn::common::CINNValue> res{
-        cinn::common::CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+        cinn::common::CINNValue(ir_sch.GetModule().GetBlocks().at(0))};
     *ret = cinn::common::CINNValuePack{res};
   });
 }

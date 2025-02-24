@@ -202,9 +202,9 @@ std::shared_ptr<framework::OpStrategy> StrategyForGatherNd(
         true,
         ::common::errors::InvalidArgument(
             "The vec_ast of gather_nd_schedule is empty! Please check.\n"));
-    ir::ModuleExpr mod_expr(vec_ast);
-    ir::IRSchedule ir_sch(mod_expr);
-    ir_sch.MergeExprs();
+    ir::ScheduleModule sched_module(vec_ast);
+    ir::IRSchedule ir_sch(sched_module);
+    ir_sch.MergeBlocks();
     int64_t prod_size = std::accumulate(output_shapes[0].begin(),
                                         output_shapes[0].end(),
                                         1,
@@ -226,7 +226,7 @@ std::shared_ptr<framework::OpStrategy> StrategyForGatherNd(
           });
     }
     std::vector<cinn::common::CINNValue> res{
-        cinn::common::CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+        cinn::common::CINNValue(ir_sch.GetModule().GetBlocks().at(0))};
     *ret = cinn::common::CINNValuePack{res};
   });
 

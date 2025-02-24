@@ -26,18 +26,20 @@ namespace cinn {
 namespace ir {
 namespace analyzer {
 
-bool HasBlock(const std::vector<Expr>& exprs, const std::string& block_name);
+bool HasSchedStmt(const std::vector<Expr>& exprs,
+                  const std::string& block_name);
 
 std::vector<Expr> GetLoops(const std::vector<Expr>& exprs,
                            const std::string& block_name);
 
 std::vector<Expr> GetLoops(const std::vector<Expr>& exprs, const Expr& block);
 
-std::vector<Expr> GetAllBlocks(const std::vector<Expr>& exprs);
+std::vector<Expr> GetAllSchedStmts(const std::vector<Expr>& exprs);
 
-std::vector<Expr> GetChildBlocks(const Expr& expr);
+std::vector<Expr> GetChildSchedStmts(const Expr& expr);
 
-Expr GetBlock(const std::vector<Expr>& exprs, const std::string& block_name);
+Expr GetSchedStmt(const std::vector<Expr>& exprs,
+                  const std::string& block_name);
 
 /**
  * Get the root schedule block (i.e. ScheduleBlock(root)) from `expr`.
@@ -45,7 +47,7 @@ Expr GetBlock(const std::vector<Expr>& exprs, const std::string& block_name);
  */
 Expr GetRootSBlock(const Expr& expr);
 
-Expr GetRootBlock(const std::vector<Expr>& exprs, const Expr& expr);
+Expr GetRootSchedStmt(const std::vector<Expr>& exprs, const Expr& expr);
 
 DeviceAPI GetDeviceAPI(const std::vector<Expr>& exprs);
 

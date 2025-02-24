@@ -25,7 +25,7 @@ namespace cinn::pybind {
 void BindSchedule(py::module *m) {
   py::class_<ir::IRSchedule> ir_schedule(*m, "IRSchedule");
   ir_schedule
-      .def(py::init<const ir::ModuleExpr &,
+      .def(py::init<const ir::ScheduleModule &,
                     utils::LinearRandomEngine::StateType,
                     bool,
                     utils::ErrorMessageLevel,
@@ -38,9 +38,10 @@ void BindSchedule(py::module *m) {
       .def_static(
           "make",
           [](ir::LoweredFunc &ir_func) {
-            ir::ModuleExpr *module_expr = new ir::ModuleExpr({ir_func->body});
+            ir::ScheduleModule *sched_module =
+                new ir::ScheduleModule({ir_func->body});
             auto scheduler = std::make_unique<ir::IRSchedule>(
-                *module_expr,
+                *sched_module,
                 /* rand_seed = */ -1,
                 /* debug_flag = */ false,
                 /* err_msg_level = */ utils::ErrorMessageLevel::kGeneral,
@@ -136,12 +137,12 @@ void BindSchedule(py::module *m) {
            py::arg("decision") = std::vector<int>())
       .def("get_module",
            py::overload_cast<>(&ir::IRSchedule::GetModule, py::const_))
-      .def("get_root_block", &ir::IRSchedule::GetRootBlock)
-      .def("get_block",
-           py::overload_cast<const std::string &>(&ir::IRSchedule::GetBlock,
+      .def("get_root_schedule_stmt", &ir::IRSchedule::GetRootSchedStmt)
+      .def("get_schedule_stmt",
+           py::overload_cast<const std::string &>(&ir::IRSchedule::GetSchedStmt,
                                                   py::const_))
-      .def("get_all_blocks",
-           py::overload_cast<>(&ir::IRSchedule::GetAllBlocks, py::const_))
+      .def("get_all_schedule_stmts",
+           py::overload_cast<>(&ir::IRSchedule::GetAllSchedStmts, py::const_))
       .def("get_loops",
            py::overload_cast<const std::string &>(&ir::IRSchedule::GetLoops,
                                                   py::const_))

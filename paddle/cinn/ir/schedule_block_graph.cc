@@ -32,7 +32,7 @@ ScheduleBlockNode::ScheduleBlockNode(Expr block, const IRSchedule& ir_sch)
   VLOG(5) << "create schedule_block node: " << id_;
 }
 
-Expr ScheduleBlockNode::Block() const { return ir_sch_.GetBlock(id_); }
+Expr ScheduleBlockNode::Block() const { return ir_sch_.GetSchedStmt(id_); }
 
 std::vector<Expr> ScheduleBlockNode::GetLoops() const {
   return ir_sch_.GetLoops(id_);
@@ -97,8 +97,8 @@ ScheduleBlockGraph::ScheduleBlockGraph(const IRSchedule& ir_sch) {
 void ScheduleBlockGraph::Update(const IRSchedule& ir_sch) {
   nodes_.clear();
   registry_.clear();
-  std::vector<Expr> all_blocks = ir_sch.GetAllBlocks();
-  Expr root_block = ir_sch.GetRootBlock(all_blocks[0]);
+  std::vector<Expr> all_blocks = ir_sch.GetAllSchedStmts();
+  Expr root_block = ir_sch.GetRootSchedStmt(all_blocks[0]);
   for (Expr block : all_blocks) {
     PADDLE_ENFORCE_NE(block.As<ScheduleBlockRealize>(),
                       nullptr,

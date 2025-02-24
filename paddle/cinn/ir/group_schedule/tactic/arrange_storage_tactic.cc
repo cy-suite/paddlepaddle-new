@@ -394,17 +394,17 @@ void ArrangeStorageTactic::Init(ScheduleContext* context) {
 
 void ArrangeStorageTactic::Apply(ir::IRSchedule* sch,
                                  const std::string& block_id) {
-  ir::Expr store_block = sch->GetBlock(block_id);
+  ir::Expr store_block = sch->GetSchedStmt(block_id);
   ir::Tensor store_tensor = analyzer::GetStoreTensorOfSBlock(store_block);
   // Skip if the store tensor has already been allocated to GPU shared or local
   // memory.
   if (store_tensor->buffer.defined() && store_tensor->buffer->is_on_gpu())
     return;
 
-  ir::Expr root_block = sch->GetRootBlock(store_block);
+  ir::Expr root_block = sch->GetRootSchedStmt(store_block);
   ir::Expr store = analyzer::GetStoreOfSBlock(store_block);
   VarToForMap var2for_map =
-      analyzer::CollectVarToForMap({root_block}, sch->GetAllBlocks());
+      analyzer::CollectVarToForMap({root_block}, sch->GetAllSchedStmts());
 
   // Traverse load nodes to check if there are loads that cross cuda blocks or
   // threads
@@ -437,7 +437,8 @@ void ArrangeStorageTactic::Apply(ir::IRSchedule* sch,
   }
   // Set the reduce_init tensor and the real tensor to the same memory
   if (ir::IsReduceInitTensorName(block_id)) {
-    ir::Expr block = sch->GetBlock(ir::GetOriginalReduceTensorName(block_id));
+    ir::Expr block =
+        sch->GetSchedStmt(ir::GetOriginalReduceTensorName(block_id));
     memory_type = analyzer::GetStoreTensorOfSBlock(block)->buffer->memory_type;
   }
   // Do schedule

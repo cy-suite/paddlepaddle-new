@@ -262,11 +262,11 @@ std::shared_ptr<OpStrategy> StrategyForSplit(
                       true,
                       ::common::errors::InvalidArgument(
                           "The ast vector is empty! Please check."));
-    ir::ModuleExpr mod_expr(vec_ast);
-    ir::IRSchedule ir_sch(mod_expr);
-    ir_sch.MergeExprs();
+    ir::ScheduleModule sched_module(vec_ast);
+    ir::IRSchedule ir_sch(sched_module);
+    ir_sch.MergeBlocks();
     pe::IRCudaSplitSchedule(ir_sch, output_shapes, axis, target);
-    std::vector<CINNValue> res{CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+    std::vector<CINNValue> res{CINNValue(ir_sch.GetModule().GetBlocks().at(0))};
     *ret = CINNValuePack{res};
   });
 
@@ -660,16 +660,16 @@ std::shared_ptr<OpStrategy> StrategyForLayoutTransform(
                       true,
                       ::common::errors::InvalidArgument(
                           "The vec_ast is empty! Please check."));
-    ir::ModuleExpr mod_expr(vec_ast);
-    ir::IRSchedule ir_sch(mod_expr);
-    ir_sch.MergeExprs();
+    ir::ScheduleModule sched_module(vec_ast);
+    ir::IRSchedule ir_sch(sched_module);
+    ir_sch.MergeBlocks();
 
     if (std::holds_alternative<common::X86Arch>(target.arch)) {
       pe::IRScheduleInjectiveCPU(ir_sch, output_shapes.front(), target);
     } else {
       CINN_NOT_IMPLEMENTED
     }
-    std::vector<CINNValue> res{CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+    std::vector<CINNValue> res{CINNValue(ir_sch.GetModule().GetBlocks().at(0))};
     *ret = CINNValuePack{res};
   });
 

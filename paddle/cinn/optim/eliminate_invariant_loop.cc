@@ -88,7 +88,8 @@ struct InvariantLoopEliminator : public ir::IRMutator<> {
     if (!root_) return;
 
     // check that all child schedule blocks satisfy the four rules
-    std::vector<ir::Expr> child_blocks = ir::analyzer::GetChildBlocks(*expr);
+    std::vector<ir::Expr> child_blocks =
+        ir::analyzer::GetChildSchedStmts(*expr);
     ir::Var loop_var = node->loop_var;
     for (auto& block : child_blocks) {
       if (HasVarInIndicesOrValue(block, loop_var)) return;

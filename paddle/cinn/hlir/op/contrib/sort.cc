@@ -239,10 +239,10 @@ std::shared_ptr<framework::OpStrategy> StrategyForSort(
         true,
         ::common::errors::InvalidArgument(
             "The vec_ast of sort_schedule compute is empty! Please check."));
-    ir::ModuleExpr mod_expr(vec_ast);
-    ir::IRSchedule ir_sch(mod_expr);
-    ir_sch.MergeExprs();
-    auto blocks = ir_sch.GetAllBlocks();
+    ir::ScheduleModule sched_module(vec_ast);
+    ir::IRSchedule ir_sch(sched_module);
+    ir_sch.MergeBlocks();
+    auto blocks = ir_sch.GetAllSchedStmts();
     // TODO(Shixiaowei02): remove external calls, do not use local
     // variables, because the size will exceed the limit.
     ir_sch.SetBuffer(blocks[0], "local");
@@ -256,7 +256,7 @@ std::shared_ptr<framework::OpStrategy> StrategyForSort(
       pe::IRScheduleInjectiveCPU(ir_sch, output_shapes.front(), target, true);
     }
     std::vector<cinn::common::CINNValue> res{
-        cinn::common::CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+        cinn::common::CINNValue(ir_sch.GetModule().GetBlocks().at(0))};
     *ret = cinn::common::CINNValuePack{res};
   });
 
@@ -351,10 +351,10 @@ std::shared_ptr<framework::OpStrategy> StrategyForArgSort(
         true,
         ::common::errors::InvalidArgument(
             "The vec_ast of argsort_schedule compute is empty! Please check."));
-    ir::ModuleExpr mod_expr(vec_ast);
-    ir::IRSchedule ir_sch(mod_expr);
-    ir_sch.MergeExprs();
-    auto blocks = ir_sch.GetAllBlocks();
+    ir::ScheduleModule sched_module(vec_ast);
+    ir::IRSchedule ir_sch(sched_module);
+    ir_sch.MergeBlocks();
+    auto blocks = ir_sch.GetAllSchedStmts();
     // TODO(Shixiaowei02): remove external calls, do not use local variables,
     // because the size will exceed the limit.
     // TODO(lanxianghit): There is a bug, setting buffer to "local" here will
@@ -368,7 +368,7 @@ std::shared_ptr<framework::OpStrategy> StrategyForArgSort(
       pe::IRScheduleInjectiveCPU(ir_sch, output_shapes.front(), target, true);
     }
     std::vector<cinn::common::CINNValue> res{
-        cinn::common::CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+        cinn::common::CINNValue(ir_sch.GetModule().GetBlocks().at(0))};
     *ret = cinn::common::CINNValuePack{res};
   });
 

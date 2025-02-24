@@ -169,7 +169,7 @@ std::vector<int> AlignIterSpaceTactic::GetCommonOutputLoopPerm(
     ir::IRSchedule* sch) {
   std::vector<int> common_loop_perm;
 
-  for (auto& block : sch->GetAllBlocks()) {
+  for (auto& block : sch->GetAllSchedStmts()) {
     std::string block_id = ir::analyzer::GetBlockName(block);
     if (context_->output_names.count(block_id) == 0) continue;
 

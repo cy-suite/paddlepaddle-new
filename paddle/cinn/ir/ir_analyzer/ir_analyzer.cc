@@ -41,7 +41,8 @@ namespace cinn {
 namespace ir {
 namespace analyzer {
 
-bool HasBlock(const std::vector<Expr>& exprs, const std::string& block_name) {
+bool HasSchedStmt(const std::vector<Expr>& exprs,
+                  const std::string& block_name) {
   for (auto& it_expr : exprs) {
     FindBlocksVisitor visitor(block_name);
     auto find_blocks = visitor(&it_expr);
@@ -59,7 +60,7 @@ bool HasBlock(const std::vector<Expr>& exprs, const std::string& block_name) {
 
 std::vector<Expr> GetLoops(const std::vector<Expr>& exprs,
                            const std::string& block_name) {
-  Expr block = GetBlock(exprs, block_name);
+  Expr block = GetSchedStmt(exprs, block_name);
   std::vector<Expr> result = GetLoops(exprs, block);
   return result;
 }
@@ -96,7 +97,7 @@ std::vector<Expr> GetLoops(const std::vector<Expr>& exprs, const Expr& block) {
   return result;
 }
 
-std::vector<Expr> GetAllBlocks(const std::vector<Expr>& exprs) {
+std::vector<Expr> GetAllSchedStmts(const std::vector<Expr>& exprs) {
   std::vector<Expr> result;
   for (auto& it_expr : exprs) {
     FindBlocksVisitor visitor;
@@ -110,7 +111,7 @@ std::vector<Expr> GetAllBlocks(const std::vector<Expr>& exprs) {
   return result;
 }
 
-std::vector<Expr> GetChildBlocks(const Expr& expr) {
+std::vector<Expr> GetChildSchedStmts(const Expr& expr) {
   if (!expr.As<ir::ScheduleBlockRealize>()) {
     PADDLE_ENFORCE_NOT_NULL(expr.As<ir::For>(),
                             ::common::errors::InvalidArgument(
@@ -122,7 +123,8 @@ std::vector<Expr> GetChildBlocks(const Expr& expr) {
   return result;
 }
 
-Expr GetBlock(const std::vector<Expr>& exprs, const std::string& block_name) {
+Expr GetSchedStmt(const std::vector<Expr>& exprs,
+                  const std::string& block_name) {
   Expr result;
   for (auto& it_expr : exprs) {
     FindBlocksVisitor visitor(block_name);
@@ -159,7 +161,7 @@ Expr GetRootSBlock(const Expr& expr) {
   return root;
 }
 
-Expr GetRootBlock(const std::vector<Expr>& exprs, const Expr& expr) {
+Expr GetRootSchedStmt(const std::vector<Expr>& exprs, const Expr& expr) {
   for (auto& it_expr : exprs) {
     auto find_expr = ir::ir_utils::CollectIRNodesWithoutTensor(
         it_expr,
@@ -220,7 +222,7 @@ Expr AddUnitLoop(const std::vector<Expr>& exprs, const Expr& block) {
         if (stmt.As<ir::ScheduleBlockRealize>()
                 ->schedule_block.As<ir::ScheduleBlock>()
                 ->name == block_name) {
-          auto block = ir::Block::Make({GetBlock(exprs, block_name)});
+          auto block = ir::Block::Make({GetSchedStmt(exprs, block_name)});
           auto loop = ir::For::Make(ir::Var(cinn::common::UniqName("ix")),
                                     ir::Expr(0),
                                     ir::Expr(1),

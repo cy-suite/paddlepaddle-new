@@ -48,7 +48,7 @@ bool AutoInline::CanInlineIntoConsumer(const Expr& sche_block_realize_expr,
   const ir::ScheduleBlock* sche_block =
       sche_block_realize->schedule_block.As<ir::ScheduleBlock>();
   ir::Expr compute_body = sche_block->body;
-  ir::Expr root = ir_sch->GetRootBlock(sche_block_realize_expr);
+  ir::Expr root = ir_sch->GetRootSchedStmt(sche_block_realize_expr);
 
   // Check the schedule block to be inlined is not a reduce tensor.
   for (const ir::Var& iter_var : sche_block->iter_vars) {
@@ -175,7 +175,7 @@ AutoInlineType AutoInline::AnalyzeInlineType(
 
 RuleApplyType AutoInline::Init(ir::IRSchedule* ir_schedule) {
   ir_schedule_ = ir_schedule;
-  all_block_realizes_ = ir_schedule_->GetAllBlocks();
+  all_block_realizes_ = ir_schedule_->GetAllSchedStmts();
   apply_indices_and_type_.clear();
   num_applicable_ = 0;
 
@@ -227,7 +227,7 @@ std::string AutoInline::GetRuleName() const { return "AutoInline"; }
 
 RuleApplyType AutoInline::AnalyseApplyType(
     SearchState state, const std::string& block_name) const {
-  Expr block_expr = state->ir_schedule.GetBlock(block_name);
+  Expr block_expr = state->ir_schedule.GetSchedStmt(block_name);
   auto* block_realize = block_expr.As<ir::ScheduleBlockRealize>();
   PADDLE_ENFORCE_NOT_NULL(
       block_realize,
@@ -246,7 +246,7 @@ RuleApplyType AutoInline::AnalyseApplyType(
 std::vector<SearchState> AutoInline::ApplyOnBlock(
     SearchState state, const std::string& block_name) {
   SearchState new_state = state.Copy();
-  Expr block_expr = new_state->ir_schedule.GetBlock(block_name);
+  Expr block_expr = new_state->ir_schedule.GetSchedStmt(block_name);
   Apply(&new_state->ir_schedule, block_expr);
 
   return {new_state};
@@ -279,7 +279,7 @@ void AutoInline::Apply(ir::IRSchedule* ir_schedule, ir::Expr& block_expr) {
   // Make sure re-apply the AutoInline won't be error.
   // AutoInline changes the read and write buffers of schedule blocks,
   // we need to re-analyze
-  all_block_realizes_ = ir_schedule->GetAllBlocks();
+  all_block_realizes_ = ir_schedule->GetAllSchedStmts();
   for (size_t i = 0; i < all_block_realizes_.size(); ++i) {
     ir::ScheduleBlockRealize* sche_block_realize =
         all_block_realizes_[i].As<ir::ScheduleBlockRealize>();

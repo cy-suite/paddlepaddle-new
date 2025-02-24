@@ -300,7 +300,7 @@ void ReplaceExpr(Expr* source,
 
 std::vector<int> ValidateFactors(const std::vector<int>& factors,
                                  int total_extent,
-                                 const ModuleExpr& module_expr) {
+                                 const ScheduleModule& sched_module) {
   const std::string primitive = "split";
   PADDLE_ENFORCE_EQ(
       !factors.empty(),
@@ -321,8 +321,8 @@ std::vector<int> ValidateFactors(const std::vector<int>& factors,
              << "[Error info] The params in factors of Split should be "
                 "positive. However, the factor at position "
              << idx << " is " << i << ".\n"
-             << "[Expr info] The Expr of current schedule is "
-             << module_expr.GetExprs() << ".";
+             << "[Block info] The Block of current schedule is "
+             << sched_module.GetBlocks() << ".";
           return os.str();
         }()));
     PADDLE_ENFORCE_EQ(i == -1 && has_minus_one,
@@ -335,8 +335,8 @@ std::vector<int> ValidateFactors(const std::vector<int>& factors,
                            << "[Error info] The params in factors of Split "
                               "should not be less than -1 or "
                            << "have more than one -1!\n"
-                           << "[Expr info] The Expr of current schedule is "
-                           << module_expr.GetExprs() << ".";
+                           << "[Block info] The Block of current schedule is "
+                           << sched_module.GetBlocks() << ".";
                         return os.str();
                       }()));
     if (i == -1) {
@@ -357,8 +357,8 @@ std::vector<int> ValidateFactors(const std::vector<int>& factors,
              << "] should be not larger than or equal "
                 "to original loop's extent["
              << total_extent << "]!\n"
-             << "[Expr info] The Expr of current schedule is "
-             << module_expr.GetExprs() << ".";
+             << "[Block info] The Block of current schedule is "
+             << sched_module.GetBlocks() << ".";
           return os.str();
         }()));
     return validated_factors;

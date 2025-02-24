@@ -94,7 +94,7 @@ void TileFirstGeneralTactic::Init(ScheduleContext* context,
   can_apply_ = false;
 
   // Check whether this group has been tiled by previous tactic.
-  ir::Expr module_root = sch->GetModule().GetExprs().front();
+  ir::Expr module_root = sch->GetModule().GetBlocks().front();
   ir::Expr root_block = ir::analyzer::GetRootSBlock(module_root);
   auto* root_node = root_block.As<ir::ScheduleBlockRealize>()
                         ->schedule_block.As<ir::ScheduleBlock>();
@@ -203,13 +203,13 @@ void TileFirstGeneralTactic::ApplyContinuousDataTile(
   MergeReduceAxis(sch, block_id);
   VLOG(4) << "After MergeReduceAxis on block: [" << block_id
           << "], loop nest:\n"
-          << sch->GetModule().GetExprs().front();
+          << sch->GetModule().GetBlocks().front();
 
   // Merge spatial axes
   MergeFlattenAxis(sch, block_id);
   VLOG(4) << "After MergeFlattenAxis on block: [" << block_id
           << "], loop nest:\n"
-          << sch->GetModule().GetExprs().front();
+          << sch->GetModule().GetBlocks().front();
 
   // Split spatial axes -> [sp_block, sp_loop, sp_thread]
   int current_reduce_axis = 0;
@@ -229,7 +229,7 @@ void TileFirstGeneralTactic::ApplyContinuousDataTile(
     }
   }
   VLOG(4) << "After SplitSptial on block: [" << block_id << "], loop nest:\n"
-          << sch->GetModule().GetExprs().front();
+          << sch->GetModule().GetBlocks().front();
 
   // Split reduce axes -> [rd_loop, rd_block, rd_thread]
   std::string global_rf_block;
@@ -241,7 +241,7 @@ void TileFirstGeneralTactic::ApplyContinuousDataTile(
     sch->Reorder({loops[current_reduce_axis + 1], loops[current_reduce_axis]});
 
     loops = sch->GetLoops(block_id);
-    if (IsReductionSBlock(sch->GetBlock(block_id)) &&
+    if (IsReductionSBlock(sch->GetSchedStmt(block_id)) &&
         ir::GetLoopExtent(loops[current_reduce_axis]) != 1) {
       ir::Expr rf_tensor =
           sch->FactorizeReduction(loops[current_reduce_axis],
@@ -254,7 +254,7 @@ void TileFirstGeneralTactic::ApplyContinuousDataTile(
       loops = sch->GetLoops(block_id);
       sch->Split(loops[current_reduce_axis], {rd_block, rd_thread});
 
-      if (IsReductionSBlock(sch->GetBlock(block_id))) {
+      if (IsReductionSBlock(sch->GetSchedStmt(block_id))) {
         loops = sch->GetLoops(map_rf_block_[block_id]);
         sch->Split(loops[current_reduce_axis], {rd_block, rd_thread});
 
@@ -269,7 +269,7 @@ void TileFirstGeneralTactic::ApplyContinuousDataTile(
     }
   }
   VLOG(4) << "After SplitReduce on block: [" << block_id << "], loop nest:\n"
-          << sch->GetModule().GetExprs().front();
+          << sch->GetModule().GetBlocks().front();
 
   // Bind CUDA info
   const auto DoBind = [&](const std::vector<ir::Expr>& loops) {
@@ -305,7 +305,7 @@ void TileFirstGeneralTactic::ApplyContinuousDataTile(
     DoBind(sch->GetLoops(global_rf_block));
   }
   VLOG(4) << "After BindCudaInfo on block: [" << block_id << "], loop nest:\n"
-          << sch->GetModule().GetExprs().front();
+          << sch->GetModule().GetBlocks().front();
 
   VariableTypeAssignment(sch, block_id);
   SetReduceType(sch, block_id);
@@ -378,7 +378,7 @@ void TileFirstGeneralTactic::SplitReduceInner(ir::IRSchedule* sch,
   sch->Reorder({loops[cur_reduce_axis + 1], loops[cur_reduce_axis]});
 
   loops = sch->GetLoops(block_id);
-  if (IsReductionSBlock(sch->GetBlock(block_id)) &&
+  if (IsReductionSBlock(sch->GetSchedStmt(block_id)) &&
       ir::GetLoopExtent(loops[2]) != 1) {
     ir::Expr rf_tensor =
         sch->FactorizeReduction(loops[cur_reduce_axis],
@@ -392,7 +392,7 @@ void TileFirstGeneralTactic::SplitReduceInner(ir::IRSchedule* sch,
     loops = sch->GetLoops(block_id);
     sch->Split(loops[cur_reduce_axis], {rd_block, rd_thread});
 
-    if (IsReductionSBlock(sch->GetBlock(block_id))) {
+    if (IsReductionSBlock(sch->GetSchedStmt(block_id))) {
       loops = sch->GetLoops(map_rf_block_[block_id]);
       sch->Split(loops[cur_reduce_axis], {rd_block, rd_thread});
 
@@ -414,25 +414,26 @@ void TileFirstGeneralTactic::VariableTypeAssignment(
     return context_->output_names.count(tensor_name) > 0;
   };
   const auto HasConsumers = [&](const ir::Expr& block) -> bool {
-    return !ir::analyzer::GetConsumerSBlocks(block, sch->GetRootBlock(block))
+    return !ir::analyzer::GetConsumerSBlocks(block,
+                                             sch->GetRootSchedStmt(block))
                 .empty();
   };
 
-  auto block = sch->GetBlock(block_id);
+  auto block = sch->GetSchedStmt(block_id);
   if (!IsOutputTensor(block_id) && HasConsumers(block)) {
     sch->SetBuffer(block, "local", false);
   }
 
   if (map_rf_block_.count(block_id) > 0) {
-    auto block = sch->GetBlock(map_rf_block_[block_id]);
+    auto block = sch->GetSchedStmt(map_rf_block_[block_id]);
     sch->SetBuffer(block, "local", false);
   }
 }
 
 void TileFirstGeneralTactic::SetReduceType(ir::IRSchedule* sch,
                                            const std::string& block_id) {
-  if (IsReductionSBlock(sch->GetBlock(block_id))) {
-    auto block = sch->GetBlock(block_id)
+  if (IsReductionSBlock(sch->GetSchedStmt(block_id))) {
+    auto block = sch->GetSchedStmt(block_id)
                      .As<ir::ScheduleBlockRealize>()
                      ->schedule_block.As<ir::ScheduleBlock>();
     block->reduce_method = context_->config.tile_config.reduce_method;
@@ -441,14 +442,14 @@ void TileFirstGeneralTactic::SetReduceType(ir::IRSchedule* sch,
 
 void TileFirstGeneralTactic::SetDiscreteReduceType(
     ir::IRSchedule* sch, const std::string& block_id) {
-  if (IsReductionSBlock(sch->GetBlock(block_id))) {
-    auto block = sch->GetBlock(block_id)
+  if (IsReductionSBlock(sch->GetSchedStmt(block_id))) {
+    auto block = sch->GetSchedStmt(block_id)
                      .As<ir::ScheduleBlockRealize>()
                      ->schedule_block.As<ir::ScheduleBlock>();
     block->reduce_method = cinn::ir::DiscreteReduceMethod();
   }
   if (map_global_rf_block_.count(block_id) > 0) {
-    auto block = sch->GetBlock(map_global_rf_block_[block_id])
+    auto block = sch->GetSchedStmt(map_global_rf_block_[block_id])
                      .As<ir::ScheduleBlockRealize>()
                      ->schedule_block.As<ir::ScheduleBlock>();
     block->reduce_method = cinn::ir::DiscreteReduceMethod();
@@ -554,7 +555,7 @@ bool ContainsVectorizableAxis(const ir::IRSchedule* sch,
 
   VLOG(4) << "Checking ContainsVectorizableAxis on block: [" << block_id
           << "], loop:\n"
-          << sch->GetModule().GetExprs().front() << "\n vectorize expr:\n"
+          << sch->GetModule().GetBlocks().front() << "\n vectorize expr:\n"
           << vectorize_expr;
 
   // Get all the lter values in the axis bind that contain a loop var and the
@@ -615,7 +616,7 @@ void ReduceRegionWithReduceBlockVectorizeTilingSchedule(
   sch->Reorder({loops[threads_axis], loops[loop_axis]});
   threads_axis = 1;
   loops = sch->GetLoops(block_id);
-  if (IsReductionSBlock(sch->GetBlock(block_id)) &&
+  if (IsReductionSBlock(sch->GetSchedStmt(block_id)) &&
       ir::GetLoopExtent(loops[threads_axis]) != 1) {
     ir::Expr rf_tensor =
         sch->FactorizeReduction(loops[threads_axis],
@@ -674,7 +675,8 @@ void ReduceRegionVectorizeTilingSchedule(
     const int rd_thread,
     const int vectorize_factor) {
   auto loops = sch->GetLoops(block_id);
-  if (IsReductionSBlock(sch->GetBlock(block_id))) {  // deal with reduce block
+  if (IsReductionSBlock(
+          sch->GetSchedStmt(block_id))) {  // deal with reduce block
     ReduceRegionWithReduceBlockVectorizeTilingSchedule(
         sch, map_rf_block, block_id, rd_thread, vectorize_factor);
   } else {  // deal with spatial block
@@ -699,13 +701,13 @@ void TileFirstGeneralTactic::ApplyVectorize(ir::IRSchedule* sch,
   MergeReduceAxis(sch, block_id);
   VLOG(4) << "After MergeReduceAxis on block: [" << block_id
           << "], loop nest:\n"
-          << sch->GetModule().GetExprs().front();
+          << sch->GetModule().GetBlocks().front();
 
   // Merge spatial axes
   MergeFlattenAxis(sch, block_id);
   VLOG(4) << "After MergeFlattenAxis on block: [" << block_id
           << "], loop nest:\n"
-          << sch->GetModule().GetExprs().front();
+          << sch->GetModule().GetBlocks().front();
 
   // Spatial situation
   if (IsSpatialRegion(context_->config)) {

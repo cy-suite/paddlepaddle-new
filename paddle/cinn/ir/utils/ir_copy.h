@@ -23,7 +23,7 @@
 namespace cinn {
 
 namespace ir {
-class ModuleExpr;
+class ScheduleModule;
 
 namespace ir_utils {
 
@@ -33,7 +33,8 @@ Expr IRCopy(const Expr& x, bool copy_buffer_node = true);
 std::vector<Expr> IRCopy(const std::vector<Expr>& x,
                          bool copy_buffer_node = true);
 
-ir::ModuleExpr IRCopy(const ir::ModuleExpr& x, bool copy_buffer_node = true);
+ir::ScheduleModule IRCopy(const ir::ScheduleModule& x,
+                          bool copy_buffer_node = true);
 
 ir::Module IRCopy(const Module& m, bool copy_buffer_node = true);
 

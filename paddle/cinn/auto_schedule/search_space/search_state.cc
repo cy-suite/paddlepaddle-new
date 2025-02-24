@@ -45,7 +45,7 @@ SearchState SearchState::Copy() const {
 }
 
 std::string _SearchState_::DebugString() const {
-  const auto& exprs = ir_schedule.GetModule().GetExprs();
+  const auto& exprs = ir_schedule.GetModule().GetBlocks();
   std::stringstream module_stream;
   for (auto i = 0; i < exprs.size(); ++i) {
     module_stream << "Expr " << i << " {\n"
@@ -120,7 +120,7 @@ class IrNodesStructuralHash : public DfsWithExprsFields {
 
 size_t SearchStateHash::operator()(const SearchState& s) const {
   size_t hash_key = 0;
-  const auto& exprs = s->ir_schedule.GetModule().GetExprs();
+  const auto& exprs = s->ir_schedule.GetModule().GetBlocks();
   for (auto&& expr : exprs) {
     hash_key = IrNodesStructuralHash(hash_key)(&expr);
   }
@@ -129,8 +129,8 @@ size_t SearchStateHash::operator()(const SearchState& s) const {
 
 bool SearchStateEqual::operator()(const SearchState& lhs,
                                   const SearchState& rhs) const {
-  const auto& lhs_exprs = lhs->ir_schedule.GetModule().GetExprs();
-  const auto& rhs_exprs = rhs->ir_schedule.GetModule().GetExprs();
+  const auto& lhs_exprs = lhs->ir_schedule.GetModule().GetBlocks();
+  const auto& rhs_exprs = rhs->ir_schedule.GetModule().GetBlocks();
   // compare exprs size firstly
   if (lhs_exprs.size() != rhs_exprs.size()) return false;
 

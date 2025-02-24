@@ -46,13 +46,13 @@ TEST(CrossThreadReductionReplacer, basic) {
   VLOG(6) << "original func\n" << func;
 
   ir::Expr expr_func_body = ir::ConvertStmtBlockToExprBlock(func->body_block);
-  ir::ModuleExpr mod_expr({expr_func_body});
-  ir::IRSchedule ir_sch(mod_expr);
+  ir::ScheduleModule sched_module({expr_func_body});
+  ir::IRSchedule ir_sch(sched_module);
 
   ir_sch.Bind(ir_sch.GetLoops("B")[0], "blockIdx.x");
   ir_sch.Bind(ir_sch.GetLoops("B")[1], "threadIdx.x");
 
-  ir::Expr func_body = ir_sch.GetModule().GetExprs()[0];
+  ir::Expr func_body = ir_sch.GetModule().GetBlocks()[0];
   std::vector<ir::Argument> args{
       ir::Argument(ir::Var("A"), ir::Argument::IO::kInput),
       ir::Argument(ir::Var("B"), ir::Argument::IO::kOutput)};

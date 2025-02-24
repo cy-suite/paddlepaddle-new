@@ -51,7 +51,7 @@ void DyScheduleImpl::MutateForType(const Expr& loop,
           "<MutateForType>.\n"
           "[Error info] Loop parameter should be For nod3!\n"
           "[Expr info] The Expr of current schedule is: %s. Please check!",
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
 
   if (!for_node->is_serial()) {
     os << "Loop is not serial, current for loop type is "
@@ -97,7 +97,7 @@ void DyScheduleImpl::Vectorize(const Expr& loop, int factor) {
                         "primitive <Vectorize>.\n"
                         "[Error info] Vectorize factor should be more than 0.\n"
                         "[Expr info] The Expr of current schedule is: %s.",
-                        module_expr_.GetExprs()));
+                        sched_module_.GetBlocks()));
 
   PADDLE_ENFORCE_EQ(
       loop.As<For>()->extent.is_constant(),
@@ -107,7 +107,7 @@ void DyScheduleImpl::Vectorize(const Expr& loop, int factor) {
           "<Vectorize>.\n"
           "[Error info] The loop to be vectorized should be constant!\n"
           "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
 
   MutateForType(loop, ForType::Vectorized, factor);
   CINN_IR_SCHEDULE_END(this->err_msg_level_);
@@ -126,7 +126,7 @@ void DyScheduleImpl::Unroll(const Expr& loop) {
           "<Unroll>.\n"
           "[Error info] The loop to be unrolled should be constant!\n"
           "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
 
   MutateForType(loop, ForType::Unrolled);
   CINN_IR_SCHEDULE_END(this->err_msg_level_);
@@ -155,7 +155,7 @@ void DyScheduleImpl::Bind(const Expr& loop, const std::string& thread_axis) {
             "[Error info] The thread_axis which is %s is not supported\n"
             "[Expr info] The Expr of current schedule is: %s.",
             thread_axis,
-            module_expr_.GetExprs()));
+            sched_module_.GetBlocks()));
 
     int offset = thread_axis.back() - 'x';
     auto check_offset = [&](const char& c) -> bool {
@@ -172,7 +172,7 @@ void DyScheduleImpl::Bind(const Expr& loop, const std::string& thread_axis) {
                             "[Error info] Invalid Bind! The extent of loop is "
                             "out of range on grid size!\n"
                             "[Expr info] The Expr of current schedule is: %s.",
-                            module_expr_.GetExprs()));
+                            sched_module_.GetBlocks()));
 
       MutateForType(loop, ForType::GPUBlock, offset);
     } else {
@@ -184,7 +184,7 @@ void DyScheduleImpl::Bind(const Expr& loop, const std::string& thread_axis) {
                             "[Error info] Invalid Bind! The extent of loop is "
                             "out of range on block size!\n"
                             "[Expr info] The Expr of current schedule is: %s.",
-                            module_expr_.GetExprs()));
+                            sched_module_.GetBlocks()));
 
       MutateForType(loop, ForType::GPUThread, offset);
     }

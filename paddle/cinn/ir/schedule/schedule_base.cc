@@ -64,7 +64,7 @@ void ScheduleBase::Replace(const Expr& src_sref, const Expr& tgt_stmt) {
     const Expr& source_;
     const Expr& target_;
   };
-  auto exprs = module_expr_.GetExprs();
+  auto exprs = sched_module_.GetBlocks();
   ForLoopMutator mutator(src_sref, tgt_stmt);
   for (auto& i : exprs) {
     mutator(&i);

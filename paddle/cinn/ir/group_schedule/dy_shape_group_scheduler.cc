@@ -33,7 +33,7 @@ void DynamicShapeGroupScheduler::Init() {
   VLOG(4) << "=============================Start group "
              "schedule==============================";
   VLOG(4) << "original group func body: \n"
-          << ir_sch_->GetModule().GetExprs()[0];
+          << ir_sch_->GetModule().GetBlocks()[0];
   InitBuckets();
   tactics_.emplace_back(CreateAlignIterSpaceTactic());
   tactics_.emplace_back(CreateTileBroadcastTactic());
@@ -93,22 +93,22 @@ void DynamicShapeGroupScheduler::ApplyTactics(BucketContext* bucket_context) {
   bucket_context->schedule_block_graph->Update(*(bucket_context->ir_sch));
   for (const auto& tactic : tactics_) {
     VLOG(5) << "[Start " << tactic->TacticName() << "] func body:\n"
-            << bucket_context->ir_sch->GetModule().GetExprs().front();
+            << bucket_context->ir_sch->GetModule().GetBlocks().front();
     auto ApplyTacticFunc = [&](ir::ScheduleBlockNode* node) {
       VLOG(6) << "before applying [" << tactic->TacticName()
               << "] on ScheduleBlockNode [" << node->id() << "] func body:\n"
-              << bucket_context->ir_sch->GetModule().GetExprs().front();
+              << bucket_context->ir_sch->GetModule().GetBlocks().front();
       tactic->Apply(bucket_context->ir_sch.get(), node->id());
       VLOG(6) << "after applying [" << tactic->TacticName()
               << "] on ScheduleBlockNode [" << node->id() << "] func body:\n"
-              << bucket_context->ir_sch->GetModule().GetExprs().front();
+              << bucket_context->ir_sch->GetModule().GetBlocks().front();
     };
     tactic->Init(&(bucket_context->schedule_context),
                  bucket_context->ir_sch.get());
     bucket_context->schedule_block_graph->DFSTopoWalk(ApplyTacticFunc);
     bucket_context->schedule_block_graph->Update(*(bucket_context->ir_sch));
     VLOG(5) << "[End " << tactic->TacticName() << "] func body: "
-            << bucket_context->ir_sch->GetModule().GetExprs().front();
+            << bucket_context->ir_sch->GetModule().GetBlocks().front();
   }
 }
 
@@ -117,7 +117,7 @@ DynamicShapeGroupScheduler::GetIRs() {
   std::vector<std::pair<SymbolicPredicate, ir::Expr>> irs;
   for (BucketContext& context : bucket_contexts_) {
     irs.emplace_back(context.predicate,
-                     context.ir_sch->GetModule().GetExprs()[0]);
+                     context.ir_sch->GetModule().GetBlocks()[0]);
   }
   return irs;
 }
@@ -134,7 +134,7 @@ std::vector<std::pair<SymbolicPredicate, ir::Expr>>
 DynamicShapeGroupScheduler::GetCX86IRs() {
   std::vector<std::pair<SymbolicPredicate, ir::Expr>> irs(1);
   irs[0].first = ir::EQ::Make(ir::Expr(1), ir::Expr(1));
-  irs[1].second = ir_sch_->GetModule().GetExprs()[0];
+  irs[1].second = ir_sch_->GetModule().GetBlocks()[0];
   return irs;
 }
 

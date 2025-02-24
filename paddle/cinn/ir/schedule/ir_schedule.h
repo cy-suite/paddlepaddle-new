@@ -41,13 +41,13 @@ namespace ir {
 class IRSchedule {
  public:
   IRSchedule();
-  explicit IRSchedule(const ModuleExpr& modexpr,
+  explicit IRSchedule(const ScheduleModule& sched_module,
                       utils::LinearRandomEngine::StateType rand_seed = -1,
                       bool debug_flag = false,
                       utils::ErrorMessageLevel err_msg_level =
                           utils::ErrorMessageLevel::kGeneral,
                       bool is_dynamic_shape = false);
-  IRSchedule(ir::ModuleExpr&& mod_expr,
+  IRSchedule(ir::ScheduleModule&& sched_module,
              ScheduleDesc&& trace,
              utils::LinearRandomEngine::StateType rand_seed = -1,
              bool is_dynamic_shape = false);
@@ -57,16 +57,16 @@ class IRSchedule {
   IRSchedule& operator=(IRSchedule&& src);
   ~IRSchedule();
 
-  void SetExprs(const std::vector<Expr>& exprs);
+  void SetBlocks(const std::vector<Expr>& blocks);
 
-  //! Get the ModuleExpr stored in ScheduleImpl.
-  const ModuleExpr& GetModule() const;
+  //! Get the ScheduleModule stored in ScheduleImpl.
+  const ScheduleModule& GetModule() const;
 
-  //! Determine whether a specific block is included
-  bool HasBlock(const std::string& block_name) const;
+  //! Determine whether a specific schedule stmt is included
+  bool HasSchedStmt(const std::string& sched_name) const;
 
-  //! Merge multiple Exprs in a ModuleExpr to be one
-  void MergeExprs();
+  //! Merge multiple Blocks in a ScheduleModule to be one
+  void MergeBlocks();
 
   //! Get the ScheduleDesc that traces the scheduling process
   const ScheduleDesc& GetTraceDesc() const { return trace_; }
@@ -74,31 +74,32 @@ class IRSchedule {
   bool IsDynamicShape() const { return is_dynamic_shape_; }
 
   /**
-   * \brief Get all the loops of specific Block stored in ModuleExpr.
+   * \brief Get all the loops of specific Block stored in ScheduleModule.
    * @param block The block we find loop in.
    * @return Loops of the block.
    */
   std::vector<Expr> GetLoops(const Expr& block) const;
 
   /**
-   * \brief Get all the loops of specific Block stored in ModuleExpr.
+   * \brief Get all the loops of specific Block stored in ScheduleModule.
    * @param block_name Name of the block.
    * @return Loops of the block.
    */
   std::vector<Expr> GetLoops(const std::string& block_name) const;
 
-  //! Get all blocks stored in this ModuleExpr.
-  std::vector<Expr> GetAllBlocks() const;
+  //! Get all schedule stmts stored in this ScheduleModule.
+  std::vector<Expr> GetAllSchedStmts() const;
 
-  //! Get a block with the specific name.
-  Expr GetBlock(const std::string& block_name) const;
+  //! Get a schedule stmt with the specific name.
+  Expr GetSchedStmt(const std::string& sched_name) const;
 
   /**
-   * \brief Get all the childblocks of specific Expr stored in ModuleExpr.
+   * \brief Get all the childblocks of specific schedule stmts stored in
+   * ScheduleModule.
    * @param expr The expr we find childblock in, can be a loop or block.
-   * @return ChildBlocks of the block.
+   * @return ChildSchedStmts of the block.
    */
-  std::vector<Expr> GetChildBlocks(const Expr& expr) const;
+  std::vector<Expr> GetChildSchedStmts(const Expr& expr) const;
 
   /**
    * \brief Split a for loop into multiple loops, based on the factors.
@@ -182,11 +183,11 @@ class IRSchedule {
                         bool keep_unit_loops = false);
 
   /**
-   * \brief Find an expr's root ScheduleBlockRealize node
-   * @param expr The expr node.
+   * \brief Find a stmt's root chedule stmt node
+   * @param stmt The stmt node.
    * @return Its root ScheduleBlockRealize node.
    */
-  Expr GetRootBlock(const Expr& expr) const;
+  Expr GetRootSchedStmt(const Expr& stmt) const;
 
   /**
    * \brief Find a buffer that is being read, and create its cache.

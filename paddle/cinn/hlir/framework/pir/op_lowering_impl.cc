@@ -144,16 +144,16 @@ BucketLoweredFuncsWrapper OpLowererImpl::BucketLower(
   // =========== CodeGen And Optimizer ================
 
   // 2.Do group schedule.
-  ir::ModuleExpr mod_expr(func_bodies);
+  ir::ScheduleModule sched_module(func_bodies);
   ir::IRSchedule ir_sch(
-      mod_expr, -1, false, cinn::utils::ErrorMessageLevel::kGeneral, true);
-  ir_sch.MergeExprs();
+      sched_module, -1, false, cinn::utils::ErrorMessageLevel::kGeneral, true);
+  ir_sch.MergeBlocks();
   std::vector<std::pair<ir::SymbolicPredicate, ir::Expr>> cond2func_bodies;
   std::vector<int> priorities;
-  VLOG(3) << "After lower, ir is: \n" << ir_sch.GetModule().GetExprs().at(0);
+  VLOG(3) << "After lower, ir is: \n" << ir_sch.GetModule().GetBlocks().at(0);
 
   if (FLAGS_cinn_check_tensor_buffer_map) {
-    optim::CheckTensorBufferMap(ir_sch.GetModule().GetExprs(),
+    optim::CheckTensorBufferMap(ir_sch.GetModule().GetBlocks(),
                                 "BucketLower MergeExprs");
     VLOG(3) << "MergeExprs tensor-buffer map check succeed";
   }
@@ -248,7 +248,7 @@ BucketLoweredFuncsWrapper OpLowererImpl::BucketLower(
 std::unordered_set<std::string> CollectStoreBufferNames(
     const std::vector<ir::Expr>& func_bodies) {
   std::unordered_set<std::string> buffer_names;
-  std::vector<ir::Expr> blocks = ir::analyzer::GetAllBlocks(func_bodies);
+  std::vector<ir::Expr> blocks = ir::analyzer::GetAllSchedStmts(func_bodies);
   for (const ir::Expr& block : blocks) {
     ir::Tensor tensor = ir::analyzer::GetStoreTensorOfSBlock(block);
     if (tensor->buffer.defined()) {
@@ -804,11 +804,11 @@ ir::Expr OpLowererImpl::LowerX86(const OpLoweringGroupPtr& group,
   for (const auto& body : func_bodies) {
     expr_func_bodies.emplace_back(ir::ConvertStmtBlockToExprBlock(body));
   }
-  ir::ModuleExpr mod_expr(expr_func_bodies);
+  ir::ScheduleModule sched_module(expr_func_bodies);
   ir::IRSchedule ir_sch(
-      mod_expr, -1, false, cinn::utils::ErrorMessageLevel::kGeneral, true);
-  ir_sch.MergeExprs();
-  auto X86Expr = ir::ir_utils::IRCopy(ir_sch.GetModule().GetExprs().at(0));
+      sched_module, -1, false, cinn::utils::ErrorMessageLevel::kGeneral, true);
+  ir_sch.MergeBlocks();
+  auto X86Expr = ir::ir_utils::IRCopy(ir_sch.GetModule().GetBlocks().at(0));
   return X86Expr;
 }
 

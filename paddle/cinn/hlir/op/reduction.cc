@@ -217,29 +217,29 @@ std::shared_ptr<OpStrategy> StrategyForReduce(
                       ::common::errors::InvalidArgument(
                           "The input argument of schedule is empty! Please "
                           "check."));
-    ir::ModuleExpr mod_expr(vec_ast);
+    ir::ScheduleModule mod_expr(vec_ast);
     ir::IRSchedule ir_sch(mod_expr);
-    ir_sch.MergeExprs();
+    ir_sch.MergeBlocks();
     target.arch.Match(
         [&](common::UnknownArch) { CINN_NOT_IMPLEMENTED; },
         [&](common::X86Arch) {
           std::vector<CINNValue> res{
-              CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+              CINNValue(ir_sch.GetModule().GetBlocks().at(0))};
           *ret = CINNValuePack{res};
         },
         [&](common::ARMArch) {
           std::vector<CINNValue> res{
-              CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+              CINNValue(ir_sch.GetModule().GetBlocks().at(0))};
           *ret = CINNValuePack{res};
         },
         [&](common::NVGPUArch) {
           std::vector<CINNValue> res{
-              CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+              CINNValue(ir_sch.GetModule().GetBlocks().at(0))};
           *ret = CINNValuePack{res};
         },
         [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
           std::vector<CINNValue> res{
-              CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+              CINNValue(ir_sch.GetModule().GetBlocks().at(0))};
           *ret = CINNValuePack{res};
         });
   });

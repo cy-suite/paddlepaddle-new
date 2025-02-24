@@ -189,7 +189,7 @@ bool IsElementwiseOrBroadcast(const ir::Store& dst, const ir::Load& src) {
 }
 
 bool CheckAllElementwiseOrBroadcast(ir::IRSchedule* sch) {
-  for (auto& block : sch->GetAllBlocks()) {
+  for (auto& block : sch->GetAllSchedStmts()) {
     ir::Expr store = ir::analyzer::GetStoreOfSBlock(block);
     auto* store_node = store.As<ir::Store>();
     for (auto& load : CollectLoads(store_node->value)) {
@@ -216,7 +216,7 @@ std::vector<int> GetCommonBroadcastAxis(ir::IRSchedule* sch) {
   std::vector<int> common_broadcast_axis;
   bool is_first_op = true;
 
-  for (auto& block : sch->GetAllBlocks()) {
+  for (auto& block : sch->GetAllSchedStmts()) {
     std::vector<ir::Expr> loops = sch->GetLoops(block);
     std::unordered_map<ir::Var, int> var2loopidx =
         GetVar2LoopIdxMap(block, loops);
@@ -311,7 +311,7 @@ void TileBroadcastTactic::Init(ScheduleContext* context, ir::IRSchedule* sch) {
 
   // Now we can apply this tactic
   can_apply_ = true;
-  ir::Expr module_root = sch->GetModule().GetExprs().front();
+  ir::Expr module_root = sch->GetModule().GetBlocks().front();
   ir::Expr root_block = ir::analyzer::GetRootSBlock(module_root);
   auto* root_node = root_block.As<ir::ScheduleBlockRealize>()
                         ->schedule_block.As<ir::ScheduleBlock>();
@@ -414,7 +414,7 @@ void TileBroadcastTactic::Apply(ir::IRSchedule* sch,
 
   // Set to use local buffer if this schedule block is not output.
   if (context_->output_names.count(block_id) == 0) {
-    auto block = sch->GetBlock(block_id);
+    auto block = sch->GetSchedStmt(block_id);
     sch->SetBuffer(block, "local");
   }
 
@@ -501,7 +501,7 @@ void TileBroadcastTactic::ApplyVectorize(ir::IRSchedule* sch,
 
   // Set to use local buffer if this schedule block is not output.
   if (context_->output_names.count(block_id) == 0) {
-    auto block = sch->GetBlock(block_id);
+    auto block = sch->GetSchedStmt(block_id);
     sch->SetBuffer(block, "local");
   }
 

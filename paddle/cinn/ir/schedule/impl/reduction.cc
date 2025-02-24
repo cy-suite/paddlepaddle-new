@@ -43,7 +43,7 @@ Expr DyScheduleImpl::Rfactor(const Expr& rf_loop, int rf_axis) {
 
   CHECKRfactorValidation(rf_loop, rf_axis);
   // get root ScheduleBlockRealize
-  Expr root = GetRootBlock(rf_loop);
+  Expr root = GetRootSchedStmt(rf_loop);
   // create all stmts after rfactor transformation
   RfCreator rf_create(root, rf_loop, rf_axis);
   // return new created rfactor tensor
@@ -58,7 +58,7 @@ Expr DyScheduleImpl::FactorizeReduction(const Expr& rf_loop,
   std::string primitive = "FactorizeReduction";
   std::ostringstream os;
   // Get child block of the rf_loop and check.
-  std::vector<Expr> blocks = GetChildBlocks(rf_loop);
+  std::vector<Expr> blocks = GetChildSchedStmts(rf_loop);
   PADDLE_ENFORCE_EQ(
       blocks.size(),
       1,
@@ -69,9 +69,9 @@ Expr DyScheduleImpl::FactorizeReduction(const Expr& rf_loop,
           "[Expr info] The Expr of current schedule is: %s.",
           primitive.c_str(),
           blocks.size(),
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
   Expr original_block = blocks.at(0);
-  Expr root_block = GetRootBlock(original_block);
+  Expr root_block = GetRootSchedStmt(original_block);
   // TODO(BiynXu): Add CheckReductionBlock()
 
   // Collect the loops of the block.
@@ -87,7 +87,7 @@ Expr DyScheduleImpl::FactorizeReduction(const Expr& rf_loop,
           "[Expr info] The Expr of current schedule is: %s.",
           primitive.c_str(),
           original_loops.size(),
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
   VLOG(3) << "before FactorizeReduction, original computational body of the "
              "reduction is:\n"
           << original_loops[0];

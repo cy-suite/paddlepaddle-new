@@ -104,11 +104,11 @@ Expr DyScheduleImpl::CacheRead(const Expr& block,
            << primitive << ">.\n"
            << "[Error info] Expr param(block) is not a ScheduleBlockRealize!\n"
            << "[Expr info] The Expr of current schedule is "
-           << module_expr_.GetExprs() << ".";
+           << sched_module_.GetBlocks() << ".";
         return os.str();
       }()));
 
-  auto root = GetRootBlock(block);
+  auto root = GetRootSchedStmt(block);
   ChangeBodyToBlock::Change(&root);
   Expr read_expr = GetNthAccessExpr(block, read_buffer_index, false);
 
@@ -120,7 +120,7 @@ Expr DyScheduleImpl::CacheRead(const Expr& block,
            << primitive << ">.\n"
            << "[Error info] The read_expr is not a Load!\n"
            << "[Expr info] The Expr of current schedule is "
-           << module_expr_.GetExprs() << ".";
+           << sched_module_.GetBlocks() << ".";
         return os.str();
       }()));
 
@@ -165,11 +165,11 @@ Expr DyScheduleImpl::CacheWrite(const Expr& block,
            << primitive << ">.\n"
            << "[Error info] Expr param(block) is not a ScheduleBlockRealize!\n"
            << "[Expr info] The Expr of current schedule is "
-           << module_expr_.GetExprs() << ".";
+           << sched_module_.GetBlocks() << ".";
         return os.str();
       }()));
 
-  auto root = GetRootBlock(block);
+  auto root = GetRootSchedStmt(block);
   ChangeBodyToBlock::Change(&root);
   Expr write_expr = GetNthAccessExpr(block, write_buffer_index, true);
 
@@ -180,7 +180,7 @@ Expr DyScheduleImpl::CacheWrite(const Expr& block,
            << primitive << ">.\n"
            << "[Error info] The write_expr is not a Store!\n"
            << "[Expr info] The Expr of current schedule is "
-           << module_expr_.GetExprs() << ".";
+           << sched_module_.GetBlocks() << ".";
         return os.str();
       }()));
 
@@ -222,7 +222,7 @@ Expr DyScheduleImpl::CacheWrite(const Expr& block,
            << "[Error info] The buffer of current write_tensor is not "
               "defined!\n"
            << "[Expr info] The Expr of current schedule is "
-           << module_expr_.GetExprs() << ".";
+           << sched_module_.GetBlocks() << ".";
         return os.str();
       }()));
 
@@ -246,7 +246,7 @@ Expr DyScheduleImpl::CacheWrite(const Expr& block,
            << primitive << ">.\n"
            << "[Error info] Size of find_cache_block is not 1!\n"
            << "[Expr info] The Expr of current schedule is "
-           << module_expr_.GetExprs() << ".";
+           << sched_module_.GetBlocks() << ".";
         return os.str();
       }()));
 
@@ -268,11 +268,11 @@ void DyScheduleImpl::SyncThreads(const Expr& ir_node, bool after_node) {
            << "[Error info] Expr param(ir_node) should be a "
               "ScheduleBlockRealize or For!\n"
            << "[Expr info] The Expr of current schedule is "
-           << module_expr_.GetExprs() << ".";
+           << sched_module_.GetBlocks() << ".";
         return os.str();
       }()));
 
-  auto root = GetRootBlock(ir_node);
+  auto root = GetRootSchedStmt(ir_node);
   ChangeBodyToBlock::Change(&root);
   Expr sync_threads = runtime::IntrinsicCall(Void(), "__syncthreads", {});
   InsertExpr::Insert(ir_node, sync_threads, after_node, &root);
@@ -293,7 +293,7 @@ void DyScheduleImpl::SetBuffer(Expr& block,  // NOLINT
            << primitive << ">.\n"
            << "[Error info] Expr param(block) is not a ScheduleBlockRealize!\n"
            << "[Expr info] The Expr of current schedule is "
-           << module_expr_.GetExprs() << ".";
+           << sched_module_.GetBlocks() << ".";
         return os.str();
       }()));
 
@@ -308,7 +308,7 @@ void DyScheduleImpl::SetBuffer(Expr& block,  // NOLINT
            << "[Error info] One block should only have one Store node!(except "
               "for root block)\n"
            << "[Expr info] The Expr of current schedule is "
-           << module_expr_.GetExprs() << ".";
+           << sched_module_.GetBlocks() << ".";
         return os.str();
       }()));
 
@@ -316,7 +316,7 @@ void DyScheduleImpl::SetBuffer(Expr& block,  // NOLINT
   tensor.as_tensor_ref()->WithBuffer(
       memory_type, "_" + tensor.as_tensor_ref()->name + "_temp_buffer");
 
-  auto exprs = this->GetModule().GetExprs();
+  auto exprs = this->GetModule().GetBlocks();
   for (auto& it_expr : exprs) {
     auto find_tensor =
         ir::ir_utils::CollectIRNodesWithoutTensor(it_expr, [&](const Expr* x) {
@@ -335,7 +335,7 @@ void DyScheduleImpl::SetBuffer(Expr& block,  // NOLINT
     FixLocalBufferSize mutator(block.As<ir::ScheduleBlockRealize>()
                                    ->schedule_block.As<ir::ScheduleBlock>()
                                    ->name);
-    auto root = GetRootBlock(block);
+    auto root = GetRootSchedStmt(block);
     mutator(&root);
   }
   CINN_IR_SCHEDULE_END(this->err_msg_level_);

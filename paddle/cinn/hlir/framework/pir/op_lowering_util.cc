@@ -288,7 +288,7 @@ void LoopOrderAssignReduce(ir::IRSchedule& ir_sch,  // NOLINT
   for (auto axis : axes) {
     order.push_back(axis);
   }
-  ir_sch.Reorder(ir_sch.GetBlock(block_name), order);
+  ir_sch.Reorder(ir_sch.GetSchedStmt(block_name), order);
 
   if (just_reorder) {
     return;
@@ -718,12 +718,12 @@ void MergeReduceToReduce(
       if (shape == mshape) {
         // second step reduce
         {
-          auto block = ir_sch.GetBlock(op_out_name);
+          auto block = ir_sch.GetSchedStmt(op_out_name);
           auto loops = ir_sch.GetLoops(master_out_name);
           ir_sch.SimpleComputeAt(block, loops.back());
           // reduce init
           {
-            auto block = ir_sch.GetBlock(op_out_name + "__reduce_init");
+            auto block = ir_sch.GetSchedStmt(op_out_name + "__reduce_init");
             auto loops = ir_sch.GetLoops(master_out_name + "__reduce_init");
             ir_sch.SimpleComputeAt(block, loops.back());
           }
@@ -733,12 +733,12 @@ void MergeReduceToReduce(
           auto n_tensor = tmp_tensor_info.at(op_out_name + "_0");
           auto m_tensor = tmp_tensor_info.at(master_out_name + "_0");
 
-          auto block = ir_sch.GetBlock(n_tensor->name);
+          auto block = ir_sch.GetSchedStmt(n_tensor->name);
           auto loops = ir_sch.GetLoops(m_tensor->name);
           ir_sch.SimpleComputeAt(block, loops.back());
           // reduce init
           {
-            auto block = ir_sch.GetBlock(n_tensor->name + "__reduce_init");
+            auto block = ir_sch.GetSchedStmt(n_tensor->name + "__reduce_init");
             auto loops = ir_sch.GetLoops(m_tensor->name + "__reduce_init");
             ir_sch.SimpleComputeAt(block, loops.back());
           }
@@ -749,12 +749,12 @@ void MergeReduceToReduce(
         if (n_tensor->shape == m_tensor->shape) {
           // second step reduce
           {
-            auto block = ir_sch.GetBlock(op_out_name);
+            auto block = ir_sch.GetSchedStmt(op_out_name);
             auto loops = ir_sch.GetLoops(master_out_name);
             ir_sch.SimpleComputeAt(block, loops.back());
             // reduce init
             {
-              auto block = ir_sch.GetBlock(op_out_name + "__reduce_init");
+              auto block = ir_sch.GetSchedStmt(op_out_name + "__reduce_init");
               auto loops = ir_sch.GetLoops(master_out_name + "__reduce_init");
               ir_sch.SimpleComputeAt(block, loops.back());
             }
@@ -772,7 +772,7 @@ void MergeReduceToReduce(
                               ::common::errors::InvalidArgument(
                                   "Error! n_loops size is not equal to m_loops "
                                   "size, Please check!"));
-            MergeLoops(ir_sch.GetModule().GetExprs().at(0),
+            MergeLoops(ir_sch.GetModule().GetBlocks().at(0),
                        n_loops,
                        m_loops,
                        n_loops.size() - 1);
@@ -786,12 +786,12 @@ void MergeReduceToReduce(
       if (shape == mshape) {
         // reduce loop
         {
-          auto block = ir_sch.GetBlock(op_out_name);
+          auto block = ir_sch.GetSchedStmt(op_out_name);
           auto loops = ir_sch.GetLoops(master_out_name);
           ir_sch.SimpleComputeAt(block, loops.back());
           // reduce init
           {
-            auto block = ir_sch.GetBlock(op_out_name + "__reduce_init");
+            auto block = ir_sch.GetSchedStmt(op_out_name + "__reduce_init");
             auto loops = ir_sch.GetLoops(master_out_name + "__reduce_init");
             ir_sch.SimpleComputeAt(block, loops.back());
           }
@@ -799,7 +799,7 @@ void MergeReduceToReduce(
       } else {
         // reduce loop
         {
-          auto block = ir_sch.GetBlock(op_out_name);
+          auto block = ir_sch.GetSchedStmt(op_out_name);
           auto nloops = ir_sch.GetLoops(op_out_name);
           auto mloops = ir_sch.GetLoops(master_out_name);
           for (int idx = 0; idx < mloops.size(); ++idx) {
@@ -810,7 +810,7 @@ void MergeReduceToReduce(
           }
           // reduce init
           {
-            auto block = ir_sch.GetBlock(op_out_name + "__reduce_init");
+            auto block = ir_sch.GetSchedStmt(op_out_name + "__reduce_init");
             auto loops = ir_sch.GetLoops(master_out_name + "__reduce_init");
             ir_sch.SimpleComputeAt(block, loops.back());
           }
@@ -821,7 +821,7 @@ void MergeReduceToReduce(
     if (tmp_tensor_info.count(op_out_name + "_1")) {
       // identity
       {
-        auto block = ir_sch.GetBlock(op_out_name);
+        auto block = ir_sch.GetSchedStmt(op_out_name);
         auto loops = ir_sch.GetLoops(master_out_name);
         ir_sch.SimpleComputeAt(block, loops.back());
       }
@@ -830,12 +830,12 @@ void MergeReduceToReduce(
         auto n_tensor = tmp_tensor_info.at(op_out_name + "_1");
         auto m_tensor = tmp_tensor_info.at(master_out_name + "_1");
 
-        auto block = ir_sch.GetBlock(n_tensor->name);
+        auto block = ir_sch.GetSchedStmt(n_tensor->name);
         auto loops = ir_sch.GetLoops(m_tensor->name);
         ir_sch.SimpleComputeAt(block, loops.back());
         // reduce init
         {
-          auto block = ir_sch.GetBlock(n_tensor->name + "__reduce_init");
+          auto block = ir_sch.GetSchedStmt(n_tensor->name + "__reduce_init");
           auto loops = ir_sch.GetLoops(m_tensor->name + "__reduce_init");
           ir_sch.SimpleComputeAt(block, loops.back());
         }
@@ -845,8 +845,8 @@ void MergeReduceToReduce(
         auto n_tensor = tmp_tensor_info.at(op_out_name + "_0");
         auto m_tensor = tmp_tensor_info.at(master_out_name + "_0");
 
-        auto n_block = ir_sch.GetBlock(n_tensor->name);
-        auto m_block = ir_sch.GetBlock(m_tensor->name);
+        auto n_block = ir_sch.GetSchedStmt(n_tensor->name);
+        auto m_block = ir_sch.GetSchedStmt(m_tensor->name);
 
         auto n_loops = ir_sch.GetLoops(n_tensor->name);
         auto m_loops = ir_sch.GetLoops(m_tensor->name);
@@ -869,12 +869,12 @@ void MergeReduceToReduce(
         insert_expr(&m_loops.back());
 
         RemoveExpr remove_expr(n_loops[0]);
-        remove_expr(&ir_sch.GetModule().GetExprs().at(0));
+        remove_expr(&ir_sch.GetModule().GetBlocks().at(0));
       }
     } else if (tmp_tensor_info.count(op_out_name + "_0")) {
       // identity
       {
-        auto block = ir_sch.GetBlock(op_out_name);
+        auto block = ir_sch.GetSchedStmt(op_out_name);
         auto loops = ir_sch.GetLoops(master_out_name);
         ir_sch.SimpleComputeAt(block, loops.back());
       }
@@ -883,7 +883,7 @@ void MergeReduceToReduce(
         auto n_tensor = tmp_tensor_info.at(op_out_name + "_0");
         auto m_tensor = tmp_tensor_info.at(master_out_name + "_0");
 
-        auto block = ir_sch.GetBlock(n_tensor->name);
+        auto block = ir_sch.GetSchedStmt(n_tensor->name);
         auto loops = ir_sch.GetLoops(m_tensor->name);
         ir_sch.SimpleComputeAt(block, loops.back());
       }
@@ -919,7 +919,7 @@ void InsertSyncThread(
       break;
     }
     auto tensor = tmp_tensor_info.at(op_out_name + post);
-    if (!ir_sch.HasBlock(tensor->name)) {
+    if (!ir_sch.HasSchedStmt(tensor->name)) {
       break;
     }
 
@@ -959,7 +959,7 @@ void MergeReduceLoop(
     }
     auto tensor_ = tmp_tensor_info.at(op_out_name + post_);
     auto tensor__ = tmp_tensor_info.at(op_out_name + post__);
-    if (!ir_sch.HasBlock(tensor__->name)) {
+    if (!ir_sch.HasSchedStmt(tensor__->name)) {
       break;
     }
     auto dst_loops = ir_sch.GetLoops(tensor_->name);
@@ -974,7 +974,7 @@ void MergeReduceLoop(
     }
     min_index_loop = std::min(min_index_loop, index);
     MergeLoops(
-        ir_sch.GetModule().GetExprs().at(0), src_loops, dst_loops, index);
+        ir_sch.GetModule().GetBlocks().at(0), src_loops, dst_loops, index);
     post_ = "_" + std::to_string(idx);
     post__ = "_" + std::to_string(idx + 1);
   }
@@ -992,17 +992,17 @@ void MergeReduceLoop(
       continue;
     }
 
-    MergeLoops(ir_sch.GetModule().GetExprs().at(0),
+    MergeLoops(ir_sch.GetModule().GetBlocks().at(0),
                node_loops,
                master_loops,
                std::min(index, min_index_loop));
     if (index > min_index_loop) {
-      auto block = ir_sch.GetBlock(op_out_name);
+      auto block = ir_sch.GetSchedStmt(op_out_name);
       auto loops = ir_sch.GetLoops(master_out_name);
       ir_sch.SimpleComputeAt(block, loops.back());
 
-      if (ir_sch.HasBlock(op_out_name + "__reduce_init")) {
-        auto block = ir_sch.GetBlock(op_out_name + "__reduce_init");
+      if (ir_sch.HasSchedStmt(op_out_name + "__reduce_init")) {
+        auto block = ir_sch.GetSchedStmt(op_out_name + "__reduce_init");
         auto loops = ir_sch.GetLoops(master_out_name);
         ir_sch.SimpleComputeAt(block, loops.back());
       }

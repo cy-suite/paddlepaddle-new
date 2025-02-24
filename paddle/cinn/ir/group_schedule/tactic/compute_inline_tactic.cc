@@ -53,12 +53,12 @@ void ComputeInlineTactic::Apply(ir::IRSchedule* sch,
   auto_schedule::AutoInline inliner(target_, output_names_);
   VLOG(6) << "try ComputeInline on: " << block_id
           << ", before ComputeInline, func body: "
-          << sch->GetModule().GetExprs().front();
-  ir::Expr schedule_block = sch->GetBlock(block_id);
+          << sch->GetModule().GetBlocks().front();
+  ir::Expr schedule_block = sch->GetSchedStmt(block_id);
   inliner.Apply(sch, schedule_block);
   VLOG(6) << "try ComputeInline on: " << block_id
           << ", after ComputeInline, func body: "
-          << sch->GetModule().GetExprs().front();
+          << sch->GetModule().GetBlocks().front();
 }
 
 std::unique_ptr<ScheduleTactic> CreateComputeInlineTactic() {

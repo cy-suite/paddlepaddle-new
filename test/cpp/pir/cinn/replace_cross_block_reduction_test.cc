@@ -42,14 +42,14 @@ TEST(CrossBlockReductionReplacer, SRLayout) {
   ast_gen_ius::TensorGroup tensor_group({A, B, C});
   auto func = lang::LowerToAst("reduce_sum_sqrt", {C}, &tensor_group);
   ir::Expr expr_func_body = ir::ConvertStmtBlockToExprBlock(func->body_block);
-  ir::ModuleExpr mod_expr({expr_func_body});
-  ir::IRSchedule ir_sch(mod_expr);
+  ir::ScheduleModule sched_module({expr_func_body});
+  ir::IRSchedule ir_sch(sched_module);
 
   ir_sch.Bind(ir_sch.GetLoops("B")[0], "blockIdx.x");
   ir_sch.Bind(ir_sch.GetLoops("B")[1], "blockIdx.y");
   ir_sch.Bind(ir_sch.GetLoops("C")[0], "blockIdx.x");
 
-  func->body = ir_sch.GetModule().GetExprs()[0];
+  func->body = ir_sch.GetModule().GetBlocks()[0];
   A->WithBuffer("global", "_A");
   B->WithBuffer("local", "_B_temp_buffer");
   func->temp_bufs = {A->buffer, B->buffer};
@@ -132,8 +132,8 @@ TEST(CrossBlockReductionReplacer, RSLayout) {
   auto func = lang::LowerToAst("reduce_max_exp", {C}, &tensor_group);
 
   ir::Expr expr_func_body = ir::ConvertStmtBlockToExprBlock(func->body_block);
-  ir::ModuleExpr mod_expr({expr_func_body});
-  ir::IRSchedule ir_sch(mod_expr);
+  ir::ScheduleModule sched_module({expr_func_body});
+  ir::IRSchedule ir_sch(sched_module);
 
   ir_sch.Bind(ir_sch.GetLoops("B")[0], "blockIdx.x");
   ir_sch.Bind(ir_sch.GetLoops("B")[1], "threadIdx.x");
@@ -141,7 +141,7 @@ TEST(CrossBlockReductionReplacer, RSLayout) {
   ir_sch.Bind(ir_sch.GetLoops("C")[0], "blockIdx.x");
   ir_sch.Bind(ir_sch.GetLoops("C")[1], "threadIdx.x");
 
-  func->body = ir_sch.GetModule().GetExprs()[0];
+  func->body = ir_sch.GetModule().GetBlocks()[0];
   A->WithBuffer("global", "_A");
   B->WithBuffer("local", "_B_temp_buffer");
   func->temp_bufs = {A->buffer, B->buffer};

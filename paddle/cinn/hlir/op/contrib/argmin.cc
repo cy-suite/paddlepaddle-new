@@ -175,10 +175,10 @@ std::shared_ptr<framework::OpStrategy> StrategyForArgmin(
         true,
         ::common::errors::InvalidArgument(
             "The input argument of argmin schedule is empty! Please check."));
-    ir::ModuleExpr mod_expr(vec_ast);
-    ir::IRSchedule ir_sch(mod_expr);
-    ir_sch.MergeExprs();
-    auto blocks = ir_sch.GetAllBlocks();
+    ir::ScheduleModule sched_module(vec_ast);
+    ir::IRSchedule ir_sch(sched_module);
+    ir_sch.MergeBlocks();
+    auto blocks = ir_sch.GetAllSchedStmts();
     // TODO(zhhsplendid): It needs to be rewritten according to the
     // reduction_min operator to improve performance. Do not use local
     // variables, because the size will exceed the limit.
@@ -212,7 +212,7 @@ std::shared_ptr<framework::OpStrategy> StrategyForArgmin(
       pe::IRScheduleInjectiveCPU(ir_sch, output_shapes.front(), target, true);
     }
     std::vector<cinn::common::CINNValue> res{
-        cinn::common::CINNValue(ir_sch.GetModule().GetExprs().at(0))};
+        cinn::common::CINNValue(ir_sch.GetModule().GetBlocks().at(0))};
     *ret = cinn::common::CINNValuePack{res};
   });
 

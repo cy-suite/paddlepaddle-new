@@ -36,11 +36,11 @@
 namespace cinn {
 namespace ir {
 
-void DyScheduleImpl::MergeExprs() {
+void DyScheduleImpl::MergeBlocks() {
   CINN_IR_SCHEDULE_BEGIN();
-  std::string primitive = "MergeExprs";
+  std::string primitive = "MergeBlocks";
   std::ostringstream os;
-  auto exprs = this->GetModule().GetExprs();
+  auto exprs = this->GetModule().GetBlocks();
   if (exprs.size() <= 1U) return;
   PADDLE_ENFORCE_NOT_NULL(
       exprs[0].As<ir::Block>(),
@@ -49,7 +49,7 @@ void DyScheduleImpl::MergeExprs() {
           "<MergeExprs>.\n"
           "[Error info] Expr[0] of module_expr should be a Block!\n"
           "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
   PADDLE_ENFORCE_EQ(
       exprs[0].As<ir::Block>()->stmts.size(),
       1U,
@@ -58,7 +58,7 @@ void DyScheduleImpl::MergeExprs() {
           "<MergeExprs>.\n"
           "[Error info] Expr[0] of module_expr should have only one stmt!\n"
           "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
   PADDLE_ENFORCE_NOT_NULL(
       exprs[0].As<ir::Block>()->stmts[0].As<ir::ScheduleBlockRealize>(),
       ::common::errors::InvalidArgument(
@@ -69,7 +69,7 @@ void DyScheduleImpl::MergeExprs() {
           "a "
           "ScheduleBlockRealize!\n"
           "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
 
   PADDLE_ENFORCE_NOT_NULL(
       exprs[0]
@@ -85,7 +85,7 @@ void DyScheduleImpl::MergeExprs() {
           "a "
           "ScheduleBlockRealize with a defined ScheduleBlock!\n"
           "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
 
   std::vector<Expr> merged_block;
   merged_block.push_back(exprs[0]
@@ -126,16 +126,16 @@ void DyScheduleImpl::MergeExprs() {
       ->body = merged_expr;
   VLOG(3) << "After merging, exprs[0] is : " << exprs[0];
   exprs.erase(exprs.begin() + 1, exprs.end());
-  this->SetExprs(exprs);
+  this->SetBlocks(exprs);
   CINN_IR_SCHEDULE_END(this->err_msg_level_);
 }
 
-bool DyScheduleImpl::HasBlock(const std::string& block_name) const {
+bool DyScheduleImpl::HasSchedStmt(const std::string& block_name) const {
   CINN_IR_SCHEDULE_BEGIN();
-  std::string primitive = "HasBlock";
+  std::string primitive = "HasSchedStmt";
   std::ostringstream os;
-  auto exprs = module_expr_.GetExprs();
-  return analyzer::HasBlock(exprs, block_name);
+  auto exprs = sched_module_.GetBlocks();
+  return analyzer::HasSchedStmt(exprs, block_name);
   CINN_IR_SCHEDULE_END(this->err_msg_level_);
 }
 
@@ -143,7 +143,7 @@ std::vector<Expr> DyScheduleImpl::GetLoops(const Expr& block) const {
   CINN_IR_SCHEDULE_BEGIN();
   std::string primitive = "GetLoops";
   std::ostringstream os;
-  auto exprs = module_expr_.GetExprs();
+  auto exprs = sched_module_.GetBlocks();
   return analyzer::GetLoops(exprs, block);
   CINN_IR_SCHEDULE_END(this->err_msg_level_);
 }
@@ -153,43 +153,43 @@ std::vector<Expr> DyScheduleImpl::GetLoops(
   CINN_IR_SCHEDULE_BEGIN();
   std::string primitive = "GetLoops";
   std::ostringstream os;
-  auto exprs = module_expr_.GetExprs();
+  auto exprs = sched_module_.GetBlocks();
   return analyzer::GetLoops(exprs, block_name);
   CINN_IR_SCHEDULE_END(this->err_msg_level_);
 }
 
-std::vector<Expr> DyScheduleImpl::GetAllBlocks() const {
+std::vector<Expr> DyScheduleImpl::GetAllSchedStmts() const {
   CINN_IR_SCHEDULE_BEGIN();
-  std::string primitive = "GetAllBlocks";
+  std::string primitive = "GetAllSchedStmts";
   std::ostringstream os;
-  auto exprs = module_expr_.GetExprs();
-  return analyzer::GetAllBlocks(exprs);
+  auto exprs = sched_module_.GetBlocks();
+  return analyzer::GetAllSchedStmts(exprs);
   CINN_IR_SCHEDULE_END(this->err_msg_level_);
 }
 
-std::vector<Expr> DyScheduleImpl::GetChildBlocks(const Expr& expr) const {
+std::vector<Expr> DyScheduleImpl::GetChildSchedStmts(const Expr& expr) const {
   CINN_IR_SCHEDULE_BEGIN();
-  std::string primitive = "GetChildBlocks";
+  std::string primitive = "GetChildSchedStmts";
   std::ostringstream os;
-  return analyzer::GetChildBlocks(expr);
+  return analyzer::GetChildSchedStmts(expr);
   CINN_IR_SCHEDULE_END(this->err_msg_level_);
 }
 
-Expr DyScheduleImpl::GetBlock(const std::string& block_name) const {
+Expr DyScheduleImpl::GetSchedStmt(const std::string& block_name) const {
   CINN_IR_SCHEDULE_BEGIN();
-  std::string primitive = "GetBlock";
+  std::string primitive = "GetSchedStmt";
   std::ostringstream os;
-  auto exprs = module_expr_.GetExprs();
-  return analyzer::GetBlock(exprs, block_name);
+  auto exprs = sched_module_.GetBlocks();
+  return analyzer::GetSchedStmt(exprs, block_name);
   CINN_IR_SCHEDULE_END(this->err_msg_level_);
 }
 
-Expr DyScheduleImpl::GetRootBlock(const Expr& expr) const {
+Expr DyScheduleImpl::GetRootSchedStmt(const Expr& expr) const {
   CINN_IR_SCHEDULE_BEGIN();
-  std::string primitive = "GetRootBlock";
+  std::string primitive = "GetRootSchedStmt";
   std::ostringstream os;
-  auto exprs = module_expr_.GetExprs();
-  return analyzer::GetRootBlock(exprs, expr);
+  auto exprs = sched_module_.GetBlocks();
+  return analyzer::GetRootSchedStmt(exprs, expr);
   CINN_IR_SCHEDULE_END(this->err_msg_level_);
 }
 
@@ -197,7 +197,7 @@ DeviceAPI DyScheduleImpl::GetDeviceAPI() const {
   CINN_IR_SCHEDULE_BEGIN();
   std::string primitive = "GetDeviceAPI";
   std::ostringstream os;
-  auto exprs = module_expr_.GetExprs();
+  auto exprs = sched_module_.GetBlocks();
   return analyzer::GetDeviceAPI(exprs);
   CINN_IR_SCHEDULE_END(this->err_msg_level_);
 }
@@ -215,7 +215,7 @@ void DyScheduleImpl::Annotate(const Expr& block,
           "[Error info] Expr parameter 'block' must be a "
           "ScheduleBlockRealize!\n"
           "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
 
   PADDLE_ENFORCE_NOT_NULL(
       block.As<ir::ScheduleBlockRealize>()->schedule_block.As<ScheduleBlock>(),
@@ -225,7 +225,7 @@ void DyScheduleImpl::Annotate(const Expr& block,
           "[Error info] Expr parameter 'block' must be a ScheduleBlockRealize "
           "with a defined ScheduleBlock!\n"
           "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
 
   auto copied_block = ir::ir_utils::IRCopy(block);
   auto* schedule_block = copied_block.As<ir::ScheduleBlockRealize>()
@@ -248,7 +248,7 @@ void DyScheduleImpl::Unannotate(Expr& block,
           "[Error info] Expr parameter 'block' must be a "
           "ScheduleBlockRealize!\n"
           "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
 
   PADDLE_ENFORCE_NOT_NULL(
       block.As<ir::ScheduleBlockRealize>()->schedule_block.As<ScheduleBlock>(),
@@ -258,7 +258,7 @@ void DyScheduleImpl::Unannotate(Expr& block,
           "[Error info] Expr parameter 'block' must be a ScheduleBlockRealize "
           "with a defined ScheduleBlock!\n"
           "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
 
   auto* schedule_block = block.As<ir::ScheduleBlockRealize>()
                              ->schedule_block.As<ir::ScheduleBlock>();
@@ -286,7 +286,7 @@ void DyScheduleImpl::CopyTransformAndLoopInfo(const Expr& block,
           "[Error info] Expr parameter 'block' must be a "
           "ScheduleBlockRealize!\n"
           "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
 
   PADDLE_ENFORCE_NOT_NULL(
       block_target.As<ir::ScheduleBlockRealize>(),
@@ -296,9 +296,9 @@ void DyScheduleImpl::CopyTransformAndLoopInfo(const Expr& block,
           "[Error info] Expr parameter 'block_target' must be a "
           "ScheduleBlockRealize!\n"
           "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
 
-  auto exprs = this->GetModule().GetExprs();
+  auto exprs = this->GetModule().GetBlocks();
 
   PADDLE_ENFORCE_EQ(
       exprs.size(),
@@ -308,7 +308,7 @@ void DyScheduleImpl::CopyTransformAndLoopInfo(const Expr& block,
           "<CopyTransformAndLoopInfo>.\n"
           "[Error info] Size of exprs of current module must be 1!\n"
           "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
 
   auto expr = exprs[0];
   auto vars = block.As<ir::ScheduleBlockRealize>()
@@ -331,7 +331,7 @@ void DyScheduleImpl::CopyTransformAndLoopInfo(const Expr& block,
             "[Error info] Upper bound of iter_vars in both Expr parameter "
             "'block' and Expr parameter 'block_target' must be defined!\n"
             "[Expr info] The Expr of current schedule is: %s.",
-            module_expr_.GetExprs()));
+            sched_module_.GetBlocks()));
 
     if (vars[i]->upper_bound.is_constant() &&
         vars_target[i]->upper_bound.is_constant() &&
@@ -357,7 +357,7 @@ void DyScheduleImpl::CopyTransformAndLoopInfo(const Expr& block,
             << vars[0]->upper_bound << " vs " << vars_target[0]->upper_bound
             << "\n"
             << "[Expr info] The Expr of current schedule is: "
-            << module_expr_.GetExprs() << ".";
+            << sched_module_.GetBlocks() << ".";
         return oss.str();
       }()));
 
@@ -379,7 +379,7 @@ void DyScheduleImpl::CopyTransformAndLoopInfo(const Expr& block,
                         "[Error info] Cannot CopyTransformAndLoopInfo since "
                         "there is no loop var in the new_iter_values!\n"
                         "[Expr info] The Expr of current schedule is: %s.",
-                        module_expr_.GetExprs()));
+                        sched_module_.GetBlocks()));
 
   std::vector<Expr> used_target_loops;
   auto expr_copy = ir::ir_utils::IRCopy(expr);
@@ -400,7 +400,7 @@ void DyScheduleImpl::CopyTransformAndLoopInfo(const Expr& block,
                           "used in ScheduleBlockRealize for indexing in "
                           "Exprs[0] of module_exprs must be 1!\n"
                           "[Expr info] The Expr of current schedule is: %s.",
-                          module_expr_.GetExprs()));
+                          sched_module_.GetBlocks()));
     used_target_loops.push_back(*find_loop_var.begin());
     VLOG(3) << "used_target_loops push_back " << used_target_loops.back();
   }
@@ -419,7 +419,7 @@ void DyScheduleImpl::CopyTransformAndLoopInfo(const Expr& block,
                             << "[Error info] iter_vars[" << i
                             << "] in Expr parameter 'block' must be vars!\n"
                             << "[Expr info] The Expr of current schedule is: "
-                            << module_expr_.GetExprs() << ".";
+                            << sched_module_.GetBlocks() << ".";
                         return oss.str();
                       }()));
     new_iter_values.push_back(old_iter_values[i]);
@@ -441,7 +441,7 @@ void DyScheduleImpl::CopyTransformAndLoopInfo(const Expr& block,
                             << "[Error info] iter_vars[" << changed_loop_num
                             << "] in Expr parameter 'block' must be vars!\n"
                             << "[Expr info] The Expr of current schedule is: "
-                            << module_expr_.GetExprs() << ".";
+                            << sched_module_.GetBlocks() << ".";
                         return oss.str();
                       }()));
 
@@ -465,7 +465,7 @@ void DyScheduleImpl::CopyTransformAndLoopInfo(const Expr& block,
               << "[Error info] Number of loop with iter_var which is "
               << old_var->name << " should be 1 in Exprs[0] of module_expr!\n"
               << "[Expr info] The Expr of current schedule is: "
-              << module_expr_.GetExprs() << ".";
+              << sched_module_.GetBlocks() << ".";
           return oss.str();
         }()));
     new_loop = ir::ir_utils::IRCopy(*find_partial_loop.begin());
@@ -481,7 +481,7 @@ void DyScheduleImpl::CopyTransformAndLoopInfo(const Expr& block,
                           "[Error info] Number of ScheduleBlockRealize in "
                           "partial_loop should be 1!\n"
                           "[Expr info] The Expr of current schedule is: %s.",
-                          module_expr_.GetExprs()));
+                          sched_module_.GetBlocks()));
 
     Expr sch_block = (*find_schedule_block.begin());
     sch_block.As<ir::ScheduleBlockRealize>()->iter_values = new_iter_values;
@@ -497,7 +497,7 @@ void DyScheduleImpl::CopyTransformAndLoopInfo(const Expr& block,
           "[Error info] Cannot CopyTransformAndLoopInfo since there is no loop "
           "which uses vars in the new_iter_values in Expr[0] of module_expr!\n"
           "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
 
   Expr res;
   if (used_target_loops.size() == 1) {
@@ -527,7 +527,7 @@ void DyScheduleImpl::CopyTransformAndLoopInfo(const Expr& block,
                         "[Error info] Cannot CopyTransformAndLoopInfo since "
                         "there is no loop in Expr parameter 'block'!\n"
                         "[Expr info] The Expr of current schedule is: %s.",
-                        module_expr_.GetExprs()));
+                        sched_module_.GetBlocks()));
 
   this->Replace(all_loops[0], res);
   CINN_IR_SCHEDULE_END(this->err_msg_level_);
@@ -538,8 +538,8 @@ void DyScheduleImpl::CopyTransformAndLoopInfo(
   CINN_IR_SCHEDULE_BEGIN();
   std::string primitive = "CopyTransformAndLoopInfo";
   std::ostringstream os;
-  auto block = this->GetBlock(block_name);
-  auto block_target = this->GetBlock(block_target_name);
+  auto block = this->GetSchedStmt(block_name);
+  auto block_target = this->GetSchedStmt(block_target_name);
   this->CopyTransformAndLoopInfo(block, block_target);
   CINN_IR_SCHEDULE_END(this->err_msg_level_);
 }
@@ -561,7 +561,7 @@ Expr DyScheduleImpl::SampleCategorical(
                         "vector<int> params(probs) must "
                         "have same size in SampleCategorical!\n"
                         "[Expr info] The Expr of current schedule is: %s.",
-                        module_expr_.GetExprs()));
+                        sched_module_.GetBlocks()));
 
   int seed_idx = utils::SampleDiscreteFromDistribution(probs, rand_seed);
   auto result = candidates[seed_idx];
@@ -585,7 +585,7 @@ std::vector<Expr> DyScheduleImpl::SamplePerfectTile(
           "<SampleCategorical>.\n"
           "[Error info] Expr parameter 'loop' should be a For loop.\n"
           "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
 
   PADDLE_ENFORCE_GE(n,
                     2,
@@ -596,7 +596,7 @@ std::vector<Expr> DyScheduleImpl::SamplePerfectTile(
                         "at least 2, but got %d.\n"
                         "[Expr info] The Expr of current schedule is: %s.",
                         n,
-                        module_expr_.GetExprs()));
+                        sched_module_.GetBlocks()));
 
   PADDLE_ENFORCE_GE(max_innermost_factor,
                     1,
@@ -607,7 +607,7 @@ std::vector<Expr> DyScheduleImpl::SamplePerfectTile(
                         "least 1, but got %d.\n"
                         "[Expr info] The Expr of current schedule is: %s.",
                         max_innermost_factor,
-                        module_expr_.GetExprs()));
+                        sched_module_.GetBlocks()));
 
   PADDLE_ENFORCE_EQ(cinn::common::is_zero(loop.As<ir::For>()->min),
                     true,
@@ -616,7 +616,7 @@ std::vector<Expr> DyScheduleImpl::SamplePerfectTile(
                         "primitive <SamplePerfectTile>.\n"
                         "[Error info] The For loop should start from 0.\n"
                         "[Expr info] The Expr of current schedule is: %s.",
-                        module_expr_.GetExprs()));
+                        sched_module_.GetBlocks()));
 
   int loop_extent = GetLoopExtent(loop);
   std::vector<int> innermost_factors;
@@ -637,7 +637,7 @@ std::vector<Expr> DyScheduleImpl::SamplePerfectTile(
                         "[Expr info] The Expr of current schedule is: %s.",
                         loop_extent,
                         max_innermost_factor,
-                        module_expr_.GetExprs()));
+                        sched_module_.GetBlocks()));
 
   int innermost_factor = innermost_factors[utils::SampleUniformInt(
       0, innermost_factors.size(), rand_seed)];
@@ -655,7 +655,7 @@ Expr DyScheduleImpl::AddUnitLoop(const Expr& block) const {
   CINN_IR_SCHEDULE_BEGIN();
   std::string primitive = "AddUnitLoop";
   std::ostringstream os;
-  auto exprs = module_expr_.GetExprs();
+  auto exprs = sched_module_.GetBlocks();
   return analyzer::AddUnitLoop(exprs, block);
   CINN_IR_SCHEDULE_END(this->err_msg_level_);
 }

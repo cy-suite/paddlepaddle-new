@@ -243,7 +243,7 @@ void ComputeAtReductionTactic::Init(ScheduleContext* context,
   sch_ = std::make_unique<ir::IRSchedule>(*sch);
   graph_ = std::make_unique<ir::ScheduleBlockGraph>(*sch_);
 
-  for (auto& block : sch_->GetAllBlocks()) {
+  for (auto& block : sch_->GetAllSchedStmts()) {
     // Replace loop_vars to the unified form `$<loop_index>`
     std::vector<ir::Expr> loops = sch_->GetLoops(block);
     for (int i = 0; i < loops.size(); ++i) {
@@ -278,7 +278,7 @@ void ComputeAtReductionTactic::Apply(ir::IRSchedule* sch,
   auto& target_id = candidates.front();
   VLOG(4) << "ComputeAt Apply: " << block_id << " -> " << target_id;
 
-  ir::Expr block = sch->GetBlock(block_id);
+  ir::Expr block = sch->GetSchedStmt(block_id);
   sch->SimpleComputeAt(block, sch->GetLoops(target_id).back());
 
   // If the current block is a Reduce, don't forget to also do ComputeAt for its
@@ -287,7 +287,7 @@ void ComputeAtReductionTactic::Apply(ir::IRSchedule* sch,
   // Reduce (Reduce whose loop extent is 1), so we have to use HasBlock to check
   // the existence of the `reduce_init` block.
   std::string reduce_init_block_id = GenReduceInitTensorNameOf(block_id);
-  if (sch->HasBlock(reduce_init_block_id)) {
+  if (sch->HasSchedStmt(reduce_init_block_id)) {
     std::vector<ir::Expr> loops = sch->GetLoops(reduce_init_block_id);
     PADDLE_ENFORCE_GT(
         loops.size(),
@@ -297,7 +297,7 @@ void ComputeAtReductionTactic::Apply(ir::IRSchedule* sch,
             "one that has no parent loop: %s",
             reduce_init_block_id));
     int loop_index = loops.size() - 1;
-    ir::Expr reduce_init_block = sch->GetBlock(reduce_init_block_id);
+    ir::Expr reduce_init_block = sch->GetSchedStmt(reduce_init_block_id);
     sch->SimpleComputeAt(reduce_init_block,
                          sch->GetLoops(target_id)[loop_index]);
   }
@@ -305,7 +305,7 @@ void ComputeAtReductionTactic::Apply(ir::IRSchedule* sch,
 
 std::vector<std::string> ComputeAtReductionTactic::FindCandidateBlocks(
     ir::IRSchedule* sch, const std::string& block_id) {
-  ir::Expr this_block = sch->GetBlock(block_id);
+  ir::Expr this_block = sch->GetSchedStmt(block_id);
   std::vector<ir::Expr> this_loops = sch->GetLoops(block_id);
   std::vector<ir::Expr> this_cf = unified_control_flow_[block_id];
   std::vector<ir::Expr> this_loads = loop_variant_loads_[block_id];
@@ -373,7 +373,7 @@ std::vector<std::string>
 ComputeAtReductionTactic::GetDependencyHarzardFreeBlocks(
     ir::IRSchedule* sch, const std::string& block_id) {
   std::vector<std::string> results;
-  std::vector<ir::Expr> blocks = sch->GetAllBlocks();
+  std::vector<ir::Expr> blocks = sch->GetAllSchedStmts();
   auto* graph_node = graph_->RetrieveNode(block_id);
   std::unordered_set<std::string> upstreams = graph_node->UpstreamNodes();
   std::unordered_set<std::string> downstreams = graph_node->DownstreamNodes();

@@ -49,7 +49,7 @@ void DyScheduleImpl::ComputeAt(const Expr& block,
           "<ComputeAt>.\n"
           "[Error info] Expr param(block) should be a ScheduleBlockRealize!\n"
           "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
   PADDLE_ENFORCE_NOT_NULL(
       loop.As<ir::For>(),
       ::common::errors::InvalidArgument(
@@ -57,8 +57,8 @@ void DyScheduleImpl::ComputeAt(const Expr& block,
           "<ComputeAt>.\n"
           "[Error info] Expr param(loop) should be a For node!\n"
           "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
-  Expr root = this->GetRootBlock(block);
+          sched_module_.GetBlocks()));
+  Expr root = this->GetRootSchedStmt(block);
 
   VLOG(3) << "Begin ComputeAt of loop:\n" << loop << "\nat block:\n" << root;
 
@@ -93,7 +93,7 @@ void DyScheduleImpl::SimpleComputeAt(const Expr& block, const Expr& loop) {
           "<SimpleComputeAt>.\n"
           "[Error info] Expr param(block) should be a ScheduleBlockRealize!\n"
           "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
   PADDLE_ENFORCE_NOT_NULL(
       loop.As<For>(),
       ::common::errors::InvalidArgument(
@@ -101,9 +101,9 @@ void DyScheduleImpl::SimpleComputeAt(const Expr& block, const Expr& loop) {
           "<SimpleComputeAt>.\n"
           "[Error info] Expr param(loop) should be a For node!\n"
           "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
   std::vector<Expr> block_loops = this->GetLoops(block);
-  Expr root = this->GetRootBlock(block);
+  Expr root = this->GetRootSchedStmt(block);
   auto loops = GetLoopsOfExpr(loop, root);
 
   VLOG(3) << "Begin SimpleComputeAt of loop:\n"
@@ -118,7 +118,7 @@ void DyScheduleImpl::SimpleComputeAt(const Expr& block, const Expr& loop) {
       (!block_loops[0].As<ir::For>()->extent.is_constant() ||
        GetLoopExtent(block_loops[0]) != 1)) {
     this->Split(block_loops[0], {1, -1});
-    this_block = this->GetBlock(block_name);
+    this_block = this->GetSchedStmt(block_name);
   } else if ((!loops[0].As<ir::For>()->extent.is_constant() ||
               GetLoopExtent(loops[0]) != 1) &&
              block_loops[0].As<ir::For>()->extent.is_constant() &&
@@ -128,7 +128,7 @@ void DyScheduleImpl::SimpleComputeAt(const Expr& block, const Expr& loop) {
   }
 
   block_loops = this->GetLoops(this_block);
-  root = this->GetRootBlock(this_block);
+  root = this->GetRootSchedStmt(this_block);
   loops = GetLoopsOfExpr(this_loop, root);
 
   PADDLE_ENFORCE_LE(loops.size(),
@@ -155,7 +155,7 @@ void DyScheduleImpl::SimpleComputeAt(const Expr& block, const Expr& loop) {
             "[Error info] Extent of loop in Expr Param(loop) and extent of "
             "loop in Expr Param(block) should be equal correspondingly!\n"
             "[Expr info] The Expr of current schedule is: %s.",
-            module_expr_.GetExprs()));
+            sched_module_.GetBlocks()));
 
     PADDLE_ENFORCE_EQ(
         prove_eq.value(),
@@ -166,7 +166,7 @@ void DyScheduleImpl::SimpleComputeAt(const Expr& block, const Expr& loop) {
             "[Error info] Extent of loop in Expr Param(loop) and extent of "
             "loop in Expr Param(block) should be equal correspondingly!\n"
             "[Expr info] The Expr of current schedule is: %s.",
-            module_expr_.GetExprs()));
+            sched_module_.GetBlocks()));
     if (block_loops[i].As<ir::For>()->bind_info().valid() &&
         !loops[i].As<ir::For>()->bind_info().valid()) {
       loops[i].As<ir::For>()->set_bind_info(
@@ -273,7 +273,7 @@ void DyScheduleImpl::ReverseComputeAt(const Expr& block,
   PADDLE_ENFORCE_NOT_NULL(loop.As<ir::For>(),
                           ::common::errors::InvalidArgument(
                               "The loop argument must be of type For."));
-  Expr root = this->GetRootBlock(block);
+  Expr root = this->GetRootSchedStmt(block);
   auto producers = GetProducers(block, root);
   auto consumers = GetConsumers(block, root);
   CheckComputeAtValidation(block, loop, root);
@@ -307,9 +307,9 @@ void DyScheduleImpl::ComputeInline(const Expr& schedule_block) {
           "[Error info] Expr param(schedule_block) should be a "
           "ScheduleBlockRealize!\n"
           "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
 
-  Expr root = this->GetRootBlock(schedule_block);
+  Expr root = this->GetRootSchedStmt(schedule_block);
   Expr store = CheckComputeInlineValidationAndGetStore(schedule_block, root);
   ComputeInliner inliner(store.As<ir::Store>()->tensor.as_tensor_ref(), store);
 
@@ -322,7 +322,7 @@ void DyScheduleImpl::ComputeInline(const Expr& schedule_block) {
           "[Error info] Current IR can't meets the requirements of "
           "ComputeInline!\n"
           "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
 
   // Create a plan that removes the block to be inlined
   LeafBlockRemovalPlan remove_plan(
@@ -337,7 +337,7 @@ void DyScheduleImpl::ReverseComputeInline(const Expr& schedule_block) {
   CINN_IR_SCHEDULE_BEGIN();
   std::string primitive = "ReverseComputeInline";
   std::ostringstream os;
-  Expr root = this->GetRootBlock(schedule_block);
+  Expr root = this->GetRootSchedStmt(schedule_block);
   auto exprs =
       CheckReverseComputeInlineValidationAndGetExprs(schedule_block, root);
   Expr inlined_load = std::get<0>(exprs);
@@ -358,7 +358,7 @@ void DyScheduleImpl::ReverseComputeInline(const Expr& schedule_block) {
           "[Error info] Current IR can't meets the requirements of "
           "ReverseComputeInline!\n"
           "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+          sched_module_.GetBlocks()));
   // Create a plan that removes the block to be inlined
   LeafBlockRemovalPlan remove_plan(
       schedule_block, &inliner.src_stmt, &inliner.tgt_stmt);
