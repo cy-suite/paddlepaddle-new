@@ -14,10 +14,10 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from enum import Enum
 
-import logging
 import numpy as np
 
 import paddle
