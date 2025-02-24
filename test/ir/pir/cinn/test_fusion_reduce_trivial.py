@@ -84,7 +84,7 @@ class TestFusion(unittest.TestCase):
         def init():
             return [paddle.rand((32, 33, 34))]
 
-        self.compare_result(func, init, 1)
+        self.compare_result(func, init, 2)
 
 
 if __name__ == "__main__":
