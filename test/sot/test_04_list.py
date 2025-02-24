@@ -265,6 +265,7 @@ def list_any():
     return any(l)
 
 
+@check_no_breakgraph
 def list_all():
     l = [1, 1, 0, 1]
     return all(l)
