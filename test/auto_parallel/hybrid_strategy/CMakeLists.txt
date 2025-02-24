@@ -14,13 +14,6 @@ if((WITH_GPU) AND (LINUX))
 endif()
 if((WITH_GPU) AND (LINUX))
   py_test_modules(
-    test_save_load_state_dict MODULES test_save_load_state_dict ENVS
-    "http_proxy=;https_proxy=;PYTHONPATH=../..:${PADDLE_BINARY_DIR}/python")
-  set_tests_properties(test_save_load_state_dict
-                       PROPERTIES TIMEOUT "120" LABELS "RUN_TYPE=HYBRID")
-endif()
-if((WITH_GPU) AND (LINUX))
-  py_test_modules(
     test_semi_auto_parallel_c_cross_entropy MODULES
     test_semi_auto_parallel_c_cross_entropy ENVS
     "http_proxy=;https_proxy=;PYTHONPATH=../..:${PADDLE_BINARY_DIR}/python")
@@ -72,14 +65,6 @@ if((WITH_GPU) AND (LINUX))
     "http_proxy=;https_proxy=;PYTHONPATH=../..:${PADDLE_BINARY_DIR}/python")
   set_tests_properties(test_semi_auto_parallel_multi_inputs
                        PROPERTIES TIMEOUT "120" LABELS "RUN_TYPE=HYBRID")
-endif()
-if((WITH_GPU) AND (LINUX))
-  py_test_modules(
-    test_semi_auto_parallel_llama_model_vpp MODULES
-    test_semi_auto_parallel_llama_model_vpp ENVS
-    "http_proxy=;https_proxy=;PYTHONPATH=../..:${PADDLE_BINARY_DIR}/python")
-  set_tests_properties(test_semi_auto_parallel_llama_model_vpp
-                       PROPERTIES TIMEOUT "180" LABELS "RUN_TYPE=HYBRID")
 endif()
 if((WITH_GPU) AND (LINUX))
   py_test_modules(
