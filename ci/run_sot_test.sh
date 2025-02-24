@@ -59,7 +59,7 @@ function run_sot_test() {
             python_output=$($PYTHON_WITH_SPECIFY_VERSION $file 2>&1)
 
             if [ $? -ne 0 ]; then
-                echo -e "    ${RED}run $file failed"
+                echo -e "       ${RED}run $file failed"
                 failed_tests+=("$file")
                 echo "${python_output}"
             fi
@@ -67,9 +67,9 @@ function run_sot_test() {
     done
 
     if [ ${#failed_tests[@]} -ne 0 ]; then
-        echo "    ${RED}failed tests file:${NONE}"
+        echo -e "       ${RED}failed tests file:${NONE}"
         for failed_test in "${failed_tests[@]}"; do
-            echo -e "          ${RED}${failed_test}${NONE}"
+            echo -e "             ${RED}${failed_test}${NONE}"
         done
         exit 1
     fi
