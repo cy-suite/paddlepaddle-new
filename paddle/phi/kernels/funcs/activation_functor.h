@@ -5230,37 +5230,51 @@ struct CudaCeilFunctor : public BaseActivationFunctor<T> {
   }
 };
 
+template <typename T, typename MPType>
+__device__ __forceinline__
+    typename std::enable_if<std::is_integral<T>::value, T>::type
+    compute_pow(const T a, const T b) {
+  // TODO(wujionghao): A potential speed improvement is supporting different
+  // types in C++.
+  // On CUDAPlace, pow(3, 1) calls pow(float, float), and
+  // it will return a float number like 2.99... , which floor to 2
+  // when cast to int by default and it is wrong.
+  // Use llrint to cast it to the nearest integer, which is 3.
+  return llrint(pow(static_cast<double>(a), static_cast<double>(b)));
+}
+
+template <typename T, typename MPType>
+__device__ __forceinline__
+    typename std::enable_if<!std::is_integral<T>::value, T>::type
+    compute_pow(const T a, const T b) {
+  MPType a_val = static_cast<MPType>(a);
+  MPType b_val = static_cast<MPType>(b);
+  return static_cast<T>(pow(a_val, b_val));
+}
+
 template <typename T>
 struct CudaPowFunctor : public BaseActivationFunctor<T> {
   using MT = typename phi::dtype::MPTypeTrait<T>::Type;
-  using MPType =
-      typename std::conditional<std::is_integral<T>::value, float, MT>::type;
   float factor;
   typename BaseActivationFunctor<T>::AttrPair GetAttrs() {
     return {{"factor", &factor}};
   }
   __device__ __forceinline__ T operator()(const T x) const {
-    MPType x_t = static_cast<MPType>(x);
-    MPType factor_t = static_cast<MPType>(factor);
-    return static_cast<T>(pow(x_t, factor_t));
+    return compute_pow<T, MT>(x, static_cast<T>(factor));
   }
 };
 
 template <typename T>
 struct CudaPowGradFunctor : public BaseActivationFunctor<T> {
   using MT = typename phi::dtype::MPTypeTrait<T>::Type;
-  using MPType =
-      typename std::conditional<std::is_integral<T>::value, float, MT>::type;
   float factor;
   typename BaseActivationFunctor<T>::AttrPair GetAttrs() {
     return {{"factor", &factor}};
   }
   // dx = dout * n * pow(x, n - 1)
   __device__ __forceinline__ T operator()(const T dout, const T x) const {
-    MPType x_t = static_cast<MPType>(x);
-    MPType dout_t = static_cast<MPType>(dout);
-    MPType factor_t = static_cast<MPType>(factor);
-    return static_cast<T>(dout_t * factor_t * pow(x_t, factor - 1));
+    return dout * static_cast<T>(factor) *
+           compute_pow<T, MT>(x, static_cast<T>(factor - 1));
   }
   static constexpr ActBwdOpFwdDeps FwdDeps() { return ActBwdOpFwdDeps::kDepX; }
 };
