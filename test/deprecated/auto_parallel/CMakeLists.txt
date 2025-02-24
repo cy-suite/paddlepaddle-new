@@ -60,9 +60,6 @@ if(WITH_DISTRIBUTE AND WITH_GPU)
                   test_parallel_tuner_predict_deprecated)
   set_tests_properties(test_parallel_tuner_predict_deprecated PROPERTIES TIMEOUT
                                                                          120)
-  py_test_modules(test_fused_linear_pass_deprecated MODULES
-                  test_fused_linear_pass_deprecated)
-  set_tests_properties(test_fused_linear_pass_deprecated PROPERTIES TIMEOUT 40)
   py_test_modules(test_fuse_adamw_pass_deprecated MODULES
                   test_fuse_adamw_pass_deprecated)
   set_tests_properties(test_fuse_adamw_pass_deprecated PROPERTIES TIMEOUT 20)
