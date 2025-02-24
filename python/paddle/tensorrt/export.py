@@ -108,11 +108,11 @@ class Input:
                 )
 
         self.input_data = input_data
-        self.input_data_type = input_data_type
-        self.input_range = input_range
         self.min_input_shape = min_input_shape
         self.max_input_shape = max_input_shape
         self.optim_input_shape = optim_input_shape
+        self.input_data_type = input_data_type
+        self.input_range = input_range
 
     def generate_input_data(self):
         """
