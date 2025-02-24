@@ -409,6 +409,8 @@ ComputeAtReductionTactic::GetDependencyHarzardFreeBlocks(
     if (dep_graph.HasDependency(*it, *this_it) == analyzer::DepKind::DEP) break;
     results.push_back(other_id);
   }
+  // Note: reverse results here because upstreams were added in reversed order.
+  std::reverse(results.begin(), results.end());
 
   // Search downwards
   for (auto it = this_it + 1; it != stmts.end(); ++it) {
