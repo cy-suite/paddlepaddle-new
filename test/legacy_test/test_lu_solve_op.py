@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import sys
 import unittest
 
@@ -24,6 +25,7 @@ from paddle.base import core
 sys.path.append("..")
 from op_test import OpTest
 
+os.environ['FLAGS_enable_pir_api'] = '0'
 
 def _transpose_last_2dim(x):
     """transpose the last 2 dimension of a tensor"""
