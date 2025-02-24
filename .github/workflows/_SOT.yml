@@ -18,7 +18,7 @@ defaults:
 jobs:
   build-and-test:
     runs-on:
-      group: GZ_BD-CPU
+      group: CPU-test
 
     steps:
     # sudo usermod -aG docker $USER

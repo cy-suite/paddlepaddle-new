@@ -202,7 +202,7 @@ function show_ut_retry_result() {
             echo -e "${RED}Summary Failed Tests... ${NONE}"
             echo -e "${RED}========================================${NONE}"
             echo -e "${RED}The following tests FAILED: ${NONE}"
-            echo -e "${RED}${retry_unittests_record}" | sort -u | grep -E "$failed_ut_re${NONE}"
+            echo -e "${RED}      ${retry_unittests_record}" | sort -u | grep -E "$failed_ut_re${NONE}"
             exit 8;
         fi
     fi
