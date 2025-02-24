@@ -825,6 +825,24 @@ def WithFp16():
 
 
 def set_layer_name(layer, second_param):
+    """
+    Sets standardized names for converter output layers following the format: `<id>_<pd_op>-><layerName>(<inputIds>)`
+
+    Naming Rule:
+        Format: <sequence_number>_<paddle_op_name>-><layer_variable_name>(<comma_separated_input_ids>)
+        Components:
+            - sequence_number: Output tensor's unique ID from layer
+            - paddle_op_name: Name of source Paddle operator
+            - layer_variable_name: Variable name referencing the layer in code
+            - input_ids: Input tensor IDs from preceding layers
+
+    Args:
+        layer (ILayer): Target layer to name
+        second_param: Context-dependent parameter:
+            - For non-public functions: paddle_op (op object)
+            - For public functions: [paddle_op_name (str), layer_var_name (str)] list
+            - When name=None in public functions: Enables nested handling
+    """
     if second_param is not None:
         if isinstance(second_param, list):
             # Handling for public function layer
