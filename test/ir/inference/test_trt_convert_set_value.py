@@ -98,7 +98,7 @@ class TrtConvertSetValue(TrtLayerAutoScanTest):
 
             yield program_config
 
-    def generate_dynamic_shape(self, attrs):
+    def generate_dynamic_shape(self):
         if self.update_scalar:
             self.dynamic_shape.min_input_shape = {
                 "input_data": [2, 3, 3],
@@ -147,7 +147,7 @@ class TrtConvertSetValue(TrtLayerAutoScanTest):
             program_config.ops[i].attrs for i in range(len(program_config.ops))
         ]
 
-        self.generate_dynamic_shape(attrs)
+        self.generate_dynamic_shape()
         self.trt_param.precision = paddle_infer.PrecisionType.Float32
         program_config.set_input_type(np.float32)
         self.trt_param.workspace_size = 2013265920
