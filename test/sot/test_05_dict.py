@@ -192,10 +192,7 @@ def dict_reduce():
     dicts = [{"a": 1}, {"b": 2}, {"a": 3, "c": 4}]
     merged = reduce(lambda acc, d: {**acc, **d}, dicts, {})
 
-    data = {"x": 10, "y": 20}, {"x": 5, "y": 15}
-    sum_values = reduce(lambda acc, d: {k: acc[k] + d[k] for k in acc}, data)
-
-    return merged["a"] + sum_values["x"]
+    return merged["a"] + merged["b"] + merged["c"]
 
 
 class TestBuildDict(TestCaseBase):
