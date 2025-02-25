@@ -744,6 +744,15 @@ class Engine:
                 [dist_program], [startup_program]
             )
 
+        sync_new = True
+        if sync_new:
+            auto_parallel_sync_shared_params_pass = new_pass(
+                "auto_parallel_sync_shared_params", {}
+            )
+            auto_parallel_sync_shared_params_pass.pre_analysis_test(
+                dist_program, startup_program
+            )
+
         # Step 1.2: pir backward
         if mode == "train" and self._loss and self._optimizer:
             loss = dist_program.get_output_value_by_name(self._loss_names[0])
@@ -859,16 +868,7 @@ class Engine:
             self._loss_names[0]
         )
         shared_param_config["concrete_program"] = self.concrete_program
-
-        xxx_flag = True
-        if xxx_flag:
-            print("xxx ok!")
-            auto_parallel_sync_shared_params_pass = new_pass(
-                "auto_parallel_sync_shared_params", shared_param_config
-            )
-            auto_parallel_sync_shared_params_pass.pre_analysis(
-                dist_program, startup_program, params_grads
-            )
+        shared_param_config["ori_params_grads"] = params_grads
 
         apply_partition_pass(dist_program)
 
@@ -891,13 +891,10 @@ class Engine:
 
         RemovePasses.apply_all(dist_program, startup_program, params_grads)
 
-        if xxx_flag:
+        if sync_new:
             auto_parallel_sync_shared_params_pass.apply(
                 [dist_program], [startup_program]
             )
-            apply_mix2dist_pass(dist_program)
-            # print("xxx startup_program : ", startup_program)
-            # print("xxx dist_program :", dist_program)
 
         # Part 4: Optimization Pass
         # NOTE Only those Optimization Pass that related to Parallelism (need dist attr) should be placed here and all the Pass should be Optional.
@@ -1039,9 +1036,6 @@ class Engine:
         self._pir_dense_main_progs[mode] = dense_program
         self._pir_dist_main_progs[mode] = dist_program
         self._pir_dist_startup_progs[mode] = startup_program
-
-        # print("xxx last startup_program: ", startup_program)
-        # print("xxx last dist_program: ", dist_program)
 
     def _prepare_program(self, mode, init_parameters=True):
         if self._in_pir_mode:
@@ -1482,7 +1476,6 @@ class Engine:
                 for op in changed_output_op_list:
                     op.operand_source(0).persistable = True
 
-                # print("xxx run startup_prog: ", startup_prog)
                 self._executor.run(startup_prog)
                 if self._job_plan is not None:
                     # pipeline scheduling should be enabled after running
@@ -2141,7 +2134,6 @@ class Engine:
                     loss_job_type = f"forward{vpp_degree - 1}"
 
                 program_for_executor = self._job_plan.ir_program(loss_job_type)
-                # print("xxx run program_for_executor : ", program_for_executor)
 
             loss_value = program_for_executor.get_output_value_by_name(
                 self._loss_names[0]
