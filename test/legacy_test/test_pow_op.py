@@ -106,13 +106,24 @@ class TestPowOp_Complex64(TestPowOp):
             ).astype(np.complex64),
         }
         self.attrs = {"factor": 2.0}
+        self.places = [core.CPUPlace()]
+        if core.is_compiled_with_cuda():
+            self.places.append(core.CUDAPlace(0))
+
+    def test_check_output(self):
+        for place in self.places:
+            self.check_output_with_place(
+                place, check_pir=True, check_symbol_infer=False
+            )
 
     def test_check_grad(self):
-        self.check_grad(
-            ['X'],
-            'Out',
-            check_pir=True,
-        )
+        for place in self.places:
+            self.check_grad_with_place(
+                place,
+                ['X'],
+                'Out',
+                check_pir=True,
+            )
 
 
 @unittest.skipIf(
@@ -128,13 +139,24 @@ class TestPowOp_Complex128(TestPowOp):
             ).astype(np.complex128),
         }
         self.attrs = {"factor": 2.0}
+        self.places = [core.CPUPlace()]
+        if core.is_compiled_with_cuda():
+            self.places.append(core.CUDAPlace(0))
+
+    def test_check_output(self):
+        for place in self.places:
+            self.check_output_with_place(
+                place, check_pir=True, check_symbol_infer=False
+            )
 
     def test_check_grad(self):
-        self.check_grad(
-            ['X'],
-            'Out',
-            check_pir=True,
-        )
+        for place in self.places:
+            self.check_grad_with_place(
+                place,
+                ['X'],
+                'Out',
+                check_pir=True,
+            )
 
 
 if __name__ == '__main__':
