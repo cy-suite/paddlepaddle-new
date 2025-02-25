@@ -165,45 +165,56 @@ std::vector<Expr> DyScheduleImpl::Split(const Expr& loop,
   std::vector<Expr> process_factors;
   int num_neg1 = 0;
   Expr explicit_product(1);
-  
+
   for (int factor : factors) {
     if (factor == -1) {
       num_neg1++;
-      process_factors.push_back(Expr()); 
+      process_factors.push_back(Expr(1));
     } else {
-      PADDLE_ENFORCE_GE(factor, 1, ::common::errors::InvalidArgument(
-          "[IRScheduleError] An error occurred in the schedule primitive "
-          "<Split>.\n"
-          "[Error info] The params in factors of Split on dynamic shape should "
-          "contains at "
-          "most one '-1' and the rest of them should be positive!\n"
-          "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+      PADDLE_ENFORCE_GE(
+          factor,
+          1,
+          ::common::errors::InvalidArgument(
+              "[IRScheduleError] An error occurred in the schedule primitive "
+              "<Split>.\n"
+              "[Error info] The params in factors of Split on dynamic shape "
+              "should "
+              "contains at "
+              "most one '-1' and the rest of them should be positive!\n"
+              "[Expr info] The Expr of current schedule is: %s.",
+              factor));
       explicit_product = explicit_product * Expr(factor);
       process_factors.push_back(Expr(factor));
     }
   }
 
   if (num_neg1 > 0) {
-    PADDLE_ENFORCE_EQ(num_neg1, 1, ::common::errors::InvalidArgument(
-          "[IRScheduleError] An error occurred in the schedule primitive "
-          "<Split>.\n"
-          "[Error info] The params in factors of Split on dynamic shape should "
-          "contains at "
-          "most one '-1' and the rest of them should be positive!\n"
-          "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
-    const int neg1_pos = std::find(factors.begin(), factors.end(), -1) - factors.begin();
-    process_factors[neg1_pos] = optim::ArithSimplify((tot_extent + explicit_product - 1) / explicit_product);
+    PADDLE_ENFORCE_EQ(
+        num_neg1,
+        1,
+        ::common::errors::InvalidArgument(
+            "[IRScheduleError] An error occurred in the schedule primitive "
+            "<Split>.\n"
+            "[Error info] The params in factors of Split on dynamic shape "
+            "should "
+            "contains at "
+            "most one '-1' and the rest of them should be positive!\n"
+            "[Expr info] The Expr of current schedule is: %s.",
+            num_neg1));
+    const int neg1_pos =
+        std::find(factors.begin(), factors.end(), -1) - factors.begin();
+    process_factors[neg1_pos] =
+        optim::ArithSimplify((tot_extent / explicit_product) + 1);
   }
 
-
   const Expr total_iter = std::accumulate(
-      process_factors.begin(), process_factors.end(), Expr(1), 
-      [](Expr a, Expr b) { return a * b; });
-  
-  bool need_bound_check = !analyzer.ProveLE(total_iter, tot_extent).value_or(false);
-  
+      process_factors.begin(),
+      process_factors.end(),
+      Expr(1),
+      [](const Expr& a, const Expr& b) -> Expr { return a * b; });
+
+  bool need_bound_check =
+      !analyzer.ProveLE(total_iter, tot_extent).value_or(false);
 
   std::vector<Var> new_loop_vars;
   Expr substitute_value(0);
@@ -214,11 +225,11 @@ std::vector<Expr> DyScheduleImpl::Split(const Expr& loop,
   }
   substitute_value = optim::ArithSimplify(substitute_value);
 
-
   Expr new_node = ir::ir_utils::IRCopy(for_node->body);
   ReplaceExpr(&new_node, {for_node->loop_var}, {substitute_value});
   if (need_bound_check) {
-    new_node = IfThenElse::Make(LT::Make(substitute_value, tot_extent), new_node);
+    new_node =
+        IfThenElse::Make(LT::Make(substitute_value, tot_extent), new_node);
   }
 
   std::vector<Expr> splited_loops;
@@ -240,7 +251,6 @@ std::vector<Expr> DyScheduleImpl::Split(const Expr& loop,
   return splited_loops;
   CINN_IR_SCHEDULE_END(this->err_msg_level_);
 }
-
 
 // TODO(@LiuYang): now -1 can't exist in factors.
 std::vector<Expr> DyScheduleImpl::Split(const Expr& loop,
