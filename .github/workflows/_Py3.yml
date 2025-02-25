@@ -18,7 +18,7 @@ defaults:
 jobs:
   build-and-test:
     runs-on:
-      group: py3-cmake
+      group: CPU-test
 
     steps:
     - name: Check docker image  and run container
