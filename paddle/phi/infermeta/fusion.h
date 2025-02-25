@@ -704,6 +704,18 @@ void FastLayernormXPUInferMeta(const MetaTensor& x,
                                float epsilon,
                                MetaTensor* out);
 
+void AdaptiveLayernormXPUInferMeta(const MetaTensor& x,
+                                   const MetaTensor& scale,
+                                   const MetaTensor& bias,
+                                   const MetaTensor& tensor1,
+                                   const MetaTensor& tensor2,
+                                   int begin_norm_axis,
+                                   float epsilon,
+                                   float factor,
+                                   float scale_bias,
+                                   bool bias_after_scale,
+                                   MetaTensor* out);
+
 void BNActXPUInferMeta(const MetaTensor& x,
                        const MetaTensor& mean,
                        const MetaTensor& variance,
@@ -1459,4 +1471,17 @@ void ResnetBasicBlockGradInferMeta(const MetaTensor& x,
                                    MetaTensor* bias3_grad,
                                    MetaConfig config = MetaConfig());
 
+void FusedAdalnScaleResidualXpuInferMeta(const MetaTensor& input1,
+                                         const MetaTensor& input2,
+                                         const MetaTensor& tensor1,
+                                         const MetaTensor& tensor2,
+                                         const MetaTensor& tensor3,
+                                         const MetaTensor& ln_weight,
+                                         const MetaTensor& ln_bias,
+                                         int begin_norm_axis,
+                                         float epsilon,
+                                         float scale_op_weight,
+                                         float scale_op_bias,
+                                         bool bias_after_scale,
+                                         MetaTensor* out);
 }  // namespace phi

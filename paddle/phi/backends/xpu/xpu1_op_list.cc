@@ -170,6 +170,7 @@ XPUOpMap& get_kl1_ops() {
       {"lamb", XPUKernelSet({phi::DataType::FLOAT32})},
       {"layer_norm_grad", XPUKernelSet({phi::DataType::FLOAT32})},
       {"layer_norm", XPUKernelSet({phi::DataType::FLOAT32})},
+      {"adaptive_layernorm_xpu", XPUKernelSet({phi::DataType::FLOAT32})},
       {"leaky_relu_grad", XPUKernelSet({phi::DataType::FLOAT32})},
       {"leaky_relu", XPUKernelSet({phi::DataType::FLOAT32})},
       {"less_than",
@@ -377,9 +378,13 @@ XPUOpMap& get_kl1_ops() {
                      phi::DataType::INT64,
                      phi::DataType::FLOAT32})},
       {"fast_where_xpu",
-       XPUKernelSet({phi::DataType::FLOAT32,
-                     phi::DataType::INT32,
-                     phi::DataType::INT64})},
+       XPUKernelSet({
+           phi::DataType::FLOAT32,
+           phi::DataType::INT32,
+           phi::DataType::INT64,
+       })},
+      {"fused_adaLN_scale_residual_xpu",
+       XPUKernelSet({phi::DataType::FLOAT32})},
       // AddMore
   };
 

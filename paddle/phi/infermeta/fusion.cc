@@ -2653,6 +2653,22 @@ void FastLayernormXPUInferMeta(const MetaTensor& x,
   out->set_layout(x.layout());
 }
 
+void AdaptiveLayernormXPUInferMeta(const MetaTensor& x,
+                                   const MetaTensor& scale,
+                                   const MetaTensor& bias,
+                                   const MetaTensor& tensor1,
+                                   const MetaTensor& tensor2,
+                                   int begin_norm_axis,
+                                   float epsilon,
+                                   float factor,
+                                   float scale_bias,
+                                   bool bias_after_scale,
+                                   MetaTensor* out) {
+  out->set_dims(x.dims());
+  out->set_dtype(x.dtype());
+  out->set_layout(x.layout());
+}
+
 void BNActXPUInferMeta(const MetaTensor& x,
                        const MetaTensor& mean,
                        const MetaTensor& variance,
@@ -6045,4 +6061,21 @@ void ResnetBasicBlockGradInferMeta(const MetaTensor& x,
   }
 }
 
+void FusedAdalnScaleResidualXpuInferMeta(const MetaTensor& input1,
+                                         const MetaTensor& input2,
+                                         const MetaTensor& tensor1,
+                                         const MetaTensor& tensor2,
+                                         const MetaTensor& tensor3,
+                                         const MetaTensor& ln_weight,
+                                         const MetaTensor& ln_bias,
+                                         int begin_norm_axis,
+                                         float epsilon,
+                                         float scale_op_weight,
+                                         float scale_op_bias,
+                                         bool bias_after_scale,
+                                         MetaTensor* out) {
+  out->set_dims(input1.dims());
+  out->set_dtype(input1.dtype());
+  out->set_layout(input1.layout());
+}
 }  // namespace phi
