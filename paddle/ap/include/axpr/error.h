@@ -30,7 +30,4 @@ using adt::errors::TypeError;
 using adt::errors::ValueError;
 using adt::errors::ZeroDivisionError;
 
-template <typename T>
-using Result = adt::Result<T>;
-
 }  // namespace ap::axpr
