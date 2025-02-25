@@ -59,23 +59,23 @@ function run_sot_test() {
             python_output=$($PYTHON_WITH_SPECIFY_VERSION $file 2>&1)
 
             if [ $? -ne 0 ]; then
-                echo "run $file failed"
+                echo -e "       ${RED}run $file failed"
                 failed_tests+=("$file")
-                echo -e "$python_output"
+                echo "${python_output}"
             fi
         fi
     done
 
     if [ ${#failed_tests[@]} -ne 0 ]; then
-        echo "failed tests file:"
+        echo -e "       ${RED}failed tests file:${NONE}"
         for failed_test in "${failed_tests[@]}"; do
-            echo "$failed_test"
+            echo -e "             ${RED}${failed_test}${NONE}"
         done
         exit 1
     fi
 }
 
-source paddle/scripts/paddle_build/utils.sh
+source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/utils.sh
 init
 
 run_sot_test $1
