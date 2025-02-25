@@ -32,7 +32,6 @@ import paddle
 from paddle.utils import flatten, map_structure
 
 from .envs import (
-    ENV_CLEAN_CODE,
     ENV_COST_MODEL,
     ENV_SOT_LOG_LEVEL,
     ENV_STRICT_MODE,
@@ -317,10 +316,6 @@ def meta_str(shape, dtype, stop_gradient):
 
 def is_strict_mode():
     return ENV_STRICT_MODE.get()
-
-
-def is_clean_code() -> bool:
-    return ENV_CLEAN_CODE.get()
 
 
 def list_find_index_by_id(li: list[Any], item: Any) -> int:

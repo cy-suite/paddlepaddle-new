@@ -14,7 +14,6 @@
 
 from .call_ast_utils import get_static_function, try_ast_func  # noqa: F401
 from .envs import (  # noqa: F401
-    ENV_CLEAN_CODE,
     ENV_COST_MODEL,
     ENV_MIN_GRAPH_SIZE,
     ENV_SOT_ALLOW_DYNAMIC_SHAPE,
@@ -77,7 +76,6 @@ from .utils import (  # noqa: F401
     in_paddle_module,
     is_break_graph_api,
     is_builtin_fn,
-    is_clean_code,
     is_comprehensive_name,
     is_paddle_api,
     is_strict_mode,
