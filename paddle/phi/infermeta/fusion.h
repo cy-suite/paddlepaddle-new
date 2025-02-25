@@ -1459,4 +1459,17 @@ void ResnetBasicBlockGradInferMeta(const MetaTensor& x,
                                    MetaTensor* bias3_grad,
                                    MetaConfig config = MetaConfig());
 
+void FusedAdalnScaleResidualInferMeta(const MetaTensor& input1,
+                                      const MetaTensor& input2,
+                                      const MetaTensor& unsqueeze1,
+                                      const MetaTensor& unsqueeze2,
+                                      const MetaTensor& unsqueeze3,
+                                      const MetaTensor& ln_weight,
+                                      const MetaTensor& ln_bias,
+                                      const int begin_norm_axis,
+                                      const float epsilon,
+                                      const float scale_op_weight,
+                                      const float scale_op_bias,
+                                      const bool bias_after_scale,
+                                      MetaTensor* out);
 }  // namespace phi
