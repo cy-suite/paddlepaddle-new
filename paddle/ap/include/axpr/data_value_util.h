@@ -70,8 +70,8 @@ struct ArithmeticBinaryOpHelper<ArithmeticMod> {
     } else {
       return adt::errors::TypeError{
           std::string() + "'%' only support intergral type, but receive: '" +
-          CppDataType<LhsT>{}.Name() + "' and '" + CppDataType<RhsT>{}.Name() +
-          "'."};
+          CppDataType<decltype(lhs)>{}.Name() + "' and '" +
+          CppDataType<decltype(rhs)>{}.Name() + "'."};
     }
   }
 };

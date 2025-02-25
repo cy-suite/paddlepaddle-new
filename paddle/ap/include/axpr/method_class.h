@@ -14,7 +14,9 @@
 
 #pragma once
 
+#ifndef _WIN32
 #include <experimental/type_traits>
+#endif
 #include <optional>
 #include <sstream>
 #include <string>
@@ -80,6 +82,20 @@ struct MethodClassImpl;
 
 namespace detail {
 
+#ifndef _WIN32
+template <template <typename...> class Op, typename... Args>
+constexpr bool is_detected_v = std::experimental::is_detected_v<Op, Args...>;
+#else
+template <template <typename...> class Op, typename, typename... Args>
+struct detector : std::false_type {};
+
+template <template <typename...> class Op, typename... Args>
+struct detector<Op, std::void_t<Op<Args...>>, Args...> : std::true_type {};
+
+template <template <typename...> class Op, typename... Args>
+constexpr bool is_detected_v = detector<Op, void, Args...>::value;
+#endif
+
 template <typename ValueT, typename T, typename BuiltinSymbol>
 struct BuiltinMethodHelperImpl;
 
@@ -102,12 +118,12 @@ struct BuiltinMethodHelperImpl;
                                                                              \
     static constexpr bool HasUnaryMethod() {                                 \
       return builtin_symbol::symbol_name::num_operands == 1 &&               \
-             std::experimental::is_detected_v<UnaryMethodRetT, T>;           \
+             is_detected_v<UnaryMethodRetT, T>;                              \
     }                                                                        \
                                                                              \
     static constexpr bool HasHighOrderUnaryMethod() {                        \
       return builtin_symbol::symbol_name::num_operands == 1 &&               \
-             std::experimental::is_detected_v<HighOrderUnaryMethodRetT, T>;  \
+             is_detected_v<HighOrderUnaryMethodRetT, T>;                     \
     }                                                                        \
                                                                              \
     static adt::Result<ValueT> UnaryCall(const T& obj) {                     \
@@ -143,12 +159,12 @@ struct BuiltinMethodHelperImpl;
                                                                              \
     static constexpr bool HasBinaryMethod() {                                \
       return builtin_symbol::symbol_name::num_operands == 2 &&               \
-             std::experimental::is_detected_v<BinaryMethodRetT, T>;          \
+             is_detected_v<BinaryMethodRetT, T>;                             \
     }                                                                        \
                                                                              \
     static constexpr bool HasHighOrderBinaryMethod() {                       \
       return builtin_symbol::symbol_name::num_operands == 2 &&               \
-             std::experimental::is_detected_v<HighOrderBinaryMethodRetT, T>; \
+             is_detected_v<HighOrderBinaryMethodRetT, T>;                    \
     }                                                                        \
                                                                              \
     static adt::Result<ValueT> BinaryCall(const T& obj, const ValueT& arg) { \
@@ -241,7 +257,7 @@ struct BuiltinMethodHelper {
                BuiltinSymbol>());
 
   static constexpr bool HasDefaultUnaryMethod() {
-    return std::experimental::is_detected_v<UnaryMethodRetT, T>;
+    return is_detected_v<UnaryMethodRetT, T>;
   }
 
   static BuiltinBinaryFunc<ValueT> GetBuiltinBinaryFunc() {
@@ -266,7 +282,7 @@ struct BuiltinMethodHelper {
                BuiltinSymbol>());
 
   static constexpr bool HasDefaultBinaryMethod() {
-    return std::experimental::is_detected_v<BinaryMethodRetT, T>;
+    return is_detected_v<BinaryMethodRetT, T>;
   }
 
   template <adt::Result<ValueT> (*UnaryFunc)(const T&)>
@@ -453,7 +469,7 @@ using __AltT = decltype(std::declval<ValueT&>().template Get<T>());
 
 template <typename T, typename ValueT>
 adt::Result<T> TryGetAlternative(const ValueT& val) {
-  if constexpr (std::experimental::is_detected_v<__AltT, ValueT, T>) {
+  if constexpr (detail::is_detected_v<__AltT, ValueT, T>) {
     return val.template TryGet<T>();
   } else {
     return detail::IndirectAlternative<ValueT, T>::TryGet(val);

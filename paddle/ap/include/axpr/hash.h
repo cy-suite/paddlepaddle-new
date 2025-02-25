@@ -14,7 +14,6 @@
 
 #pragma once
 
-#include <experimental/type_traits>
 #include "paddle/ap/include/adt/adt.h"
 #include "paddle/ap/include/axpr/method_class.h"
 
