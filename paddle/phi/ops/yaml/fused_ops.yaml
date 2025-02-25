@@ -864,6 +864,16 @@
   support_dygraph_mode : true
   interfaces : paddle::dialect::LayoutTransformationInterface
 
+- op: fused_adaLN_scale_residual_xpu_kernel
+  args: (Tensor x1, Tensor x2, Tensor unsqueezed1, Tensor unsqueezed2, Tensor unsqueezed3, Tensor ln_weight, Tensor ln_bias , int begin_norm_axis = 2, float epsilon = 1e-5f, float scale_op_weight = 1.0f, float scale_op_bias = 1.0f, bool bias_after_scale = true)
+  output: Tensor (out)
+  infer_meta:
+    func: FusedAdalnScaleResidualInferMeta
+  kernel:
+    func: fused_adaLN_scale_residual_xpu_kernel
+    data_type : x1
+  optional : ln_weight, ln_bias
+
 - op: fused_embedding_fc_lstm
   args: (Tensor ids, Tensor embeddings, Tensor weight_h, Tensor bias, Tensor h0, Tensor
     c0, bool use_peepholes = true, bool is_reverse = false, bool use_seq = true, str
