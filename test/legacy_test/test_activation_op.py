@@ -4569,12 +4569,6 @@ class TestPow(TestActivation):
 
         np.random.seed(1024)
         x = np.random.uniform(1, 2, self.shape).astype(self.dtype)
-        if self.dtype == np.complex64 or self.dtype == np.complex128:
-            x = (
-                np.random.uniform(0.1, 1, self.shape)
-                + 1j * np.random.uniform(0.1, 1, self.shape)
-            ).astype(self.dtype)
-            x = np.array([3 + 5j]).astype(np.complex64)
         out = np.power(x, 3)
 
         self.inputs = {'X': OpTest.np_dtype_to_base_dtype(x)}
@@ -4588,7 +4582,7 @@ class TestPow(TestActivation):
     def test_check_output(self):
         self.check_output(
             check_prim=True,
-            check_prim_pir=False,
+            check_prim_pir=True,
             check_pir=True,
             check_pir_onednn=self.check_pir_onednn,
             check_symbol_infer=False,
@@ -4612,51 +4606,39 @@ class TestPow_ZeroDim(TestPow):
         self.shape = []
 
 
-class TestPow_Complex64(TestPow):
-    def init_dtype(self):
-        self.dtype = np.complex64
-
-    def test_check_grad(self):
-        self.check_grad(['X'], 'Out', check_pir=True)
-
-    def test_check_output(self):
-        self.check_output(check_pir=True)
-
-
-class TestPow_Complex128(TestPow_Complex64):
-    def init_dtype(self):
-        self.dtype = np.complex128
-
-
-class TestPow_API(unittest.TestCase):
+class TestPow_API(TestActivation):
     def test_api(self):
         with static_guard():
-            with paddle.static.program_guard(paddle.static.Program()):
-                input = np.random.uniform(1, 2, [11, 17]).astype("float32")
-                x = paddle.static.data(name="x", shape=[5, 7], dtype="float32")
+            input = np.random.uniform(1, 2, [11, 17]).astype("float32")
+            x = paddle.static.data(name="x", shape=[11, 17], dtype="float32")
+            res = paddle.static.data(
+                name="res", shape=[11, 17], dtype="float32"
+            )
 
-                factor_1 = 2.0
-                factor_2 = paddle.tensor.fill_constant([1], "float32", 3.0)
-                out_1 = paddle.pow(x, factor_1)
-                out_2 = paddle.pow(x, factor_2)
-                out_3 = paddle.pow(x, factor_2)
+            factor_1 = 2.0
+            factor_2 = paddle.tensor.fill_constant([1], "float32", 3.0)
+            out_1 = paddle.pow(x, factor_1)
+            out_2 = paddle.pow(x, factor_2)
+            out_4 = paddle.pow(x, factor_1, name='pow_res')
+            out_6 = paddle.pow(x, factor_2)
+            self.assertEqual(('pow_res' in out_4.name), True)
 
-                exe = base.Executor(place=base.CPUPlace())
-                res_1, res_2, res_3 = exe.run(
-                    base.default_main_program(),
-                    feed={"x": input},
-                    fetch_list=[out_1, out_2, out_3],
-                )
+            exe = base.Executor(place=base.CPUPlace())
+            res_1, res_2, res, res_6 = exe.run(
+                base.default_main_program(),
+                feed={"x": input},
+                fetch_list=[out_1, out_2, res, out_6],
+            )
 
-                np.testing.assert_allclose(
-                    res_1, np.power(input, 2), rtol=1e-5, atol=1e-8
-                )
-                np.testing.assert_allclose(
-                    res_2, np.power(input, 3), rtol=1e-5, atol=1e-8
-                )
-                np.testing.assert_allclose(
-                    res_3, np.power(input, 3), rtol=1e-5, atol=1e-8
-                )
+            np.testing.assert_allclose(
+                res_1, np.power(input, 2), rtol=1e-5, atol=1e-8
+            )
+            np.testing.assert_allclose(
+                res_2, np.power(input, 3), rtol=1e-5, atol=1e-8
+            )
+            np.testing.assert_allclose(
+                res_6, np.power(input, 3), rtol=1e-5, atol=1e-8
+            )
 
 
 def ref_stanh(x, scale_a=0.67, scale_b=1.7159):

@@ -92,5 +92,41 @@ class TestPowOpInt(TestPowOp):
         pass
 
 
+class TestPowOp_Complex64(TestPowOp):
+    def custom_setting(self):
+        self.inputs = {
+            'X': (
+                np.random.uniform(0.1, 1, [1, 3, 6])
+                + 1j * np.random.uniform(0.1, 1, [1, 3, 6])
+            ).astype(np.complex64),
+        }
+        self.attrs = {"factor": 2.0}
+
+    def test_check_grad(self):
+        self.check_grad(
+            ['X'],
+            'Out',
+            check_pir=True,
+        )
+
+
+class TestPowOp_Complex128(TestPowOp):
+    def custom_setting(self):
+        self.inputs = {
+            'X': (
+                np.random.uniform(0.1, 1, [1, 3, 6])
+                + 1j * np.random.uniform(0.1, 1, [1, 3, 6])
+            ).astype(np.complex128),
+        }
+        self.attrs = {"factor": 2.0}
+
+    def test_check_grad(self):
+        self.check_grad(
+            ['X'],
+            'Out',
+            check_pir=True,
+        )
+
+
 if __name__ == '__main__':
     unittest.main()
