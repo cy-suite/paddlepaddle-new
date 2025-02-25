@@ -41,7 +41,7 @@ cc_library(
   DEPS ${ap_phi_deps})
 
 file(GLOB_RECURSE ap_pir_srcs "src/paddle/pir/*.cc")
-set(ap_pir_deps axpr ap_drr)
+set(ap_pir_deps axpr ap_drr absl)
 cc_library(
   ap_pir
   SRCS ${ap_pir_srcs}
