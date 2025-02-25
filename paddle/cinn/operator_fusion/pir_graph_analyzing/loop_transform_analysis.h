@@ -26,6 +26,14 @@ LoopAxisMapping TrivialSinkLoopAxisMappingMerge(
 LoopAxisMapping ReducePlusTrivialLoopAxisMappingMerge(
     const LoopAxisMapping& upstream, const LoopAxisMapping& downstream);
 
+// Try to find a valid axis transform route with specific direction between
+// upstream and downstream LoopAxisMapping. The following cases are considered
+// invalid:
+// 1. There exists unsupported axis transform in the route.
+// 2. There exists invalid delete axis transform in the route.
+// 3. There exists relationship between reduce axis and non reduce axis.
+// 4. Cannot transform from reduce pattern loop to trivial pattern loop.
+// 5. Cannot transform between reduce patterns with different reduce axis.
 std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
     const LoopAxisMapping& upstream,
     const LoopAxisMapping& downstream,
