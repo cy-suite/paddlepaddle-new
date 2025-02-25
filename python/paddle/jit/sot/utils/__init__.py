@@ -37,12 +37,22 @@ from .envs import (  # noqa: F401
 )
 from .exceptions import (  # noqa: F401
     BreakGraphError,
+    BuiltinFunctionBreak,
+    ConditionalBreak,
+    CustomBreakReason,
     ExportError,
     FallbackError,
     InnerError,
+    UnsupportedAttributeBreak,
+    UnsupportedDynamicShapeBreak,
+    UnsupportedIteratorBreak,
+    UnsupportedOperatorBreak,
+    UnsupportedSliceBreak,
+    UnsupportedTypeBreak,
     inner_error_default_handler,
 )
 from .info_collector import (  # noqa: F401
+    BreakGraphReasonInfo,
     CompileCountInfo,
     InfoCollector,
     NewSymbolHitRateInfo,

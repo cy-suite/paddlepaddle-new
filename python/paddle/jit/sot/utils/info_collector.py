@@ -27,6 +27,10 @@ from .envs import ENV_SOT_COLLECT_INFO
 from .utils import Singleton
 
 if TYPE_CHECKING:
+    from .exceptions import BreakGraphReasonBase
+
+
+if TYPE_CHECKING:
     import types
 
 
@@ -265,3 +269,29 @@ class CompileCountInfo(InfoBase):
             )
         summary = "\n".join(summary_lines)
         return summary
+
+
+class BreakGraphReasonInfo(InfoBase):
+    SHORT_NAME = "breakgraph_reason"
+    TYPE = InfoType.STEP_INFO
+
+    def __init__(self, reason: BreakGraphReasonBase):
+        super().__init__()
+        self.reason = reason
+
+    @classmethod
+    def summary(cls, history: list[Self]) -> str:
+        # return "\n".join([str(info.reason) for info in history])
+        return "\n".join(
+            [
+                info.reason.__class__.__name__ + " : " + str(info.reason)
+                for info in history
+            ]
+        )
+
+    @staticmethod
+    def collect_break_graph_reason(reason: BreakGraphReasonBase):
+        if not InfoCollector().need_collect(BreakGraphReasonInfo):
+            return
+
+        InfoCollector().attach(BreakGraphReasonInfo, reason)

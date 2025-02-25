@@ -39,6 +39,9 @@ from ....utils import (
     ConstTypes,
     FallbackError,
     NameGenerator,
+    UnsupportedAttributeBreak,
+    UnsupportedDynamicShapeBreak,
+    UnsupportedSliceBreak,
     get_tensor_methods,
     log,
     printable,
@@ -412,7 +415,9 @@ class TensorVariable(VariableBase):
     def __len__(self):
         if isinstance(self.meta.shape[0], SymbolicInt):
             raise BreakGraphError(
-                "length of tensor variable with first dimension is dynamic shape causes graph break."
+                UnsupportedDynamicShapeBreak(
+                    "length of tensor variable with first dimension is dynamic shape causes graph break."
+                )
             )
         return self.meta.shape[0]
 
@@ -435,7 +440,9 @@ class TensorVariable(VariableBase):
             return SotTensor(self.id)
 
         raise BreakGraphError(
-            "Called TensorVariable.get_py_value. Should not use Tensor's value in simulating."
+            UnsupportedAttributeBreak(
+                "Called TensorVariable.get_py_value. Should not use Tensor's value in simulating."
+            )
         )
 
     def get_py_type(self):
@@ -585,7 +592,9 @@ class TensorVariable(VariableBase):
         # TODO: maybe break graph.
         if self.meta.is_dynamic_shape():
             raise BreakGraphError(
-                f"Getting size for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
+                UnsupportedDynamicShapeBreak(
+                    f"Getting size for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
+                )
             )
         elements = reduce(operator.mul, self.meta.shape, 1)
         return ConstantVariable(elements, self.graph, DummyTracker([self]))
@@ -597,7 +606,9 @@ class TensorVariable(VariableBase):
             and self.meta.is_dynamic_shape()
         ):
             raise BreakGraphError(
-                f"Getting shape for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
+                UnsupportedDynamicShapeBreak(
+                    f"Getting shape for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
+                )
             )
         from .container import ListVariable
 
@@ -613,7 +624,9 @@ class TensorVariable(VariableBase):
         first_dim = self.meta.shape[0]
         if isinstance(first_dim, SymbolicInt):
             raise BreakGraphError(
-                "Getting len() for a dynamic shape tensor causes graph break."
+                UnsupportedDynamicShapeBreak(
+                    "Getting len() for a dynamic shape tensor causes graph break."
+                )
             )
 
         return ConstantVariable(first_dim, self.graph, DummyTracker([self]))
@@ -658,7 +671,9 @@ class TensorVariable(VariableBase):
         }
         if name in ["name", "place", "type"] and self.meta.is_inner_var():
             raise BreakGraphError(
-                f"{self.meta.name} is a middle tensor. get {name} property."
+                UnsupportedAttributeBreak(
+                    f"{self.meta.name} is a middle tensor. Not support to get {name} property."
+                )
             )
         if name in [
             "dtype",
@@ -705,7 +720,9 @@ class TensorVariable(VariableBase):
         )
 
     def delattr(self, key):
-        raise BreakGraphError("Don't support TensorVariable delattr")
+        raise BreakGraphError(
+            UnsupportedAttributeBreak("Don't support TensorVariable delattr")
+        )
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
@@ -810,7 +827,9 @@ class SymbolicVariable(VariableBase):
 
     def get_py_value(self, allow_tensor: bool = False) -> bool | int | float:
         if ENV_SOT_BREAK_GRAPH_ON_GET_SYMBOLIC_VALUE.get():
-            raise BreakGraphError("get_py_value from SymbolicVariable")
+            raise BreakGraphError(
+                UnsupportedAttributeBreak("get_py_value from SymbolicVariable")
+            )
         self.need_guard_value = True
         log(
             3,
@@ -1112,10 +1131,14 @@ class SliceVariable(VariableBase):
             super()._reconstruct(codegen)
 
     def setattr(self, key, val):
-        raise BreakGraphError("Don't support SliceVariable setattr")
+        raise BreakGraphError(
+            UnsupportedSliceBreak("Don't support SliceVariable setattr")
+        )
 
     def delattr(self, key):
-        raise BreakGraphError("Don't support SliceVariable delattr")
+        raise BreakGraphError(
+            UnsupportedSliceBreak("Don't support SliceVariable delattr")
+        )
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):

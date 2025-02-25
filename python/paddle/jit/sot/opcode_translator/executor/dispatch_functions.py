@@ -14,11 +14,11 @@
 
 # This file stores the customized function that will be called by the dispatch mechanism.
 
-from ...utils import BreakGraphError, FallbackError
+from ...utils import BreakGraphError, CustomBreakReason, FallbackError
 
 
 def raise_break_graph_fn(*args, **kwarg):
-    raise BreakGraphError("raise by raise_break_graph_fn.")
+    raise BreakGraphError(CustomBreakReason("raise by raise_break_graph_fn."))
 
 
 def raise_not_implement_fn(*args, **kwarg):

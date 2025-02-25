@@ -22,7 +22,12 @@ from typing import TYPE_CHECKING
 
 import paddle
 
-from ...utils import BreakGraphError, FallbackError
+from ...utils import (
+    BreakGraphError,
+    FallbackError,
+    UnsupportedIteratorBreak,
+    UnsupportedOperatorBreak,
+)
 from ...utils.magic_methods import (
     BINARY_OPS,
     UNARY_OPS,
@@ -117,7 +122,11 @@ Dispatcher.register(
 Dispatcher.register(
     operator_in,
     ("VariableBase", "IterVariable"),
-    raise_err_handle(BreakGraphError("Codes like: `variable in iterator`.")),
+    raise_err_handle(
+        BreakGraphError(
+            UnsupportedIteratorBreak("Codes like: `variable in iterator`.")
+        )
+    ),
 )
 
 Dispatcher.register(
@@ -150,7 +159,9 @@ Dispatcher.register(
     operator_not_in,
     ("VariableBase", "IterVariable"),
     raise_err_handle(
-        BreakGraphError("Codes like: `variable not in iterator`.")
+        BreakGraphError(
+            UnsupportedIteratorBreak("Codes like: `variable not in iterator`.")
+        )
     ),
 )
 
@@ -1084,7 +1095,9 @@ for binary_fn in BINARY_OPS:
                 ):
                     if var.get_py_type() is str:
                         raise BreakGraphError(
-                            "(ConstantVariable % TensorVariable) raise a callback. "
+                            UnsupportedOperatorBreak(
+                                "ConstantVariable", "TensorVariable", "__rmod__"
+                            )
                         )
                     raise FallbackError("Tensor doesn't support __rmod__")
 
