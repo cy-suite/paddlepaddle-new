@@ -223,7 +223,7 @@ class TensorRTConfig:
             >>> input.input_range=(1,10)
 
             >>> trt_config = TensorRTConfig(inputs=[input])
-            >>> trt_config.disable_ops = "pd_op.dropout"
+            >>> trt_config.disable_ops = ["pd_op.dropout"]
             >>> trt_config.precision_mode = PrecisionMode.FP16
             >>> trt_config.ops_run_float = "pd_op.conv2d"
             >>> trt_config.workspace_size = 2 << 30
@@ -272,6 +272,7 @@ def convert_to_trt(program, trt_config, scope):
             program,
             disable_passes=trt_config.disable_passes,
             scope=scope,
+            precision_mode=trt_config.precision_mode,
         )
 
         # run warmup for collecting shape
