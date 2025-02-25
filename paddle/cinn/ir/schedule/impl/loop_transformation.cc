@@ -159,37 +159,33 @@ std::vector<Expr> DyScheduleImpl::Split(const Expr& loop,
           << ") at loop:\n"
           << loop;
 
-  bool is_positive = true;
-  int num_minus1 = 0;
+  common::cas_intervals_t var_intervals = {};
+  cinn::common::SymbolicExprAnalyzer analyzer(var_intervals);
+
   std::vector<Expr> process_factors;
-  Expr prod_size(-1);
-  int idx_neg1 = 1;
-  for (auto factor : factors) prod_size = prod_size * Expr(factor);
-  std::for_each(factors.begin(), factors.end(), [&](int factor) {
+  int num_neg1 = 0;
+  Expr explicit_product(1);
+  
+  for (int factor : factors) {
     if (factor == -1) {
-      process_factors.push_back(optim::ArithSimplify(tot_extent / prod_size));
-      idx_neg1 = -idx_neg1;
+      num_neg1++;
+      process_factors.push_back(Expr()); 
     } else {
+      PADDLE_ENFORCE_GE(factor, 1, ::common::errors::InvalidArgument(
+          "[IRScheduleError] An error occurred in the schedule primitive "
+          "<Split>.\n"
+          "[Error info] The params in factors of Split on dynamic shape should "
+          "contains at "
+          "most one '-1' and the rest of them should be positive!\n"
+          "[Expr info] The Expr of current schedule is: %s.",
+          module_expr_.GetExprs()));
+      explicit_product = explicit_product * Expr(factor);
       process_factors.push_back(Expr(factor));
-      if (idx_neg1 > 0) idx_neg1++;
     }
-    if (factor < 1 && factor != -1) is_positive = false;
-    if (factor == -1) ++num_minus1;
-  });
-
-  idx_neg1 = (-idx_neg1) - 1;
-
-  bool exact_split = (tot_extent == optim::ArithSimplify(process_factors[0] *
-                                                         process_factors[1]));
-  if (!exact_split) {
-    process_factors[idx_neg1] =
-        optim::ArithSimplify(process_factors[idx_neg1] + Expr(1));
   }
 
-  PADDLE_ENFORCE_LE(
-      num_minus1,
-      1,
-      ::common::errors::InvalidArgument(
+  if (num_neg1 > 0) {
+    PADDLE_ENFORCE_EQ(num_neg1, 1, ::common::errors::InvalidArgument(
           "[IRScheduleError] An error occurred in the schedule primitive "
           "<Split>.\n"
           "[Error info] The params in factors of Split on dynamic shape should "
@@ -197,17 +193,17 @@ std::vector<Expr> DyScheduleImpl::Split(const Expr& loop,
           "most one '-1' and the rest of them should be positive!\n"
           "[Expr info] The Expr of current schedule is: %s.",
           module_expr_.GetExprs()));
-  PADDLE_ENFORCE_EQ(
-      is_positive,
-      true,
-      ::common::errors::InvalidArgument(
-          "[IRScheduleError] An error occurred in the schedule primitive "
-          "<Split>.\n"
-          "[Error info] The params in factors of Split on dynamic shape should "
-          "contains at "
-          "most one '-1' and the rest of them should be positive!\n"
-          "[Expr info] The Expr of current schedule is: %s.",
-          module_expr_.GetExprs()));
+    const int neg1_pos = std::find(factors.begin(), factors.end(), -1) - factors.begin();
+    process_factors[neg1_pos] = optim::ArithSimplify((tot_extent + explicit_product - 1) / explicit_product);
+  }
+
+
+  const Expr total_iter = std::accumulate(
+      process_factors.begin(), process_factors.end(), Expr(1), 
+      [](Expr a, Expr b) { return a * b; });
+  
+  bool need_bound_check = !analyzer.ProveLE(total_iter, tot_extent).value_or(false);
+  
 
   std::vector<Var> new_loop_vars;
   Expr substitute_value(0);
@@ -217,16 +213,15 @@ std::vector<Expr> DyScheduleImpl::Split(const Expr& loop,
     new_loop_vars.push_back(temp_var);
   }
   substitute_value = optim::ArithSimplify(substitute_value);
+
+
   Expr new_node = ir::ir_utils::IRCopy(for_node->body);
   ReplaceExpr(&new_node, {for_node->loop_var}, {substitute_value});
-  std::vector<Expr> splited_loops;
-  splited_loops.resize(process_factors.size());
-
-  if (!exact_split) {
-    new_node =
-        IfThenElse::Make(LT::Make(substitute_value, tot_extent), new_node);
+  if (need_bound_check) {
+    new_node = IfThenElse::Make(LT::Make(substitute_value, tot_extent), new_node);
   }
 
+  std::vector<Expr> splited_loops;
   for (int i = process_factors.size() - 1; i >= 0; i--) {
     if (!new_node.As<ir::Block>()) new_node = Block::Make({new_node});
     new_node = For::Make(new_loop_vars[i],
@@ -235,7 +230,7 @@ std::vector<Expr> DyScheduleImpl::Split(const Expr& loop,
                          for_node->for_type(),
                          for_node->device_api,
                          new_node);
-    splited_loops[i] = new_node;
+    splited_loops.insert(splited_loops.begin(), new_node);
   }
 
   SimplifyBindingsInStaticShape(this, loop, "split", &new_node);
@@ -245,6 +240,7 @@ std::vector<Expr> DyScheduleImpl::Split(const Expr& loop,
   return splited_loops;
   CINN_IR_SCHEDULE_END(this->err_msg_level_);
 }
+
 
 // TODO(@LiuYang): now -1 can't exist in factors.
 std::vector<Expr> DyScheduleImpl::Split(const Expr& loop,
