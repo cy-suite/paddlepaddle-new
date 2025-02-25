@@ -30,19 +30,18 @@ namespace {
 fuse malmul + act to fc_xpu
 For example:
 graph:
-
-                  x   w   b           in1
-                  |   |   |           |  axis1
-                  ---------           |  /
-                      |           unsqueeze1
+                  x   w   b         scale_in
+                  |   |   |           |
+                  ---------           |
+                      |               |
                       |               |  factor
                       |               |  /
                     layer_norm      scale
                       |               |
-                      |               |               in2
-                      |               |               |  axis2
-                      |               |               | /
-                      -----------------            unsqueeze2
+                      |               |
+                      |               |
+                      |               |
+                      -----------------             add_in
                              |                         |
                              |                         |
                           multiply                     |
@@ -54,9 +53,9 @@ graph:
                                         output
 ------------------------------------------------------
 After the pass is applied:
-               x   w  b  in1  in2
-               |   |  |   |    |
-               -----------------
+               x   w  b  scale_in  add_in
+               |   |  |   |         |
+               ----------------------
                       |
             adaptive_layernorm_xpu
                       |
@@ -79,12 +78,6 @@ class AdaptiveLayernormPattern : public paddle::drr::DrrPatternBase {
                {{"epsilon", pat.Attr("epsilon")},
                 {"begin_norm_axis", pat.Attr("begin_norm_axis")}});
 
-    const auto &full_int_array1 =
-        pat.Op(paddle::dialect::FullIntArrayOp::name(),
-               {{"value", pat.Attr("unsqueeze_1_axis")}});
-
-    const auto &unsqueeze1 = pat.Op(paddle::dialect::UnsqueezeOp::name());
-
     const auto &full = pat.Op(paddle::dialect::FullOp::name(),
                               {{"shape", pat.Attr("full_shape")},
                                {"value", pat.Attr("full_value")},
@@ -97,67 +90,35 @@ class AdaptiveLayernormPattern : public paddle::drr::DrrPatternBase {
 
     const auto &multiply = pat.Op(paddle::dialect::MultiplyOp::name());
 
-    const auto &full_int_array2 =
-        pat.Op(paddle::dialect::FullIntArrayOp::name(),
-               {{"value", pat.Attr("unsqueeze_2_axis")}});
-
-    const auto &unsqueeze2 = pat.Op(paddle::dialect::UnsqueezeOp::name());
-
     const auto &add = pat.Op(paddle::dialect::AddOp::name());
 
     layernorm({&pat.Tensor("x"), &pat.Tensor("w"), &pat.Tensor("b")},
               {&pat.Tensor("layer_norm_out"),
                &pat.Tensor("mean_out_0"),
                &pat.Tensor("variance_out_0")});
-    unsqueeze1({&pat.Tensor("unsqueeze_1_in"), &full_int_array1()},
-               {&pat.Tensor("unsqueeze_1_out")});
-    scale({&pat.Tensor("unsqueeze_1_out"), &full()},
-          {&pat.Tensor("scale_out")});
+    scale({&pat.Tensor("scale_in"), &full()}, {&pat.Tensor("scale_out")});
     multiply({&pat.Tensor("layer_norm_out"), &pat.Tensor("scale_out")},
              {&pat.Tensor("multiply_out")});
-    unsqueeze2({&pat.Tensor("unsqueeze_2_in"), &full_int_array2()},
-               {&pat.Tensor("unsqueeze_2_out")});
-    add({&pat.Tensor("multiply_out"), &pat.Tensor("unsqueeze_2_out")},
+    add({&pat.Tensor("multiply_out"), &pat.Tensor("add_in")},
         {&pat.Tensor("output")});
 
     // Constraints
     pat.AddConstraint([&](const paddle::drr::MatchContext &match_ctx) {
       auto x_shape = pir::GetShapeFromValue(match_ctx.Tensor("x"));
-      auto unsqueeze_1_out_shape =
-          pir::GetShapeFromValue(match_ctx.Tensor("unsqueeze_1_out"));
-      auto unsqueeze_2_out_shape =
-          pir::GetShapeFromValue(match_ctx.Tensor("unsqueeze_2_out"));
+      auto scale_in_shape =
+          pir::GetShapeFromValue(match_ctx.Tensor("scale_in"));
+      auto add_in_shape = pir::GetShapeFromValue(match_ctx.Tensor("add_in"));
 
-      if ((x_shape.size() == unsqueeze_1_out_shape.size()) &&
-          (unsqueeze_1_out_shape.size() == unsqueeze_2_out_shape.size())) {
+      if ((x_shape.size() == scale_in_shape.size()) &&
+          (scale_in_shape.size() == add_in_shape.size())) {
         return true;
       }
 
-      return false;
+      return true;
     });
 
     // Result pattern
     paddle::drr::ResultPattern res = pat.ResultPattern();
-
-    const auto &fused_unsqueeze_1_axis = res.ComputeAttr(
-        [](const paddle::drr::MatchContext &match_ctx) -> std::vector<int> {
-          std::vector<int> int_array_value;
-          auto shape = match_ctx.Attr<std::vector<int64_t>>("unsqueeze_1_axis");
-          for (auto i : shape) {
-            int_array_value.emplace_back(static_cast<int>(i));
-          }
-          return int_array_value;
-        });
-
-    const auto &fused_unsqueeze_2_axis = res.ComputeAttr(
-        [](const paddle::drr::MatchContext &match_ctx) -> std::vector<int> {
-          std::vector<int> int_array_value;
-          auto shape = match_ctx.Attr<std::vector<int64_t>>("unsqueeze_2_axis");
-          for (auto i : shape) {
-            int_array_value.emplace_back(static_cast<int>(i));
-          }
-          return int_array_value;
-        });
 
     const auto &fused_factor = res.ComputeAttr(
         [](const paddle::drr::MatchContext &match_ctx) -> float {
@@ -172,16 +133,14 @@ class AdaptiveLayernormPattern : public paddle::drr::DrrPatternBase {
                    {"factor", fused_factor},
                    {"scale_bias", pat.Attr("scale_bias")},
                    {"bias_after_scale", pat.Attr("bias_after_scale")},
-                   {"unsqueeze_1_axis", fused_unsqueeze_1_axis},
-                   {"unsqueeze_2_axis", fused_unsqueeze_2_axis},
                }});
     adaptive_layernorm_xpu(
         {
             &res.Tensor("x"),
             &res.Tensor("w"),
             &res.Tensor("b"),
-            &res.Tensor("unsqueeze_1_in"),
-            &res.Tensor("unsqueeze_2_in"),
+            &res.Tensor("scale_in"),
+            &res.Tensor("add_in"),
         },
         {&res.Tensor("output")});
   }

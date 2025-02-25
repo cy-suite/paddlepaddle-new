@@ -714,8 +714,6 @@ void AdaptiveLayernormXPUInferMeta(const MetaTensor& x,
                                    float factor,
                                    float scale_bias,
                                    bool bias_after_scale,
-                                   const std::vector<int>& unsqueeze_1_axis,
-                                   const std::vector<int>& unsqueeze_2_axis,
                                    MetaTensor* out);
 
 void BNActXPUInferMeta(const MetaTensor& x,
