@@ -105,8 +105,18 @@ class BuiltinFunctionBreak(BreakGraphReasonBase):
         line_number (int): Line number where break occurred
     """
 
-    def __init__(self, fn_name, arg_types, file_path="", line_number=-1):
-        reason_str = f"Not support builtin function: {fn_name} with args: Args({arg_types})"
+    def __init__(
+        self,
+        fn_name=None,
+        arg_types=None,
+        reason_str=None,
+        file_path="",
+        line_number=-1,
+    ):
+
+        if reason_str is not None:
+            reason_str = f"Not support builtin function: {fn_name} with args: Args({arg_types})"
+
         super().__init__(
             reason_str,
             file_path,
