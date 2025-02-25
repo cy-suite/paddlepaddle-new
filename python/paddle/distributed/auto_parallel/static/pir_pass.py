@@ -484,7 +484,7 @@ class RemovePasses:
                             reverse_block_ops[i].erase()
                     skip_idx = dtensor_to_local_idx + 1
                     continue
-                elif op.name() in partition_skip_op_list:
+                elif op.name() in [*partition_skip_op_list, 'builtin.split']:
                     can_delete = True
                     for val in op.results():
                         if not val.use_empty():

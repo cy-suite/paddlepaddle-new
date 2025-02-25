@@ -966,15 +966,16 @@ void BindVjp(pybind11::module *m) {
                     }
                   }
                 }
+                auto input_values =
+                    vjp_res[grad_index][j].defining_op()->operands_source();
+                auto output_values =
+                    vjp_res[grad_index][j].defining_op()->results();
+                paddle::dialect::ProcessMeshAttribute op_mesh;
                 if (!vjp_res[grad_index][j].defining_op()->HasAttribute(
-                        kAttrOpDistAttr)) {
+                        kAttrOpDistAttr) &&
+                    paddle::dialect::AllInputAreDist(input_values) &&
+                    paddle::dialect::AllInputAreDist(output_values)) {
                   auto ctx = pir::IrContext::Instance();
-                  auto input_values =
-                      vjp_res[grad_index][j].defining_op()->operands_source();
-                  auto output_values =
-                      vjp_res[grad_index][j].defining_op()->results();
-                  paddle::dialect::ProcessMeshAttribute op_mesh;
-
                   if (paddle::dialect::HasDistInput(input_values, &op_mesh)) {
                     std::vector<pir::Attribute> dist_operand_attrs,
                         dist_result_attrs;
