@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import sys
 import unittest
 
@@ -194,7 +195,12 @@ class TestLuSolveOpAPI(unittest.TestCase):
             _,
         ) = get_inandout(self.A_shape, self.b_shape, self.trans, self.dtype)
         self.place = []
-        self.place.append(base.CPUPlace())
+        if (
+            os.environ.get('FLAGS_CI_both_cpu_and_gpu', 'False').lower()
+            in ['1', 'true', 'on']
+            or not core.is_compiled_with_cuda()
+        ):
+            self.place.append(base.CPUPlace())
         if core.is_compiled_with_cuda():
             self.place.append(base.CUDAPlace(0))
 
@@ -223,6 +229,7 @@ class TestLuSolveOpAPI(unittest.TestCase):
 
     def test_static(self):
         def run(place):
+            paddle.set_flags({'FLAGS_enable_pir_api': False})
             paddle.enable_static()
             with paddle.static.program_guard(
                 paddle.static.Program(), paddle.static.Program()
@@ -241,7 +248,6 @@ class TestLuSolveOpAPI(unittest.TestCase):
                 lu_solve_x = paddle.linalg.lu_solve(b, lu, pivots, self.trans)
                 exe = base.Executor(place)
                 fetches = exe.run(
-                    paddle.static.default_main_program(),
                     feed={
                         'B': self.b,
                         'Lu': self.LU,
@@ -385,5 +391,4 @@ class TestLSolveError(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    paddle.set_flags({'FLAGS_enable_pir_api': False})
     unittest.main()
