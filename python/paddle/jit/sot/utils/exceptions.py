@@ -80,7 +80,7 @@ class UnsupportedDynamicShapeBreak(BreakGraphReasonBase):
 class ConditionalBreak(BreakGraphReasonBase):
     """Break reason for conditional statement execution."""
 
-    def __init__(self, reason_str, file_path="", line_number=-1):
+    def __init__(self, file_path="", line_number=-1):
         reason_str = "OpcodeInlineExecutor want break graph when simulate `if`."
         super().__init__(
             reason_str,
