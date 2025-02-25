@@ -269,8 +269,8 @@ std::optional<ir::IndexExpr> DivMulAddModDivCase(const ir::IndexExpr& lhs,
         find = true;
         continue;
       }
-      if (CheckPattern(cand, pattern_swap, &map)) {
-        ir::IndexExpr simplied = map.at("f") / map.at("b");
+      if (CheckPattern(cand, pattern_swap, &map_swap)) {
+        ir::IndexExpr simplied = map_swap.at("f") / map_swap.at("b");
         res = res.defined() ? res + simplied : simplied;
         find = true;
         continue;
