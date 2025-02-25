@@ -43,26 +43,22 @@ def has_dynamic_shape(shape):
     return any(s == -1 for s in shape)
 
 
-def append_ones(network, input, name, num_prepend_ones):
+def append_ones(network, input, num_prepend_ones):
     layer = network.add_shuffle(input)
 
     if has_dynamic_shape(input.shape):
         input_shape_layer = network.add_shape(input)
-        input_shape_layer.name = f"{name}_broadcast_orig_shape"
         prepend_shape_layer = network.add_constant(
             (num_prepend_ones,), np.ones((num_prepend_ones,), dtype=np.int32)
         )
-        prepend_shape_layer.name = f"{name}_broadcast_prepend_ones"
         reshape_dim_layer = network.add_concatenation(
             [prepend_shape_layer.get_output(0), input_shape_layer.get_output(0)]
         )
         reshape_dim_layer.axis = 0
-        reshape_dim_layer.name = f"{name}_broadcast_final_shape"
         layer.set_input(1, reshape_dim_layer.get_output(0))
     else:
         layer.reshape_dims = (1,) * num_prepend_ones + tuple(input.shape)
 
-    layer.name = name
     return layer.get_output(0)
 
 
@@ -72,9 +68,9 @@ def broadcast(network, a, b, a_name, b_name, preset_diff=0):
 
     diff = len(a_shape) - len(b_shape) - preset_diff
     if diff > 0:
-        b = append_ones(network, b, f"{b_name}_broadcast", diff)
+        b = append_ones(network, b, diff)
     elif diff < 0:
-        a = append_ones(network, a, f"{a_name}_broadcast", -diff)
+        a = append_ones(network, a, -diff)
 
     return a, b
 
@@ -563,6 +559,74 @@ def convert_conv2d(network, paddle_op, inputs):
 
     layer.dilation_nd = nv_dilations
     support_fp32_mix_precision(paddle_op.name(), layer)
+
+    return layer.get_output(0)
+
+
+def convert_conv3d(network, paddle_op, inputs):
+    input_tensor, filter = inputs
+    filter_shape = paddle_op.operands()[1].source().shape
+
+    n_output = filter_shape[0]
+    n_input = filter_shape[1]
+    filter_d = filter_shape[2]
+    filter_h = filter_shape[3]
+    filter_w = filter_shape[4]
+
+    groups = paddle_op.attrs().get("groups", 1)
+    dilations = paddle_op.attrs().get("dilations", [1, 1, 1])
+    strides = paddle_op.attrs().get("strides", [1, 1, 1])
+    paddings = paddle_op.attrs().get("paddings", [0, 0, 0])
+    padding_algorithm = paddle_op.attrs().get("padding_algorithm", "EXPLICIT")
+    # for conv3d_transpose
+    output_padding = paddle_op.attrs().get("output_padding", [])
+
+    nv_ksize = trt.Dims3(filter_d, filter_h, filter_w)
+    nv_dilations = trt.Dims3(dilations[0], dilations[1], dilations[2])
+    nv_strides = trt.Dims3(strides[0], strides[1], strides[2])
+    nv_pre_paddings = trt.Dims3(paddings[0], paddings[1], paddings[2])
+
+    if paddle_op.name() == "pd_op.conv3d":
+        layer = network.add_convolution_nd(
+            input=input_tensor,
+            num_output_maps=n_output,
+            kernel_shape=nv_ksize,
+            kernel=filter,
+            bias=None,
+        )
+    elif paddle_op.name() == "pd_op.conv3d_transpose":
+        layer = network.add_deconvolution_nd(
+            input=input_tensor,
+            num_output_maps=n_input * groups,
+            kernel_shape=nv_ksize,
+            kernel=filter,
+            bias=None,
+        )
+    layer.stride_nd = nv_strides
+    layer.pre_padding = nv_pre_paddings
+
+    nv_post_paddings = trt.Dims3(paddings[0], paddings[1], paddings[2])
+    if output_padding:
+        nv_post_paddings[0] -= output_padding[0]
+        nv_post_paddings[1] -= output_padding[1]
+        nv_post_paddings[2] -= output_padding[2]
+
+        if (
+            nv_post_paddings[0] < 0
+            or nv_post_paddings[1] < 0
+            or nv_post_paddings[2] < 0
+        ):
+            raise ValueError(
+                "The value in conv3d_transpose's PostPadding should be >= 0."
+            )
+
+    layer.post_padding = nv_post_paddings
+    layer.num_groups = groups
+
+    if padding_algorithm == "SAME":
+        layer.padding_mode = trt.PaddingMode.SAME_UPPER
+
+    layer.dilation_nd = nv_dilations
 
     return layer.get_output(0)
 

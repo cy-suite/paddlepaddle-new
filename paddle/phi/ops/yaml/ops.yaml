@@ -4555,6 +4555,7 @@
   output : Tensor
   infer_meta :
     func : UnchangedInferMeta
+    spmd_rule : ElementwiseUnaryInferSpmd
   kernel :
     func : sigmoid
   inplace : (x -> out)
@@ -5293,6 +5294,15 @@
   inplace : (x -> out), (prev_loss_scaling -> loss_scaling), (in_good_steps -> out_good_steps), (in_bad_steps -> out_bad_steps)
   interfaces : paddle::dialect::InferSymbolicShapeInterface
   traits : paddle::dialect::ForwardOnlyTrait
+
+- op : variance
+  args : (Tensor x, int64_t[] axis={}, bool keepdim=false)
+  output : Tensor(out)
+  infer_meta :
+    func : ReduceInferMeta
+  kernel :
+    func : variance
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : view_dtype
   args : (Tensor input, DataType dtype)
