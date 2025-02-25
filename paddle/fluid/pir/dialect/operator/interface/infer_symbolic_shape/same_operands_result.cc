@@ -297,28 +297,36 @@ bool SqrtOpInferSymbolicShape(pir::Operation *op,
   const symbol::ShapeOrDataDimExprs &operand_shape_or_data =
       infer_context->GetShapeOrDataForValue(op->operand_source(0));
 
-  auto CheckSqrt = [&](const int checked_dim) -> bool {
-    const int root = static_cast<int>(std::sqrt(checked_dim));
+  auto CheckSqrt = [&](const int64_t checked_dim) -> bool {
+    const int64_t root = static_cast<int64_t>(std::sqrt(checked_dim));
     return ((root * root) == checked_dim);
   };
 
   if (operand_shape_or_data.data().has_value()) {
     std::vector<symbol::DimExpr> result_data;
+    bool has_symbol_dim = false;
     for (auto &dim : operand_shape_or_data.data().value()) {
       if (dim.isa<int64_t>() && CheckSqrt(dim.dyn_cast<int64_t>())) {
         result_data.push_back(
-            static_cast<int>(std::sqrt(dim.dyn_cast<int64_t>())));
+            static_cast<int64_t>(std::sqrt(dim.dyn_cast<int64_t>())));
       } else {
-        result_data.push_back(infer_context->GetNextSymName());
+        has_symbol_dim = true;
+        break;
       }
     }
-    symbol::ShapeOrDataDimExprs result_shape_or_data(
-        symbol::TensorShapeOrDataDimExprs(operand_shape_or_data.shape(),
-                                          result_data));
-    infer_context->SetShapeOrDataForValue(op->result(0), result_shape_or_data);
-    return true;
+
+    if (!has_symbol_dim) {
+      symbol::ShapeOrDataDimExprs result_shape_or_data(
+          symbol::TensorShapeOrDataDimExprs(operand_shape_or_data.shape(),
+                                            result_data));
+      infer_context->SetShapeOrDataForValue(op->result(0),
+                                            result_shape_or_data);
+      return true;
+    }
   }
-  infer_context->SetShapeOrDataForValue(op->result(0), operand_shape_or_data);
+  infer_context->SetShapeOrDataForValue(
+      op->result(0),
+      symbol::TensorShapeOrDataDimExprs(operand_shape_or_data.shape()));
   return true;
 }
 
