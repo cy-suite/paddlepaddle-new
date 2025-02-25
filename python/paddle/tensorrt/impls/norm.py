@@ -53,14 +53,12 @@ def layernorm_converter(network, paddle_op, inputs):
     scale_tensor = append_ones(
         network,
         scale_tensor,
-        f"{scale_tensor.name}_broadcast",
         len(input_a.shape) - len(scale_tensor.shape),
     )
 
     bias_tensor = append_ones(
         network,
         bias_tensor,
-        f"{bias_tensor.name}_broadcast",
         len(input_a.shape) - len(bias_tensor.shape),
     )
 
@@ -174,6 +172,11 @@ def fused_bias_dropout_residual_layer_norm_converter(
     ele_bias_size = ele_bias.size if has_bias else 0
     epsilon = paddle_op.attrs().get("ln_epsilon", 1e-5)
     with_fp16 = int(WithFp16())
+    # TODO: FusedBiasDropoutResidualLayerNorm will support FP16 UT in the future.
+    if with_fp16 == 1:
+        raise NotImplementedError(
+            "FusedBiasDropoutResidualLayerNorm will support FP16 UT in the future."
+        )
     ele_bias_data = (
         ele_bias.numpy().astype('float16') if with_fp16 else ele_bias.numpy()
     )
