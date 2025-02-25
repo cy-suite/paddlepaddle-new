@@ -28,8 +28,6 @@
 #include "paddle/pir/include/pass/pass_manager.h"
 #include "paddle/pir/include/pass/pass_registry.h"
 
-COMMON_DECLARE_bool(pir_apply_shape_optimization_pass);
-
 constexpr int vlog_level = 3;
 
 // TODO(zhangbopd): Some op results inferred by InferSymbolicShape is NOT
@@ -272,16 +270,28 @@ void InferSymExprForOp(Operation* op,
           op, infer_context->GetShapeOrDataForValue(op->result(0)));
     }
   } else {
-    bool is_grad_op = [&]() {
+    const bool is_grad_op = [&]() {
       std::string suffix = "_grad";
       const auto& op_name = op->name();
       if (op_name.size() < suffix.size()) return false;
       return op_name.compare(
                  op_name.size() - suffix.size(), suffix.size(), suffix) == 0;
     }();
+
+    const bool is_special_cached_op = [&]() {
+      const auto& op_name = op->name();
+      std::vector<std::string> special_cached_ops = {
+          "cf.tuple_pop",
+      };
+      return (std::find(special_cached_ops.begin(),
+                        special_cached_ops.end(),
+                        op_name) != special_cached_ops.end());
+    }();
+
     if (!is_grad_op)
       LOG(WARNING) << op->name()
                    << " DOES NOT have InferSymbolicShapeInterface!";
+
     const bool all_outs_static_dims = [&] {
       bool all_static_dims = true;
       for (uint32_t i = 0; i < op->num_results(); ++i) {
@@ -295,7 +305,7 @@ void InferSymExprForOp(Operation* op,
       return all_static_dims;
     }();
 
-    if (all_outs_static_dims) {
+    if (all_outs_static_dims && !is_special_cached_op) {
       for (uint32_t i = 0; i < op->num_results(); ++i) {
         infer_context->SetSymbolForValueByStaticShape(op->result(i));
       }
@@ -465,9 +475,7 @@ void AddShapeOptimizationPass(
     pir::Program& program) {                          // NOLINT
   pir::IrContext* ctx = pir::IrContext::Instance();
   ctx->GetOrRegisterDialect<pir::shape::ShapeDialect>();
-  if (FLAGS_pir_apply_shape_optimization_pass) {
-    pass_manager->AddPass(pir::CreateShapeOptimizationPass());
-  }
+  pass_manager->AddPass(pir::CreateShapeOptimizationPass());
 }
 
 }  // namespace pir::shape

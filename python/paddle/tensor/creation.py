@@ -2440,6 +2440,7 @@ def empty(
                     'int64',
                     'complex64',
                     'complex128',
+                    'float8_e4m3fn',
                 ],
                 'empty',
             )
@@ -2479,6 +2480,7 @@ def empty(
                 'int64',
                 'complex64',
                 'complex128',
+                'float8_e4m3fn',
             ],
             'empty',
         )
@@ -2740,7 +2742,7 @@ def assign(x: TensorLike, output: paddle.Tensor | None = None) -> paddle.Tensor:
                 )
             ):
                 raise TypeError(
-                    "Unsupport paddle.assign([Variable, Variable...]) with non-scalar variable."
+                    "Unsupported paddle.assign([Variable, Variable...]) with non-scalar variable."
                 )
 
             def convert_scalar(x):
