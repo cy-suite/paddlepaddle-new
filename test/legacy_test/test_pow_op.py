@@ -18,6 +18,7 @@ import numpy as np
 from op_test import OpTest
 
 import paddle
+from paddle.framework import core
 
 
 def pow_grad(x, y, dout):
@@ -92,6 +93,10 @@ class TestPowOpInt(TestPowOp):
         pass
 
 
+@unittest.skipIf(
+    core.is_compiled_with_xpu(),
+    "Skip XPU for complex dtype is not fully supported",
+)
 class TestPowOp_Complex64(TestPowOp):
     def custom_setting(self):
         self.inputs = {
@@ -110,6 +115,10 @@ class TestPowOp_Complex64(TestPowOp):
         )
 
 
+@unittest.skipIf(
+    core.is_compiled_with_xpu(),
+    "Skip XPU for complex dtype is not fully supported",
+)
 class TestPowOp_Complex128(TestPowOp):
     def custom_setting(self):
         self.inputs = {
