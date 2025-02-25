@@ -17,6 +17,7 @@
 # BUILD_CONST_KEY_MAP (new)
 
 import unittest
+from functools import reduce
 
 from test_case_base import TestCaseBase, test_with_faster_guard
 
@@ -186,6 +187,17 @@ def dict_keyword_init():
     return d["x"] + d["y"]
 
 
+@check_no_breakgraph
+def dict_reduce():
+    dicts = [{"a": 1}, {"b": 2}, {"a": 3, "c": 4}]
+    merged = reduce(lambda acc, d: {**acc, **d}, dicts, {})
+
+    data = {"x": 10, "y": 20}, {"x": 5, "y": 15}
+    sum_values = reduce(lambda acc, d: {k: acc[k] + d[k] for k in acc}, data)
+
+    return merged["a"] + sum_values["x"]
+
+
 class TestBuildDict(TestCaseBase):
     def test_build_map(self):
         self.assert_results(build_map, 1, paddle.to_tensor(2))
@@ -268,6 +280,9 @@ class TestDictMethods(TestCaseBase):
 
     def test_dict_keyword_init(self):
         self.assert_results(dict_keyword_init)
+
+    def test_dict_reduce(self):
+        self.assert_results(dict_reduce)
 
 
 if __name__ == "__main__":

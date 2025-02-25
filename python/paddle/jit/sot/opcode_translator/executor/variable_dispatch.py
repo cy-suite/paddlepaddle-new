@@ -41,6 +41,7 @@ from .dispatcher import Dispatcher, optional
 from .tracker import ConstTracker, DanglingTracker, DummyTracker
 from .variables import (
     BuiltinVariable,
+    CallableVariable,
     ConstantVariable,
     ContainerVariable,
     DictVariable,
@@ -1280,6 +1281,24 @@ def dispatch_sum(
         elements,
         start,
     )
+    return result
+
+
+@Dispatcher.register_decorator(reduce)
+def dispatch_reduce(
+    func: CallableVariable,
+    iterable: ContainerVariable | TensorVariable,
+    initializer: VariableBase = None,
+):
+    iterator = iter(iterable)
+    if initializer is None:
+        try:
+            initializer = next(iterator)
+        except StopIteration:
+            raise TypeError("reduce() of empty sequence with no initial value")
+    result = initializer
+    for element in iterator:
+        result = func(result, element)
     return result
 
 

@@ -19,6 +19,7 @@
 from __future__ import annotations
 
 import unittest
+from functools import reduce
 
 from test_case_base import TestCaseBase
 
@@ -90,6 +91,15 @@ def tuple_inplace_add():
     return l0, l1
 
 
+@check_no_breakgraph
+def tuple_reduce():
+    l = (2, 3, 4)
+    product = reduce(lambda x, y: x * y, l)
+    l = (5, 6, 7)
+    sum = reduce(lambda x, y: x + y, l, 3)
+    return product * sum
+
+
 class TestBuildTuple(TestCaseBase):
     def test_build_tuple(self):
         self.assert_results(build_tuple, 1, paddle.to_tensor(2))
@@ -121,6 +131,9 @@ class TestTupleMethods(TestCaseBase):
 
     def test_tuple_inplace_add(self):
         self.assert_results(tuple_inplace_add)
+
+    def test_tuple_reduce(self):
+        self.assert_results(tuple_reduce)
 
 
 if __name__ == "__main__":

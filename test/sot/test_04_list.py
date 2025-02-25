@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import unittest
+from functools import reduce
 
 from test_case_base import TestCaseBase, test_with_faster_guard
 
@@ -259,6 +260,14 @@ def list_extend_dict():
     return l1
 
 
+@check_no_breakgraph
+def list_reduce():
+    l = [1, 2, 3, 4]
+    ans1 = reduce(lambda x, y: x + y, l)
+    ans2 = reduce(lambda x, y: x * y, l, 1)
+    return ans1 + ans2
+
+
 class TestListBasic(TestCaseBase):
     def test_list_basic(self):
         self.assert_results(list_getitem_int, 1, paddle.to_tensor(2))
@@ -374,6 +383,9 @@ class TestListMethods(TestCaseBase):
 
     def test_list_extend_dict(self):
         self.assert_results(list_extend_dict)
+
+    def test_list_reduce(self):
+        self.assert_results(list_reduce)
 
 
 if __name__ == "__main__":
