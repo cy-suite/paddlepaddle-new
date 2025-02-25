@@ -18,7 +18,7 @@ defaults:
 jobs:
   build-and-test:
     runs-on:
-      group: GZ_BD-CPU
+      group: py3-cmake
 
     steps:
     - name: Check docker image  and run container
@@ -144,9 +144,9 @@ jobs:
         python3.9 ${{ env.bos_file }} ${{ env.paddle_whl }} paddle-github-action/PR/cpu_whl/${{ env.PR_ID }}/${{ env.COMMIT_ID }}
         '
 
-    - name: Terminate and delete the container
-      if: always()
-      run: |
-        docker exec -t ${container_name} /bin/bash -c 'rm -rf * .[^.]*'
-        docker stop ${container_name}
-        docker rm ${container_name}
+    # - name: Terminate and delete the container
+    #   if: always()
+    #   run: |
+    #     docker exec -t ${container_name} /bin/bash -c 'rm -rf * .[^.]*'
+    #     docker stop ${container_name}
+    #     docker rm ${container_name}
