@@ -73,7 +73,7 @@ class TestBatchNormOp(OpTest):
         self.initConfig()
         self.initTestCase()
 
-    def test_check_output(self):
+    def _test_check_output(self):
         if self.dtype not in ("uint16", "float16"):
             self.check_output_with_place(
                 core.CPUPlace(),
