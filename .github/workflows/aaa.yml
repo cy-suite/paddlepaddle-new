@@ -90,7 +90,7 @@ jobs:
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
-      if: ${{ env.determine_excode == true }}
+      if: ${{ env.determine_excode == 'true' }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         echo ${{ env.determine_excode }}
@@ -101,7 +101,7 @@ jobs:
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
-      if: ${{ env.determine_excode == false }}
+      if: ${{ env.determine_excode == 'false' }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         echo ${{ env.determine_excode }}
