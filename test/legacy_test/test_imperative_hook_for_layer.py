@@ -235,7 +235,6 @@ class SimpleNetWithKWArgs(paddle.nn.Layer):
     ):
         super().__init__()
         self.fc1 = paddle.nn.Linear(2, 2)
-        self.register_forward_pre_hook(foward_pre_hook_with_kwargs, with_kwargs=True)
 
     def forward(self, x, y):
         z = x + y
@@ -245,6 +244,8 @@ class SimpleNetWithKWArgs(paddle.nn.Layer):
 class TestHookWithKWArgs(unittest.TestCase):
     def test_kwargs_hook(self):
         net = SimpleNetWithKWArgs()
+        remove_hander = net.register_forward_pre_hook(foward_pre_hook_with_kwargs, with_kwargs=True)
+
         x = paddle.randn((2, 3))
         y = paddle.randn((2, 3))
 
@@ -254,6 +255,12 @@ class TestHookWithKWArgs(unittest.TestCase):
             (x * 2 + y).numpy()
         )
 
+        remove_hander.remove()
+        out = net(x=x, y=y)
+        np.testing.assert_allclose(
+            out.numpy(),
+            (x + y).numpy()
+        ) 
 
 if __name__ == '__main__':
     unittest.main()
