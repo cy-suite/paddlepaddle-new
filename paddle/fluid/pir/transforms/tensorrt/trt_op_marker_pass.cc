@@ -1172,10 +1172,11 @@ class CastOpPattern : public pir::OpRewritePattern<paddle::dialect::CastOp> {
       return false;
 #endif
     }
-    if (dtype != phi::DataType::BOOL || dtype != phi::DataType::FLOAT32 ||
-        dtype != phi::DataType::FLOAT64 || dtype != phi::DataType::FLOAT16 ||
-        dtype != phi::DataType::INT32 || dtype != phi::DataType::INT64) {
-      VLOG(3) << "the cast op does not support others type";
+    if (dtype != phi::DataType::BOOL && dtype != phi::DataType::FLOAT32 &&
+        dtype != phi::DataType::FLOAT64 && dtype != phi::DataType::FLOAT16 &&
+        dtype != phi::DataType::INT32 && dtype != phi::DataType::INT64) {
+      VLOG(3) << "the cast op does not support type: "
+              << phi::DataTypeToString(dtype);
       return false;
     }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
