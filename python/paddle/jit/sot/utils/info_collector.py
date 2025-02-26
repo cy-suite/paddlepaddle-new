@@ -281,11 +281,22 @@ class BreakGraphReasonInfo(InfoBase):
 
     @classmethod
     def summary(cls, history: list[Self]) -> str:
-        # return "\n".join([str(info.reason) for info in history])
+
+        reason_dict = {}
+
+        for info in history:
+            name = info.reason.__class__.__name__
+            if name not in reason_dict:
+                reason_dict[name] = []
+            reason_dict[name].append(str(info.reason))
+
+        reason_list = list(reason_dict.items())
+        reason_list.sort(key=lambda x: len(x[1]), reverse=True)
+
         return "\n".join(
             [
-                info.reason.__class__.__name__ + " : " + str(info.reason)
-                for info in history
+                f"{name} ({len(reasons)}):\n\t" + "\n\t".join(reasons)
+                for name, reasons in reason_list
             ]
         )
 

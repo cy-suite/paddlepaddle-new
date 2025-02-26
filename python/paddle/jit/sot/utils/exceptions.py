@@ -71,6 +71,7 @@ class DataDependencyOperationBreak(DataDependencyBreak):
 class UnsupportedOperationBreak(BreakGraphReasonBase):
     def __init__(
         self,
+        *,
         left_type=None,
         right_type=None,
         operator=None,
@@ -86,6 +87,7 @@ class UnsupportedOperationBreak(BreakGraphReasonBase):
 class UnsupportedPaddleAPIBreak(UnsupportedOperationBreak):
     def __init__(
         self,
+        *,
         fn_name=None,
         reason_str=None,
         file_path="",
@@ -95,9 +97,9 @@ class UnsupportedPaddleAPIBreak(UnsupportedOperationBreak):
             reason_str = f"Not support Paddlepaddle API: {fn_name}"
 
         super().__init__(
-            reason_str,
-            file_path,
-            line_number,
+            reason_str=reason_str,
+            file_path=file_path,
+            line_number=line_number,
         )
 
 
@@ -113,6 +115,7 @@ class BuiltinFunctionBreak(UnsupportedOperationBreak):
 
     def __init__(
         self,
+        *,
         fn_name=None,
         arg_types=None,
         reason_str=None,
@@ -123,9 +126,9 @@ class BuiltinFunctionBreak(UnsupportedOperationBreak):
             reason_str = f"Not support builtin function: {fn_name} with args: Args({arg_types})"
 
         super().__init__(
-            reason_str,
-            file_path,
-            line_number,
+            reason_str=reason_str,
+            file_path=file_path,
+            line_number=line_number,
         )
 
 

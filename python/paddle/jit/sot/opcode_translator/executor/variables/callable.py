@@ -791,7 +791,9 @@ class BuiltinVariable(FunctionVariable):
             if hasattr(self.value, '__name__')
             else self.value
         )
-        raise BreakGraphError(BuiltinFunctionBreak(fn_name, arg_types))
+        raise BreakGraphError(
+            BuiltinFunctionBreak(fn_name=fn_name, arg_types=arg_types)
+        )
 
     @VariableFactory.register_from_value(successor="ClassVariable")
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
