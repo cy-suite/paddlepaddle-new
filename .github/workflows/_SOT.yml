@@ -105,7 +105,6 @@ jobs:
         . ../../../proxy
         bash ${ci_scripts}/determine_sot_ci_trigger.sh
         determine_excode=$?
-        echo $determine_excode
         echo "determine_excode=$determine_excode" >> ${{ github.env }}
         '
 
