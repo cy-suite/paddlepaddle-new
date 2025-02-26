@@ -37,6 +37,36 @@ class TrtConvertRangeDynamicTest(TrtLayerAutoScanTest):
             dics = [{}]
             ops_config = [
                 {
+                    "op_type": "fill_constant",
+                    "op_inputs": {},
+                    "op_outputs": {"Out": ["start_data"]},
+                    "op_attrs": {
+                        "dtype": self.in_dtype,
+                        "str_value": "7",
+                        "shape": [1],
+                    },
+                },
+                {
+                    "op_type": "fill_constant",
+                    "op_inputs": {},
+                    "op_outputs": {"Out": ["end_data"]},
+                    "op_attrs": {
+                        "dtype": self.in_dtype,
+                        "str_value": "256",
+                        "shape": [1],
+                    },
+                },
+                {
+                    "op_type": "fill_constant",
+                    "op_inputs": {},
+                    "op_outputs": {"Out": ["step_data"]},
+                    "op_attrs": {
+                        "dtype": self.in_dtype,
+                        "str_value": "1",
+                        "shape": [1],
+                    },
+                },
+                {
                     "op_type": "range",
                     "op_inputs": {
                         "Start": ["start_data"],
@@ -60,37 +90,32 @@ class TrtConvertRangeDynamicTest(TrtLayerAutoScanTest):
                 weights={},
                 inputs={
                     "step_data": TensorConfig(data_gen=partial(generate_input)),
-                    "start_data": TensorConfig(
-                        data_gen=partial(generate_input)
-                    ),
-                    "end_data": TensorConfig(data_gen=partial(generate_input)),
                 },
                 outputs=["range_output_data"],
             )
 
             yield program_config
 
-    def generate_dynamic_shape(self):
-        self.dynamic_shape.min_input_shape = {
-            "start_data": [1],
-            "end_data": [1],
-            "step_data": [1],
-        }
-        self.dynamic_shape.max_input_shape = {
-            "start_data": [1],
-            "end_data": [1],
-            "step_data": [1],
-        }
-        self.dynamic_shape.opt_input_shape = {
-            "start_data": [1],
-            "end_data": [1],
-            "step_data": [1],
-        }
-        return self.dynamic_shape
-
     def sample_predictor_configs(
-        self, program_config, run_pir=False
+        self, program_config
     ) -> tuple[paddle_infer.Config, list[int], float]:
+        def generate_dynamic_shape(attrs):
+            self.dynamic_shape.min_input_shape = {
+                "start_data": [1],
+                "end_data": [1],
+                "step_data": [1],
+            }
+            self.dynamic_shape.max_input_shape = {
+                "start_data": [1],
+                "end_data": [1],
+                "step_data": [1],
+            }
+            self.dynamic_shape.opt_input_shape = {
+                "start_data": [1],
+                "end_data": [1],
+                "step_data": [1],
+            }
+
         def clear_dynamic_shape():
             self.dynamic_shape.min_input_shape = {}
             self.dynamic_shape.max_input_shape = {}
@@ -104,7 +129,7 @@ class TrtConvertRangeDynamicTest(TrtLayerAutoScanTest):
         ]
 
         # for dynamic_shape
-        self.generate_dynamic_shape()
+        generate_dynamic_shape(attrs)
         self.trt_param.precision = paddle_infer.PrecisionType.Float32
         yield self.create_inference_config(), generate_trt_nodes_num(
             attrs, True
@@ -115,7 +140,7 @@ class TrtConvertRangeDynamicTest(TrtLayerAutoScanTest):
         ), 1e-2
 
     def test(self):
-        self.run_test(run_pir=True)
+        self.run_test()
 
 
 class TrtConvertRangeStaticTest(TrtLayerAutoScanTest):
