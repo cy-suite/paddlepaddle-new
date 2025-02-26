@@ -821,7 +821,7 @@ set_tests_properties(test_partial_eager_deletion_transformer PROPERTIES TIMEOUT
 set_tests_properties(test_dropout_op
                      PROPERTIES TIMEOUT 120 "FLAGS_comp_skip_default_ops=False")
 set_tests_properties(test_lookup_table_v2_op
-                     "FLAGS_comp_skip_default_ops=False")
+                     PROPERTIES "FLAGS_comp_skip_default_ops=False")
 set_tests_properties(test_imperative_ocr_attention_model PROPERTIES TIMEOUT 120)
 set_tests_properties(test_nn_grad PROPERTIES TIMEOUT 180)
 set_tests_properties(test_elementwise_sub_op PROPERTIES TIMEOUT 120)
