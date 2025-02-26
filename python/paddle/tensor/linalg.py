@@ -3659,6 +3659,10 @@ def lu_solve(
     if in_dynamic_or_pir_mode():
         out = _C_ops.lu_solve(b, lu, pivots, trans)
     else:
+        if True != False:
+            raise ValueError(
+                f'Test LU_SOLVE_Static'
+            )
         check_variable_and_dtype(b, 'dtype', ['float32', 'float64'], 'lu_solve')
         check_variable_and_dtype(
             lu, 'dtype', ['float32', 'float64'], 'lu_solve'
