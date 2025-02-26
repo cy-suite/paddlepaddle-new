@@ -14,8 +14,6 @@
 
 include(ExternalProject)
 
-add_definitions(-DGLOG_NO_ABBREVIATED_SEVERITIES)
-
 set(GLOG_PREFIX_DIR ${THIRD_PARTY_PATH}/glog)
 set(GLOG_INSTALL_DIR ${THIRD_PARTY_PATH}/install/glog)
 set(GLOG_INCLUDE_DIR
@@ -86,6 +84,7 @@ else()
                -DWITH_GFLAGS=OFF
                -DBUILD_TESTING=OFF
                -DCMAKE_BUILD_TYPE=${THIRD_PARTY_BUILD_TYPE}
+               -DGLOG_NO_ABBREVIATED_SEVERITIES
                ${EXTERNAL_OPTIONAL_ARGS}
     CMAKE_CACHE_ARGS
       -DCMAKE_INSTALL_PREFIX:PATH=${GLOG_INSTALL_DIR}
