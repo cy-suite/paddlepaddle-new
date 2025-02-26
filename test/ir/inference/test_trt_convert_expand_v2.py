@@ -105,25 +105,13 @@ class TrtConvertExpandV2Test(TrtLayerAutoScanTest):
                 "expand_v2_input": [1, 1, 4, 6]
             }
         elif self.dims == 3:
-            self.dynamic_shape.min_input_shape = {
-                "expand_v2_input": [1, 8, 6]
-            }
-            self.dynamic_shape.max_input_shape = {
-                "expand_v2_input": [6, 8, 6]
-            }
-            self.dynamic_shape.opt_input_shape = {
-                "expand_v2_input": [1, 8, 6]
-            }
+            self.dynamic_shape.min_input_shape = {"expand_v2_input": [1, 8, 6]}
+            self.dynamic_shape.max_input_shape = {"expand_v2_input": [6, 8, 6]}
+            self.dynamic_shape.opt_input_shape = {"expand_v2_input": [1, 8, 6]}
         elif self.dims == 2:
-            self.dynamic_shape.min_input_shape = {
-                "expand_v2_input": [1, 48]
-            }
-            self.dynamic_shape.max_input_shape = {
-                "expand_v2_input": [4, 48]
-            }
-            self.dynamic_shape.opt_input_shape = {
-                "expand_v2_input": [1, 48]
-            }
+            self.dynamic_shape.min_input_shape = {"expand_v2_input": [1, 48]}
+            self.dynamic_shape.max_input_shape = {"expand_v2_input": [4, 48]}
+            self.dynamic_shape.opt_input_shape = {"expand_v2_input": [1, 48]}
         elif self.dims == 1:
             self.dynamic_shape.min_input_shape = {"expand_v2_input": [48]}
             self.dynamic_shape.max_input_shape = {"expand_v2_input": [48]}
@@ -388,15 +376,9 @@ class TrtConvertExpandV2Test3(TrtLayerAutoScanTest):
                 "expand_v2_input": [1, 1, 4, 6]
             }
         elif self.dims == 3:
-            self.dynamic_shape.min_input_shape = {
-                "expand_v2_input": [1, 4, 6]
-            }
-            self.dynamic_shape.max_input_shape = {
-                "expand_v2_input": [12, 4, 6]
-            }
-            self.dynamic_shape.opt_input_shape = {
-                "expand_v2_input": [1, 4, 6]
-            }
+            self.dynamic_shape.min_input_shape = {"expand_v2_input": [1, 4, 6]}
+            self.dynamic_shape.max_input_shape = {"expand_v2_input": [12, 4, 6]}
+            self.dynamic_shape.opt_input_shape = {"expand_v2_input": [1, 4, 6]}
         return self.dynamic_shape
 
     def sample_predictor_configs(
