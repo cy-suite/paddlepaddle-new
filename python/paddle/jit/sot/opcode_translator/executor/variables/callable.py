@@ -298,7 +298,7 @@ class PaddleApiVariable(FunctionVariable):
     def call_function(self, /, *args, **kwargs):
         if is_break_graph_api(self.value):
             raise BreakGraphError(
-                UnsupportedPaddleAPIBreak(self.value.__name__)
+                UnsupportedPaddleAPIBreak(fn_name=self.value.__name__)
             )
         return self.graph.call_paddle_api(self.value, *args, **kwargs)
 
