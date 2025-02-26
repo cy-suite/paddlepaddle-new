@@ -112,17 +112,17 @@ jobs:
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
-      if: ${{ env.determine_excode }} == 0
+      if: ${{ env.determine_excode }} == '0'
       run: |
         docker exec -t ${container_name} /bin/bash -c '
-        echo ${{ env.run_sot }}
+        echo ${{ env.determine_excode }}
         '
 
     - name: Build with python3.8
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
-      if: ${{ env.determine_excode }} == 0
+      if: ${{ env.determine_excode }} == '0'
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         . ../../../proxy
@@ -135,7 +135,7 @@ jobs:
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
-      if: ${{ env.determine_excode }} == 0
+      if: ${{ env.determine_excode }} == '0'
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         . ../../../proxy
