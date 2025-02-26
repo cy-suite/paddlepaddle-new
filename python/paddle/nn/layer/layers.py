@@ -359,7 +359,7 @@ class HookRemoveHelper:
         if self._extra_hooks_ref is not None:
             extra_hooks = self._extra_hooks_ref()
             if extra_hooks is not None and self._hook_id in extra_hooks:
-                del extra_hooks[self.id]
+                del extra_hooks[self._hook_id]
 
 
 class Layer:
