@@ -103,5 +103,34 @@ class TestNestLayerHook(Dy2StTestBase):
             )
 
 
+def foward_pre_hook_with_kwargs(layer, args, kwargs):
+    kwargs['x'] = kwargs['x'] * 2
+    return (args, kwargs)
+
+class SimpleNetWithKWArgs(paddle.nn.Layer):
+    def __init__(
+        self,
+    ):
+        super().__init__()
+        self.fc1 = paddle.nn.Linear(2, 2)
+        self.register_forward_pre_hook(foward_pre_hook_with_kwargs, with_kwargs=True)
+
+    def forward(self, x, y):
+        z = x + y
+
+        return z
+
+class TestHookWithKWArgs(unittest):
+    def test_kwargs_hook(self):
+        net = SimpleNetWithKWArgs()
+        x = paddle.tensor([[1, 2], [3, 4]])
+        y = paddle.tensor([[5, 6], [7, 8]])
+
+        out = net(x=x, y=y)
+        np.testing.assert_allclose(
+            out.numpy(),
+            np.array([[7, 10], [13, 16]])
+        )
+
 if __name__ == "__main__":
     unittest.main()

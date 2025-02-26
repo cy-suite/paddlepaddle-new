@@ -217,21 +217,26 @@ class PipelineParallel(ParallelModel):
                     "layer output can only be tensor or list/tuple of tensor"
                 )
 
-        def forward_pre_hook(layer, input):
+        def forward_pre_hook(layer, args, kwargs):
             pp_idx = getattr(layer, "pipeline_stage_index", 0)
-            new_input = []
-            for t in input:
+            new_args = []
+            new_kwargs = {}
+            def reshard_tensor_args(t):
                 if is_tensor(t) and t.is_dist() and t.process_mesh == g_mesh:
-                    new_input.append(
-                        dist.reshard(
-                            t,
-                            self.get_mesh(pp_idx),
-                            [dist.Replicate(), dist.Replicate()],
-                        )
+                    dist.reshard(
+                        t,
+                        self.get_mesh(pp_idx),
+                        [dist.Replicate(), dist.Replicate()],
                     )
-                else:
-                    new_input.append(t)
-            return tuple(new_input)
+                return t
+
+            for t in args:
+                new_args.append(reshard_tensor_args(t))
+
+            for key, arg in kwargs.items():
+                new_kwargs[key] = reshard_tensor_args(arg)
+
+            return tuple(new_args, new_kwargs)
 
         for layer_name in self.global_spec:
             layer = self.get_layer_by_name(layer_name)
