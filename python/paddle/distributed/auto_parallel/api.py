@@ -36,6 +36,9 @@ from paddle.base.framework import (
 )
 from paddle.distributed import fleet
 from paddle.distributed.auto_parallel import Engine, strategy as auto_strategy
+from paddle.distributed.auto_parallel.interface import (
+    shard_tensor as shard_tensor_static,
+)
 from paddle.distributed.auto_parallel.process_mesh import ProcessMesh
 from paddle.distributed.auto_parallel.static.utils import (
     fuse_param_func,
@@ -344,9 +347,9 @@ def shard_tensor(
         dist_tensor.persistable = tensor.persistable
         return dist_tensor
     else:
-        raise NotImplementedError(
-            "shard_tensor() are only supported in dynamic and pir mode."
-        )
+        # TODO(zhiqiu): we need to refine the static shard_tensor
+        sharding_specs = get_shard_spec(mesh, placements, tensor.ndim)
+        return shard_tensor_static(tensor, mesh, sharding_specs)
 
 
 class _moe_global_mesh_tensor(PyLayer):
@@ -2614,7 +2617,9 @@ class DistModel:
                 mode=self._engine._mode
             ).state_dict(mode, scope)
         else:
-            raise NotImplementedError("state_dict() only support PIR now.")
+            local_state_dict = self.dist_main_program(
+                mode=self._engine._mode
+            ).state_dict(mode)
 
         dist_state_dict = self._build_distributed_state_dict(local_state_dict)
 
@@ -2694,8 +2699,9 @@ class DistModel:
         if use_pir_api():
             dist_attrs = get_dist_attr(dist_main_program)
         else:
-            raise NotImplementedError(
-                "_build_distributed_state_dict() only support PIR now."
+            # Dict[var.name, Dict["process_shape": process_mesh.shape, "process_group": process_mesh.process_ids, "dims_mapping": dims_mapping]]
+            dist_attrs = get_dist_attr(
+                dist_main_program, self._engine._dist_contexts[self._mode]
             )
 
         def build_distributed_tensor(local_tensor, dist_attr):
@@ -2833,7 +2839,9 @@ class DistModel:
                 local_state_dict, paddle.static.global_scope(), copy_tensor
             )
         else:
-            raise NotImplementedError("set_state_dict() only support PIR now.")
+            dist_main_program.set_state_dict(
+                local_state_dict, paddle.static.global_scope()
+            )
 
     def _get_shard_stage1_optimizer(self):
         optimizer = self._engine._optimizer
@@ -3054,7 +3062,38 @@ def to_static(
             >>> # python -m paddle.distributed.launch {test_case}.py
     """
     if isinstance(optimizer, _ShardOptimizer) and not use_pir_api():
-        raise NotImplementedError("to_static() only support PIR now.")
+        shard_fn = optimizer._shard_fn
+        sharding_degree = optimizer._sharding_degree
+        optimizer = optimizer._inner_opt
+
+        if shard_fn is not None:
+            strategy = dist.Strategy() if strategy is None else strategy
+
+            # Deduce sharding degree for static
+            # Note: Because limitation of architecture, we need to ensure that
+            # all parameters are sharded by the same mesh axis
+            assert (
+                sharding_degree is not None
+            ), "Sharding degree can not be None."
+
+            if isinstance(shard_fn, ShardingStage1):
+                strategy.sharding.enable = True
+                strategy.sharding.stage = 1
+                strategy.sharding.degree = sharding_degree
+            elif isinstance(shard_fn, ShardingStage2):
+                strategy.sharding.enable = True
+                strategy.sharding.stage = 2
+                strategy.sharding.degree = sharding_degree
+            elif isinstance(shard_fn, ShardingStage3):
+                strategy.sharding.enable = True
+                strategy.sharding.stage = 3
+                strategy.sharding.degree = sharding_degree
+                for param in optimizer._parameter_list:
+                    shard_fn._unshard_parameter(param)
+            else:
+                raise NotImplementedError(
+                    "Only sharding stage 1, 2 and 3 can to_static for now. User-defined shard_fn will be supported later."
+                )
     if strategy is None or strategy.full_graph:
         dist_model = DistModel(
             layer, loader, loss, optimizer, strategy, input_spec=input_spec
