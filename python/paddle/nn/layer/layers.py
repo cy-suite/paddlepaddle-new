@@ -338,16 +338,28 @@ class HookRemoveHelper:
     next_hook_id: int = 0
 
     def __init__(
-        self, hooks: typing.OrderedDict[int, Callable[..., Any]]
+        self,
+        hooks: typing.OrderedDict[int, Callable[..., Any]],
+        *,
+        extra_hook_dict: Any = None,
     ) -> None:
         self._hooks_ref = weakref.ref(hooks)
         self._hook_id = HookRemoveHelper.next_hook_id
         HookRemoveHelper.next_hook_id += 1
 
+        self._extra_hooks_ref = None
+        if extra_hook_dict is not None:
+            self._extra_hooks_ref = weakref.ref(extra_hook_dict)
+
     def remove(self) -> None:
         hooks = self._hooks_ref()
         if hooks is not None and self._hook_id in hooks:
             del hooks[self._hook_id]
+
+        if self._extra_hooks_ref is not None:
+            extra_hooks = self._extra_hooks_ref()
+            if extra_hooks is not None and self._hook_id in extra_hooks:
+                del extra_hooks[self.id]
 
 
 class Layer:
@@ -751,7 +763,10 @@ class Layer:
                 >>> # hook change the linear's input to input * 2, so out0 is equal to out1.
                 >>> assert (out0.numpy() == out1.numpy()).any()
         """
-        hook_remove_helper = HookRemoveHelper(self._forward_pre_hooks)
+        hook_remove_helper = HookRemoveHelper(
+            self._forward_pre_hooks,
+            extra_hook_dict=self._forward_pre_hooks_with_kwargs_flag,
+        )
         self._forward_pre_hooks[hook_remove_helper._hook_id] = hook
         if with_kwargs:
             self._forward_pre_hooks_with_kwargs_flag[
