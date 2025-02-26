@@ -1,0 +1,100 @@
+name: PR-CI-SOT
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+env:
+  dockerfile: Dockerfile.cuda9_cudnn7_gcc48_py35_centos6
+  docker_image: 077ca344c322
+  PR_ID: ${{ github.event.pull_request.number }}
+  COMMIT_ID: ${{ github.event.pull_request.head.sha }}
+  container_name: paddle-CI-${{ github.event.pull_request.number }}-sot
+  ci_scripts: ${{ github.workspace }}/ci
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build-and-test:
+    runs-on:
+      group: CPU-test
+
+    steps:
+    # sudo usermod -aG docker $USER
+    - name: Check docker image and run container
+      env:
+        BRANCH: develop
+        work_dir: ${{ github.workspace }}
+        PADDLE_ROOT: ${{ github.workspace }}
+        WITH_SHARED_PHI: "ON"
+        WITH_MKL: "OFF"
+        WITH_TESTING: "OFF"
+        COVERALLS_UPLOAD: "OFF"
+        GIT_PR_ID: ${{ github.event.pull_request.number }}
+        PADDLE_VERSION: 0.0.0
+        PREC_SUFFIX: .py3
+        WITH_UNITY_BUILD: "ON"
+        PROC_RUN: 12
+        FLAGS_enable_eager_mode: 1
+        WITH_TENSORRT: "OFF"
+        GENERATOR: Ninja
+        WITH_INFERENCE_API_TEST: "OFF"
+        CCACHE_MAXSIZE: 150G
+        CCACHE_LIMIT_MULTIPLE: 0.8
+        WITH_AVX: "OFF"
+        CCACHE: "/root/.ccache/sot"
+      run: |
+        # bash ${{ github.workspace }}/paddle/scripts/paddle_build/check_docker_image.sh
+        docker run -d -t --name ${container_name} \
+          -v "/home/data/cfs:/home/data/cfs" \
+          -v "/home/data/cfs/.cache:/root/.cache" \
+          -v "/home/data/cfs/.ccache:/root/.ccache" \
+          -v "/dev/shm:/dev/shm" \
+          -v "${{ github.workspace }}/../../../..:${{ github.workspace }}/../../../.." \
+          -e BRANCH \
+          -e PR_ID \
+          -e COMMIT_ID \
+          -e work_dir \
+          -e PADDLE_ROOT \
+          -e WITH_SHARED_PHI \
+          -e WITH_MKL \
+          -e WITH_TESTING \
+          -e COVERALLS_UPLOAD \
+          -e GIT_PR_ID \
+          -e PADDLE_VERSION \
+          -e PREC_SUFFIX \
+          -e WITH_UNITY_BUILD \
+          -e PROC_RUN \
+          -e FLAGS_enable_eager_mode \
+          -e WITH_TENSORRT \
+          -e GENERATOR \
+          -e WITH_INFERENCE_API_TEST \
+          -e CCACHE_MAXSIZE \
+          -e CCACHE_LIMIT_MULTIPLE \
+          -e GITHUB_ENV \
+          -e ci_scripts \
+          -e WITH_AVX \
+          -w ${{ github.workspace }} --network host ${docker_image}
+
+    - name: Download paddle.tar.gz and merge develop
+      run: |
+        docker exec -t ${container_name} /bin/bash -c '
+        determine_excode=1
+        echo $determine_excode
+        echo "determine_excode=$determine_excode" >> ${{ github.env }}
+        '
+
+    - name: ddd
+      env:
+        work_dir: ${{ github.workspace }}
+        PADDLE_ROOT: ${{ github.workspace }}
+      if: ${{ env.determine_excode }} == "0"
+      run: |
+        docker exec -t ${container_name} /bin/bash -c '
+        echo ${{ env.determine_excode }}
+        if [[ ${{ env.determine_excode }} == "0" ]]; then
+          echo 1111
+        fi
+        '
