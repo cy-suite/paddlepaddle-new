@@ -138,7 +138,6 @@ struct SimplifyOperands<Div> {
     } else {
       return Div<DimExpr>{ret_lhs, ret_rhs};
     }
-    PADDLE_THROW(common::errors::Fatal("Dead code."));
   }
 };
 
@@ -385,7 +384,8 @@ struct VisitEachOperandStruct<Div> {
                    const DoEachT& DoEach,
                    std::size_t depth,
                    bool is_inversed) {
-    PADDLE_THROW(common::errors::Fatal("Dead code."));
+    PADDLE_THROW(common::errors::Fatal(
+        "Invalid call, in Div we won't visit its operant."));
   }
 };
 
@@ -756,7 +756,6 @@ struct FoldUnitConstant<Mul> {
     } else {
       return Mul<DimExpr>{ret_operands};
     }
-    PADDLE_THROW(common::errors::Fatal("Dead code."));
   }
 };
 
@@ -843,11 +842,6 @@ struct FoldUnitConstant<Div> {
   }
 };
 
-/*
- * Simplify Example:
- * Mul(Div(1, S0), S0) => S0
- * Mul(S0, Div(1, S0) => S0
- */
 template <template <typename> class Op>
 struct FoldInversedPairToUnit {
   using dim_expr_type = Op<DimExpr>;
