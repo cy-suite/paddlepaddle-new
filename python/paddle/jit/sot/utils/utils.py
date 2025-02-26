@@ -145,20 +145,6 @@ def log_enabled(level):
     return level <= ENV_SOT_LOG_LEVEL.get_with_cache()
 
 
-def no_eval_frame(func):
-    def no_eval_frame_func(*args, **kwargs):
-        old_cb = paddle.framework.core.set_eval_frame(None)
-        try:
-            retval = func(*args, **kwargs)
-        except:
-            raise
-        finally:
-            paddle.framework.core.set_eval_frame(old_cb)
-        return retval
-
-    return no_eval_frame_func
-
-
 def is_comprehensive_name(name):
     return name in ["<listcomp>", "<dictcomp>", "<setcomp>", "<genexpr>"]
 
