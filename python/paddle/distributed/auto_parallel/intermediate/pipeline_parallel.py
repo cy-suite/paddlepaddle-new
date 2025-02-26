@@ -224,7 +224,7 @@ class PipelineParallel(ParallelModel):
 
             def reshard_tensor_args(t):
                 if is_tensor(t) and t.is_dist() and t.process_mesh == g_mesh:
-                    dist.reshard(
+                    return dist.reshard(
                         t,
                         self.get_mesh(pp_idx),
                         [dist.Replicate(), dist.Replicate()],
