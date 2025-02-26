@@ -19,6 +19,7 @@ from paddle.tensorrt.converter_utils import (
     add_1D_constant_layer,
     broadcast,
     get_shape_tensor_element,
+    set_layer_name,
     trt_shape,
     trt_sum,
 )
@@ -43,21 +44,28 @@ def matmul_converter(network, paddle_op, inputs):
 
     weight_tensor = inputs[1]
     if type(inputs[1]) == trt.Weights:
-        weight_tensor = network.add_constant(
-            weight_shape, inputs[1]
-        ).get_output(0)
+        weight_tensor = network.add_constant(weight_shape, inputs[1])
+        set_layer_name(weight_tensor, paddle_op)
+        weight_tensor = weight_tensor.get_output(0)
 
     if len(weight_shape) == 1:
         layer = network.add_shuffle(weight_tensor)
         layer.reshape_dims = (*tuple(weight_shape), 1)
+        set_layer_name(layer, paddle_op)
         weight_tensor = layer.get_output(0)
 
     lhs_val, rhs_val = broadcast(
-        network, inputs[0], weight_tensor, inputs[0].name, weight_tensor.name
+        network,
+        inputs[0],
+        weight_tensor,
+        inputs[0].name,
+        "weight_tensor_broadcast",
+        paddle_op,
     )
     out = network.add_matrix_multiply(
         lhs_val, self_matrix_op, rhs_val, other_matrix_op
     )
+    set_layer_name(out, paddle_op)
     return out.get_output(0)
 
 
@@ -68,6 +76,7 @@ def transpose_converter(network, paddle_op, inputs):
     perm = paddle_op.attrs()["perm"]
     transposed_tensor = network.add_shuffle(inputs[0])
     transposed_tensor.second_transpose = perm
+    set_layer_name(transposed_tensor, paddle_op)
     return transposed_tensor.get_output(0)
 
 
@@ -116,3 +125,29 @@ def flip_converter(network, paddle_op, inputs):
 
     identity_layer = network.add_identity(input_tensor)
     return identity_layer.get_output(0)
+
+
+@converter_registry.register("pd_op.p_norm", trt_version="8.x")
+def p_norm_converter(network, paddle_op, inputs):
+    input_tensor = inputs[0]
+    input_dims = input_tensor.shape
+
+    axis = paddle_op.attrs().get("axis", -1)
+    keepdim = paddle_op.attrs().get("keepdim", False)
+    axis = axis if axis >= 0 else axis + len(input_dims)
+    axis_mask = 1 << axis
+
+    prod_layer = network.add_elementwise(
+        input_tensor, input_tensor, trt.ElementWiseOperation.PROD
+    )
+    prod_tensor = prod_layer.get_output(0)
+
+    reduce_layer = network.add_reduce(
+        prod_tensor, trt.ReduceOperation.SUM, axis_mask, keepdim
+    )
+    reduced_tensor = reduce_layer.get_output(0)
+
+    sqrt_layer = network.add_unary(reduced_tensor, trt.UnaryOperation.SQRT)
+    output_tensor = sqrt_layer.get_output(0)
+
+    return output_tensor

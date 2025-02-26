@@ -16,6 +16,7 @@
 
 #include <map>
 #include <optional>
+#include <regex>
 #include <string>
 #include <vector>
 #include "paddle/cinn/common/cinn_value.h"
@@ -372,7 +373,15 @@ void Let::Verify() const {
 Type Let::type() const { return symbol.type(); }
 
 Expr _Var_::Make(const std::string &name, const Type &type) {
+  auto MatchSymbol = [](const std::string &str) {
+    std::regex pattern("^S[0-9]+$");
+    return std::regex_match(str, pattern);
+  };
   auto node = new _Var_(name, type);
+  // Since `var name` is used independently in many places, and `var` is rebuilt
+  // based on `name` later, regular matching is temporarily used here to
+  // determine whether it is a symbol.
+  if (MatchSymbol(name)) node->is_symbolic_constant = true;
   return Expr(node);
 }
 
@@ -1322,13 +1331,6 @@ Expr Reduce::Make(Reduce::ReduceType reduce_type,
   }
 
   n->set_type(body.type());
-
-  if (reduce_type == ir::Reduce::kSum &&
-      (body.type().is_int(32) || body.type().is_bool())) {
-    n->body->set_type(Int(64));
-    n->set_type(Int(64));
-    n->init->set_type(Int(64));
-  }
 
   return Expr(n);
 }

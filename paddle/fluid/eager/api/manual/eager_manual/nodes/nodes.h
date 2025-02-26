@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #pragma once
+#include "paddle/fluid/eager/api/utils/global_utils.h"
 #include "paddle/fluid/eager/grad_node_info.h"
 #include "paddle/fluid/eager/tensor_wrapper.h"
 #include "paddle/fluid/imperative/tracer.h"
@@ -317,7 +318,9 @@ class SyncBatchNormGradNode : public egr::GradNodeBase {
   SyncBatchNormGradNode() : egr::GradNodeBase() {}
   SyncBatchNormGradNode(size_t bwd_in_slot_num, size_t bwd_out_slot_num)
       : egr::GradNodeBase(bwd_in_slot_num, bwd_out_slot_num) {}
-  ~SyncBatchNormGradNode() override = default;
+  ~SyncBatchNormGradNode() {
+    egr::Controller::Instance().EraseForceSequentialNodes(this);
+  }
 
   virtual paddle::small_vector<std::vector<paddle::Tensor>,
                                egr::kSlotSmallVectorSize>
@@ -486,9 +489,15 @@ class DtensorToLocalGradNode : public egr::GradNodeBase {
     input_ = egr::TensorWrapper(input, true);
   }
 
+  void SetGradDistAttr(const phi::distributed::TensorDistAttr& dist_attr) {
+    grad_dist_attr_ = dist_attr;
+  }
+
  private:
   // TensorWrappers
   egr::TensorWrapper input_;
+
+  phi::distributed::TensorDistAttr grad_dist_attr_;
 };
 
 class DtensorFromLocalGradNode : public egr::GradNodeBase {
@@ -545,7 +554,9 @@ class SyncBatchNormGradNode : public egr::GradNodeBase {
   SyncBatchNormGradNode() : egr::GradNodeBase() {}
   SyncBatchNormGradNode(size_t bwd_in_slot_num, size_t bwd_out_slot_num)
       : egr::GradNodeBase(bwd_in_slot_num, bwd_out_slot_num) {}
-  ~SyncBatchNormGradNode() override = default;
+  ~SyncBatchNormGradNode() {
+    egr::Controller::Instance().EraseForceSequentialNodes(this);
+  }
 
   virtual paddle::small_vector<std::vector<paddle::Tensor>,
                                egr::kSlotSmallVectorSize>
