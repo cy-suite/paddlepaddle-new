@@ -37,39 +37,6 @@ class TrtConvertRangeDynamicTest(TrtLayerAutoScanTest):
             dics = [{}]
             ops_config = [
                 {
-                    "op_type": "fill_constant",
-                    "op_inputs": {},
-                    "op_outputs": {"Out": ["start_data"]},
-                    "op_attrs": {
-                        "dtype": self.in_dtype,
-                        "str_value": "7",
-                        "value": 7,
-                        "shape": [1],
-                    },
-                },
-                {
-                    "op_type": "fill_constant",
-                    "op_inputs": {},
-                    "op_outputs": {"Out": ["end_data"]},
-                    "op_attrs": {
-                        "dtype": self.in_dtype,
-                        "str_value": "256",
-                        "value": 256,
-                        "shape": [1],
-                    },
-                },
-                {
-                    "op_type": "fill_constant",
-                    "op_inputs": {},
-                    "op_outputs": {"Out": ["step_data"]},
-                    "op_attrs": {
-                        "dtype": self.in_dtype,
-                        "str_value": "1",
-                        "value": 1,
-                        "shape": [1],
-                    },
-                },
-                {
                     "op_type": "range",
                     "op_inputs": {
                         "Start": ["start_data"],
