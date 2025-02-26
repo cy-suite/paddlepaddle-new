@@ -93,7 +93,9 @@ class TrtConvertRangeDynamicTest(TrtLayerAutoScanTest):
                 weights={},
                 inputs={
                     "step_data": TensorConfig(data_gen=partial(generate_input)),
-                    "start_data": TensorConfig(data_gen=partial(generate_input)),
+                    "start_data": TensorConfig(
+                        data_gen=partial(generate_input)
+                    ),
                     "end_data": TensorConfig(data_gen=partial(generate_input)),
                 },
                 outputs=["range_output_data"],
