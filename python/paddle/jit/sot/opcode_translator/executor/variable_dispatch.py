@@ -1357,7 +1357,7 @@ def constant_numpy_equal(left, right):
 
 
 for unary_fn in UNARY_OPS:
-    if unary_fn in [bool]:
+    if unary_fn is bool:
         continue
     for magic_method in magic_method_builtin_dispatch(unary_fn):
 
