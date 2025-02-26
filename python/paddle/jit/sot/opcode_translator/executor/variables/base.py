@@ -273,7 +273,7 @@ class VariableFactory:
         return var
 
 
-def infer_debug_name_from_tracker(self, tracker: Tracker) -> str:
+def infer_debug_name_from_tracker(tracker: Tracker) -> str:
     res = None
     if isinstance(tracker, (LocalTracker, GlobalTracker, BuiltinTracker)):
         res = f"{tracker.name}"
@@ -314,7 +314,7 @@ class VariableBase:
         self.graph = graph
         self.tracker = tracker
         self.id = VariableBase.name_generator.next()
-        self.debug_name = infer_debug_name_from_tracker(self, tracker)
+        self.debug_name = infer_debug_name_from_tracker(tracker)
 
     @property
     def main_info(self) -> dict[str, Any]:
