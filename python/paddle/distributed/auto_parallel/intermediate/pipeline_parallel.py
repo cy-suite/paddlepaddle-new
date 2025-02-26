@@ -230,8 +230,8 @@ class PipelineParallel(ParallelModel):
                     )
                 return t
 
-            for t in args:
-                new_args.append(reshard_tensor_args(t))
+            for arg in args:
+                new_args.append(reshard_tensor_args(arg))
 
             for key, arg in kwargs.items():
                 new_kwargs[key] = reshard_tensor_args(arg)

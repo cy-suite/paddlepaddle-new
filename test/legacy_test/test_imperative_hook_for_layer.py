@@ -234,7 +234,6 @@ class SimpleNetWithKWArgs(paddle.nn.Layer):
         self,
     ):
         super().__init__()
-        self.fc1 = paddle.nn.Linear(2, 2)
 
     def forward(self, x, y):
         z = x + y
