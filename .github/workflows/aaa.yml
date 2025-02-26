@@ -1,4 +1,4 @@
-name: PR-CI-SOT
+name: xxx
 
 on:
   pull_request:
@@ -81,7 +81,7 @@ jobs:
     - name: Download paddle.tar.gz and merge develop
       run: |
         docker exec -t ${container_name} /bin/bash -c '
-        determine_excode=1
+        determine_excode=true
         echo $determine_excode
         echo "determine_excode=$determine_excode" >> ${{ github.env }}
         '
@@ -90,7 +90,7 @@ jobs:
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
-      if: ${{ env.determine_excode == 0 }}
+      if: ${{ env.determine_excode == true }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         echo ${{ env.determine_excode }}
@@ -101,7 +101,7 @@ jobs:
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
-      if: ${{ env.determine_excode == 1 }}
+      if: ${{ env.determine_excode == false }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         echo ${{ env.determine_excode }}
