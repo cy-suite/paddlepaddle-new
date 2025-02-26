@@ -104,11 +104,21 @@ jobs:
         docker exec -t ${container_name} /bin/bash -c '
         . ../../../proxy
         bash ${ci_scripts}/determine_sot_ci_trigger.sh
-        if [ $? -eq 0 ];then
+        excode=$?
+        echo $excode
+        if [ $excode -eq 0 ];then
           echo "run_sot=true" >> ${{ github.env }}
         else
           echo "run_sot=false" >> ${{ github.env }}
         fi
+        '
+    - name: Build with python3.8
+      env:
+        work_dir: ${{ github.workspace }}
+        PADDLE_ROOT: ${{ github.workspace }}
+      if: ${{ env.run_sot }} == 'true'
+      run: |
+        echo ${{ env.run_sot }}
         '
 
     - name: Build with python3.8
