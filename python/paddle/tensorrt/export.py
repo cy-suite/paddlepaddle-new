@@ -307,8 +307,9 @@ def convert_to_trt(program, trt_config, scope):
     with paddle.pir_utils.IrGuard():
         input_tuples = [i.generate_input_data() for i in trt_config.inputs]
         # Check all inputs have same number of warmup_data samples
-        assert len({len(t) for t in input_tuples}) == 1, \
-            f"All inputs must have the same number of warmup_data samples."
+        assert (
+            len({len(t) for t in input_tuples}) == 1
+        ), "All inputs must have the same number of warmup_data samples."
         feeds = [
             {name: t[i] for t, name in zip(input_tuples, feed_name)}
             for i in range(len(input_tuples[0]))
