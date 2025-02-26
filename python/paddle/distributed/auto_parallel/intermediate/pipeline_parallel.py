@@ -237,7 +237,7 @@ class PipelineParallel(ParallelModel):
             for key, arg in kwargs.items():
                 new_kwargs[key] = reshard_tensor_args(arg)
 
-            return tuple(new_args, new_kwargs)
+            return (new_args, new_kwargs)
 
         for layer_name in self.global_spec:
             layer = self.get_layer_by_name(layer_name)
