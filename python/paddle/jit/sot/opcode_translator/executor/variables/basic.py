@@ -36,6 +36,7 @@ from ....symbolic.statement_ir import Symbol
 from ....utils import (
     ENV_SOT_ALLOW_DYNAMIC_SHAPE,
     BreakGraphError,
+    BuiltinFunctionBreak,
     ConstTypes,
     DataDependencyDynamicShapeBreak,
     DataDependencyOperationBreak,
@@ -440,7 +441,7 @@ class TensorVariable(VariableBase):
             return SotTensor(self.id)
 
         raise BreakGraphError(
-            DataDependencyOperationBreak(  # DataDependencyOperationBreak
+            DataDependencyOperationBreak(
                 "Called TensorVariable.get_py_value. Should not use Tensor's value in simulating."
             )
         )
@@ -671,7 +672,7 @@ class TensorVariable(VariableBase):
         }
         if name in ["name", "place", "type"] and self.meta.is_inner_var():
             raise BreakGraphError(
-                DataDependencyOperationBreak(  # DataDependencyOperationBreak # temp
+                DataDependencyOperationBreak(
                     f"{self.meta.name} is a middle tensor. Not support to get {name} property."
                 )
             )
@@ -721,9 +722,7 @@ class TensorVariable(VariableBase):
 
     def delattr(self, key):
         raise BreakGraphError(
-            DataDependencyOperationBreak(
-                "Don't support TensorVariable delattr"
-            )  # builtin
+            BuiltinFunctionBreak("Don't support TensorVariable delattr")
         )
 
     @VariableFactory.register_from_value()
@@ -832,7 +831,7 @@ class SymbolicVariable(VariableBase):
             raise BreakGraphError(
                 DataDependencyOperationBreak(
                     "get_py_value from SymbolicVariable"
-                )  # DataDependencyOperationBreak
+                )
             )
         self.need_guard_value = True
         log(

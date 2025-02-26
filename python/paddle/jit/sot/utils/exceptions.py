@@ -48,10 +48,10 @@ class DataDependencyBreak(BreakGraphReasonBase):
 class DataDependencyControlFlowBreak(DataDependencyBreak):
     """Break reason for control flow execution."""
 
-    def __init__(self, file_path="", line_number=-1):
-        reason_str = (
-            "OpcodeInlineExecutor want break graph when simulate control flow."
-        )
+    def __init__(self, reason_str=None, file_path="", line_number=-1):
+        if reason_str is None:
+
+            reason_str = "OpcodeInlineExecutor want break graph when simulate control flow."
 
         super().__init__(
             reason_str,
