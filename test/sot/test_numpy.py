@@ -55,9 +55,9 @@ def numpy_api_with_number_calculation(t):
     h = c * 2
     i = int(a)
     j = float(b)
-    h = c.item()
-    i = t + d
-    return a, b, c, d, e, f, g, h, i, j, h
+    k = c.item()
+    l = t + d
+    return a, b, c, d, e, f, g, h, i, j, k, l
 
 
 class TestNumpy(TestCaseBase):
