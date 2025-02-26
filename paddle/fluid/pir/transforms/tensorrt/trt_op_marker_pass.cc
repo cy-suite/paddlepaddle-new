@@ -57,7 +57,6 @@ DEFINE_GENERAL_PATTERN(Reshape, paddle::dialect::ReshapeOp)
 DEFINE_GENERAL_PATTERN(Dropout, paddle::dialect::DropoutOp)
 DEFINE_GENERAL_PATTERN(Bmm, paddle::dialect::BmmOp)
 DEFINE_GENERAL_PATTERN(Concat, paddle::dialect::ConcatOp)
-DEFINE_GENERAL_PATTERN(Nonzero, paddle::dialect::NonzeroOp)
 DEFINE_GENERAL_PATTERN(Gelu, paddle::dialect::GeluOp)
 DEFINE_GENERAL_PATTERN(Relu6, paddle::dialect::Relu6Op)
 DEFINE_GENERAL_PATTERN(Fused_gemm_epilogue,
@@ -1172,6 +1171,12 @@ class CastOpPattern : public pir::OpRewritePattern<paddle::dialect::CastOp> {
           << "the cast op supports inputs and outputs of BOOL by trt8.4 above ";
       return false;
 #endif
+    }
+    if (dtype != phi::DataType::BOOL || dtype != phi::DataType::FLOAT32 ||
+        dtype != phi::DataType::FLOAT64 || dtype != phi::DataType::FLOAT16 ||
+        dtype != phi::DataType::int32 || dtype != phi::DataType::int64) {
+      VLOG(3) << "the cast op does not support others type";
+      return false;
     }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
@@ -2914,7 +2919,6 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Conv2d)
     ADD_PATTERN(FusedConv2dAddAct)
     ADD_PATTERN(DepthwiseConv2d)
-    ADD_PATTERN(Nonzero)
     ADD_PATTERN(Gelu)
     ADD_PATTERN(Relu6)
     ADD_PATTERN(Shape)
