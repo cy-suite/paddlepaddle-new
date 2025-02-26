@@ -1622,6 +1622,7 @@ EOF
 
 set -x
         # set trt_convert ut to run 15% cases.
+        export FLAGS_enable_pir_api=0
         export TEST_NUM_PERCENT_CASES=0.15
         export FLAGS_trt_ibuilder_cache=1
         precision_cases=""
@@ -2842,6 +2843,7 @@ EOF
 
 set -x
         # set trt_convert ut to run 15% cases.
+        export FLAGS_enable_pir_api=0
         export TEST_NUM_PERCENT_CASES=0.15
         export FLAGS_trt_ibuilder_cache=1
         precision_cases=""
@@ -4774,9 +4776,7 @@ function main() {
         check_coverage
         ;;
       cpu_cicheck_coverage)
-        export FLAGS_enable_pir_api=0
         check_diff_file_for_coverage
-        export FLAGS_enable_pir_api=0
         export ON_INFER=ON PADDLE_CUDA_INSTALL_REQUIREMENTS=ON
         run_setup ${PYTHON_ABI:-""} bdist_wheel ${parallel_number}
         enable_unused_var_check
