@@ -48,13 +48,14 @@ from ....utils import (
 from ....utils.exceptions import (
     BreakGraphError,
     BuiltinFunctionBreak,
-    CustomBreakReason,
+    DataDependencyOperationBreak,
     FallbackError,
+    InlineCallBreak,
     InnerError,
+    PsdbBreakReason,
     SotErrorBase,
-    SotErrorBreak,
-    UnsupportedFunctionBreak,
-    UnsupportedSliceBreak,
+    UnsupportedOperationBreak,
+    UnsupportedPaddleAPIBreak,
 )
 from ..dispatcher import Dispatcher
 from ..guard import (
@@ -201,7 +202,7 @@ class UserDefinedFunctionVariable(FunctionVariable):
             return ConstantVariable.wrap_literal(None, self.graph)
         elif self.value is psdb.breakgraph:
             raise BreakGraphError(
-                CustomBreakReason("breakgraph by psdb.breakgraph")
+                PsdbBreakReason("breakgraph by psdb.breakgraph")
             )
         elif self.value is psdb.fallback:
             raise FallbackError("fallback by psdb.fallback")
@@ -238,7 +239,7 @@ class UserDefinedFunctionVariable(FunctionVariable):
             code_name = self.value.__code__.co_name
             location_info = f'File "{filename}", line {lineno}, in {code_name}'
             raise BreakGraphError(
-                SotErrorBreak(
+                InlineCallBreak(
                     f"{location_info} encountered breakgraph error caused by\n{indent}{e}"
                 )
             )
@@ -296,7 +297,9 @@ class PaddleApiVariable(FunctionVariable):
 
     def call_function(self, /, *args, **kwargs):
         if is_break_graph_api(self.value):
-            raise BreakGraphError(UnsupportedFunctionBreak(self.value.__name__))
+            raise BreakGraphError(
+                UnsupportedPaddleAPIBreak(self.value.__name__)
+            )
         return self.graph.call_paddle_api(self.value, *args, **kwargs)
 
     @VariableFactory.register_from_value(
@@ -343,7 +346,7 @@ class TensorFunctionVariable(FunctionVariable):
     def call_function(self, /, *args, **kwargs):
         if is_break_graph_tensor_methods(self.method_name):
             raise BreakGraphError(
-                CustomBreakReason("call break_graph_tensor_method.")
+                DataDependencyOperationBreak("call break_graph_tensor_method.")
             )
         return self.graph.call_tensor_method(self.method_name, *args, **kwargs)
 
@@ -532,8 +535,8 @@ class ContainerLayerVariable(LayerVariable):
                 )
             except Exception as e:
                 raise BreakGraphError(
-                    UnsupportedSliceBreak(
-                        f"call {self.value.__class__.__name__}.__getitem__ with slice as key, and slice with py value failed: {e}."
+                    UnsupportedOperationBreak(
+                        reason_str=f"call {self.value.__class__.__name__}.__getitem__ with slice as key, and slice with py value failed: {e}."
                     )
                 )
 

@@ -23,7 +23,7 @@ from typing import TYPE_CHECKING
 from ...profiler import event_register
 from ...utils import (
     BreakGraphError,
-    ConditionalBreak,
+    DataDependencyControlFlowBreak,
     UnsupportedIteratorBreak,
     log,
 )
@@ -304,7 +304,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
             instr (Instruction): The jump instruction.
         """
 
-        raise BreakGraphError(ConditionalBreak())
+        raise BreakGraphError(DataDependencyControlFlowBreak())
 
     def FOR_ITER(self, instr: Instruction):
         iterator = self.stack.top

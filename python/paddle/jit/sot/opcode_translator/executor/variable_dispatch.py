@@ -24,9 +24,10 @@ import paddle
 
 from ...utils import (
     BreakGraphError,
+    BuiltinFunctionBreak,
     FallbackError,
     UnsupportedIteratorBreak,
-    UnsupportedOperatorBreak,
+    UnsupportedOperationBreak,
 )
 from ...utils.magic_methods import (
     BINARY_OPS,
@@ -35,11 +36,11 @@ from ...utils.magic_methods import (
 )
 from ...utils.paddle_api_config import get_tensor_methods
 from .dispatch_functions import (
+    create_raise_break_graph_handler,
     operator_in,
     operator_is_none,
     operator_is_not_none,
     operator_not_in,
-    raise_break_graph_fn,
     tensor_numel,
 )
 from .dispatcher import Dispatcher, optional
@@ -1030,7 +1031,11 @@ for unary_fn in UNARY_OPS:
         Dispatcher.register(
             unary_fn,
             ("TensorVariable",),
-            raise_break_graph_fn,
+            create_raise_break_graph_handler(
+                BuiltinFunctionBreak(
+                    fn_name=unary_fn, arg_types="TensorVariable"
+                )
+            ),
         )
         continue
 
@@ -1095,8 +1100,10 @@ for binary_fn in BINARY_OPS:
                 ):
                     if var.get_py_type() is str:
                         raise BreakGraphError(
-                            UnsupportedOperatorBreak(
-                                "ConstantVariable", "TensorVariable", "__rmod__"
+                            UnsupportedOperationBreak(
+                                left_type="ConstantVariable",
+                                right_type="TensorVariable",
+                                operator="__rmod__",
                             )
                         )
                     raise FallbackError("Tensor doesn't support __rmod__")

@@ -54,8 +54,8 @@ from ...utils import (
 )
 from ...utils.exceptions import (
     BreakGraphError,
+    DygraphInconsistentWithStaticBreak,
     InferMetaBreak,
-    SotErrorBreak,
     SotExtraInfo,
 )
 from ..instruction_utils import get_instructions
@@ -715,7 +715,7 @@ class FunctionGraph:
             except Exception as e:
                 if SotExtraInfo.from_exception(e).need_breakgraph:
                     raise BreakGraphError(
-                        SotErrorBreak(
+                        DygraphInconsistentWithStaticBreak(
                             f"API {func} encountered a need break graph error {e}"
                         )
                     )

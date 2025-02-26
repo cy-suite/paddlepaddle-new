@@ -40,7 +40,7 @@ from ...utils import (
     InnerError,
     SotUndefinedVar,
     UnsupportedIteratorBreak,
-    UnsupportedTypeBreak,
+    UnsupportedOperationBreak,
     get_static_function,
     is_comprehensive_name,
     log,
@@ -821,7 +821,7 @@ class OpcodeExecutorBase:
         # This bytecode is for Python 3.12+, and it will break graph in Python 3.11-.
         # We align it's behavior with Python 3.11-.
         raise BreakGraphError(
-            BuiltinFunctionBreak("call super is not supported")
+            BuiltinFunctionBreak(reason_str="call super is not supported")
         )
 
     def LOAD_CONST(self, instr: Instruction):
@@ -1099,7 +1099,9 @@ class OpcodeExecutorBase:
                 item, (TupleVariable, ListVariable, RangeVariable)
             ):
                 raise BreakGraphError(
-                    UnsupportedTypeBreak(f"{type(item)} not support unpack")
+                    UnsupportedOperationBreak(
+                        reason_str=f"{type(item)} not support unpack"
+                    )
                 )
             retval.extend(item.get_iter().to_list())
 

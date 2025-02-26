@@ -37,11 +37,11 @@ from ....utils import (
     ENV_SOT_ALLOW_DYNAMIC_SHAPE,
     BreakGraphError,
     ConstTypes,
+    DataDependencyDynamicShapeBreak,
+    DataDependencyOperationBreak,
     FallbackError,
     NameGenerator,
-    UnsupportedAttributeBreak,
-    UnsupportedDynamicShapeBreak,
-    UnsupportedSliceBreak,
+    UnsupportedOperationBreak,
     get_tensor_methods,
     log,
     printable,
@@ -415,7 +415,7 @@ class TensorVariable(VariableBase):
     def __len__(self):
         if isinstance(self.meta.shape[0], SymbolicInt):
             raise BreakGraphError(
-                UnsupportedDynamicShapeBreak(
+                DataDependencyDynamicShapeBreak(
                     "length of tensor variable with first dimension is dynamic shape causes graph break."
                 )
             )
@@ -440,7 +440,7 @@ class TensorVariable(VariableBase):
             return SotTensor(self.id)
 
         raise BreakGraphError(
-            UnsupportedAttributeBreak(
+            DataDependencyOperationBreak(  # DataDependencyOperationBreak
                 "Called TensorVariable.get_py_value. Should not use Tensor's value in simulating."
             )
         )
@@ -592,7 +592,7 @@ class TensorVariable(VariableBase):
         # TODO: maybe break graph.
         if self.meta.is_dynamic_shape():
             raise BreakGraphError(
-                UnsupportedDynamicShapeBreak(
+                DataDependencyDynamicShapeBreak(
                     f"Getting size for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
                 )
             )
@@ -606,7 +606,7 @@ class TensorVariable(VariableBase):
             and self.meta.is_dynamic_shape()
         ):
             raise BreakGraphError(
-                UnsupportedDynamicShapeBreak(
+                DataDependencyDynamicShapeBreak(
                     f"Getting shape for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
                 )
             )
@@ -624,7 +624,7 @@ class TensorVariable(VariableBase):
         first_dim = self.meta.shape[0]
         if isinstance(first_dim, SymbolicInt):
             raise BreakGraphError(
-                UnsupportedDynamicShapeBreak(
+                DataDependencyDynamicShapeBreak(
                     "Getting len() for a dynamic shape tensor causes graph break."
                 )
             )
@@ -671,7 +671,7 @@ class TensorVariable(VariableBase):
         }
         if name in ["name", "place", "type"] and self.meta.is_inner_var():
             raise BreakGraphError(
-                UnsupportedAttributeBreak(
+                DataDependencyOperationBreak(  # DataDependencyOperationBreak # temp
                     f"{self.meta.name} is a middle tensor. Not support to get {name} property."
                 )
             )
@@ -721,7 +721,9 @@ class TensorVariable(VariableBase):
 
     def delattr(self, key):
         raise BreakGraphError(
-            UnsupportedAttributeBreak("Don't support TensorVariable delattr")
+            DataDependencyOperationBreak(
+                "Don't support TensorVariable delattr"
+            )  # builtin
         )
 
     @VariableFactory.register_from_value()
@@ -828,7 +830,9 @@ class SymbolicVariable(VariableBase):
     def get_py_value(self, allow_tensor: bool = False) -> bool | int | float:
         if ENV_SOT_BREAK_GRAPH_ON_GET_SYMBOLIC_VALUE.get():
             raise BreakGraphError(
-                UnsupportedAttributeBreak("get_py_value from SymbolicVariable")
+                DataDependencyOperationBreak(
+                    "get_py_value from SymbolicVariable"
+                )  # DataDependencyOperationBreak
             )
         self.need_guard_value = True
         log(
@@ -1132,12 +1136,16 @@ class SliceVariable(VariableBase):
 
     def setattr(self, key, val):
         raise BreakGraphError(
-            UnsupportedSliceBreak("Don't support SliceVariable setattr")
+            UnsupportedOperationBreak(
+                reason_str="Don't support SliceVariable setattr"
+            )
         )
 
     def delattr(self, key):
         raise BreakGraphError(
-            UnsupportedSliceBreak("Don't support SliceVariable delattr")
+            UnsupportedOperationBreak(
+                reason_str="Don't support SliceVariable delattr"
+            )
         )
 
     @VariableFactory.register_from_value()

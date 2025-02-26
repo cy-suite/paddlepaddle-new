@@ -273,7 +273,7 @@ class CompileCountInfo(InfoBase):
 
 class BreakGraphReasonInfo(InfoBase):
     SHORT_NAME = "breakgraph_reason"
-    TYPE = InfoType.STEP_INFO
+    TYPE = InfoType.E2E_INFO
 
     def __init__(self, reason: BreakGraphReasonBase):
         super().__init__()
