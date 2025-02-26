@@ -140,7 +140,7 @@ set(PYBIND_SRCS
     xpu_streams_py.cc
     jit.cc
     auto_parallel_py.cc
-    sot/eval_frame_tools.cc
+    sot/skip_files.cc
     sot/cpython_internals.c
     sot/frame_proxy.c
     sot/eval_frame.c

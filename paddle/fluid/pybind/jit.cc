@@ -21,10 +21,10 @@ limitations under the License. */
 #include "paddle/fluid/jit/layer.h"
 #include "paddle/fluid/jit/serializer.h"
 #include "paddle/fluid/pybind/sot/eval_frame.h"
-#include "paddle/fluid/pybind/sot/eval_frame_tools.h"
 #include "paddle/fluid/pybind/sot/frame_proxy.h"
 #include "paddle/fluid/pybind/sot/guards.h"
 #include "paddle/fluid/pybind/sot/macros.h"
+#include "paddle/fluid/pybind/sot/skip_files.h"
 #include "paddle/phi/common/data_type.h"
 #include "paddle/phi/common/place.h"
 #include "paddle/utils/pybind.h"
@@ -149,24 +149,6 @@ void BindSot(pybind11::module *m) {
 
     return type->tp_getattro != PyObject_GenericGetAttr;
   });
-
-  m->def(
-      "sot_setup_codes_with_graph",
-      [](const py::object &py_codes) {
-        auto ret = setup_codes_with_graph(py_codes.ptr());
-        auto obj = py::reinterpret_borrow<py::object>(ret);
-        return obj;
-      },
-      py::arg("py_codes"));
-
-  m->def(
-      "sot_set_with_graph",
-      [](const py::object &py_codes) {
-        auto ret = set_with_graph(py_codes.ptr());
-        auto obj = py::reinterpret_borrow<py::object>(ret);
-        return obj;
-      },
-      py::arg("py_codes"));
 
   m->def(
       "eval_frame_no_skip_codes",
