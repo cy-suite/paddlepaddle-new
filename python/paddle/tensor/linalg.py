@@ -162,8 +162,8 @@ def transpose(
             if dim >= len(x.shape):
                 raise ValueError(
                     "Each element in Input(perm) should be less than Input(x)'s dimension, "
-                    "but %d-th element in Input(perm) is %d which exceeds Input(x)'s "
-                    "dimension %d." % (idx, perm[idx], len(x.shape))
+                    f"but {idx}-th element in Input(perm) is {perm[idx]} which exceeds Input(x)'s "
+                    f"dimension {len(x.shape)}."
                 )
 
         helper = LayerHelper('transpose', **locals())
@@ -672,10 +672,15 @@ def vector_norm(
     if isinstance(axis, list) and len(axis) == 1:
         axis = axis[0]
 
+    if paddle.is_complex(x):
+        abs_x = paddle.abs(x)
+    else:
+        abs_x = x
+
     # when len(axis) == 1, use the original op to calculate
     if isinstance(axis, int):
         return vector_norm_axis_int(
-            x,
+            abs_x,
             axis=axis,
             porder=p,
             keepdim=keepdim,
@@ -686,12 +691,16 @@ def vector_norm(
     # when len(axis) >= 1, calculate by combining other Python apis
     elif isinstance(axis, list):
         if p == np.inf or p == -np.inf:
-            return inf_norm(x, porder=p, axis=axis, keepdim=keepdim, name=name)
+            return inf_norm(
+                abs_x, porder=p, axis=axis, keepdim=keepdim, name=name
+            )
         elif p == 0:
-            return zero_norm(x, porder=p, axis=axis, keepdim=keepdim, name=name)
+            return zero_norm(
+                abs_x, porder=p, axis=axis, keepdim=keepdim, name=name
+            )
         else:
             return vector_norm_axis_tuple(
-                x, porder=p, axis=axis, keepdim=keepdim, name=name
+                abs_x, porder=p, axis=axis, keepdim=keepdim, name=name
             )
 
 
@@ -2738,7 +2747,7 @@ def mv(x: Tensor, vec: Tensor, name: str | None = None) -> Tensor:
             For more information, please refer to :ref:`api_guide_Name`. Default is None.
 
     Returns:
-        Tensor: The tensor which is producted by x and vec.
+        Tensor: The tensor which is produced by x and vec.
 
     Examples:
         .. code-block:: python
@@ -2921,7 +2930,7 @@ def svd(
     Let :math:`X` be the input matrix or a batch of input matrices, the output should satisfies:
 
     .. math::
-        X = U * diag(S) * VT
+        X = U * diag(S) * V^{H}
 
     Args:
         x (Tensor): The input tensor. Its shape should be `[..., N, M]`,
@@ -3001,7 +3010,7 @@ def svdvals(x: Tensor, name: str | None = None) -> Tensor:
     produced by singular value decomposition:
 
     .. math::
-        X = U * diag(S) * VH
+        X = U * diag(S) * V^{H}
 
     Args:
         x (Tensor): The input tensor. Its shape should be `[..., M, N]`, where
@@ -3082,12 +3091,12 @@ def svd_lowrank(
     If :math:`X` is the input matrix or a batch of input matrices, the output should satisfies:
 
     .. math::
-        X \approx U * diag(S) * V^{T}
+        X \approx U * diag(S) * V^{H}
 
     When :math:`M` is given, the output should satisfies:
 
     .. math::
-        X - M \approx U * diag(S) * V^{T}
+        X - M \approx U * diag(S) * V^{H}
 
     Args:
         x (Tensor): The input tensor. Its shape should be `[..., N, M]`, where `...` is
@@ -3378,7 +3387,7 @@ def qr(
     Args:
         x (Tensor): The input tensor. Its shape should be `[..., M, N]`,
             where ... is zero or more batch dimensions. M and N can be arbitrary
-            positive number. The data type of x should be float32 or float64.
+            positive number. The data type of x supports float, double, complex64, complex128.
         mode (str, optional): A flag to control the behavior of qr.
             Suppose x's shape is `[..., M, N]` and denoting `K = min(M, N)`:
             If mode = "reduced", qr op will return reduced Q and R matrices,
@@ -3420,7 +3429,9 @@ def qr(
         else:
             return q, r
     else:
-        check_variable_and_dtype(x, 'dtype', ['float32', 'float64'], 'qr')
+        check_variable_and_dtype(
+            x, 'dtype', ['float32', 'float64', 'complex64', 'complex128'], 'qr'
+        )
         check_type(mode, 'mode', str, 'qr')
         helper = LayerHelper('qr', **locals())
         q = helper.create_variable_for_type_inference(dtype=x.dtype)
@@ -5560,7 +5571,7 @@ def histogramdd(
         check_type(ranges, 'ranges', (list, tuple), 'histogramdd')
         assert D * 2 == len(
             ranges
-        ), "The length of ranges list must be %d\n" % (D * 2)
+        ), f"The length of ranges list must be {D * 2}\n"
 
     check_type(density, 'density', bool, 'histogramdd')
 
@@ -5574,9 +5585,7 @@ def histogramdd(
     if weights is not None:
         weights = weights.astype(x.dtype)
         reshaped_weights = weights.reshape([N])
-        assert reshaped_weights.shape[0] == N, (
-            "The size of weight must be %d" % N
-        )
+        assert reshaped_weights.shape[0] == N, f"The size of weight must be {N}"
     # ranges
     __check_ranges(D, ranges)
     if ranges is None:
@@ -5599,13 +5608,13 @@ def histogramdd(
     if isinstance(bins, (int, list)):  # int or int[]
         if isinstance(bins, int):
             bins = [bins] * D
-        assert len(bins) == D, (
-            "The length of bins must be %d when bins is a list.\n" % D
-        )
+        assert (
+            len(bins) == D
+        ), f"The length of bins must be {D} when bins is a list.\n"
         for idx, r in enumerate(ranges):
             if not isinstance(bins[idx], int):
                 raise ValueError(
-                    "The type of %d-th element in bins list must be int." % idx
+                    f"The type of {idx}-th element in bins list must be int."
                 )
             e = paddle.linspace(r[0], r[1], bins[idx] + 1, x.dtype)
             edges.append(e)
@@ -5931,19 +5940,17 @@ def diagonal(
             axis1_ = axis1 if axis1 >= 0 else len(input_shape) + axis1
             axis2_ = axis2 if axis2 >= 0 else len(input_shape) + axis2
 
-            assert axis1_ < len(input_shape), (
-                "The argument axis1 is out of range (expected to be in range of [%d, %d], but got %d).\n"
-                % (-(len(input_shape)), len(input_shape) - 1, axis1)
-            )
+            assert axis1_ < len(
+                input_shape
+            ), f"The argument axis1 is out of range (expected to be in range of [{-(len(input_shape))}, {len(input_shape) - 1}], but got {axis1}).\n"
 
-            assert axis2_ < len(input_shape), (
-                "The argument axis2 is out of range (expected to be in range of [%d, %d], but got %d).\n"
-                % (-(len(input_shape)), len(input_shape) - 1, axis2)
-            )
+            assert axis2_ < len(
+                input_shape
+            ), f"The argument axis2 is out of range (expected to be in range of [{-(len(input_shape))}, {len(input_shape) - 1}], but got {axis2}).\n"
 
             assert axis1_ != axis2_, (
                 "axis1 and axis2 cannot be the same axis."
-                "But received axis1 = %d, axis2 = %d\n" % (axis1, axis2)
+                f"But received axis1 = {axis1}, axis2 = {axis2}\n"
             )
 
         __check_input(x, offset, axis1, axis2)

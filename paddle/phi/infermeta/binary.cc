@@ -192,8 +192,8 @@ void ArrayReadInferMeta(const MetaTensor& array,
 }
 
 void Atan2InferMeta(const MetaTensor& x, const MetaTensor& y, MetaTensor* out) {
-  auto x_dims = x.dims();
-  auto y_dims = y.dims();
+  const auto& x_dims = x.dims();
+  const auto& y_dims = y.dims();
 
   PADDLE_ENFORCE_EQ(
       x_dims.size(),
@@ -499,7 +499,6 @@ void CompareRawInferMeta(const MetaTensor& x,
                                   out_dims_array.data(),
                                   max_dim,
                                   axis);
-
     out->set_dims(common::make_ddim(out_dims_array));
     out->share_lod(x);
   }
@@ -880,9 +879,9 @@ void ConvTransposeInferMeta(const MetaTensor& x,
             output_size[i],
             infer_shape,
             errors::InvalidArgument(
-                "output_size of Op(ConvTransposeOp) should not be "
-                "less than the infered output size. But received output_size = "
-                "[%s], whose dim %d is less than the infered output size [%s]",
+                "output_size of Op(ConvTransposeOp) should not be less than "
+                "the inferred output size. But received output_size = [%s], "
+                "whose dim %d is less than the inferred output size [%s]",
                 common::make_ddim(output_size).to_str(),
                 i,
                 infer_shape));
@@ -891,8 +890,8 @@ void ConvTransposeInferMeta(const MetaTensor& x,
             infer_shape + strides[i],
             errors::InvalidArgument(
                 "output_size of Op(ConvTransposeOp) should be less "
-                "than infered size + stride. But received output_size = [%s], "
-                "whose dim %d is not less than the infered output size (%d) + "
+                "than inferred size + stride. But received output_size = [%s], "
+                "whose dim %d is not less than the inferred output size (%d) + "
                 "stride (%d) = %d",
                 common::make_ddim(output_size).to_str(),
                 i,
@@ -1249,7 +1248,6 @@ void CrossEntropyWithSoftmaxInferMeta(const MetaTensor& logits,
 void CSoftmaxWithCrossEntropyInferMeta(const MetaTensor& logits,
                                        const MetaTensor& label,
                                        int64_t ignore_index,
-                                       int ring_id,
                                        int rank,
                                        int nranks,
                                        MetaTensor* softmax,
@@ -4425,7 +4423,7 @@ void UnpoolInferMeta(const MetaTensor& x,
   PADDLE_ENFORCE_EQ(in_x_dims.size() == 4,
                     true,
                     common::errors::InvalidArgument(
-                        "Unpool Intput(X) must be of 4-dimensional, but "
+                        "Unpool Input(X) must be of 4-dimensional, but "
                         "received Input(X)'s dimensions is %d.",
                         in_x_dims.size()));
   PADDLE_ENFORCE_EQ(in_x_dims,
@@ -4471,7 +4469,7 @@ void Unpool3dInferMeta(const MetaTensor& x,
   PADDLE_ENFORCE_EQ(in_x_dims.size() == 5,
                     true,
                     common::errors::InvalidArgument(
-                        "Unpool Intput(X) must be of 5-dimensional, but "
+                        "Unpool Input(X) must be of 5-dimensional, but "
                         "received Input(X)'s dimensions is %d.",
                         in_x_dims.size()));
   PADDLE_ENFORCE_EQ(in_x_dims,

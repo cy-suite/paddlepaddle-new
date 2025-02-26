@@ -50,8 +50,11 @@ std::unordered_set<std::string> decomp_op_contain_none = {
 };
 //
 
-std::unordered_set<std::string> dynamic_shape_blacklist = {
-    "pd_op.squeeze", "pd_op.unsqueeze", "pd_op.flatten", "pd_op.eye"};
+std::unordered_set<std::string> dynamic_shape_blacklist = {"pd_op.squeeze",
+                                                           "pd_op.unsqueeze",
+                                                           "pd_op.flatten",
+                                                           "pd_op.eye",
+                                                           "pd_op.diag"};
 
 namespace {
 std::set<std::string> StringSplit(const std::string& str) {
@@ -420,7 +423,7 @@ std::vector<pir::Operation*> DecompProgram::parse_block_ops(pir::Block* block) {
       end_idx,
       ops_list.size(),
       common::errors::PreconditionNotMet(
-          "Requred end_idx <= block.ops().size() in DecompProgram."));
+          "Required end_idx <= block.ops().size() in DecompProgram."));
   return std::vector<pir::Operation*>(ops_list.begin() + start_idx,
                                       ops_list.begin() + end_idx);
 }
@@ -501,7 +504,8 @@ void DecompProgram::decomp_block(
       int chunk_id = (op->attribute<pir::Int32Attribute>("chunk_id"))
                          ? op->attribute<pir::Int32Attribute>("chunk_id").data()
                          : -1;
-      pir::BuilderAttrGuard guard(builder, op_role, chunk_id);
+      std::string comp_op_name = op->name();
+      pir::BuilderAttrGuard guard(builder, op_role, chunk_id, comp_op_name);
 
       std::vector<std::vector<pir::Value>> decomp_res = call_decomp_rule(op);
       if (decomp_res.size() == 0) {

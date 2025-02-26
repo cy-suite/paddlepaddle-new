@@ -176,7 +176,7 @@ bool InitAndCheckAttrs(const size_t &found_adamw_count,
   bool lazy_mode = false;
   int64_t min_row_size_to_use_multithread = 1000;
 
-  // Get skip_update and coeff, these wiil be used to check whether we can
+  // Get skip_update and coeff, these will be used to check whether we can
   // use fuse_adamw.
   for (auto &node : adamw_op->inputs) {
     auto in_name = adamw_op_desc->Input("SkipUpdate");
@@ -192,7 +192,7 @@ bool InitAndCheckAttrs(const size_t &found_adamw_count,
 
   // Get attrs and block
   if (found_adamw_count == 0) {
-    // Get blokc
+    // Get block
     config->block = adamw_op_desc->Block();
     // Get attrs
     config->beta1 = PADDLE_GET_CONST(float, adamw_op_desc->GetAttr("beta1"));

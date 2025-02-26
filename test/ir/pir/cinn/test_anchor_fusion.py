@@ -19,7 +19,6 @@ import numpy
 import utils
 
 os.environ['FLAGS_cinn_new_group_scheduler'] = '1'
-os.environ['FLAGS_group_schedule_tiling_first'] = '1'
 os.environ['FLAGS_prim_all'] = 'true'
 os.environ['FLAGS_prim_enable_dynamic'] = 'true'
 os.environ['FLAGS_print_ir'] = '1'
@@ -67,7 +66,7 @@ class TestAnchorFusion(unittest.TestCase):
         if kernel_num is not None:
             utils.check_jit_kernel_number(static_compute, kernel_num)
 
-    def test_identiy_iters_fusion(self):
+    def test_identity_iters_fusion(self):
         #        T
         #      / | \
         #     /  |  \
@@ -92,11 +91,11 @@ class TestAnchorFusion(unittest.TestCase):
         self.check_accuracy_and_kernel_num(init, func, kernel_num=1)
 
     def test_transpose_iters_fusion(self):
-        #     Tranpose
+        #     Transpose
         #      /  \
-        #     T   Tranpose
+        #     T   Transpose
         #    / \
-        #   T  Tranpose
+        #   T  Transpose
         def func(x):
             x = paddle.transpose(x, [2, 0, 1, 3])
             a = x + 1
@@ -109,7 +108,7 @@ class TestAnchorFusion(unittest.TestCase):
             x = paddle.ones((16, 32, 64, 128))
             return (x,)
 
-        # This case can't be fused to one kernel because muti-downstream
+        # This case can't be fused to one kernel because multi-downstream
         # transpose op will sink currently.
         self.check_accuracy_and_kernel_num(init, func)
 
@@ -217,7 +216,7 @@ class TestAnchorFusion(unittest.TestCase):
 
         self.check_accuracy_and_kernel_num(init, func, kernel_num=1)
 
-    def test_recompute_multidownstrema_trivial(self):
+    def test_recompute_multidownstream_trivial(self):
         #     T
         #    / \
         #   S   S
@@ -285,7 +284,21 @@ class TestAnchorFusion(unittest.TestCase):
             x = paddle.rand((1, 3, 1, 16, 1, 32, 1))
             return (x,)
 
-        self.check_accuracy_and_kernel_num(init, func, kernel_num=1)
+        self.check_accuracy_and_kernel_num(init, func, kernel_num=2)
+
+    def test_0d_fusion(self):
+        def func(x):
+            a = x + 1
+            b = a[16, 8]
+            b = b.reshape([1, 1])
+            c = b.expand([16, 32])
+            return a, b, c
+
+        def init():
+            x = paddle.rand((32, 16))
+            return (x,)
+
+        self.check_accuracy_and_kernel_num(init, func, kernel_num=2)
 
 
 if __name__ == "__main__":

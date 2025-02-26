@@ -246,8 +246,7 @@ class LayerObjectHelper(LayerHelperBase):
                 dtype = each.dtype
             elif dtype != each.dtype:
                 raise ValueError(
-                    "Data Type mismatch: %d to %d in %s"
-                    % (dtype, each.dtype, self.name)
+                    f"Data Type mismatch: {dtype} to {each.dtype} in {self.name}"
                 )
         return dtype
 
@@ -1690,12 +1689,12 @@ class Layer:
                 else set_op_customized_attrs_post_hook
             )
 
-            already_registed = False
+            already_registered = False
             if layers_hooks:
                 last_key = next(reversed(layers_hooks))
-                already_registed = layers_hooks[last_key] == candidate_hook
+                already_registered = layers_hooks[last_key] == candidate_hook
 
-            return already_registed
+            return already_registered
 
         if not isinstance(attrs, dict):
             raise TypeError(

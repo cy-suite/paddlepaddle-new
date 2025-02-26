@@ -61,7 +61,7 @@ namespace paddle::framework::interpreter {
 
 using VariableIdMap = std::map<std::string, std::vector<int>>;
 
-// NOTE(Ruibiao): SingleStreamGuard make some multi-strem op (i.e.,
+// NOTE(Ruibiao): SingleStreamGuard make some multi-stream op (i.e.,
 // c_allreduce_sum) run in single stream. It is dedicated to BuildOpFuncList
 // which run kernel without stream synchronization.
 class SingleStreamGuard {
@@ -733,7 +733,7 @@ void BuildOpFuncList(const phi::Place& place,
     try {
       if (dynamic_cast<framework::OperatorWithKernel*>(op) == nullptr) {
         VLOG(4) << "HandleOperatorBase";
-        // op is not a operatorwithkernel, so direcly run OperatorBase::Run()
+        // op is not a operatorwithkernel, so directly run OperatorBase::Run()
 
         std::vector<std::shared_ptr<OperatorBase>> following_ops(
             ops.begin() + static_cast<int>(i) + 1, ops.end());
@@ -859,7 +859,7 @@ void BuildOpFuncList(const phi::Place& place,
                 op->Attr<bool>(kAllKernelsMustComputeRuntimeShape))) {
             RuntimeInferShapeContext infer_shape_ctx(*op, runtime_context);
             // TODO(Aurelius84): In case of control flow ops, they are NOT
-            // inheritted from OperatorWithKernel.
+            // inherited from OperatorWithKernel.
             op_with_kernel->Info().infer_shape_(&infer_shape_ctx);
           }
         }
@@ -951,10 +951,10 @@ void BuildOpFuncList(const phi::Place& place,
           // operator.cc
           for (auto& p : m) {
             auto* transformed_tensor =
-                GetMutableLoDTensorOrSelectedRowsValueFromVar(
+                GetMutableDenseTensorOrSelectedRowsValueFromVar(
                     local_scope->FindVar(var_scope->GetNameById(p.first)));
             auto* original_tensor =
-                GetMutableLoDTensorOrSelectedRowsValueFromVar(
+                GetMutableDenseTensorOrSelectedRowsValueFromVar(
                     local_scope->FindVar(var_scope->GetNameById(p.second)));
 
             // avoid overwriting valid data

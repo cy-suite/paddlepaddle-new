@@ -50,6 +50,7 @@
 - bitwise_xor
 - isinf
 - isnan
+- isfinite
 - remainder
 - scale
 - matmul
@@ -125,3 +126,4 @@
 - sigmoid
 - reduce_as
 - pow
+- variance

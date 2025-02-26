@@ -58,7 +58,8 @@ ir::Tensor LogicalRightShift(const ir::Tensor &A,
       [&](std::variant<common::UnknownArch, common::X86Arch, common::ARMArch>) {
         CINN_NOT_IMPLEMENTED
       },
-      [&](common::HygonDCUArchHIP) { extern_func += "hip_"; });
+      [&](common::HygonDCUArchHIP) { extern_func += "hip_"; },
+      [&](common::HygonDCUArchSYCL) { extern_func += "sycl_"; });
 
   extern_func += "logical_right_shift";
 
@@ -125,7 +126,7 @@ std::shared_ptr<OpStrategy> StrategyForLogicalRightShift(
 
   auto strategy = std::make_shared<framework::OpStrategy>();
   strategy->AddImpl(logical_right_shift_compute,
-                    GetInjectiveScheduleFunc(output_shapes, target),
+
                     "strategy.logical_right_shift.x86",
                     1);
   return strategy;

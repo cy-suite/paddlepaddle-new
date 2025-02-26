@@ -106,6 +106,11 @@ void BindGuard(pybind11::module *m) {
   py::class_<RangeMatchGuard, GuardBase, std::shared_ptr<RangeMatchGuard>>(
       *m, "RangeMatchGuard", R"DOC(RangeMatchGuard Class.)DOC")
       .def(py::init<const py::object &>(), py::arg("range_obj"));
+  py::class_<InstanceCheckGuard,
+             GuardBase,
+             std::shared_ptr<InstanceCheckGuard>>(
+      *m, "InstanceCheckGuard", R"DOC(InstanceCheckGuard Class.)DOC")
+      .def(py::init<const py::object &>(), py::arg("isinstance_obj"));
 
   m->def(
       "merge_guard",
@@ -131,6 +136,19 @@ void BindSot(pybind11::module *m) {
         return obj;
       },
       py::arg("callback"));
+
+  m->def("has_custom_getattro", [](py::object obj) {
+    PyObject *py_obj = obj.ptr();
+
+    if (!PyType_Check(py_obj)) {
+      PADDLE_THROW(common::errors::InvalidArgument(
+          "The input object should be a type object, but got %s.",
+          py::str(py_obj).cast<std::string>()));
+    }
+    PyTypeObject *type = reinterpret_cast<PyTypeObject *>(py_obj);
+
+    return type->tp_getattro != PyObject_GenericGetAttr;
+  });
 
   m->def(
       "sot_setup_codes_with_graph",

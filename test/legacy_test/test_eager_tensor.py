@@ -895,7 +895,7 @@ class TestEagerTensor(unittest.TestCase):
         np.testing.assert_array_equal(var[10], np_value[..., None, :, None])
 
         # TODO(zyfncg) there is a bug of dimensions when slice step > 1 and
-        #              indexs has int type
+        #              indices has int type
         # self.assertTrue(
         #     np.array_equal(var[11], np_value[0, 1:10:2, None, None, ...]))
 
@@ -1300,15 +1300,7 @@ class TestEagerTensor(unittest.TestCase):
             with warnings.catch_warnings(record=True) as w:
                 x = paddle.to_tensor([1, 2, 3])
                 paddle.to_tensor(x)
-                flag = False
-                for warn in w:
-                    if (
-                        issubclass(warn.category, UserWarning)
-                    ) and "To copy construct from a tensor, it is recommended to use sourceTensor.clone().detach(), rather than paddle.to_tensor(sourceTensor)." in str(
-                        warn.message
-                    ):
-                        flag = True
-                        break
+                flag = paddle.tensor.creation._warned_in_to_tensor
                 self.assertTrue(flag)
 
     def test_dlpack_device(self):
@@ -1865,6 +1857,25 @@ class TestDenseTensorToTensor(unittest.TestCase):
             y = paddle.to_tensor(x_dense, place=place)
 
             self.assertEqual(x.data_ptr(), y.data_ptr())
+
+
+class TestSetDynamicAttributeToEagerTensorInstance(unittest.TestCase):
+    def test_set_dynamic_attribute_to_eager_tensor_instance_create_via_constructor(
+        self,
+    ):
+        tensor_instance = paddle.to_tensor(1.0)
+        tensor_instance._custom_id = 0
+        self.assertEqual(tensor_instance._custom_id, 0)
+        self.assertEqual(tensor_instance.__dict__["_custom_id"], 0)
+
+    def test_set_dynamic_attribute_to_eager_tensor_instance_create_via_to_pyobject(
+        self,
+    ):
+        original_tensor = paddle.to_tensor(-1.0)
+        tensor_instance = paddle.abs(original_tensor)
+        tensor_instance._custom_flag = True
+        self.assertEqual(tensor_instance._custom_flag, True)
+        self.assertEqual(tensor_instance.__dict__["_custom_flag"], True)
 
 
 if __name__ == "__main__":

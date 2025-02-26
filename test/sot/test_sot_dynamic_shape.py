@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import math
 import unittest
 
 from test_case_base import (
@@ -58,6 +59,12 @@ def dynamic_shape_in_list(x, shape):
     return x.reshape(shape)
 
 
+def dynamic_shape_int_mul_float(x):
+    y = x * 0.5
+    z = math.sin(y)  # Trigger get_py_value
+    return z
+
+
 class CustomConv(paddle.nn.Conv2D):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -74,6 +81,10 @@ class CustomConv(paddle.nn.Conv2D):
             self._groups,
             self._data_format,
         )
+
+
+def pool2d_fallback(x, kernel_size):
+    return paddle.nn.functional.max_pool2d(x, kernel_size=kernel_size)
 
 
 class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
@@ -173,13 +184,22 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
                 )
                 self.assertEqual(ctx.translate_count, 2)
 
-    def test_conv_dynamic_shape_fallback(self):
+    def test_conv_dynamic_shape_stride_fallback(self):
         with allow_dynamic_shape_guard(
             True
         ), test_instruction_translator_cache_context() as ctx:
             for i in range(1, 5):
                 conv = CustomConv(3, 3, 3, stride=i)
                 conv(paddle.randn([1, 3, 224, 224]))
+                self.assertEqual(ctx.translate_count, i)
+
+    def test_conv_dynamic_shape_kernel_size_fallback(self):
+        with allow_dynamic_shape_guard(
+            True
+        ), test_instruction_translator_cache_context() as ctx:
+            for i in range(1, 5):
+                x = paddle.randn([1, 3, 224, 224])
+                self.assert_results(pool2d_fallback, x, i)
                 self.assertEqual(ctx.translate_count, i)
 
     def test_pad_dynamic_shape_fallback(self):
@@ -192,6 +212,13 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
             for i in range(1, 5):
                 self.assert_results(pad_func, paddle.randn([1, 3, 224, 224]), i)
                 self.assertEqual(ctx.translate_count, i)
+
+    def test_dynamic_shape_int_mul_float(self):
+        with allow_dynamic_shape_guard(
+            True
+        ), test_instruction_translator_cache_context() as ctx:
+            for i in range(1, 6):
+                self.assert_results(dynamic_shape_int_mul_float, i)
 
 
 if __name__ == '__main__':

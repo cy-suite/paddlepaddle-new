@@ -16,10 +16,13 @@ import numpy as np
 import tensorrt as trt
 
 from paddle.tensorrt.converter_utils import (
+    add_1D_constant_layer,
     add_constant_layer,
-    get_trt_plugin,
+    set_layer_name,
+    trt_concat,
     trt_div,
     trt_min,
+    trt_pow,
     trt_prod,
     trt_sub,
     trt_sum,
@@ -35,51 +38,226 @@ activation_type_map = {
 }
 
 
-@converter_registry.register("pd_op.relu", trt_version="8.x")
-@converter_registry.register("pd_op.tanh", trt_version="8.x")
-@converter_registry.register("pd_op.sigmoid", trt_version="8.x")
+@converter_registry.register("pd_op.relu", trt_version="trt_version_ge=8.0")
+@converter_registry.register("pd_op.tanh", trt_version="trt_version_ge=8.0")
+@converter_registry.register("pd_op.sigmoid", trt_version="trt_version_ge=8.0")
 def activation_converter(network, paddle_op, inputs):
     layer = network.add_activation(
         inputs[0], activation_type_map[paddle_op.name()]
     )
+    set_layer_name(layer, paddle_op)
     return layer.get_output(0)
 
 
-@converter_registry.register("pd_op.softmax", trt_version="8.x")
+@converter_registry.register(
+    "pd_op.logsigmoid", trt_version="trt_version_ge=8.0"
+)
+def logsigmoid_converter(network, paddle_op, inputs):
+    sigmoid_layer = network.add_activation(
+        inputs[0], trt.ActivationType.SIGMOID
+    )
+    layer = network.add_unary(
+        sigmoid_layer.get_output(0), trt.UnaryOperation.LOG
+    )
+    return layer.get_output(0)
+
+
+@converter_registry.register("pd_op.relu6", trt_version="trt_version_ge=8.0")
+def relu6_converter(network, paddle_op, inputs):
+    layer = network.add_activation(inputs[0], trt.ActivationType.CLIP)
+    layer.alpha = 0.0
+    layer.beta = 6.0
+    return layer.get_output(0)
+
+
+@converter_registry.register("pd_op.softmax", trt_version="trt_version_ge=8.0")
 def softmax_converter(network, paddle_op, inputs):
-    axis = paddle_op.attrs().get("axis", 0)
+    input1 = inputs[0]
+    input_shape = input1.shape
+    input_dims = len(input_shape)
+    axis = paddle_op.attrs().get("axis", -1)
+
+    # support 0 or 1 dims input
+    is_0_dims = input_dims == 0
+    is_1_dims = input_dims == 1
+    if is_0_dims or is_1_dims:
+        reshaped_layer = network.add_shuffle(input1)
+        reshaped_dims = (1, 1 if is_0_dims else input_shape[0])
+        reshaped_layer.reshape_dims = reshaped_dims
+        set_layer_name(reshaped_layer, paddle_op)
+        input1 = reshaped_layer.get_output(0)
+        input_shape = input1.shape
+        input_dims = len(input_shape)
+        axis = -1
+
+    layer = network.add_softmax(input1)
+    set_layer_name(layer, paddle_op)
+    axes = max(0, input_dims - 3)
+
+    # Handle padded dimensions
+    padded_dims = 0
+    explicit_batch = 1
+    for i in range(input_dims - 1, explicit_batch, -1):
+        if input_shape[i] == 1:
+            padded_dims += 1
+        else:
+            break
+
     if axis < 0:
-        axis = len(inputs[0].shape) + axis
+        axes = input_dims + axis
+    else:
+        axes = axis
 
-    softmax_layer = network.add_softmax(inputs[0])
-    softmax_layer.axes = 1 << axis
-    return softmax_layer.get_output(0)
+    layer.axes = 1 << axes
+
+    # Support 0 or 1 dims input
+    if is_0_dims or is_1_dims:
+        reshaped_layer = network.add_shuffle(layer.get_output(0))
+        reshaped_layer.reshape_dims = inputs[0].shape
+        layer = reshaped_layer
+        set_layer_name(layer, paddle_op)
+
+    return layer.get_output(0)
 
 
-@converter_registry.register("pd_op.gelu", trt_version="8.x")
+@converter_registry.register("pd_op.gelu", trt_version="trt_version_ge=8.0")
 def gelu_converter(network, paddle_op, inputs):
     input_val = inputs[0]
     approximate = paddle_op.attrs()["approximate"]
+
+    const_shape = [1] * len(input_val.shape)
+
     if approximate:
-        raise RuntimeError(
-            "GeLU converter currently doesn't support fast gelu compute"
+        constant_layer_pow = add_constant_layer(
+            network,
+            [3.0],
+            const_shape,
+            np.float32,
+            name=[paddle_op.name(), "constant_layer_pow"],
+        )
+        constant_layer_multiply = add_constant_layer(
+            network,
+            [0.044715],
+            const_shape,
+            np.float32,
+            name=[paddle_op.name(), "constant_layer_multiply"],
+        )
+        constant_layer_sqrt = add_constant_layer(
+            network,
+            [0.7978845608028654],
+            const_shape,
+            np.float32,
+            name=[paddle_op.name(), "constant_layer_sqrt"],
+        )
+        constant_layer_one = add_constant_layer(
+            network,
+            [1.0],
+            const_shape,
+            np.float32,
+            name=[paddle_op.name(), "constant_layer_one"],
+        )
+        constant_layer_half = add_constant_layer(
+            network,
+            [0.5],
+            const_shape,
+            np.float32,
+            name=[paddle_op.name(), "constant_layer_half"],
         )
 
-    plugin_name = "CustomGeluPluginDynamic"
-    type_id = trt.PluginField(
-        "type_id", np.array(0, dtype=np.int32), trt.PluginFieldType.INT32
-    )
+        layer_pow = trt_pow(
+            network,
+            input_val,
+            constant_layer_pow,
+            name=[paddle_op.name(), "layer_pow"],
+        )
+        layer_mul = trt_prod(
+            network,
+            layer_pow,
+            constant_layer_multiply,
+            name=[paddle_op.name(), "layer_mul"],
+        )
+        layer_add = trt_sum(
+            network, layer_mul, input_val, name=[paddle_op.name(), "layer_add"]
+        )
+        layer_sqrt = trt_prod(
+            network,
+            layer_add,
+            constant_layer_sqrt,
+            name=[paddle_op.name(), "layer_sqrt"],
+        )
 
-    filed_collection = trt.PluginFieldCollection([type_id])
-    plugin_version = "1"
+        layer_tanh = network.add_activation(layer_sqrt, trt.ActivationType.TANH)
+        set_layer_name(layer_tanh, paddle_op)
+        layer_one = trt_sum(
+            network,
+            layer_tanh.get_output(0),
+            constant_layer_one,
+            name=[paddle_op.name(), "layer_one"],
+        )
+        layer_cdf = trt_prod(
+            network,
+            layer_one,
+            constant_layer_half,
+            name=[paddle_op.name(), "layer_cdf"],
+        )
+        y = trt_prod(
+            network, layer_cdf, input_val, name=[paddle_op.name(), "y"]
+        )
 
-    plugin = get_trt_plugin(plugin_name, filed_collection, plugin_version)
+        return y
+    else:
+        constant_layer_one = add_constant_layer(
+            network,
+            [1.0],
+            const_shape,
+            np.float32,
+            name=[paddle_op.name(), "constant_layer_one"],
+        )
+        constant_layer_half = add_constant_layer(
+            network,
+            [0.5],
+            const_shape,
+            np.float32,
+            name=[paddle_op.name(), "constant_layer_half"],
+        )
+        constant_layer_rsqrt2 = add_constant_layer(
+            network,
+            [0.70710678118],
+            const_shape,
+            np.float32,
+            name=[paddle_op.name(), "constant_layer_rsqrt2"],
+        )
 
-    layer = network.add_plugin_v2([input_val], plugin)
-    return layer.get_output(0)
+        layer_mul = trt_prod(
+            network,
+            input_val,
+            constant_layer_rsqrt2,
+            name=[paddle_op.name(), "layer_mul"],
+        )
+        layer_erf = network.add_unary(layer_mul, trt.UnaryOperation.ERF)
+        set_layer_name(layer_erf, paddle_op)
+        layer_add = trt_sum(
+            network,
+            layer_erf.get_output(0),
+            constant_layer_one,
+            name=[paddle_op.name(), "layer_add"],
+        )
+        layer_cdf = trt_prod(
+            network,
+            layer_add,
+            constant_layer_half,
+            name=[paddle_op.name(), "layer_cdf"],
+        )
+        y = trt_prod(
+            network, layer_cdf, input_val, name=[paddle_op.name(), "y"]
+        )
+
+        return y
 
 
-@converter_registry.register("pd_op.hardsigmoid", trt_version="8.x")
+@converter_registry.register(
+    "pd_op.hardsigmoid", trt_version="trt_version_ge=8.0"
+)
 def hardsigmoid_converter(network, paddle_op, inputs):
     x = inputs[0]
     slope = paddle_op.attrs()["slope"]
@@ -92,7 +270,9 @@ def hardsigmoid_converter(network, paddle_op, inputs):
     return hardsigmoid_layer.get_output(0)
 
 
-@converter_registry.register("pd_op.hardswish", trt_version="8.x")
+@converter_registry.register(
+    "pd_op.hardswish", trt_version="trt_version_ge=8.0"
+)
 def hardswish_converter(network, paddle_op, inputs):
     x = inputs[0]
     threshold = 6.0
@@ -107,6 +287,16 @@ def hardswish_converter(network, paddle_op, inputs):
         x, hardsigmoid_layer.get_output(0), trt.ElementWiseOperation.PROD
     )
     return hardswish_layer.get_output(0)
+
+
+@converter_registry.register("pd_op.elu", trt_version="8.x")
+@converter_registry.register("pd_op.elu_", trt_version="8.x")
+def elu_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    alpha = paddle_op.attrs()["alpha"]
+    elu_layer = network.add_activation(x, trt.ActivationType.ELU)
+    elu_layer.alpha = alpha
+    return elu_layer.get_output(0)
 
 
 @converter_registry.register("pd_op.softplus", trt_version="8.x")
@@ -133,6 +323,27 @@ def swish_silu_converter(network, paddle_op, inputs):
         inputs[0], activation_type_map[paddle_op.name()]
     ).get_output(0)
     return trt_prod(network, inputs[0], layer_output)
+
+
+@converter_registry.register("pd_op.tanh_shrink", trt_version="8.x")
+def tanh_shrink_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    tanh_layer = network.add_activation(x, trt.ActivationType.TANH)
+    subtract_layer = network.add_elementwise(
+        x, tanh_layer.get_output(0), trt.ElementWiseOperation.SUB
+    )
+    return subtract_layer.get_output(0)
+
+
+@converter_registry.register("pd_op.stanh", trt_version="8.x")
+def stanh_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    scale_a = paddle_op.attrs()["scale_a"]
+    scale_b = paddle_op.attrs()["scale_b"]
+    stanh_layer = network.add_activation(x, trt.ActivationType.SCALED_TANH)
+    stanh_layer.alpha = scale_b
+    stanh_layer.beta = scale_a
+    return stanh_layer.get_output(0)
 
 
 @converter_registry.register("pd_op.mish", trt_version="8.x")
@@ -187,3 +398,65 @@ def thresholded_relu_converter(network, paddle_op, inputs):
     )
     thresholded_relu_layer.alpha = threshold
     return thresholded_relu_layer.get_output(0)
+
+
+@converter_registry.register("pd_op.leaky_relu", trt_version="8.x")
+@converter_registry.register("pd_op.leaky_relu_", trt_version="8.x")
+def leaky_relu_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    negative_slope = paddle_op.attrs()["negative_slope"]
+    leaky_relu_layer = network.add_activation(x, trt.ActivationType.LEAKY_RELU)
+    leaky_relu_layer.alpha = negative_slope
+    return leaky_relu_layer.get_output(0)
+
+
+@converter_registry.register("pd_op.selu", trt_version="8.x")
+def selu_converter(network, paddle_op, inputs):
+    x = inputs[0]
+    alpha = paddle_op.attrs()["alpha"]
+    scale = paddle_op.attrs()["scale"]
+    selu_layer = network.add_activation(x, trt.ActivationType.SELU)
+    selu_layer.alpha = alpha
+    selu_layer.beta = scale
+    return selu_layer.get_output(0)
+
+
+@converter_registry.register("pd_op.prelu", trt_version="8.x")
+def prelu_converter(network, paddle_op, inputs):
+    input, alpha_data = inputs
+    input_dims = input.shape
+    mode = paddle_op.attrs()["mode"]
+    data_format = paddle_op.attrs().get("data_format", "NCHW")
+    w_dims = trt.Dims(alpha_data.numpy().shape)
+    trt_w_dims = w_dims
+    alpha_tensor = network.add_constant(trt_w_dims, alpha_data).get_output(0)
+    alpha_dims = alpha_tensor.shape
+    real_alpha_tensor = alpha_tensor
+    if len(alpha_dims) != len(input_dims):
+        reshape_layer = network.add_shuffle(alpha_tensor)
+        c = alpha_dims[0]
+        n_tensor = add_1D_constant_layer(network, [1])
+        c_tensor = add_1D_constant_layer(network, [c])
+        hw_tensor = None
+        if len(input_dims) - 2 > 0:
+            hw_tensor = add_1D_constant_layer(
+                network, [1] * (len(input_dims) - 2)
+            )
+        if data_format == "NCHW":
+            if hw_tensor:
+                shape_tensor = trt_concat(
+                    network, [n_tensor, c_tensor, hw_tensor]
+                )
+            else:
+                shape_tensor = trt_concat(network, [n_tensor, c_tensor])
+        else:
+            if hw_tensor:
+                shape_tensor = trt_concat(
+                    network, [n_tensor, hw_tensor, c_tensor]
+                )
+            else:
+                shape_tensor = trt_concat(network, [n_tensor, c_tensor])
+        reshape_layer.set_input(1, shape_tensor)
+        real_alpha_tensor = reshape_layer.get_output(0)
+    layer = network.add_parametric_relu(input, real_alpha_tensor)
+    return layer.get_output(0)

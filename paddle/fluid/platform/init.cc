@@ -30,7 +30,9 @@ limitations under the License. */
 #include "paddle/phi/core/os_info.h"
 #include "paddle/phi/core/platform/device/device_wrapper.h"
 #include "paddle/phi/core/platform/device_context.h"
-
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+#include "paddle/fluid/custom_engine/custom_device_load.h"
+#endif
 #ifdef PADDLE_WITH_XPU
 #include "paddle/phi/backends/xpu/xpu_header.h"
 #include "paddle/phi/core/platform/device/xpu/xpu_info.h"
@@ -79,7 +81,7 @@ std::once_flag glog_init_flag;
 std::once_flag memory_method_init_flag;
 
 bool InitGflags(std::vector<std::string> args) {
-  bool successed = false;
+  bool succeeded = false;
   std::call_once(gflags_init_flag, [&]() {
     FLAGS_logtostderr = true;
     // NOTE(zhiqiu): dummy is needed, since the function
@@ -102,11 +104,11 @@ bool InitGflags(std::vector<std::string> args) {
     char **arr = argv.data();
     paddle::flags::AllowUndefinedFlags();
     paddle::flags::ParseCommandLineFlags(&argc, &arr);
-    successed = true;
+    succeeded = true;
 
     VLOG(1) << "After Parse: argc is " << argc;
   });
-  return successed;
+  return succeeded;
 }
 
 #ifdef PADDLE_WITH_CUDA
@@ -150,7 +152,7 @@ void LoadCustomDevice(const std::string &library_dir) {
         common::errors::InvalidArgument(
             "Fail to open library: %s with error: %s", lib_path, dlerror()));
 
-    phi::LoadCustomRuntimeLib(lib_path, dso_handle);
+    paddle::LoadCustomLib(lib_path, dso_handle);
   }
   phi::CustomKernelMap::Instance().RegisterCustomKernels();
   LOG(INFO) << "Finished in LoadCustomDevice with libs_path: [" << library_dir

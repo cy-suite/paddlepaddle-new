@@ -58,6 +58,10 @@
 #include "paddle/cinn/hlir/framework/pir/utils.h"
 #endif
 
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+#include "paddle/fluid/custom_engine/custom_engine_manager.h"
+#endif
+
 #ifdef PADDLE_WITH_DNNL
 #include "paddle/fluid/pir/dialect/operator/ir/onednn_op.h"
 #include "paddle/fluid/pir/dialect/operator/ir/op_onednn_dialect.h"
@@ -68,7 +72,7 @@ COMMON_DECLARE_bool(use_mkldnn);
 
 COMMON_DECLARE_bool(print_ir);
 COMMON_DECLARE_bool(enable_collect_shape);
-
+REGISTER_FILE_SYMBOLS(pd_op_to_kernel_pass);
 namespace paddle::dialect {
 
 pir::Type ConvertOpTypeToKernelType(pir::IrContext* ctx,
@@ -97,6 +101,8 @@ pir::Type ConvertOpTypeToKernelType(pir::IrContext* ctx,
           ConvertOpTypeToKernelType(ctx, vec_type[i], place));
     }
     return pir::VectorType::get(ctx, vec_target_type);
+  } else if (!op_type) {
+    return pir::Type();
   }
   PADDLE_THROW(common::errors::Unimplemented(
       "Not support op type %s in ConvertOpTypeToKernelType.", op_type));
@@ -174,6 +180,19 @@ const std::unordered_map<std::string, uint32_t> NoBufferRelatedOps = {
     {paddle::dialect::Flatten_Op::name(), /*xshape_idx*/ 1U},
     {paddle::dialect::BatchNormOp::name(), /*reserve_space*/ 5U},
     {paddle::dialect::BatchNorm_Op::name(), /*reserve_space*/ 5U},
+};
+
+// Please keep the consistency with paddle/phi/kernels/memcpy_kernel.cc
+const std::unordered_map<int, phi::Place> MemcpyOpAttr2Place = {
+    {0, phi::CPUPlace()},
+#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
+    {1, phi::GPUPlace()},
+    {2, phi::GPUPinnedPlace()},
+#elif defined(PADDLE_WITH_XPU)
+    {3, phi::XPUPlace()},
+#elif defined(PADDLE_WITH_CUSTOM_DEVICE)
+    {4, phi::CustomPlace()}
+#endif
 };
 
 static bool NeedSkipPlaceTransfer(const pir::Operation* op) {
@@ -1181,6 +1200,17 @@ phi::KernelKey GetKernelKey(
     return res;
   }
 
+  if (op->isa<MemcpyOp>()) {
+    auto dst_place = MemcpyOpAttr2Place.at(
+        op->attribute("dst_place_type").dyn_cast<pir::Int32Attribute>().data());
+    auto backend = paddle::experimental::ParseBackend(dst_place, place);
+    return {
+        backend,
+        phi::DataLayout::ANY,
+        TransToPhiDataType(
+            op->operand_source(0).type().dyn_cast<DenseTensorType>().dtype())};
+  }
+
   phi::Backend kernel_backend = phi::Backend::UNDEFINED;
   phi::DataLayout kernel_layout = phi::DataLayout::UNDEFINED;
   phi::DataType kernel_dtype = phi::DataType::UNDEFINED;
@@ -1319,7 +1349,7 @@ phi::KernelKey GetKernelKey(
   }
 
   if (kernel_backend == phi::Backend::UNDEFINED) {
-    VLOG(8) << "Kernel backend cannot be infered from op operands";
+    VLOG(8) << "Kernel backend cannot be inferred from op operands";
     kernel_backend = paddle::experimental::ParseBackend(place);
   }
 
@@ -1331,7 +1361,7 @@ phi::KernelKey GetKernelKey(
 #endif
   phi::KernelKey res(kernel_backend, kernel_layout, kernel_dtype);
 
-  // kernel backend infered incorrectly from memcpy op operands,
+  // kernel backend inferred incorrectly from memcpy op operands,
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
   // case that place from (not GPU) to GPU.
   // We handle this special case by following code to fix up the problem.
@@ -1714,6 +1744,8 @@ void AddShadowFeedForValue(
     block->push_back(shadow_tensors_op);
     (*map_op_pair)[op_item] = shadow_tensors_op;
     (*map_value_pair)[op_item->result(index)] = shadow_tensors_op->result(0);
+  } else if (!op_item->result(index).type()) {
+    return;
   } else {
     PADDLE_THROW(
         common::errors::Unimplemented("AddShadowFeed for value only support "
@@ -2179,8 +2211,6 @@ void HandleForSpecialOp(
   // only deal with single output
   if (op_item->num_results() > 0) {
     for (size_t i = 0; i < op_item->num_results(); ++i) {
-      VLOG(6) << "2816:" << op_item->result(i).type();
-      VLOG(6) << "2817:" << op->result(i).type();
       (*map_value_pair)[op_item->result(i)] = op->result(i);
     }
   }
@@ -2433,6 +2463,35 @@ void HandleForTensorRTOp(
   block->push_back(op);
 }
 
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+void HandleForCustomEngineOp(
+    pir::IrContext* ctx,
+    pir::Operation* op_item,
+    phi::KernelKey* kernel_key,
+    phi::Place place,
+    std::unordered_map<pir::Operation*, pir::Operation*>* map_op_pair,
+    std::unordered_map<pir::Value, pir::Value>* map_value_pair,
+    pir::Block* block,
+    C_CustomEngineInterface* interface) {
+  if (interface->custom_engine_op_lower) {
+    struct C_CustomEngineLowerParams lower_params {
+      reinterpret_cast<C_IrContext>(ctx),
+          reinterpret_cast<C_Operation>(op_item),
+          reinterpret_cast<C_KernelKey>(kernel_key),
+          reinterpret_cast<C_Place>(&place),
+          reinterpret_cast<C_Operation_Map>(map_op_pair),
+          reinterpret_cast<C_Value_Map>(map_value_pair),
+          reinterpret_cast<C_Block>(block)
+    };
+    VLOG(6) << "Handle CustomEngineOp while lowering to kernel pass";
+    interface->custom_engine_op_lower(&lower_params);
+  } else {
+    PADDLE_THROW(common::errors::Unimplemented(
+        "CustomEngineInstruction's "
+        "C_CustomEngineInterface->custom_engine_op_lower not implemented"));
+  }
+}
+#endif
 std::vector<pir::Type> BuildOutputs(
     pir::Operation* op_item,
     const std::string& kernel_fn_str,
@@ -2507,6 +2566,13 @@ std::vector<pir::Type> BuildOutputs(
       if ((!UnchangeOutputOps.count(op_item->name())) &&
           (!IsLegacyOp(op_item->name())) && phi_kernel.IsValid()) {
         out_place = phi::TransToPhiPlace(output_defs[i].backend);
+      }
+      if (op_item->isa<MemcpyOp>()) {
+        // If the op is MemcpyOp, the output type is determined by the
+        // attribute "dst_place_type".
+        out_place = MemcpyOpAttr2Place.at(op_item->attribute("dst_place_type")
+                                              .dyn_cast<pir::Int32Attribute>()
+                                              .data());
       }
       PushBackOutputTypes(ctx,
                           op_item,
@@ -3310,7 +3376,7 @@ void ProcessBlock(
       new_arg.set_attribute(name, attr);
     }
     if (auto dense_tensor_type = arg.type().dyn_cast<DenseTensorType>()) {
-      auto place_attr = arg.attribute<PlaceAttribute>("palce");
+      auto place_attr = arg.attribute<PlaceAttribute>("place");
       auto var_place = place_attr ? place_attr.data() : phi::Place();
       new_arg.set_type(
           AllocatedDenseTensorType::get(ctx, var_place, dense_tensor_type));
@@ -3320,7 +3386,7 @@ void ProcessBlock(
   if (phi::is_accelerat_place(place)) {
     for (auto& [keyword, arg] : block->kwargs()) {
       if (auto dense_tensor_type = arg.type().dyn_cast<DenseTensorType>()) {
-        auto place_attr = arg.attribute<PlaceAttribute>("palce");
+        auto place_attr = arg.attribute<PlaceAttribute>("place");
         if (place_attr && place_attr.data() == place) continue;
         auto dtype = dense_tensor_type.dtype();
         phi::KernelKey shadow_key{paddle::experimental::get_accelerat_backend(),
@@ -3442,7 +3508,21 @@ void ProcessBlock(
                           new_block);
       continue;
     }
-
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+    if (paddle::dialect::IsCustomEngineOp(op_item)) {
+      auto* interface = paddle::custom_engine::CustomEngineManager::Instance()
+                            ->GetCustomEngineInterface();
+      HandleForCustomEngineOp(ctx,
+                              op_item,
+                              &kernel_key,
+                              place,
+                              map_op_pair,
+                              map_value_pair,
+                              new_block,
+                              interface);
+      continue;
+    }
+#endif
 #ifdef PADDLE_WITH_DNNL
     if (op_item->HasTrait<OneDNNTrait>() &&
         kernel_key.backend() != phi::Backend::ONEDNN) {

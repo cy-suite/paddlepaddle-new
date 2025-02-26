@@ -27,6 +27,7 @@ _INFERMETA_NEED_META_CONFIG = {
     'Conv2dTransposeInferMeta',
     'CrossEntropyWithSoftmaxInferMeta',
     'CSoftmaxWithCrossEntropyInferMeta',
+    'CSoftmaxWithMultiLabelCrossEntropyInferMeta',
     'DepthwiseConvInferMeta',
     'DistributeFpnProposalsInferMeta',
     'ElementwiseRawInferMeta',
@@ -127,6 +128,7 @@ _INFERMETA_NEED_META_CONFIG = {
     'CrossEntropyGrad2InferMeta',
     'CrossEntropyWithSoftmaxGradInferMeta',
     'CSoftmaxWithCrossEntropyGradInferMeta',
+    'CSoftmaxWithMultiLabelCrossEntropyGradInferMeta',
     'LSTMGradInferMeta',
     'FFTC2RGradInferMeta',
     'GruGradInferMeta',
@@ -591,7 +593,7 @@ def GenBuildOutputs(
     meta_{name}.push_back(&vec_meta_{name}[i]);
   }}
 """
-    # Prepar input type
+    # Prepare input type
     for idx in range(len(op_input_name_list)):
         # is a vector<Tensor>
         if 'pir::VectorType' in op_input_type_list[idx]:

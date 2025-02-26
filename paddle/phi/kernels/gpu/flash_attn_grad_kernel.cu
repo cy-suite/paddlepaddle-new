@@ -143,11 +143,11 @@ static void kvReduceForGQA(const Context& ctx,
   PADDLE_ENFORCE_EQ(
       dk->strides()[2],
       1,
-      common::errors::InvalidArgument("headdim dimention must be contiguous"));
+      common::errors::InvalidArgument("headdim dimension must be contiguous"));
   PADDLE_ENFORCE_EQ(
       dk_tmp.strides()[3],
       1,
-      common::errors::InvalidArgument("headdim dimention must be contiguous"));
+      common::errors::InvalidArgument("headdim dimension must be contiguous"));
   const int64_t reduceDimSize = dk_tmp.dims()[2];
   const size_t blockNum =
       std::min((static_cast<int64_t>(dk_tmp.dims()[0] + 31) / 32),
@@ -177,19 +177,19 @@ static void kvReduceBatchedForGQA(const Context& ctx,
   PADDLE_ENFORCE_EQ(
       dk->strides()[3],
       1,
-      common::errors::InvalidArgument("headdim dimention must be contiguous"));
+      common::errors::InvalidArgument("headdim dimension must be contiguous"));
   PADDLE_ENFORCE_EQ(
       dk_tmp.strides()[4],
       1,
-      common::errors::InvalidArgument("headdim dimention must be contiguous"));
+      common::errors::InvalidArgument("headdim dimension must be contiguous"));
   PADDLE_ENFORCE_EQ(dk->strides()[0],
                     dk->strides()[1] * dk->dims()[1],
                     common::errors::InvalidArgument(
-                        "batchsize dimention must be contiguous"));
+                        "batchsize dimension must be contiguous"));
   PADDLE_ENFORCE_EQ(dk_tmp.strides()[0],
                     dk_tmp.strides()[1] * dk_tmp.dims()[1],
                     common::errors::InvalidArgument(
-                        "batchsize dimention must be contiguous"));
+                        "batchsize dimension must be contiguous"));
   const int64_t reduceDimSize = dk_tmp.dims()[3];
   const size_t blockNum = std::min(
       (static_cast<int64_t>(dk_tmp.dims()[0] * dk_tmp.dims()[1] + 31) / 32),
@@ -227,8 +227,8 @@ void FlashAttnUnpaddedGradBaseKernel(
     const DenseTensor& seed_offset,
     const paddle::optional<DenseTensor>& attn_mask,
     const DenseTensor& dout,
-    int64_t max_seqlen_q,
-    int64_t max_seqlen_k,
+    const Scalar& max_seqlen_q_,
+    const Scalar& max_seqlen_k_,
     float scale,
     float dropout,
     bool causal,
@@ -293,6 +293,9 @@ void FlashAttnUnpaddedGradBaseKernel(
       head_size,
       common::errors::InvalidArgument(
           "flash_attn_bwd receive input with head_size_og == head_size"));
+
+  int64_t max_seqlen_q = max_seqlen_q_.to<int64_t>();
+  int64_t max_seqlen_k = max_seqlen_k_.to<int64_t>();
 
   FlashAttnBwdParamsV2 params =
       FlashAttnBwdParamsV2(ctx,
@@ -479,8 +482,8 @@ void FlashAttnUnpaddedGradKernel(const Context& ctx,
                                  const DenseTensor& seed_offset,
                                  const paddle::optional<DenseTensor>& attn_mask,
                                  const DenseTensor& dout,
-                                 int64_t max_seqlen_q,
-                                 int64_t max_seqlen_k,
+                                 const Scalar& max_seqlen_q,
+                                 const Scalar& max_seqlen_k,
                                  float scale,
                                  float dropout,
                                  bool causal,
@@ -569,8 +572,8 @@ void FlashAttnVarlenQKVPackedGradKernel(
     const DenseTensor& seed_offset,
     const paddle::optional<DenseTensor>& attn_mask,
     const DenseTensor& dout,
-    int64_t max_seqlen_q,
-    int64_t max_seqlen_k,
+    const Scalar& max_seqlen_q,
+    const Scalar& max_seqlen_k,
     float scale,
     float dropout,
     bool causal,

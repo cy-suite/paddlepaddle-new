@@ -114,6 +114,9 @@ struct CompatibleInfo {
 std::vector<int64_t> GetBroadcastAxis(const ::common::DDim& in_shape,
                                       const std::vector<int64_t>& out_shape);
 
+std::vector<::pir::Value> GetBlockOutsideInput(
+    const std::vector<::pir::Operation*>& op_list);
+
 class PrettyNamer {
  public:
   const std::string& GetOrNew(::pir::Value hash_key,
@@ -141,7 +144,7 @@ enum class ScheduleAlignType : int {
 };
 
 struct ScheduleInfoNode {
-  // TOOD(phlrain): update align type by new loop alignment
+  // TODO(phlrain): update align type by new loop alignment
   ScheduleAlignType type{ScheduleAlignType::kNone};
 
   // reduction or broadcast axis locations

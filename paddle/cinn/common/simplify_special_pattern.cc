@@ -14,6 +14,7 @@
 
 #pragma once
 #include "paddle/cinn/common/simplify_special_pattern.h"
+#include <list>
 #include <optional>
 #include <stack>
 #include <unordered_map>
@@ -22,6 +23,148 @@
 #include "paddle/cinn/ir/op/ir_operators.h"
 namespace cinn {
 namespace common {
+
+static void MergeMulModInsertElements(
+    const std::vector<ir::IndexExpr>& elems,
+    std::list<ir::IndexExpr>* mult_exprs,
+    std::list<std::pair<ir::IndexExpr, ir::IndexExpr>>* mod_exprs,
+    ir::IndexExpr* no_opt_sum,
+    bool* has_mult,
+    bool* has_mod) {
+  *has_mult = false;
+  *has_mod = false;
+  for (const ir::IndexExpr ele : elems) {
+    auto mod_ptr = ele.As<ir::Mod>();
+    auto mult_ptr = ele.As<ir::Mul>();
+    if (mod_ptr) {
+      *has_mod = true;
+      mod_exprs->emplace_back(
+          std::make_pair(std::move(mod_ptr->a().as_index()),
+                         std::move(mod_ptr->b().as_index())));
+    } else if (mult_ptr) {
+      *has_mult = true;
+      mult_exprs->emplace_back(ele);
+    } else {
+      *no_opt_sum = no_opt_sum->get() ? *no_opt_sum + ele : ele;
+    }
+  }
+}
+
+// (S0 + (S1 + S2 / (S3 * S4) * S3)) * S4 + S2 % (S3 * S4)
+// ==> (S0 + S1 * S3) * S4 + S2
+static std::optional<ir::IndexExpr> MergeMulModInner(
+    const ir::IndexExpr& expr,
+    const ir::IndexExpr& overall_mult,
+    const ir::IndexExpr& mod_l_expr,
+    const ir::IndexExpr& mod_r_expr) {
+  // The multiplier must always remain divisible by the modulo right
+  // operand. because the final hit condition is that the two are equal.
+  if (!ProveDivisible(mod_r_expr, overall_mult)) return std::nullopt;
+  if (auto mult_ptr = expr.As<ir::Mul>()) {
+    return MergeMulModInner(mult_ptr->a().as_index(),
+                            overall_mult * mult_ptr->b().as_index(),
+                            mod_l_expr,
+                            mod_r_expr);
+  } else if (auto div_ptr = expr.As<ir::Div>()) {
+    VLOG(5) << "---- DEBUG SpecialPattern: MergeMulModInner Start ----";
+    VLOG(5) << "div_ptr_b: " << div_ptr->b().as_index();
+    VLOG(5) << "overall_mult: " << overall_mult;
+    VLOG(5) << "mod_r_expr: " << mod_r_expr;
+    VLOG(5) << "div_ptr_a - mod_l_expr: "
+            << div_ptr->a().as_index() - mod_l_expr;
+    VLOG(5) << "ProveDivisible: "
+            << ProveDivisible(div_ptr->a().as_index() - mod_l_expr, mod_r_expr);
+    VLOG(5) << "div_ptr_a - mod_l_expr % overall_mult: "
+            << div_ptr->a().as_index() % overall_mult;
+    VLOG(5) << "---- DEBUG SpecialPattern: MergeMulModInner End ----";
+
+    // f % (S0 * S1) / S0 * S0 + f % S0 ==> f % (S0 + S1),
+    // because f - f % (S0 * S1) == f / (S0 * S1) * (S0 * S1) can be divisible
+    // by S0.
+    if (overall_mult == div_ptr->b().as_index() && overall_mult == mod_r_expr &&
+        (ProveDivisible(div_ptr->a().as_index() - mod_l_expr, mod_r_expr) ||
+         div_ptr->a().as_index() % overall_mult == mod_l_expr % mod_r_expr)) {
+      // Found!
+      return div_ptr->a().as_index();
+    } else {
+      return std::nullopt;
+    }
+  } else if (auto add_ptr = expr.As<ir::Add>()) {
+    auto lhs = add_ptr->a().as_index();
+    auto rhs = add_ptr->b().as_index();
+    if (auto lhs_result =
+            MergeMulModInner(lhs, overall_mult, mod_l_expr, mod_r_expr)) {
+      return rhs * overall_mult + lhs_result.value();
+    } else if (auto rhs_result = MergeMulModInner(
+                   rhs, overall_mult, mod_l_expr, mod_r_expr)) {
+      return lhs * overall_mult + rhs_result.value();
+    } else {
+      return std::nullopt;
+    }
+  } else {
+    return std::nullopt;
+  }
+}
+
+ir::IndexExpr MergeMulMod(const ir::IndexExpr& base) {
+  std::vector<ir::IndexExpr> elems = GetFlattenExprs<ir::Add>(base);
+  std::list<ir::IndexExpr> mult_exprs;
+  std::list<std::pair<ir::IndexExpr, ir::IndexExpr>> mod_exprs;
+  ir::IndexExpr no_opt_sum;
+  bool has_mult;
+  bool has_mod;
+  MergeMulModInsertElements(
+      elems, &mult_exprs, &mod_exprs, &no_opt_sum, &has_mult, &has_mod);
+  bool find_opt = false;
+  auto search_mod_it = mod_exprs.begin();
+
+  while (search_mod_it != mod_exprs.end()) {
+    auto mult_it = mult_exprs.begin();
+    bool inner_find_opt = false;
+    while (mult_it != mult_exprs.end()) {
+      auto ret = MergeMulModInner(*mult_it,
+                                  ir::IndexExpr(1),
+                                  search_mod_it->first,
+                                  search_mod_it->second);
+      if (!ret.has_value()) {
+        ++mult_it;
+        continue;
+      }
+      inner_find_opt = true;
+      auto temp_mod_it = search_mod_it;
+      ++search_mod_it;
+      mod_exprs.erase(temp_mod_it);
+      mult_exprs.erase(mult_it);
+      std::vector<ir::IndexExpr> ret_elems =
+          GetFlattenExprs<ir::Add>(ret.value());
+      MergeMulModInsertElements(
+          ret_elems, &mult_exprs, &mod_exprs, &no_opt_sum, &has_mult, &has_mod);
+      if (has_mult) {
+        search_mod_it = mod_exprs.begin();
+      } else if (has_mod && search_mod_it == mod_exprs.end()) {
+        search_mod_it--;
+      }
+      break;
+    }
+    find_opt = find_opt || inner_find_opt;
+    if (!inner_find_opt) {
+      ++search_mod_it;
+    }
+  }
+  if (!find_opt) {
+    return base;
+  }
+  for (const auto& it : mult_exprs) {
+    no_opt_sum = no_opt_sum.get() ? no_opt_sum + it : it;
+  }
+
+  for (const auto& it : mod_exprs) {
+    no_opt_sum = no_opt_sum.get() ? no_opt_sum + it.first % it.second
+                                  : it.first % it.second;
+  }
+  return no_opt_sum;
+}
+
 // S0 / (S1 * S2) * S1 * S2 + S4 % (S1 * S2) ==> S0
 // s.t. (S4 - S0) % (S1 * S2) == 0
 std::optional<ir::IndexExpr> DivMulAddModCornerCase(const ir::IndexExpr& lhs,
@@ -40,7 +183,7 @@ std::optional<ir::IndexExpr> DivMulAddModCornerCase(const ir::IndexExpr& lhs,
     auto mulPtr = inner.As<ir::Mul>();
     if (mulPtr) {
       inner = mulPtr->a().as_index();
-      mult_outer = mulPtr->b().as_index() * mult_outer.as_index();
+      mult_outer = mulPtr->b().as_index() * mult_outer;
     } else {
       break;
     }
@@ -50,10 +193,13 @@ std::optional<ir::IndexExpr> DivMulAddModCornerCase(const ir::IndexExpr& lhs,
   auto innerDiv = inner.As<ir::Div>();
   if (!innerDiv) return std::nullopt;
   if (innerDiv->b().as_index() == rhsMod->b().as_index() &&
-      innerDiv->b().as_index() == mult_outer &&
-      ProveDivisible(rhsMod->a().as_index() - innerDiv->a().as_index(),
-                     mult_outer)) {
-    return innerDiv->a().as_index();
+      innerDiv->b().as_index() == mult_outer) {
+    // The second condition is to adapt to the dynamic shape:
+    // f % (S0 * S1) / S0 * S0 + f % S0 ==> f % (S0 * S1)
+    if (ProveDivisible(rhsMod->a().as_index() - innerDiv->a().as_index(),
+                       mult_outer) ||
+        innerDiv->a().as_index() % mult_outer == rhs)
+      return innerDiv->a().as_index();
   }
   return std::nullopt;
 }
@@ -95,12 +241,47 @@ std::optional<ir::IndexExpr> AddMulCornerCase(
   return res;
 }
 
+// S0 / (S1 * S2) * S2 + S0 % (S1 * S2) / S1 ===>  S0 / S1
+std::optional<ir::IndexExpr> DivMulAddModDivCase(const ir::IndexExpr& lhs,
+                                                 const ir::IndexExpr& rhs) {
+  ir::Var a = ir::Var("a");
+  ir::Var b = ir::Var("b");
+  ir::Var c = ir::Var("c");
+  ir::Var f = ir::Var("f");
+  std::unordered_map<std::string, ir::IndexExpr> map;
+
+  ir::IndexExpr pattern = f / c * a + f % c / b;
+
+  auto flatten = GetFlattenExprs<ir::Add>(lhs);
+  ir::IndexExpr res = ir::IndexExpr(rhs->type(), 0);
+  bool find = false;
+  for (const auto& expr : flatten) {
+    if (!find) {
+      ir::IndexExpr cand = ir::Add::Make(expr, rhs);
+      map.clear();
+      // Check if the pattern is matched
+      if (CheckPattern(cand, pattern, &map) &&
+          map.at("c") == map.at("a") * map.at("b")) {
+        ir::IndexExpr simplied = map.at("f") / map.at("b");
+        res = res.defined() ? res + simplied : simplied;
+        find = true;
+        continue;
+      }
+    }
+    res = res.defined() ? ir::Add::Make(res, expr) : expr;
+  }
+  if (find) return res;
+  return std::nullopt;
+}
+
 // (S0 + S1 - (S0 + S1) % S2) % S2 == 0
 // (S0 + S1 - (S0 + S1) % S2) / S2 == (S0 + S1) / S2
 std::optional<ir::IndexExpr> SubModCornerCase(const ir::IndexExpr& lhs,
                                               const ir::IndexExpr& rhs,
                                               bool isDiv) {
   auto flatten = GetFlattenExprs<ir::Add>(lhs);
+
+  if (flatten.size() < 2) return std::nullopt;
 
   for (int64_t i = 0, e = flatten.size(); i < e; ++i) {
     // Check if negation
@@ -110,7 +291,7 @@ std::optional<ir::IndexExpr> SubModCornerCase(const ir::IndexExpr& lhs,
     // Check if the negation term is a mod
     auto innerMod = beforeNegation.As<ir::Mod>();
     if (!innerMod) continue;
-    if (!ProveDivisible(innerMod->b(), rhs)) continue;
+    if (!ProveDivisible(innerMod->b().as_index(), rhs)) continue;
 
     // Check if the sum of all other terms is equal to the lhs of mod
     auto diff = ir::IndexExpr(0);
@@ -156,28 +337,25 @@ std::optional<ir::IndexExpr> MultiArgsDivAndMod(const ir::IndexExpr& lhs,
 std::optional<ir::IndexExpr> SimplifyCornerCase(const ir::IndexExpr& expr) {
   switch (expr.node_type()) {
     case ir::IrNodeTy::IntImm:
-      [[fallthrough]];
     case ir::IrNodeTy::_Var_:
       return expr;
     case ir::IrNodeTy::Add:
-      return SimplifyAddCornerCase(expr->operand(0).as_index(),
-                                   expr->operand(1).as_index());
+      return SimplifyAddCornerCase(expr.operand(0), expr.operand(1));
     case ir::IrNodeTy::Mul:
-      return SimplifyMulCornerCase(expr->operand(0).as_index(),
-                                   expr->operand(1).as_index());
+      return SimplifyMulCornerCase(expr.operand(0), expr.operand(1));
     case ir::IrNodeTy::Div:
-      return SimplifyDivCornerCase(expr->operand(0).as_index(),
-                                   expr->operand(1).as_index());
+      return SimplifyDivCornerCase(expr.operand(0), expr.operand(1));
     case ir::IrNodeTy::Mod:
-      return SimplifyModCornerCase(expr->operand(0).as_index(),
-                                   expr->operand(1).as_index());
+      return SimplifyModCornerCase(expr.operand(0), expr.operand(1));
   }
+  return std::nullopt;
 }
 
 std::optional<ir::IndexExpr> SimplifyAddCornerCase(const ir::IndexExpr& lhs,
                                                    const ir::IndexExpr& rhs) {
   if (auto res = DivMulAddModCornerCase(lhs, rhs)) return res.value();
   if (auto res = AddMulCornerCase(lhs, rhs)) return res.value();
+  if (auto res = DivMulAddModDivCase(lhs, rhs)) return res.value();
   // Add other corner cases
   return std::nullopt;
 }

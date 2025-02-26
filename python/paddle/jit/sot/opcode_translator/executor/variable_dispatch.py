@@ -504,6 +504,35 @@ def dispatch_list_ne(lhs: ListVariable, rhs: ListVariable):
     return Dispatcher.call(operator.eq, lhs, rhs).bool_not()
 
 
+BUILTIN_EQ_DISPATCH_TYPES = [
+    "ListVariable",
+    "TupleVariable",
+    "DictVariable",
+    "ConstantVariable",
+]
+
+for i in range(len(BUILTIN_EQ_DISPATCH_TYPES)):
+    current_type = BUILTIN_EQ_DISPATCH_TYPES[i]
+    other_types = (
+        BUILTIN_EQ_DISPATCH_TYPES[:i] + BUILTIN_EQ_DISPATCH_TYPES[i + 1 :]
+    )
+    Dispatcher.register(
+        operator.eq,
+        (current_type, " | ".join(other_types)),
+        lambda var, other: ConstantVariable(
+            False, var.graph, DummyTracker([var, other])
+        ),
+    )
+
+    Dispatcher.register(
+        operator.ne,
+        (current_type, " | ".join(other_types)),
+        lambda var, other: ConstantVariable(
+            True, var.graph, DummyTracker([var, other])
+        ),
+    )
+
+
 # getattr
 Dispatcher.register(
     getattr,
@@ -543,9 +572,11 @@ Dispatcher.register(
 # stop
 Dispatcher.register(
     range,
-    ("ConstantVariable",),
+    ("ConstantVariable | TensorVariable",),
     lambda stop: RangeVariable(
-        range(stop.get_py_value()),
+        ConstantVariable.wrap_literal(0, stop.graph),
+        stop,
+        ConstantVariable.wrap_literal(1, stop.graph),
         graph=stop.graph,
         tracker=DummyTracker([stop]),
     ),
@@ -554,9 +585,11 @@ Dispatcher.register(
 # start, stop
 Dispatcher.register(
     range,
-    ("ConstantVariable", "ConstantVariable"),
+    ("ConstantVariable | TensorVariable", "ConstantVariable | TensorVariable"),
     lambda start, stop: RangeVariable(
-        range(start.get_py_value(), stop.get_py_value()),
+        start,
+        stop,
+        ConstantVariable.wrap_literal(1, stop.graph),
         graph=stop.graph,
         tracker=DummyTracker([start, stop]),
     ),
@@ -564,9 +597,15 @@ Dispatcher.register(
 # start, stop, step
 Dispatcher.register(
     range,
-    ("ConstantVariable", "ConstantVariable", "ConstantVariable"),
+    (
+        "ConstantVariable | TensorVariable",
+        "ConstantVariable | TensorVariable",
+        "ConstantVariable | TensorVariable",
+    ),
     lambda start, stop, step: RangeVariable(
-        range(start.get_py_value(), stop.get_py_value(), step.get_py_value()),
+        start,
+        stop,
+        step,
         graph=stop.graph,
         tracker=DummyTracker([start, stop, step]),
     ),
@@ -766,11 +805,26 @@ Dispatcher.register(
 Dispatcher.register(
     operator.setitem,
     (
+        "TensorVariable",
+        "Any",
         "VariableBase",
-        "int | str | ConstantVariable | TensorVariable",
-        "int | str | ConstantVariable | TensorVariable",
     ),
-    lambda var, key, value: var.setitem(key.get_py_value(), value),
+    lambda var, key, value: var.setitem(
+        VariableFactory.from_value(
+            key, graph=var.graph, tracker=ConstTracker(key)
+        ),
+        value,
+    ),
+)
+
+Dispatcher.register(
+    operator.setitem,
+    (
+        "VariableBase",
+        "int | str | ConstantVariable | TensorVariable | ContainerVariable",
+        "VariableBase",
+    ),
+    lambda var, key, value: var.setitem(add_guard(key).get_py_value(), value),
 )
 
 # delitem
@@ -788,7 +842,7 @@ Dispatcher.register(
         "VariableBase",
         "ConstantVariable",
     ),
-    lambda var, key: var.delitem(key.get_py_value()),
+    lambda var, key: var.delitem(add_guard(key).get_py_value()),
 )
 
 
@@ -1010,7 +1064,7 @@ for binary_fn in BINARY_OPS:
                 binary_fn,
                 (
                     "TensorVariable",
-                    "TensorVariable | SymbolicVariable | ConstantVariable | NumpyVariable",
+                    "TensorVariable | SymbolicVariable | ConstantVariable | NumpyNumberVariable",
                 ),
                 partial(
                     lambda magic_name, var, other: var.graph.call_tensor_method(
@@ -1038,7 +1092,7 @@ for binary_fn in BINARY_OPS:
                 Dispatcher.register(
                     binary_fn,
                     (
-                        "SymbolicVariable | ConstantVariable | NumpyVariable",
+                        "SymbolicVariable | ConstantVariable | NumpyNumberVariable",
                         "TensorVariable",
                     ),
                     partial(

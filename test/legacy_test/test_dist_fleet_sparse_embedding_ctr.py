@@ -134,7 +134,7 @@ class TestDistMnistAsync2x2WithDecay(TestFleetBase):
         )
 
 
-class TestDistMnistAsync2x2WithUnifrom(TestFleetBase):
+class TestDistMnistAsync2x2WithUniform(TestFleetBase):
     def _setup_config(self):
         self._mode = "async"
         self._reader = "pyreader"
@@ -231,7 +231,7 @@ class TestDistMnistAsync2x2WithGauss(TestFleetBase):
                     weight_attr=base.ParamAttr(
                         initializer=paddle.nn.initializer.Constant(value=0.01)
                     ),
-                    name='dnn-fc-%d' % i,
+                    name=f'dnn-fc-{i}',
                 )
                 dnn_out = fc
 

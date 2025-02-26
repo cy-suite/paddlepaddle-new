@@ -21,6 +21,7 @@ from .envs import (  # noqa: F401
     ENV_SOT_ENABLE_FASTER_GUARD,
     ENV_SOT_ENABLE_GUARD_TREE,
     ENV_SOT_EXPORT,
+    ENV_SOT_FORCE_FALLBACK_SIR_IDS,
     ENV_SOT_LOG_LEVEL,
     ENV_SOT_WITH_CONTROL_FLOW,
     ENV_STRICT_MODE,
@@ -41,10 +42,17 @@ from .exceptions import (  # noqa: F401
     InnerError,
     inner_error_default_handler,
 )
+from .info_collector import (  # noqa: F401
+    CompileCountInfo,
+    InfoCollector,
+    NewSymbolHitRateInfo,
+    SubGraphRelationInfo,
+)
 from .magic_methods import magic_method_builtin_dispatch  # noqa: F401
 from .paddle_api_config import (  # noqa: F401
     get_tensor_methods,
     is_break_graph_tensor_methods,
+    is_directly_run_api,
     is_inplace_api,
     is_not_supported_paddle_layer,
 )

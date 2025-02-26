@@ -32,7 +32,6 @@ set(PYBIND_DEPS
     ps_gpu_wrapper
     custom_operator
     cost_model
-    fleet_executor
     global_utils
     phi_utils
     phi
@@ -46,6 +45,10 @@ set(PYBIND_DEPS
     detail_op_handle
     type_info
     auto_parallel)
+
+if(WITH_GPU)
+  list(APPEND PYBIND_DEPS gpu_event_timer)
+endif()
 
 if(WITH_CINN)
   set(PYBIND_DEPS ${PYBIND_DEPS} pir_transforms cinn_transforms
@@ -111,7 +114,6 @@ set(PYBIND_SRCS
     pir.cc
     pir_utils.cc
     graph.cc
-    bind_fleet_executor.cc
     reader_py.cc
     protobuf.cc
     exception.cc

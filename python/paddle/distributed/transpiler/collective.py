@@ -246,9 +246,9 @@ class Collective:
 
             ring_id = (ring_id + 1) % self.nrings
             block.append_op(
-                type='c_broadcast',
-                inputs={'X': param},
-                outputs={'Out': param},
+                type='broadcast',
+                inputs={'x': param},
+                outputs={'out': param},
                 attrs={
                     'ring_id': ring_id,
                     'root': 0,
@@ -523,7 +523,7 @@ class SingleProcessMultiThread(GradAllReduce):
             print("begin to _transpile_startup_program for multi-node")
             print("current_endpoint: ", self.current_endpoint)
             print("total endpoints: ", self.endpoints)
-            print("rank: %d, ring_id: %d" % (self.rank, self.nrings))
+            print(f"rank: {self.rank}, ring_id: {self.nrings}")
             for ring_id in range(self.nrings):
                 self._init_communicator(
                     self.startup_program,
@@ -737,7 +737,7 @@ class MultiThread(GradAllReduce):
             print("begin to _transpile_startup_program for multi-node")
             print("current_endpoint: ", self.current_endpoint)
             print("total endpoints: ", self.endpoints)
-            print("rank: %d, ring_id: %d" % (self.rank, self.nrings))
+            print(f"rank: {self.rank}, ring_id: {self.nrings}")
             for ring_id in range(self.nrings):
                 self._init_communicator(
                     self.startup_program,
@@ -834,14 +834,14 @@ class MultiThread(GradAllReduce):
                         )
                         offset += 1
 
-                    # As we search ops reversely, we should insert c_allgather
+                    # As we search ops reversely, we should insert all_gather
                     # op in the same way to keep the ring_id alternate
                     ring_id = (ring_id + 1) % self.nrings
                     block._insert_op(
                         offset,
-                        type='c_allgather',
-                        inputs={'X': grad},
-                        outputs={'Out': new_grad_var},
+                        type='all_gather',
+                        inputs={'x': grad},
+                        outputs={'out': new_grad_var},
                         attrs={
                             'nranks': self.allgather_ranks,
                             'ring_id': ring_id,

@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "paddle/fluid/pybind/pir.h"
+#include "paddle/fluid/pybind/pir_utils.h"
 
 #include <Python.h>
 #include <algorithm>
@@ -29,6 +30,7 @@
 #include "paddle/fluid/framework/executor.h"
 #include "paddle/fluid/framework/ir/pass.h"
 #include "paddle/fluid/framework/program_desc.h"
+#include "paddle/fluid/framework/tensor_util.h"
 #include "paddle/fluid/ir_adaptor/translator/program_translator.h"
 #include "paddle/fluid/ir_adaptor/translator/translate.h"
 #include "paddle/fluid/ir_adaptor/translator/utils.h"
@@ -49,6 +51,7 @@
 #include "paddle/fluid/pir/dialect/operator/trait/inplace.h"
 #include "paddle/fluid/pir/dialect/operator/utils/op_yaml_info_parser.h"
 #include "paddle/fluid/pir/dialect/operator/utils/utils.h"
+#include "paddle/fluid/pir/drr/include/drr_pattern_base.h"
 #include "paddle/fluid/pir/transforms/general/common_subexpression_elimination_pass.h"
 #include "paddle/fluid/pir/transforms/general/dead_code_elimination_pass.h"
 #include "paddle/fluid/pir/transforms/gpu/fused_bn_add_act_pass.h"
@@ -58,6 +61,8 @@
 #include "paddle/fluid/pybind/control_flow_api.h"
 #include "paddle/fluid/pybind/eager_utils.h"
 #include "paddle/fluid/pybind/pybind_variant_caster.h"
+#include "paddle/phi/common/data_type.h"
+#include "paddle/phi/common/place.h"
 #include "paddle/phi/core/distributed/auto_parallel/process_mesh.h"
 #include "paddle/phi/core/enforce.h"
 #include "paddle/pir/include/core/attribute.h"
@@ -65,7 +70,7 @@
 #include "paddle/pir/include/core/builtin_attribute.h"
 #include "paddle/pir/include/core/builtin_op.h"
 #include "paddle/pir/include/core/ir_mapping.h"
-#include "paddle/pir/include/core/parser/ir_parser.h"
+#include "paddle/pir/include/core/ir_printer.h"
 #include "paddle/pir/include/core/program.h"
 #include "paddle/pir/include/core/type.h"
 #include "paddle/pir/include/core/value.h"
@@ -117,7 +122,6 @@ using pir::Int32Attribute;
 using pir::Int64Attribute;
 using pir::IrContext;
 using pir::IrMapping;
-using pir::IrParser;
 using pir::Operation;
 using pir::OpOperand;
 using pir::OpResult;
@@ -133,7 +137,6 @@ using pybind11::return_value_policy;
 namespace name_analysis = pir::utils::name_analysis;
 
 COMMON_DECLARE_bool(print_ir);
-COMMON_DECLARE_bool(pir_apply_shape_optimization_pass);
 
 namespace paddle {
 namespace pybind {
@@ -207,35 +210,6 @@ std::string GetValueInfo(Value v) {
   return ss.str();
 }
 
-phi::DataType GetTensorDtype(Type type) {
-  if (!type) {
-    PADDLE_THROW(
-        common::errors::InvalidArgument("The type of value is nullptr."));
-  }
-  if (auto dense_tensor_type = type.dyn_cast<DenseTensorType>()) {
-    return dialect::TransToPhiDataType(dense_tensor_type.dtype());
-  } else if (auto sparse_coo_tensor_type =
-                 type.dyn_cast<SparseCooTensorType>()) {
-    return dialect::TransToPhiDataType(sparse_coo_tensor_type.dtype());
-  } else if (auto sparse_csr_tensor_type =
-                 type.dyn_cast<SparseCsrTensorType>()) {
-    return dialect::TransToPhiDataType(sparse_csr_tensor_type.dtype());
-  } else if (auto select_rows = type.dyn_cast<SelectedRowsType>()) {
-    return dialect::TransToPhiDataType(select_rows.dtype());
-  } else if (auto dense_array = type.dyn_cast<DenseTensorArrayType>()) {
-    return dialect::TransToPhiDataType(dense_array.dtype());
-  } else {
-    PADDLE_THROW(common::errors::InvalidArgument(
-        "Currently, we can only get phi::DataType from DenseTensorType and "
-        "SelectedRowsType, DenseTensorArrayType,SparseCooTensorType or "
-        "SparseCsrTensorType."));
-  }
-}
-
-phi::DataType GetValueDtype(Value value) {
-  return GetTensorDtype(value.type());
-}
-
 py::object Clone(const Program &self, IrMapping *p_mapper = nullptr) {
   IrMapping mapper;
   if (p_mapper == nullptr) {
@@ -271,7 +245,7 @@ pir::Value AppendDataOp(pir::Block *block,
        paddle::dialect::IntArrayAttribute::get(
            ctx, phi::IntArray(phi::vectorize(GetValueDims(value))))},
       {"dtype",
-       paddle::dialect::DataTypeAttribute::get(ctx, GetValueDtype(value))},
+       paddle::dialect::DataTypeAttribute::get(ctx, pir::GetValueDtype(value))},
       {"place", PlaceAttribute::get(ctx, phi::Place())}};
   std::vector<pir::Type> output_types{value.type()};
   pir::Operation *operation =
@@ -370,6 +344,61 @@ void SetIsTestAttr(const std::shared_ptr<Program> &prog) {
           "is_test", pir::BoolAttribute::get(pir::IrContext::Instance(), true));
     }
   }
+}
+
+using ComputeReturnType = std::variant<float,
+                                       double,
+                                       int32_t,
+                                       int64_t,
+                                       bool,
+                                       std::string,
+                                       std::vector<int32_t>,
+                                       std::vector<int64_t>,
+                                       std::vector<float>,
+                                       phi::DataType,
+                                       phi::Place>;
+ComputeReturnType CastPyObjectToAny(const pybind11::object &obj,
+                                    const std::string &type_name) {
+  static const std::unordered_map<
+      std::string,
+      std::function<ComputeReturnType(const pybind11::object &)>>
+      type_casters = {
+          {"float",
+           [](const pybind11::object &obj) { return obj.cast<float>(); }},
+          {"double",
+           [](const pybind11::object &obj) { return obj.cast<double>(); }},
+          {"int32",
+           [](const pybind11::object &obj) { return obj.cast<int32_t>(); }},
+          {"int64",
+           [](const pybind11::object &obj) { return obj.cast<int64_t>(); }},
+          {"bool",
+           [](const pybind11::object &obj) { return obj.cast<bool>(); }},
+          {"string",
+           [](const pybind11::object &obj) { return obj.cast<std::string>(); }},
+          {"vector<int32>",
+           [](const pybind11::object &obj) {
+             return obj.cast<std::vector<int32_t>>();
+           }},
+          {"vector<int64>",
+           [](const pybind11::object &obj) {
+             return obj.cast<std::vector<int64_t>>();
+           }},
+          {"vector<float>",
+           [](const pybind11::object &obj) {
+             return obj.cast<std::vector<float>>();
+           }},
+          {"datatype",
+           [](const pybind11::object &obj) {
+             return obj.cast<phi::DataType>();
+           }},
+          {"place",
+           [](const pybind11::object &obj) { return obj.cast<phi::Place>(); }}};
+
+  auto it = type_casters.find(type_name);
+  if (it == type_casters.end()) {
+    throw std::runtime_error("Unsupported type: " + type_name);
+  }
+  return it->second(obj);
 }
 
 void BindProgram(py::module *m) {
@@ -563,7 +592,7 @@ void BindProgram(py::module *m) {
            })
       .def("num_ops", [](Program &self) { return self.num_ops(); })
       .def(
-          "state_dict",
+          "_state_dict",
           [](std::shared_ptr<Program> self,
              const std::string &mode = "all",
              const framework::Scope &scope = framework::Scope()) {
@@ -605,21 +634,32 @@ void BindProgram(py::module *m) {
                   "The mode is not supported."));
             }
           })
-      .def("set_state_dict",
-           [](std::shared_ptr<Program> self,
-              const std::unordered_map<std::string, phi::DenseTensor>
-                  &state_dict,
-              const framework::Scope &scope = framework::Scope()) {
-             for (auto item : state_dict) {
-               auto var = scope.FindVar(item.first);
-               if (var == nullptr) {
-                 PADDLE_THROW(common::errors::NotFound(
-                     "The variable %s is not found.", item.first));
-               } else {
-                 *var->GetMutable<phi::DenseTensor>() = item.second;
-               }
-             }
-           })
+      .def(
+          "set_state_dict",
+          [](std::shared_ptr<Program> self,
+             const std::unordered_map<std::string, phi::DenseTensor>
+                 &state_dict,
+             const framework::Scope &scope = framework::Scope(),
+             bool copy_tensor = false) {
+            for (auto item : state_dict) {
+              auto var = scope.FindVar(item.first);
+              if (var == nullptr) {
+                PADDLE_THROW(common::errors::NotFound(
+                    "The variable %s is not found.", item.first));
+              } else {
+                if (copy_tensor) {
+                  auto *mutable_tensor = var->GetMutable<phi::DenseTensor>();
+                  paddle::framework::TensorCopy(
+                      item.second, item.second.place(), mutable_tensor);
+                } else {
+                  *var->GetMutable<phi::DenseTensor>() = item.second;
+                }
+              }
+            }
+          },
+          py::arg("state_dict"),
+          py::arg("scope"),
+          py::arg("copy_tensor") = false)
       .def(
           "_prune",
           [](Program &self, std::vector<pir::Value> output_vars) {
@@ -641,18 +681,9 @@ void BindProgram(py::module *m) {
           py::arg("targets"))
       .def("_sync_with_cpp", [](const std::shared_ptr<Program> &self) {
         // It's not need _sync_with_cpp in pir, but it's necessary in old static
-        // graph. Add empyt function to avoid python call error.
+        // graph. Add empty function to avoid python call error.
       });
 }
-
-std::shared_ptr<Program> ParseProgram(const std::string &program_str) {
-  std::stringstream ss(program_str);
-  pir::IrContext *ctx = pir::IrContext::Instance();
-  auto program = IrParser(ctx, ss).ParseProgram();
-  return program;
-}
-
-void BindIrParser(py::module *m) { m->def("parse_program", &ParseProgram); }
 
 void RefreshOpStopgradients(Operation *op) {
   if (op->num_operands() == 0 || op->isa<pir::ParameterOp>() ||
@@ -676,6 +707,15 @@ void BindBlock(py::module *m) {
         use `Program.block()` to get a block.
   )DOC");
   block.def("empty", &Block::empty)
+      .def(
+          "__str__",
+          [](Block &self) {
+            std::ostringstream print_stream;
+            pir::IrPrinter printer(print_stream);
+            printer.PrintBlock(self);
+            return print_stream.str();
+          },
+          return_value_policy::reference)
       .def(
           "front",
           [](Block &self) { return &self.front(); },
@@ -801,7 +841,7 @@ void BindBlock(py::module *m) {
            })
       .def("_sync_with_cpp", [](const Block &self) {
         // It's not need _sync_with_cpp in pir, but it's necessary in old static
-        // graph. Add empyt function to avoid python call error.
+        // graph. Add empty function to avoid python call error.
       });
 }
 
@@ -904,6 +944,19 @@ void BindOperation(py::module *m) {
                                                 phi::IntArray(val));
              self.set_attribute(attr_name, attr);
            })
+      .def("set_str_array_attr",
+           [](Operation &self,
+              std::string &attr_name,
+              const std::vector<std::string> &val) {
+             std::vector<Attribute> val_attr;
+             for (auto &str : val) {
+               val_attr.emplace_back(
+                   StrAttribute::get(pir::IrContext::Instance(), str));
+             }
+             auto attr =
+                 pir::ArrayAttribute::get(pir::IrContext::Instance(), val_attr);
+             self.set_attribute(attr_name, attr);
+           })
       .def("set_str_attr",
            [](Operation &self, std::string &attr_name, std::string &val) {
              self.set_attribute(
@@ -914,6 +967,10 @@ void BindOperation(py::module *m) {
              self.set_attribute(
                  attr_name,
                  pir::Int32Attribute::get(pir::IrContext::Instance(), val));
+           })
+      .def("erase_attr",
+           [](Operation &self, std::string &attr_name) {
+             self.erase_attribute(attr_name);
            })
       .def("attrs",
            [](Operation &self) -> py::dict {
@@ -1161,7 +1218,27 @@ void BindOperation(py::module *m) {
             self.set_attribute(
                 "chunk_id",
                 Int32Attribute::get(pir::IrContext::Instance(), chunk_id));
-          });
+          })
+      .def("is_no_need_buffer",
+           [](Operation &self, const Value &operand_source) -> bool {
+             paddle::dialect::OpYamlInfoInterface op_info_interface =
+                 self.dyn_cast<paddle::dialect::OpYamlInfoInterface>();
+             std::unique_ptr<paddle::dialect::OpYamlInfoParser> info_parser(
+                 nullptr);
+             if (op_info_interface) {
+               info_parser =
+                   std::make_unique<paddle::dialect::OpYamlInfoParser>(
+                       op_info_interface.GetOpInfo(),
+                       paddle::dialect::IsLegacyOp(self.name()));
+               auto &no_need_buffer_ids = info_parser->NoNeedBufferIds();
+               for (auto no_need_buffer_id : no_need_buffer_ids) {
+                 if (operand_source == self.operand_source(no_need_buffer_id)) {
+                   return true;
+                 }
+               }
+             }
+             return false;
+           });
   py::class_<Operation::BlockContainer> block_container(
       *m, "Operation_BlockContainer", R"DOC(
     The Operation_BlockContainer only use to walk all blocks in the operation.
@@ -1369,7 +1446,7 @@ void BindValue(py::module *m) {
           })
       .def_property(
           "dtype",
-          [](Value self) { return GetValueDtype(self); },
+          [](Value self) { return pir::GetValueDtype(self); },
           [](Value self, phi::DataType dtype) {
             PADDLE_THROW(common::errors::InvalidArgument(
                 "can't set dtype when building static graph"));
@@ -1377,14 +1454,14 @@ void BindValue(py::module *m) {
       .def_property(
           "place_attr",
           [](Value self) -> phi::Place {
-            auto palce_attr = self.attribute<PlaceAttribute>("place");
-            return palce_attr ? palce_attr.data() : phi::Place();
+            auto place_attr = self.attribute<PlaceAttribute>("place");
+            return place_attr ? place_attr.data() : phi::Place();
           },
           [](Value self, const phi::Place &place) {
             // auto place = CastPyArg2Place(place_obj.release().ptr(), 1);
             auto place_attr =
                 dialect::PlaceAttribute::get(pir::IrContext::Instance(), place);
-            self.set_attribute("palce", place_attr);
+            self.set_attribute("place", place_attr);
           })
       .def("initialized",
            [](Value self) {
@@ -1408,6 +1485,19 @@ void BindValue(py::module *m) {
              py::list op_list;
              for (auto it = self.use_begin(); it != self.use_end(); ++it) {
                op_list.append(it.owner());
+             }
+             return op_list;
+           })
+      .def("all_used_ops_in_same_block",
+           [](Value &self) -> py::list {
+             py::list op_list;
+             for (auto it = self.use_begin(); it != self.use_end(); ++it) {
+               pir::Operation *used_op = it.owner();
+               while (used_op->GetParent() != self.defining_op()->GetParent() &&
+                      used_op->GetParent()->GetParentOp()) {
+                 used_op = used_op->GetParent()->GetParentOp();
+               }
+               op_list.append(used_op);
              }
              return op_list;
            })
@@ -2241,7 +2331,7 @@ static void inline CreateVariableIfNotExist(
       phi::DeviceContextPool &pool = phi::DeviceContextPool::Instance();
       const phi::DeviceContext *dev_ctx = nullptr;
       dev_ctx = pool.Get(exe->GetPlace());
-      dev_ctx->Alloc(tensor_temp, GetValueDtype(value));
+      dev_ctx->Alloc(tensor_temp, pir::GetValueDtype(value));
     }
   }
   return;
@@ -2280,6 +2370,11 @@ void BindUtils(pybind11::module *m) {
   m->def("set_op_role",
          [](int op_role) { ApiBuilder::Instance().SetOpRole(op_role); });
   m->def("get_op_role", []() { return ApiBuilder::Instance().GetOpRole(); });
+  m->def("set_comp_op_name", [](std::string comp_op_name) {
+    ApiBuilder::Instance().SetCompOpName(comp_op_name);
+  });
+  m->def("get_comp_op_name",
+         []() { return ApiBuilder::Instance().GetCompOpName(); });
   m->def("register_paddle_dialect", []() {
     pir::IrContext::Instance()
         ->GetOrRegisterDialect<paddle::dialect::OperatorDialect>();
@@ -2494,9 +2589,7 @@ void InferSymbolicShapePass(
     pir::Program &program) {                          // NOLINT
   pir::IrContext *ctx = pir::IrContext::Instance();
   ctx->GetOrRegisterDialect<pir::shape::ShapeDialect>();
-  if (FLAGS_pir_apply_shape_optimization_pass) {
-    pass_manager->AddPass(pir::CreateShapeOptimizationPass());
-  }
+  pass_manager->AddPass(pir::CreateShapeOptimizationPass());
 }
 
 std::shared_ptr<Program> ApplyCommonSubexpressionEliminationPass(
@@ -2513,18 +2606,12 @@ std::shared_ptr<Program> ApplyCommonSubexpressionEliminationPass(
   return program;
 }
 
-std::shared_ptr<Program> ApplyReduceAsToSumPass(
-    std::shared_ptr<Program> program) {
+void ApplyReduceAsToSumPass(
+    std::shared_ptr<pir::PassManager> &pass_manager,  // NOLINT
+    pir::Program &program) {                          // NOLINT
 #ifdef PADDLE_WITH_CINN
-  pir::PassManager pm(pir::IrContext::Instance(), 2);
-  pm.AddPass(cinn::dialect::ir::CreateReduceAsToSumPass());
-  pm.AddPass(pir::CreateDeadCodeEliminationPass());
-  pm.Run(program.get());
-  if (FLAGS_print_ir) {
-    std::cout << "IR After ReduceAsToSumPass -------------------" << std::endl;
-    std::cout << *program << std::endl;
-  }
-  return program;
+  pass_manager->AddPass(cinn::dialect::ir::CreateReduceAsToSumPass());
+  pass_manager->AddPass(pir::CreateDeadCodeEliminationPass());
 #else
   PADDLE_THROW(common::errors::Unimplemented(
       "Currently we only support ReduceAsToSumPass Pass for Pir under "
@@ -2595,12 +2682,32 @@ void BindPassManager(pybind11::module *m) {
                  pass->Set(attr.first, new int(attr.second.cast<int>()));
                } else if (py::isinstance<py::float_>(attr.second)) {
                  pass->Set(attr.first, new float(attr.second.cast<float>()));
+               } else if (py::isinstance<framework::Scope>(attr.second)) {
+                 pass->SetNotOwned(attr.first,
+                                   attr.second.cast<framework::Scope *>());
+               } else if (py::isinstance<phi::GPUPlace>(attr.second)) {
+                 pass->Set(attr.first,
+                           new phi::Place(attr.second.cast<phi::GPUPlace>()));
                } else {
                  PADDLE_THROW(common::errors::InvalidArgument(
                      "The pass attr is not supported this type."));
                }
              }
              self.AddPass(std::move(pass));
+           })
+      .def("register_pass",
+           [](PassManager &self,
+              const std::string &pass_name,
+              std::shared_ptr<paddle::drr::DrrPatternContext> pattern_ctx) {
+             using AutoFinalPass =
+                 paddle::drr::AutoDrrPass<paddle::drr::AutoDrrPattern>;
+             // Instead of using static PassRegistrar which may cause lifetime
+             // issues during program termination, directly register the pass to
+             // PassRegistry. This approach provides better control over object
+             // lifetime management and avoids potential segmentation faults
+             // during static destruction.
+             self.AddPass(
+                 std::make_unique<AutoFinalPass>(pass_name, pattern_ctx));
            })
       .def("passes",
            [](PassManager &self) {
@@ -2619,6 +2726,355 @@ void BindPassManager(pybind11::module *m) {
            [](PassManager &self) { self.EnablePrintStatistics(); });
 }
 
+void BindDrrPatternContext(pybind11::module *m) {
+  // bind NormalAttribute
+  pybind11::class_<drr::NormalAttribute> normal_attribute(*m,
+                                                          "NormalAttribute");
+
+  // bind ComputeAttribute
+  pybind11::class_<drr::ComputeAttribute> compute_attribute(*m,
+                                                            "ComputeAttribute");
+
+  // bind Tensor
+  pybind11::class_<drr::Tensor> tensor(*m,
+                                       "Tensor",
+                                       R"DOC(
+        register Tensor for DRR.
+    )DOC");
+
+  // bind Op
+  pybind11::class_<drr::Op> op(*m,
+                               "Op",
+                               R"DOC(
+        Represents an operation in the DRR framework.
+    )DOC");
+  op.def(
+      "__call__",
+      [](drr::Op *self,
+         const std::vector<drr::Tensor> &input_tensors,
+         const std::vector<drr::Tensor> &output_tensors) {
+        std::vector<const drr::Tensor *> input_ptrs;
+        std::vector<const drr::Tensor *> output_ptrs;
+
+        for (const auto &t : input_tensors) {
+          input_ptrs.push_back(&t);
+        }
+        for (const auto &t : output_tensors) {
+          output_ptrs.push_back(&t);
+        }
+        (*self)(input_ptrs, output_ptrs);
+      },
+      pybind11::arg("input_tensors"),
+      pybind11::arg("output_tensors"),
+      "Call the operation with an input tensor and return the output tensor.");
+
+  // bind DrrPatternContext
+  pybind11::class_<drr::DrrPatternContext,
+                   std::shared_ptr<drr::DrrPatternContext>>
+      drr_pattern_context(*m,
+                          "DrrPatternContext",
+                          R"DOC(
+    A class that manages DRR (Dynamic Rewrite Rule) pattern context.
+
+  )DOC");
+  drr_pattern_context.def(pybind11::init<>())
+      .def("SourcePattern", &drr::DrrPatternContext::SourcePattern);
+
+  // bind drr::SourcePattern
+  pybind11::class_<drr::SourcePattern, std::shared_ptr<drr::SourcePattern>>
+      source_pattern(*m,
+                     "SourcePattern",
+                     R"DOC(
+      Represents a source pattern for matching in the DRR framework.
+
+  )DOC");
+  source_pattern.def("ResultPattern", &drr::SourcePattern::ResultPattern)
+      .def(
+          "Op",
+          [](drr::SourcePattern &self,
+             const std::string &op_type,
+             const std::unordered_map<std::string, drr::Attribute> &attributes =
+                 {}) { return self.Op(op_type, attributes); },
+          pybind11::return_value_policy::reference_internal,
+          pybind11::arg("op_type"),
+          pybind11::arg("attributes") =
+              std::unordered_map<std::string, drr::Attribute>())
+      .def(
+          "Tensor",
+          [](drr::SourcePattern &self, const std::string &name) {
+            return self.Tensor(name);
+          },
+          pybind11::return_value_policy::reference_internal,
+          pybind11::arg("name"))
+      .def(
+          "InputNoneTensor",
+          [](drr::ResultPattern &self) { return self.InputNoneTensor(); },
+          pybind11::return_value_policy::reference_internal)
+      .def(
+          "OutputNoneTensor",
+          [](drr::ResultPattern &self) { return self.OutputNoneTensor(); },
+          pybind11::return_value_policy::reference_internal)
+      .def(
+          "Attr",
+          [](drr::SourcePattern &self, const std::string &attr_name) {
+            return self.Attr(attr_name);
+          },
+          pybind11::return_value_policy::reference_internal,
+          pybind11::arg("attr_name"))
+      .def("AddConstraint",
+           [](drr::SourcePattern &self, const pybind11::function &py_func) {
+             // wrap pyfunction -> cpp function
+             paddle::drr::ConstraintFunction cpp_func =
+                 [py_func](const paddle::drr::MatchContext &context) -> bool {
+               try {
+                 pybind11::object py_context = pybind11::cast(context);
+                 pybind11::object result = py_func(py_context);
+
+                 bool ret = result.cast<bool>();
+                 return ret;
+               } catch (const pybind11::error_already_set &e) {
+                 std::cerr << "Python error in AddConstraint callback: "
+                           << e.what() << std::endl;
+                 throw;
+               }
+             };
+             self.AddConstraint(cpp_func);
+           })
+      .def("AddPostProcess",
+           [](drr::SourcePattern &self, const pybind11::function &py_func) {
+             // wrap pyfunction -> cpp function
+             paddle::drr::PostProcessFunction cpp_func =
+                 [py_func](const paddle::drr::MatchContext &context) -> void {
+               try {
+                 pybind11::object py_context = pybind11::cast(context);
+                 py_func(py_context);
+               } catch (const pybind11::error_already_set &e) {
+                 std::cerr << "Python error in AddPostProcess callback: "
+                           << e.what() << std::endl;
+                 throw;
+               }
+             };
+             self.AddPostProcess(cpp_func);
+           });
+
+  // bind MatchContext
+  pybind11::class_<drr::MatchContext, std::shared_ptr<drr::MatchContext>>
+      match_context(*m,
+                    "MatchContext",
+                    R"DOC(
+        Represents the context of a match in the DRR framework.
+    )DOC");
+  match_context
+      .def(
+          "Tensor",
+          [](drr::MatchContext &self, std::string &tensor_name) -> pir::Value {
+            return self.Tensor(tensor_name);
+          },
+          pybind11::return_value_policy::reference_internal,
+          pybind11::arg("tensor_name"))
+      // Attr
+      .def(
+          "StrAttr",
+          [](drr::MatchContext &self, const std::string &value_name) {
+            return self.Attr<std::string>(value_name);
+          },
+          pybind11::arg("value_name"))
+      .def(
+          "BoolAttr",
+          [](drr::MatchContext &self, const std::string &value_name) {
+            return self.Attr<bool>(value_name);
+          },
+          pybind11::arg("value_name"))
+      .def(
+          "Int32Attr",
+          [](drr::MatchContext &self, const std::string &value_name) {
+            return self.Attr<int32_t>(value_name);
+          },
+          pybind11::arg("value_name"))
+      .def(
+          "Int64Attr",
+          [](drr::MatchContext &self, const std::string &value_name) {
+            return self.Attr<int64_t>(value_name);
+          },
+          pybind11::arg("value_name"))
+      .def(
+          "Float32Attr",
+          [](drr::MatchContext &self, const std::string &value_name) {
+            return self.Attr<float>(value_name);
+          },
+          pybind11::arg("value_name"))
+      .def(
+          "DoubleAttr",
+          [](drr::MatchContext &self, const std::string &value_name) {
+            return self.Attr<double>(value_name);
+          },
+          pybind11::arg("value_name"))
+      .def(
+          "VectorInt32Attr",
+          [](drr::MatchContext &self, const std::string &value_name) {
+            return self.Attr<std::vector<int32_t>>(value_name);
+          },
+          pybind11::arg("value_name"))
+      .def(
+          "VectorInt64Attr",
+          [](drr::MatchContext &self, const std::string &value_name) {
+            return self.Attr<std::vector<int64_t>>(value_name);
+          },
+          pybind11::arg("value_name"))
+      .def(
+          "VectorFloat32Attr",
+          [](drr::MatchContext &self, const std::string &value_name) {
+            return self.Attr<std::vector<int32_t>>(value_name);
+          },
+          pybind11::arg("value_name"))
+      .def(
+          "DataTypeAttr",
+          [](drr::MatchContext &self, const std::string &value_name) {
+            return self.Attr<phi::DataType>(value_name);
+          },
+          pybind11::arg("value_name"))
+      .def(
+          "PlaceAttr",
+          [](drr::MatchContext &self, const std::string &value_name) {
+            return self.Attr<phi::Place>(value_name);
+          },
+          pybind11::arg("value_name"));
+
+  // bind drr::ResultPattern
+  pybind11::class_<drr::ResultPattern, std::shared_ptr<drr::ResultPattern>>
+      result_pattern(*m,
+                     "ResultPattern",
+                     R"DOC(
+      Represents a result pattern for matching in the DRR framework
+
+  )DOC");
+
+  result_pattern
+      .def(
+          "Op",
+          [](drr::ResultPattern &self,
+             const std::string &op_type,
+             const std::unordered_map<std::string, drr::Attribute> &attributes =
+                 {}) { return self.Op(op_type, attributes); },
+          pybind11::return_value_policy::reference_internal,
+          pybind11::arg("op_type"),
+          pybind11::arg("attributes") =
+              std::unordered_map<std::string, drr::Attribute>())
+      .def(
+          "InputNoneTensor",
+          [](drr::ResultPattern &self) { return self.InputNoneTensor(); },
+          pybind11::return_value_policy::reference_internal)
+      .def(
+          "OutputNoneTensor",
+          [](drr::ResultPattern &self) { return self.OutputNoneTensor(); },
+          pybind11::return_value_policy::reference_internal)
+      .def(
+          "Tensor",
+          [](drr::ResultPattern &self, const std::string &name) {
+            return self.Tensor(name);
+          },
+          pybind11::return_value_policy::reference_internal,
+          pybind11::arg("name"))
+      // Attr
+      .def(
+          "StrAttr",
+          [](drr::ResultPattern &self, const std::string &value) {
+            return self.StrAttr(value);
+          },
+          pybind11::arg("value"))
+      .def(
+          "BoolAttr",
+          [](drr::ResultPattern &self, bool value) {
+            return self.BoolAttr(value);
+          },
+          pybind11::arg("value"))
+      .def(
+          "Int32Attr",
+          [](drr::ResultPattern &self, int32_t value) {
+            return self.Int32Attr(value);
+          },
+          pybind11::arg("value"))
+      .def(
+          "Int64Attr",
+          [](drr::ResultPattern &self, int64_t value) {
+            return self.Int64Attr(value);
+          },
+          pybind11::arg("value"))
+      .def(
+          "Float32Attr",
+          [](drr::ResultPattern &self, float value) {
+            return self.Float32Attr(value);
+          },
+          pybind11::arg("value"))
+      .def(
+          "VectorInt32Attr",
+          [](drr::ResultPattern &self, const std::vector<int32_t> &value) {
+            return self.VectorInt32Attr(value);
+          },
+          pybind11::arg("value"))
+      .def(
+          "VectorInt64Attr",
+          [](drr::ResultPattern &self, const std::vector<int64_t> &value) {
+            return self.VectorInt64Attr(value);
+          },
+          pybind11::arg("value"))
+      .def(
+          "VectorFloat32Attr",
+          [](drr::ResultPattern &self, const std::vector<float> &value) {
+            return self.VectorFloatAttr(value);
+          },
+          pybind11::arg("value"))
+      .def(
+          "DataTypeAttr",
+          [](drr::ResultPattern &self, const std::string &value) {
+            return self.DataTypeAttr(value);
+          },
+          pybind11::arg("value"))
+      .def(
+          "PlaceAttr",
+          [](drr::ResultPattern &self, const std::string &value) {
+            return self.PlaceAttr(value);
+          },
+          pybind11::arg("value"))
+      .def(
+          "DataLayoutAttr",
+          [](drr::ResultPattern &self, const std::string &value) {
+            return self.DataLayoutAttr(value);
+          },
+          pybind11::arg("value"))
+      .def(
+          "ComputeAttr",
+          [](drr::ResultPattern &self, pybind11::function py_func) {
+            paddle::drr::AttrComputeFunc cpp_func =
+                [py_func](
+                    const paddle::drr::MatchContext &context) -> std::any {
+              try {
+                pybind11::object py_context = pybind11::cast(context);
+                pybind11::object py_result = py_func(py_context);
+                pybind11::tuple result_tuple =
+                    py_result.cast<pybind11::tuple>();
+                pybind11::object result = result_tuple[0];
+                std::string type_name = result_tuple[1].cast<std::string>();
+                auto any_result = CastPyObjectToAny(result, type_name);
+
+                return std::visit(
+                    [](auto &&value) -> std::any { return std::any(value); },
+                    any_result);
+              } catch (const pybind11::error_already_set &e) {
+                std::cerr << "Python error in ComputeAttr callback: "
+                          << e.what() << std::endl;
+                throw;
+              }
+            };
+            return self.ComputeAttr(cpp_func);
+          },
+          pybind11::arg("py_func"));
+
+  m->def("value_is_persistable", [](const pir::Value &value) {
+    return pir::ValueIsPersistable(value);
+  });
+}
+
 void BindShapeOrDataDimExprs(pybind11::module *m) {
   py::class_<symbol::ShapeOrDataDimExprs,
              std::shared_ptr<symbol::ShapeOrDataDimExprs>>
@@ -2632,64 +3088,82 @@ void BindShapeOrDataDimExprs(pybind11::module *m) {
       .def("data",
            &symbol::ShapeOrDataDimExprs::data,
            return_value_policy::reference)
-      .def("is_equal",
-           [](symbol::ShapeOrDataDimExprs &self,
-              std::vector<int64_t> expect_shape,
-              std::vector<int64_t> expect_data = {}) -> bool {
-             VLOG(3) << "Start compare shape and data.";
+      .def(
+          "is_equal",
+          [](symbol::ShapeOrDataDimExprs &self,
+             std::vector<int64_t> expect_shape,
+             std::vector<int64_t> expect_data = {}) -> bool {
+            VLOG(3) << "Start compare shape and data.";
 
-             const auto &compare_func =
-                 [&](const std::vector<int64_t> &expect,
-                     const std::vector<symbol::DimExpr> &actual) -> bool {
-               const auto print_expect_and_actual = [&]() {
-                 std::ostringstream sout;
-                 sout << "expect: [";
-                 std::copy(expect.begin(),
-                           expect.end(),
-                           std::ostream_iterator<int64_t>(sout, ","));
-                 sout << "]" << std::endl;
+            const auto &CompareFunc =
+                [&](const std::vector<int64_t> &expect,
+                    const std::vector<symbol::DimExpr> &actual,
+                    const std::string &compare_type) -> bool {
+              const auto PrintExpectAndActual = [&](const std::string &prefix) {
+                std::ostringstream sout;
+                sout << prefix << " expect: [";
+                std::copy(expect.begin(),
+                          expect.end(),
+                          std::ostream_iterator<int64_t>(sout, ","));
+                sout << "]" << std::endl;
 
-                 sout << "actual:" << actual << std::endl;
-                 LOG(ERROR) << sout.str();
-               };
+                sout << prefix << " actual:" << actual << std::endl;
+                LOG(ERROR) << sout.str();
+              };
 
-               if (actual.size() != expect.size()) {
-                 LOG(ERROR) << "expect size " << expect.size()
-                            << " is not equal to actual size " << actual.size()
-                            << " . The detailed infermation is as follows:";
-                 print_expect_and_actual();
-                 return false;
-               } else if (actual.empty()) {
-                 return true;
-               }
+              if (actual.size() != expect.size()) {
+                LOG(ERROR) << compare_type << " expect size " << expect.size()
+                           << " is not equal to actual size " << actual.size()
+                           << " . The detailed infermation is as follows:";
+                PrintExpectAndActual(compare_type);
+                return false;
+              } else if (actual.empty()) {
+                return true;
+              }
 
-               for (size_t i = 0; i < actual.size(); i++) {
-                 if (!actual.at(i).isa<int64_t>()) {
-                   print_expect_and_actual();
-                   PADDLE_THROW(common::errors::InvalidArgument(
-                       "In OpTest, only supports cases where the type of "
-                       "DimExpr "
-                       "is int64_t."));
-                   return false;
-                 }
-                 if (actual.at(i) != expect.at(i)) {
-                   LOG(ERROR) << "expect[" << i << "]: " << expect.at(i)
-                              << " is not equal to actual[" << i
-                              << "]: " << actual.at(i)
-                              << " . The detailed infermation is as follows:";
-                   print_expect_and_actual();
-                   return false;
-                 }
-               }
-               return true;
-             };
+              for (size_t i = 0; i < actual.size(); i++) {
+                if (!actual.at(i).isa<int64_t>()) {
+                  PrintExpectAndActual(compare_type);
+                  PADDLE_THROW(common::errors::InvalidArgument(
+                      "In OpTest, only supports cases where the type of "
+                      "DimExpr "
+                      "is int64_t."));
+                  return false;
+                }
+                if (actual.at(i) != expect.at(i)) {
+                  LOG(ERROR)
+                      << compare_type << " expect[" << i
+                      << "]: " << expect.at(i) << " is not equal to actual["
+                      << i << "]: " << actual.at(i)
+                      << " . The detailed infermation is as follows:";
+                  PrintExpectAndActual(compare_type);
+                  return false;
+                }
+              }
+              return true;
+            };
 
-             // compare shape
-             const std::vector<symbol::DimExpr> &actual_shape = self.shape();
-
-             // TODO(gongshaotian): compare data
-             return compare_func(expect_shape, actual_shape);
-           });
+            // compare shape
+            const std::vector<symbol::DimExpr> &actual_shape = self.shape();
+            const bool shape_status =
+                CompareFunc(expect_shape, actual_shape, "shape");
+            // compare data
+            const std::optional<std::vector<symbol::DimExpr>> &actual_data_ =
+                self.data();
+            if (actual_data_.has_value()) {
+              PADDLE_ENFORCE_LE(actual_shape.size(),
+                                1,
+                                common::errors::Unimplemented(
+                                    "Now data dim expr is not supported for "
+                                    "multi-dim shape."));
+              const std::vector<symbol::DimExpr> actual_data =
+                  actual_data_.value();
+              const bool data_status =
+                  CompareFunc(expect_data, actual_data, "data");
+              return shape_status && data_status;
+            }
+            return shape_status;
+          });
 }
 
 void BindShapeConstraintIRAnalysis(pybind11::module *m) {
@@ -2752,7 +3226,7 @@ void BindPir(pybind11::module *module) {
   BindShapeConstraintIRAnalysis(&ir_module);
   auto ops_modules = ir_module.def_submodule("ops");
   BindOpsAPI(&ops_modules);
-  BindIrParser(&ir_module);
+  BindDrrPatternContext(&ir_module);
 }
 
 }  // namespace pybind

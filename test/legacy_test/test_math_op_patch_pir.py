@@ -767,11 +767,11 @@ class TestMathOpPatchesPir(unittest.TestCase):
                 array.append(item_3)
 
                 sliced_item_1 = array[0]
-                poped_item_3 = array.pop()
+                popped_item_3 = array.pop()
                 final_length = paddle.tensor.array_length(array)
                 (
                     sliced_item_1_out,
-                    poped_item_3_out,
+                    popped_item_3_out,
                     final_length_out,
                 ) = exe.run(
                     main_program,
@@ -780,11 +780,11 @@ class TestMathOpPatchesPir(unittest.TestCase):
                         "item_2": item_2_np,
                         "item_3": item_3_np,
                     },
-                    fetch_list=[sliced_item_1, poped_item_3, final_length],
+                    fetch_list=[sliced_item_1, popped_item_3, final_length],
                 )
 
                 np.testing.assert_array_equal(sliced_item_1_out, item_1_np)
-                np.testing.assert_array_equal(poped_item_3_out, item_3_np)
+                np.testing.assert_array_equal(popped_item_3_out, item_3_np)
                 np.testing.assert_array_equal(final_length_out.item(), 2)
 
                 with self.assertRaises(TypeError):
@@ -808,6 +808,27 @@ class TestMathOpPatchesPir(unittest.TestCase):
                 )
                 np.testing.assert_array_equal(res, a_np)
                 np.testing.assert_array_equal(res, b_np)
+
+    def test_negative(self):
+        x_np = np.random.uniform(-1, 1, [10, 1024]).astype(np.float32)
+        res = -x_np
+        with paddle.pir_utils.IrGuard():
+            main_program, exe, program_guard = new_program()
+            with program_guard:
+                x = paddle.static.data(
+                    name='x', shape=[10, 1024], dtype="float32"
+                )
+                a = -x
+                b = x.negative()
+                c = paddle.negative(x)
+                (a_np, b_np, c_np) = exe.run(
+                    main_program,
+                    feed={"x": x_np},
+                    fetch_list=[a, b, c],
+                )
+                np.testing.assert_array_equal(res, a_np)
+                np.testing.assert_array_equal(res, b_np)
+                np.testing.assert_array_equal(res, c_np)
 
     def test_abs(self):
         # test for real number

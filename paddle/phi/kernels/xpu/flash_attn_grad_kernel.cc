@@ -21,45 +21,34 @@
 #include "xfa/flash_api.h"
 #endif
 namespace phi {
-
-template <typename T, typename Context>
-void FlashAttnGradKernel(const Context& ctx,
-                         const DenseTensor& q,
-                         const DenseTensor& k,
-                         const DenseTensor& v,
-                         const DenseTensor& out,
-                         const DenseTensor& softmax_lse,
-                         const DenseTensor& seed_offset,
-                         const paddle::optional<DenseTensor>& attn_mask,
-                         const DenseTensor& dout,
-                         float dropout,
-                         bool causal,
-                         DenseTensor* dq,
-                         DenseTensor* dk,
-                         DenseTensor* dv) {
 #ifdef PADDLE_WITH_XPU_XRE5
-  ctx.template Alloc<T>(dq);
-  ctx.template Alloc<T>(dk);
-  ctx.template Alloc<T>(dv);
+template <typename T, typename Context>
+void FlashAttnGradKernelBase(const Context& ctx,
+                             const DenseTensor& q,
+                             const DenseTensor& k,
+                             const DenseTensor& v,
+                             const api::VectorParam<int>& lod_seqlen_q,
+                             const api::VectorParam<int>& lod_seqlen_k,
+                             const DenseTensor& out,
+                             const DenseTensor& softmax_lse,
+                             const DenseTensor& seed_offset,
+                             const paddle::optional<DenseTensor>& attn_mask,
+                             const DenseTensor& dout,
+                             const int batch_size,
+                             const Scalar& max_seqlen_q_,
+                             const Scalar& max_seqlen_k_,
+                             const int num_heads,
+                             const int num_heads_k,
+                             const int head_size,
+                             const int head_size_v,
+                             float scale,
+                             float dropout,
+                             bool causal,
+                             DenseTensor* dq,
+                             DenseTensor* dk,
+                             DenseTensor* dv) {
+  xpu::ctx_guard RAII_GUARD(ctx.x_context());
 
-  // q, k, v [batch_size, seq_len, num_heads, head_dim]
-  const auto& dims = q.dims();
-
-  const int64_t batch_size = dims[0];
-  const int64_t seqlen_q = dims[1];
-  const int64_t num_heads = dims[2];
-  const int64_t head_size_og = dout.dims()[3];
-  const int64_t head_size = dims[3];
-  const int64_t seqlen_k = k.dims()[1];
-  const int64_t num_heads_k = k.dims()[2];
-
-  PADDLE_ENFORCE_EQ(
-      head_size_og,
-      head_size,
-      common::errors::InvalidArgument(
-          "flash_attn_bwd receive input with head_size_og == head_size"));
-
-  // raw pointers
   using XPUType = typename XPUTypeTrait<T>::Type;
   using XPUTypeFP16 = typename XPUTypeTrait<phi::dtype::float16>::Type;
   const XPUType* q_data = reinterpret_cast<const XPUType*>(q.data<T>());
@@ -69,7 +58,8 @@ void FlashAttnGradKernel(const Context& ctx,
   const float* softmax_lse_data = softmax_lse.data<float>();
   const XPUType* dout_data = reinterpret_cast<const XPUType*>(dout.data<T>());
 
-  xpu::ctx_guard RAII_GUARD(ctx.x_context());
+  float real_scale = scale == 0.0f ? 1.0f / std::sqrt(head_size) : scale;
+
   const float* bias_data = nullptr;
   int64_t fa_layout = AttnQKVLayout_t::ATTN_BLHD;
   if (attn_mask.get_ptr() != nullptr) {
@@ -107,22 +97,12 @@ void FlashAttnGradKernel(const Context& ctx,
   XPUType* dk_data = reinterpret_cast<XPUType*>(dk->data<T>());
   XPUType* dv_data = reinterpret_cast<XPUType*>(dv->data<T>());
 
-  // lod info
-  std::vector<int> qlod_vec = {0};
-  std::vector<int> kvlod_vec = {0};
-  for (int batch_idx = 1; batch_idx <= batch_size; ++batch_idx) {
-    qlod_vec.push_back(seqlen_q * batch_idx);
-    kvlod_vec.push_back(seqlen_k * batch_idx);
-  }
-  api::VectorParam<int> qlod{
-      qlod_vec.data(), static_cast<int64_t>(qlod_vec.size()), nullptr};
-  api::VectorParam<int> kvlod{
-      kvlod_vec.data(), static_cast<int64_t>(kvlod_vec.size()), nullptr};
+  int64_t max_seqlen_q = max_seqlen_q_.to<int64_t>();
+  int64_t max_seqlen_k = max_seqlen_k_.to<int64_t>();
 
   // get seed offset
   const int64_t* seed_offset_data = seed_offset.data<int64_t>();
   int fa_tgemm = get_flash_attn_tgemm<XPUType>();
-
   auto flash_attention_grad_kernel =
       baidu::xpu::xfa::mha_varlen_bwd<XPUType, float, tfloat32, int>;
   if (fa_tgemm == XPU_FA_TGEMM::FA_FLOAT) {
@@ -160,14 +140,14 @@ void FlashAttnGradKernel(const Context& ctx,
       dq_data,                                    // dq
       dk_data,                                    // dk
       dv_data,                                    // dv
-      qlod,                                       // lod_seqlens_q
-      kvlod,                                      // lod_seqlens_k
-      seqlen_q,                                   // max_seqlen_q
-      seqlen_k,                                   // max_seqlen_k
+      lod_seqlen_q,                               // lod_seqlens_q
+      lod_seqlen_k,                               // lod_seqlens_k
+      max_seqlen_q,                               // max_seqlen_q
+      max_seqlen_k,                               // max_seqlen_k
       num_heads,                                  // head_num
       num_heads_k,                                // head_num_k
       head_size,                                  // head_dim
-      1.0f / std::sqrt(head_size),                // softmax_scale
+      real_scale,                                 // softmax_scale
       dropout,                                    // p_dropout
       static_cast<int32_t>(seed_offset_data[0]),  // seed
       causal,                                     // is_causal
@@ -188,9 +168,155 @@ void FlashAttnGradKernel(const Context& ctx,
       {},                                         // alibi_slopes_shape
       -1,                                         // window_size_left
       -1,                                         // window_size_right
-      -1                                          // v_head_dim
+      head_size_v                                 // v_head_dim
   );
   PADDLE_ENFORCE_XDNN_SUCCESS(r, "mha_varlen_bwd");
+}
+#endif
+
+template <typename T, typename Context>
+void FlashAttnUnpaddedGradKernel(const Context& ctx,
+                                 const DenseTensor& q,
+                                 const DenseTensor& k,
+                                 const DenseTensor& v,
+                                 const DenseTensor& cu_seqlens_q,
+                                 const DenseTensor& cu_seqlens_k,
+                                 const DenseTensor& out,
+                                 const DenseTensor& softmax_lse,
+                                 const DenseTensor& seed_offset,
+                                 const paddle::optional<DenseTensor>& attn_mask,
+                                 const DenseTensor& dout,
+                                 const Scalar& max_seqlen_q,
+                                 const Scalar& max_seqlen_k,
+                                 float scale,
+                                 float dropout,
+                                 bool causal,
+                                 DenseTensor* dq,
+                                 DenseTensor* dk,
+                                 DenseTensor* dv) {
+#ifdef PADDLE_WITH_XPU_XRE5
+  ctx.template Alloc<T>(dq);
+  ctx.template Alloc<T>(dk);
+  ctx.template Alloc<T>(dv);
+  auto dims = q.dims();
+
+  const int64_t batch_size = cu_seqlens_q.numel() - 1;
+  const int64_t num_heads = dims[1];
+  const int64_t head_size = dims[2];
+  const int64_t head_size_v = v.dims()[2];
+  const int64_t num_heads_k = k.dims()[1];
+
+  api::VectorParam<int> qlod{cu_seqlens_q.data<int>(),
+                             static_cast<int64_t>(cu_seqlens_q.numel()),
+                             nullptr};
+  api::VectorParam<int> kvlod{cu_seqlens_k.data<int>(),
+                              static_cast<int64_t>(cu_seqlens_k.numel()),
+                              nullptr};
+
+  FlashAttnGradKernelBase<T>(ctx,
+                             q,
+                             k,
+                             v,
+                             qlod,
+                             kvlod,
+                             out,
+                             softmax_lse,
+                             seed_offset,
+                             attn_mask,
+                             dout,
+                             batch_size,
+                             max_seqlen_q,
+                             max_seqlen_k,
+                             num_heads,
+                             num_heads_k,
+                             head_size,
+                             head_size_v,
+                             scale,
+                             dropout,
+                             causal,
+                             dq,
+                             dk,
+                             dv);
+#else
+  PADDLE_THROW(common::errors::Unimplemented(
+      "re-compile using -DWITH_XPU_XRE5=ON to use FlashAttnGradKernel"));
+#endif
+}
+
+template <typename T, typename Context>
+void FlashAttnGradKernel(const Context& ctx,
+                         const DenseTensor& q,
+                         const DenseTensor& k,
+                         const DenseTensor& v,
+                         const DenseTensor& out,
+                         const DenseTensor& softmax_lse,
+                         const DenseTensor& seed_offset,
+                         const paddle::optional<DenseTensor>& attn_mask,
+                         const DenseTensor& dout,
+                         float dropout,
+                         bool causal,
+                         DenseTensor* dq,
+                         DenseTensor* dk,
+                         DenseTensor* dv) {
+#ifdef PADDLE_WITH_XPU_XRE5
+  ctx.template Alloc<T>(dq);
+  ctx.template Alloc<T>(dk);
+  ctx.template Alloc<T>(dv);
+
+  // q, k, v [batch_size, seq_len, num_heads, head_dim]
+  const auto& dims = q.dims();
+
+  const int64_t batch_size = dims[0];
+  const int64_t seqlen_q = dims[1];
+  const int64_t num_heads = dims[2];
+  const int64_t head_size_og = dout.dims()[3];
+  const int64_t head_size = dims[3];
+  const int64_t head_size_v = v.dims()[3];
+  const int64_t seqlen_k = k.dims()[1];
+  const int64_t num_heads_k = k.dims()[2];
+
+  PADDLE_ENFORCE_EQ(
+      head_size_og,
+      head_size_v,
+      common::errors::InvalidArgument(
+          "flash_attn_bwd receive input with head_size_og == head_size_v"));
+
+  // lod info
+  std::vector<int> qlod_vec = {0};
+  std::vector<int> kvlod_vec = {0};
+  for (int batch_idx = 1; batch_idx <= batch_size; ++batch_idx) {
+    qlod_vec.push_back(seqlen_q * batch_idx);
+    kvlod_vec.push_back(seqlen_k * batch_idx);
+  }
+  api::VectorParam<int> qlod{
+      qlod_vec.data(), static_cast<int64_t>(qlod_vec.size()), nullptr};
+  api::VectorParam<int> kvlod{
+      kvlod_vec.data(), static_cast<int64_t>(kvlod_vec.size()), nullptr};
+
+  FlashAttnGradKernelBase<T>(ctx,
+                             q,
+                             k,
+                             v,
+                             qlod,
+                             kvlod,
+                             out,
+                             softmax_lse,
+                             seed_offset,
+                             attn_mask,
+                             dout,
+                             batch_size,
+                             seqlen_q,
+                             seqlen_k,
+                             num_heads,
+                             num_heads_k,
+                             head_size,
+                             head_size_v,
+                             0.0,
+                             dropout,
+                             causal,
+                             dq,
+                             dk,
+                             dv);
 #else
   PADDLE_THROW(common::errors::Unimplemented(
       "re-compile using -DWITH_XPU_XRE5=ON to use FlashAttnGradKernel"));
@@ -198,6 +324,18 @@ void FlashAttnGradKernel(const Context& ctx,
 }
 
 }  // namespace phi
+
+PD_REGISTER_KERNEL(flash_attn_unpadded_grad,
+                   XPU,
+                   ALL_LAYOUT,
+                   phi::FlashAttnUnpaddedGradKernel,
+                   float,
+                   phi::dtype::float16,
+                   phi::dtype::bfloat16) {
+  kernel->InputAt(3).SetBackend(phi::Backend::CPU);          // cu_seqlens_q
+  kernel->InputAt(4).SetBackend(phi::Backend::CPU);          // cu_seqlens_k
+  kernel->InputAt(7).SetBackend(phi::Backend::ALL_BACKEND);  // seed_offset
+}
 
 PD_REGISTER_KERNEL(flash_attn_grad,
                    XPU,

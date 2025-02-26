@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from enum import Enum
 
@@ -39,6 +40,7 @@ from paddle.tensorrt.util import (
     forbid_op_lower_trt,
     mark_builtin_op,
     run_pir_pass,
+    run_trt_partition,
     warmup_shape_infer,
 )
 
@@ -50,6 +52,8 @@ class Input:
     This class supports generating random input data for minimum, optimal, and maximum shapes, with configurable data types (e.g., 'int' or 'float') and value ranges.
 
     Args:
+        input_data (tuple):
+            The tuple of Input data arrays (possibly different shapes).
         min_input_shape (tuple):
             The shape of the minimum input tensor.
         max_input_shape (tuple):
@@ -72,19 +76,38 @@ class Input:
         ...    optim_input_shape=(4,100),
         ...    max_input_shape=(8,100),
         ... )
-
+        >>> input = Input(
+        ...    (
+        ...     np.random.rand(1, 100),
+        ...     np.random.rand(4, 100),
+        ...     np.random.rand(8, 100),
+        ...     )
+        ... )
         >>> input.input_data_type='int64'
         >>> input.input_range=(1,10)
     """
 
     def __init__(
         self,
-        min_input_shape: tuple,
-        max_input_shape: tuple,
+        input_data: tuple[np.ndarray, ...] | None = None,
+        min_input_shape: tuple | None = None,
+        max_input_shape: tuple | None = None,
         optim_input_shape: tuple | None = None,
         input_data_type: str | None = 'float32',
         input_range: tuple | None = None,
     ) -> None:
+        if input_data is not None:
+            if min_input_shape or max_input_shape or optim_input_shape:
+                logging.warning(
+                    "Input data provided; min/max/optim shapes are ignored."
+                )
+        else:
+            if None in (min_input_shape, max_input_shape, optim_input_shape):
+                raise ValueError(
+                    "When input_data is None, min/max/optim shapes must be specified."
+                )
+
+        self.input_data = input_data
         self.min_input_shape = min_input_shape
         self.max_input_shape = max_input_shape
         self.optim_input_shape = optim_input_shape
@@ -107,42 +130,56 @@ class Input:
             ...    optim_input_shape=(4,100),
             ...    max_input_shape=(8,100),
             ... )
+            >>> input = Input(
+            ...    (
+            ...     np.random.rand(1, 100),
+            ...     np.random.rand(4, 100),
+            ...     np.random.rand(8, 100),
+            ...     )
+            ... )
             >>> input.input_data_type='int64'
             >>> input.input_range=(1,10)
             >>> input_min_data, input_optim_data, input_max_data = input_config.generate_input_data()
         """
-        if self.input_data_type is None:
-            self.input_data_type = 'float32'
-
-        if self.input_range is None:
-            self.input_range = (
-                (0.0, 1.0) if 'float' in self.input_data_type else (1, 10)
-            )
-
-        if 'int' in self.input_data_type:
-            low, high = self.input_range
-            self.input_min_data = np.random.randint(
-                low, high, size=self.min_input_shape
-            )
-            self.input_optim_data = np.random.randint(
-                low, high, size=self.optim_input_shape
-            )
-            self.input_max_data = np.random.randint(
-                low, high, size=self.max_input_shape
-            )
+        if self.input_data is not None:
+            return self.input_data
         else:
-            low, high = self.input_range if self.input_range else (0, 1)
-            self.input_min_data = np.random.uniform(
-                low, high, size=self.min_input_shape
-            ).astype(self.input_data_type)
-            self.input_optim_data = np.random.uniform(
-                low, high, size=self.optim_input_shape
-            ).astype(self.input_data_type)
-            self.input_max_data = np.random.uniform(
-                low, high, size=self.max_input_shape
-            ).astype(self.input_data_type)
+            if self.input_data_type is None:
+                self.input_data_type = 'float32'
 
-        return self.input_min_data, self.input_optim_data, self.input_max_data
+            if self.input_range is None:
+                self.input_range = (
+                    (0.0, 1.0) if 'float' in self.input_data_type else (1, 10)
+                )
+
+            if 'int' in self.input_data_type:
+                low, high = self.input_range
+                self.input_min_data = np.random.randint(
+                    low, high, size=self.min_input_shape
+                ).astype(self.input_data_type)
+                self.input_optim_data = np.random.randint(
+                    low, high, size=self.optim_input_shape
+                ).astype(self.input_data_type)
+                self.input_max_data = np.random.randint(
+                    low, high, size=self.max_input_shape
+                ).astype(self.input_data_type)
+            else:
+                low, high = self.input_range if self.input_range else (0, 1)
+                self.input_min_data = np.random.uniform(
+                    low, high, size=self.min_input_shape
+                ).astype(self.input_data_type)
+                self.input_optim_data = np.random.uniform(
+                    low, high, size=self.optim_input_shape
+                ).astype(self.input_data_type)
+                self.input_max_data = np.random.uniform(
+                    low, high, size=self.max_input_shape
+                ).astype(self.input_data_type)
+
+            return (
+                self.input_min_data,
+                self.input_optim_data,
+                self.input_max_data,
+            )
 
 
 class PrecisionMode(Enum):
@@ -170,7 +207,10 @@ class TensorRTConfig:
         save_model_dir: str | None = None,
         disable_ops: str | list | None = None,
         precision_mode: PrecisionMode = PrecisionMode.FP32,
-        tensorrt_ops_run_float: str | list | None = None,
+        ops_run_float: str | list | None = None,
+        optimization_level: int | None = 3,
+        disable_passes: list = [],
+        workspace_size: int | None = 1 << 30,
     ) -> None:
         """
         A class for configuring TensorRT optimizations.
@@ -190,9 +230,15 @@ class TensorRTConfig:
                 - PrecisionMode.FP16: 16-bit floating point precision.
                 - PrecisionMode.INT8: 8-bit integer precision.
                 - PrecisionMode.BFP16: 16-bit Brain Floating Point precision. Only supported in TensorRT versions greater than 9.0.
-            tensorrt_ops_run_float (str|list, optional):
+            ops_run_float (str|list, optional):
                 A set of operation names that should be executed using FP32 precision regardless of the `tensorrt_precision_mode` setting.
-                 The directory where the optimized model will be saved (default is None).
+                The directory where the optimized model will be saved (default is None).
+            optimization_level (int, optional):
+                Set TensorRT optimization level (default is 3). Only supported in TensorRT versions greater than 8.6.
+            disable_passes : (str|list, optional):
+                A list of string representing the names of pass that should not be used for origin program (default is []).
+            workspace_size (int, optional):
+                Specifies the maximum GPU memory (in bytes) that TensorRT can use for the optimization process (default is 1 << 30).
         Returns:
             None
 
@@ -209,20 +255,37 @@ class TensorRTConfig:
             ...    optim_input_shape=(4,100),
             ...    max_input_shape=(8,100),
             ... )
+            >>> input = Input(
+            ...    (
+            ...     np.random.rand(1, 100),
+            ...     np.random.rand(4, 100),
+            ...     np.random.rand(8, 100),
+            ...     )
+            ... )
             >>> input.input_data_type='int64'
             >>> input.input_range=(1,10)
 
             >>> trt_config = TensorRTConfig(inputs=[input])
-            >>> trt_config.disable_ops = "pd_op.dropout"
+            >>> trt_config.disable_ops = ["pd_op.dropout"]
             >>> trt_config.precision_mode = PrecisionMode.FP16
-            >>> trt_config.tensorrt_ops_run_float = "pd_op.conv2d"
+            >>> trt_config.ops_run_float = "pd_op.conv2d"
+            >>> trt_config.workspace_size = 2 << 30
         """
+        # Checking Input Consistency
+        has_input_data = [i.input_data is not None for i in inputs]
+        if any(has_input_data):
+            if not all(has_input_data):
+                raise ValueError("All Inputs must have input_data if any does.")
+
         self.inputs = inputs
         self.min_subgraph_size = min_subgraph_size
         self.save_model_dir = save_model_dir
         self.precision_mode = precision_mode
-        self.tensorrt_ops_run_float = tensorrt_ops_run_float
+        self.ops_run_float = ops_run_float
         self.disable_ops = disable_ops
+        self.disable_passes = disable_passes
+        self.optimization_level = optimization_level
+        self.workspace_size = workspace_size
         paddle.framework.set_flags(
             {'FLAGS_trt_min_group_size': min_subgraph_size}
         )
@@ -242,25 +305,26 @@ def convert_to_trt(program, trt_config, scope):
             feed_name.append(param_name)
 
     with paddle.pir_utils.IrGuard():
-        min_shape_feed = {}
-        max_shape_feed = {}
-        for i, input_instance in enumerate(trt_config.inputs):
-            # get fake inputs
-            min_data, _, max_data = input_instance.generate_input_data()
-            program_with_output = program.list_vars()[-1]
-            min_shape_feed[feed_name[i]] = min_data
-            max_shape_feed[feed_name[i]] = max_data
-
-            # run warmup for collecting shape
-        program = warmup_shape_infer(
-            program,
-            min_shape_feed=min_shape_feed,
-            max_shape_feed=max_shape_feed,
-            scope=scope,
-        )
+        input_tuples = [i.generate_input_data() for i in trt_config.inputs]
+        feeds = [
+            {name: t[i] for t, name in zip(input_tuples, feed_name)}
+            for i in range(len(input_tuples[0]))
+        ]
 
         # run pir pass (including trt_op_marker_pass)
-        program_with_pir = run_pir_pass(program, partition_mode=False)
+        program_with_pir = run_pir_pass(
+            program,
+            disable_passes=trt_config.disable_passes,
+            scope=scope,
+            precision_mode=trt_config.precision_mode,
+        )
+
+        # run warmup for collecting shape
+        program = warmup_shape_infer(
+            program_with_pir,
+            feeds=feeds,
+            scope=scope,
+        )
 
         # specify certain operators to be excluded from entering TensorRT
         if trt_config.disable_ops:
@@ -270,7 +334,7 @@ def convert_to_trt(program, trt_config, scope):
         mark_builtin_op(program)
 
         # run pir pass (including trt_sub_graph_extract_pass)
-        program_with_pir = run_pir_pass(program, partition_mode=True)
+        program_with_pir = run_trt_partition(program)
 
         # Step4: run TRTConverter (would lower group_op into tensorrt_engine_op)
         converter = PaddleToTensorRTConverter(
