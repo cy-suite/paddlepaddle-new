@@ -244,7 +244,7 @@ class PipelineParallel(ParallelModel):
 
         for layer_name in self.pipeline_layers:
             layer = self.get_layer_by_name(layer_name)
-            layer.register_forward_pre_hook(forward_pre_hook)
+            layer.register_forward_pre_hook(forward_pre_hook, with_kwargs=True)
 
 
 def pipeline_parallel(model, optimizer=None, config=None):
