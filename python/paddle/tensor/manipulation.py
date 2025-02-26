@@ -6469,12 +6469,12 @@ def infer_dynamic_broadcast_shape(
             ],  # use indices_shape[0] will error in concat after, because its shape is [], and shape of arr_shape[1:] is [1]
             arr_shape[1:],
         ]
-    elif axis == arr_shape_dim:
+    elif axis == arr_shape_dim - 1:
         new_shapes = [
-            arr_shape[:arr_shape_dim],
+            arr_shape[:axis],
             indices_shape[
-                arr_shape_dim:
-            ],  # use indices_shape[arr_shape_dim] will error in concat after, because its shape is [], and shape of arr_shape[:arr_shape_dim] is [1]
+                axis:
+            ],  # use indices_shape[axis] will error in concat after, because its shape is [], and shape of arr_shape[axis:] is [1]
         ]
     else:
         new_shapes = [
