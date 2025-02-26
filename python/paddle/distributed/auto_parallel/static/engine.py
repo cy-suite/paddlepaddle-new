@@ -744,6 +744,8 @@ class Engine:
                 [dist_program], [startup_program]
             )
 
+        print("===== forward dist program ====")
+        print(dist_program, flush=1)
         # Step 1.2: pir backward
         if mode == "train" and self._loss and self._optimizer:
             loss = dist_program.get_output_value_by_name(self._loss_names[0])
@@ -819,6 +821,7 @@ class Engine:
                     "loss value is not found, skip append backward."
                 )
 
+        print("===== backward done ====")
         # re-run apply_mix2dist_pass to dist accumulator.
         apply_mix2dist_pass(dist_program)
         if mode == "train" and self._strategy.recompute.enable:
@@ -853,6 +856,7 @@ class Engine:
         #   insert reshard op if operand tensor's placements is different from what the cumsumer op need.
         #   Partition the computation graph into different pipeline stage if need.
         apply_partition_pass(dist_program)
+        print("===== partition done ====")
 
         if mode == "train" and self._loss and self._optimizer:
             global_params_grads = params_grads
@@ -864,6 +868,7 @@ class Engine:
         #   resolute the reshard op into special collective operation.
         #   collect the communicator created during resolution.
         ReshardPasses.apply_reshard_pass(dist_program, global_params_grads)
+        print("==== reshard done ====")
 
         # Note(luchang): When using VPP pipeline pass, we need to split the whole graph into
         # multiple chunks and adjust the process mesh accordingly. Here, we need to store the
@@ -872,6 +877,7 @@ class Engine:
         self.program_helper.cache_whole_graph_dist_attr(all_params)
 
         RemovePasses.apply_all(dist_program, startup_program, params_grads)
+        print("==== remove done ====")
 
         # Part 4: Optimization Pass
         # NOTE Only those Optimization Pass that related to Parallelism (need dist attr) should be placed here and all the Pass should be Optional.
@@ -916,6 +922,7 @@ class Engine:
         ):
             check_chunk_id(dist_program)
 
+        print("==== set chunk id done ====")
         # TODO(JZ-LIANG) Step 4.4 Dist2Dense Pass
         # NOTE All optimization pass that need dist_attr info should be called before Dist2Dense Pass.
         dense_program = dist_program.clone()
@@ -1010,6 +1017,7 @@ class Engine:
                     pm.run(ir_program)
 
         remove_unuseful_comm_op_pass(dense_program)
+        print("==== remove comm done ====")
         self._pir_dense_main_progs[mode] = dense_program
         self._pir_dist_main_progs[mode] = dist_program
         self._pir_dist_startup_progs[mode] = startup_program

@@ -75,6 +75,9 @@ class SToRReshardFunction(ReshardFunction):
         return out_type
 
     def reshard(self, src_dist_attr, dst_dist_attr, src_value, dst_type):
+        print("==== SToRReshardFunction ====")
+        print(f"src_value:{src_value}, dst_type:{dst_type}")
+        print(f"{src_dist_attr} --> {dst_dist_attr}")
         if src_dist_attr.process_mesh.size == 1:
             dst_value = paddle._C_ops.share_data_(src_value)
             share_data_op = dst_value.get_defining_op()

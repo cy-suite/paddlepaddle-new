@@ -487,6 +487,8 @@ def _cal_global_shape(local_shape, mesh, placements):
     for idx, placement in enumerate(placements):
         if placement.is_shard():
             shard_dim = placement.get_dim()
+            if global_shape[shard_dim] == -1:
+                continue
             local_dim_size = global_shape[shard_dim]
             global_shape[shard_dim] = local_dim_size * mesh.shape[idx]
     return global_shape
@@ -750,7 +752,11 @@ def dtensor_to_local(dist_tensor, mesh, placements):
 
         return paddle.base.core.dtensor_to_local(dist_tensor, mesh, placements)
     elif paddle.framework.in_pir_mode():
-        return paddle._C_ops.dtensor_to_local(dist_tensor, mesh, placements)
+        print("=== dtensor_to_local ====")
+        print(dist_tensor)
+        ret = paddle._C_ops.dtensor_to_local(dist_tensor, mesh, placements)
+        print(ret)
+        return ret
     else:
         raise RuntimeError(
             "dtensor_to_local() are only supported in dynamic or pir mode."
