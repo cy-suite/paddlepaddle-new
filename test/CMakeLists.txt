@@ -122,6 +122,8 @@ function(set_pir_tests_properties)
         PROPERTY ENVIRONMENT "FLAGS_PIR_NO_CHECK=True")
     endif()
   endforeach()
+  set_tests_properties(test_lookup_table_v2_op_static_build PROPERTY
+                       ENVIRONMENT "FLAGS_comp_skip_default_ops=False")
 
   file(STRINGS
        "${CMAKE_SOURCE_DIR}/test/white_list/pir_op_test_precision_white_list"

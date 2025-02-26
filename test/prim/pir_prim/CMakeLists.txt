@@ -33,6 +33,7 @@ foreach(target ${TEST_PRIM_PURE_PIR_CASES})
     ENVS
     GLOG_v=1
     FLAGS_enable_pir_api=true
+    FLAGS_comp_skip_default_ops=0
     FLAGS_prim_enable_dynamic=true)
 endforeach()
 
