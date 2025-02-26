@@ -1115,7 +1115,7 @@ def _complete_op_dist_attr(program, block=None):
     for op in block.ops:
         for sub_block in op.blocks():
             _complete_op_dist_attr(program, block=sub_block)
-        if op.name() in partition_skip_op_list:
+        if op.name() in [*partition_skip_op_list, 'builtin.split']:
             continue
 
         if op.dist_attr is None:
