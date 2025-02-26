@@ -272,7 +272,7 @@ class TensorRTConfig:
             >>> trt_config.workspace_size = 2 << 30
         """
         # Checking Input Consistency
-        has_input_data = [i.input_data is not None for i in inputs]
+        has_input_data = [i.warmup_data is not None for i in inputs]
         if any(has_input_data):
             if not all(has_input_data):
                 raise ValueError("All Inputs must have input_data if any does.")
