@@ -90,11 +90,27 @@ jobs:
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
-      if: ${{ env.determine_excode }} == "0"
+      if: ${{ env.determine_excode == 0 }}
       run: |
         docker exec -t ${container_name} /bin/bash -c '
         echo ${{ env.determine_excode }}
-        if [[ ${{ env.determine_excode }} == "0" ]]; then
-          echo 1111
-        fi
+        echo 0
         '
+
+    - name: fff
+      env:
+        work_dir: ${{ github.workspace }}
+        PADDLE_ROOT: ${{ github.workspace }}
+      if: ${{ env.determine_excode == 1 }}
+      run: |
+        docker exec -t ${container_name} /bin/bash -c '
+        echo ${{ env.determine_excode }}
+        echo 1
+        '
+
+    - name: Terminate and delete the container
+      if: always()
+      run: |
+        docker exec -t ${container_name} /bin/bash -c 'rm -rf * .[^.]*'
+        docker stop ${container_name}
+        docker rm ${container_name}
