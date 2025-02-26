@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING
 import paddle
 
 from ...utils import BreakGraphError, FallbackError
+from ...utils.exceptions import InnerError
 from ...utils.magic_methods import (
     BINARY_OPS,
     UNARY_OPS,
@@ -46,6 +47,7 @@ from .variables import (
     ContainerVariable,
     DictVariable,
     EnumerateVariable,
+    IterVariable,
     ListVariable,
     MapVariable,
     NumpyVariable,
@@ -1287,20 +1289,29 @@ def dispatch_sum(
 @Dispatcher.register_decorator(reduce)
 def dispatch_reduce(
     func: CallableVariable,
-    iterable: ContainerVariable | TensorVariable,
-    initializer: VariableBase = None,
+    iterable: ContainerVariable | TensorVariable | IterVariable,
+    initializer: VariableBase = None,  # type: ignore
 ):
-    iterator = iter(iterable)
+    iterator = iterable.get_iter()
     if initializer is None:
         try:
-            initializer = next(iterator)
+            initializer = iterator.next()
         except StopIteration:
-            raise TypeError("reduce() of empty sequence with no initial value")
+            raise InnerError("reduce() of empty iterable with no initial value")
     result = initializer
-    for element in iterator:
-        result = func(result, element)
+    while True:
+        try:
+            result = func(result, iterator.next())
+        except StopIteration:
+            break
     return result
 
+
+Dispatcher.register(
+    next,
+    ("IterVariable",),
+    lambda var: var.next(),
+)
 
 Dispatcher.register(
     max,
