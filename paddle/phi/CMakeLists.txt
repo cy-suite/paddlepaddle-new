@@ -50,8 +50,10 @@ set(PHI_DEPS
     xxhash
     cblas
     utf8proc
-    common
-    ap_phi)
+    common)
+if(WITH_CINN)
+  list(APPEND PHI_DEPS ap_phi)
+endif()
 
 list(
   APPEND

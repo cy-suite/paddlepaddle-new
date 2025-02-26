@@ -187,7 +187,7 @@ struct ReifiedDrrPassDumpHelperImpl {
   }
 
   std::string DecodeIntoDirectoryName(std::string str) {
-    for (int i = 0; i < str.size(); ++i) {
+    for (size_t i = 0; i < str.size(); ++i) {
       if (str.at(i) >= 'A' && str.at(i) <= 'Z') {
         continue;
       }

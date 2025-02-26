@@ -18,7 +18,9 @@ limitations under the License. */
 
 #include "glog/logging.h"
 
+#ifdef PADDLE_WITH_CINN
 #include "paddle/ap/include/paddle/phi/ap_infer_meta_helper.h"
+#endif
 #include "paddle/common/layout.h"
 #include "paddle/phi/backends/device_memory_alignment.h"
 #include "paddle/phi/common/data_type.h"
@@ -477,6 +479,7 @@ void ApVariadicInferMeta(const std::vector<const MetaTensor*>& xs,
                          const std::string& kernel_dispatch_const_data_lambda,
                          std::vector<MetaTensor*> outs,
                          MetaConfig config) {
+#ifdef PADDLE_WITH_CINN
   ApInferMetaHelper helper{};
   const auto& ret = helper.InferMeta(infer_meta_lambda, &xs, &outs);
   PADDLE_ENFORCE(!ret.HasError(),
@@ -485,6 +488,7 @@ void ApVariadicInferMeta(const std::vector<const MetaTensor*>& xs,
                  ret.GetError().CallStackToString(),
                  ret.GetError().class_name(),
                  ret.GetError().msg());
+#endif
 }
 
 // TODO(YuanRisheng) This InferMeta is used in Fluid
