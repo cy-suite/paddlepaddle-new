@@ -437,9 +437,9 @@ class Layer:
         self._forward_post_hooks: typing.OrderedDict[int, _ForwardPostHook] = (
             OrderedDict()
         )
-        self._forward_pre_hooks_with_kwargs_flag: typing.OrderedDict[int, bool] = (
-            OrderedDict()
-        )
+        self._forward_pre_hooks_with_kwargs_flag: typing.OrderedDict[
+            int, bool
+        ] = OrderedDict()
 
         # only used in AMP Training
         self._cast_to_low_precision = True
@@ -699,9 +699,7 @@ class Layer:
         return hook_remove_helper
 
     def register_forward_pre_hook(
-        self, hook: _ForwardPreHook,
-        *,
-        with_kwargs: bool = False
+        self, hook: _ForwardPreHook, *, with_kwargs: bool = False
     ) -> HookRemoveHelper:
         """
 
@@ -756,7 +754,9 @@ class Layer:
         hook_remove_helper = HookRemoveHelper(self._forward_pre_hooks)
         self._forward_pre_hooks[hook_remove_helper._hook_id] = hook
         if with_kwargs:
-            self._forward_pre_hooks_with_kwargs_flag[hook_remove_helper._hook_id] = True
+            self._forward_pre_hooks_with_kwargs_flag[
+                hook_remove_helper._hook_id
+            ] = True
         return hook_remove_helper
 
     def create_parameter(
@@ -1497,12 +1497,15 @@ class Layer:
         pass
 
     def _dygraph_call_func(self, *inputs: Any, **kwargs: Any) -> Any:
-        
+
         for hook_id, forward_pre_hook in self._forward_pre_hooks.items():
             if hook_id in self._forward_pre_hooks_with_kwargs_flag:
                 args_kwargs_result = forward_pre_hook(self, inputs, kwargs)
                 if args_kwargs_result is not None:
-                    if isinstance(args_kwargs_result, tuple) and len(args_kwargs_result) == 2:
+                    if (
+                        isinstance(args_kwargs_result, tuple)
+                        and len(args_kwargs_result) == 2
+                    ):
                         inputs, kwargs = args_kwargs_result
                     else:
                         raise RuntimeError(

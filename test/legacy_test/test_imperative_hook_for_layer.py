@@ -224,10 +224,10 @@ class Test_Forward_Hook(unittest.TestCase):
                 self.assertFalse(call_forward_pre_hook)
 
 
-
-def foward_pre_hook_with_kwargs(layer, args, kwargs):
+def forward_pre_hook_with_kwargs(layer, args, kwargs):
     kwargs['x'] = kwargs['x'] * 2
     return (args, kwargs)
+
 
 class SimpleNetWithKWArgs(paddle.nn.Layer):
     def __init__(
@@ -240,26 +240,24 @@ class SimpleNetWithKWArgs(paddle.nn.Layer):
 
         return z
 
+
 class TestHookWithKWArgs(unittest.TestCase):
     def test_kwargs_hook(self):
         net = SimpleNetWithKWArgs()
-        remove_hander = net.register_forward_pre_hook(foward_pre_hook_with_kwargs, with_kwargs=True)
+        remove_handler = net.register_forward_pre_hook(
+            forward_pre_hook_with_kwargs, with_kwargs=True
+        )
 
         x = paddle.randn((2, 3))
         y = paddle.randn((2, 3))
 
         out = net(x=x, y=y)
-        np.testing.assert_allclose(
-            out.numpy(),
-            (x * 2 + y).numpy()
-        )
+        np.testing.assert_allclose(out.numpy(), (x * 2 + y).numpy())
 
-        remove_hander.remove()
+        remove_handler.remove()
         out = net(x=x, y=y)
-        np.testing.assert_allclose(
-            out.numpy(),
-            (x + y).numpy()
-        ) 
+        np.testing.assert_allclose(out.numpy(), (x + y).numpy())
+
 
 if __name__ == '__main__':
     unittest.main()

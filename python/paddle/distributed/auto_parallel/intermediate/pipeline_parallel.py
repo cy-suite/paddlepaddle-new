@@ -221,6 +221,7 @@ class PipelineParallel(ParallelModel):
             pp_idx = getattr(layer, "pipeline_stage_index", 0)
             new_args = []
             new_kwargs = {}
+
             def reshard_tensor_args(t):
                 if is_tensor(t) and t.is_dist() and t.process_mesh == g_mesh:
                     dist.reshard(
