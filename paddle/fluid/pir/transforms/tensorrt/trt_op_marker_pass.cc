@@ -1174,7 +1174,7 @@ class CastOpPattern : public pir::OpRewritePattern<paddle::dialect::CastOp> {
     }
     if (dtype != phi::DataType::BOOL || dtype != phi::DataType::FLOAT32 ||
         dtype != phi::DataType::FLOAT64 || dtype != phi::DataType::FLOAT16 ||
-        dtype != phi::DataType::int32 || dtype != phi::DataType::int64) {
+        dtype != phi::DataType::INT32 || dtype != phi::DataType::INT64) {
       VLOG(3) << "the cast op does not support others type";
       return false;
     }
