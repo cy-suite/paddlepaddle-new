@@ -795,7 +795,7 @@ class BuiltinVariable(FunctionVariable):
         }
 
 
-class FunctoolsLruCacheWrapper(FunctionVariable):
+class FunctoolsLruCacheWrapperVariable(FunctionVariable):
     def __init__(
         self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
     ):
@@ -812,7 +812,7 @@ class FunctoolsLruCacheWrapper(FunctionVariable):
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
         if isinstance(value, functools._lru_cache_wrapper):
-            return FunctoolsLruCacheWrapper(value, graph, tracker)
+            return FunctoolsLruCacheWrapperVariable(value, graph, tracker)
         return None
 
 
