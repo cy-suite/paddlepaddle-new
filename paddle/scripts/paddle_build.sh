@@ -4774,7 +4774,9 @@ function main() {
         check_coverage
         ;;
       cpu_cicheck_coverage)
+        export FLAGS_enable_pir_api=0
         check_diff_file_for_coverage
+        export FLAGS_enable_pir_api=0
         export ON_INFER=ON PADDLE_CUDA_INSTALL_REQUIREMENTS=ON
         run_setup ${PYTHON_ABI:-""} bdist_wheel ${parallel_number}
         enable_unused_var_check
