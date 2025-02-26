@@ -144,6 +144,8 @@ TEST_F(TestIndexExpr, IndexExpr_3) {
       ((S4 * 256 + S5) / S6 / S7 * S7 + (S4 * 256 + S5) / S6 % S7) * S6 +
       (S4 * 256 + S5) % S6;
   ir::Expr q17 = S4 / (S5 * S6) * S6 + S4 % (S5 * S6) / S5;
+  ir::Expr q18 = (S4 * 1024 + S5 * 256 + S6) / 2097152 * 32 +
+                 (S4 * 1024 + S5 * 256 + S6) % 2097152 / 65536;
 
   // `Div` corner cases
   ir::Expr q6 = (S4 % S5 - S4) / S5;
@@ -176,6 +178,8 @@ TEST_F(TestIndexExpr, IndexExpr_3) {
   EXPECT_EQ(q16.as_index().Normalize(ir::IndexExpr::OptLevel::Level2),
             ir::IndexExpr(S4 * 256 + S5));
   EXPECT_EQ(q17.as_index().Normalize(), ir::IndexExpr(S4 / S5));
+  EXPECT_EQ(q18.as_index().Normalize(),
+            ir::IndexExpr((S4 * 1024 + S5 * 256 + S6) / 65536));
 }
 
 TEST_F(TestIndexExpr, Change_Seq_Of_Div_Mod) {

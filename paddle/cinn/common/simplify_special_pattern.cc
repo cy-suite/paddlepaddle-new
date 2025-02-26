@@ -246,12 +246,11 @@ std::optional<ir::IndexExpr> DivMulAddModDivCase(const ir::IndexExpr& lhs,
                                                  const ir::IndexExpr& rhs) {
   ir::Var a = ir::Var("a");
   ir::Var b = ir::Var("b");
+  ir::Var c = ir::Var("c");
   ir::Var f = ir::Var("f");
   std::unordered_map<std::string, ir::IndexExpr> map;
-  std::unordered_map<std::string, ir::IndexExpr> map_swap;
 
-  ir::IndexExpr pattern = f / (a * b) * b + f % (a * b) / a;
-  ir::IndexExpr pattern_swap = f / (a * b) * a + f % (a * b) / b;
+  ir::IndexExpr pattern = f / c * a + f % c / b;
 
   auto flatten = GetFlattenExprs<ir::Add>(lhs);
   ir::IndexExpr res = ir::IndexExpr(rhs->type(), 0);
@@ -259,18 +258,11 @@ std::optional<ir::IndexExpr> DivMulAddModDivCase(const ir::IndexExpr& lhs,
   for (const auto& expr : flatten) {
     if (!find) {
       ir::IndexExpr cand = ir::Add::Make(expr, rhs);
-
       map.clear();
-      map_swap.clear();
-
-      if (CheckPattern(cand, pattern, &map)) {
-        ir::IndexExpr simplied = map.at("f") / map.at("a");
-        res = res.defined() ? res + simplied : simplied;
-        find = true;
-        continue;
-      }
-      if (CheckPattern(cand, pattern_swap, &map_swap)) {
-        ir::IndexExpr simplied = map_swap.at("f") / map_swap.at("b");
+      // Check if the pattern is matched
+      if (CheckPattern(cand, pattern, &map) &&
+          map.at("c") == map.at("a") * map.at("b")) {
+        ir::IndexExpr simplied = map.at("f") / map.at("b");
         res = res.defined() ? res + simplied : simplied;
         find = true;
         continue;
