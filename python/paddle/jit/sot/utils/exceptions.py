@@ -52,6 +52,7 @@ class DataDependencyControlFlowBreak(DataDependencyBreak):
         reason_str = (
             "OpcodeInlineExecutor want break graph when simulate control flow."
         )
+
         super().__init__(
             reason_str,
             file_path,
