@@ -72,6 +72,7 @@ struct DrrValueHelper {
   template <int start_idx = 0>
   void InsertEntries(AxprInstanceToDrrValueMap* map) {
     if constexpr (start_idx >= std::variant_size_v<DrrValueImpl>) {
+      (void)map;
       return;
     } else {
       using Impl = typename std::variant_alternative_t<start_idx, DrrValueImpl>;

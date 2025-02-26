@@ -29,7 +29,7 @@ struct MutableOrderedDict
                                   MutableOrderedDictImpl<ValueT>> {
   using Base = memory::CirclableRef<MutableOrderedDict<ValueT>,
                                     MutableOrderedDictImpl<ValueT>>;
-  using typename Base::CirclableRef;
+  using Base::CirclableRef;
 };
 
 template <typename ValueT>

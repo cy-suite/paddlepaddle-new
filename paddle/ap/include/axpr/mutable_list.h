@@ -25,7 +25,7 @@ template <typename T>
 struct MutableList
     : public memory::CirclableRef<MutableList<T>, std::vector<T>> {
   using Base = memory::CirclableRef<MutableList<T>, std::vector<T>>;
-  using typename Base::CirclableRef;
+  using Base::CirclableRef;
 };
 
 template <typename ValueT>
