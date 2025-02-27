@@ -141,8 +141,18 @@ def test_any(var):
 
 
 @check_no_breakgraph
+def test_any_iter(var):
+    return any(iter(var))
+
+
+@check_no_breakgraph
 def test_all(var):
     return all(var)
+
+
+@check_no_breakgraph
+def test_all_iter(var):
+    return all(iter(var))
 
 
 @check_no_breakgraph
@@ -322,11 +332,13 @@ class TestBuiltinDispatch(TestCaseBase):
         self.assert_results(test_any, l_true_and_false)
         self.assert_results(test_any, d_true)
         self.assert_results(test_any, d_false)
+        self.assert_results(test_any_iter, l_true_and_false)
         self.assert_results(test_all, l_pure_true)
         self.assert_results(test_all, l_pure_false)
         self.assert_results(test_all, l_true_and_false)
         self.assert_results(test_all, d_true)
         self.assert_results(test_all, d_false)
+        self.assert_results(test_all_iter, l_true_and_false)
 
 
 def run_getattr(x: paddle.Tensor):
