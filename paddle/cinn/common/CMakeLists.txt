@@ -26,7 +26,8 @@ gather_srcs(
   dim_expr_converter.cc
   broadcast_tree.cc
   iter_simplify.cc
-  simplify_special_pattern.cc)
+  simplify_special_pattern.cc
+  shape_constraint.cc)
 
 cinn_cc_test(test_dfs_walker SRCS dfs_walker_test.cc DEPS gtest glog)
 cinn_cc_test(test_dfs_topo_walker SRCS dfs_topo_walker_test.cc DEPS gtest glog)
