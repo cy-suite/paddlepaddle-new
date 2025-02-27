@@ -43,7 +43,7 @@ class TrtConvertTileTest(TrtLayerAutoScanTest):
         def generate_input1(attrs: list[dict[str, Any]]):
             return np.ones([1, 2]).astype(np.float32)
 
-        dics = [{"repeat_times": kwargs['repeat_times']}]
+        dics = [{"repeat_times": kwargs.get('repeat_times', [1])}]
 
         ops_config = [
             {
