@@ -70,6 +70,7 @@ from .utils import (  # noqa: F401
     flatten,
     flatten_extend,
     get_api_fullname,
+    get_numpy_ufuncs,
     get_unbound_method,
     hashable,
     in_paddle_module,
