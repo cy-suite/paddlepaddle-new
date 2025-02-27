@@ -136,6 +136,48 @@ def test_log(x: int):
 
 
 @check_no_breakgraph
+def test_any_list(l: list):
+    return any(l)
+
+
+@check_no_breakgraph
+def test_any_tuple(t: tuple):
+    return any(t)
+
+
+@check_no_breakgraph
+def test_any_dict(d: dict):
+    return any(d)
+
+
+@check_no_breakgraph
+def test_any_it(l: list):
+    it = iter(l)
+    return any(it)
+
+
+@check_no_breakgraph
+def test_all_list(l: list):
+    return all(l)
+
+
+@check_no_breakgraph
+def test_all_tuple(t: tuple):
+    return all(t)
+
+
+@check_no_breakgraph
+def test_all_dict(d: dict):
+    return all(d)
+
+
+@check_no_breakgraph
+def test_all_it(l: list):
+    it = iter(l)
+    return all(it)
+
+
+@check_no_breakgraph
 def test_builtin_type_check_eq():
     a = 1
     b = []
@@ -300,6 +342,19 @@ class TestBuiltinDispatch(TestCaseBase):
 
     def test_dispatch_builtin_type_check_eq(self):
         self.assert_results(test_builtin_type_check_eq)
+
+    def test_dispatch_any(self):
+        l = [1, 2, 3]
+        t = (1, 2, 3)
+        d = {'a': 1, 'b': 2}
+        self.assert_results(test_any_dict, d)
+        self.assert_results(test_any_list, l)
+        self.assert_results(test_any_it, l)
+        self.assert_results(test_any_tuple, t)
+        self.assert_results(test_all_dict, d)
+        self.assert_results(test_all_list, l)
+        self.assert_results(test_all_it, l)
+        self.assert_results(test_all_tuple, t)
 
 
 def run_getattr(x: paddle.Tensor):

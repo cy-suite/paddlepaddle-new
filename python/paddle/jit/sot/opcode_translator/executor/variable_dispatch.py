@@ -45,6 +45,7 @@ from .variables import (
     ContainerVariable,
     DictVariable,
     EnumerateVariable,
+    IterVariable,
     ListVariable,
     MapVariable,
     NumpyVariable,
@@ -1393,27 +1394,35 @@ Dispatcher.register(
 
 # any for list
 @Dispatcher.register_decorator(any)
-def dispatch_list_any(var: ListVariable):
+def dispatch_list_any(var: ListVariable | ContainerVariable | IterVariable):
     graph = var.graph
     to_bool = BuiltinVariable(bool, graph, DanglingTracker())
-    for i in range(len(var)):
-        item = var.getitem(ConstantVariable.wrap_literal(i, graph))
-        bool_item = to_bool(item)
-        assert isinstance(bool_item, ConstantVariable)
-        if bool_item.get_py_value():
-            return ConstantVariable(True, graph, DummyTracker([var]))
+    it = var.get_iter()
+    while True:
+        try:
+            item = it.next()
+            bool_item = to_bool(item)
+            assert isinstance(bool_item, ConstantVariable)
+            if bool_item.get_py_value():
+                return ConstantVariable(True, graph, DummyTracker([var]))
+        except StopIteration:
+            break
     return ConstantVariable(False, graph, DummyTracker([var]))
 
 
 # all for list
 @Dispatcher.register_decorator(all)
-def dispatch_list_all(var: ListVariable):
+def dispatch_list_all(var: ListVariable | ContainerVariable | IterVariable):
     graph = var.graph
     to_bool = BuiltinVariable(bool, graph, DanglingTracker())
-    for i in range(len(var)):
-        item = var.getitem(ConstantVariable.wrap_literal(i, graph))
-        bool_item = to_bool(item)
-        assert isinstance(bool_item, ConstantVariable)
-        if not bool_item.get_py_value():
-            return ConstantVariable(False, graph, DummyTracker([var]))
+    it = var.get_iter()
+    while True:
+        try:
+            item = it.next()
+            bool_item = to_bool(item)
+            assert isinstance(bool_item, ConstantVariable)
+            if not bool_item.get_py_value():
+                return ConstantVariable(False, graph, DummyTracker([var]))
+        except StopIteration:
+            break
     return ConstantVariable(True, graph, DummyTracker([var]))
