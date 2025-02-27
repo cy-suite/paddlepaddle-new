@@ -46,7 +46,7 @@ jobs:
         CCACHE_DIR: "/root/.ccache/py3"
       run: |
         # bash ${{ github.workspace }}/paddle/scripts/paddle_build/check_docker_image.sh
-        container_name=${TASK}$(date +%s)
+        container_name=${TASK}-$(date +%s)
         echo "container_name=${container_name}" >> ${{ github.env }}
         docker run -d -t --name ${container_name} \
           -v "/home/data/cfs:/home/data/cfs" \
