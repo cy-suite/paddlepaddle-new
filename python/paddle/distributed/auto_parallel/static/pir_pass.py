@@ -344,15 +344,16 @@ class ReshardPasses:
                 )
 
                 if all_to_all_dim is not None:
-                    out_value = (
-                        dist.auto_parallel.moe_utils._pir_nd_mesh_all2all(
-                            op.operand_source(0),
-                            op.result(0).type(),
-                            dst_dist_attr.process_mesh,
-                            dst_dist_attr.placements_attr,
-                            all_to_all_dim,
+                    with pir_op_role_guard(ref_op_role):
+                        out_value = (
+                            dist.auto_parallel.moe_utils._pir_nd_mesh_all2all(
+                                op.operand_source(0),
+                                op.result(0).type(),
+                                dst_dist_attr.process_mesh,
+                                dst_dist_attr.placements_attr,
+                                all_to_all_dim,
+                            )
                         )
-                    )
                 else:
                     reshard_func = choose_reshard_func(
                         src_dist_attr, dst_dist_attr
@@ -491,11 +492,13 @@ class RemovePasses:
                     continue
                 elif op.name() == "dist_op.dtensor_from_local":
                     dtensor_to_local_idx = idx
-                    while (
-                        reverse_block_ops[dtensor_to_local_idx].name()
-                        != "dist_op.dtensor_to_local"
-                    ):
-                        dtensor_to_local_idx += 1
+                    for i in range(idx, len(reverse_block_ops)):
+                        if (
+                            reverse_block_ops[i].name()
+                            == "dist_op.dtensor_to_local"
+                        ):
+                            dtensor_to_local_idx = i
+                            break
                     if (
                         op.dist_attr
                         and cur_rank

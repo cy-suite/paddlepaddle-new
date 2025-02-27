@@ -87,18 +87,15 @@ class SToSReshardFunction(ReshardFunction):
         else:
             in_all2all = paddle._C_ops.share_data_(src_value)
 
-        print("in_all2all:", in_all2all)
         src_mesh = src_dist_attr.process_mesh
         group = new_process_group(sorted(src_mesh.process_ids))
         dst_value = paddle._C_ops.all_to_all(in_all2all, group.id)
-        print("dst_value:", dst_value)
         dst_value.get_defining_op().set_execution_stream(
             ExecutionStreamType.DefaultStream.value
         )
         out_all2all_type = paddle.base.libpaddle.pir.cvt_to_dist_type(
             in_all2all.type(), src_dist_attr
         )
-        print("out_all2all_type:", out_all2all_type)
         dst_value.set_type(out_all2all_type)
         dst_value.get_defining_op().dist_attr = (
             paddle.base.libpaddle.pir.create_op_dist_attribute(
@@ -120,7 +117,6 @@ class SToSReshardFunction(ReshardFunction):
             post_shape.pop(0)
             if post_shape[in_split_axis] != -1:
                 post_shape[in_split_axis] *= nranks
-            print("post_shape:", post_shape)
             dst_value = paddle._C_ops.reshape(dst_value, post_shape)
 
         dst_value.set_type(dst_type)

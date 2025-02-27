@@ -752,11 +752,7 @@ def dtensor_to_local(dist_tensor, mesh, placements):
 
         return paddle.base.core.dtensor_to_local(dist_tensor, mesh, placements)
     elif paddle.framework.in_pir_mode():
-        print("=== dtensor_to_local ====")
-        print(dist_tensor)
-        ret = paddle._C_ops.dtensor_to_local(dist_tensor, mesh, placements)
-        print(ret)
-        return ret
+        return paddle._C_ops.dtensor_to_local(dist_tensor, mesh, placements)
     else:
         raise RuntimeError(
             "dtensor_to_local() are only supported in dynamic or pir mode."
