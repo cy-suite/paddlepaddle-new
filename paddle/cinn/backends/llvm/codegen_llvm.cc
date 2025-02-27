@@ -46,7 +46,6 @@
 #include "paddle/cinn/ir/ir_printer.h"
 #include "paddle/cinn/ir/op/ir_operators.h"
 #include "paddle/cinn/ir/utils/ir_verify.h"
-#include "paddle/cinn/optim/var_mod_simplify.h"
 #include "paddle/cinn/runtime/cinn_runtime.h"
 #include "paddle/cinn/runtime/intrinsic.h"
 #include "paddle/cinn/utils/string.h"
