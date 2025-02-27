@@ -457,6 +457,7 @@ def slice_converter(network, paddle_op, inputs):
             starts_tensor[axes[idx]] = get_shape_tensor_element(
                 network, starts, idx
             )
+    start_tensor = trt_concat(network, starts_tensor)
 
     ends = get_input_constant_value(paddle_op, inputs, 2)
     if ends is not None:
@@ -497,13 +498,7 @@ def slice_converter(network, paddle_op, inputs):
                 trt_max(network, ends, add_1D_constant_layer(network, 0)),
                 input_dim,
             )
-
-    start_tensor_layer = network.add_concatenation(starts_tensor)
-    start_tensor_layer.axis = 0
-    start_tensor = start_tensor_layer.get_output(0)
-    end_tensor_layer = network.add_concatenation(ends_tensor)
-    end_tensor_layer.axis = 0
-    end_tensor = end_tensor_layer.get_output(0)
+    end_tensor = trt_concat(network, ends_tensor)
     size_tensor = trt_sub(network, end_tensor, start_tensor)
 
     # Create Slice layer
