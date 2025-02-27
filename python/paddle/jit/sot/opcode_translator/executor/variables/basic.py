@@ -258,7 +258,11 @@ class PrintStmtVariable(VariableBase):
         codegen.gen_pop_top()
 
     def flatten_inner_vars(self):
-        return self.args.flatten_inner_vars()
+        return [
+            inner_var
+            for arg in list(self.args) + list(self.kwargs.values())
+            for inner_var in arg.flatten_inner_vars()
+        ]
 
 
 IMPLEMENTED_TENSOR_PROPERTIES = set()
@@ -1253,10 +1257,25 @@ class NumpyVariable(VariableBase):
 
 
 class NumpyNumberVariable(NumpyVariable):
+    def _reconstruct(self, codegen: PyCodeGen):
+        np_type = self.get_py_type()
+        type_id = f"___np_{np_type.__name__}"
+        codegen.gen_load_object(np_type, type_id)
+        codegen.gen_load_const(self.value.item())
+        codegen.gen_call_function(1)
+
+    def getattr(self, name: str, default=None):
+        from .callable import BuiltinVariable
+
+        if name != "item":
+            return super().getattr(name, default)
+        return BuiltinVariable(
+            np.number.item, self.graph, GetAttrTracker(self, name)
+        ).bind(self, name)
+
     @check_guard
     def make_stringified_guard(self) -> list[StringifiedExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
-        obj_free_var_name = f"__{self.id}"
 
         dtype_guard = StringifiedExpression(
             f"{{}}.dtype == {NumpyVariable.format_dtype(self.get_py_value().dtype)}",
