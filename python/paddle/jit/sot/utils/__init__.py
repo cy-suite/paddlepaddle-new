@@ -14,7 +14,6 @@
 
 from .call_ast_utils import get_static_function, try_ast_func  # noqa: F401
 from .envs import (  # noqa: F401
-    ENV_COST_MODEL,
     ENV_MIN_GRAPH_SIZE,
     ENV_SOT_ALLOW_DYNAMIC_SHAPE,
     ENV_SOT_ENABLE_FASTER_GUARD,
