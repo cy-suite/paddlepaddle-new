@@ -1090,7 +1090,7 @@ endif()
 foreach(STATIC_BUILD_TEST ${STATIC_BUILD_TESTS})
   py_test_modules(
     ${STATIC_BUILD_TEST}_static_build MODULES ${STATIC_BUILD_TEST} ENVS
-    FLAGS_new_executor_static_build=true)
+    FLAGS_new_executor_static_build=true FLAGS_comp_skip_default_ops=False)
 endforeach()
 
 py_test_modules(test_adam_op_multi_thread MODULES test_adam_op ENVS
