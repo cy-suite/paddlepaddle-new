@@ -279,8 +279,8 @@ template <typename T, typename Context>
 void DispatchWithDtype(
     const Context& dev_ctx,
     const DenseTensor& qkv,
-    const DenseTensor& key_cache,
-    const DenseTensor& value_cache,
+    const paddle::optional<DenseTensor>& key_cache,
+    const paddle::optional<DenseTensor>& value_cache,
     const DenseTensor& seq_lens_encoder,
     const DenseTensor& seq_lens_decoder,
     const DenseTensor& seq_lens_this_time,
@@ -288,7 +288,7 @@ void DispatchWithDtype(
     const DenseTensor& cum_offsets,
     const DenseTensor& cu_seqlens_q,
     const DenseTensor& cu_seqlens_k,
-    const DenseTensor& block_tables,
+    const paddle::optional<DenseTensor>& block_tables,
     const paddle::optional<DenseTensor>& pre_key_cache,
     const paddle::optional<DenseTensor>& pre_value_cache,
     const paddle::optional<DenseTensor>& rope_emb,
@@ -314,6 +314,8 @@ void DispatchWithDtype(
     const float out_scale,
     const std::string& compute_dtype,
     const float rope_theta,
+    const int head_kv_num,
+    const int head_dim,
     DenseTensor* fmha_out,
     DenseTensor* qkv_out,
     DenseTensor* key_cache_out,
@@ -336,14 +338,20 @@ void DispatchWithDtype(
   }
 
   const auto& input_dims = qkv.dims();
-  const auto& key_cache_dims = key_cache.dims();
   const int token_num = input_dims[0];
-  const int kv_num_head = key_cache_dims[1];
-  const int dim_head = key_cache_dims[3];
+
+  int kv_num_head = head_kv_num;
+  int dim_head = head_dim;
+  if (key_cache) {
+    const auto& key_cache_dims = key_cache.get().dims();
+    kv_num_head = key_cache_dims[1];
+    dim_head = key_cache_dims[3];
+  }
   const int total_num_head = qkv.dims()[qkv.dims().size() - 1] / dim_head;
   const int q_num_head = total_num_head - 2 * kv_num_head;
   const int bsz = cum_offsets.dims()[0];
-  const int max_block_per_seq = block_tables.dims()[1];
+  const int max_block_per_seq = block_tables ? block_tables.get().dims()[1] : 0;
+
   VLOG(3) << "bsz: " << bsz << " token_num: " << token_num
           << " q_num_head: " << q_num_head << " kv_num_head: " << kv_num_head
           << " dim_head: " << dim_head
@@ -659,49 +667,52 @@ void DispatchWithDtype(
     }
 
     VLOG(3) << "flash end";
-    if (cache_k_quant_scales && dynamic_cachekv_quant) {
-      DynamicQuantCacheKernel<T>(dev_ctx,
-                                 qkv_buf,
-                                 block_tables,
-                                 padding_offsets,
-                                 seq_lens_encoder,
-                                 *(cache_k_quant_scales.get_ptr()),
-                                 *(cache_v_quant_scales.get_ptr()),
-                                 *(cache_k_dequant_scales.get_ptr()),
-                                 *(cache_v_dequant_scales.get_ptr()),
-                                 pre_key_cache,
-                                 pre_value_cache,
-                                 bsz,
-                                 q_num_head,
-                                 kv_num_head,
-                                 dim_head,
-                                 max_seq_len,
-                                 pre_cache_length,
-                                 key_cache_out,
-                                 value_cache_out);
-    } else {
-      CacheKernel<T>(dev_ctx,
-                     qkv_buf,
-                     block_tables,
-                     padding_offsets,
-                     seq_lens_encoder,
-                     pre_key_cache,
-                     pre_value_cache,
-                     cache_k_quant_scales,
-                     cache_v_quant_scales,
-                     bsz,
-                     token_num,
-                     q_num_head,
-                     kv_num_head,
-                     dim_head,
-                     max_seq_len,
-                     pre_cache_length,
-                     key_cache_out,
-                     value_cache_out,
-                     quant_round_type,
-                     quant_max_bound,
-                     quant_min_bound);
-    }
+    if (key_cache) {
+      if (cache_k_quant_scales && dynamic_cachekv_quant) {
+        DynamicQuantCacheKernel<T>(dev_ctx,
+                                   qkv_buf,
+                                   block_tables.get(),
+                                   padding_offsets,
+                                   seq_lens_encoder,
+                                   *(cache_k_quant_scales.get_ptr()),
+                                   *(cache_v_quant_scales.get_ptr()),
+                                   *(cache_k_dequant_scales.get_ptr()),
+                                   *(cache_v_dequant_scales.get_ptr()),
+                                   pre_key_cache,
+                                   pre_value_cache,
+                                   bsz,
+                                   q_num_head,
+                                   kv_num_head,
+                                   dim_head,
+                                   max_seq_len,
+                                   pre_cache_length,
+                                   key_cache_out,
+                                   value_cache_out);
+      } else {
+        CacheKernel<T>(dev_ctx,
+                       qkv_buf,
+                       block_tables.get(),
+                       padding_offsets,
+                       seq_lens_encoder,
+                       pre_key_cache,
+                       pre_value_cache,
+                       cache_k_quant_scales,
+                       cache_v_quant_scales,
+                       bsz,
+                       token_num,
+                       q_num_head,
+                       kv_num_head,
+                       dim_head,
+                       max_seq_len,
+                       pre_cache_length,
+                       key_cache_out,
+                       value_cache_out,
+                       quant_round_type,
+                       quant_max_bound,
+                       quant_min_bound);
+      }
+    }  // write cache only if there are cache input
+
     VLOG(3) << "cache end";
   }
   VLOG(3) << "encoder done";
@@ -736,7 +747,7 @@ void DispatchWithDtype(
     blha<T>(dev_ctx,
             qkv_out_decoder,
             nullptr,  // qkv_bias
-            &block_tables,
+            &block_tables.get(),
             tgt_mask ? &tgt_mask.get() : nullptr,
             &cum_offsets,
             &seq_lens_decoder,
@@ -827,8 +838,8 @@ template <typename T, typename Context>
 void BlockMultiheadAttentionKernel(
     const Context& dev_ctx,
     const DenseTensor& qkv,
-    const DenseTensor& key_cache,
-    const DenseTensor& value_cache,
+    const paddle::optional<DenseTensor>& key_cache,
+    const paddle::optional<DenseTensor>& value_cache,
     const DenseTensor& seq_lens_encoder,
     const DenseTensor& seq_lens_decoder,
     const DenseTensor& seq_lens_this_time,
@@ -836,7 +847,7 @@ void BlockMultiheadAttentionKernel(
     const DenseTensor& cum_offsets,
     const DenseTensor& cu_seqlens_q,
     const DenseTensor& cu_seqlens_k,
-    const DenseTensor& block_tables,
+    const paddle::optional<DenseTensor>& block_tables,
     const paddle::optional<DenseTensor>& pre_key_cache,
     const paddle::optional<DenseTensor>& pre_value_cache,
     const paddle::optional<DenseTensor>& rope_emb,
@@ -862,6 +873,8 @@ void BlockMultiheadAttentionKernel(
     const float out_scale,
     const std::string& compute_dtype,
     const float rope_theta,
+    const int head_kv_num,
+    const int head_dim,
     DenseTensor* fmha_out,
     DenseTensor* qkv_out,
     DenseTensor* key_cache_out,
@@ -907,6 +920,8 @@ void BlockMultiheadAttentionKernel(
                                                       out_scale,
                                                       compute_dtype,
                                                       rope_theta,
+                                                      head_kv_num,
+                                                      head_dim,
                                                       fmha_out,
                                                       qkv_out,
                                                       key_cache_out,
@@ -950,6 +965,8 @@ void BlockMultiheadAttentionKernel(
                                                        out_scale,
                                                        compute_dtype,
                                                        rope_theta,
+                                                       head_kv_num,
+                                                       head_dim,
                                                        fmha_out,
                                                        qkv_out,
                                                        key_cache_out,
@@ -996,6 +1013,8 @@ void BlockMultiheadAttentionKernel(
                                                       out_scale,
                                                       compute_dtype,
                                                       rope_theta,
+                                                      head_kv_num,
+                                                      head_dim,
                                                       fmha_out,
                                                       qkv_out,
                                                       key_cache_out,
@@ -1039,6 +1058,8 @@ void BlockMultiheadAttentionKernel(
                                                        out_scale,
                                                        compute_dtype,
                                                        rope_theta,
+                                                       head_kv_num,
+                                                       head_dim,
                                                        fmha_out,
                                                        qkv_out,
                                                        key_cache_out,

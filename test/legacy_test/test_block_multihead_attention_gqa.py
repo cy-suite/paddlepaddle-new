@@ -2925,5 +2925,159 @@ class TestBlockGroupQueryAttnEncDecCacheKVStaticQuant(unittest.TestCase):
         )
 
 
+@unittest.skipIf(
+    not core.is_compiled_with_cuda()
+    or get_cuda_version() < 11040
+    or not is_sm_supported,
+    "core is not compiled with CUDA and cuda version need larger than or equal to 11.4"
+    "and device's compute capability must be 8.x or 90",
+)
+class TestBlockGroupQueryAttnPrefillWithoutCachekv(unittest.TestCase):
+    def setUp(self):
+        paddle.disable_static()
+        self.name = "TestBlockGroupQueryAttnPrefillWithoutCachekv"
+        self.place = paddle.CUDAPlace(0)
+        self.batch_size = 2
+        self.q_num_head = 8
+        self.kv_num_head = 2
+        self.seq_len = 64
+        self.max_dec_len = 64
+        self.dim_head = 64
+        self.q_hid_dim = self.q_num_head * self.dim_head
+        self.kv_hid_dim = self.kv_num_head * self.dim_head
+        self.blocksize = 64
+
+        self.seq_lens_encoder = paddle.to_tensor(
+            [
+                self.seq_len,
+            ]
+            * self.batch_size,
+            "int32",
+        )
+        self.seq_lens_decoder = paddle.to_tensor(
+            [
+                0,
+            ]
+            * self.batch_size,
+            "int32",
+        )
+        self.seq_lens_this_time = self.seq_lens_encoder
+        self.q_shape = (
+            self.batch_size,
+            self.q_num_head,
+            self.seq_len,
+            self.dim_head,
+        )
+        self.kv_shape = (
+            self.batch_size,
+            self.kv_num_head,
+            self.seq_len,
+            self.dim_head,
+        )
+        self.dtype = 'float16'
+        self.attention_mask = create_attn_mask(
+            self.dtype,
+            self.batch_size,
+            [
+                self.seq_len,
+            ]
+            * self.batch_size,
+        )
+
+        self.tgt_mask = paddle.randn(
+            [self.batch_size, self.q_num_head, 1, self.seq_len + 1],
+            dtype=self.dtype,
+        )
+        # self.tgt_mask = None
+
+        self.scale = 1.0 / np.sqrt(self.q_shape[-1])
+        (
+            self.padding_offset,
+            self.cum_offset,
+            self.cu_seqlens_q,
+            self.cu_seqlens_k,
+        ) = get_padding_offset(
+            self.batch_size, self.seq_len, self.seq_lens_this_time
+        )
+        self.token_num = self.padding_offset.shape[0]
+
+    def test_all(self):
+        paddle.disable_static()
+        # prefill phase
+        query = np.random.random(self.q_shape)
+        q = paddle.to_tensor(
+            query, place=self.place, dtype=self.dtype, stop_gradient=False
+        )
+        key = np.random.random(self.kv_shape)
+        k = paddle.to_tensor(
+            key, place=self.place, dtype=self.dtype, stop_gradient=False
+        )
+        value = np.random.random(self.kv_shape)
+        v = paddle.to_tensor(
+            value, place=self.place, dtype=self.dtype, stop_gradient=False
+        )
+
+        qkv = paddle.concat(
+            [
+                q.transpose([0, 2, 1, 3]).reshape(
+                    [self.token_num, self.q_hid_dim]
+                ),
+                k.transpose([0, 2, 1, 3]).reshape(
+                    [self.token_num, self.kv_hid_dim]
+                ),
+                v.transpose([0, 2, 1, 3]).reshape(
+                    [self.token_num, self.kv_hid_dim]
+                ),
+            ],
+            axis=1,
+        ).reshape([self.token_num, -1])
+        out_ = naive_attention_impl(
+            q, k, v, None, None, None, None, self.attention_mask, self.scale
+        )
+        out_ = remove_padding(
+            self.seq_lens_this_time, self.cu_seqlens_q, out_, self.token_num
+        )
+        out = block_multihead_attention(
+            qkv,
+            None,  # key_cache
+            None,  # value_cache
+            self.seq_lens_encoder,
+            self.seq_lens_decoder,
+            self.seq_lens_this_time,
+            self.padding_offset,
+            self.cum_offset,
+            self.cu_seqlens_q,
+            self.cu_seqlens_k,
+            None,  # block_tables
+            None,  # pre_key_cache
+            None,  # pre_value_cache
+            None,  # cache_k_quant_scales
+            None,  # cache_v_quant_scales
+            None,  # cache_k_dequant_scales
+            None,  # cache_v_dequant_scales
+            None,  # qkv_out_scale
+            None,  # qkv_bias
+            None,  # out_shift
+            None,  # out_smooth
+            None,  # max_enc_len_this_time
+            None,  # max_dec_len_this_time
+            None,  # rotary_embs
+            None,  # attn_mask
+            None,  # tgt_mask
+            self.seq_len,
+            self.blocksize,
+            False,  # use_neox_rotary_style,
+            head_kv_num=self.kv_num_head,
+            head_dim=self.dim_head,
+        )[0]
+
+        np.testing.assert_allclose(
+            out.numpy(),
+            out_.numpy(),
+            rtol=5e-03,
+            atol=1e-03,
+        )
+
+
 if __name__ == '__main__':
     unittest.main()

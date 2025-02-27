@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Literal
 
 from typing_extensions import TypeAlias
 
+import paddle
 from paddle import _C_ops
 from paddle.framework import (
     LayerHelper,
@@ -67,6 +68,8 @@ def block_multihead_attention(
     out_scale: float = -1,
     compute_dtype: str = "default",
     rope_theta: float = 10000.0,
+    head_kv_num=-1,
+    head_dim=-1,
 ) -> tuple[Tensor, Tensor, Tensor, Tensor]:
     """
     Block Multi-head attention for text summarization.
@@ -108,6 +111,8 @@ def block_multihead_attention(
         out_scale (Float32): The quant scale of fmha_out. Default is -1, which means do not apply quantization for fmha_out.
         compute_dtype (Str): A compute dtype, is used to represent the input data type. Default is "default", which means compute dtype is determined by input dtype. However, if the dtype of input is Int32, this value should be set to actual dtype of the model.
         rope_theta (Float32): The theta of RoPE. Default is 10000.0.
+        head_kv_num (Int): The numbers of Key / Value heads, default is -1, this param is only used if key_cache and value_cache are None.
+        head_dim (Int): The dimension of attention heads, default is -1, this param is only used if key_cache and value_cache are None.
     Returns:
         Tensor|(output, qkv_out, cache_k_out, cache_v_out), which output is the output of
         block_multihead_attention layers, qkv_out is inplace with input `qkv`, cache_k_out and cache_v_out are inplace with input `cache_k` and `cache_v`.
@@ -336,6 +341,8 @@ def block_multihead_attention(
             out_scale,
             compute_dtype,
             rope_theta,
+            head_kv_num,
+            head_dim,
         )
 
     helper = LayerHelper('block_multihead_attention', **locals())
@@ -387,8 +394,20 @@ def block_multihead_attention(
     outputs = {
         'fmha_out': out,
         'qkv_out': qkv,
-        'key_cache_out': key_cache,
-        'value_cache_out': value_cache,
+        'key_cache_out': (
+            key_cache
+            if key_cache is not None
+            else helper.create_variable_for_type_inference(
+                dtype=paddle.get_default_dtype()
+            )
+        ),
+        'value_cache_out': (
+            value_cache
+            if value_cache is not None
+            else helper.create_variable_for_type_inference(
+                dtype=paddle.get_default_dtype()
+            )
+        ),
     }
     helper.append_op(
         type='block_multihead_attention',
@@ -405,6 +424,8 @@ def block_multihead_attention(
             'out_scale': out_scale,
             'compute_dtype': compute_dtype,
             'rope_theta': rope_theta,
+            'head_kv_num': head_kv_num,
+            'head_dim': head_dim,
         },
     )
     return out, qkv, key_cache, value_cache
