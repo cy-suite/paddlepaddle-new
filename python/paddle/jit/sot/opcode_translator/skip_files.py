@@ -134,7 +134,13 @@ skip_file_name_re = re.compile(
 
 no_skip_code = {paddle.nn.Sequential.forward.__code__}
 
+with_graph_codes = (
+    paddle.nn.Layer.__call__.__code__,
+    paddle.nn.Layer._dygraph_call_func.__code__,
+)
+
 
 def setup_skip_files():
     paddle.framework.core.eval_frame_skip_file_prefix(tuple(skip_file_names))
     paddle.framework.core.eval_frame_no_skip_codes(tuple(no_skip_code))
+    paddle.framework.core.sot_setup_codes_with_graph(with_graph_codes)

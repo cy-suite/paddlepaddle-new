@@ -63,6 +63,7 @@ from .utils import (  # noqa: F401
     ResumeFnNameFactory,
     Singleton,
     SotUndefinedVar,
+    StepInfoManager,
     StepState,
     count_if,
     current_symbol_registry,

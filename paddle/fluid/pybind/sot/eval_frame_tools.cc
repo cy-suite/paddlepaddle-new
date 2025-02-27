@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/fluid/pybind/sot/skip_files.h"
+#include "paddle/fluid/pybind/sot/eval_frame_tools.h"
 
 #include <Python.h>
 
@@ -20,6 +20,7 @@
 
 #include "paddle/common/errors.h"
 #include "paddle/phi/core/enforce.h"
+#include "paddle/phi/core/platform/profiler/event_tracing.h"
 
 #if SOT_IS_SUPPORTED
 #define END_OF_STRING '\0'
@@ -141,6 +142,77 @@ int SkipCodeInfo::in_skip_path(PyObject* filename) {
   return root->check_filename(name);
 }
 
+/*========================== code status ==============================*/
+enum CodeState { UNKNOW, WITH_GRAPH, WITHOUT_GRAPH };
+
+class CodeInfo {
+ public:
+  CodeState state;
+  int counter;
+};
+
+class CodeStatus {
+ public:
+  static CodeStatus& Instance();
+  int is_code_without_graph(PyCodeObject* code);
+  void set_with_graph(PyCodeObject* code);
+  void add_with_graph_code(PyCodeObject* code);
+  void clear();
+
+ private:
+  CodeStatus() { code_map = std::unordered_map<PyCodeObject*, CodeInfo*>(); }
+  ~CodeStatus() { clear(); }
+  std::unordered_map<PyCodeObject*, CodeInfo*> code_map;
+};
+
+CodeStatus& CodeStatus::Instance() {
+  static CodeStatus _instance;
+  return _instance;
+}
+
+int CodeStatus::is_code_without_graph(PyCodeObject* code) {
+  CodeInfo* code_info;
+  if (code_map.find(code) != code_map.end()) {
+    code_info = code_map[code];
+  } else {
+    code_info = new CodeInfo();
+    code_map.emplace(code, code_info);
+  }
+  if (code_info->state == WITHOUT_GRAPH) return 1;
+  if (code_info->state == UNKNOW) {
+    code_info->counter += 1;
+    if (code_info->counter >= 10) code_info->state = WITHOUT_GRAPH;
+  }
+  return 0;
+}
+
+void CodeStatus::set_with_graph(PyCodeObject* code) {
+  CodeInfo* code_info;
+  if (code_map.find(code) != code_map.end()) {
+    code_info = code_map[code];
+    code_info->state = WITH_GRAPH;
+  }
+}
+
+void CodeStatus::add_with_graph_code(PyCodeObject* code) {
+  CodeInfo* code_info;
+  if (code_map.find(code) != code_map.end()) {
+    code_info = code_map[code];
+    code_info->state = WITH_GRAPH;
+  } else {
+    code_info = new CodeInfo();
+    code_info->state = WITH_GRAPH;
+    code_map.emplace(code, code_info);
+  }
+}
+
+void CodeStatus::clear() {
+  for (auto& iter : code_map) {
+    delete iter.second;
+  }
+  code_map.clear();
+}
+
 /*========================== interfaces ===============================*/
 
 int need_skip(FrameObject* frame) {
@@ -173,7 +245,29 @@ int need_skip(FrameObject* frame) {
   return result;
 }
 
+int is_code_without_graph(PyCodeObject* code) {
+  auto& code_status = CodeStatus::Instance();
+  return code_status.is_code_without_graph(code);
+}
+
 /*========================== pybind ===============================*/
+PyObject* set_with_graph(PyObject* code) {
+  auto& code_status = CodeStatus::Instance();
+  code_status.set_with_graph((PyCodeObject*)code);  // NOLINT
+  return Py_None;
+}
+
+PyObject* setup_codes_with_graph(PyObject* code_tuple) {
+  auto& code_status = CodeStatus::Instance();
+  Py_ssize_t size = PyTuple_GET_SIZE(code_tuple);
+  for (Py_ssize_t i = 0; i < size; i++) {
+    PyCodeObject* code =
+        (PyCodeObject*)PyTuple_GetItem(code_tuple, i);  // NOLINT
+    code_status.add_with_graph_code(code);
+  }
+  return Py_None;
+}
+
 PyObject* no_skip_codes(PyObject* code_tuple) {
   auto& skip_info = SkipCodeInfo::Instance();
   Py_ssize_t size = PyTuple_GET_SIZE(code_tuple);

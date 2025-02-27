@@ -31,6 +31,7 @@ from ..utils import (
     InfoCollector,
     NewSymbolHitRateInfo,
     Singleton,
+    StepInfoManager,
     SubGraphRelationInfo,
     log,
     log_do,
@@ -218,6 +219,9 @@ class FallbackWrapper:
 
     def __call__(self, *args, **kwargs):
         with EventGuard(f"FallbackWrapper: {self.SIR.name}"):
+            if StepInfoManager().need_back_trace:
+                trace_back_frames()
+
             log_do(
                 2,
                 lambda: print("[FallbackWrapper] start run SIR: \n", self.SIR),

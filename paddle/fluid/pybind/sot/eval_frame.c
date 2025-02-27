@@ -17,8 +17,8 @@ limitations under the License. */
 #if SOT_IS_SUPPORTED
 
 #include "paddle/fluid/pybind/sot/cpython_internals.h"
+#include "paddle/fluid/pybind/sot/eval_frame_tools.h"
 #include "paddle/fluid/pybind/sot/frame_proxy.h"
-#include "paddle/fluid/pybind/sot/skip_files.h"
 
 #include <Python.h>
 
@@ -328,6 +328,17 @@ static PyObject *_custom_eval_frame(PyThreadState *tstate,
 #if PY_3_13_PLUS
   Py_DECREF(f_locals);
 #endif
+
+  // code status
+  if (is_code_without_graph(code == Py_None ? PyFrame_GET_CODE(frame)
+                                            : (PyCodeObject *)code) &&
+      disable_eval_frame == Py_False) {
+    out = eval_frame_default(tstate, frame, throw_flag);
+    eval_frame_callback_set(callback);
+    Py_DECREF(code);
+    Py_DECREF(disable_eval_frame);
+    return out;
+  }
 
   // run code
   if (disable_eval_frame != Py_True) {
