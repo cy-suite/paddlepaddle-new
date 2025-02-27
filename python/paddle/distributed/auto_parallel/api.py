@@ -239,8 +239,8 @@ def shard_tensor(
             be Shard, Replicate and Partial.
         dtype(str|np.dtype, optional): The desired data type of returned tensor.
             It Can be 'bool' , 'float16' , 'float32' , 'float64' , 'int8' , 'int16' , 'int32' , 'int64' , 'uint8',
-            'complex64' , 'complex128'. Default: None. If None, the the dtype is infered from ``data``
-            except for python float number, in which case the dtype is infered from ``get_default_type`` .
+            'complex64' , 'complex128'. Default: None. If None, the the dtype is inferred from ``data``
+            except for python float number, in which case the dtype is inferred from ``get_default_type`` .
         place(CPUPlace|CUDAPinnedPlace|CUDAPlace|str, optional): The place to allocate Tensor. Can be
             CPUPlace, CUDAPinnedPlace, CUDAPlace. Default: None, means global place. If ``place`` is
             string, It can be ``cpu``, ``gpu:x`` and ``gpu_pinned``, where ``x`` is the index of the GPUs.
@@ -495,6 +495,7 @@ def _cal_global_shape(local_shape, mesh, placements):
 def moe_global_mesh_tensor(
     local_tensor_list, mesh, placements, local_mesh_dim=-1
 ):
+    placements = copy.deepcopy(placements)
     local_mesh_list, local_placements = _get_sub_meshes_and_local_placements(
         mesh, placements, local_mesh_dim
     )
@@ -548,9 +549,7 @@ def moe_global_mesh_tensor(
         global_dims = _cal_global_shape(
             local_tensor._local_shape, mesh, placements
         )
-        return paddle.jit.dy2static.py_layer.StaticPyLayer(
-            _moe_global_mesh_tensor
-        ).apply(
+        dist_tensor = paddle._C_ops.moe_global_mesh_tensor(
             local_tensor_list,
             local_mesh_list,
             local_placements,
@@ -558,6 +557,9 @@ def moe_global_mesh_tensor(
             placements,
             global_dims,
         )
+        dist_tensor.stop_gradient = local_tensor_list[0].stop_gradient
+        dist_tensor.persistable = local_tensor_list[0].persistable
+        return dist_tensor
     else:
         raise NotImplementedError(
             "dtensor_from_local_list() are only supported in dynamic and pir mode."
@@ -691,6 +693,7 @@ def moe_sub_mesh_tensors(
     """
     Get the local part of the ``dist_tensor`` on the specific ``local_mesh_dim``.
     """
+    global_placements = copy.deepcopy(global_placements)
     local_mesh_list, local_placements = _get_sub_meshes_and_local_placements(
         global_mesh, global_placements, local_mesh_dim
     )
@@ -705,17 +708,17 @@ def moe_sub_mesh_tensors(
             global_placements,
         )
     elif paddle.framework.in_pir_mode():
-
-        return paddle.jit.dy2static.py_layer.StaticPyLayer(
-            _moe_sub_mesh_tensors
-        ).apply(
+        local_tensors = paddle._C_ops.moe_sub_mesh_tensors(
             dist_tensor,
             local_mesh_list,
             local_placements,
-            local_mesh_dim,
             global_mesh,
             global_placements,
         )
+        for local_tensor in local_tensors:
+            local_tensor.stop_gradient = dist_tensor.stop_gradient
+            local_tensor.persistable = dist_tensor.persistable
+        return local_tensors
     else:
         raise NotImplementedError(
             "moe_sub_mesh_tensors is only supported in dynamic mode."
@@ -740,14 +743,14 @@ def dtensor_from_local(local_tensor, mesh, placements):
         )
 
 
-def dtensor_to_local(dist_tensor):
+def dtensor_to_local(dist_tensor, mesh, placements):
     if paddle.in_dynamic_mode():
         if dist_tensor.is_dist() is False:
             raise ValueError("The input should be a distributed tensor.")
 
-        return paddle.base.core.dtensor_to_local(dist_tensor)
+        return paddle.base.core.dtensor_to_local(dist_tensor, mesh, placements)
     elif paddle.framework.in_pir_mode():
-        return paddle._C_ops.dtensor_to_local(dist_tensor)
+        return paddle._C_ops.dtensor_to_local(dist_tensor, mesh, placements)
     else:
         raise RuntimeError(
             "dtensor_to_local() are only supported in dynamic or pir mode."
@@ -1137,10 +1140,20 @@ class _ShardOptimizer(Optimizer):
                 placements[self._sharding_axis], dist.Replicate
             ), "The placement on sharding_axis should be Replicate"
 
-            # check the sharding degree since it has already been set
-            assert (
-                mesh.dim_size(self._sharding_axis) == self._sharding_degree
-            ), "The sharding degree of all parameters must be equal currently."
+            # check the sharding degree since it has already been set,
+            # skip check when mesh is true subset of global_mesh
+            if global_mesh:
+                if set(mesh.process_ids) < set(global_mesh.process_ids):
+                    continue
+            elif self._shard_fn._mesh:
+                if set(mesh.process_ids) < set(
+                    self._shard_fn._mesh.process_ids
+                ):
+                    continue
+            else:
+                assert (
+                    mesh.dim_size(self._sharding_axis) == self._sharding_degree
+                ), "The sharding degree of all parameters must be equal currently."
 
     def _shard_accumulator(self, param):
         target_name = param.name
@@ -2072,6 +2085,8 @@ class Strategy(auto_strategy.BaseConfig):
         )
         self._sp_optimization = auto_strategy.SPOptimizationConfig(config_dict)
 
+        self._full_graph = self._config_dict.get("full_graph", True)
+
     def _from_legacy_strategy(self, legacy_strategy):
         """
         NOTE(lizhiyu): This is a template function to get `dist.Strategy` from `fleet.auto.Strategy`.
@@ -2105,6 +2120,13 @@ class Strategy(auto_strategy.BaseConfig):
         self._mp_optimization = copy.deepcopy(legacy_strategy.mp_optimization)
         self._dp_optimization = copy.deepcopy(legacy_strategy.dp_optimization)
         self._sp_optimization = copy.deepcopy(legacy_strategy.sp_optimization)
+
+    @property
+    def full_graph(self) -> bool:
+        """
+        Whether to use AST mode.
+        """
+        return self._full_graph
 
     @property
     def sharding(self) -> auto_strategy.ShardingConfig:
@@ -2305,7 +2327,6 @@ class DistModel:
         metrics: list[Metric] | None = None,
         input_spec: list[list[DistributedInputSpec]] | None = None,
     ) -> None:
-        self._feed_name_list = []
         self._inner_strategy = self.__convert_strategy(strategy)
         self._structured_to_parameter_name = {
             k: v.name for k, v in layer.state_dict().items()
@@ -3141,11 +3162,14 @@ def to_static(
                 raise NotImplementedError(
                     "Only sharding stage 1, 2 and 3 can to_static for now. User-defined shard_fn will be supported later."
                 )
-
-    dist_model = DistModel(
-        layer, loader, loss, optimizer, strategy, input_spec=input_spec
-    )
-    return dist_model
+    if strategy is None or strategy.full_graph:
+        dist_model = DistModel(
+            layer, loader, loss, optimizer, strategy, input_spec=input_spec
+        )
+        return dist_model
+    else:
+        layer = paddle.jit.to_static(layer, full_graph=False)
+        return layer
 
 
 def unshard_dtensor(dist_tensor: Tensor) -> Tensor:

@@ -211,6 +211,7 @@ limitations under the License. */
 #include "paddle/fluid/eager/nan_inf_utils.h"
 #include "paddle/fluid/imperative/layout_autotune.h"
 #include "paddle/fluid/pir/dialect/distributed/ir/dist_interface.h"
+#include "paddle/fluid/pir/dialect/distributed/ir/dist_tools.h"
 #include "paddle/fluid/pir/dialect/operator/interface/decomp.h"
 #include "paddle/fluid/pir/dialect/operator/interface/decomp_vjp.h"
 #include "paddle/fluid/pir/dialect/operator/interface/vjp.h"
@@ -236,6 +237,7 @@ limitations under the License. */
 #include "paddle/fluid/inference/tensorrt/pir/declare_plugin.h"
 #include "paddle/fluid/platform/tensorrt/trt_plugin.h"
 #endif
+#include "paddle/fluid/eager/accumulation/accumulation_node.h"
 
 COMMON_DECLARE_bool(use_mkldnn);
 COMMON_DECLARE_string(prim_backward_blacklist);
@@ -257,7 +259,7 @@ DECLARE_FILE_SYMBOLS(aligned_allocator);
 DECLARE_FILE_SYMBOLS(pass_timing);
 DECLARE_FILE_SYMBOLS(op_compatible_info);
 DECLARE_FILE_SYMBOLS(sub_graph_detector);
-
+DECLARE_FILE_SYMBOLS(pd_op_to_kernel_pass);
 namespace paddle::pybind {
 
 PyTypeObject *g_framework_scope_pytype = nullptr;
@@ -964,6 +966,40 @@ void BindVjp(pybind11::module *m) {
                     }
                   }
                 }
+                auto input_values =
+                    vjp_res[grad_index][j].defining_op()->operands_source();
+                auto output_values =
+                    vjp_res[grad_index][j].defining_op()->results();
+                paddle::dialect::ProcessMeshAttribute op_mesh;
+                if (!vjp_res[grad_index][j].defining_op()->HasAttribute(
+                        kAttrOpDistAttr) &&
+                    paddle::dialect::AllInputAreDist(input_values) &&
+                    paddle::dialect::AllInputAreDist(output_values)) {
+                  auto ctx = pir::IrContext::Instance();
+                  if (paddle::dialect::HasDistInput(input_values, &op_mesh)) {
+                    std::vector<pir::Attribute> dist_operand_attrs,
+                        dist_result_attrs;
+                    for (size_t input_id = 0; input_id < input_values.size();
+                         ++input_id) {
+                      dist_operand_attrs.push_back(
+                          paddle::dialect::GetTensorDistAttr(
+                              input_values[input_id].type()));
+                    }
+                    for (size_t output_id = 0; output_id < output_values.size();
+                         ++output_id) {
+                      dist_result_attrs.push_back(
+                          paddle::dialect::GetTensorDistAttr(
+                              output_values[output_id].type()));
+                    }
+                    vjp_res[grad_index][j].defining_op()->set_attribute(
+                        kAttrOpDistAttr,
+                        paddle::dialect::OperationDistAttribute::get(
+                            ctx,
+                            op_mesh,
+                            dist_operand_attrs,
+                            dist_result_attrs));
+                  }
+                }
                 vjp_res[grad_index][j].set_type(inputs[idx][j].type());
               }
             }
@@ -1192,6 +1228,24 @@ PYBIND11_MODULE(libpaddle, m) {
           }
         });
 
+  class NodePostHookRemoveHelper {
+   public:
+    NodePostHookRemoveHelper(std::shared_ptr<egr::GradNodeBase> node,
+                             int64_t hook_id)
+        : node_(node), hook_id_(hook_id) {}
+    ~NodePostHookRemoveHelper() = default;
+    bool remove() { return node_->RemoveNodePostHook(hook_id_); }
+
+   private:
+    std::shared_ptr<egr::GradNodeBase> node_;
+    int64_t hook_id_;
+  };
+
+  py::class_<NodePostHookRemoveHelper,
+             std::shared_ptr<NodePostHookRemoveHelper>>(
+      m, "NodePostHookRemoveHelper")
+      .def("remove", &NodePostHookRemoveHelper::remove);
+
   py::class_<egr::GradNodeBase, std::shared_ptr<egr::GradNodeBase>>(
       m, "GradNodeBase")
       .def("name",
@@ -1208,9 +1262,20 @@ PYBIND11_MODULE(libpaddle, m) {
            [](const std::shared_ptr<egr::GradNodeBase> &self) {
              return self->InputMeta();
            })
-      .def("output_meta", [](const std::shared_ptr<egr::GradNodeBase> &self) {
-        return self->OutputMeta();
-      });
+      .def("output_meta",
+           [](const std::shared_ptr<egr::GradNodeBase> &self) {
+             return self->OutputMeta();
+           })
+      .def("_register_post_hook",
+           [](const std::shared_ptr<egr::GradNodeBase> &self, py::object hook) {
+             if (std::dynamic_pointer_cast<egr::GradNodeAccumulation>(self)) {
+               PADDLE_THROW(common::errors::InvalidArgument(
+                   "Could not register hook for GradNodeAccumulation."));
+             }
+             int64_t hook_id = self->RegisterNodePostHook(
+                 std::make_shared<NodePostHook>(hook));
+             return std::make_shared<NodePostHookRemoveHelper>(self, hook_id);
+           });
 
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
   m.def("cudnn_version", &platform::DnnVersion);
@@ -3423,8 +3488,9 @@ All parameter, weight, gradient are variables in Paddle.
     paddle::framework::CollectShapeManager::Instance().ClearShapeInfo();
   });
 #ifdef PADDLE_WITH_TENSORRT
-  m.def("register_paddle_plugin",
-        []() { paddle::platform::TrtPluginRegistry::Global()->RegistToTrt(); });
+  m.def("register_paddle_plugin", []() {
+    paddle::platform::TrtPluginRegistry::Global()->RegisterToTrt();
+  });
 #endif
 
 #if defined(PADDLE_WITH_PSLIB) && !defined(PADDLE_WITH_HETERPS)
