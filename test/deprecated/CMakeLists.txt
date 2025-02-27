@@ -119,7 +119,8 @@ function(set_pir_tests_properties)
       set_property(
         TEST ${IR_OP_TEST}
         APPEND
-        PROPERTY ENVIRONMENT "FLAGS_PIR_NO_CHECK=True")
+        PROPERTY ENVIRONMENT "FLAGS_PIR_NO_CHECK=True"
+                 "FLAGS_comp_skip_default_ops=False")
     endif()
   endforeach()
 
