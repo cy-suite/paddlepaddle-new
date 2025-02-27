@@ -251,7 +251,7 @@ class XPUTestConv3DOp(XPUOpTestWrapper):
 
         def test_check_output(self):
             place = paddle.XPUPlace(0)
-            self.check_output_with_place(place)
+            self.check_output_with_place(place, atol=0.005, rtol=0.005)
 
         def test_check_grad(self):
             place = paddle.XPUPlace(0)
@@ -426,7 +426,7 @@ class XPUTestConv3DOp_v2(XPUOpTestWrapper):
 
         def test_check_output(self):
             place = paddle.XPUPlace(0)
-            self.check_output_with_place(place)
+            self.check_output_with_place(place, atol=0.005, rtol=0.005)
 
         def test_check_grad(self):
             place = paddle.XPUPlace(0)

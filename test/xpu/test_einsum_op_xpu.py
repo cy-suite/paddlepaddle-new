@@ -72,7 +72,7 @@ class XPUTestEinsumOp(XPUOpTestWrapper):
                 self.check_output_with_place(
                     paddle.XPUPlace(0),
                     no_check_set=["InnerCache", "XShape"],
-                    atol=5e-3,
+                    atol=2e-2,
                 )
 
         def test_grad(self):

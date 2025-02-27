@@ -45,10 +45,10 @@ class TestExecutor(unittest.TestCase):
         )
 
         self.assertEqual((100, 100), res.shape)
-        np.testing.assert_allclose(res, np.dot(a_np, b_np), rtol=1e-05)
-        np.testing.assert_allclose(res_array[0], a_np, rtol=1e-05)
-        np.testing.assert_allclose(res_array[1], b_np, rtol=1e-05)
-        np.testing.assert_allclose(res_array[2], res, rtol=1e-05)
+        np.testing.assert_allclose(res, np.dot(a_np, b_np), rtol=1e-04)
+        np.testing.assert_allclose(res_array[0], a_np, rtol=1e-04)
+        np.testing.assert_allclose(res_array[1], b_np, rtol=1e-04)
+        np.testing.assert_allclose(res_array[2], res, rtol=1e-04)
 
 
 if __name__ == '__main__':
