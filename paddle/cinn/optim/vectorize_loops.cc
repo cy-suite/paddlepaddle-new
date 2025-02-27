@@ -711,8 +711,7 @@ struct VectorizeLoops_ : public IRMutator<Expr *> {
     bool is_changed = false;
     // simplify the complicated index from poly in the format of div/mod
     for (int i = 0; i < indices.size(); i++) {
-      node->indices[i] =
-          cinn::common::AutoSimplify(node->indices[i], var_intervals);
+      node->indices[i] = optim::ArithSimplify(node->indices[i]);
       Simplify(&node->indices[i]);
       if (!node->indices[i].same_as(indices[i])) {
         is_changed = true;
@@ -732,8 +731,7 @@ struct VectorizeLoops_ : public IRMutator<Expr *> {
     bool is_changed = false;
     // simplify the complicated index from poly in the format of div/mod
     for (int i = 0; i < indices.size(); i++) {
-      node->indices[i] =
-          cinn::common::AutoSimplify(node->indices[i], var_intervals);
+      node->indices[i] = optim::ArithSimplify(node->indices[i]);
       Simplify(&node->indices[i]);
       if (!node->indices[i].same_as(indices[i])) {
         is_changed = true;
