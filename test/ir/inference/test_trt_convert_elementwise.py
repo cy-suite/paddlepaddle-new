@@ -412,15 +412,9 @@ class TrtConvertElementwiseTestOneInput(TrtLayerAutoScanTest):
             self.dynamic_shape.max_input_shape = {"input_data": [4, 32, 32]}
             self.dynamic_shape.opt_input_shape = {"input_data": [2, 32, 32]}
         elif self.dims == 4:
-            self.dynamic_shape.min_input_shape = {
-                "input_data": [1, 32, 4, 32]
-            }
-            self.dynamic_shape.max_input_shape = {
-                "input_data": [4, 32, 32, 32]
-            }
-            self.dynamic_shape.opt_input_shape = {
-                "input_data": [4, 32, 16, 32]
-            }
+            self.dynamic_shape.min_input_shape = {"input_data": [1, 32, 4, 32]}
+            self.dynamic_shape.max_input_shape = {"input_data": [4, 32, 32, 32]}
+            self.dynamic_shape.opt_input_shape = {"input_data": [4, 32, 16, 32]}
         return self.dynamic_shape
 
     def sample_predictor_configs(
@@ -926,15 +920,11 @@ class TrtConvertElementwiseTestOneInputCornerCase(TrtLayerAutoScanTest):
             self.dynamic_shape.max_input_shape = {"input_data": [4, 32, 32]}
             self.dynamic_shape.opt_input_shape = {"input_data": [2, 32, 32]}
         elif self.dims == 4:
-            self.dynamic_shape.min_input_shape = {
-                "input_data": [1, 32, 4, 32]
-            }
+            self.dynamic_shape.min_input_shape = {"input_data": [1, 32, 4, 32]}
             self.dynamic_shape.max_input_shape = {
                 "input_data": [4, 32, 128, 32]
             }
-            self.dynamic_shape.opt_input_shape = {
-                "input_data": [2, 32, 32, 32]
-            }
+            self.dynamic_shape.opt_input_shape = {"input_data": [2, 32, 32, 32]}
         return self.dynamic_shape
 
     def sample_predictor_configs(
@@ -1199,15 +1189,9 @@ class TrtConvertPowOp(TrtLayerAutoScanTest):
             self.dynamic_shape.max_input_shape = {"input_data": [4, 32, 32]}
             self.dynamic_shape.opt_input_shape = {"input_data": [2, 32, 32]}
         elif self.dims == 4:
-            self.dynamic_shape.min_input_shape = {
-                "input_data": [1, 32, 4, 4]
-            }
-            self.dynamic_shape.max_input_shape = {
-                "input_data": [4, 32, 32, 32]
-            }
-            self.dynamic_shape.opt_input_shape = {
-                "input_data": [4, 32, 16, 32]
-            }
+            self.dynamic_shape.min_input_shape = {"input_data": [1, 32, 4, 4]}
+            self.dynamic_shape.max_input_shape = {"input_data": [4, 32, 32, 32]}
+            self.dynamic_shape.opt_input_shape = {"input_data": [4, 32, 16, 32]}
         return self.dynamic_shape
 
     def sample_predictor_configs(
@@ -1366,15 +1350,9 @@ class TrtConvertElementwise0D(TrtLayerAutoScanTest):
             self.dynamic_shape.max_input_shape = {"input_data": [4, 16, 16]}
             self.dynamic_shape.opt_input_shape = {"input_data": [2, 8, 8]}
         elif self.dims == 4:
-            self.dynamic_shape.min_input_shape = {
-                "input_data": [1, 8, 8, 8]
-            }
-            self.dynamic_shape.max_input_shape = {
-                "input_data": [4, 8, 8, 8]
-            }
-            self.dynamic_shape.opt_input_shape = {
-                "input_data": [4, 8, 8, 8]
-            }
+            self.dynamic_shape.min_input_shape = {"input_data": [1, 8, 8, 8]}
+            self.dynamic_shape.max_input_shape = {"input_data": [4, 8, 8, 8]}
+            self.dynamic_shape.opt_input_shape = {"input_data": [4, 8, 8, 8]}
         return self.dynamic_shape
 
     def sample_predictor_configs(
