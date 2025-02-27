@@ -62,7 +62,6 @@ from .utils import (  # noqa: F401
     Singleton,
     SotUndefinedVar,
     StepInfoManager,
-    StepState,
     count_if,
     current_symbol_registry,
     execute_time,
