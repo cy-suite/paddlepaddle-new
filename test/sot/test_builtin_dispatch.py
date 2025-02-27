@@ -321,7 +321,7 @@ class TestBuiltinDispatch(TestCaseBase):
     def test_dispatch_builtin_type_check_eq(self):
         self.assert_results(test_builtin_type_check_eq)
 
-    def test_dispatch_any_all(self):
+    def test_dispatch_any(self):
         l_pure_true = [1, True, 5, 6]
         l_pure_false = [False, 0, 0]
         l_true_and_false = [1, False, 0, 3]
@@ -333,6 +333,13 @@ class TestBuiltinDispatch(TestCaseBase):
         self.assert_results(test_any, d_true)
         self.assert_results(test_any, d_false)
         self.assert_results(test_any_iter, l_true_and_false)
+
+    def test_dispatch_all(self):
+        l_pure_true = [1, True, 5, 6]
+        l_pure_false = [False, 0, 0]
+        l_true_and_false = [1, False, 0, 3]
+        d_true = {"a": 1}
+        d_false = {}
         self.assert_results(test_all, l_pure_true)
         self.assert_results(test_all, l_pure_false)
         self.assert_results(test_all, l_true_and_false)
