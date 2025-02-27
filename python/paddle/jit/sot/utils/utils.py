@@ -25,6 +25,8 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable, TypeVar
 from weakref import WeakValueDictionary
 
+import numpy as np
+
 import paddle
 from paddle.utils import flatten, map_structure
 
