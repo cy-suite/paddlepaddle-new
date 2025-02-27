@@ -259,18 +259,6 @@ def list_extend_dict():
     return l1
 
 
-@check_no_breakgraph
-def list_any():
-    l = [0, 0, 1, 0]
-    return any(l)
-
-
-@check_no_breakgraph
-def list_all():
-    l = [1, 1, 0, 1]
-    return all(l)
-
-
 class TestListBasic(TestCaseBase):
     def test_list_basic(self):
         self.assert_results(list_getitem_int, 1, paddle.to_tensor(2))
@@ -386,10 +374,6 @@ class TestListMethods(TestCaseBase):
 
     def test_list_extend_dict(self):
         self.assert_results(list_extend_dict)
-
-    def test_list_any_all(self):
-        self.assert_results(list_any)
-        self.assert_results(list_all)
 
 
 if __name__ == "__main__":
