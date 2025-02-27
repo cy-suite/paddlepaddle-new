@@ -1418,7 +1418,7 @@ Dispatcher.register(
 
 # any for list
 @Dispatcher.register_decorator(any)
-def dispatch_list_any(var: ListVariable | ContainerVariable | IterVariable):
+def dispatch_list_any(var: ContainerVariable | IterVariable):
     graph = var.graph
     to_bool = BuiltinVariable(bool, graph, DanglingTracker())
     it = var.get_iter()
@@ -1436,7 +1436,7 @@ def dispatch_list_any(var: ListVariable | ContainerVariable | IterVariable):
 
 # all for list
 @Dispatcher.register_decorator(all)
-def dispatch_list_all(var: ListVariable | ContainerVariable | IterVariable):
+def dispatch_list_all(var: ContainerVariable | IterVariable):
     graph = var.graph
     to_bool = BuiltinVariable(bool, graph, DanglingTracker())
     it = var.get_iter()
