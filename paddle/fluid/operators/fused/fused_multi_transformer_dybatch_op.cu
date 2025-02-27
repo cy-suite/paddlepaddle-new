@@ -46,6 +46,7 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
     auto *padding_offset = ctx.Input<phi::DenseTensor>("PaddingOffset");
     int max_num_blocks_per_seq = -1;
     auto *block_tables = ctx.Input<phi::DenseTensor>("BlockTables");
+    auto *excess_blocks = ctx.Input<phi::DenseTensor>("ExcessBlocks");
 
     const auto input_x_dims = input_x->dims();
     const auto padding_offset_dims = padding_offset->dims();
@@ -574,6 +575,7 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
                        qkv_out,
                        *block_tables,
                        *padding_offset,
+                       *cum_offsets,
                        *sequence_lengths_encoder,
                        *sequence_lengths_decoder,
                        seq_len,
@@ -581,8 +583,10 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
                        value_cache,
                        num_head,
                        dim_head,
+                       bsz,
                        seq_mapping,  // seq_mapping,
-                       gqa_group_size);
+                       gqa_group_size,
+                       excess_blocks);
 
         VLOG(2) << "key_cache " << *key_cache;
         VLOG(2) << "value_cache " << *value_cache;

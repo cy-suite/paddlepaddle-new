@@ -1836,6 +1836,7 @@ class FusedMultiTransformerDybatch(Layer):
         src_mask=None,
         tgt_mask=None,
         block_tables=None,
+        excess_blocks=None,
     ):
         r""" """
         out = incubate_f.fused_multi_transformer_dybatch(
@@ -1866,6 +1867,7 @@ class FusedMultiTransformerDybatch(Layer):
             src_mask,
             tgt_mask,
             block_tables,
+            excess_blocks,
             self.linear_weights,
             self.linear_biases,
             self.ffn_ln_scales,

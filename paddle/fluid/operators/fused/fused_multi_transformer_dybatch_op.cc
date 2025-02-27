@@ -173,6 +173,8 @@ class FusedMultiTransformerDybatchOpOpMaker
         .AsDispensable();
     AddInput("BlockTables", "(optional) the block_table in page attn.")
         .AsDispensable();
+    AddInput("ExcessBlocks", "(optional) the block_table in page attn.")
+        .AsDispensable();
     AddInput("OutLinearW", "The out_linear weight tensor.").AsDuplicable();
     AddInput("OutLinearBias", "The out_linear bias tensor.")
         .AsDispensable()

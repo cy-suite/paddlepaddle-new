@@ -1336,6 +1336,7 @@ def fused_multi_transformer_dybatch(
     src_mask,
     tgt_mask,
     block_tables,
+    excess_blocks,
     linear_weights,
     linear_biases,
     ffn_ln_scales,
@@ -1401,6 +1402,7 @@ def fused_multi_transformer_dybatch(
             src_mask,
             tgt_mask,
             block_tables,
+            excess_blocks,
             linear_weights,
             linear_biases,
             ffn_ln_scales,
@@ -1521,6 +1523,9 @@ def fused_multi_transformer_dybatch(
         inputs['SrcMask'] = src_mask if src_mask is not None else []
         inputs['TgtMask'] = tgt_mask if tgt_mask is not None else []
         inputs['BlockTables'] = block_tables if block_tables is not None else []
+        inputs['ExcessBlocks'] = (
+            excess_blocks if excess_blocks is not None else []
+        )
         inputs['OutLinearW'] = linear_weights
         inputs['OutLinearBias'] = (
             linear_biases if linear_biases is not None else []

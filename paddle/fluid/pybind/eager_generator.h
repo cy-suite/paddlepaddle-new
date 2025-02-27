@@ -100,6 +100,7 @@ std::map<std::string, std::set<std::string>> op_ins_map = {
       "SrcMask",
       "TgtMask",
       "BlockTables",
+      "ExcessBlocks",
       "OutLinearW",
       "OutLinearBias",
       "FFNLnScale",

@@ -321,18 +321,22 @@ __global__ void cache_kernel(
                                 // head_size]
     T *__restrict__ value_cache,  // [num_blocks, gqa_group_size, block_size,
                                   // head_size]
-    const int *__restrict__ block_tables,      // [bsz, max_blocks_per_seq]
-    const int *__restrict__ padding_offsets,   // [num_tokens]
+    const int *__restrict__ block_tables,     // [bsz, max_blocks_per_seq]
+    const int *__restrict__ padding_offsets,  // [num_tokens]
+    const int *__restrict__ cum_offsets,
     const int *__restrict__ seq_lens,          // [bsz]
     const int *__restrict__ seq_lens_decoder,  // [bsz]
     const int *__restrict__ seq_mapping,
+    const int *__restrict__ excess_blocks,  // [bsz, excess_num]
     const int max_seq_len,
     const int max_blocks_per_seq,
     const int num_heads,
     const int head_size,
     const int block_size,
     const uint32_t elem_cnt,
-    const int gqa_group_size) {
+    const int gqa_group_size,
+    const int token_num,
+    const int excess_num) {
   using LoadT = phi::AlignedVector<T, VecSize>;
   LoadT src_vec;
 
@@ -343,33 +347,72 @@ __global__ void cache_kernel(
                 step = gridDim.x * blockDim.x * VecSize;
        linear_index < elem_cnt;
        linear_index += step) {
-    const uint32_t token_idx = linear_index / offset;
+    uint32_t token_idx = linear_index / offset;
     const uint32_t bias = linear_index % offset;
     const uint32_t qkv_id = bias / hidden_size;  // skip q
     const uint32_t qkv_bias = bias % hidden_size;
     const uint32_t hi = qkv_bias / head_size;
     const uint32_t h_bias = qkv_bias % head_size;
-    const uint32_t ori_token_idx = token_idx + padding_offsets[token_idx];
-    const uint32_t ori_bi = ori_token_idx / max_seq_len;
-    if (seq_lens[ori_bi] == 0) continue;
-    const uint32_t ori_seq_id =
-        ori_token_idx % max_seq_len + seq_lens_decoder[ori_bi];
 
-    const int32_t *block_table_now = nullptr;
-    if constexpr (USE_SYSTEM) {
-      block_table_now = block_tables + seq_mapping[ori_bi] * max_blocks_per_seq;
+    uint32_t block_idx, block_offset;
+
+    if (token_idx < token_num) {
+      const uint32_t ori_token_idx = token_idx + padding_offsets[token_idx];
+      const uint32_t ori_bi = ori_token_idx / max_seq_len;
+      const uint32_t last_offset = seq_lens[ori_bi] % block_size;
+      if (seq_lens[ori_bi] == 0) continue;
+
+      const int32_t *block_table_now = nullptr;
+      if constexpr (USE_SYSTEM) {
+        block_table_now =
+            block_tables + seq_mapping[ori_bi] * max_blocks_per_seq;
+      } else {
+        block_table_now = block_tables + ori_bi * max_blocks_per_seq;
+      }
+      const uint32_t ori_seq_id =
+          ori_token_idx % max_seq_len + seq_lens_decoder[ori_bi];
+      if (ori_seq_id >= seq_lens[ori_bi] - last_offset) continue;
+
+      block_idx = block_table_now[ori_seq_id / block_size];
+      block_offset = ori_seq_id % block_size;
     } else {
-      block_table_now = block_tables + ori_bi * max_blocks_per_seq;
+      const uint32_t excess_token_id = token_idx - token_num;
+      const uint32_t ori_bi = excess_token_id / (excess_num * block_size);
+      const uint32_t last_offset = seq_lens[ori_bi] % block_size;
+      if (seq_lens[ori_bi] == 0) continue;
+
+      const uint32_t excess_id =
+          (excess_token_id % (excess_num * block_size)) / block_size;
+      const uint32_t excess_token_offset = excess_token_id % block_size;
+
+      if (excess_token_offset < last_offset) {
+        token_idx = ori_bi * max_seq_len - cum_offsets[ori_bi] +
+                    seq_lens[ori_bi] - last_offset + excess_token_offset;
+      } else {
+        continue;
+      }
+
+      block_idx = excess_blocks[ori_bi * excess_num + excess_id];
+      block_offset = excess_token_offset;
     }
-    const uint32_t block_idx = block_table_now[ori_seq_id / block_size];
-    const uint32_t block_offset = ori_seq_id % block_size;
+
+    // if (hi == 0 && h_bias == 0 && qkv_id == 0) {
+    //   printf("block_idx %d token_idx %d block_offset %d\n", block_idx,
+    //   token_idx, block_offset);
+    // }
 
     const uint32_t tgt_idx =
         block_idx * gqa_group_size * block_size * head_size +
         hi * block_size * head_size + block_offset * head_size + h_bias;
+    // if (hi == 0 && h_bias == 0 && qkv_id == 0) {
+    //   printf("tgt_idx %d\n", tgt_idx);
+    // }
     const uint32_t ori_idx =
         token_idx * (num_heads + 2 * gqa_group_size) * head_size +
         num_heads * head_size + qkv_id * hidden_size + hi * head_size + h_bias;
+    // if (hi == 0 && h_bias == 0 && qkv_id == 0) {
+    //   printf("ori_idx %d\n", ori_idx);
+    // }
     phi::Load<T, VecSize>(&qkv[ori_idx], &src_vec);
     if (qkv_id == 0) {
       phi::Store<T, VecSize>(src_vec, &key_cache[tgt_idx]);
@@ -386,6 +429,7 @@ void CacheKernel(const phi::GPUContext &dev_ctx,
                             // num_head + 2 * gqa_group_size, head_dim] if GQA)
                  const phi::DenseTensor &block_tables,
                  const phi::DenseTensor &padding_offsets,
+                 const phi::DenseTensor &cum_offsets,
                  const phi::DenseTensor &seq_lens,
                  const phi::DenseTensor &seq_lens_decoder,
                  const int max_seq_len,
@@ -393,8 +437,10 @@ void CacheKernel(const phi::GPUContext &dev_ctx,
                  phi::DenseTensor *value_cache_out,
                  const int num_heads,
                  const int head_size,
+                 const int bsz,
                  const phi::DenseTensor *seq_mapping = nullptr,
-                 int gqa_group_size = -1) {
+                 int gqa_group_size = -1,
+                 const phi::DenseTensor *excess_blocks = nullptr) {
   typedef phi::PDDataTypeTraits<T> traits_;
   typedef typename traits_::DataType DataType_;
 
@@ -404,9 +450,16 @@ void CacheKernel(const phi::GPUContext &dev_ctx,
   if (gqa_group_size <= 0) {
     gqa_group_size = num_heads;
   }
+  int excess_block_num = 0;
+  if (excess_blocks) {
+    excess_block_num = excess_blocks->dims()[1];
+  }
+  VLOG(1) << "excess_block_num " << excess_block_num;
+
   const int32_t block_size = key_cache_out->dims()[2];
-  const uint32_t elem_nums =
-      num_tokens * 2 * gqa_group_size * head_size;  // just k and v
+  uint32_t elem_nums = (num_tokens + bsz * excess_block_num * block_size) * 2 *
+                       gqa_group_size * head_size;
+  // 额外每个bid 多分配excess_block_num * block_size 个
   constexpr int PackSize = 16 / sizeof(T);
   const int pack_num = elem_nums / PackSize;
   const int blocksize = 128;
@@ -418,15 +471,18 @@ void CacheKernel(const phi::GPUContext &dev_ctx,
   VLOG(1) << "num_heads " << num_heads;
   VLOG(1) << "head_size " << head_size;
   VLOG(1) << "gqa_group_size " << gqa_group_size;
+  VLOG(1) << "elem_nums " << elem_nums;
 
-  VLOG(1) << "print query";
-  phi::fusion::print_tensor<T>(qkv, __FILE__, __LINE__, 10);
-  VLOG(1) << "print key";
-  phi::fusion::print_tensor<T>(
-      qkv, __FILE__, __LINE__, 10, num_heads * head_size);
-  VLOG(1) << "print value";
-  phi::fusion::print_tensor<T>(
-      qkv, __FILE__, __LINE__, 10, (num_heads + gqa_group_size) * head_size);
+  VLOG(2) << "cum_offsets" << cum_offsets;
+
+  // VLOG(1) << "print query";
+  // phi::fusion::print_tensor<T>(qkv, __FILE__, __LINE__, 10);
+  // VLOG(1) << "print key";
+  // phi::fusion::print_tensor<T>(
+  //     qkv, __FILE__, __LINE__, 10, num_heads * head_size);
+  // VLOG(1) << "print value";
+  // phi::fusion::print_tensor<T>(
+  // qkv, __FILE__, __LINE__, 10, (num_heads + gqa_group_size) * head_size);
   if (seq_mapping) {
     cache_kernel<DataType_, PackSize, true>
         <<<grid_size, blocksize, 0, dev_ctx.stream()>>>(
@@ -435,16 +491,20 @@ void CacheKernel(const phi::GPUContext &dev_ctx,
             reinterpret_cast<DataType_ *>(value_cache_out->data<T>()),
             block_tables.data<int>(),
             padding_offsets.data<int>(),
+            cum_offsets.data<int>(),
             seq_lens.data<int>(),
             seq_lens_decoder.data<int>(),
             seq_mapping->data<int>(),
+            excess_blocks->data<int>(),
             max_seq_len,
             max_blocks_per_seq,
             num_heads,
             head_size,
             block_size,
             elem_nums,
-            gqa_group_size);
+            gqa_group_size,
+            num_tokens,
+            excess_block_num);
   } else {
     cache_kernel<DataType_, PackSize, false>
         <<<grid_size, blocksize, 0, dev_ctx.stream()>>>(
@@ -453,16 +513,20 @@ void CacheKernel(const phi::GPUContext &dev_ctx,
             reinterpret_cast<DataType_ *>(value_cache_out->data<T>()),
             block_tables.data<int>(),
             padding_offsets.data<int>(),
+            cum_offsets.data<int>(),
             seq_lens.data<int>(),
             seq_lens_decoder.data<int>(),
             nullptr,
+            excess_blocks->data<int>(),
             max_seq_len,
             max_blocks_per_seq,
             num_heads,
             head_size,
             block_size,
             elem_nums,
-            gqa_group_size);
+            gqa_group_size,
+            num_tokens,
+            excess_block_num);
   }
 }
 
