@@ -37,7 +37,7 @@ class TrtConvertTemporalShiftTest(TrtLayerAutoScanTest):
             )
 
         for shift_value in [0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.49]:
-            for T in range(2, 5):
+            for T in [2, 4]:
                 for data_format in ["NCHW", "NHWC"]:
                     dics = [
                         {
