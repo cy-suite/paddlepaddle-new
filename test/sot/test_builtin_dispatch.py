@@ -343,7 +343,7 @@ class TestBuiltinDispatch(TestCaseBase):
     def test_dispatch_builtin_type_check_eq(self):
         self.assert_results(test_builtin_type_check_eq)
 
-    def test_dispatch_any(self):
+    def test_dispatch_any_all(self):
         l = [1, 2, 3]
         t = (1, 2, 3)
         d = {'a': 1, 'b': 2}
