@@ -1274,7 +1274,10 @@ def dispatch_reduce(
     initializer: VariableBase = None,  # type: ignore
 ):
     iterator = iterable.get_iter()
-    if initializer is None:
+    if initializer is None or (
+        isinstance(initializer, ConstantVariable)
+        and initializer.get_py_value() is None
+    ):
         try:
             initializer = iterator.next()
         except StopIteration:

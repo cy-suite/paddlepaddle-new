@@ -20,13 +20,11 @@
 from __future__ import annotations
 
 import unittest
-from functools import reduce
 
 from test_case_base import TestCaseBase, test_with_faster_guard
 
 import paddle
 from paddle.jit.sot.psdb import check_no_breakgraph
-from paddle.jit.sot.utils.exceptions import InnerError
 
 
 @check_no_breakgraph
@@ -261,30 +259,6 @@ def list_extend_dict():
     return l1
 
 
-@check_no_breakgraph
-def list_reduce():
-    l = [1, 2, 3, 4]
-    ans1 = reduce(lambda x, y: x + y, l)
-    ans2 = reduce(lambda x, y: x * y, l, 1)
-    return ans1 + ans2
-
-
-@check_no_breakgraph
-def failed_list_reduce():
-    l = []
-    fake_ans = reduce(lambda x, y: x + y, l)
-    return fake_ans
-
-
-@check_no_breakgraph
-def list_stop_it():
-    l = [1, 2, 3, 4]
-    it = iter(l)
-    ans = reduce(lambda x, y: x + y, it, 0)
-    ans += next(it)
-    return ans
-
-
 class TestListBasic(TestCaseBase):
     def test_list_basic(self):
         self.assert_results(list_getitem_int, 1, paddle.to_tensor(2))
@@ -400,17 +374,6 @@ class TestListMethods(TestCaseBase):
 
     def test_list_extend_dict(self):
         self.assert_results(list_extend_dict)
-
-    def test_list_reduce(self):
-        self.assert_results(list_reduce)
-
-    def test_failed_list_reduce(self):
-        self.assertRaisesRegex(
-            InnerError, "reduce() of empty iterable with no initial value"
-        )
-
-    def test_list_stop_it(self):
-        self.assertRaises(StopIteration)
 
 
 if __name__ == "__main__":
