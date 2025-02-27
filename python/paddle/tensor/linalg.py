@@ -3642,13 +3642,13 @@ def lu_solve(
     b = (
         b
         if b.shape[:-2] == batch_shape
-        else paddle.broadcast_to(b, batch_shape + b.shape[-2:])
+        else paddle.broadcast_to(b, batch_shape + list(b.shape[-2:]))
     )
     trans = trans if trans == "N" else "T"
     pivots = (
         pivots
         if pivots.shape[:-1] == batch_shape
-        else paddle.broadcast_to(pivots, batch_shape + pivots.shape[-1:])
+        else paddle.broadcast_to(pivots, batch_shape + list(pivots.shape[-1:]))
     )
     lu = (
         lu
