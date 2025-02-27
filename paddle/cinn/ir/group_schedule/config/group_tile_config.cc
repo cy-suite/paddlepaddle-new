@@ -717,10 +717,10 @@ TileConfigMap BuildDynamicShapeConfig(
     const std::shared_ptr<ScheduleConfig::BaseInfo>& base_info,
     const common::Target& target) {
   TileConfigCollector collector;
-  collector({1, kMaxNumel, 1, 511}, {4, 128, 1, 1, 1, 4, BlockReduceMethod()});
-  collector({1, kMaxNumel, 512, 2047},
+  collector({1, kMaxNumel, 1, 256}, {8, 32, 1, 1, 1, 8, WarpReduceMethod()});
+  collector({1, kMaxNumel, 257, 2048},
             {8, 256, 1, 1, 1, 8, BlockReduceMethod()});
-  collector({1, kMaxNumel, 2048, kMaxNumel},
+  collector({1, kMaxNumel, 2049, kMaxNumel},
             {32, 1024, 1, 1, 1, -1, BlockReduceMethod()});
   return collector.GetResult();
 }
