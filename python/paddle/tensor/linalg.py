@@ -3653,7 +3653,7 @@ def lu_solve(
     lu = (
         lu
         if lu.shape[:-2] == batch_shape
-        else paddle.broadcast_to(lu, batch_shape + lu.shape[-2:])
+        else paddle.broadcast_to(lu, batch_shape + list(lu.shape[-2:]))
     )
     pivots.stop_gradient = True
     if in_dynamic_or_pir_mode():
