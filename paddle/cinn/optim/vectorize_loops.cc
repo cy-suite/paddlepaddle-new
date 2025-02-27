@@ -713,7 +713,6 @@ struct VectorizeLoops_ : public IRMutator<Expr *> {
     for (int i = 0; i < indices.size(); i++) {
       node->indices[i] =
           cinn::common::AutoSimplify(node->indices[i], var_intervals);
-      Simplify(&node->indices[i]);
       if (!node->indices[i].same_as(indices[i])) {
         is_changed = true;
       }
@@ -734,7 +733,6 @@ struct VectorizeLoops_ : public IRMutator<Expr *> {
     for (int i = 0; i < indices.size(); i++) {
       node->indices[i] =
           cinn::common::AutoSimplify(node->indices[i], var_intervals);
-      Simplify(&node->indices[i]);
       if (!node->indices[i].same_as(indices[i])) {
         is_changed = true;
       }
@@ -782,7 +780,6 @@ struct VectorizeLoops_ : public IRMutator<Expr *> {
           ::common::errors::InvalidArgument(
               "The minimum of forloop should be zero, please check."));
       Expr for_extent = cinn::optim::ArithSimplify(forloop->extent);
-      Simplify(&for_extent);
       node->extent = for_extent;
       auto *extent_min = for_extent.As<Min>();
       auto *extent_max = for_extent.As<Max>();
@@ -919,7 +916,6 @@ struct VectorizeLoops_ : public IRMutator<Expr *> {
         ::common::errors::InvalidArgument(
             "Inner_for is nullptr in UnrollCmpFor function."));
     Expr inner_for_extent = cinn::optim::ArithSimplify(inner_for->extent);
-    Simplify(&inner_for_extent);
     auto *extent_min = inner_for_extent.As<Min>();
     if (extent_min) {
       PADDLE_ENFORCE_EQ(
@@ -1023,7 +1019,6 @@ struct VectorizeLoops_ : public IRMutator<Expr *> {
     } else {
       times = cinn::optim::ArithSimplify(
           Div::Make(forloop->extent, make_const(factor)));
-      Simplify(&times);
     }
 
     // update the current forloop
