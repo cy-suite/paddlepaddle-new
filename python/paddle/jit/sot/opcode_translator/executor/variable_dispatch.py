@@ -162,7 +162,7 @@ Dispatcher.register(
     operator_not_in,
     ("VariableBase", "IterVariable"),
     create_raise_break_graph_handler(
-        UnsupportedIteratorBreak("Codes like: `variable in iterator`.")
+        UnsupportedIteratorBreak("Codes like: `variable not in iterator`.")
     ),
 )
 
