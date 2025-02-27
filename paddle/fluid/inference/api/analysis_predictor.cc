@@ -996,8 +996,8 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
           if (std::find(config_.deleted_passes_.begin(),
                         config_.deleted_passes_.end(),
                         custom_device_pass) == config_.deleted_passes_.end()) {
-            pass_pm.AddPass(std::move(
-                pir::PassRegistry::Instance().Get(custom_device_pass)));
+            pass_pm.AddPass(
+                pir::PassRegistry::Instance().Get(custom_device_pass));
           }
         }
       }
