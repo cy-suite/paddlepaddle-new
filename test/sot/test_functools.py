@@ -50,10 +50,7 @@ def try_reduce(fn, var, init=None):
 
 @check_no_breakgraph
 def try_reduce_iter(fn, var, init=None):
-    if init:
-        ans = functools.reduce(fn, iter(var), init)
-    else:
-        ans = functools.reduce(fn, iter(var))
+    ans = functools.reduce(fn, iter(var))
     return ans
 
 
