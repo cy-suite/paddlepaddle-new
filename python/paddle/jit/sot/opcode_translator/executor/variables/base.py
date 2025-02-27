@@ -39,6 +39,7 @@ from ..guard import (
 from ..mutable_data import MutableDictLikeData
 from ..tracker import (
     BuiltinTracker,
+    ConstTracker,
     DummyTracker,
     GetAttrTracker,
     GetItemTracker,
@@ -277,6 +278,8 @@ def infer_debug_name_from_tracker(tracker: Tracker) -> str:
     res = None
     if isinstance(tracker, (LocalTracker, GlobalTracker, BuiltinTracker)):
         res = f"{tracker.name}"
+    elif isinstance(tracker, ConstTracker):
+        res = f"{tracker.value}"
     elif isinstance(tracker, GetItemTracker) and tracker.container.debug_name:
         res = f"{tracker.container.debug_name}[{tracker.key}]"
     elif isinstance(tracker, GetAttrTracker) and tracker.obj.debug_name:
