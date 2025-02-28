@@ -150,8 +150,7 @@ def forbid_op_lower_trt(program, disabled_ops):
 
 def enforce_op_lower_trt(program, op_name):
     for op in program.global_block().ops:
-        op.set_bool_attr("__l_trt__", False)
-        if op.name() == op.name:
+        if op.name() == op_name:
             op.set_bool_attr("__l_trt__", True)
 
 
@@ -169,28 +168,19 @@ def predict_program(program, feed_data, fetch_var_list, scope=None):
             return output
 
 
-def warmup_shape_infer(
-    program, min_shape_feed, opt_shape_feed, max_shape_feed, scope=None
-):
+def warmup_shape_infer(program, feeds, scope=None):
     paddle.framework.set_flags({"FLAGS_enable_collect_shape": True})
     with paddle.pir_utils.IrGuard():
         with paddle.static.program_guard(program):
             executor = paddle.static.Executor()
             # Run the program with input_data
-            for _ in range(1):
-                executor.run(program, feed=min_shape_feed, scope=scope)
-
-            for _ in range(1):
-                executor.run(program, feed=opt_shape_feed, scope=scope)
-
-            # Run the program with input_data_max_shape (fake max_shape input)
-            for _ in range(1):
-                executor.run(program, feed=max_shape_feed, scope=scope)
+            for i in range(len(feeds)):
+                executor.run(program, feed=feeds[i], scope=scope)
 
             exe_program, _, _ = (
                 executor._executor_cache.get_pir_program_and_executor(
                     program,
-                    feed=max_shape_feed,
+                    feed=feeds[-1],
                     fetch_list=None,
                     feed_var_name='feed',
                     fetch_var_name='fetch',
@@ -294,12 +284,15 @@ def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name):
         "pd_op.depthwise_conv2d",
         "pd_op.conv2d",
         "pd_op.conv2d_transpose",
+        "pd_op.conv3d",
+        "pd_op.conv3d_transpose",
         "pd_op.batch_norm",
         "pd_op.batch_norm_",
         "pd_op.layer_norm",
         "pd_op.depthwise_conv2d_transpose",
         "pd_op.fused_conv2d_add_act",
         "pd_op.affine_channel",
+        "pd_op.prelu",
         "pd_op.fused_bias_dropout_residual_layer_norm",
         "pd_op.deformable_conv",
     ]
