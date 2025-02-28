@@ -11,7 +11,7 @@ jobs:
     permissions:
       contents: read
     steps:
-    - name: Clone paddle
+    - name: Clone  paddle
       uses: actions/checkout@v4
 
     - name: Setup Python
