@@ -17,6 +17,7 @@ limitations under the License. */
 #include "paddle/phi/backends/cpu/cpu_context.h"
 #include "paddle/phi/common/float16.h"
 #include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/kernels/full_kernel.h"
 #include "paddle/phi/kernels/impl/activation_grad_impl.h"
 
 namespace phi {
@@ -254,6 +255,12 @@ void PowGradKernel(const Context& dev_ctx,
                    const DenseTensor& dout,
                    const Scalar& factor,
                    DenseTensor* dx) {
+  if (factor.to<float>() == 0) {
+    std::vector<int64_t> vec_dims = common::vectorize(dx->dims());
+    phi::Full<T, Context>(
+        dev_ctx, phi::IntArray(vec_dims), static_cast<T>(0), dx);
+    return;
+  }
   PADDLE_ENFORCE_NOT_NULL(
       dx, errors::NotFound("The output DenseTensor dX can not be nullptr"));
   dev_ctx.template Alloc<T>(dx);

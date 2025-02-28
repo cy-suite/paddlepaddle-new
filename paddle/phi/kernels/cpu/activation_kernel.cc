@@ -16,6 +16,7 @@ limitations under the License. */
 
 #include "paddle/phi/backends/cpu/cpu_context.h"
 #include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/kernels/full_kernel.h"
 #include "paddle/phi/kernels/funcs/activation_functor.h"
 #include "paddle/phi/kernels/impl/activation_impl.h"
 
@@ -181,6 +182,16 @@ void PowKernel(const Context& dev_ctx,
   PADDLE_ENFORCE_NOT_NULL(out,
                           errors::NotFound("Output Out should not be nullptr"));
   dev_ctx.template Alloc<T>(out);
+  if (factor.to<float>() == 0) {
+    std::vector<int64_t> vec_dims = common::vectorize(out->dims());
+    phi::Full<T, Context>(
+        dev_ctx, phi::IntArray(vec_dims), static_cast<T>(1), out);
+    return;
+  }
+  if (factor.to<float>() == 1) {
+    phi::Copy<Context>(dev_ctx, x, dev_ctx.GetPlace(), false, out);
+    return;
+  }
   auto x_flatten = phi::EigenVector<T>::Flatten(
       GET_DATA_SAFELY(&x, "Input", "X", "Activation"));
   auto out_flatten = phi::EigenVector<T>::Flatten(

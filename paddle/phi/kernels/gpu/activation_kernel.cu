@@ -19,6 +19,7 @@ limitations under the License. */
 #include "paddle/phi/common/bfloat16.h"
 #include "paddle/phi/common/float16.h"
 #include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/kernels/full_kernel.h"
 #include "paddle/phi/kernels/funcs/elementwise_base.h"
 #include "paddle/phi/kernels/impl/activation_grad_impl.h"
 #include "paddle/phi/kernels/impl/activation_impl.h"
@@ -204,6 +205,16 @@ void PowKernel(const Context& dev_ctx,
                const DenseTensor& x,
                const Scalar& factor,
                DenseTensor* out) {
+  if (factor.to<float>() == 0) {
+    std::vector<int64_t> vec_dims = common::vectorize(out->dims());
+    phi::Full<T, Context>(
+        dev_ctx, phi::IntArray(vec_dims), static_cast<T>(1), out);
+    return;
+  }
+  if (factor.to<float>() == 1) {
+    phi::Copy<Context>(dev_ctx, x, dev_ctx.GetPlace(), false, out);
+    return;
+  }
   funcs::CudaPowFunctor<T> functor;
   auto attrs = functor.GetAttrs();
   *(attrs[0].second) = factor.to<float>();
