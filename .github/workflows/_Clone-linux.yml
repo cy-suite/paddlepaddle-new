@@ -15,8 +15,9 @@ env:
   ci_scripts: ${{ github.workspace }}/ci
 
 jobs:
-  Clone:
+  clone:
     # Don't run on forked repos.
+    name: Clone
     if: github.repository_owner == 'PaddlePaddle'
     runs-on:
       group: HK-Clone
