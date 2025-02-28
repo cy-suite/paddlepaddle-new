@@ -258,6 +258,7 @@ PD_REGISTER_KERNEL(exp,
                    phi::dtype::float16,
                    phi::dtype::complex<float>,
                    phi::dtype::complex<double>) {}
+
 PD_REGISTER_KERNEL(expm1,
                    CPU,
                    ALL_LAYOUT,
@@ -269,6 +270,7 @@ PD_REGISTER_KERNEL(expm1,
                    phi::dtype::float16,
                    phi::dtype::complex<float>,
                    phi::dtype::complex<double>) {}
+
 PD_REGISTER_KERNEL(square,
                    CPU,
                    ALL_LAYOUT,
@@ -279,6 +281,7 @@ PD_REGISTER_KERNEL(square,
                    int64_t,
                    phi::dtype::complex<float>,
                    phi::dtype::complex<double>) {}
+
 PD_REGISTER_KERNEL(log,
                    CPU,
                    ALL_LAYOUT,
@@ -291,6 +294,7 @@ PD_REGISTER_KERNEL(log,
                    phi::dtype::bfloat16,
                    phi::dtype::complex<float>,
                    phi::dtype::complex<double>) {}
+
 PD_REGISTER_KERNEL(log2,
                    CPU,
                    ALL_LAYOUT,
@@ -303,6 +307,7 @@ PD_REGISTER_KERNEL(log2,
                    phi::dtype::bfloat16,
                    phi::dtype::complex<float>,
                    phi::dtype::complex<double>) {}
+
 PD_REGISTER_KERNEL(log10,
                    CPU,
                    ALL_LAYOUT,
@@ -315,6 +320,7 @@ PD_REGISTER_KERNEL(log10,
                    phi::dtype::bfloat16,
                    phi::dtype::complex<float>,
                    phi::dtype::complex<double>) {}
+
 PD_REGISTER_KERNEL(log1p,
                    CPU,
                    ALL_LAYOUT,
@@ -327,6 +333,7 @@ PD_REGISTER_KERNEL(log1p,
                    phi::dtype::bfloat16,
                    phi::dtype::complex<float>,
                    phi::dtype::complex<double>) {}
+
 PD_REGISTER_KERNEL(negative,
                    CPU,
                    ALL_LAYOUT,
@@ -338,6 +345,7 @@ PD_REGISTER_KERNEL(negative,
                    int64_t,
                    phi::dtype::complex<float>,
                    phi::dtype::complex<double>) {}
+
 PD_REGISTER_KERNEL(pow,
                    CPU,
                    ALL_LAYOUT,
