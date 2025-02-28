@@ -15,7 +15,7 @@ env:
   ci_scripts: ${{ github.workspace }}/ci
 
 jobs:
-  clone:
+  Clone:
     # Don't run on forked repos.
     if: github.repository_owner == 'PaddlePaddle'
     runs-on:
