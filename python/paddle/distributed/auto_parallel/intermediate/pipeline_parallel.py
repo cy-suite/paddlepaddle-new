@@ -60,10 +60,9 @@ class SplitPoint(Enum):
 
 
 class PipelineParallel(ParallelModel):
-    def __init__(self, model, split_spec, global_spec):
+    def __init__(self, model, split_spec):
         super().__init__(model)
         self.split_spec = split_spec
-        self.global_spec = global_spec
         self.pp_parallelizer = self.pipeline_parallel_fn
         self.name_to_layer = {}
         for layer_name, layer in model.named_sublayers():
@@ -159,8 +158,8 @@ class PipelineParallel(ParallelModel):
                     "SplitPoint.BEGINNING is not supported currently"
                 )
                 layer.register_forward_pre_hook(forward_pre_hook)
-        if self.global_spec:
-            self.process_global_mesh_layers()
+
+        self.process_global_mesh_layers()
         return model
 
     def process_global_mesh_layers(self):
@@ -187,7 +186,7 @@ class PipelineParallel(ParallelModel):
 
             return (new_args, new_kwargs)
 
-        for key, layer in self.name_to_layer.items():
+        for _, layer in self.name_to_layer.items():
             layer.register_forward_pre_hook(forward_pre_hook, with_kwargs=True)
 
 
@@ -310,14 +309,11 @@ def pipeline_parallel(model, optimizer=None, config=None):
     else:
         split_spec_dict = split_spec
 
-    global_spec = config.get("global_spec", False)
-    assert isinstance(global_spec, bool)
-
     logger.info(
-        f"split_spec_dict: {split_spec_dict}, global_spec: {global_spec}, matched_layer_name: {matched_layer_name}"
+        f"split_spec_dict: {split_spec_dict}, matched_layer_name: {matched_layer_name}"
     )
 
-    model = PipelineParallel(model, split_spec_dict, global_spec)
+    model = PipelineParallel(model, split_spec_dict)
     if optimizer is not None:
         optimizer = ParallelOptimizer(optimizer)
 

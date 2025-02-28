@@ -292,7 +292,6 @@ class TestParallelAPI:
             # }
             pp_config = {
                 'split_spec': f"{prefix}llama.layers",
-                "global_spec": f"{prefix}llama.global_layer",
             }
         if self.dp > 1:
             dp_config = {'sharding_level': self.level}
