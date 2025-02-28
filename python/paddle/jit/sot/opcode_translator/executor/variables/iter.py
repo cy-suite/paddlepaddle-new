@@ -236,8 +236,9 @@ class MapVariable(SequenceIterVariable):
         for iter_var in self.hold:
             next_var = iter_var.next()
             values.append(next_var)
+        result = self.func(*values)
         return VariableFactory.from_value(
-            tuple(values), self.graph, DummyTracker(values)
+            result, self.graph, DummyTracker(values)
         )
 
     def to_list(self) -> list:
@@ -245,7 +246,7 @@ class MapVariable(SequenceIterVariable):
         min_len = min(len(l) for l in lists)
         result = []
         for i in range(min_len):
-            result.append(tuple(l[i] for l in lists))
+            result.append(self.func(*(l[i] for l in lists)))
         return result
 
     def has_side_effect(self) -> bool:
