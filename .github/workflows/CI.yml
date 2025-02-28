@@ -18,7 +18,7 @@ jobs:
   clone:
     uses: ./.github/workflows/_Clone-linux.yml
 
-  SOT:
+  sot:
     uses: ./.github/workflows/_SOT.yml
     needs: Clone
 
