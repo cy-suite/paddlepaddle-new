@@ -60,11 +60,10 @@ class SplitPoint(Enum):
 
 
 class PipelineParallel(ParallelModel):
-    def __init__(self, model, split_spec, global_spec, pipeline_layers):
+    def __init__(self, model, split_spec, global_spec):
         super().__init__(model)
         self.split_spec = split_spec
         self.global_spec = global_spec
-        self.pipeline_layers = pipeline_layers
         self.pp_parallelizer = self.pipeline_parallel_fn
         self.name_to_layer = {}
         for layer_name, layer in model.named_sublayers():
@@ -80,10 +79,6 @@ class PipelineParallel(ParallelModel):
         mesh = fleet.auto.get_mesh()
         pipeline_stage_num = mesh.get_dim_size("pp")
         assert len(self.split_spec) == pipeline_stage_num - 1
-
-        name_to_layer = {}
-        for layer_name, layer in model.named_sublayers():
-            name_to_layer[layer_name] = layer
 
         def forward_post_hook(layer, input, output):
             pipeline_stage_index = layer.pipeline_stage_index
@@ -169,82 +164,30 @@ class PipelineParallel(ParallelModel):
         return model
 
     def process_global_mesh_layers(self):
-        g_mesh = fleet.auto.get_mesh()
-        g_mesh = g_mesh.get_mesh_with_dim("pp")
-
-        def forward_post_hook(layer, input, output):
-            if isinstance(output, (list, tuple)):
-                global_output = list(output)
-                for ind in range(len(global_output)):
-                    output_i = global_output[ind]
-                    if is_tensor(output_i):
-                        if output_i.is_dist():
-                            global_output[ind] = dist.reshard(
-                                output_i,
-                                g_mesh,
-                                [
-                                    dist.Replicate()
-                                    for _ in range(len(g_mesh._shape))
-                                ],
-                            )
-                        else:
-                            global_output[ind] = dist.shard_tensor(
-                                output_i,
-                                g_mesh,
-                                [
-                                    dist.Replicate()
-                                    for _ in range(len(g_mesh._shape))
-                                ],
-                            )
-                if isinstance(output, tuple):
-                    global_output = tuple(global_output)
-                return global_output
-            elif is_tensor(output):
-                if output.is_dist():
-                    return dist.reshard(
-                        output,
-                        g_mesh,
-                        [dist.Replicate() for _ in range(len(g_mesh._shape))],
-                    )
-                else:
-                    return dist.shard_tensor(
-                        output,
-                        g_mesh,
-                        [dist.Replicate() for _ in range(len(g_mesh._shape))],
-                    )
-            else:
-                raise TypeError(
-                    "layer output can only be tensor or list/tuple of tensor"
-                )
-
         def forward_pre_hook(layer, args, kwargs):
             pp_idx = getattr(layer, "pipeline_stage_index", 0)
             new_args = []
             new_kwargs = {}
 
-            def reshard_tensor_args(t):
-                if is_tensor(t) and t.is_dist() and t.process_mesh == g_mesh:
-                    return dist.reshard(
-                        t,
-                        self.get_mesh(pp_idx),
-                        [dist.Replicate(), dist.Replicate()],
-                    )
+            def rshard_if_mesh_not_match(t):
+                if (
+                    t is not None
+                    and is_tensor(t)
+                    and t.is_dist()
+                    and t.process_mesh != self.get_mesh(pp_idx)
+                ):
+                    return dist.reshard(t, self.get_mesh(pp_idx), t.placements)
                 return t
 
             for arg in args:
-                new_args.append(reshard_tensor_args(arg))
+                new_args.append(rshard_if_mesh_not_match(arg))
 
             for key, arg in kwargs.items():
-                new_kwargs[key] = reshard_tensor_args(arg)
+                new_kwargs[key] = rshard_if_mesh_not_match(arg)
 
             return (new_args, new_kwargs)
 
-        for layer_name in self.global_spec:
-            layer = self.get_layer_by_name(layer_name)
-            layer.register_forward_post_hook(forward_post_hook)
-
-        for layer_name in self.pipeline_layers:
-            layer = self.get_layer_by_name(layer_name)
+        for key, layer in self.name_to_layer.items():
             layer.register_forward_pre_hook(forward_pre_hook, with_kwargs=True)
 
 
@@ -281,7 +224,6 @@ def pipeline_parallel(model, optimizer=None, config=None):
         "pp" in mesh.dim_names
     ), "pp must in the mesh dim_names when use pipeline_parallel"
 
-    global_spec = config.get("global_spec")
     if isinstance(split_spec, str):
         split_spec = [split_spec]
 
@@ -367,25 +309,15 @@ def pipeline_parallel(model, optimizer=None, config=None):
             )
     else:
         split_spec_dict = split_spec
-        if global_spec:
-            raise NotImplementedError(
-                "global_spec should be None if split_spec is a dict"
-            )
-    if global_spec:
-        if isinstance(global_spec, str):
-            global_spec = [global_spec]
-        else:
-            assert isinstance(
-                global_spec, (list, tuple)
-            ), f"global_spec can only be list or list(str), but got:{type(global_spec)}"
+
+    global_spec = config.get("global_spec", False)
+    assert isinstance(global_spec, bool)
 
     logger.info(
         f"split_spec_dict: {split_spec_dict}, global_spec: {global_spec}, matched_layer_name: {matched_layer_name}"
     )
 
-    model = PipelineParallel(
-        model, split_spec_dict, global_spec, matched_layer_name
-    )
+    model = PipelineParallel(model, split_spec_dict, global_spec)
     if optimizer is not None:
         optimizer = ParallelOptimizer(optimizer)
 
