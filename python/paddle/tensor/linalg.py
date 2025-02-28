@@ -3584,7 +3584,7 @@ def lu_solve(
     name=None,
 ):
     r"""
-    Computes the solution y to the system of linear equations :math:`Ay = b` ,
+    Computes the solution y to the system of linear equations :math:`Ax = b` ,
     given LU decomposition :math:`A` and column vector :math:`b`.
 
     Args:
@@ -3642,18 +3642,18 @@ def lu_solve(
     b = (
         b
         if b.shape[:-2] == batch_shape
-        else paddle.broadcast_to(b, batch_shape + b.shape[-2:])
+        else paddle.broadcast_to(b, batch_shape + list(b.shape[-2:]))
     )
     trans = trans if trans == "N" else "T"
     pivots = (
         pivots
         if pivots.shape[:-1] == batch_shape
-        else paddle.broadcast_to(pivots, batch_shape + pivots.shape[-1:])
+        else paddle.broadcast_to(pivots, batch_shape + list(pivots.shape[-1:]))
     )
     lu = (
         lu
         if lu.shape[:-2] == batch_shape
-        else paddle.broadcast_to(lu, batch_shape + lu.shape[-2:])
+        else paddle.broadcast_to(lu, batch_shape + list(lu.shape[-2:]))
     )
     pivots.stop_gradient = True
     if in_dynamic_or_pir_mode():
