@@ -25,13 +25,18 @@ jobs:
 
   build-and-test:
     needs: check-bypass
-    if: ${{ github.repository_owner == 'PaddlePaddle' && needs.check-bypass.outputs.can-skip != 'true' }}
     runs-on:
       group: GZ_BD-CPU
 
     steps:
+    - name: Check bypass
+      if: ${{ needs.check-bypass.outputs.can-skip == 'true' }}
+      run: |
+        echo "Bypass PR-CI-SOT"
+
     # sudo usermod -aG docker $USER
     - name: Check docker image and run container
+      if: ${{ needs.check-bypass.outputs.can-skip != 'true' }}
       env:
         BRANCH: develop
         work_dir: ${{ github.workspace }}
@@ -90,6 +95,7 @@ jobs:
           -w ${{ github.workspace }} --network host ${docker_image}
 
     - name: Download paddle.tar.gz and merge develop
+      if: ${{ needs.check-bypass.outputs.can-skip != 'true' }}
       run: |
         docker exec -t ${{ env.container_name }} /bin/bash -c '
         exit 1
@@ -110,6 +116,7 @@ jobs:
         '
 
     - name: Determine sot ci trigger
+      if: ${{ needs.check-bypass.outputs.can-skip != 'true' }}
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -122,6 +129,7 @@ jobs:
         '
 
     - name: Build with python3.8
+      if: ${{ needs.check-bypass.outputs.can-skip != 'true' }}
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -135,6 +143,7 @@ jobs:
         '
 
     - name: Test with python3.8
+      if: ${{ needs.check-bypass.outputs.can-skip != 'true' }}
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -150,6 +159,7 @@ jobs:
 
 
     - name: Build with python3.9
+      if: ${{ needs.check-bypass.outputs.can-skip != 'true' }}
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -163,6 +173,7 @@ jobs:
         '
 
     - name: Test with python3.9
+      if: ${{ needs.check-bypass.outputs.can-skip != 'true' }}
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -178,6 +189,7 @@ jobs:
 
 
     - name: Build with python3.10
+      if: ${{ needs.check-bypass.outputs.can-skip != 'true' }}
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -191,6 +203,7 @@ jobs:
         '
 
     - name: Test with python3.10
+      if: ${{ needs.check-bypass.outputs.can-skip != 'true' }}
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -205,6 +218,7 @@ jobs:
         '
 
     - name: Build with python3.11
+      if: ${{ needs.check-bypass.outputs.can-skip != 'true' }}
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -218,6 +232,7 @@ jobs:
         '
 
     - name: Test with python3.11
+      if: ${{ needs.check-bypass.outputs.can-skip != 'true' }}
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -233,6 +248,7 @@ jobs:
 
 
     - name: Build with python3.12
+      if: ${{ needs.check-bypass.outputs.can-skip != 'true' }}
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -246,6 +262,7 @@ jobs:
         '
 
     - name: Test with python3.12
+      if: ${{ needs.check-bypass.outputs.can-skip != 'true' }}
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -261,6 +278,7 @@ jobs:
 
 
     - name: Build with python3.13
+      if: ${{ needs.check-bypass.outputs.can-skip != 'true' }}
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -274,6 +292,7 @@ jobs:
         '
 
     - name: Test with python3.13
+      if: ${{ needs.check-bypass.outputs.can-skip != 'true' }}
       env:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
@@ -288,7 +307,7 @@ jobs:
         '
 
     - name: Terminate and delete the container
-      if: always()
+      if: ${{ needs.check-bypass.outputs.can-skip != 'true' && always() }}
       run: |
         set +e
         docker exec -t ${{ env.container_name }} /bin/bash -c 'rm -rf * .[^.]*'
