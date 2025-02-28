@@ -1018,7 +1018,7 @@ class TestWhereZeroSizeTensor(unittest.TestCase):
                 )
         np.testing.assert_allclose(out[0], out_ref, rtol=1e-05)
 
-    def test_api_with_ZeroSizeTensor_input(self):
+    def test_api_with_zero_size_input(self):
         self._test_with_shapes([(0, 0), (0, 0), (0, 0)])
         self._test_with_shapes([(0, 1), (0, 1), (0, 1)])
         self._test_with_shapes([(0, 2, 1), (0, 2, 1), (0, 2, 1)])
