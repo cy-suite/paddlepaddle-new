@@ -17,7 +17,7 @@ defaults:
 
 jobs:
   check-bypass:
-    name: Check bypass
+    name: Check bypass SOT
     uses: ./.github/workflows/check-bypass.yml
     with:
       workflow-name: 'sot'
