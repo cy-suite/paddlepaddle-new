@@ -970,11 +970,12 @@ struct FoldRedundantSymbolicBroadcast {
  * Simplify Example:
  * Broadcast(S0,S0,S1) => Broadcast(S0,S1)
  */
-struct FoldRedundantBroadcast {
-  using dim_expr_type = Broadcast<DimExpr>;
+template <template <typename> class Op>
+struct FoldRepetitiveSymbol {
+  using dim_expr_type = Op<DimExpr>;
 
   DimExpr Rewrite(const DimExpr& expr) {
-    const auto& [operands] = expr.Get<Broadcast<DimExpr>>();
+    const auto& [operands] = expr.Get<Op<DimExpr>>();
     while (operands->size() > 1) {
       int pos_index = SearchSameIndex(operands);
       if (pos_index < 0) {
@@ -985,7 +986,7 @@ struct FoldRedundantBroadcast {
     if (operands->size() == 1) {
       return operands->at(0);
     } else {
-      return Broadcast<DimExpr>{operands};
+      return Op<DimExpr>{operands};
     }
     PADDLE_THROW(common::errors::Fatal("Dead code."));
   }
@@ -1032,34 +1033,42 @@ bool IsLhsGreatThanRhs(const DimExpr& lhs, const DimExpr& rhs) {
 }
 
 template <template <typename> class Op>
-struct SubstituteTrait {
-  static int SearchErasable(const List<DimExpr>& operands) {
-    for (std::size_t i = 0; i < operands->size() - 1; ++i) {
-      for (std::size_t j = i + 1; j < operands->size(); ++j) {
-        if (IsLhsGreatThanRhs(operands->at(i), operands->at(j))) {
-          return j;
-        } else if (IsLhsGreatThanRhs(operands->at(j), operands->at(i))) {
-          return i;
+struct GreaterThanTrait {
+  static List<DimExpr> SearchErasable(const List<DimExpr>& operands) {
+    List<DimExpr> simplified_operands{};
+    for (std::size_t i = 0; i < operands->size(); ++i) {
+      bool is_redundant = false;
+      for (std::size_t j = 0; j < operands->size(); ++j) {
+        if (i != j && IsLhsGreatThanRhs(operands->at(j), operands->at(i))) {
+          is_redundant = true;
+          break;
         }
       }
+      if (!is_redundant) {
+        simplified_operands->push_back(operands->at(i));
+      }
     }
-    return -1;
+    return simplified_operands;
   }
 };
 
 template <>
-struct SubstituteTrait<Min> {
-  static int SearchErasable(const List<DimExpr>& operands) {
-    for (std::size_t i = 0; i < operands->size() - 1; ++i) {
-      for (std::size_t j = i + 1; j < operands->size(); ++j) {
-        if (IsLhsGreatThanRhs(operands->at(i), operands->at(j))) {
-          return i;
-        } else if (IsLhsGreatThanRhs(operands->at(j), operands->at(i))) {
-          return j;
+struct GreaterThanTrait<Min> {
+  static List<DimExpr> SearchErasable(const List<DimExpr>& operands) {
+    List<DimExpr> simplified_operands{};
+    for (std::size_t i = 0; i < operands->size(); ++i) {
+      bool is_redundant = false;
+      for (std::size_t j = 0; j < operands->size(); ++j) {
+        if (i != j && IsLhsGreatThanRhs(operands->at(i), operands->at(j))) {
+          is_redundant = true;
+          break;
         }
       }
+      if (!is_redundant) {
+        simplified_operands->push_back(operands->at(i));
+      }
     }
-    return -1;
+    return simplified_operands;
   }
 };
 
@@ -1072,17 +1081,14 @@ struct SimplifyWithObviousGreaterThan {
   using dim_expr_type = Op<DimExpr>;
 
   DimExpr Rewrite(const DimExpr& expr) {
-    auto [operands] = expr.Get<Op<DimExpr>>();
-    while (operands->size() > 1) {
-      int pos_erasable = SubstituteTrait<Op>::SearchErasable(operands);
-      if (pos_erasable < 0) break;
-      operands->erase(operands->begin() + pos_erasable);
+    const auto [operands] = expr.Get<Op<DimExpr>>();
+    List<DimExpr> simplified_operands =
+        GreaterThanTrait<Op>::SearchErasable(operands);
 
-      if (operands->size() == 1) {
-        return operands->at(0);
-      } else {
-        return Op<DimExpr>{operands};
-      }
+    if (simplified_operands->size() == 1) {
+      return simplified_operands->at(0);
+    } else {
+      return Op<DimExpr>{simplified_operands};
     }
   }
 };
@@ -1265,7 +1271,9 @@ DimExpr Simplify(const DimExpr& expr) {
     DoPass<FoldConstants<Min>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Broadcast>>(&keep_rewrite, &ret);
     DoPass<FoldInversedPairToUnit<Add>>(&keep_rewrite, &ret);
-    DoPass<FoldRedundantBroadcast>(&keep_rewrite, &ret);
+    DoPass<FoldRepetitiveSymbol<Broadcast>>(&keep_rewrite, &ret);
+    DoPass<FoldRepetitiveSymbol<Min>>(&keep_rewrite, &ret);
+    DoPass<FoldRepetitiveSymbol<Max>>(&keep_rewrite, &ret);
     DoPass<FoldRedundantSymbolicBroadcast>(&keep_rewrite, &ret);
     DoPass<SimplifyWithObviousGreaterThan<Broadcast>>(&keep_rewrite, &ret);
     DoPass<SimplifyWithObviousGreaterThan<Min>>(&keep_rewrite, &ret);

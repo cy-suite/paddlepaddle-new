@@ -213,15 +213,23 @@ TEST(Simplify, FoldRedundantBroadcast) {
 TEST(Simplify, SimplifyWithObviousGreaterThan) {
   DimExpr S0{"S0"};
   DimExpr S1{"S1"};
-  DimExpr S2{'S2'};
-  DimExpr add1{Add<DimExpr>{{S0, S1}}};
-  DimExpr max{Max<DimExpr>{{S0, add1, S2}}};
-  DimExpr min{Min<DimExpr>{{S0, add1, S2}}};
-  DimExpr bc{Broadcast<DimExpr>{{S0, add1, S2}}};
+  DimExpr S2{"S2"};
+  DimExpr add{Add<DimExpr>{{S0, S1}}};
+  DimExpr max1{Max<DimExpr>{{S0, add1, S2}}};
+  DimExpr min1{Min<DimExpr>{{S0, add1, S2}}};
+  DimExpr bc1{Broadcast<DimExpr>{{S0, add1, S2}}};
+  ASSERT_TRUE((SimplifyDimExpr(max1) == Max<DimExpr>{{add, S2}}));
+  ASSERT_TRUE((SimplifyDimExpr(min1) == Min<DimExpr>{{S0, S2}}));
+  ASSERT_TRUE((SimplifyDimExpr(bc1) == Broadcast<DimExpr>{{add, S2}}));
 
-  ASSERT_TRUE((SimplifyDimExpr(max) == Max<DimExpr>{{add1, S2}}));
-  ASSERT_TRUE((SimplifyDimExpr(min) == Min<DimExpr>{{S0, S2}}));
-  ASSERT_TRUE((SimplifyDimExpr(bc) == Broadcast<DimExpr>{{add1, S2}}));
+  // Min(S0, Add(S0,S1), Mul(Add(S1,S2),S2)) => S0
+  DimExpr mul{Mul<DimExpr>{{add, S2}}};
+  DimExpr max2{Max<DimExpr>{{S0, add, mul}}};
+  DimExpr min2{Min<DimExpr>{{S0, add, mul}}};
+  DimExpr bc2{Broadcast<DimExpr>{{S0, add, mul}}};
+  ASSERT_TRUE((SimplifyDimExpr(max2) == mul));
+  ASSERT_TRUE((SimplifyDimExpr(min2) == S0));
+  ASSERT_TRUE((SimplifyDimExpr(bc2) == mul));
 }
 
 TEST(Simplify, Case1) {
