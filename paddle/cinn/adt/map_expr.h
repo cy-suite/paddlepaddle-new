@@ -19,6 +19,7 @@
 #include "paddle/cinn/adt/adapter_dynamic_tensor.h"
 #include "paddle/cinn/adt/adapter_tensor.h"
 #include "paddle/cinn/adt/adt.h"
+#include "paddle/cinn/adt/arithmetic.h"
 #include "paddle/cinn/adt/equation_value.h"
 #include "paddle/cinn/adt/logical.h"
 #include "paddle/cinn/adt/schedule_descriptor.h"

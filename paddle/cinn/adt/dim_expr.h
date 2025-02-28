@@ -16,6 +16,7 @@
 
 #include <ostream>
 #include "paddle/cinn/adt/adt.h"
+#include "paddle/cinn/adt/arithmetic.h"
 #include "paddle/cinn/adt/logical.h"
 #include "paddle/cinn/adt/symbolic_dim.h"
 #include "paddle/pir/include/dialect/shape/utils/dim_expr.h"
