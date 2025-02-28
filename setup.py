@@ -1161,19 +1161,10 @@ def get_paddle_extra_install_requirements():
                     "nvidia-cuda-runtime-cu12==12.3.101 | "
                     "nvidia-cudnn-cu12==9.1.1.17 | "
                     "nvidia-cublas-cu12==12.3.4.1 | "
-                    "nvidia-cufft-cu12==11.3.0.4 | "
+                    "nvidia-cufft-cu12==11.2.1.3 | "
                     "nvidia-curand-cu12==10.3.5.147 | "
                     "nvidia-cusolver-cu12==11.6.1.9 | "
                     "nvidia-cusparse-cu12==12.3.1.170 "
-                ),
-                "12.6": (
-                    "nvidia-cuda-runtime-cu12==12.6.77 | "
-                    "nvidia-cudnn-cu12==9.5.1.17 | "
-                    "nvidia-cublas-cu12==12.6.4.1 | "
-                    "nvidia-cufft-cu12==11.3.0.4 | "
-                    "nvidia-curand-cu12==10.3.7.77 | "
-                    "nvidia-cusolver-cu12==11.7.1.2 | "
-                    "nvidia-cusparse-cu12==12.5.4.2 "
                 ),
             }
         try:
