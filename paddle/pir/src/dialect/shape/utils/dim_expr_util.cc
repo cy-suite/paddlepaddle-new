@@ -1005,54 +1005,35 @@ struct FoldRedundantBroadcast {
   }
 };
 
-/*
- * Simplify Example:
- * Broadcast(S0, Mul(S0, S1)) => Mul(S0, S1)
- */
-struct SimplifyBroadcast {
-  using dim_expr_type = Broadcast<DimExpr>;
+bool IsLhsGreatThanRhs(const DimExpr& lhs, const DimExpr& rhs) {
+  auto LhsOperandsVisitor = common::Overloaded{
+      [&](const Mul<DimExpr>& mul) {
+        bool lhs_great_than_rhs = false;
+        for (const auto& expr : *mul.operands) {
+          if (expr == rhs)
+            lhs_great_than_rhs = true;
+          else if (!expr.isa<std::int64_t>() && !expr.isa<std::string>())
+            return false;
+        }
+        return lhs_great_than_rhs;
+      },
+      [&](const Add<DimExpr>& add) {
+        bool lhs_great_than_rhs = false;
+        for (const auto& expr : *add.operands) {
+          if (expr == rhs)
+            lhs_great_than_rhs = true;
+          else if (!expr.isa<std::int64_t>() && !expr.isa<std::string>())
+            return false;
+        }
+        return lhs_great_than_rhs;
+      },
+      [&](const auto& lhs) { return false; }};
+  return std::visit(LhsOperandsVisitor, lhs.variant());
+}
 
-  DimExpr Rewrite(const DimExpr& expr) {
-    auto [operands] = expr.Get<Broadcast<DimExpr>>();
-    while (operands->size() > 1) {
-      int pos_erasable = SearchErasable(operands);
-      if (pos_erasable < 0) break;
-      operands->erase(operands->begin() + pos_erasable);
-    }
-    if (operands->size() == 1) {
-      return operands->at(0);
-    } else {
-      return Broadcast<DimExpr>{operands};
-    }
-  }
-
-  bool IsLhsGreatThanRhs(const DimExpr& lhs, const DimExpr& rhs) {
-    auto LhsOperandsVisitor = common::Overloaded{
-        [&](const Mul<DimExpr>& mul) {
-          bool lhs_great_than_rhs = false;
-          for (const auto& expr : *mul.operands) {
-            if (expr == rhs)
-              lhs_great_than_rhs = true;
-            else if (!expr.isa<std::int64_t>() && !expr.isa<std::string>())
-              return false;
-          }
-          return lhs_great_than_rhs;
-        },
-        [&](const Add<DimExpr>& add) {
-          bool lhs_great_than_rhs = false;
-          for (const auto& expr : *add.operands) {
-            if (expr == rhs)
-              lhs_great_than_rhs = true;
-            else if (!expr.isa<std::int64_t>() && !expr.isa<std::string>())
-              return false;
-          }
-          return lhs_great_than_rhs;
-        },
-        [&](const auto& lhs) { return false; }};
-    return std::visit(LhsOperandsVisitor, lhs.variant());
-  }
-
-  int SearchErasable(const List<DimExpr>& operands) {
+template <template <typename> class Op>
+struct SubstituteTrait {
+  static int SearchErasable(const List<DimExpr>& operands) {
     for (std::size_t i = 0; i < operands->size() - 1; ++i) {
       for (std::size_t j = i + 1; j < operands->size(); ++j) {
         if (IsLhsGreatThanRhs(operands->at(i), operands->at(j))) {
@@ -1063,6 +1044,46 @@ struct SimplifyBroadcast {
       }
     }
     return -1;
+  }
+};
+
+template <>
+struct SubstituteTrait<Min> {
+  static int SearchErasable(const List<DimExpr>& operands) {
+    for (std::size_t i = 0; i < operands->size() - 1; ++i) {
+      for (std::size_t j = i + 1; j < operands->size(); ++j) {
+        if (IsLhsGreatThanRhs(operands->at(i), operands->at(j))) {
+          return i;
+        } else if (IsLhsGreatThanRhs(operands->at(j), operands->at(i))) {
+          return j;
+        }
+      }
+    }
+    return -1;
+  }
+};
+
+/*
+ * Simplify Example:
+ * Broadcast(S0, Mul(S0, S1)) => Mul(S0, S1)
+ */
+template <template <typename> class Op>
+struct SimplifyWithObviousGreaterThan {
+  using dim_expr_type = Op<DimExpr>;
+
+  DimExpr Rewrite(const DimExpr& expr) {
+    auto [operands] = expr.Get<Op<DimExpr>>();
+    while (operands->size() > 1) {
+      int pos_erasable = SubstituteTrait<Op>::SearchErasable(operands);
+      if (pos_erasable < 0) break;
+      operands->erase(operands->begin() + pos_erasable);
+
+      if (operands->size() == 1) {
+        return operands->at(0);
+      } else {
+        return Op<DimExpr>{operands};
+      }
+    }
   }
 };
 
@@ -1246,7 +1267,9 @@ DimExpr Simplify(const DimExpr& expr) {
     DoPass<FoldInversedPairToUnit<Add>>(&keep_rewrite, &ret);
     DoPass<FoldRedundantBroadcast>(&keep_rewrite, &ret);
     DoPass<FoldRedundantSymbolicBroadcast>(&keep_rewrite, &ret);
-    DoPass<SimplifyBroadcast>(&keep_rewrite, &ret);
+    DoPass<SimplifyWithObviousGreaterThan<Broadcast>>(&keep_rewrite, &ret);
+    DoPass<SimplifyWithObviousGreaterThan<Min>>(&keep_rewrite, &ret);
+    DoPass<SimplifyWithObviousGreaterThan<Max>>(&keep_rewrite, &ret);
     DoPass<SimplifyDiv>(&keep_rewrite, &ret);
     if (expr_before_run_pipeline == ret) break;
   }

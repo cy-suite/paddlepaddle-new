@@ -210,6 +210,20 @@ TEST(Simplify, FoldRedundantBroadcast) {
   ASSERT_TRUE((simplify_bc == Broadcast<DimExpr>{{S0, S1}}));
 }
 
+TEST(Simplify, SimplifyWithObviousGreaterThan) {
+  DimExpr S0{"S0"};
+  DimExpr S1{"S1"};
+  DimExpr S2{'S2'};
+  DimExpr add1{Add<DimExpr>{{S0, S1}}};
+  DimExpr max{Max<DimExpr>{{S0, add1, S2}}};
+  DimExpr min{Min<DimExpr>{{S0, add1, S2}}};
+  DimExpr bc{Broadcast<DimExpr>{{S0, add1, S2}}};
+
+  ASSERT_TRUE((SimplifyDimExpr(max) == Max<DimExpr>{{add1, S2}}));
+  ASSERT_TRUE((SimplifyDimExpr(min) == Min<DimExpr>{{S0, S2}}));
+  ASSERT_TRUE((SimplifyDimExpr(bc) == Broadcast<DimExpr>{{add1, S2}}));
+}
+
 TEST(Simplify, Case1) {
   // Div(Mul(Div(Mul(Broadcast(S11, S8), Broadcast(S10, S13, S4, S7),
   // Broadcast(S12, S3, S6, S9)), S0)), 16), 49)
