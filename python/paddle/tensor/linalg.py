@@ -3594,7 +3594,7 @@ def lu_solve(
 
         pivots (Tensor): Permutation matrix P of LU decomposition. It has shape :math:`(*, m)`, where :math:`*` is batch dimensions, that can be converted to a permutation matrix P, with data type int32.
 
-        trans (str): The transpose of the matrix A. It can be "N" , "T" or "C", default is "N".
+        trans (str): The transpose of the matrix A. It can be "N" , "T" or "C", "N" means :math:`Ax=b`, "T" means :math:`A^Tx=b`, "C" means :math:`A^Hx=b`, default is "N".
 
     Returns:
         Tensor, the same data type as the `b` and `lu`.
