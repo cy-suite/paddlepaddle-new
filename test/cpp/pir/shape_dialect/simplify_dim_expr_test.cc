@@ -215,9 +215,9 @@ TEST(Simplify, SimplifyWithObviousGreaterThan) {
   DimExpr S1{"S1"};
   DimExpr S2{"S2"};
   DimExpr add{Add<DimExpr>{{S0, S1}}};
-  DimExpr max1{Max<DimExpr>{{S0, add1, S2}}};
-  DimExpr min1{Min<DimExpr>{{S0, add1, S2}}};
-  DimExpr bc1{Broadcast<DimExpr>{{S0, add1, S2}}};
+  DimExpr max1{Max<DimExpr>{{S0, add, S2}}};
+  DimExpr min1{Min<DimExpr>{{S0, add, S2}}};
+  DimExpr bc1{Broadcast<DimExpr>{{S0, add, S2}}};
   ASSERT_TRUE((SimplifyDimExpr(max1) == Max<DimExpr>{{add, S2}}));
   ASSERT_TRUE((SimplifyDimExpr(min1) == Min<DimExpr>{{S0, S2}}));
   ASSERT_TRUE((SimplifyDimExpr(bc1) == Broadcast<DimExpr>{{add, S2}}));
