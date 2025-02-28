@@ -37,6 +37,11 @@ class TestDeepCopy(Dy2StTestBase):
 
         self.assertIsInstance(copy_net.forward, StaticFunction)
         self.assertIsNot(net.forward, copy_net.forward)
+        self.assertIsNot(
+            net.forward.class_instance, copy_net.forward.class_instance
+        )
+        self.assertIs(net, net.forward.class_instance)
+        self.assertIs(copy_net, copy_net.forward.class_instance)
         np.testing.assert_array_equal(src_out.numpy(), copy_out.numpy())
 
         copy_net.forward.rollback()
