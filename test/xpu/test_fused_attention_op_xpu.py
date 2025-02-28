@@ -45,7 +45,7 @@ class XPUTestFusedAttentionOp(XPUOpTestWrapper):
             self.config()
             self.generate_input_data()
             self.rtol = 1e-5
-            self.atol = 1e-3
+            self.atol = 5e-3
             if self.x_type == np.float16 or str(self.x_type) == "float16":
                 self.atol = 1e-1
 

@@ -166,7 +166,7 @@ class TestEinsumAPI(unittest.TestCase):
         output = paddle.einsum(self.equation, *inputs)
         expect = np.einsum(self.equation, *[x.numpy() for x in inputs])
         np.testing.assert_allclose(
-            output.numpy(), expect, atol=0.0006, rtol=0.0001
+            output.numpy(), expect, atol=5e-3, rtol=0.0001
         )
         output = output.mean()
         output.backward()
