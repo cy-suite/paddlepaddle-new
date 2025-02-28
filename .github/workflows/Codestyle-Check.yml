@@ -6,7 +6,6 @@ on:
 
 jobs:
   check-bypass:
-    name: Check bypass
     uses: ./.github/workflows/check-bypass.yml
     with:
       workflow-name: 'codestyle'
@@ -14,7 +13,6 @@ jobs:
       github-token: ${{ secrets.GITHUB_TOKEN }}
 
   pre-commit:
-    name: Pre Commit
     needs: check-bypass
     if: ${{ github.repository_owner == 'PaddlePaddle' && needs.check-bypass.outputs.can-skip != 'true' }}
     runs-on: ubuntu-latest
@@ -49,5 +47,5 @@ jobs:
           SKIP_CLANG_TIDY_CHECK: "ON"
         run: |
           set +e
-          bash -x  tools/codestyle/pre_commit.sh;EXCODE=$?
+          bash -x tools/codestyle/pre_commit.sh;EXCODE=$?
           exit $EXCODE
