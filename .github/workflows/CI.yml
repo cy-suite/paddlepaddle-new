@@ -15,7 +15,7 @@ env:
   COMMIT_ID: ${{ github.event.pull_request.head.sha }}
 
 jobs:
-  clone:
+  Clone:
     uses: ./.github/workflows/_Clone-linux.yml
 
   SOT:
