@@ -307,7 +307,11 @@ def pipeline_parallel(model, optimizer=None, config=None):
                 ]
             )
     else:
+        sublayer_names = [name for name, _ in model.named_sublayers()]
         split_spec_dict = split_spec
+        for key, value in split_spec_dict.items():
+            assert key in sublayer_names, "wrong split point"
+            assert value is SplitPoint.END, "wrong split point flag"
 
     logger.info(
         f"split_spec_dict: {split_spec_dict}, matched_layer_name: {matched_layer_name}"
