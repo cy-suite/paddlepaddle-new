@@ -474,8 +474,6 @@ void Simplify(Expr* expr) {
   SimplifyLogicalMutator()(expr);
   SimplifyIfThenElseMutator()(expr);
   SimplifySelectMutator()(expr);
-  SimplifyUnitLoopMutator()(expr);
-  SimplifyUnitBlockMutator()(expr);
   SimplifyNoPureMathMutator()(expr);
   VLOG(6) << "End Simplify " << *expr;
 }
