@@ -719,6 +719,7 @@ class StaticFunction(Generic[_InputT, _RetT]):
             copied_static_fn = type(self)(
                 self._dygraph_function, self._input_spec, **self._kwargs
             )
+            copied_static_fn._patched_name = self._patched_name
             return copied_static_fn.__get__(
                 memo[id(self.class_instance)], type(self.class_instance)
             )
