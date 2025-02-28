@@ -647,7 +647,7 @@ def create_zip(*var: VariableBase):
 # map
 @Dispatcher.register_decorator(map)
 def create_map(func: CallableVariable, *var: VariableBase):
-    tracked_vars = [func, list(var)]
+    tracked_vars = [func, *var]
     return MapVariable.from_iterator(
         func, var, graph=Dispatcher.graph, tracker=DummyTracker(tracked_vars)
     )
