@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include <atomic>
-#include "gtest/gtest.h"
 #include "paddle/pir/include/dialect/shape/utils/dim_expr_util.h"
 
 namespace symbol::test {
@@ -202,12 +201,18 @@ TEST(Simplify, FoldBroadcast) {
   ASSERT_TRUE(simplify_broadcast3 == add);
 }
 
-TEST(Simplify, FoldRedundantBroadcast) {
+TEST(Simplify, FoldRepetitiveSymbol) {
   DimExpr S0{"S0"};
   DimExpr S1{"S1"};
   DimExpr bc{Broadcast<DimExpr>{{S0, S0, S1, S1}}};
+  DimExpr max{Max<DimExpr>{{S0, S0, S1, S1}}};
+  DimExpr min{Min<DimExpr>{{S0, S0, S1, S1}}};
   DimExpr simplify_bc = SimplifyDimExpr(bc);
+  DimExpr simplify_max = SimplifyDimExpr(max);
+  DimExpr simplify_min = SimplifyDimExpr(min);
   ASSERT_TRUE((simplify_bc == Broadcast<DimExpr>{{S0, S1}}));
+  ASSERT_TRUE((simplify_max == Max<DimExpr>{{S0, S1}}));
+  ASSERT_TRUE((simplify_min == Min<DimExpr>{{S0, S1}}));
 }
 
 TEST(Simplify, SimplifyWithObviousGreaterThan) {
