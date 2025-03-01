@@ -27,6 +27,12 @@ template <typename T, typename Context>
 void InverseKernel(const Context& dev_ctx,
                    const DenseTensor& x,
                    DenseTensor* out) {
+  if (x.numel() == 0) {
+    out->Resize(x.dims());
+    dev_ctx.template Alloc<T>(out);
+    return;
+  }
+
   dev_ctx.template Alloc<T>(out);
 
   phi::funcs::MatrixInverseFunctor<Context, T> mat_inv;
