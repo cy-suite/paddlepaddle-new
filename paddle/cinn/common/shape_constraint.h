@@ -16,24 +16,33 @@
 #include <vector>
 #include "paddle/cinn/ir/ir.h"
 #include "paddle/cinn/ir/ir_base.h"
+#include "paddle/cinn/ir/utils/ir_compare.h"
 #include "paddle/common/union_find_set.h"
 #include "paddle/pir/include/dialect/shape/utils/dim_expr.h"
 namespace cinn {
 namespace common {
 
+struct IndexExprDirectCompare {
+  bool operator()(const ir::IndexExpr& a, const ir::IndexExpr& b) const {
+    return ir::ir_utils::IRCompare(a, b, false, false, false);
+  }
+};
+
 class ShapeConstraintManager {
  public:
   static ShapeConstraintManager& Instance();
   void Init(const ::common::UnionFindSet<symbol::DimExpr>& equal_dim_exprs);
-  void Init(const ::common::UnionFindSet<ir::IndexExpr>& equal_exprs);
+  void Init(const ::common::UnionFindSet<ir::IndexExpr, IndexExprDirectCompare>&
+                equal_exprs);
   bool IsEqual(const ir::IndexExpr& lhs, const ir::IndexExpr& rhs);
   const ::common::UnionFindSet<symbol::DimExpr>& GetDimExprEqual() const;
-  const ::common::UnionFindSet<ir::IndexExpr>& GetEqualExprs() const;
+  const ::common::UnionFindSet<ir::IndexExpr, IndexExprDirectCompare>&
+  GetEqualExprs() const;
 
  private:
   ::common::UnionFindSet<symbol::DimExpr> equal_dim_exprs_;
-  ::common::UnionFindSet<ir::IndexExpr> equal_exprs_;
-  ShapeConstraintManager() = default;  // 私有构造函数
+  ::common::UnionFindSet<ir::IndexExpr, IndexExprDirectCompare> equal_exprs_;
+  ShapeConstraintManager() = default;
   ~ShapeConstraintManager() = default;
   ShapeConstraintManager(const ShapeConstraintManager&) = delete;
   ShapeConstraintManager(ShapeConstraintManager&&) = delete;

@@ -14,6 +14,7 @@
 #include "paddle/cinn/common/shape_constraint.h"
 #include "paddle/cinn/common/dim_expr_converter.h"
 #include "paddle/cinn/ir/ir_printer.h"
+#include "paddle/cinn/ir/utils/ir_compare.h"
 
 namespace cinn {
 namespace common {
@@ -26,7 +27,7 @@ void ShapeConstraintManager::Init(
   equal_dim_exprs_ = equal_dim_exprs;
   // need to convert DimExpr to IndexExpr
   DimExprConverter cvt;
-  ::common::UnionFindSet<ir::IndexExpr> transfer_set;
+  ::common::UnionFindSet<ir::IndexExpr, IndexExprDirectCompare> transfer_set;
   equal_dim_exprs.VisitCluster(
       [&transfer_set, &cvt](const std::vector<symbol::DimExpr>& cluster) {
         ir::IndexExpr first_elem;
@@ -42,7 +43,8 @@ void ShapeConstraintManager::Init(
   equal_exprs_ = std::move(transfer_set);
 }
 void ShapeConstraintManager::Init(
-    const ::common::UnionFindSet<ir::IndexExpr>& equal_exprs) {
+    const ::common::UnionFindSet<ir::IndexExpr, IndexExprDirectCompare>&
+        equal_exprs) {
   equal_exprs_ = equal_exprs;
 }
 bool ShapeConstraintManager::IsEqual(const ir::IndexExpr& lhs,
@@ -53,7 +55,7 @@ const ::common::UnionFindSet<symbol::DimExpr>&
 ShapeConstraintManager::GetDimExprEqual() const {
   return equal_dim_exprs_;
 }
-const ::common::UnionFindSet<ir::IndexExpr>&
+const ::common::UnionFindSet<ir::IndexExpr, IndexExprDirectCompare>&
 ShapeConstraintManager::GetEqualExprs() const {
   return equal_exprs_;
 }

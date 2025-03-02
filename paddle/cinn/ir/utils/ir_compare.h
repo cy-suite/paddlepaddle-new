@@ -27,9 +27,11 @@ namespace ir_utils {
 class IrEqualVisitor : public IRVisitorRequireReImpl<bool, const Expr*> {
  public:
   explicit IrEqualVisitor(bool allow_name_suffix_diff = false,
-                          bool only_compare_structure = false)
+                          bool only_compare_structure = false,
+                          bool use_index_compare = true)
       : allow_name_suffix_diff_(allow_name_suffix_diff),
-        only_compare_structure_(only_compare_structure) {}
+        only_compare_structure_(only_compare_structure),
+        use_index_compare_(use_index_compare) {}
   // Return true if they are equal, otherwise false;
   bool Compare(const Expr& lhs, const Expr& rhs);
 
@@ -62,11 +64,16 @@ class IrEqualVisitor : public IRVisitorRequireReImpl<bool, const Expr*> {
   bool allow_name_suffix_diff_ = false;
   // not compare name field of Expr
   bool only_compare_structure_ = false;
+  // whether using IndexExpr compare function to compare expr, It is enabled by
+  // default, but can be disabled in some cases to avoid infinite loops.
+  bool use_index_compare_ = true;
 };
 
 bool IRCompare(const Expr& lhs,
                const Expr& rhs,
-               bool allow_name_suffix_diff = false);
+               bool allow_name_suffix_diff = false,
+               bool only_compare_structure = false,
+               bool use_index_compare = true);
 
 }  // namespace ir_utils
 }  // namespace ir

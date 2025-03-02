@@ -38,7 +38,7 @@ bool IrEqualVisitor::Compare(const Expr& lhs, const Expr& rhs) {
     VLOG(7) << "Not equal on Expr, someone not defined";
   }
   bool equal = lhs->node_type() == rhs->node_type();
-  if (lhs.is_index() && rhs.is_index())
+  if (use_index_compare_ && lhs.is_index() && rhs.is_index())
     equal = equal && lhs.as_index() == rhs.as_index();
   else
     equal =
@@ -423,8 +423,13 @@ bool IrEqualVisitor::Visit(const IterSum* lhs, const Expr* other) {
   return lhs->base == rhs->base;
 }
 
-bool IRCompare(const Expr& lhs, const Expr& rhs, bool allow_name_suffix_diff) {
-  IrEqualVisitor ir_equal_visitor(allow_name_suffix_diff);
+bool IRCompare(const Expr& lhs,
+               const Expr& rhs,
+               bool allow_name_suffix_diff,
+               bool only_compare_structure,
+               bool use_index_compare) {
+  IrEqualVisitor ir_equal_visitor(
+      allow_name_suffix_diff, only_compare_structure, use_index_compare);
   return ir_equal_visitor.Compare(lhs, rhs);
 }
 
