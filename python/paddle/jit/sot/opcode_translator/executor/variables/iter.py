@@ -236,10 +236,7 @@ class MapVariable(SequenceIterVariable):
         for iter_var in self.hold:
             next_var = iter_var.next()
             values.append(next_var)
-        result = self.func(*values)
-        return VariableFactory.from_value(
-            result, self.graph, DummyTracker(values)
-        )
+        return self.func(*values)
 
     def to_list(self) -> list:
         lists = [iter_vars.to_list() for iter_vars in self.hold]
