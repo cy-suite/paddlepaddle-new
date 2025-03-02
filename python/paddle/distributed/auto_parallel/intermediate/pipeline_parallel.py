@@ -159,24 +159,26 @@ class PipelineParallel(ParallelModel):
                 )
                 layer.register_forward_pre_hook(forward_pre_hook)
 
-        self.process_global_mesh_layers()
+        self.register_reshard_mesh_hook()
         return model
 
-    def process_global_mesh_layers(self):
+    def register_reshard_mesh_hook(self):
         def forward_pre_hook(layer, args, kwargs):
             pp_idx = getattr(layer, "pipeline_stage_index", 0)
             new_args = []
             new_kwargs = {}
 
-            def rshard_if_mesh_not_match(t):
+            def rshard_if_mesh_not_match(arg):
                 if (
-                    t is not None
-                    and is_tensor(t)
-                    and t.is_dist()
-                    and t.process_mesh != self.get_mesh(pp_idx)
+                    arg is not None
+                    and is_tensor(arg)
+                    and arg.is_dist()
+                    and arg.process_mesh != self.get_mesh(pp_idx)
                 ):
-                    return dist.reshard(t, self.get_mesh(pp_idx), t.placements)
-                return t
+                    return dist.reshard(
+                        arg, self.get_mesh(pp_idx), arg.placements
+                    )
+                return arg
 
             for arg in args:
                 new_args.append(rshard_if_mesh_not_match(arg))
@@ -184,7 +186,7 @@ class PipelineParallel(ParallelModel):
             for key, arg in kwargs.items():
                 new_kwargs[key] = rshard_if_mesh_not_match(arg)
 
-            return (new_args, new_kwargs)
+            return (tuple(new_args), new_kwargs)
 
         for _, layer in self.name_to_layer.items():
             layer.register_forward_pre_hook(forward_pre_hook, with_kwargs=True)
