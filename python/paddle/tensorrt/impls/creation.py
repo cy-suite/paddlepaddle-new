@@ -111,19 +111,35 @@ def assign_value_converter(network, paddle_op, inputs):
 @converter_registry.register("pd_op.arange", trt_version="8.x")
 def arange_converter(network, paddle_op, inputs):
     start, end, step = inputs
-    zero_tensor = add_1D_constant_layer(network, 0, name=[paddle_op.name(), 'zero_tensor'])
+    zero_tensor = add_1D_constant_layer(
+        network, 0, name=[paddle_op.name(), 'zero_tensor']
+    )
 
     delta = trt_sub(network, start, end, name=[paddle_op.name(), 'delta'])
 
-    f_quotient_tensor = trt_floor_div(network, delta, step, name=[paddle_op.name(), 'f_quotient_tensor'])
+    f_quotient_tensor = trt_floor_div(
+        network, delta, step, name=[paddle_op.name(), 'f_quotient_tensor']
+    )
 
     if start.dtype == trt.DataType.FLOAT:
-        quotient_tensor = trt_cast(network, f_quotient_tensor, trt.int32, name=[paddle_op.name(), 'quotient_tensor'])
+        quotient_tensor = trt_cast(
+            network,
+            f_quotient_tensor,
+            trt.int32,
+            name=[paddle_op.name(), 'quotient_tensor'],
+        )
     else:
         quotient_tensor = f_quotient_tensor
 
-    delta_1 = trt_sub(network, zero_tensor, quotient_tensor, name=[paddle_op.name(), 'delta_1'])
-    number_tensor = trt_max(network, delta_1, zero_tensor, name=[paddle_op.name(), 'number_tensor'])
+    delta_1 = trt_sub(
+        network,
+        zero_tensor,
+        quotient_tensor,
+        name=[paddle_op.name(), 'delta_1'],
+    )
+    number_tensor = trt_max(
+        network, delta_1, zero_tensor, name=[paddle_op.name(), 'number_tensor']
+    )
     start1 = inputs[0]
     start1 = trt_reshape(network, start1, (), name=[paddle_op.name(), 'start1'])
 
@@ -135,7 +151,12 @@ def arange_converter(network, paddle_op, inputs):
 
     output_tensor = fill_layer.get_output(0)
     if start.dtype == trt.DataType.FLOAT:
-        output_tensor = trt_cast(network, output_tensor, trt.int32, name=[paddle_op.name(), 'output_tensor'])
+        output_tensor = trt_cast(
+            network,
+            output_tensor,
+            trt.int32,
+            name=[paddle_op.name(), 'output_tensor'],
+        )
     return output_tensor
 
 
@@ -170,18 +191,35 @@ def full_like_converter(network, paddle_op, inputs):
             value = value[0] if value else 0
 
         if target_dtype == trt.int32:
-            value_tensor = add_1D_constant_layer(network, int(value), np.int32, name=[paddle_op.name(), 'value_tensor'])
+            value_tensor = add_1D_constant_layer(
+                network,
+                int(value),
+                np.int32,
+                name=[paddle_op.name(), 'value_tensor'],
+            )
         else:
             value_tensor = add_1D_constant_layer(
-                network, float(value), np.float32, name=[paddle_op.name(), 'value_tensor']
+                network,
+                float(value),
+                np.float32,
+                name=[paddle_op.name(), 'value_tensor'],
             )
     else:
         value_tensor = inputs[1]
         if value_tensor.dtype != target_dtype:
-            value_tensor = trt_cast(network, value_tensor, target_dtype, name=[paddle_op.name(), 'value_tensor'])
+            value_tensor = trt_cast(
+                network,
+                value_tensor,
+                target_dtype,
+                name=[paddle_op.name(), 'value_tensor'],
+            )
 
-    shape_tensor = trt_shape(network, input_tensor, name=[paddle_op.name(), 'shape_tensor'])
-    one_rank_tensor = add_1D_constant_layer(network, [1] * ndims, name=[paddle_op.name(), 'one_rank_tensor'])
+    shape_tensor = trt_shape(
+        network, input_tensor, name=[paddle_op.name(), 'shape_tensor']
+    )
+    one_rank_tensor = add_1D_constant_layer(
+        network, [1] * ndims, name=[paddle_op.name(), 'one_rank_tensor']
+    )
     input_shape_tensor = one_rank_tensor
 
     shuffle_layer = network.add_shuffle(value_tensor)
@@ -191,11 +229,30 @@ def full_like_converter(network, paddle_op, inputs):
     size = trt.Dims([1] * ndims)
     stride = trt.Dims([1] * ndims)
 
-    starts_tensor = add_1D_constant_layer(network, [0] * ndims, name=[paddle_op.name(), 'starts_tensor'])
-    one_tensor = add_1D_constant_layer(network, 1, name=[paddle_op.name(), 'one_tensor'])
-    sizes_tensor = trt_max(network, input_shape_tensor, shape_tensor, name=[paddle_op.name(), 'sizes_tensor'])
-    input_sub_tensor = trt_sub(network, input_shape_tensor, one_tensor, name=[paddle_op.name(), 'input_sub_tensor'])
-    strides_tensor = trt_min(network, one_tensor, input_sub_tensor, name=[paddle_op.name(), 'strides_tensor'])
+    starts_tensor = add_1D_constant_layer(
+        network, [0] * ndims, name=[paddle_op.name(), 'starts_tensor']
+    )
+    one_tensor = add_1D_constant_layer(
+        network, 1, name=[paddle_op.name(), 'one_tensor']
+    )
+    sizes_tensor = trt_max(
+        network,
+        input_shape_tensor,
+        shape_tensor,
+        name=[paddle_op.name(), 'sizes_tensor'],
+    )
+    input_sub_tensor = trt_sub(
+        network,
+        input_shape_tensor,
+        one_tensor,
+        name=[paddle_op.name(), 'input_sub_tensor'],
+    )
+    strides_tensor = trt_min(
+        network,
+        one_tensor,
+        input_sub_tensor,
+        name=[paddle_op.name(), 'strides_tensor'],
+    )
 
     layer = network.add_slice(shuffle_layer.get_output(0), start, size, stride)
     layer.set_input(1, starts_tensor)
@@ -206,7 +263,9 @@ def full_like_converter(network, paddle_op, inputs):
     output = layer.get_output(0)
 
     if output.dtype != target_dtype:
-        output = trt_cast(network, output, target_dtype, name=[paddle_op.name(), 'output'])
+        output = trt_cast(
+            network, output, target_dtype, name=[paddle_op.name(), 'output']
+        )
 
     return output
 
@@ -266,7 +325,9 @@ def full_with_tensor_converter(network, paddle_op, inputs):
             shape_tensors = []
             for tensor in shape_tensor_list:
                 if len(tensor.shape) == 0:
-                    tensor = trt_reshape(network, tensor, (1,), name=[paddle_op.name(), "tensor"])
+                    tensor = trt_reshape(
+                        network, tensor, (1,), name=[paddle_op.name(), "tensor"]
+                    )
                 shape_tensors.append(tensor)
 
             concat_layer = network.add_concatenation(shape_tensors)
@@ -274,20 +335,29 @@ def full_with_tensor_converter(network, paddle_op, inputs):
             shapes_tensor = concat_layer.get_output(0)
             tensor_rank = len(shape_tensors)
 
-        shapes_tensor = resize_to_1d(network, shapes_tensor, name=[paddle_op.name(), "shapes_tensor"])
+        shapes_tensor = resize_to_1d(
+            network, shapes_tensor, name=[paddle_op.name(), "shapes_tensor"]
+        )
         fill_layer = network.add_fill(shape=(), op=trt.FillOperation.LINSPACE)
         fill_layer.set_input(0, shapes_tensor)
 
     if dtype == paddle.int32 or dtype == paddle.int64:
         beta_vec = [0] * tensor_rank
-        value_input = trt_reduce_to_scalar(network, value_input, name=[paddle_op.name(), 'value_input'])
+        value_input = trt_reduce_to_scalar(
+            network, value_input, name=[paddle_op.name(), 'value_input']
+        )
         fill_layer.set_input(1, value_input)
         fill_layer.set_input(
             2, add_1D_constant_layer(network, beta_vec, np.int32)
         )
     elif dtype == paddle.float32:
         beta_vec = [0.0] * tensor_rank
-        value_input = trt_reduce_to_scalar(network, value_input, trt.float32, name=[paddle_op.name(), 'value_input'])
+        value_input = trt_reduce_to_scalar(
+            network,
+            value_input,
+            trt.float32,
+            name=[paddle_op.name(), 'value_input'],
+        )
         fill_layer.set_input(1, value_input)
         fill_layer.set_input(
             2, add_1D_constant_layer(network, beta_vec, np.float32)
