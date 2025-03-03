@@ -14,8 +14,8 @@
 
 #pragma once
 #include <optional>
-#include "paddle/cinn/common/cas.h"
 #include "paddle/cinn/ir/ir.h"
+#include "paddle/cinn/optim/ir_simplify.h"
 
 namespace cinn {
 namespace common {

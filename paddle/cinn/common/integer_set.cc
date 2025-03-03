@@ -316,11 +316,6 @@ std::optional<bool> SymbolicExprAnalyzer::ProveDivisible(
         });
         res = OptionalAnd(res, is_ge);
         return res;
-      case cinn::ir::IrNodeTy::FracOp:
-        tmp_expr = cinn::common::AutoSimplify(lhs);
-        if (tmp_expr.node_type() == cinn::ir::IrNodeTy::FracOp)
-          return std::nullopt;
-        return OptionalAnd(ProveDivisible(tmp_expr, rhs), is_ge);
       case cinn::ir::IrNodeTy::FloatImm:
         return false;
       case cinn::ir::IrNodeTy::Add:
@@ -334,7 +329,7 @@ std::optional<bool> SymbolicExprAnalyzer::ProveDivisible(
                         ProveDivisible(lhs.As<ir::Sub>()->b(), rhs)),
             is_ge);
       case cinn::ir::IrNodeTy::Div:
-        tmp_expr = cinn::common::AutoSimplify(lhs);
+        tmp_expr = optim::ArithSimplify(lhs);
         if (tmp_expr.node_type() == cinn::ir::IrNodeTy::Div)
           return std::nullopt;
         return OptionalAnd(ProveDivisible(tmp_expr, rhs), is_ge);
