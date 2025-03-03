@@ -310,13 +310,16 @@ def resize_to_1d(network, shape_tensor, name=None):
 
 
 # Get element tensor of 1D shape tensor
-def get_shape_tensor_element(network, x, index, is_scalar=False):
+def get_shape_tensor_element(network, x, index, is_scalar=False, name=None):
     assert (
         index >= 0
     ), f"The index should be greater or equal than 0, but got {index}"
-    index_tensor = add_1D_constant_layer(network, index, is_scalar=is_scalar)
+    index_tensor_name = [name[0], "index_tensor"] if name is not None else None
+    index_tensor = add_1D_constant_layer(network, index, is_scalar=is_scalar, name=index_tensor_name)
     gather_layer = network.add_gather(input=x, indices=index_tensor, axis=0)
-    shape_tensor = resize_to_1d(network, gather_layer.get_output(0))
+    if name is not None:
+        set_layer_name(gather_layer, [name[0], "gather_layer"])
+    shape_tensor = resize_to_1d(network, gather_layer.get_output(0), name=name)
     return shape_tensor
 
 
