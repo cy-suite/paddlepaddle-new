@@ -51,14 +51,7 @@ struct CasInterval {
   // Note: not verify l <= r and (e_l, e_r) has higher priority than (l, r)
   ir::Expr e_l, e_r;
 
-  friend std::ostream& operator<<(std::ostream& os, const CasInterval& i) {
-    if (i.e_l.defined() && i.e_r.defined()) {
-      os << "Expr e_l Interval[" << i.e_l << ", " << i.e_r << "]";
-    } else {
-      os << "Int l Interval[" << i.l << ", " << i.r << "]";
-    }
-    return os;
-  }
+  friend std::ostream& operator<<(std::ostream& os, const CasInterval& i);
 };
 
 using cas_intervals_t = absl::flat_hash_map<std::string, CasInterval>;
