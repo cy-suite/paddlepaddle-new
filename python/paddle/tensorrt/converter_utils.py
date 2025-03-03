@@ -413,8 +413,9 @@ def trt_floor_div(network, a, b, name=None):
     return layer.get_output(0)
 
 
-def trt_equal(network, a, b):
+def trt_equal(network, a, b, name=None):
     layer = network.add_elementwise(a, b, trt.ElementWiseOperation.EQUAL)
+    set_layer_name(layer, name)
     return layer.get_output(0)
 
 
