@@ -1037,7 +1037,7 @@ class DygraphFunctionGeneratorBase(FunctionGeneratorBase):
                     err_msg += (
                         f"\n\nNOTE: '{self.backward_api_name}' is an invoke api, "
                         "please ensure that the parameters from `forward` "
-                        "are placed at the front in the `invoke` function's arguments.\n"
+                        "are placed at the front in the `args` section.\n"
                     )
                 raise AssertionError(err_msg)
             max_grad_tensor_position = max(max_grad_tensor_position, pos)
