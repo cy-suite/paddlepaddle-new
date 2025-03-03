@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from paddle.tensorrt.converter_utils import trt_shape, set_layer_name
+from paddle.tensorrt.converter_utils import set_layer_name, trt_shape
 from paddle.tensorrt.register import converter_registry
 
 
