@@ -492,10 +492,13 @@ def slice_converter(network, paddle_op, inputs):
             input_dim = get_shape_tensor_element(
                 network, input_shape_tensor, axis
             )
+            end_element = get_shape_tensor_element(network, ends, idx)
 
             ends_tensor[axes[idx]] = trt_min(
                 network,
-                trt_max(network, ends, add_1D_constant_layer(network, 0)),
+                trt_max(
+                    network, end_element, add_1D_constant_layer(network, 0)
+                ),
                 input_dim,
             )
     end_tensor = trt_concat(network, ends_tensor)
