@@ -336,18 +336,21 @@ def trt_max(network, a, b):
     return layer.get_output(0)
 
 
-def trt_sub(network, a, b):
+def trt_sub(network, a, b, name=None):
     layer = network.add_elementwise(a, b, trt.ElementWiseOperation.SUB)
+    set_layer_name(layer, name)
     return layer.get_output(0)
 
 
-def trt_min(network, a, b):
+def trt_min(network, a, b, name=None):
     layer = network.add_elementwise(a, b, trt.ElementWiseOperation.MIN)
+    set_layer_name(layer, name)
     return layer.get_output(0)
 
 
-def trt_div(network, a, b):
+def trt_div(network, a, b, name=None):
     layer = network.add_elementwise(a, b, trt.ElementWiseOperation.DIV)
+    set_layer_name(layer, name)
     return layer.get_output(0)
 
 
