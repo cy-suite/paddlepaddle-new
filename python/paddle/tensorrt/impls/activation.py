@@ -525,7 +525,7 @@ def prelu_converter(network, paddle_op, inputs):
                     trt_concat(
                         network,
                         [n_tensor, c_tensor],
-                        name=[paddle_op.name(), "shape_tensor"]
+                        name=[paddle_op.name(), "shape_tensor"],
                     ),
                 )
         else:
