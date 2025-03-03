@@ -339,8 +339,9 @@ def trt_sum(network, a, b, name=None):
     return layer.get_output(0)
 
 
-def trt_max(network, a, b):
+def trt_max(network, a, b, name=None):
     layer = network.add_elementwise(a, b, trt.ElementWiseOperation.MAX)
+    set_layer_name(layer, name)
     return layer.get_output(0)
 
 
@@ -362,8 +363,9 @@ def trt_div(network, a, b, name=None):
     return layer.get_output(0)
 
 
-def trt_floor_div(network, a, b):
+def trt_floor_div(network, a, b, name=None):
     layer = network.add_elementwise(a, b, trt.ElementWiseOperation.FLOOR_DIV)
+    set_layer_name(layer, name)
     return layer.get_output(0)
 
 
@@ -477,7 +479,7 @@ def map_trt_dtype(trt_dtype):
 
 
 # Reduce the given tensor in the TensorRT network to a scalar
-def trt_reduce_to_scalar(network, tensor, dtype=trt.int32):
+def trt_reduce_to_scalar(network, tensor, dtype=trt.int32, name=None):
     if len(tensor.shape) == 0:
         return tensor
     axes = 0
@@ -486,7 +488,10 @@ def trt_reduce_to_scalar(network, tensor, dtype=trt.int32):
     reduce_layer = network.add_reduce(
         tensor, trt.ReduceOperation.SUM, axes, keep_dims=False
     )
-    scalar = trt_cast(network, reduce_layer.get_output(0), dtype)
+    if name is not None:
+        set_layer_name(reduce_layer, [name[0], 'reduce_layer'])
+        scalar_name = name
+    scalar = trt_cast(network, reduce_layer.get_output(0), dtype, name=scalar_name)
     return scalar
 
 
