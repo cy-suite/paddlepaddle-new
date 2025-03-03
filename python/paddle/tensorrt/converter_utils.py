@@ -289,7 +289,10 @@ def trt_reshape(network, input, new_shape, name=None, is_shape_tensor=False):
     else:
         reshape_layer.reshape_dims = new_shape
     if name is not None:
-        set_layer_name(reshape_layer, name)
+        if isinstance(name, list):
+            set_layer_name(reshape_layer, name)
+        else:
+            reshape_layer.name = name
     return reshape_layer.get_output(0)
 
 
