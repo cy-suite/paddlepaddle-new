@@ -1674,7 +1674,7 @@
 
 - backward_op : index_select_double_grad
   forward : index_select_grad (Tensor x, Tensor index, Tensor grad_out, int axis) -> Tensor(grad_x)
-  args : (Tensor index, Tensor grad_x_grad, int axis = 0)
+  args : (Tensor index, Tensor grad_x_grad, int axis)
   output : Tensor(grad_out_grad)
   invoke : index_select(grad_x_grad, index, axis)
 
