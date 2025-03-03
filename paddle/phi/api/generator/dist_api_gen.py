@@ -84,7 +84,7 @@ AUTO_PARALLEL_COND_TEMPLATE = """
 """
 
 NCCL_COMMCONTEXT_INIT = """
-#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || defined(PADDLE_WITH_XPU_BKCL)
+#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || defined(PADDLE_WITH_XPU_BKCL) || defined(PADDLE_WITH_CUSTOM_DEVICE)
   const auto & comm_context_manager_ = phi::distributed::CommContextManager::GetInstance();
   if (nranks > 1 && !comm_context_manager_.Has(std::to_string(ring_id))) {{
     auto store = phi::distributed::CreateOrGetGlobalTCPStore();
@@ -94,7 +94,7 @@ NCCL_COMMCONTEXT_INIT = """
 """
 
 SET_NCCL_COMMCONTEXT = """
-#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || defined(PADDLE_WITH_XPU_BKCL)
+#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || defined(PADDLE_WITH_XPU_BKCL) || defined(PADDLE_WITH_CUSTOM_DEVICE)
   const auto & comm_context_manager = phi::distributed::CommContextManager::GetInstance();
   COMM_CONTEXT* comm_context = nullptr;
   if (comm_context_manager.Has(std::to_string(ring_id))) {{
