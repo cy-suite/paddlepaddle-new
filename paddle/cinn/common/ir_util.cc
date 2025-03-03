@@ -259,7 +259,10 @@ void Substitute(Expr *expr, const std::map<const ir::_Var_ *, Expr> &var_map) {
 }
 
 bool is_zero(Expr v) {
-  v = AutoSimplify(v);
+  // TODO(liujinnan): In the old simplification module, IR is converted to CAS
+  // format, so AutoSimplify is still used for CAS format, which will be
+  // completely deleted when CAS is retired.
+  v = v.is_index() ? optim::ArithSimplify(v) : AutoSimplify(v);
   auto *int_n = v.As<ir::IntImm>();
   auto *float_n = v.As<ir::FloatImm>();
 
@@ -274,8 +277,11 @@ Expr CastIfNeeded(Expr body, Type type) {
 }
 
 bool MathEqual(const Expr &a, const Expr &b) {
+  // TODO(liujinnan): In the old simplification module, IR is converted to CAS
+  // format, so AutoSimplify is still used for CAS format, which will be
+  // completely deleted when CAS is retired.
   auto c = a - b;
-  c = AutoSimplify(c);
+  c = c.is_index() ? optim::ArithSimplify(c) : AutoSimplify(c);
   return is_zero(c);
 }
 
@@ -849,6 +855,33 @@ bool CheckPattern(const ir::IndexExpr &expr,
   }
 
   return false;
+}
+
+bool IsPureMath(Expr expr) {
+  std::set<ir::IrNodeTy> valid_node_tys({
+      ir::IrNodeTy ::_Var_,
+      ir::IrNodeTy ::IntImm,
+      ir::IrNodeTy ::Sum,
+      ir::IrNodeTy ::Product,
+      ir::IrNodeTy ::FracOp,
+      ir::IrNodeTy ::FloatImm,
+      ir::IrNodeTy ::Add,
+      ir::IrNodeTy ::Sub,
+      ir::IrNodeTy ::Div,
+      ir::IrNodeTy ::Mul,
+      ir::IrNodeTy::Mod,
+      ir::IrNodeTy ::Minus,
+  });
+
+  auto complex_nodes = ir::ir_utils::CollectIRNodes(expr, [&](const Expr *n) {
+    return !valid_node_tys.count(n->node_type());
+  });
+#ifdef CINN_DEBUG
+  for (auto &node : complex_nodes) {
+    VLOG(3) << "Found " << node->node_type() << " " << Expr(node);
+  }
+#endif
+  return complex_nodes.empty();
 }
 }  // namespace common
 }  // namespace cinn
