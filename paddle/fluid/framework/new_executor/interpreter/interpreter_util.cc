@@ -42,6 +42,9 @@
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
 #include "paddle/fluid/distributed/collective/process_group.h"
 #include "paddle/fluid/distributed/collective/process_group_nccl.h"
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+#include "paddle/fluid/distributed/collective/process_group_custom.h"
+#endif
 #endif
 
 #ifdef PADDLE_WITH_DNNL
@@ -49,6 +52,7 @@
 #endif
 
 #ifdef PADDLE_WITH_CUSTOM_DEVICE
+#include "paddle/phi/backends/custom/custom_context.h"
 #include "paddle/phi/backends/device_manager.h"
 #endif
 
@@ -876,6 +880,32 @@ void BuildOpFuncList(const phi::Place& place,
             int ring_id = PADDLE_GET(int, ring_id_attr);
             auto map = distributed::ProcessGroupMapFromGid::getInstance();
             if (map->has(ring_id)) {
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+              auto original_stream =
+                  static_cast<phi::CustomContext*>(dev_ctx)->stream();
+              distributed::ProcessGroup* pg = map->get(ring_id);
+              static_cast<paddle::distributed::ProcessGroupCustom*>(pg)
+                  ->XCCLComm(place);
+              auto comm_context =
+                  static_cast<paddle::distributed::ProcessGroupCustom*>(pg)
+                      ->GetCommContext() dev_ctx =
+                      static_cast<phi::distributed::XCCLCommContext*>(
+                          comm_context)
+                          ->GetDevContext();
+              dev_ctx->SetCommContext(comm_context);
+
+              static_cast<phi::CustomContext*>(dev_ctx)->SetStream(
+                  original_stream);
+              auto& instance =
+                  paddle::memory::allocation::AllocatorFacade::Instance();
+              dev_ctx->SetAllocator(
+                  instance
+                      .GetAllocator(
+                          place,
+                          static_cast<phi::CustomContext*>(dev_ctx)->stream())
+                      .get());
+#else
+
               auto original_stream =
                   static_cast<phi::GPUContext*>(dev_ctx)->cuda_stream();
               distributed::ProcessGroup* pg = map->get(ring_id);
@@ -897,6 +927,7 @@ void BuildOpFuncList(const phi::Place& place,
                           place,
                           static_cast<phi::GPUContext*>(dev_ctx)->stream())
                       .get());
+#endif
             } else {
               VLOG(3) << "ring_id " << ring_id
                       << " not found in ProcessGroupMapFromGid ";
@@ -1523,7 +1554,6 @@ std::unordered_map<std::string, std::set<std::string>> GetNoNeedBufferValues(
           no_need_buffer_vars.insert(name);
         } else {
           no_need_buffer_vars.erase(name);
-          break;
         }
       }
     }
@@ -1536,7 +1566,6 @@ std::unordered_map<std::string, std::set<std::string>> GetNoNeedBufferValues(
             no_need_buffer_vars.insert(name);
           } else {
             no_need_buffer_vars.erase(name);
-            break;
           }
         }
       }
