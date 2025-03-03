@@ -451,7 +451,7 @@ int32_t IterMapRewriter::FindBaseSplit(const ir::IterSum& expr,
     if (match_source.defined() && match_source != split->source) continue;
     int32_t reduce_size = 0;
     auto fcollect = [&](const ir::IndexExpr&) { ++reduce_size; };
-    UnpackReduction<ir::Mul>(split->scale, fcollect);
+    optim::UnpackReduction<ir::Mul>(split->scale, fcollect);
     if (base_index == -1 || reduce_size < min_reduce_size) {
       min_reduce_size = reduce_size;
       base_index = i;
