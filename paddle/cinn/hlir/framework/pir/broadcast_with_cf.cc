@@ -24,6 +24,19 @@ using BroadcastCond = std::pair<symbol::Broadcastable<symbol::DimExpr>,
                                 OpLoweringGroup::BranchType>;
 
 namespace {
+
+void UpdateGroupSubstituteDimExprMap(
+    const OpLoweringGroupPtr& group,
+    const std::vector<symbol::DimExpr>& origin_shape,
+    const std::vector<symbol::DimExpr>& new_shape) {
+  auto& dim_expr_map = group->mut_substitute_dimexpr_map();
+  for (size_t i = 0; i < origin_shape.size() && i < new_shape.size(); ++i) {
+    if (origin_shape[i] != new_shape[i]) {
+      dim_expr_map[origin_shape[i]] = new_shape[i];
+    }
+  }
+}
+
 void UpdateGroupShapeExprs(
     const OpLoweringGroupPtr& new_group,
     const OpLoweringGroupPtr& origin_group,
@@ -33,6 +46,8 @@ void UpdateGroupShapeExprs(
     const auto& shape_dim_expr =
         value_dim_exprs_list->at(value_to_dim_expr_idx.at(value));
     const auto& origin_shape_or_data = origin_group->GetShapeOrDataExprs(value);
+    UpdateGroupSubstituteDimExprMap(
+        new_group, origin_shape_or_data.shape(), shape_dim_expr);
     if (origin_shape_or_data.data()) {
       std::vector<symbol::DimExpr> shape_dim_expr_shape = {
           symbol::DimExpr(static_cast<int64_t>(shape_dim_expr.size()))};
