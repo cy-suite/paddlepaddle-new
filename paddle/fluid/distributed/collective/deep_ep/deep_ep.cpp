@@ -24,7 +24,6 @@
 
 #include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/ATen/cuda/CUDADataType.h"
 #include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/c10/core/ScalarType.h"
-#include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/variable_factories.h"
 #include "paddle/fluid/distributed/collective/process_group_nccl.h"
 #include "paddle/phi/api/include/api.h"
 #include "paddle/phi/common/data_type.h"

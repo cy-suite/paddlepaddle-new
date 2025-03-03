@@ -16,7 +16,6 @@
 
 #include "glog/logging.h"
 #include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/c10/core/ScalarType.h"
-#include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/c10/core/TensorOptions.h"
 #include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/c10/cuda/CUDAStream.h"
 #include "paddle/phi/api/include/tensor.h"
 #include "paddle/phi/core/dense_tensor.h"
@@ -73,10 +72,5 @@ struct Tensor {
   c10::ScalarType scalar_type() const { return raw_tensor_.dtype(); }
 
   int64_t element_size() const { return phi::SizeOf(raw_tensor_.dtype()); }
-
-  c10::TensorOptions options() const {
-    LOG(FATAL) << "Tensor::options() is not allowed!";
-    return c10::TensorOptions();
-  }
 };
 }  // namespace torch

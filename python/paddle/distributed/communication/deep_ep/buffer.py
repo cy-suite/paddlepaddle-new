@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, list, tuple
+from typing import TYPE_CHECKING
 
 import paddle
 import paddle.distributed as dist
@@ -24,7 +24,9 @@ from paddle.base.core import Buffer as CppBuffer, Config
 if TYPE_CHECKING:
     from paddle.distributed.communication.group import Group
 
-from .utils import EventHandle, EventOverlap
+from paddle.base.core import EventHandle
+
+from .utils import EventOverlap
 
 
 class Buffer:

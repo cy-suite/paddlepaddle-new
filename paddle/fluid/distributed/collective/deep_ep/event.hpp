@@ -16,8 +16,6 @@
 
 #include <memory>
 
-#include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/ATen/cuda/CUDAContext.h"
-#include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/c10/core/DeviceType.h"
 #include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/c10/cuda/CUDAStream.h"
 #include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/event.h"
 #include "paddle/fluid/distributed/collective/deep_ep/kernels/exception.cuh"

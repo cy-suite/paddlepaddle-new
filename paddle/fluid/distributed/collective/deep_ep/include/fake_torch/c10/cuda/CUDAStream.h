@@ -15,7 +15,6 @@
 #pragma once
 
 #include "glog/logging.h"
-#include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/c10/core/stream.h"
 #include "paddle/phi/api/include/context_pool.h"
 #include "paddle/phi/backends/gpu/gpu_context.h"
 #include "paddle/phi/backends/gpu/gpu_info.h"
@@ -30,7 +29,6 @@ class CUDAStream {
  public:
   CUDAStream() { LOG(FATAL) << "CUDAStream::CUDAStream() is not implemented"; }
   explicit CUDAStream(const cudaStream_t& stream) : raw_stream_(stream) {}
-  Stream unwrap() const { return Stream(raw_stream_); }
   StreamId id() const { return reinterpret_cast<StreamId>(raw_stream_); }
 
   operator cudaStream_t() const { return raw_stream_; }
@@ -57,19 +55,6 @@ inline CUDAStream getCurrentCUDAStream(DeviceIndex device_index = -1) {
       paddle::GetCurrentCUDAStream(phi::GPUPlace(device_index))->raw_stream());
   // LOG(FATAL) << "getCurrentCUDAStream is not implemented";
   // return *(CUDAStream*)nullptr;
-}
-
-inline CUDAStream getStreamFromPool(const bool isHighPriority = false,
-                                    DeviceIndex device = -1) {
-  // if (device == -1) {
-  //   device = phi::backends::gpu::GetCurrentDeviceId();
-  // }
-  // const auto& place = phi::GPUPlace(device);
-  // auto comm_ctx = std::make_unique<phi::GPUContext>(place);
-  // // TODO: record ctx?
-  // return CUDAStream(comm_ctx->stream());
-  LOG(FATAL) << "getStreamFromPool is not implemented";
-  return *(CUDAStream*)nullptr;  // NOLINT
 }
 
 inline void setCurrentCUDAStream(cudaStream_t stream) {
