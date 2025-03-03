@@ -56,7 +56,7 @@ class IterVariable(VariableBase):
 
     def flatten_inner_vars(self) -> list[VariableBase]:
         holds = self.hold
-        if not isinstance(holds, list):
+        if not isinstance(holds, (list, tuple)):
             holds = [holds]
         return [
             inner_var
@@ -276,6 +276,6 @@ class UserDefinedIterVariable(IterVariable):
     def next(self):
         raise BreakGraphError(
             UnsupportedOperationBreak(
-                reason_str="Break graph when using user defined iterator"
+                reason_str="Break graph when iterating user defined iterator"
             )
         )
