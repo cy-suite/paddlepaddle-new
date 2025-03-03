@@ -54,6 +54,28 @@ std::vector<int32_t> GetInt32ArrayAttributeData(
   return data;
 }
 
+std::unordered_set<pir::Operation*> GetGroupOutputOps(
+    const std::vector<pir::Operation*>& ops) {
+  auto ops_set = ToUnorderedSet(ops);
+  std::unordered_set<pir::Operation*> output_ops;
+  for (auto* op : ops) {
+    for (size_t i = 0; i < op->num_results(); ++i) {
+      auto result = op->result(i);
+      if (!result) continue;
+      for (auto use_iter = result.use_begin(); use_iter != result.use_end();
+           ++use_iter) {
+        auto* use_op = use_iter->owner();
+        if (ops_set.find(use_op) == ops_set.end()) {
+          output_ops.insert(op);
+          break;
+        }
+      }
+      if (output_ops.count(op)) break;
+    }
+  }
+  return output_ops;
+}
+
 std::vector<int64_t> GetReduceAxisIdx(pir::Operation* reduce_op) {
   const size_t input_rank = GetCompatibleRank(reduce_op->operand_source(0));
   const auto& attr_val = reduce_op->attributes().at("axis");
