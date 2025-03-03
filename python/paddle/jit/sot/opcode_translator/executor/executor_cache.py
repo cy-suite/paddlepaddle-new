@@ -19,7 +19,6 @@ import traceback
 from typing import TYPE_CHECKING, List, Tuple
 
 from paddle.base.dygraph.base import sot_simulation_mode_guard
-from paddle.jit.sot.utils.envs import ENV_SOT_ENABLE_FASTER_GUARD
 
 from ...profiler import EventGuard, event_register
 from ...psdb import NO_FALLBACK_CODES
@@ -130,9 +129,9 @@ class OpcodeExecutorCache(metaclass=Singleton):
             try:
                 with EventGuard("try guard"):
                     guard_result = guard_fn(frame)
-                    if True and not ENV_SOT_ENABLE_FASTER_GUARD.get():
+                    if hasattr(guard_fn, "faster_guard"):
                         faster_guard_result: bool = guard_fn.faster_guard(frame)
-                if True and not ENV_SOT_ENABLE_FASTER_GUARD.get():
+                if hasattr(guard_fn, "faster_guard"):
                     assert faster_guard_result == guard_result, (
                         "faster guard result is not equal to guard result, "
                         f"guard_expr: {getattr(guard_fn, 'expr', 'None')}, "

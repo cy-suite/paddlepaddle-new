@@ -142,7 +142,7 @@ def make_guard(stringified_guards: list[StringifiedExpression]) -> Guard:
             guard = lambda frame: True
             guard.expr = "lambda frame: True"
             guard.original_guard = guard
-            if True:
+            if True and not ENV_SOT_ENABLE_FASTER_GUARD.get():
                 guard.faster_guard = guard
             return guard
 
@@ -163,7 +163,7 @@ def make_guard(stringified_guards: list[StringifiedExpression]) -> Guard:
         guard.expr = guard_expr
 
         # TODO: add flag to enable faster guard
-        if True:
+        if True and not ENV_SOT_ENABLE_FASTER_GUARD.get():
             faster_guard_expr_list: list[str] = []
             faster_guard_temp_free_vars: dict[str, Any] = {}
             for expr in stringified_guards:
