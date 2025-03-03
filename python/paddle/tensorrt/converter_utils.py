@@ -491,7 +491,9 @@ def trt_reduce_to_scalar(network, tensor, dtype=trt.int32, name=None):
     if name is not None:
         set_layer_name(reduce_layer, [name[0], 'reduce_layer'])
         scalar_name = name
-    scalar = trt_cast(network, reduce_layer.get_output(0), dtype, name=scalar_name)
+    scalar = trt_cast(
+        network, reduce_layer.get_output(0), dtype, name=scalar_name
+    )
     return scalar
 
 
