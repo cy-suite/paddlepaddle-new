@@ -1,11 +1,15 @@
-add_subdirectory(deep_ep)
+if(WITH_GPU AND ((${CUDA_ARCH_NAME}) STREQUAL "Hopper"))
+  add_subdirectory(deep_ep)
+endif()
 
 cc_library(
   process_group
   SRCS process_group.cc
   DEPS phi common xxhash)
 
-target_link_libraries(process_group deep_ep)
+if(WITH_GPU AND ((${CUDA_ARCH_NAME}) STREQUAL "Hopper"))
+  target_link_libraries(process_group deep_ep)
+endif()
 
 cc_library(
   eager_reducer

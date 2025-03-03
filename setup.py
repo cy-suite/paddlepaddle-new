@@ -2018,7 +2018,6 @@ def get_setup_parameters():
         'paddle.distributed.checkpoint',
         'paddle.distributed.communication',
         'paddle.distributed.communication.stream',
-        'paddle.distributed.communication.deep_ep',
         'paddle.distributed.metric',
         'paddle.distributed.ps',
         'paddle.distributed.ps.utils',
@@ -2179,6 +2178,12 @@ def get_setup_parameters():
         'paddle._typing.libs',
         'paddle.api_tracer',
     ]
+
+    if (
+        env_dict.get("WITH_GPU") == 'ON'
+        and env_dict.get("CUDA_ARCH_NAME") == "Hopper"
+    ):
+        packages.extend(['paddle.distributed.communication.deep_ep'])
 
     if env_dict.get("WITH_TENSORRT") == 'ON':
         packages.extend(
