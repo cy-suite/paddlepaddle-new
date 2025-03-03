@@ -332,7 +332,12 @@ def swish_silu_converter(network, paddle_op, inputs):
         inputs[0], activation_type_map[paddle_op.name()]
     )
     set_layer_name(layer_output, paddle_op)
-    return trt_prod(network, inputs[0], layer_output.get_output(0), name=[paddle_op.name(), "trt_prod"])
+    return trt_prod(
+        network,
+        inputs[0],
+        layer_output.get_output(0),
+        name=[paddle_op.name(), "trt_prod"],
+    )
 
 
 @converter_registry.register("pd_op.tanh_shrink", trt_version="8.x")
@@ -372,7 +377,9 @@ def mish_converter(network, paddle_op, inputs):
     set_layer_name(tanh_layer, paddle_op)
     tanh_output = tanh_layer.get_output(0)
 
-    return trt_prod(network, x, tanh_output, name=[paddle_op.name(), "trt_prod"])
+    return trt_prod(
+        network, x, tanh_output, name=[paddle_op.name(), "trt_prod"]
+    )
 
 
 @converter_registry.register("pd_op.celu", trt_version="8.x")
@@ -382,27 +389,61 @@ def celu_converter(network, paddle_op, inputs):
     input_rank = len(input_tensor.shape)
     constant_shape = trt.Dims([1] * input_rank)
     alpha_data = add_constant_layer(
-        network, [alpha], constant_shape, dtype="float32", name=[paddle_op.name(), "alpha_data"],
+        network,
+        [alpha],
+        constant_shape,
+        dtype="float32",
+        name=[paddle_op.name(), "alpha_data"],
     )
     constant_zero_data = add_constant_layer(
-        network, [0.0], constant_shape, dtype="float32", name=[paddle_op.name(), "constant_zero_data"],
+        network, [0.0],
+        constant_shape,
+        dtype="float32",
+        name=[paddle_op.name(), "constant_zero_data"],
     )
     constant_one_data = add_constant_layer(
-        network, [1.0], constant_shape, dtype="float32", name=[paddle_op.name(), "constant_one_data"],
+        network,
+        [1.0],
+        constant_shape,
+        dtype="float32",
+        name=[paddle_op.name(), "constant_one_data"],
     )
-    input_div_with_alpha = trt_div(network, input_tensor, alpha_data, name=[paddle_op.name(), "input_div_with_alpha"])
+    input_div_with_alpha = trt_div(
+        network,
+        input_tensor,
+        alpha_data,
+        name=[paddle_op.name(), "input_div_with_alpha"],
+    )
     input_exp_layer = network.add_unary(
         input_div_with_alpha, trt.UnaryOperation.EXP
     )
     set_layer_name(input_exp_layer, paddle_op)
     input_sub_with_one = trt_sub(
-        network, input_exp_layer.get_output(0), constant_one_data, name=[paddle_op.name(), "input_sub_with_one"]
+        network,
+        input_exp_layer.get_output(0),
+        constant_one_data,
+        name=[paddle_op.name(), "input_sub_with_one"],
     )
-    input_prod_with_alpha = trt_prod(network, input_sub_with_one, alpha_data, name=[paddle_op.name(), "input_prod_with_alpha"])
-    min_input = trt_min(network, input_prod_with_alpha, constant_zero_data, name=[paddle_op.name(), "min_input"])
+    input_prod_with_alpha = trt_prod(
+        network,
+        input_sub_with_one,
+        alpha_data,
+        name=[paddle_op.name(), "input_prod_with_alpha"],
+    )
+    min_input = trt_min(
+        network,
+        input_prod_with_alpha,
+        constant_zero_data,
+        name=[paddle_op.name(), "min_input"],
+    )
     relu_layer = network.add_activation(input_tensor, trt.ActivationType.RELU)
     set_layer_name(relu_layer, paddle_op)
-    output_tensor = trt_sum(network, relu_layer.get_output(0), min_input, name=[paddle_op.name(), "output_tensor"])
+    output_tensor = trt_sum(
+        network,
+        relu_layer.get_output(0),
+        min_input,
+        name=[paddle_op.name(), "output_tensor"],
+    )
     return output_tensor
 
 
@@ -449,7 +490,9 @@ def prelu_converter(network, paddle_op, inputs):
     data_format = paddle_op.attrs().get("data_format", "NCHW")
     w_dims = trt.Dims(alpha_data.numpy().shape)
     trt_w_dims = w_dims
-    alpha_tensor = network.add_constant(trt_w_dims, alpha_data, name=[paddle_op.name(), "alpha_tensor"])
+    alpha_tensor = network.add_constant(
+        trt_w_dims,alpha_data, name=[paddle_op.name(), "alpha_tensor"]
+    )
     alpha_tensor = alpha_tensor.get_output(0)
     alpha_dims = alpha_tensor.shape
     real_alpha_tensor = alpha_tensor
@@ -457,27 +500,44 @@ def prelu_converter(network, paddle_op, inputs):
         reshape_layer = network.add_shuffle(alpha_tensor)
         set_layer_name(reshape_layer, paddle_op)
         c = alpha_dims[0]
-        n_tensor = add_1D_constant_layer(network, [1], name=[paddle_op.name(), "n_tensor"])
-        c_tensor = add_1D_constant_layer(network, [c], name=[paddle_op.name(), "c_tensor"])
+        n_tensor = add_1D_constant_layer(
+            network, [1], name=[paddle_op.name(), "n_tensor"]
+        )
+        c_tensor = add_1D_constant_layer(
+            network, [c], name=[paddle_op.name(), "c_tensor"]
+        )
         hw_tensor = None
         if len(input_dims) - 2 > 0:
             hw_tensor = add_1D_constant_layer(
-                network, [1] * (len(input_dims) - 2), name=[paddle_op.name(), "hw_tensor"]
+                network,
+                [1] * (len(input_dims) - 2),
+                name=[paddle_op.name(), "hw_tensor"],
             )
         if data_format == "NCHW":
             if hw_tensor:
                 shape_tensor = trt_concat(
-                    network, [n_tensor, c_tensor, hw_tensor], name=[paddle_op.name(), "shape_tensor"]
+                    network,
+                    [n_tensor, c_tensor, hw_tensor],
+                    name=[paddle_op.name(), "shape_tensor"],
                 )
             else:
-                shape_tensor = trt_concat(network, [n_tensor, c_tensor], name=[paddle_op.name(), "shape_tensor"])
+                shape_tensor = trt_concat(
+                    network,
+                    [n_tensor, c_tensor],
+                    name=[paddle_op.name(), "shape_tensor"]),
         else:
             if hw_tensor:
                 shape_tensor = trt_concat(
-                    network, [n_tensor, hw_tensor, c_tensor], name=[paddle_op.name(), "shape_tensor"]
+                    network,
+                    [n_tensor, hw_tensor, c_tensor],
+                    name=[paddle_op.name(), "shape_tensor"],
                 )
             else:
-                shape_tensor = trt_concat(network, [n_tensor, c_tensor], name=[paddle_op.name(), "shape_tensor"])
+                shape_tensor = trt_concat(
+                    network,
+                    [n_tensor, c_tensor],
+                    name=[paddle_op.name(), "shape_tensor"],
+                )
         reshape_layer.set_input(1, shape_tensor)
         real_alpha_tensor = reshape_layer.get_output(0)
     layer = network.add_parametric_relu(input, real_alpha_tensor)
