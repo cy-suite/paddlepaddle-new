@@ -38,15 +38,26 @@
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
 #include "paddle/common/flags.h"
 #include "paddle/fluid/distributed/collective/process_group.h"
-#include "paddle/fluid/distributed/collective/process_group_nccl.h"
 #include "paddle/phi/core/distributed/comm_context_manager.h"
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+#include "paddle/fluid/distributed/collective/process_group_custom.h"
+#include "paddle/phi/core/distributed/xccl_comm_context.h"
+#include "paddle/phi/core/platform/custom_device_context.h"
+#else
+#include "paddle/fluid/distributed/collective/process_group_nccl.h"
 #include "paddle/phi/core/distributed/nccl_comm_context.h"
+#endif
 #include "paddle/phi/core/platform/collective_helper.h"
 COMMON_DECLARE_bool(dynamic_static_unified_comm);
 #endif
 
 namespace paddle::framework {
 
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+#define COMMCONTEXT phi::distributed::XCCLCommContext
+#else
+#define COMMCONTEXT phi::distributed::NCCLCommContext
+#endif
 std::vector<int> GetValueIds(pir::Value value,
                              const ValueExecutionInfo& value_exec_info) {
   std::vector<int> ids;
@@ -126,7 +137,7 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
         const auto& comm_context_manager =
             phi::distributed::CommContextManager::GetInstance();
         dev_ctx = static_cast<phi::DeviceContext*>(
-            static_cast<phi::distributed::NCCLCommContext*>(
+            static_cast<COMMCONTEXT*>(
                 comm_context_manager.Get(std::to_string(ring_id)))
                 ->GetDevContext());
       } else {
@@ -156,14 +167,20 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
                  op_name.compare(paddle::dialect::Broadcast_Op::name()) == 0) {
         auto map = distributed::ProcessGroupMapFromGid::getInstance();
         distributed::ProcessGroup* pg = map->get(ring_id);
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+        static_cast<paddle::distributed::ProcessGroupCustom*>(pg)->XCCLComm(
+            place);
+        comm_context = static_cast<paddle::distributed::ProcessGroupCustom*>(pg)
+                           ->GetCommContext();
+#else
         comm_context = static_cast<paddle::distributed::ProcessGroupNCCL*>(pg)
                            ->GetOrCreateCommContext(place);
+#endif
       }
 
       if (comm_context) {
         dev_ctx = static_cast<platform::DeviceContext*>(
-            static_cast<phi::distributed::NCCLCommContext*>(comm_context)
-                ->GetDevContext());
+            static_cast<COMMCONTEXT*>(comm_context)->GetDevContext());
         dev_ctx->SetCommContext(comm_context);
         if (op_name.compare(paddle::dialect::ReduceScatterOp::name()) == 0 ||
             op_name.compare(paddle::dialect::AllReduceOp::name()) == 0 ||
@@ -198,6 +215,28 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
             } else {
               VLOG(3) << "op " << op_name << " ring_id " << ring_id
                       << " origin_dev_ctx is nullptr";
+            }
+          }
+          if (phi::is_custom_place(place) &&
+              execution_stream == kDefaultStream) {
+            if (origin_dev_ctx != nullptr) {
+              // set stream
+              auto default_stream =
+                  static_cast<phi::CustomContext*>(origin_dev_ctx)->stream();
+              static_cast<phi::CustomContext*>(dev_ctx)->SetSteam(
+                  default_stream);
+              // set allocator
+              auto& instance =
+                  paddle::memory::allocation::AllocatorFacade::Instance();
+              dev_ctx->SetAllocator(
+                  instance
+                      .GetAllocator(
+                          place,
+                          static_cast<phi::CustomContext*>(dev_ctx)->stream())
+                      .get());
+            } else {
+              VLOG(3) << "CUSTOM DEVICE op " << op_name << " ring_id "
+                      << ring_id << " origin_dev_ctx is nullptr";
             }
           }
           return dev_ctx;
