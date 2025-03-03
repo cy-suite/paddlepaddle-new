@@ -394,9 +394,10 @@ def trt_pow(network, a, b, name=None):
     return layer.get_output(0)
 
 
-def cast_tensor(network, input_tensor, dtype):
+def cast_tensor(network, input_tensor, dtype, name=None):
     layer = network.add_identity(input_tensor)
     layer.set_output_type(0, dtype)
+    set_layer_name(layer, name)
     return layer.get_output(0)
 
 
