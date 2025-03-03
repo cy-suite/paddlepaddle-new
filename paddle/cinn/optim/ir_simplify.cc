@@ -29,6 +29,7 @@
 #include "paddle/cinn/ir/op/ir_operators.h"
 #include "paddle/cinn/ir/tensor.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
+#include "paddle/cinn/optim/simplify_util.h"
 #include "paddle/cinn/utils/string.h"
 
 namespace cinn {
@@ -67,7 +68,7 @@ struct SimplifyLoadMutator : public ir::IRMutator<ir::Expr*> {
   void Visit(const Load* expr, Expr* op) override {
     auto* node = op->As<Load>();
     for (auto& idx : node->indices) {
-      if (cinn::common::IsPureMath(idx)) {
+      if (IsPureMath(idx)) {
         idx = ArithSimplify(idx);
       } else {
         SimplifyNoPureMathMutator()(&idx);
@@ -89,7 +90,7 @@ struct SimplifyStoreMutator : public ir::IRMutator<ir::Expr*> {
     auto* node = op->As<Store>();
 
     for (auto& idx : node->indices) {
-      if (cinn::common::IsPureMath(idx)) {
+      if (IsPureMath(idx)) {
         idx = ArithSimplify(idx);
       } else {
         SimplifyNoPureMathMutator()(&idx);
@@ -111,11 +112,11 @@ struct SimplifyRampMutator : public ir::IRMutator<Expr*> {
     auto* node = expr->As<ir::Ramp>();
 
     PADDLE_ENFORCE_EQ(
-        cinn::common::IsPureMath(node->base),
+        IsPureMath(node->base),
         true,
         ::common::errors::InvalidArgument("node->base is not a pure math!"));
     PADDLE_ENFORCE_EQ(
-        cinn::common::IsPureMath(node->stride),
+        IsPureMath(node->stride),
         true,
         ::common::errors::InvalidArgument("node->stride is not a pure math!"));
     node->base = ArithSimplify(node->base);

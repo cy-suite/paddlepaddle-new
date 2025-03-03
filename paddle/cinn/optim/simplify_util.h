@@ -281,5 +281,9 @@ std::optional<ir::IndexExpr> SimplifyComplexMod(const ir::IndexExpr &lhs,
 bool CheckPattern(const ir::IndexExpr &expr,
                   const ir::IndexExpr &pattern,
                   std::unordered_map<std::string, ir::IndexExpr> *map);
+
+// TODO(liujinnan): Delete historical `simplify func` related files, temporary
+// placement of tool functions that are still in use, remove it in the future.
+bool IsPureMath(Expr expr);
 }  // namespace optim
 }  // namespace cinn
