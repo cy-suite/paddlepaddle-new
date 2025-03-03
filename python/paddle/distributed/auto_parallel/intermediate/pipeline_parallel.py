@@ -383,8 +383,10 @@ def pipeline_parallel(model, optimizer=None, config=None):
         sublayer_names = [name for name, _ in model.named_sublayers()]
         split_spec_dict = split_spec
         for key, value in split_spec_dict.items():
-            assert key in sublayer_names, "wrong split point"
-            assert value is SplitPoint.END, "wrong split point flag"
+            assert (
+                key in sublayer_names
+            ), f"wrong split layer, expected one of {sublayer_names}"
+            assert value is SplitPoint.END, "not supported split point at now."
 
     if global_spec:
         if isinstance(global_spec, str):
