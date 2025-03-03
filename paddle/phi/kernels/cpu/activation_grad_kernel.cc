@@ -262,7 +262,8 @@ void PowGradKernel(const Context& dev_ctx,
     return;
   }
   PADDLE_ENFORCE_NOT_NULL(
-      dx, errors::NotFound("The output DenseTensor dX can not be nullptr"));
+      dx,
+      errors::InvalidArgument("The output DenseTensor dx can not be nullptr"));
   dev_ctx.template Alloc<T>(dx);
   auto dout_flatten = EigenVector<T>::Flatten(
       GET_DATA_SAFELY(&dout, "Input", "Out@GRAD", "PowGrad"));

@@ -179,8 +179,8 @@ void PowKernel(const Context& dev_ctx,
                const DenseTensor& x,
                const Scalar& factor,
                DenseTensor* out) {
-  PADDLE_ENFORCE_NOT_NULL(out,
-                          errors::NotFound("Output Out should not be nullptr"));
+  PADDLE_ENFORCE_NOT_NULL(
+      out, errors::InvalidArgument("Output Out should not be nullptr"));
   dev_ctx.template Alloc<T>(out);
   if (factor.to<float>() == 0) {
     std::vector<int64_t> vec_dims = common::vectorize(out->dims());
