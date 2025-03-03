@@ -223,7 +223,7 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
               // set stream
               auto default_stream =
                   static_cast<phi::CustomContext*>(origin_dev_ctx)->stream();
-              static_cast<phi::CustomContext*>(dev_ctx)->SetSteam(
+              static_cast<phi::CustomContext*>(dev_ctx)->SetStream(
                   default_stream);
               // set allocator
               auto& instance =
