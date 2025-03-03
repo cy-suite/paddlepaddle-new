@@ -529,6 +529,10 @@ def source_include(header_file_path):
 #endif
 
 #ifdef PADDLE_WITH_DISTRIBUTE
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+#include "paddle/phi/core/distributed/comm_context_manager.h"
+#include "paddle/phi/core/distributed/xccl_comm_context.h"
+#endif
 #include "paddle/phi/core/distributed/store/store_utils.h"
 #include "paddle/phi/infermeta/spmd_rules/rules.h"
 #include "paddle/phi/core/distributed/auto_parallel/reshard/reshard_utils.h"
