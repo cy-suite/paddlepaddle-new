@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <atomic>
+#include "gtest/gtest.h"
 #include "paddle/pir/include/dialect/shape/utils/dim_expr_util.h"
 
 namespace symbol::test {
