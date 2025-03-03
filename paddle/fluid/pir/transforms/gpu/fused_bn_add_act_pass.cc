@@ -63,7 +63,10 @@ class FusedBnAddActPattern : public paddle::drr::DrrPatternBase {
       if (data_format != "NHWC") {
         return false;
       }
-      if (x.type().dyn_cast<paddle::dialect::DenseTensorType>().dims()[3] % 8 !=
+      // Before cuDNN version 8.2.0, the tensor C dimension should always be a
+      // multiple of 4. After 8.2.0, the tensor C dimension should be a multiple
+      // of 4 only when bnOps is CUDNN_BATCHNORM_OPS_BN_ADD_ACTIVATION.
+      if (x.type().dyn_cast<paddle::dialect::DenseTensorType>().dims()[3] % 4 !=
           0) {
         return false;
       }
@@ -178,7 +181,10 @@ class FusedBnAddActGradPattern : public paddle::drr::DrrPatternBase {
       if (data_format != "NHWC") {
         return false;
       }
-      if (x.type().dyn_cast<paddle::dialect::DenseTensorType>().dims()[3] % 8 !=
+      // Before cuDNN version 8.2.0, the tensor C dimension should always be a
+      // multiple of 4. After 8.2.0, the tensor C dimension should be a multiple
+      // of 4 only when bnOps is CUDNN_BATCHNORM_OPS_BN_ADD_ACTIVATION.
+      if (x.type().dyn_cast<paddle::dialect::DenseTensorType>().dims()[3] % 4 !=
           0) {
         return false;
       }
