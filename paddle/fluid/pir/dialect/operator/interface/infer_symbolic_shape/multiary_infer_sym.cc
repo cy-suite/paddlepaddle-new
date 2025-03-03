@@ -2911,7 +2911,7 @@ bool LinspaceOpInferSymbolicShape(
   const auto &num_shape_or_data =
       infer_context->GetShapeOrDataForValue(op->operand_source(2));
   PADDLE_ENFORCE_EQ(
-      operand_shape_or_data.data().has_value(),
+      num_shape_or_data.data().has_value(),
       true,
       common::errors::InvalidArgument("TensorShapeOrDataDimExprs.data() of num "
                                       "must have value, please check."));
