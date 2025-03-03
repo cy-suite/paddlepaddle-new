@@ -490,7 +490,7 @@ def prelu_converter(network, paddle_op, inputs):
     data_format = paddle_op.attrs().get("data_format", "NCHW")
     w_dims = trt.Dims(alpha_data.numpy().shape)
     trt_w_dims = w_dims
-    alpha_tensor = network.add_constant(trt_w_dims,alpha_data)
+    alpha_tensor = network.add_constant(trt_w_dims, alpha_data)
     set_layer_name(alpha_tensor, paddle_op)
     alpha_tensor = alpha_tensor.get_output(0)
     alpha_dims = alpha_tensor.shape
@@ -520,10 +520,13 @@ def prelu_converter(network, paddle_op, inputs):
                     name=[paddle_op.name(), "shape_tensor"],
                 )
             else:
-                shape_tensor = trt_concat(
+                shape_tensor = (
+                    trt_concat(
                     network,
                     [n_tensor, c_tensor],
-                    name=[paddle_op.name(), "shape_tensor"]),
+                    name=[paddle_op.name(), "shape_tensor"]
+                    ),
+                )
         else:
             if hw_tensor:
                 shape_tensor = trt_concat(
