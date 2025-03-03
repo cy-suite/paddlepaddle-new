@@ -196,27 +196,7 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
             op_name.compare(paddle::dialect::AllToAllOp::name()) == 0 ||
             op_name.compare(
                 paddle::dialect::CSoftmaxWithCrossEntropyOp::name()) == 0) {
-          if (phi::is_gpu_place(place) && execution_stream == kDefaultStream) {
-            if (origin_dev_ctx != nullptr) {
-              // set stream
-              auto default_stream =
-                  static_cast<phi::GPUContext*>(origin_dev_ctx)->cuda_stream();
-              static_cast<phi::GPUContext*>(dev_ctx)->SetCUDAStream(
-                  default_stream, false);
-              // set allocator
-              auto& instance =
-                  paddle::memory::allocation::AllocatorFacade::Instance();
-              dev_ctx->SetAllocator(
-                  instance
-                      .GetAllocator(
-                          place,
-                          static_cast<phi::GPUContext*>(dev_ctx)->stream())
-                      .get());
-            } else {
-              VLOG(3) << "op " << op_name << " ring_id " << ring_id
-                      << " origin_dev_ctx is nullptr";
-            }
-          }
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
           if (phi::is_custom_place(place) &&
               execution_stream == kDefaultStream) {
             if (origin_dev_ctx != nullptr) {
@@ -239,6 +219,29 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
                       << ring_id << " origin_dev_ctx is nullptr";
             }
           }
+#else
+          if (phi::is_gpu_place(place) && execution_stream == kDefaultStream) {
+            if (origin_dev_ctx != nullptr) {
+              // set stream
+              auto default_stream =
+                  static_cast<phi::GPUContext*>(origin_dev_ctx)->cuda_stream();
+              static_cast<phi::GPUContext*>(dev_ctx)->SetCUDAStream(
+                  default_stream, false);
+              // set allocator
+              auto& instance =
+                  paddle::memory::allocation::AllocatorFacade::Instance();
+              dev_ctx->SetAllocator(
+                  instance
+                      .GetAllocator(
+                          place,
+                          static_cast<phi::GPUContext*>(dev_ctx)->stream())
+                      .get());
+            } else {
+              VLOG(3) << "op " << op_name << " ring_id " << ring_id
+                      << " origin_dev_ctx is nullptr";
+            }
+          }
+#endif
           return dev_ctx;
         }
       } else {
