@@ -671,6 +671,7 @@ def convert_conv3d(network, paddle_op, inputs):
         layer.padding_mode = trt.PaddingMode.SAME_UPPER
 
     layer.dilation_nd = nv_dilations
+    set_layer_name(layer, paddle_op)
 
     return layer.get_output(0)
 
