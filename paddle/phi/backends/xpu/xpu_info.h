@@ -49,10 +49,12 @@ int GetXPUCurrentDeviceId();
 //! Get a list of device ids from environment variable or use all.
 std::vector<int> GetXPUSelectedDevices();
 
+#ifdef PADDLE_WITH_XPU
 std::pair<int, int> GetXpuStreamPriorityRange();
 
 //! Blocks until stream has completed all operations.
 void XpuStreamSync(cudaStream_t stream);
+#endif
 
 /***** Memory Management *****/
 //! Get the minimum chunk size for XPU buddy allocator.

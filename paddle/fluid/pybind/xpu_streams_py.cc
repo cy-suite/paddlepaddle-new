@@ -1,4 +1,4 @@
-// Copyright (c) 2021 PaddlePaddle Authors. All Rights Reserved.
+// Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,18 +14,18 @@
 
 #include "paddle/fluid/pybind/xpu_streams_py.h"
 
-#include <cuda.h>
-#include <cuda_runtime.h>
 #include <string>
 #include <vector>
-#include "xpu/runtime.h"
-#include "xpu/runtime_ex.h"
 
 #include "paddle/phi/api/profiler/event.h"
 #include "paddle/phi/core/platform/device_event_base.h"
 
 #if defined(PADDLE_WITH_XPU)
+#include <cuda.h>
+#include <cuda_runtime.h>
 #include "paddle/phi/backends/xpu/enforce_xpu.h"
+#include "xpu/runtime.h"
+#include "xpu/runtime_ex.h"
 #endif
 
 namespace py = pybind11;
@@ -122,7 +122,11 @@ void BindXpuStream(py::module *m_ptr) {
       )DOC")
       .def(
           "synchronize",
-          [](XPUStream &self) { xpu_wait(self); },
+          [](XPUStream &self) {
+#ifdef PADDLE_WITH_XPU
+            xpu_wait(self);
+#endif
+          },
           R"DOC(
           Waits for stream tasks to complete.
 
