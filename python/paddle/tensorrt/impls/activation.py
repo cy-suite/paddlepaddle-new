@@ -396,7 +396,8 @@ def celu_converter(network, paddle_op, inputs):
         name=[paddle_op.name(), "alpha_data"],
     )
     constant_zero_data = add_constant_layer(
-        network, [0.0],
+        network,
+        [0.0],
         constant_shape,
         dtype="float32",
         name=[paddle_op.name(), "constant_zero_data"],
@@ -522,9 +523,9 @@ def prelu_converter(network, paddle_op, inputs):
             else:
                 shape_tensor = (
                     trt_concat(
-                    network,
-                    [n_tensor, c_tensor],
-                    name=[paddle_op.name(), "shape_tensor"]
+                        network,
+                        [n_tensor, c_tensor],
+                        name=[paddle_op.name(), "shape_tensor"]
                     ),
                 )
         else:
