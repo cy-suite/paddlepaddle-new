@@ -865,11 +865,13 @@ def unary_op_converter(network, paddle_op, inputs):
             identity_layer.set_output_type(0, trt.float32)
         else:
             identity_layer.set_output_type(0, trt.float16)
+        set_layer_name(identity_layer, paddle_op)
         input_tensor = identity_layer.get_output(0)
 
     if paddle_op.name() in ops_type_map:
         for trt_op in ops_type_map[paddle_op.name()]:
             layer = network.add_unary(input_tensor, trt_op)
+            set_layer_name(layer, paddle_op)
             input_tensor = layer.get_output(0)
     else:
         raise NotImplementedError(
@@ -878,6 +880,7 @@ def unary_op_converter(network, paddle_op, inputs):
     if need_cast:
         restore_layer = network.add_identity(input_tensor)
         restore_layer.set_output_type(0, trt_type_mapping[org_type])
+        set_layer_name(restore_layer, paddle_op)
         input_tensor = restore_layer.get_output(0)
 
     return input_tensor
