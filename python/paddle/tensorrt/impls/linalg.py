@@ -96,15 +96,26 @@ def flip_converter(network, paddle_op, inputs):
     rank = len(input_dims)
     axis = paddle_op.attrs()["axis"]
     axis = [a + rank if a < 0 else a for a in axis]
-    shape_tensor = trt_shape(network, input_tensor, name=[paddle_op.name(), 'shape_tensor'])
+    shape_tensor = trt_shape(
+        network, input_tensor, name=[paddle_op.name(), 'shape_tensor']
+    )
 
     def get_axis_length(axis_idx, name=None):
         dim_val = input_dims[axis_idx]
         if dim_val >= 0:
-            return add_1D_constant_layer(network, [dim_val], is_scalar=True, name=[paddle_op.name(), name])
+            return add_1D_constant_layer(
+                network,
+                [dim_val],
+                is_scalar=True,
+                name=[paddle_op.name(), name],
+            )
         else:
             return get_shape_tensor_element(
-                network, shape_tensor, axis_idx, is_scalar=True, name=[paddle_op.name(), name]
+                network,
+                shape_tensor,
+                axis_idx,
+                is_scalar=True,
+                name=[paddle_op.name(), name],
             )
 
     for axis_idx in axis:
@@ -113,12 +124,18 @@ def flip_converter(network, paddle_op, inputs):
         loop_layer.add_trip_limit(trip_limit, trt.TripLimit.COUNT)
         iterator = loop_layer.add_iterator(input_tensor, axis_idx, reverse=True)
         set_layer_name(iterator, paddle_op)
-        zero_tensor = add_1D_constant_layer(network, [0], name=[paddle_op.name(), 'zero_tensor'])
-        one_tensor = add_1D_constant_layer(network, [1], name=[paddle_op.name(), 'one_tensor'])
+        zero_tensor = add_1D_constant_layer(
+            network, [0], name=[paddle_op.name(), 'zero_tensor']
+        )
+        one_tensor = add_1D_constant_layer(
+            network, [1], name=[paddle_op.name(), 'one_tensor']
+        )
         iRec_layer = loop_layer.add_recurrence(zero_tensor)
         set_layer_name(iRec_layer, paddle_op)
         iCur = iRec_layer.get_output(0)
-        iNext_layer = trt_sum(network, iCur, one_tensor, name=[paddle_op.name(), 'iNext_layer'])
+        iNext_layer = trt_sum(
+            network, iCur, one_tensor, name=[paddle_op.name(), 'iNext_layer']
+        )
         iRec_layer.set_input(1, iNext_layer)
         loop_out_layer = loop_layer.add_loop_output(
             iterator.get_output(0), trt.LoopOutput.CONCATENATE, axis_idx
