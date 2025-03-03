@@ -1554,6 +1554,7 @@ std::unordered_map<std::string, std::set<std::string>> GetNoNeedBufferValues(
           no_need_buffer_vars.insert(name);
         } else {
           no_need_buffer_vars.erase(name);
+          break;
         }
       }
     }
@@ -1566,6 +1567,7 @@ std::unordered_map<std::string, std::set<std::string>> GetNoNeedBufferValues(
             no_need_buffer_vars.insert(name);
           } else {
             no_need_buffer_vars.erase(name);
+            break;
           }
         }
       }
