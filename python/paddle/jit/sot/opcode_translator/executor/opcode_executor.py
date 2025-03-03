@@ -1313,7 +1313,7 @@ class OpcodeExecutorBase:
         if not isinstance(args_iter, SequenceIterVariable):
             raise BreakGraphError(
                 UnsupportedOperationBreak(
-                    reason_str="CALL_FUNCTION_EX only support SequenceIterVariable for varargs"
+                    reason_str="CALL_FUNCTION_EX only supports SequenceIterVariable for varargs"
                 )
             )
         args = args_iter.to_list()
