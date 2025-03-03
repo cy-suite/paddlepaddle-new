@@ -135,7 +135,9 @@ def bilinear_interp_converter(network, paddle_op, inputs):
                     # Extract the first two elements representing height and width
                     outsize_h = size_tensors[0]
                     outsize_w = size_tensors[1]
-                    outsize_tensor = network.add_concatenation([outsize_h, outsize_w])
+                    outsize_tensor = network.add_concatenation(
+                        [outsize_h, outsize_w]
+                    )
                     set_layer_name(outsize_tensor, paddle_op)
                     outsize_tensor = outsize_tensor.get_output(0)
             else:
@@ -151,7 +153,9 @@ def bilinear_interp_converter(network, paddle_op, inputs):
                     )
                     set_layer_name(outsize_w, paddle_op)
                     outsize_w = outsize_w.get_output(0)
-                    outsize_tensor = network.add_concatenation([outsize_h, outsize_w])
+                    outsize_tensor = network.add_concatenation(
+                        [outsize_h, outsize_w]
+                    )
                     set_layer_name(outsize_tensor, paddle_op)
                     outsize_tensor = outsize_tensor.get_output(0)
     use_scales = True
@@ -192,17 +196,28 @@ def bilinear_interp_converter(network, paddle_op, inputs):
     else:
         if outsize_tensor is not None:
             outsize_itensors = []
-            batch_dim = get_shape_tensor_element(network, input_shape_tensor, 0, name=[paddle_op.name(), "batch_dim"])
+            batch_dim = get_shape_tensor_element(
+                network,
+                input_shape_tensor,
+                0,
+                name=[paddle_op.name(), "batch_dim"],
+            )
             outsize_itensors.append(batch_dim)
             if data_format == "NCHW":
                 channel_dim = get_shape_tensor_element(
-                    network, input_shape_tensor, 1, name=[paddle_op.name(), "channel_dim"]
+                    network,
+                    input_shape_tensor,
+                    1,
+                    name=[paddle_op.name(), "channel_dim"],
                 )
                 outsize_itensors.append(channel_dim)
                 outsize_itensors.append(outsize_tensor)
             elif data_format == "NHWC":
                 channel_dim = get_shape_tensor_element(
-                    network, input_shape_tensor, 3, name=[paddle_op.name(), "channel_dim"]
+                    network,
+                    input_shape_tensor,
+                    3,
+                    name=[paddle_op.name(), "channel_dim"],
                 )
                 outsize_itensors.append(outsize_tensor)
                 outsize_itensors.append(channel_dim)
@@ -241,19 +256,37 @@ def unbind_converter(network, paddle_op, inputs):
     new_shape_tensors = []
     for i in range(rank):
         if axis == i:
-            size_tensors.append(add_1D_constant_layer(network, 1, name=[paddle_op.name(), "size_tensor"]))
+            size_tensors.append(
+                add_1D_constant_layer(
+                    network, 1, name=[paddle_op.name(), "size_tensor"]
+                )
+            )
         else:
             size_tensors.append(
-                get_shape_tensor_element(network, trt_shape(network, x, name=[paddle_op.name(), "trt_shape"]), i,
-                                         name=[paddle_op.name(), f"size_tensor_{i}"])
+                get_shape_tensor_element(
+                    network,
+                    trt_shape(network, x, name=[paddle_op.name(), "trt_shape"]),
+                    i,
+                    name=[paddle_op.name(), f"size_tensor_{i}"],
+                )
             )
             new_shape_tensors.append(
-                get_shape_tensor_element(network, trt_shape(network, x, name=[paddle_op.name(), "trt_shape"]), i,
-                                         name=[paddle_op.name(), f"new_shape_tensor_{i}"])
+                get_shape_tensor_element(
+                    network,
+                    trt_shape(network, x, name=[paddle_op.name(), "trt_shape"]),
+                    i,
+                    name=[paddle_op.name(), f"new_shape_tensor_{i}"],
+                )
             )
-        start_tensors.append(add_1D_constant_layer(network, 0, name=[paddle_op.name(), "start_tensor"]))
+        start_tensors.append(
+            add_1D_constant_layer(
+                network, 0, name=[paddle_op.name(), "start_tensor"]
+            )
+        )
 
-    new_shape_tensor = trt_concat(network, new_shape_tensors, name=[paddle_op.name(), "new_shape_tensor"])
+    new_shape_tensor = trt_concat(
+        network, new_shape_tensors, name=[paddle_op.name(), "new_shape_tensor"]
+    )
     stride = trt.Dims([1] * rank)
     outputs = []
     output_size = len(paddle_op.results()[0].type().as_vec_type().as_list())
@@ -358,17 +391,25 @@ def nearest_interp_converter(network, paddle_op, inputs):
         )
     if outsize_tensor is not None:
         outsize_itensors = []
-        batch_dim = get_shape_tensor_element(network, input_shape_tensor, 0, name=[paddle_op.name(), "batch_dim"])
+        batch_dim = get_shape_tensor_element(
+            network, input_shape_tensor, 0, name=[paddle_op.name(), "batch_dim"]
+        )
         outsize_itensors.append(batch_dim)
         if data_format == "NCHW":
             channel_dim = get_shape_tensor_element(
-                network, input_shape_tensor, 1, name=[paddle_op.name(), "channel_dim"]
+                network,
+                input_shape_tensor,
+                1,
+                name=[paddle_op.name(), "channel_dim"],
             )
             outsize_itensors.append(channel_dim)
             outsize_itensors.append(outsize_tensor)
         elif data_format == "NHWC":
             channel_dim = get_shape_tensor_element(
-                network, input_shape_tensor, 3, name=[paddle_op.name(), "channel_dim"]
+                network,
+                input_shape_tensor,
+                3,
+                name=[paddle_op.name(), "channel_dim"],
             )
             outsize_itensors.append(outsize_tensor)
             outsize_itensors.append(channel_dim)
@@ -443,20 +484,35 @@ def linear_interp_converter(network, paddle_op, inputs):
 
     if outsize_tensor is not None:
         outsize_itensors = []
-        input_shape = trt_shape(network, input_tensor, name=[paddle_op.name(), "input_shape"])
-        batch_dim = get_shape_tensor_element(network, input_shape, 0, name=[paddle_op.name(), "batch_dim"])
+        input_shape = trt_shape(
+            network, input_tensor, name=[paddle_op.name(), "input_shape"]
+        )
+        batch_dim = get_shape_tensor_element(
+            network, input_shape, 0, name=[paddle_op.name(), "batch_dim"]
+        )
         outsize_itensors.append(batch_dim)
 
         if data_layout == "NCHW":
-            channel_dim = get_shape_tensor_element(network, input_shape, 1, name=[paddle_op.name(), "channel_dim"])
+            channel_dim = get_shape_tensor_element(
+                network, input_shape, 1, name=[paddle_op.name(), "channel_dim"]
+            )
             outsize_itensors.append(channel_dim)
             outsize_itensors.append(outsize_tensor)
         elif data_layout == "NHWC":
             outsize_itensors.append(outsize_tensor)
-            channel_dim = get_shape_tensor_element(network, input_shape, 2, name=[paddle_op.name(), "channel_dim"])
+            channel_dim = get_shape_tensor_element(
+                network, input_shape, 2, name=[paddle_op.name(), "channel_dim"]
+            )
             outsize_itensors.append(channel_dim)
 
-        layer.set_input(1, trt_concat(network, outsize_itensors, name=[paddle_op.name(), "outsize_itensors"]))
+        layer.set_input(
+            1,
+            trt_concat(
+                network,
+                outsize_itensors,
+                name=[paddle_op.name(), "outsize_itensors"],
+            )
+        )
     else:
         layer.scales = scales
 
