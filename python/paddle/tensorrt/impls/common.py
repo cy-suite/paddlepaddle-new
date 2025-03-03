@@ -291,7 +291,9 @@ def unbind_converter(network, paddle_op, inputs):
     outputs = []
     output_size = len(paddle_op.results()[0].type().as_vec_type().as_list())
     for i in range(output_size):
-        start_tensors[axis] = add_1D_constant_layer(network, i, name=[paddle_op.name(), f"start_{i}_tensor"])
+        start_tensors[axis] = add_1D_constant_layer(
+            network, i, name=[paddle_op.name(), f"start_{i}_tensor"]
+        )
         # Create Slice layer
         slice_layer = network.add_slice(
             x,
@@ -511,7 +513,7 @@ def linear_interp_converter(network, paddle_op, inputs):
                 network,
                 outsize_itensors,
                 name=[paddle_op.name(), "outsize_itensors"],
-            )
+            ),
         )
     else:
         layer.scales = scales
