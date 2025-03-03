@@ -148,6 +148,7 @@ class TestMap(TestCaseBase):
     def test_map_for_loop(self):
         self.assert_results(test_map_for_loop, [7, 8, 9, 10])
 
+    @test_with_faster_guard
     def test_map_with_zip_and_call_fn_ex(self):
         self.assert_results(
             test_map_with_zip_and_call_fn_ex, [(1, 2), (3, 4), (5, 6)]

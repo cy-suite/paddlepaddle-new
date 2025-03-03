@@ -188,7 +188,13 @@ class ZipVariable(SequenceIterVariable):
         min_len = min(len(l) for l in lists)
         result = []
         for i in range(min_len):
-            result.append(tuple(l[i] for l in lists))
+            result.append(
+                VariableFactory.from_value(
+                    tuple(l[i] for l in lists),
+                    self.graph,
+                    DummyTracker(list(self.hold)),
+                )
+            )
         return result
 
     def has_side_effect(self) -> bool:
