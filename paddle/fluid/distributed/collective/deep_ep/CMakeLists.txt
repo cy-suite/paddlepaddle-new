@@ -1,5 +1,5 @@
-set(SRCS deep_ep.cpp src/fake_torch/c10/cuda/CUDAStream.cc kernels/internode.cu
-         kernels/intranode.cu kernels/runtime.cu)
+set(SRCS deep_ep.cpp kernels/internode.cu kernels/intranode.cu
+         kernels/runtime.cu)
 
 cc_library(
   deep_ep
