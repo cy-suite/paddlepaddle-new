@@ -46,9 +46,9 @@ void UpdateGroupShapeExprs(
     const auto& shape_dim_expr =
         value_dim_exprs_list->at(value_to_dim_expr_idx.at(value));
     const auto& origin_shape_or_data = origin_group->GetShapeOrDataExprs(value);
-    UpdateGroupSubstituteDimExprMap(
-        new_group, origin_shape_or_data.shape(), shape_dim_expr);
     if (origin_shape_or_data.data()) {
+      UpdateGroupSubstituteDimExprMap(
+          new_group, origin_shape_or_data.data().value(), shape_dim_expr);
       std::vector<symbol::DimExpr> shape_dim_expr_shape = {
           symbol::DimExpr(static_cast<int64_t>(shape_dim_expr.size()))};
       new_group->SetShapeOrDataExprs(
@@ -56,6 +56,8 @@ void UpdateGroupShapeExprs(
           symbol::ShapeOrDataDimExprs{symbol::TensorShapeOrDataDimExprs(
               shape_dim_expr_shape, shape_dim_expr)});
     } else {
+      UpdateGroupSubstituteDimExprMap(
+          new_group, origin_shape_or_data.shape(), shape_dim_expr);
       new_group->SetShapeOrDataExprs(
           value,
           symbol::ShapeOrDataDimExprs{
