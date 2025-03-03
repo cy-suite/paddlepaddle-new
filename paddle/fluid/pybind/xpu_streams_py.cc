@@ -100,6 +100,7 @@ void BindXpuStream(py::module *m_ptr) {
 #endif
   });
 
+#ifdef PADDLE_WITH_XPU
   py::class_<XPUStream>(m, "XPUStream", R"DOC(
       The handle of the CUDA stream.
 
@@ -122,11 +123,7 @@ void BindXpuStream(py::module *m_ptr) {
       )DOC")
       .def(
           "synchronize",
-          [](XPUStream &self) {
-#ifdef PADDLE_WITH_XPU
-            xpu_wait(self);
-#endif
-          },
+          [](XPUStream &self) { xpu_wait(self); },
           R"DOC(
           Waits for stream tasks to complete.
 
@@ -139,6 +136,7 @@ void BindXpuStream(py::module *m_ptr) {
                   >>> s.synchronize()
 
           )DOC");
+#endif
 }
 }  // namespace pybind
 }  // namespace paddle
