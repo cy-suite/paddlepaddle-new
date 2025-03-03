@@ -20,12 +20,13 @@
 #include "paddle/cinn/ir/op/ir_operators.h"
 #include "paddle/cinn/ir/utils/ir_compare.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
+#include "paddle/cinn/optim/simplify_util.h"
 #include "paddle/common/enforce.h"
 #include "paddle/common/errors.h"
 
 namespace cinn {
 namespace common {
-
+using cinn::optim::ProveDivisible;
 /*! \brief Override VisitExpr for iter expr type processing */
 void IterMapToExprNormalizer::Visit(const Expr* expr, Expr* op) {
   if (auto op_ = op->As<ir::IterSplit>()) {
