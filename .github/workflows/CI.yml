@@ -16,9 +16,11 @@ env:
 
 jobs:
   Clone:
+    name: Clone
     uses: ./.github/workflows/_Clone-linux.yml
 
   SOT:
+    name: PR-CI-SOT
     uses: ./.github/workflows/_SOT.yml
     needs: Clone
 

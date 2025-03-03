@@ -370,6 +370,9 @@ class BoundReplacer : public ir::IRMutator<> {
 
  private:
   void Visit(const ir::_Var_* var, ir::Expr* op) override {
+    // if the variable is S0/S1..., do not replace it.
+    if (var->is_symbolic_constant) return;
+
     ir::Expr lower_bound = SymbolicExprLimit::negative_inf;
     ir::Expr upper_bound = SymbolicExprLimit::positive_inf;
     if (var_intervals_.count(var->name) != 0) {
@@ -460,14 +463,14 @@ ir::Expr SymbolicExprAnalyzer::LowerBound(const ir::Expr& expr) const {
   BoundReplacer bound_replacer(var_intervals_, true);
   ir::Expr bound = ir::ir_utils::IRCopy(expr);
   bound_replacer(&bound);
-  return AutoSimplify(bound);
+  return optim::ArithSimplify(bound);
 }
 
 ir::Expr SymbolicExprAnalyzer::UpperBound(const ir::Expr& expr) const {
   BoundReplacer bound_replacer(var_intervals_, false);
   ir::Expr bound = ir::ir_utils::IRCopy(expr);
   bound_replacer(&bound);
-  return AutoSimplify(bound);
+  return optim::ArithSimplify(bound);
 }
 
 std::optional<bool> ProveEQ(const SingleIntervalIntSet& lhs,

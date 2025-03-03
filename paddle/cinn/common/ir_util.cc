@@ -259,7 +259,10 @@ void Substitute(Expr *expr, const std::map<const ir::_Var_ *, Expr> &var_map) {
 }
 
 bool is_zero(Expr v) {
-  v = AutoSimplify(v);
+  // TODO(liujinnan): In the old simplification module, IR is converted to CAS
+  // format, so AutoSimplify is still used for CAS format, which will be
+  // completely deleted when CAS is retired.
+  v = v.is_index() ? optim::ArithSimplify(v) : AutoSimplify(v);
   auto *int_n = v.As<ir::IntImm>();
   auto *float_n = v.As<ir::FloatImm>();
 
@@ -274,8 +277,11 @@ Expr CastIfNeeded(Expr body, Type type) {
 }
 
 bool MathEqual(const Expr &a, const Expr &b) {
+  // TODO(liujinnan): In the old simplification module, IR is converted to CAS
+  // format, so AutoSimplify is still used for CAS format, which will be
+  // completely deleted when CAS is retired.
   auto c = a - b;
-  c = AutoSimplify(c);
+  c = c.is_index() ? optim::ArithSimplify(c) : AutoSimplify(c);
   return is_zero(c);
 }
 
@@ -811,6 +817,44 @@ std::optional<ir::IndexExpr> SimplifyComplexMod(const ir::IndexExpr &lhs,
           "Unsupported type of expr in SimplifyComplexMod which is: %s", lhs));
   }
   return std::nullopt;
+}
+
+bool CheckPattern(const ir::IndexExpr &expr,
+                  const ir::IndexExpr &pattern,
+                  std::unordered_map<std::string, ir::IndexExpr> *map) {
+  // pattern may include Var to match any expr.
+  if (expr.node_type() != pattern.node_type() &&
+      pattern.node_type() != ir::IrNodeTy::_Var_)
+    return false;
+  switch (pattern.node_type()) {
+    case ir::IrNodeTy::Add:
+    case ir::IrNodeTy::Sub:
+    case ir::IrNodeTy::Mul:
+    case ir::IrNodeTy::Div:
+    case ir::IrNodeTy::Mod:
+    case ir::IrNodeTy::Min:
+    case ir::IrNodeTy::Max: {
+      return CheckPattern(expr.operand(0), pattern.operand(0), map) &&
+             CheckPattern(expr.operand(1), pattern.operand(1), map);
+    }
+    case ir::IrNodeTy::_Var_: {
+      auto it = map->find(pattern.As<ir::_Var_>()->name);
+      if (it != map->end()) {
+        return expr == it->second;
+      } else {
+        map->insert(std::make_pair(pattern.As<ir::_Var_>()->name, expr));
+        return true;
+      }
+    }
+    case ir::IrNodeTy::IntImm: {
+      return expr.As<ir::IntImm>()->value == pattern.As<ir::IntImm>()->value;
+    }
+    default:
+      PADDLE_THROW(::common::errors::InvalidArgument(
+          "Unsupported type of expr in CheckPattern which is: %s", expr));
+  }
+
+  return false;
 }
 }  // namespace common
 }  // namespace cinn
