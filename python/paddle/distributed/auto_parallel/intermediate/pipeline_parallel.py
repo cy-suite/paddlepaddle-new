@@ -195,24 +195,22 @@ class PipelineParallel(ParallelModel):
                                 ],
                             )
 
-                        global_output[ind].global_tensor = True
                 if isinstance(output, tuple):
                     global_output = tuple(global_output)
                 return global_output
             elif is_tensor(output):
                 if output.is_dist():
-                    new_output = dist.reshard(
+                    return dist.reshard(
                         output,
                         g_mesh,
                         [dist.Replicate() for _ in range(len(g_mesh._shape))],
                     )
                 else:
-                    new_output = dist.shard_tensor(
+                    return dist.shard_tensor(
                         output,
                         g_mesh,
                         [dist.Replicate() for _ in range(len(g_mesh._shape))],
                     )
-                return new_output
             else:
                 raise TypeError(
                     "layer output can only be tensor or list/tuple of tensor"
