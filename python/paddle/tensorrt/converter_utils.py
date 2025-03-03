@@ -213,25 +213,31 @@ def fill_constant_layer(network, shape_tensor, tensor_rank, data, trt_dtype):
     return fill_layer.get_output(0)
 
 
-def trt_expand(network, input, rank, shape_tensor, shape_rank):
+def trt_expand(network, input, rank, shape_tensor, shape_rank, name=None):
+    def process_names(name, layer_name):
+        if name is not None:
+            return [name[0], layer_name]
+        else:
+            return None
+
     if rank < shape_rank:
         one_rank_tensor = add_1D_constant_layer(
-            network, [1] * (shape_rank - rank)
+            network, [1] * (shape_rank - rank), name=process_names(name, "one_rank_tensor")
         )
-        in_shape_tensor = trt_shape(network, input)
+        in_shape_tensor = trt_shape(network, input, name=process_names(name, "in_shape_tensor"))
         itensors = [one_rank_tensor, in_shape_tensor]
-        input_shape_tensor = trt_concat(network, itensors)
+        input_shape_tensor = trt_concat(network, itensors, name=process_names(name, "input_shape_tensor"))
     else:
-        input_shape_tensor = trt_shape(network, input)
+        input_shape_tensor = trt_shape(network, input, name=process_names(name, "input_shape_tensor"))
 
-    new_input_tensor = trt_reshape(network, input, input_shape_tensor, "", True)
+    new_input_tensor = trt_reshape(network, input, input_shape_tensor, process_names(name, "new_input_tensor"), True)
 
     start = [0] * shape_rank
-    starts_tensor = add_1D_constant_layer(network, start)
-    one_tensor = add_1D_constant_layer(network, 1)
-    sizes_tensor = trt_max(network, input_shape_tensor, shape_tensor)
-    input_sub_tensor = trt_sub(network, input_shape_tensor, one_tensor)
-    strides_tensor = trt_min(network, one_tensor, input_sub_tensor)
+    starts_tensor = add_1D_constant_layer(network, start, name=process_names(name, "starts_tensor"))
+    one_tensor = add_1D_constant_layer(network, 1, name=process_names(name, "one_tensor"))
+    sizes_tensor = trt_max(network, input_shape_tensor, shape_tensor, name=process_names(name, "sizes_tensor"))
+    input_sub_tensor = trt_sub(network, input_shape_tensor, one_tensor, name=process_names(name, "input_sub_tensor"))
+    strides_tensor = trt_min(network, one_tensor, input_sub_tensor, name=process_names(name, "strides_tensor"))
 
     slice_layer = network.add_slice(
         new_input_tensor, start, [0] * len(start), [0] * len(start)
@@ -239,6 +245,7 @@ def trt_expand(network, input, rank, shape_tensor, shape_rank):
     slice_layer.set_input(1, starts_tensor)
     slice_layer.set_input(2, sizes_tensor)
     slice_layer.set_input(3, strides_tensor)
+    set_layer_name(slice_layer, name)
 
     return slice_layer.get_output(0)
 
@@ -328,8 +335,9 @@ def get_shape_tensor_element(network, x, index, is_scalar=False, name=None):
     return shape_tensor
 
 
-def trt_less(network, a, b):
+def trt_less(network, a, b, name=None):
     layer = network.add_elementwise(a, b, trt.ElementWiseOperation.LESS)
+    set_layer_name(layer, name)
     return layer.get_output(0)
 
 
@@ -403,62 +411,90 @@ def cast_tensor(network, input_tensor, dtype, name=None):
     return layer.get_output(0)
 
 
-def build_start_tensor(network, rank, axis_tensor, offset):
+def build_start_tensor(network, rank, axis_tensor, offset, name=None):
     # Create indices_tensor [0, 1, ..., rank-1]
     indices = np.arange(rank, dtype=np.int32)
-    indices_tensor = network.add_constant([rank], indices).get_output(0)
+    indices_name = [name[0], "indices_tensor"] if name is not None else None
+    indices_tensor = network.add_constant([rank], indices)
+    set_layer_name(indices_tensor, indices_name)
+    indices_tensor = indices_tensor.get_output(0)
 
     # Create mask: mask = (indices == axis_tensor)
+    mask_name = [name[0], "mask"] if name is not None else None
     mask = network.add_elementwise(
         indices_tensor, axis_tensor, trt.ElementWiseOperation.EQUAL
-    ).get_output(0)
-    mask_int = cast_tensor(network, mask, trt.int32)
+    )
+    set_layer_name(mask, mask_name)
+    mask = mask.get_output(0)
+    mask_int = cast_tensor(network, mask, trt.int32, name=[name[0], "mask_int"] if name is not None else None)
 
     # Calculate start_tensor = mask_int * offset
     start_tensor = network.add_elementwise(
         mask_int, offset, trt.ElementWiseOperation.PROD
-    ).get_output(0)
+    )
+    set_layer_name(start_tensor, name)
+    start_tensor = start_tensor.get_output(0)
 
     return start_tensor
 
 
 def build_size_tensor(
-    network, rank, axis_tensor, size_value, input_shape_tensor
+    network, rank, axis_tensor, size_value, input_shape_tensor, name=None
 ):
     # Create indices_tensor [0, 1, ..., rank-1]
     indices = np.arange(rank, dtype=np.int32)
-    indices_tensor = network.add_constant([rank], indices).get_output(0)
+    indices_name = [name[0], 'indices_tensor'] if name is not None else None
+    indices_tensor = network.add_constant([rank], indices)
+    set_layer_name(indices_tensor, indices_name)
+    indices_tensor = indices_tensor.get_output(0)
 
     # Create mask: mask = (indices == axis_tensor)
+    mask_name = [name[0], 'mask'] if name is not None else None
     mask = network.add_elementwise(
         indices_tensor, axis_tensor, trt.ElementWiseOperation.EQUAL
-    ).get_output(0)
-    mask_int = cast_tensor(network, mask, trt.int32)
+    )
+    set_layer_name(mask, mask_name)
+    mask = mask.get_output(0)
+    mask_int = cast_tensor(network, mask, trt.int32, name=[name[0], "mask_int"] if name is not None else None)
 
     # Create ones_tensor
+    ones_name = [name[0], 'ones_tensor'] if name is not None else None
     ones_tensor = network.add_constant(
         [rank], np.ones([rank], dtype=np.int32)
-    ).get_output(0)
+    )
+    set_layer_name(ones_tensor, ones_name)
+    ones_tensor = ones_tensor.get_output(0)
 
     # Calculate inverse_mask = ones_tensor - mask_int
+    inverse_mask_name = [name[0], 'inverse_mask'] if name is not None else None
     inverse_mask = network.add_elementwise(
         ones_tensor, mask_int, trt.ElementWiseOperation.SUB
-    ).get_output(0)
+    )
+    set_layer_name(inverse_mask, inverse_mask_name)
+    inverse_mask = inverse_mask.get_output(0)
 
     # Calculate size_tensor = mask_int * size_value + inverse_mask * input_shape_tensor
+    size_value_broadcast_name = [name[0], 'size_value_broadcast'] if name is not None else None
     size_value_broadcast = network.add_elementwise(
         mask_int, size_value, trt.ElementWiseOperation.PROD
-    ).get_output(0)
+    )
+    set_layer_name(size_value_broadcast, size_value_broadcast_name)
+    size_value_broadcast = size_value_broadcast.get_output(0)
 
+    input_shape_broadcast_name = [name[0], 'input_shape_broadcast'] if name is not None else None
     input_shape_broadcast = network.add_elementwise(
         inverse_mask, input_shape_tensor, trt.ElementWiseOperation.PROD
-    ).get_output(0)
+    )
+    set_layer_name(input_shape_broadcast, input_shape_broadcast_name)
+    input_shape_broadcast = input_shape_broadcast.get_output(0)
 
     size_tensor = network.add_elementwise(
         size_value_broadcast,
         input_shape_broadcast,
         trt.ElementWiseOperation.SUM,
-    ).get_output(0)
+    )
+    set_layer_name(size_tensor, name)
+    size_tensor = size_tensor.get_output(0)
 
     return size_tensor
 
@@ -754,15 +790,20 @@ def add_cast_reduce_layer(network, paddle_op, inputs, op_type):
     return layer.get_output(0)
 
 
-def fix_negative_indices(network, input_shape, indices):
+def fix_negative_indices(network, input_shape, indices, name=None):
     rank = len(input_shape.shape)
-    zero_tensor = add_1D_constant_layer(network, [0] * rank)
-    minus_one_tensor = add_1D_constant_layer(network, [-1] * rank)
+    zero_tensor_name = [name[0], 'zero_tensor'] if name else None
+    zero_tensor = add_1D_constant_layer(network, [0] * rank, name=zero_tensor_name)
+    minus_one_tensor_name = [name[0], 'minus_one_tensor'] if name else None
+    minus_one_tensor = add_1D_constant_layer(network, [-1] * rank, name=minus_one_tensor_name)
 
-    min_indices_zero = trt_min(network, indices, zero_tensor)
-    sign = trt_max(network, min_indices_zero, minus_one_tensor)
-    sub = trt_prod(network, sign, input_shape)
-    fixed_indices = trt_sub(network, indices, sub)
+    min_indices_zero_name = [name[0], 'min_indices_zero'] if name else None
+    min_indices_zero = trt_min(network, indices, zero_tensor, name=min_indices_zero_name)
+    sign_name = [name[0], 'sign'] if name else None
+    sign = trt_max(network, min_indices_zero, minus_one_tensor, name=sign_name)
+    sub_name = [name[0], 'sub'] if name else None
+    sub = trt_prod(network, sign, input_shape, name=sub_name)
+    fixed_indices = trt_sub(network, indices, sub, name=name)
     return fixed_indices
 
 
