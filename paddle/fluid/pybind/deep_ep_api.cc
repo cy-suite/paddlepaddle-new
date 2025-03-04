@@ -15,7 +15,9 @@
 #include <Python.h>
 #include "pybind11/stl.h"
 
+#ifdef PADDLE_WITH_DEEP_EP
 #include "paddle/fluid/distributed/collective/deep_ep/deep_ep.hpp"
+#endif
 #include "paddle/fluid/pybind/deep_ep_api.h"
 #include "paddle/utils/pybind.h"
 
@@ -24,6 +26,7 @@ namespace py = pybind11;
 namespace paddle::pybind {
 
 void BindDeepEPApi(pybind11::module *m) {
+#ifdef PADDLE_WITH_DEEP_EP
   pybind11::class_<deep_ep::Config>(*m, "Config")
       .def(pybind11::init<int, int, int, int, int>(),
            py::arg("num_sms") = 20,
@@ -65,6 +68,7 @@ void BindDeepEPApi(pybind11::module *m) {
            })
       .def("intranode_dispatch", &deep_ep::Buffer::intranode_dispatch_api)
       .def("intranode_combine", &deep_ep::Buffer::intranode_combine_api);
+#endif
 }
 
 }  // namespace paddle::pybind
