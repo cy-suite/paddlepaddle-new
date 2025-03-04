@@ -15,13 +15,13 @@
 #pragma once
 
 #include "glog/logging.h"
-#include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/c10/core/ScalarType.h"
-#include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/c10/cuda/CUDAStream.h"
+#include "paddle/fluid/distributed/collective/deep_ep/include/CUDAStream.h"
+#include "paddle/fluid/distributed/collective/deep_ep/include/ScalarType.h"
 #include "paddle/phi/api/include/tensor.h"
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/memory/malloc.h"
 
-namespace torch {
+namespace deep_ep::detail {
 
 struct Tensor {
   paddle::Tensor raw_tensor_;
@@ -61,7 +61,6 @@ struct Tensor {
 
   void *data_ptr() { return raw_tensor_.data(); }
 
-  // code may be generated in torch
   void record_stream(const cudaStream_t &stream) const {
     paddle::memory::RecordStream(
         std::dynamic_pointer_cast<phi::DenseTensor>(raw_tensor_.impl())
@@ -69,8 +68,11 @@ struct Tensor {
         stream);
   }
 
-  c10::ScalarType scalar_type() const { return raw_tensor_.dtype(); }
+  deep_ep::detail::ScalarType scalar_type() const {
+    return raw_tensor_.dtype();
+  }
 
   int64_t element_size() const { return phi::SizeOf(raw_tensor_.dtype()); }
 };
-}  // namespace torch
+
+}  // namespace deep_ep::detail

@@ -15,10 +15,10 @@
 #pragma once
 
 #include <glog/logging.h>
-#include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/c10/cuda/CUDAStream.h"
+#include "paddle/fluid/distributed/collective/deep_ep/include/CUDAStream.h"
 #include "paddle/fluid/distributed/collective/deep_ep/kernels/exception.cuh"
 
-namespace torch {
+namespace deep_ep::detail {
 
 class Event {
  public:
@@ -39,4 +39,4 @@ class Event {
   cudaEvent_t cuda_event_;
 };
 
-}  // namespace torch
+}  // namespace deep_ep::detail

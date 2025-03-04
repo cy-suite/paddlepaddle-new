@@ -29,10 +29,9 @@
 
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
-// #include <torch/types.h>
 #include <tuple>
 #include <vector>
-#include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/types.h"
+#include "paddle/fluid/distributed/collective/deep_ep/include/types.h"
 
 #include "paddle/fluid/distributed/collective/deep_ep/config.hpp"
 #include "paddle/fluid/distributed/collective/deep_ep/event.hpp"
@@ -70,7 +69,7 @@ struct Buffer {
   cudaIpcMemHandle_t ipc_handles[NUM_MAX_NVL_PEERS];
 
   // Stream for communication
-  // c10::cuda::CUDAStream comm_stream;
+  // deep_ep::detail::CUDAStream comm_stream;
   cudaStream_t comm_stream;
   phi::distributed::NCCLCommContext* comm_ctx;
   phi::GPUContext* calc_ctx;
@@ -125,117 +124,117 @@ struct Buffer {
 
   pybind11::bytearray get_local_ipc_handle() const;
 
-  // pybind11::bytearray get_local_nvshmem_unique_id() const;
-
-  // torch::Tensor get_local_buffer_tensor(const pybind11::object& dtype,
-  // int64_t offset, bool use_rdma_buffer) const;
-
   void sync(const std::vector<int>& device_ids,
             const std::vector<std::optional<pybind11::bytearray>>&
                 all_gathered_handles,
             const std::optional<pybind11::bytearray>& root_unique_id_opt);
 
-  std::tuple<torch::Tensor,
-             std::optional<torch::Tensor>,
-             torch::Tensor,
-             torch::Tensor,
+  std::tuple<deep_ep::detail::Tensor,
+             std::optional<deep_ep::detail::Tensor>,
+             deep_ep::detail::Tensor,
+             deep_ep::detail::Tensor,
              std::optional<EventHandle>>
-  get_dispatch_layout(const torch::Tensor& topk_idx,
+  get_dispatch_layout(const deep_ep::detail::Tensor& topk_idx,
                       int num_experts,
                       std::optional<EventHandle>& previous_event,  // NOLINT
                       bool async,
                       bool allocate_on_comm_stream);
 
-  std::tuple<torch::Tensor,
-             std::optional<torch::Tensor>,
-             std::optional<torch::Tensor>,
-             std::optional<torch::Tensor>,
+  std::tuple<deep_ep::detail::Tensor,
+             std::optional<deep_ep::detail::Tensor>,
+             std::optional<deep_ep::detail::Tensor>,
+             std::optional<deep_ep::detail::Tensor>,
              std::vector<int>,
-             torch::Tensor,
-             torch::Tensor,
-             torch::Tensor,
-             torch::Tensor,
-             torch::Tensor,
+             deep_ep::detail::Tensor,
+             deep_ep::detail::Tensor,
+             deep_ep::detail::Tensor,
+             deep_ep::detail::Tensor,
+             deep_ep::detail::Tensor,
              std::optional<EventHandle>>
   intranode_dispatch(
-      const torch::Tensor& x,
-      const std::optional<torch::Tensor>& x_scales,
-      const std::optional<torch::Tensor>& topk_idx,
-      const std::optional<torch::Tensor>& topk_weights,
-      const std::optional<torch::Tensor>& num_tokens_per_rank,
-      const torch::Tensor& is_token_in_rank,
-      const std::optional<torch::Tensor>& num_tokens_per_expert,
+      const deep_ep::detail::Tensor& x,
+      const std::optional<deep_ep::detail::Tensor>& x_scales,
+      const std::optional<deep_ep::detail::Tensor>& topk_idx,
+      const std::optional<deep_ep::detail::Tensor>& topk_weights,
+      const std::optional<deep_ep::detail::Tensor>& num_tokens_per_rank,
+      const deep_ep::detail::Tensor& is_token_in_rank,
+      const std::optional<deep_ep::detail::Tensor>& num_tokens_per_expert,
       int cached_num_recv_tokens,
-      const std::optional<torch::Tensor>& cached_rank_prefix_matrix,
-      const std::optional<torch::Tensor>& cached_channel_prefix_matrix,
+      const std::optional<deep_ep::detail::Tensor>& cached_rank_prefix_matrix,
+      const std::optional<deep_ep::detail::Tensor>&
+          cached_channel_prefix_matrix,
       int expert_alignment,
       const Config& config,
       std::optional<EventHandle>& previous_event,  // NOLINT
       bool async,
       bool allocate_on_comm_stream);
 
-  std::tuple<torch::Tensor,
-             std::optional<torch::Tensor>,
+  std::tuple<deep_ep::detail::Tensor,
+             std::optional<deep_ep::detail::Tensor>,
              std::optional<EventHandle>>
-  intranode_combine(const torch::Tensor& x,
-                    const std::optional<torch::Tensor>& topk_weights,
-                    const torch::Tensor& src_idx,
-                    const torch::Tensor& rank_prefix_matrix,
-                    const torch::Tensor& channel_prefix_matrix,
-                    const torch::Tensor& send_head,
+  intranode_combine(const deep_ep::detail::Tensor& x,
+                    const std::optional<deep_ep::detail::Tensor>& topk_weights,
+                    const deep_ep::detail::Tensor& src_idx,
+                    const deep_ep::detail::Tensor& rank_prefix_matrix,
+                    const deep_ep::detail::Tensor& channel_prefix_matrix,
+                    const deep_ep::detail::Tensor& send_head,
                     const Config& config,
                     std::optional<EventHandle>& previous_event,  // NOLINT
                     bool async,
                     bool allocate_on_comm_stream);
 
-  std::tuple<torch::Tensor,
-             std::optional<torch::Tensor>,
-             std::optional<torch::Tensor>,
-             std::optional<torch::Tensor>,
+  std::tuple<deep_ep::detail::Tensor,
+             std::optional<deep_ep::detail::Tensor>,
+             std::optional<deep_ep::detail::Tensor>,
+             std::optional<deep_ep::detail::Tensor>,
              std::vector<int>,
-             torch::Tensor,
-             torch::Tensor,
-             std::optional<torch::Tensor>,
-             torch::Tensor,
-             std::optional<torch::Tensor>,
-             torch::Tensor,
-             std::optional<torch::Tensor>,
-             std::optional<torch::Tensor>,
-             std::optional<torch::Tensor>,
+             deep_ep::detail::Tensor,
+             deep_ep::detail::Tensor,
+             std::optional<deep_ep::detail::Tensor>,
+             deep_ep::detail::Tensor,
+             std::optional<deep_ep::detail::Tensor>,
+             deep_ep::detail::Tensor,
+             std::optional<deep_ep::detail::Tensor>,
+             std::optional<deep_ep::detail::Tensor>,
+             std::optional<deep_ep::detail::Tensor>,
              std::optional<EventHandle>>
   internode_dispatch(
-      const torch::Tensor& x,
-      const std::optional<torch::Tensor>& x_scales,
-      const std::optional<torch::Tensor>& topk_idx,
-      const std::optional<torch::Tensor>& topk_weights,
-      const std::optional<torch::Tensor>& num_tokens_per_rank,
-      const std::optional<torch::Tensor>& num_tokens_per_rdma_rank,
-      const torch::Tensor& is_token_in_rank,
-      const std::optional<torch::Tensor>& num_tokens_per_expert,
+      const deep_ep::detail::Tensor& x,
+      const std::optional<deep_ep::detail::Tensor>& x_scales,
+      const std::optional<deep_ep::detail::Tensor>& topk_idx,
+      const std::optional<deep_ep::detail::Tensor>& topk_weights,
+      const std::optional<deep_ep::detail::Tensor>& num_tokens_per_rank,
+      const std::optional<deep_ep::detail::Tensor>& num_tokens_per_rdma_rank,
+      const deep_ep::detail::Tensor& is_token_in_rank,
+      const std::optional<deep_ep::detail::Tensor>& num_tokens_per_expert,
       int cached_num_recv_tokens,
       int cached_num_rdma_recv_tokens,
-      const std::optional<torch::Tensor>& cached_rdma_channel_prefix_matrix,
-      const std::optional<torch::Tensor>& cached_recv_rdma_rank_prefix_sum,
-      const std::optional<torch::Tensor>& cached_gbl_channel_prefix_matrix,
-      const std::optional<torch::Tensor>& cached_recv_gbl_rank_prefix_sum,
+      const std::optional<deep_ep::detail::Tensor>&
+          cached_rdma_channel_prefix_matrix,
+      const std::optional<deep_ep::detail::Tensor>&
+          cached_recv_rdma_rank_prefix_sum,
+      const std::optional<deep_ep::detail::Tensor>&
+          cached_gbl_channel_prefix_matrix,
+      const std::optional<deep_ep::detail::Tensor>&
+          cached_recv_gbl_rank_prefix_sum,
       int expert_alignment,
       const Config& config,
       std::optional<EventHandle>& previous_event,  // NOLINT
       bool async,
       bool allocate_on_comm_stream);
 
-  std::tuple<torch::Tensor,
-             std::optional<torch::Tensor>,
+  std::tuple<deep_ep::detail::Tensor,
+             std::optional<deep_ep::detail::Tensor>,
              std::optional<EventHandle>>
-  internode_combine(const torch::Tensor& x,
-                    const std::optional<torch::Tensor>& topk_weights,
-                    const torch::Tensor& src_meta,
-                    const torch::Tensor& is_combined_token_in_rank,
-                    const torch::Tensor& rdma_channel_prefix_matrix,
-                    const torch::Tensor& rdma_rank_prefix_sum,
-                    const torch::Tensor& gbl_channel_prefix_matrix,
-                    const torch::Tensor& combined_rdma_head,
-                    const torch::Tensor& combined_nvl_head,
+  internode_combine(const deep_ep::detail::Tensor& x,
+                    const std::optional<deep_ep::detail::Tensor>& topk_weights,
+                    const deep_ep::detail::Tensor& src_meta,
+                    const deep_ep::detail::Tensor& is_combined_token_in_rank,
+                    const deep_ep::detail::Tensor& rdma_channel_prefix_matrix,
+                    const deep_ep::detail::Tensor& rdma_rank_prefix_sum,
+                    const deep_ep::detail::Tensor& gbl_channel_prefix_matrix,
+                    const deep_ep::detail::Tensor& combined_rdma_head,
+                    const deep_ep::detail::Tensor& combined_nvl_head,
                     const Config& config,
                     std::optional<EventHandle>& previous_event,  // NOLINT
                     bool async,
@@ -245,28 +244,28 @@ struct Buffer {
                                 int hidden,
                                 int num_experts);
 
-  std::tuple<torch::Tensor,
-             torch::Tensor,
-             torch::Tensor,
-             torch::Tensor,
-             torch::Tensor,
+  std::tuple<deep_ep::detail::Tensor,
+             deep_ep::detail::Tensor,
+             deep_ep::detail::Tensor,
+             deep_ep::detail::Tensor,
+             deep_ep::detail::Tensor,
              std::optional<EventHandle>,
              std::optional<std::function<void()>>>
-  low_latency_dispatch(const torch::Tensor& x,
-                       const torch::Tensor& topk_idx,
+  low_latency_dispatch(const deep_ep::detail::Tensor& x,
+                       const deep_ep::detail::Tensor& topk_idx,
                        int num_max_dispatch_tokens_per_rank,
                        int num_experts,
                        bool async,
                        bool return_recv_hook);
 
-  std::tuple<torch::Tensor,
+  std::tuple<deep_ep::detail::Tensor,
              std::optional<EventHandle>,
              std::optional<std::function<void()>>>
-  low_latency_combine(const torch::Tensor& x,
-                      const torch::Tensor& topk_idx,
-                      const torch::Tensor& topk_weights,
-                      const torch::Tensor& src_info,
-                      const torch::Tensor& layout_range,
+  low_latency_combine(const deep_ep::detail::Tensor& x,
+                      const deep_ep::detail::Tensor& topk_idx,
+                      const deep_ep::detail::Tensor& topk_weights,
+                      const deep_ep::detail::Tensor& src_info,
+                      const deep_ep::detail::Tensor& layout_range,
                       int num_max_dispatch_tokens_per_rank,
                       int num_experts,
                       bool async,
@@ -368,9 +367,9 @@ struct Buffer {
                         bool allocate_on_comm_stream);
 };
 
-torch::Tensor ConvertPaddleTensorToFakeTorchTensor(
+deep_ep::detail::Tensor ConvertPaddleTensorToDetailTensor(
     const paddle::Tensor& tensor);
-paddle::Tensor ConvertFakeTorchTensorToPaddleTensor(
-    const torch::Tensor& tensor);
+paddle::Tensor ConvertDetailTensorToPaddleTensor(
+    const deep_ep::detail::Tensor& tensor);
 
 }  // namespace deep_ep

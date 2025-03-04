@@ -16,12 +16,10 @@
 #include <unordered_map>
 #include <variant>
 #include "paddle/common/overloaded.h"
-#include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/c10/core/ScalarType.h"
+#include "paddle/fluid/distributed/collective/deep_ep/include/ScalarType.h"
 #include "paddle/phi/backends/gpu/cuda/cuda_helper.h"
 
-namespace at::cuda {
-
-namespace detail {
+namespace deep_ep::detail {
 
 template <phi::DataType phi_data_type>
 struct PhiDataTypeImpl {
@@ -36,8 +34,9 @@ using PhiDataType = std::variant<
 #undef MAKE_PHI_DATA_TYPE_CASE
     >;
 
-inline PhiDataType ScalarTypeToPhiDataType(const c10::ScalarType& scalar_type) {
-  static std::unordered_map<c10::ScalarType, PhiDataType> map = {
+inline PhiDataType ScalarTypeToPhiDataType(
+    const deep_ep::detail::ScalarType& scalar_type) {
+  static std::unordered_map<deep_ep::detail::ScalarType, PhiDataType> map = {
 #define MAKE_PHI_DATA_TYPE_CONVERT_CASE(_, phi_data_type) \
   {phi::phi_data_type, PhiDataTypeImpl<phi::phi_data_type>{}},
       PD_FOR_EACH_DATA_TYPE(MAKE_PHI_DATA_TYPE_CONVERT_CASE)
@@ -52,10 +51,8 @@ inline PhiDataType ScalarTypeToPhiDataType(const c10::ScalarType& scalar_type) {
   return iter->second;
 }
 
-}  // namespace detail
-
 inline cudaDataType_t ScalarTypeToCudaDataType(
-    const c10::ScalarType& scalar_type) {
+    const deep_ep::detail::ScalarType& scalar_type) {
   auto phi_data_type = detail::ScalarTypeToPhiDataType(scalar_type);
   auto Converter = ::common::Overloaded{
       [](detail::PhiDataTypeImpl<phi::DataType::PSTRING>) -> cudaDataType_t {
@@ -74,4 +71,4 @@ inline cudaDataType_t ScalarTypeToCudaDataType(
   return std::visit(Converter, phi_data_type);
 }
 
-}  // namespace at::cuda
+}  // namespace deep_ep::detail

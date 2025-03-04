@@ -16,15 +16,12 @@
 
 #include "paddle/phi/common/data_type.h"
 
-namespace c10 {
+namespace deep_ep::detail {
 
 using ScalarType = phi::DataType;
 
-}
-
-namespace torch {
-constexpr auto kInt32 = c10::ScalarType::INT32;
-constexpr auto kBool = c10::ScalarType::BOOL;
-constexpr auto kFloat32 = c10::ScalarType::FLOAT32;
-constexpr auto kByte = c10::ScalarType::INT8;
-}  // namespace torch
+constexpr auto kInt32 = phi::DataType::INT32;
+constexpr auto kBool = phi::DataType::BOOL;
+constexpr auto kFloat32 = phi::DataType::FLOAT32;
+constexpr auto kByte = phi::DataType::INT8;
+}  // namespace deep_ep::detail

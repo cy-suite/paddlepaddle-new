@@ -20,7 +20,7 @@
 #include "paddle/phi/backends/gpu/gpu_info.h"
 #include "paddle/phi/core/cuda_stream.h"
 
-namespace c10::cuda {
+namespace deep_ep::detail {
 
 using DeviceIndex = int8_t;
 using StreamId = int64_t;
@@ -61,4 +61,4 @@ inline void setCurrentCUDAStream(cudaStream_t stream) {
   LOG(FATAL) << "setCurrentCUDAStream is not implemented";
 }
 
-}  // namespace c10::cuda
+}  // namespace deep_ep::detail

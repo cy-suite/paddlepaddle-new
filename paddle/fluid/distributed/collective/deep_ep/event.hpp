@@ -24,39 +24,39 @@
 
 #include <memory>
 
-#include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/c10/cuda/CUDAStream.h"
-#include "paddle/fluid/distributed/collective/deep_ep/include/fake_torch/event.h"
+#include "paddle/fluid/distributed/collective/deep_ep/include/CUDAStream.h"
+#include "paddle/fluid/distributed/collective/deep_ep/include/event.h"
 #include "paddle/fluid/distributed/collective/deep_ep/kernels/exception.cuh"
 
 namespace deep_ep {
 
 struct EventHandle {
-  std::shared_ptr<torch::Event> event;
+  std::shared_ptr<deep_ep::detail::Event> event;
 
   EventHandle() {
-    event = std::make_shared<torch::Event>();
+    event = std::make_shared<deep_ep::detail::Event>();
     // LOG(WARNING) << "EventHandle constructor is called without record current
     // stream";
-    event->record(c10::cuda::getCurrentCUDAStream().raw_stream());
+    event->record(deep_ep::detail::getCurrentCUDAStream().raw_stream());
   }
 
   explicit EventHandle(const cudaStream_t& stream) {
-    event = std::make_shared<torch::Event>();
+    event = std::make_shared<deep_ep::detail::Event>();
     event->record(stream);
   }
 
   EventHandle(const EventHandle& other) = default;
 
   void current_stream_wait() const {
-    CUDA_CHECK(
-        cudaStreamWaitEvent(c10::cuda::getCurrentCUDAStream().raw_stream(),
-                            event->cuda_event(),
-                            0));
+    CUDA_CHECK(cudaStreamWaitEvent(
+        deep_ep::detail::getCurrentCUDAStream().raw_stream(),
+        event->cuda_event(),
+        0));
   }
 };
 
-inline torch::Event create_event(const cudaStream_t& s) {
-  auto event = torch::Event();
+inline deep_ep::detail::Event create_event(const cudaStream_t& s) {
+  auto event = deep_ep::detail::Event();
   event.record(s);
   return event;
 }
