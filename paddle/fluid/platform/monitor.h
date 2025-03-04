@@ -190,3 +190,15 @@ class StatRegistry {
   USE_INT_STAT(STAT_gpu13_mem_size); \
   USE_INT_STAT(STAT_gpu14_mem_size); \
   USE_INT_STAT(STAT_gpu15_mem_size)
+
+#define USE_XPU_MEM_STAT             \
+  USE_INT_STAT(STAT_xpu0_mem_size);  \
+  USE_INT_STAT(STAT_xpu1_mem_size);  \
+  USE_INT_STAT(STAT_xpu2_mem_size);  \
+  USE_INT_STAT(STAT_xpu3_mem_size);  \
+  USE_INT_STAT(STAT_xpu4_mem_size);  \
+  USE_INT_STAT(STAT_xpu5_mem_size);  \
+  USE_INT_STAT(STAT_xpu6_mem_size);  \
+  USE_INT_STAT(STAT_xpu7_mem_size);  
+
+

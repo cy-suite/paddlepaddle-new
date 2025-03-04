@@ -46,6 +46,37 @@ int GetXPUCurrentDeviceId();
 //! Get a list of device ids from environment variable or use all.
 std::vector<int> GetXPUSelectedDevices();
 
+
+//! Get the memory usage of current XPU device.
+void XPUMemoryUsage(size_t* available, size_t* total);
+
+//! Get the available memory to allocate, which is the size of available xpu
+//! minus reserving.
+size_t XPUAvailableMemToAlloc();
+
+//! Get the maximum allocation size of current XPU device.
+size_t XPUMaxAllocSize();
+
+//! Get the initial allocation size of current XPU device.
+size_t XPUInitAllocSize();
+
+//! Get the re-allocation size of current XPU device.
+size_t XPUReallocSize();
+
+//! Get the minimum chunk size for XPU buddy allocator.
+size_t XPUMinChunkSize();
+
+//! Get the maximum chunk size for XPU buddy allocator.
+size_t XPUMaxChunkSize();
+
+int RecordedXPUMalloc(void **ptr, size_t size, int dev_id);
+
+void RecordedXPUFree(void *p, size_t size, int dev_id); 
+bool RecordedXPUMemGetInfo(size_t *avail,
+                           size_t *total,
+                           size_t *actual_avail,
+                           size_t *actual_total,
+                           int dev_id);
 /***** Memory Management *****/
 
 //! Copy memory from address src to dst synchronously.

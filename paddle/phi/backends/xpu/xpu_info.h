@@ -44,6 +44,10 @@ int GetXPUCurrentDeviceId();
 //! Get a list of device ids from environment variable or use all.
 std::vector<int> GetXPUSelectedDevices();
 
+//! Get the minimum chunk size for XPU buddy allocator.
+size_t XPUMinChunkSize();
+
+
 /***** Memory Management *****/
 
 //! Copy memory from address src to dst synchronously.
@@ -63,6 +67,9 @@ void MemcpySyncD2D(void *dst,
                    const phi::XPUPlace &src_place,
                    size_t count,
                    const phi::XPUContext &dev_ctx);
+
+
+
 
 class XPUDeviceGuard {
  public:
@@ -86,6 +93,8 @@ class XPUDeviceGuard {
  private:
   int prev_id_{-1};
 };
+
+
 
 enum XPUVersion { XPU1, XPU2 };
 XPUVersion get_xpu_version(int dev_id);

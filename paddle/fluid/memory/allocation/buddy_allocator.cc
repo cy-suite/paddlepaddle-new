@@ -19,7 +19,8 @@ limitations under the License. */
 #include "glog/logging.h"
 #include "paddle/phi/core/flags.h"
 
-#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
+#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)|| \
+    defined(PADDLE_WITH_MLU) 
 #define USE_DEVICE
 PHI_DECLARE_uint64(reallocate_gpu_memory_in_mb);
 #endif
@@ -56,6 +57,9 @@ BuddyAllocator::BuddyAllocator(
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
     init_allocate_size_func_ = &platform::GpuInitAllocSize;
     re_allocate_size_func_ = &platform::GpuReallocSize;
+#elif defined(PADDLE_WITH_XPU)
+    init_allocate_size_func_ = &platform::XPUInitAllocSize;
+    re_allocate_size_func_ = &platform::XPUReallocSize;
 #endif
   }
 #endif
@@ -101,7 +105,7 @@ void* BuddyAllocator::Alloc(size_t unaligned_size) {
 
   // if the allocation is huge, send directly to the system allocator
   if (size > max_chunk_size_) {
-    VLOG(10) << "Allocate from system allocator.";
+    VLOG(1) << size<< "max_chunk_size_ Allocate from system allocator."<<max_chunk_size_;
     return SystemAlloc(size);
   }
 
@@ -110,6 +114,7 @@ void* BuddyAllocator::Alloc(size_t unaligned_size) {
 
   // refill the pool if failure
   if (it == pool_.end()) {
+    VLOG(1) << "refill the pool if failure find existchunk.";
     it = RefillPool(size);
     // if still failure, fail fatally
     if (it == pool_.end()) {
@@ -252,12 +257,14 @@ BuddyAllocator::PoolSet::iterator BuddyAllocator::RefillPool(
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
   allocate_bytes = DeviceAllocateSize(
       &platform::GpuInitAllocSize, &platform::GpuReallocSize, request_bytes);
+#elif defined(PADDLE_WITH_XPU)
+  allocate_bytes = DeviceAllocateSize(
+      &platform::XPUInitAllocSize, &platform::XPUReallocSize, request_bytes);
 #endif
 #endif
 
   // Allocate a new block
   void* p = system_allocator_->Alloc(&index, allocate_bytes);
-
   if (p == nullptr) return pool_.end();
 
   VLOG(8) << "Creating and inserting new block " << p << " size "

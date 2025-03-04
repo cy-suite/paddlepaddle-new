@@ -11,11 +11,14 @@ limitations under the License. */
 #include "paddle/phi/backends/xpu/xpu_info.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdlib>
 #include <string>
+#include <mutex>
+#include <set>
+
 
 #include "glog/logging.h"
-
 #include "paddle/phi/backends/xpu/enforce_xpu.h"
 #include "paddle/phi/backends/xpu/xpu_context.h"
 #include "paddle/phi/backends/xpu/xpu_header.h"
@@ -35,6 +38,7 @@ PHI_DEFINE_EXPORTED_string(
     "reason of doing this is that we want to use P2P communication"
     "between XPU devices, use XPU_VISIBLE_DEVICES can only use"
     "share-memory only.");
+
 
 namespace phi {
 class XPUContext;
@@ -82,6 +86,7 @@ static int GetDeviceCountImpl() {
   PADDLE_ENFORCE_XPU_SUCCESS(xpu_device_count(&count));
   return count;
 }
+
 
 int GetXPUDeviceCount() {
   static auto dev_cnt = GetDeviceCountImpl();
@@ -137,6 +142,11 @@ std::vector<int> GetXPUSelectedDevices() {
   return devices;
 }
 
+size_t XPUMinChunkSize() {
+  // Allow to allocate the minimum chunk size is 256 bytes.
+  return 1 << 8;
+}
+
 /**************************** Memory Management **************************/
 
 void MemcpySyncH2D(void* dst,
@@ -183,6 +193,13 @@ void MemcpySyncD2D(void* dst,
   }
 }
 
+static void RaiseNonOutOfMemoryError(int status) {
+  if (status != XPU_SUCCESS) {
+    status = XPU_SUCCESS;
+  }
+  PADDLE_ENFORCE_XPU_SUCCESS(status);
+}
+
 /**************************** Others **************************/
 
 XPUVersion get_xpu_version(int dev_id) {
@@ -190,14 +207,15 @@ XPUVersion get_xpu_version(int dev_id) {
   PADDLE_ENFORCE_XPU_SUCCESS(xpu_device_get_attr(&v, XPUATTR_MODEL, dev_id));
 
   if (v == K100 || v == K200) {
-    VLOG(1) << "KUNLUN device " << dev_id << " is XPU1\n";
+    VLOG(2) << "KUNLUN device " << dev_id << " is XPU1\n";
     return XPU1;
   } else {
-    VLOG(1) << "KUNLUN device " << dev_id << " is XPU2\n";
+    VLOG(2) << "KUNLUN device " << dev_id << " is XPU2\n";
     return XPU2;
   }
 }
 
 }  // namespace xpu
 }  // namespace backends
+
 }  // namespace phi

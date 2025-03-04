@@ -14,7 +14,7 @@ set(XPU_CTX_DEPS
 cc_library(
   xpu_info
   SRCS xpu_info.cc
-  DEPS glog enforce xpulib device_context place phi)
+  DEPS glog enforce monitor xpulib device_context place phi)
 cc_library(
   xpu_op_list
   SRCS xpu_op_list.cc

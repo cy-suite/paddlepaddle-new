@@ -15,6 +15,7 @@
 #include "paddle/fluid/memory/allocation/naive_best_fit_allocator.h"
 
 #include <mutex>
+#include <typeinfo> 
 
 #include "glog/logging.h"
 #include "paddle/fluid/memory/allocation/buddy_allocator.h"
@@ -26,6 +27,7 @@
 #include "paddle/fluid/string/printf.h"
 #include "paddle/fluid/string/split.h"
 #include "paddle/phi/common/place.h"
+#include "paddle/phi/backends/xpu/xpu_header.h"
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
 #include "paddle/fluid/platform/cuda_device_guard.h"
 #endif
@@ -142,6 +144,143 @@ size_t Used<platform::IPUPlace>(const platform::IPUPlace &place) {
   return GetCPUBuddyAllocator()->Used();
 }
 
+#ifdef PADDLE_WITH_XPU
+// For kunlun XPU2
+class XPUBuddyAllocatorList {
+ private:
+  XPUBuddyAllocatorList() : devices_(platform::GetXPUSelectedDevices()) {
+    auto xpu_num = devices_.size();
+    allocators_.resize(xpu_num);
+    init_flags_.reserve(xpu_num);
+    for (size_t i = 0; i < xpu_num; ++i) {
+      init_flags_.emplace_back(new std::once_flag());
+    }
+  }
+
+  static XPUBuddyAllocatorList *CreateNewInstance() {
+    return new XPUBuddyAllocatorList();
+  }
+
+ public:
+  static XPUBuddyAllocatorList *Instance() {
+    static auto *instance = CreateNewInstance();
+    return instance;
+  }
+
+  BuddyAllocator *Get(int xpu_id) {
+    auto pos = std::distance(
+        devices_.begin(), std::find(devices_.begin(), devices_.end(), xpu_id));
+    PADDLE_ENFORCE_LT(pos,
+                      devices_.size(),
+                      platform::errors::OutOfRange(
+                          "The index exceeds the size of devices, the size of "
+                          "devices is %d, the index is %d",
+                          devices_.size(),
+                          pos));
+
+    std::call_once(*init_flags_[pos], [this, pos] {
+      platform::SetXPUDeviceId(devices_[pos]);
+      allocators_[pos].reset(
+          new BuddyAllocator(std::unique_ptr<detail::SystemAllocator>(
+                                 new detail::XPUAllocator(devices_[pos])),
+                             platform::XPUMinChunkSize(),
+                             platform::XPUMaxChunkSize()));
+      VLOG(1) << "\n\nNOTE:\n"
+               << "You can set GFlags environment variable "
+               << "(xpu reuse gpu GFlags) "
+               << "'FLAGS_fraction_of_gpu_memory_to_use' "
+               << "or 'FLAGS_initial_gpu_memory_in_mb' "
+               << "or 'FLAGS_reallocate_gpu_memory_in_mb' "
+               << "to change the memory size for xpu usage.\n"
+               << "Current 'FLAGS_fraction_of_gpu_memory_to_use' value is "
+               << FLAGS_fraction_of_gpu_memory_to_use
+               << ". Current 'FLAGS_initial_gpu_memory_in_mb' value is "
+               << FLAGS_initial_gpu_memory_in_mb
+               << ". Current 'FLAGS_reallocate_gpu_memory_in_mb' value is "
+               << FLAGS_reallocate_gpu_memory_in_mb << "\n\n";
+    });
+
+    return allocators_[pos].get();
+  }
+
+ private:
+  std::vector<int> devices_;
+  std::vector<std::unique_ptr<std::once_flag>> init_flags_;
+  std::vector<std::unique_ptr<BuddyAllocator>> allocators_;
+};
+
+BuddyAllocator *GetXPUBuddyAllocator(int xpu_id) {
+  return XPUBuddyAllocatorList::Instance()->Get(xpu_id);
+}
+#endif
+
+template <>
+size_t Used<platform::XPUPlace>(const platform::XPUPlace &place) {
+#ifdef PADDLE_WITH_XPU
+  return GetXPUBuddyAllocator(place.device)->Used();
+#else
+  PADDLE_THROW(platform::errors::PermissionDenied(
+      "'XPUPlace' is not supported in CPU only device."));
+#endif
+}
+
+template <>
+void *Alloc<platform::XPUPlace>(const platform::XPUPlace &place, size_t size) {
+#ifdef PADDLE_WITH_XPU
+  auto *buddy_allocator = GetXPUBuddyAllocator(place.device);
+  auto *ptr = buddy_allocator->Alloc(size);
+  if (ptr == nullptr) {
+    platform::XPUDeviceGuard(place.device);
+    size_t avail = 0, total = 0;
+    platform::XPUMemoryUsage(&avail, &total);
+    PADDLE_THROW(platform::errors::ResourceExhausted(
+        "Cannot allocate %s in XPU %d, avaliable %s, total %s, XPUMinChunkSize "
+        "%s, XPUMinChunkSize %s, XPU memory used: %s.",
+        string::HumanReadableSize(size),
+        place.device,
+        string::HumanReadableSize(avail),
+        string::HumanReadableSize(total),
+        string::HumanReadableSize(buddy_allocator->GetMinChunkSize()),
+        string::HumanReadableSize(buddy_allocator->GetMaxChunkSize()),
+        string::HumanReadableSize(Used<platform::XPUPlace>(place))));
+  } else {
+    if (FLAGS_init_allocated_mem) {  
+       PADDLE_THROW(platform::errors::Unimplemented(
+        "xpu memory FLAGS_init_allocated_mem is not implemented."));
+    }
+    
+  }
+  return ptr;
+#else
+  PADDLE_THROW(platform::errors::PermissionDenied(
+      "'XPUPlace' is not supported in CPU only device."));
+#endif
+}
+
+template <>
+void Free<platform::XPUPlace>(const platform::XPUPlace &place,
+                              void *p,
+                              size_t size) {
+#ifdef PADDLE_WITH_XPU
+  VLOG(10) << "Free pointer=" << p << " on " << platform::Place(place);
+  GetXPUBuddyAllocator(place.device)->Free(p);
+#else
+  PADDLE_THROW(platform::errors::PermissionDenied(
+      "'XPUPlace' is not supported in CPU only device."));
+#endif
+}
+
+template <>
+uint64_t Release<platform::XPUPlace>(const platform::XPUPlace &place) {
+#ifdef PADDLE_WITH_XPU
+  return GetXPUBuddyAllocator(place.device)->Release();
+#else
+  PADDLE_THROW(platform::errors::PermissionDenied(
+      "'XPUPlace' is not supported in CPU only device."));
+#endif
+}
+
+/*
 // For kunlun XPU
 template <>
 void *Alloc<platform::XPUPlace>(const platform::XPUPlace &place, size_t size) {
@@ -211,7 +350,7 @@ size_t Used<platform::XPUPlace>(const platform::XPUPlace &place) {
       platform::errors::PermissionDenied("'XPUPlace' is not supported."));
 #endif
 }
-
+*/
 // For CUDA
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
 class GPUBuddyAllocatorList {
