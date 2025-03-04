@@ -39,7 +39,7 @@ elseif(LINUX)
   endif()
 endif()
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" OR WIN32)
   file(TO_NATIVE_PATH ${PADDLE_SOURCE_DIR}/patches/eigen/TensorRandom.h.patch
        tensor_random_header)
   # See: [Why calling some `git` commands before `patch`?]
