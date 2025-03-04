@@ -107,8 +107,8 @@ int init(const std::vector<uint8_t>& root_unique_id_val,
   nvshmemx_init_attr(NVSHMEMX_INIT_WITH_UNIQUEID, &attr);
 
   // Create sub-RDMA teams
-  // NOTES: if `num_ranks <= NUM_MAX_NVL_PEERS` then only low-latency
-  kernels are used if (low_latency_mode and num_ranks > NUM_MAX_NVL_PEERS) {
+  // NOTES: if `num_ranks <= NUM_MAX_NVL_PEERS` then only low-latency kernels are used 
+  if (low_latency_mode && num_ranks > NUM_MAX_NVL_PEERS) {
     EP_HOST_ASSERT(cpu_rdma_team == NVSHMEM_TEAM_INVALID);
     EP_HOST_ASSERT(num_ranks % NUM_MAX_NVL_PEERS == 0);
     EP_HOST_ASSERT(nvshmem_team_split_strided(NVSHMEM_TEAM_WORLD,

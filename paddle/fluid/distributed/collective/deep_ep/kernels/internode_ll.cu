@@ -170,7 +170,7 @@ __global__ __launch_bounds__(
                          "Invalid vectorization");
         amax = half_warp_reduce_max(amax), scale = kFP8Amax / amax,
         scale_inv = amax * kFP8AmaxInv;
-        if (lane_id == 0 or lane_id == 16)
+        if (lane_id == 0 || lane_id == 16)
           rdma_x_scales[i * kNumElemsPerRead / 128] = scale_inv;
 
         // Cast into send buffer
@@ -260,7 +260,7 @@ __global__ __launch_bounds__(
 #pragma unroll 8
     for (int i = lane_id; i < num_tokens * num_topk; i += 32) {
       auto idx = static_cast<int>(__ldg(topk_idx + i));
-      if (idx >= expert_begin_idx and idx < expert_end_idx)
+      if (idx >= expert_begin_idx && idx < expert_end_idx)
         expert_count[idx - expert_begin_idx]++;
     }
 
@@ -278,7 +278,7 @@ __global__ __launch_bounds__(
   __syncthreads();
 
   // Issue count sends
-  if (responsible_expert_idx < num_experts and sub_warp_id == 0 and
+  if (responsible_expert_idx < num_experts && sub_warp_id == 0 &&
       lane_id == 0) {
     const auto dst_rank = responsible_expert_idx / num_local_experts;
     const auto dst_expert_local_idx =
@@ -345,7 +345,7 @@ LOW_LATENCY_DISPATCH_RECV:
     int num_recv_tokens, recv_token_begin_idx;
     EP_STATIC_ASSERT(kNumWarpsPerGroup > 1,
                      "Requires more than one warp per group");
-    if (sub_warp_id == 1 and lane_id == 0) {
+    if (sub_warp_id == 1 && lane_id == 0) {
       if (src_rank != rank) {
         nvshmemi_ibgda_poll_recv(src_rank, local_expert_idx);
         num_recv_tokens = ld_acquire_global(
@@ -533,7 +533,7 @@ __global__ __launch_bounds__(
   if ((phases & LOW_LATENCY_SEND_PHASE) == 0) goto LOW_LATENCY_COMBINE_RECV;
 
   // Clean up next buffer
-  if (sm_id == 0 and warp_group_id == 0 and sub_warp_id == 0) {
+  if (sm_id == 0 && warp_group_id == 0 && sub_warp_id == 0) {
 #pragma unroll
     for (int i = lane_id; i < num_next_clean_int; i += 32) next_clean[i] = 0;
 
@@ -615,7 +615,7 @@ __global__ __launch_bounds__(
                      "Requires more than one warp per group");
     asm volatile("bar.sync %0, %1;" ::"r"(warp_group_id + 1),
                  "r"(kNumWarpsPerGroup * 32));
-    if (sub_warp_id == 1 and lane_id == 0) {
+    if (sub_warp_id == 1 && lane_id == 0) {
       while (ld_acquire_global(atomic_clean_flag) == 0)
         ;
       if (dst_rank != rank) {
@@ -640,8 +640,8 @@ LOW_LATENCY_COMBINE_RECV:
   if (responsible_expert_idx < num_experts) {
     EP_STATIC_ASSERT(kNumWarpsPerGroup > 1,
                      "Invalid number of warps per group");
-    if (sub_warp_id == 0 and lane_id == 0) {
-      // TODO: refactor QP indices
+    if (sub_warp_id == 0 && lane_id == 0) {
+      // TODO(Xreki): refactor QP indices
       auto src_rank = responsible_expert_idx / num_local_experts;
       auto src_expert_idx = responsible_expert_idx % num_local_experts;
       if (src_rank != rank) {
@@ -655,7 +655,7 @@ LOW_LATENCY_COMBINE_RECV:
   cg::this_grid().sync();
 
   // Reduce tokens with FP8 cast
-  EP_DEVICE_ASSERT(num_topk <= 32 and hidden_bf16_int4 <= num_threads);
+  EP_DEVICE_ASSERT(num_topk <= 32 && hidden_bf16_int4 <= num_threads);
   EP_STATIC_ASSERT(kHidden % (32 * kNumElemsPerInt4) == 0,
                    "Invalid vectorization");
   if (thread_id < hidden_bf16_int4) {
