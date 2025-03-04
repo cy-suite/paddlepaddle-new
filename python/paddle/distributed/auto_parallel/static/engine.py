@@ -744,14 +744,22 @@ class Engine:
                 [dist_program], [startup_program]
             )
 
-        sync_new = True
+        sync_new = False
         if sync_new:
+            config = {}
+            config["concrete_program"] = self.concrete_program
+            config["pipeline_strategy"] = self._strategy.pipeline
             auto_parallel_sync_shared_params_pass = new_pass(
-                "auto_parallel_sync_shared_params", {}
+                "auto_parallel_sync_shared_params", config
             )
-            auto_parallel_sync_shared_params_pass.pre_analysis_test(
-                dist_program, startup_program
+            shared_params = (
+                auto_parallel_sync_shared_params_pass.pre_analysis_test(
+                    dist_program, startup_program
+                )
             )
+            # add shared params
+            for pname in shared_params:
+                self._parameter_name_list.append(pname)
 
         # Step 1.2: pir backward
         if mode == "train" and self._loss and self._optimizer:
@@ -861,15 +869,6 @@ class Engine:
         # TODO(JZ-LIANG) Step 3.1: Partition Pass
         #   insert reshard op if operand tensor's placements is different from what the cumsumer op need.
         #   Partition the computation graph into different pipeline stage if need.
-
-        shared_param_config = {}
-        shared_param_config["optimizer"] = self._optimizer
-        shared_param_config["loss"] = dist_program.get_output_value_by_name(
-            self._loss_names[0]
-        )
-        shared_param_config["concrete_program"] = self.concrete_program
-        shared_param_config["ori_params_grads"] = params_grads
-
         apply_partition_pass(dist_program)
 
         if mode == "train" and self._loss and self._optimizer:
@@ -892,8 +891,10 @@ class Engine:
         RemovePasses.apply_all(dist_program, startup_program, params_grads)
 
         if sync_new:
-            auto_parallel_sync_shared_params_pass.apply(
-                [dist_program], [startup_program]
+            global_params_grads = (
+                auto_parallel_sync_shared_params_pass.xxx_apply(
+                    dist_program, startup_program, global_params_grads
+                )
             )
 
         # Part 4: Optimization Pass
@@ -1475,7 +1476,6 @@ class Engine:
 
                 for op in changed_output_op_list:
                     op.operand_source(0).persistable = True
-
                 self._executor.run(startup_prog)
                 if self._job_plan is not None:
                     # pipeline scheduling should be enabled after running
@@ -2144,8 +2144,6 @@ class Engine:
             else:
                 fetch_names = [loss_value]
             fetch_names += self._pir_fetch_values
-
-        # print("xxx run main_program : ", self.main_program)
 
         outs = self._executor.run(
             self.main_program,
