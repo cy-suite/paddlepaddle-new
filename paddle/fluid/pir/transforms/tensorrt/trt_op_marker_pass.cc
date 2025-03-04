@@ -1699,6 +1699,30 @@ class BilinearInterpV2Pattern
 #if IS_TRT_VERSION_GE(8200)
     auto size_tensor = op.operand_source(2);
     if (size_tensor.impl()) {
+      auto *first_def_op = size_tensor.defining_op();
+      bool found_shape_op = false;
+      if (first_def_op && first_def_op->isa<paddle::dialect::ShapeOp>()) {
+        found_shape_op = true;
+      } else if (first_def_op->name().find("builtin.combine") !=
+                 std::string::npos) {
+        found_shape_op = true;
+      }
+      if (!found_shape_op && first_def_op && first_def_op->num_operands() > 0) {
+        auto operand0 = first_def_op->operand_source(0);
+        if (operand0.impl()) {
+          auto *second_def_op = operand0.defining_op();
+          if (second_def_op && second_def_op->isa<paddle::dialect::ShapeOp>()) {
+            found_shape_op = true;
+          }
+        }
+      }
+      // TODO(Lizexu): trt8.6,in other cases the dynamic shape values cannot be
+      // obtained at runtime and are returned as -1, which causes a bug.
+      if (!found_shape_op) {
+        VLOG(3) << "BilinearInterpV2: size_tensor does not come from a valid "
+                   "ShapeOp within two layers or builtin.combine";
+        return false;
+      }
       auto size_tensor_type = size_tensor.type();
       if (size_tensor_type.isa<pir::VectorType>()) {
         auto vector_type = size_tensor.type().dyn_cast<pir::VectorType>();
