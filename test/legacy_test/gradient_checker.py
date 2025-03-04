@@ -30,6 +30,17 @@ def _product(t):
     return int(np.prod(t))
 
 
+# data type like int32, int64, bool, that do not requires grad
+DTYPE_REQUIRES_GRAD = [
+    paddle.float16,
+    paddle.float32,
+    paddle.float64,
+    core.DataType.FLOAT16,
+    core.DataType.FLOAT32,
+    core.DataType.FLOAT64,
+]
+
+
 def dtype_to_np_dtype(dtype):
     if dtype == paddle.float32 or dtype == core.DataType.FLOAT32:
         return np.float32
@@ -94,6 +105,7 @@ def make_jacobian(x, y_size, np_dtype):
         )
         return jacobians
     else:
+        return None
         pass
 
 
@@ -260,10 +272,15 @@ def _compute_numerical_jacobian_pir(
     x_name = x.get_defining_op().attrs()['name']
     x_shape = x.shape
     x_size = _product(x_shape)
-    np_type = dtype_to_np_dtype(x.dtype)
-    np_t = np.array(feeds[x_name]).astype(np_type)
-    np_t = np_t.flatten()
-    jacobian = [make_jacobian(x, _product(yi.shape), np_type) for yi in y]
+    if x.dtype in DTYPE_REQUIRES_GRAD:
+        np_type = dtype_to_np_dtype(x.dtype)
+        np_t = np.array(feeds[x_name]).astype(np_type)
+        np_t = np_t.flatten()
+        jacobian = [make_jacobian(x, _product(yi.shape), np_type) for yi in y]
+    else:
+        np_type = np.float32  # temporarily set to float32
+        jacobian = [make_jacobian(x, _product(yi.shape), np_type) for yi in y]
+        return jacobian
 
     for i in range(x_size):
         orig = np_t[i]
