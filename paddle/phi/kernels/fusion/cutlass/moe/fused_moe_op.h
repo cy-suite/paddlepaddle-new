@@ -633,19 +633,19 @@ void topk_gating_softmax_kernelLauncher(const T* input,
   }
   static constexpr int WARPS_PER_TB = 4;
 
-#define LAUNCH_TOPK_GATING_SOFTMAX_HELPER(N) \
-    case N: { \
-        topk_gating_softmax_launcher_helper<T, N, WARPS_PER_TB>(input, \
-                                                                finished, \
-                                                                output, \
-                                                                indices, \
-                                                                source_row, \
-                                                                num_rows, \
-                                                                num_experts, \
-                                                                k, \
-                                                                stream); \
-        break; \
-    }
+#define LAUNCH_TOPK_GATING_SOFTMAX_HELPER(N)                             \
+  case N: {                                                              \
+    topk_gating_softmax_launcher_helper<T, N, WARPS_PER_TB>(input,       \
+                                                            finished,    \
+                                                            output,      \
+                                                            indices,     \
+                                                            source_row,  \
+                                                            num_rows,    \
+                                                            num_experts, \
+                                                            k,           \
+                                                            stream);     \
+    break;                                                               \
+  }
 
   switch (num_experts) {
     LAUNCH_TOPK_GATING_SOFTMAX_HELPER(2)
