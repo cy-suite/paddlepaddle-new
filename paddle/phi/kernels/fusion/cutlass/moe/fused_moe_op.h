@@ -610,20 +610,6 @@ void topk_gating_softmax_launcher_helper(const T* input,
           input, finished, output, num_rows, indices, source_row, k);
 }
 
-#define LAUNCH_TOPK_GATING_SOFTMAX_HELPER(N) \
-    case N: { \
-        topk_gating_softmax_launcher_helper<T, N, WARPS_PER_TB>(input, \
-                                                                finished, \
-                                                                output, \
-                                                                indices, \
-                                                                source_row, \
-                                                                num_rows, \
-                                                                num_experts, \
-                                                                k, \
-                                                                stream); \
-        break; \
-    }
-
 template <typename T>
 void topk_gating_softmax_kernelLauncher(const T* input,
                                         const bool* finished,
@@ -646,6 +632,20 @@ void topk_gating_softmax_kernelLauncher(const T* input,
     return;
   }
   static constexpr int WARPS_PER_TB = 4;
+
+#define LAUNCH_TOPK_GATING_SOFTMAX_HELPER(N) \
+    case N: { \
+        topk_gating_softmax_launcher_helper<T, N, WARPS_PER_TB>(input, \
+                                                                finished, \
+                                                                output, \
+                                                                indices, \
+                                                                source_row, \
+                                                                num_rows, \
+                                                                num_experts, \
+                                                                k, \
+                                                                stream); \
+        break; \
+    }
 
   switch (num_experts) {
     LAUNCH_TOPK_GATING_SOFTMAX_HELPER(2)
