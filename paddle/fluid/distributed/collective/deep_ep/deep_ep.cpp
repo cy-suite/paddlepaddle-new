@@ -956,17 +956,20 @@ Buffer::internode_dispatch(
   // Type checks
   if (cached_mode) {
     EP_HOST_ASSERT(cached_rdma_channel_prefix_matrix->scalar_type() ==
-                   torch::kInt32);
+                   deep_ep::detail::kInt32);
     EP_HOST_ASSERT(cached_recv_rdma_rank_prefix_sum->scalar_type() ==
-                   torch::kInt32);
+                   deep_ep::detail::kInt32);
     EP_HOST_ASSERT(cached_gbl_channel_prefix_matrix->scalar_type() ==
-                   torch::kInt32);
+                   deep_ep::detail::kInt32);
     EP_HOST_ASSERT(cached_recv_gbl_rank_prefix_sum->scalar_type() ==
-                   torch::kInt32);
+                   deep_ep::detail::kInt32);
   } else {
-    EP_HOST_ASSERT(num_tokens_per_rank->scalar_type() == torch::kInt32);
-    EP_HOST_ASSERT(num_tokens_per_rdma_rank->scalar_type() == torch::kInt32);
-    EP_HOST_ASSERT(num_tokens_per_expert->scalar_type() == torch::kInt32);
+    EP_HOST_ASSERT(num_tokens_per_rank->scalar_type() ==
+                   deep_ep::detail::kInt32);
+    EP_HOST_ASSERT(num_tokens_per_rdma_rank->scalar_type() ==
+                   deep_ep::detail::kInt32);
+    EP_HOST_ASSERT(num_tokens_per_expert->scalar_type() ==
+                   deep_ep::detail::kInt32);
   }
 
   // Shape and contiguous checks
@@ -1023,7 +1026,7 @@ Buffer::internode_dispatch(
     EP_HOST_ASSERT(num_tokens == topk_idx->size(0) &&
                    num_tokens == topk_weights->size(0));
     EP_HOST_ASSERT(num_topk == topk_weights->size(1));
-    EP_HOST_ASSERT(topk_weights->scalar_type() == torch::kFloat32);
+    EP_HOST_ASSERT(topk_weights->scalar_type() == deep_ep::detail::kFloat32);
     topk_idx_ptr = topk_idx->data_ptr<int64_t>();
     topk_weights_ptr = topk_weights->data_ptr<float>();
   }
@@ -1033,7 +1036,7 @@ Buffer::internode_dispatch(
   int num_scales = 0;
   if (x_scales.has_value()) {
     EP_HOST_ASSERT(x.element_size() == 1);
-    EP_HOST_ASSERT(x_scales->scalar_type() == torch::kFloat32);
+    EP_HOST_ASSERT(x_scales->scalar_type() == deep_ep::detail::kFloat32);
     EP_HOST_ASSERT(x_scales->dim() > 0 && x_scales->dim() < 3 &&
                    x_scales->is_contiguous());
     EP_HOST_ASSERT(x_scales->size(0) == num_tokens);
@@ -1102,24 +1105,24 @@ Buffer::internode_dispatch(
     move_fifo_slots(2);
   } else {
     // rdma_channel_prefix_matrix = torch::empty({num_rdma_ranks, num_channels},
-    // torch::dtype(torch::kInt32).device(torch::kCUDA));
+    // torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
     rdma_channel_prefix_matrix = ConvertPaddleTensorToDetailTensor(
         paddle::experimental::empty({num_rdma_ranks, num_channels},
                                     phi::DataType::INT32,
                                     phi::GPUPlace(device_id)));
     // recv_rdma_rank_prefix_sum = torch::empty({num_rdma_ranks},
-    // torch::dtype(torch::kInt32).device(torch::kCUDA));
+    // torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
     recv_rdma_rank_prefix_sum =
         ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
             {num_rdma_ranks}, phi::DataType::INT32, phi::GPUPlace(device_id)));
     // gbl_channel_prefix_matrix = torch::empty({num_ranks, num_channels},
-    // torch::dtype(torch::kInt32).device(torch::kCUDA));
+    // torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
     gbl_channel_prefix_matrix = ConvertPaddleTensorToDetailTensor(
         paddle::experimental::empty({num_ranks, num_channels},
                                     phi::DataType::INT32,
                                     phi::GPUPlace(device_id)));
     // recv_gbl_rank_prefix_sum = torch::empty({num_ranks},
-    // torch::dtype(torch::kInt32).device(torch::kCUDA));
+    // torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
     recv_gbl_rank_prefix_sum =
         ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
             {num_ranks}, phi::DataType::INT32, phi::GPUPlace(device_id)));
@@ -1211,32 +1214,33 @@ Buffer::internode_dispatch(
   if (!cached_mode) {
     // recv_src_meta = torch::empty({num_recv_tokens,
     // internode::get_source_meta_bytes()},
-    // torch::dtype(torch::kByte).device(torch::kCUDA));
+    // torch::dtype(deep_ep::detail::kByte).device(torch::kCUDA));
     recv_src_meta =
         ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
             {num_recv_tokens, internode::get_source_meta_bytes()},
             phi::DataType::INT8,
             phi::GPUPlace(device_id)));
     // recv_rdma_channel_prefix_matrix = torch::empty({num_rdma_ranks,
-    // num_channels}, torch::dtype(torch::kInt32).device(torch::kCUDA));
+    // num_channels},
+    // torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
     recv_rdma_channel_prefix_matrix = ConvertPaddleTensorToDetailTensor(
         paddle::experimental::empty({num_rdma_ranks, num_channels},
                                     phi::DataType::INT32,
                                     phi::GPUPlace(device_id)));
     // recv_gbl_channel_prefix_matrix = torch::empty({num_ranks, num_channels},
-    // torch::dtype(torch::kInt32).device(torch::kCUDA));
+    // torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
     recv_gbl_channel_prefix_matrix = ConvertPaddleTensorToDetailTensor(
         paddle::experimental::empty({num_ranks, num_channels},
                                     phi::DataType::INT32,
                                     phi::GPUPlace(device_id)));
     // send_rdma_head = torch::empty({num_tokens, num_rdma_ranks},
-    // torch::dtype(torch::kInt32).device(torch::kCUDA));
+    // torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
     recv_gbl_channel_prefix_matrix = ConvertPaddleTensorToDetailTensor(
         paddle::experimental::empty({num_ranks, num_channels},
                                     phi::DataType::INT32,
                                     phi::GPUPlace(device_id)));
     // send_nvl_head = torch::empty({num_rdma_recv_tokens, NUM_MAX_NVL_PEERS},
-    // torch::dtype(torch::kInt32).device(torch::kCUDA));
+    // torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
     send_nvl_head = ConvertPaddleTensorToDetailTensor(
         paddle::experimental::empty({num_rdma_recv_tokens, NUM_MAX_NVL_PEERS},
                                     phi::DataType::INT32,
@@ -1401,25 +1405,28 @@ Buffer::internode_combine(
   // Shape and contiguous checks
   EP_HOST_ASSERT(x.dim() == 2 && x.is_contiguous());
   EP_HOST_ASSERT(src_meta.dim() == 2 && src_meta.is_contiguous() &&
-                 src_meta.scalar_type() == torch::kByte);
+                 src_meta.scalar_type() == deep_ep::detail::kByte);
   EP_HOST_ASSERT(is_combined_token_in_rank.dim() == 2 &&
                  is_combined_token_in_rank.is_contiguous() &&
-                 is_combined_token_in_rank.scalar_type() == torch::kBool);
+                 is_combined_token_in_rank.scalar_type() ==
+                     deep_ep::detail::kBool);
   EP_HOST_ASSERT(rdma_channel_prefix_matrix.dim() == 2 &&
                  rdma_channel_prefix_matrix.is_contiguous() &&
-                 rdma_channel_prefix_matrix.scalar_type() == torch::kInt32);
+                 rdma_channel_prefix_matrix.scalar_type() ==
+                     deep_ep::detail::kInt32);
   EP_HOST_ASSERT(rdma_rank_prefix_sum.dim() == 1 &&
                  rdma_rank_prefix_sum.is_contiguous() &&
-                 rdma_rank_prefix_sum.scalar_type() == torch::kInt32);
+                 rdma_rank_prefix_sum.scalar_type() == deep_ep::detail::kInt32);
   EP_HOST_ASSERT(gbl_channel_prefix_matrix.dim() == 2 &&
                  gbl_channel_prefix_matrix.is_contiguous() &&
-                 gbl_channel_prefix_matrix.scalar_type() == torch::kInt32);
+                 gbl_channel_prefix_matrix.scalar_type() ==
+                     deep_ep::detail::kInt32);
   EP_HOST_ASSERT(combined_rdma_head.dim() == 2 &&
                  combined_rdma_head.is_contiguous() &&
-                 combined_rdma_head.scalar_type() == torch::kInt32);
+                 combined_rdma_head.scalar_type() == deep_ep::detail::kInt32);
   EP_HOST_ASSERT(combined_nvl_head.dim() == 2 &&
                  combined_nvl_head.is_contiguous() &&
-                 combined_nvl_head.scalar_type() == torch::kInt32);
+                 combined_nvl_head.scalar_type() == deep_ep::detail::kInt32);
 
   auto num_tokens = static_cast<int>(x.size(0)),
        hidden = static_cast<int>(x.size(1)),
@@ -1465,7 +1472,7 @@ Buffer::internode_combine(
   if (topk_weights.has_value()) {
     EP_HOST_ASSERT(topk_weights->dim() == 2 && topk_weights->is_contiguous());
     EP_HOST_ASSERT(topk_weights->size(0) == num_tokens);
-    EP_HOST_ASSERT(topk_weights->scalar_type() == torch::kFloat32);
+    EP_HOST_ASSERT(topk_weights->scalar_type() == deep_ep::detail::kFloat32);
     num_topk = static_cast<int>(topk_weights->size(1));
     topk_weights_ptr = topk_weights->data_ptr<float>();
     // combined_topk_weights = torch::empty({num_combined_tokens, num_topk},
@@ -1622,12 +1629,12 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
   // Tensor checks
   // By default using `ptp128c` FP8 cast
   EP_HOST_ASSERT(x.dim() == 2 && x.is_contiguous() &&
-                 x.scalar_type() == torch::kBFloat16);
+                 x.scalar_type() == deep_ep::detail::kBFloat16);
   EP_HOST_ASSERT(x.size(1) % sizeof(int4) == 0 && x.size(1) % 128 == 0);
   EP_HOST_ASSERT(topk_idx.dim() == 2 && topk_idx.is_contiguous());
   EP_HOST_ASSERT(x.size(0) == topk_idx.size(0) &&
                  x.size(0) <= num_max_dispatch_tokens_per_rank);
-  EP_HOST_ASSERT(topk_idx.scalar_type() == torch::kInt64);
+  EP_HOST_ASSERT(topk_idx.scalar_type() == deep_ep::detail::kInt64);
   EP_HOST_ASSERT(num_experts % num_ranks == 0);
 
   auto num_tokens = static_cast<int>(x.size(0)),
@@ -1656,7 +1663,7 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
   // Allocate packed tensors
   // auto packed_recv_x = torch::empty({num_local_experts, num_ranks *
   // num_max_dispatch_tokens_per_rank, hidden},
-  // x.options().dtype(torch::kFloat8_e4m3fn));
+  // x.options().dtype(deep_ep::detail::kFloat8_e4m3fn));
   auto packed_recv_x = ConvertPaddleTensorToDetailTensor(
       paddle::experimental::empty({num_local_experts,
                                    num_ranks * num_max_dispatch_tokens_per_rank,
@@ -1665,29 +1672,29 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
                                   x.place()));
   // auto packed_recv_src_info = torch::empty({num_local_experts, num_ranks *
   // num_max_dispatch_tokens_per_rank},
-  // torch::dtype(torch::kInt32).device(torch::kCUDA));
+  // torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
   auto packed_recv_src_info =
       ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
           {num_local_experts, num_ranks * num_max_dispatch_tokens_per_rank},
           phi::DataType::INT32,
           phi::GPUPlace(device_id)));
   // auto packed_recv_layout_range = torch::empty({num_local_experts,
-  // num_ranks}, torch::dtype(torch::kInt64).device(torch::kCUDA));
+  // num_ranks}, torch::dtype(deep_ep::detail::kInt64).device(torch::kCUDA));
   auto packed_recv_layout_range = ConvertPaddleTensorToDetailTensor(
       paddle::experimental::empty({num_local_experts, num_ranks},
                                   phi::DataType::INT64,
                                   phi::GPUPlace(device_id)));
-  auto packed_recv_count =
-      torch::from_blob(buffer.dispatch_rdma_atomic_token_counter,
-                       {num_local_experts},
-                       torch::dtype(torch::kInt32).device(torch::kCUDA));
+  auto packed_recv_count = torch::from_blob(
+      buffer.dispatch_rdma_atomic_token_counter,
+      {num_local_experts},
+      torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
 
   // Allocate column-majored scales
   EP_HOST_ASSERT((num_ranks * num_max_dispatch_tokens_per_rank) % 4 == 0 &&
                  "TMA requires the number of tokens to be multiple of 4");
   // auto packed_recv_x_scales = torch::empty({num_local_experts, num_scales,
   // num_ranks * num_max_dispatch_tokens_per_rank},
-  // torch::dtype(torch::kFloat32).device(torch::kCUDA));
+  // torch::dtype(deep_ep::detail::kFloat32).device(torch::kCUDA));
   auto packed_recv_x_scales =
       ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
           {num_local_experts,
@@ -1771,22 +1778,22 @@ Buffer::low_latency_combine(const deep_ep::detail::Tensor& x,
 
   // Tensor checks
   EP_HOST_ASSERT(x.dim() == 3 && x.is_contiguous() &&
-                 x.scalar_type() == torch::kBFloat16);
+                 x.scalar_type() == deep_ep::detail::kBFloat16);
   EP_HOST_ASSERT(x.size(0) == num_experts / num_ranks);
   EP_HOST_ASSERT(x.size(1) == num_ranks * num_max_dispatch_tokens_per_rank);
   EP_HOST_ASSERT(x.size(2) % sizeof(int4) == 0 && x.size(2) % 128 == 0);
   EP_HOST_ASSERT(topk_idx.dim() == 2 && topk_idx.is_contiguous());
   EP_HOST_ASSERT(topk_idx.size(0) == topk_weights.size(0) &&
                  topk_idx.size(1) == topk_weights.size(1));
-  EP_HOST_ASSERT(topk_idx.scalar_type() == torch::kInt64);
+  EP_HOST_ASSERT(topk_idx.scalar_type() == deep_ep::detail::kInt64);
   EP_HOST_ASSERT(topk_weights.dim() == 2 && topk_weights.is_contiguous());
   EP_HOST_ASSERT(topk_weights.size(0) <= num_max_dispatch_tokens_per_rank);
-  EP_HOST_ASSERT(topk_weights.scalar_type() == torch::kFloat32);
+  EP_HOST_ASSERT(topk_weights.scalar_type() == deep_ep::detail::kFloat32);
   EP_HOST_ASSERT(src_info.dim() == 2 && src_info.is_contiguous());
-  EP_HOST_ASSERT(src_info.scalar_type() == torch::kInt32 &&
+  EP_HOST_ASSERT(src_info.scalar_type() == deep_ep::detail::kInt32 &&
                  x.size(0) == src_info.size(0));
   EP_HOST_ASSERT(layout_range.dim() == 2 && layout_range.is_contiguous());
-  EP_HOST_ASSERT(layout_range.scalar_type() == torch::kInt64);
+  EP_HOST_ASSERT(layout_range.scalar_type() == deep_ep::detail::kInt64);
   EP_HOST_ASSERT(layout_range.size(0) == num_experts / num_ranks &&
                  layout_range.size(1) == num_ranks);
   auto hidden = static_cast<int>(x.size(2));
