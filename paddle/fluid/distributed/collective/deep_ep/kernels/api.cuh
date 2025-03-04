@@ -89,7 +89,7 @@ void combine(cudaDataType_t type,
 // Internode kernels
 namespace internode {
 
-// int get_source_meta_bytes();
+int get_source_meta_bytes();
 
 void get_dispatch_layout(const int64_t* topk_idx,
                          int* num_tokens_per_rank, int* num_tokens_per_rdma_rank,

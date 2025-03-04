@@ -190,6 +190,34 @@ void get_dispatch_layout(const int64_t* topk_idx,
       num_experts);
 }
 
+struct SourceMeta {
+  int src_rdma_rank, is_token_in_nvl_rank_bits;
+
+  EP_STATIC_ASSERT(NUM_MAX_NVL_PEERS == 8,
+                   "Invalid number of maximum NVL peers");
+
+  __forceinline__ SourceMeta() = default;
+
+  // TODO(Hongqing-work): faster encoding
+  __device__ __forceinline__ SourceMeta(int rdma_rank,
+                                        const bool* is_token_in_nvl_ranks) {
+    src_rdma_rank = rdma_rank;
+    is_token_in_nvl_rank_bits = is_token_in_nvl_ranks[0];
+#pragma unroll
+    for (int i = 1; i < NUM_MAX_NVL_PEERS; ++i)
+      is_token_in_nvl_rank_bits |= is_token_in_nvl_ranks[i] << i;
+  }
+
+  __device__ __forceinline__ bool is_token_in_nvl_rank(int nvl_rank) const {
+    return (is_token_in_nvl_rank_bits >> nvl_rank) & 1;
+  }
+};
+
+EP_STATIC_ASSERT(sizeof(SourceMeta) % sizeof(int) == 0,
+                 "Invalid size of `SourceMeta`");
+
+int get_source_meta_bytes() { return sizeof(SourceMeta); }
+
 }  // namespace internode
 
 }  // namespace deep_ep
