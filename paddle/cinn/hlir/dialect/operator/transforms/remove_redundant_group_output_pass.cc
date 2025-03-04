@@ -32,44 +32,36 @@ class RemoveRedundantGroupOutputPattern
 
   bool MatchAndRewrite(cinn::dialect::GroupOp group_op,
                        pir::PatternRewriter& rewriter) const override {
-    auto module_op = group_op.block()
-                         ->GetParentOp()
-                         ->GetParentOp()
-                         ->dyn_cast<pir::ModuleOp>();
-    if (!module_op) {
-      std::cout << "cannot find module op\n";
-      return false;
-    } else {
-      std::cout << "Before remove redundant output from group op: "
-                << std::endl;
-      module_op->Print(std::cout);
-      std::cout << std::endl;
-    }
-
+    // Detect external inputs of the group op, if it's directly used by the
+    // yield op, remove it from the group op's output.
     const auto& input_args = pir::GetUsedExternalValue(*group_op.block());
     const std::unordered_set<pir::Value> inputs_set = {input_args.begin(),
                                                        input_args.end()};
     const auto& yield_op = group_op.block()->back();
-    std::vector<pir::Value> new_outputs;
-    std::vector<pir::Type> new_out_types;
-    std::unordered_map<pir::Value, uint32_t> origin_group_out_2_new_out_idx;
-    std::unordered_map<uint32_t, pir::Value>
-        redundant_out_idx_map;  // output index -> input value
+    std::vector<pir::Value> pruned_outputs;
+    std::unordered_set<uint32_t> redundant_out_indices;
     for (uint32_t i = 0; i < yield_op.num_operands(); ++i) {
       if (inputs_set.count(yield_op.operand_source(i)) > 0) {
-        redundant_out_idx_map.emplace(i, yield_op.operand_source(i));
+        redundant_out_indices.insert(i);
       } else {
-        new_outputs.push_back(yield_op.operand_source(i));
-        new_out_types.push_back(yield_op.operand_source(i).type());
-        origin_group_out_2_new_out_idx[group_op.result(i)] =
-            new_outputs.size() - 1;
+        pruned_outputs.push_back(yield_op.operand_source(i));
       }
     }
-    if (redundant_out_idx_map.empty()) {
-      VLOG(1) << "No redundant output in group op, skip.";
+    if (redundant_out_indices.empty()) {
+      VLOG(7) << "No redundant output in group op, skip.";
       return false;
     }
 
+    // Create new group op and yield op and move other ops into the new group
+    // op.
+    std::vector<pir::Type> new_out_types =
+        [](const std::vector<pir::Value>& values) {
+          std::vector<pir::Type> types;
+          for (auto& value : values) {
+            types.push_back(value.type());
+          }
+          return types;
+        }(pruned_outputs);
     auto new_group_op = rewriter.Build<cinn::dialect::GroupOp>(new_out_types);
     const std::vector<pir::Operation*> ops_to_move = [](pir::Block* block) {
       std::vector<pir::Operation*> ops;
@@ -83,21 +75,24 @@ class RemoveRedundantGroupOutputPattern
       op->MoveTo(new_group_op.block(), new_group_op.block()->end());
     }
     rewriter.SetInsertionPointToBlockEnd(new_group_op.block());
-    rewriter.Build<pir::YieldOp>(new_outputs);
+    rewriter.Build<pir::YieldOp>(pruned_outputs);
 
+    // Replace the group op outputs with the new group op outputs and
+    // external inputs.
+    uint32_t new_out_idx = 0;
     for (uint32_t i = 0; i < group_op.num_results(); ++i) {
-      if (redundant_out_idx_map.count(i) > 0) {
+      if (redundant_out_indices.count(i) > 0) {
         rewriter.ReplaceAllUsesWith(group_op.result(i),
-                                    redundant_out_idx_map.at(i));
+                                    yield_op.operand_source(i));
       } else {
-        rewriter.ReplaceAllUsesWith(
-            group_op.result(i),
-            new_group_op.result(
-                origin_group_out_2_new_out_idx.at(group_op.result(i))));
+        rewriter.ReplaceAllUsesWith(group_op.result(i),
+                                    new_group_op.result(new_out_idx));
+        new_out_idx += 1;
       }
     }
     rewriter.EraseOp(group_op);
-    VLOG(1) << "Remove redundant output from group op.";
+    VLOG(7) << "Remove " << redundant_out_indices.size()
+            << " redundant outputs from group op.";
     return true;
   }
 };
