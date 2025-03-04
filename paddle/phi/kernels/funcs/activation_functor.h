@@ -174,10 +174,10 @@ struct SinDoubleGradFunctor : public BaseActivationFunctor<T> {
         GET_DATA_SAFELY(X, "Input", "x", "SinDoubleGrad"));
 
     // calculate d2x first, so d2d1y can inplace d2d1x
-    auto d2x = EigenVector<T>::Flatten(
-        GET_DATA_SAFELY(dX, "Output", "d2x", "SinDoubleGrad"));
 
     if (dX) {
+      auto d2x = EigenVector<T>::Flatten(
+          GET_DATA_SAFELY(dX, "Output", "d2x", "SinDoubleGrad"));
       if (dOut) {
         auto d1y = EigenVector<T>::Flatten(
             GET_DATA_SAFELY(dOut, "Output", "d1y", "SinDoubleGrad"));

@@ -267,6 +267,13 @@ class PADDLE_API Tensor final {
   bool is_sparse_csr_tensor() const;
 
   /**
+   * @brief Determine whether tensor is BatchedTensor
+   *
+   * @return bool
+   */
+  bool is_batched_tensor() const;
+
+  /**
    * @brief Determine whether tensor is StringTensor
    *
    * @return bool

@@ -26,6 +26,7 @@ limitations under the License. */
 #include "paddle/phi/api/lib/utils/allocator.h"
 #include "paddle/phi/backends/gpu/gpu_context.h"
 #include "paddle/phi/backends/gpu/gpu_info.h"
+#include "paddle/phi/core/batched_tensor.h"
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/distributed/auto_parallel/dist_tensor.h"
 #include "paddle/phi/core/enforce.h"
@@ -173,6 +174,9 @@ bool Tensor::is_sparse_csr_tensor() const {
 }
 bool Tensor::is_string_tensor() const {
   return phi::StringTensor::classof(impl_.get());
+}
+bool Tensor::is_batched_tensor() const {
+  return phi::BatchedTensor::classof(impl_.get());
 }
 /* Part 3: Device and Backend methods */
 
