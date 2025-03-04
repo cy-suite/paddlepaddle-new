@@ -95,7 +95,7 @@ def var_to_np_array_in_scope(scope, place, name):
 
 def make_jacobian(x, y_size, np_dtype):
     if isinstance(x, (base.framework.Variable, paddle.pir.Value)):
-        return np.zeros((_product(x.shape), y_size), dtype=np_dtype)
+        return np.zeros([_product(x.shape), y_size], dtype=np_dtype)
     elif isinstance(x, Sequence):
         jacobians = list(
             filter(
@@ -105,7 +105,6 @@ def make_jacobian(x, y_size, np_dtype):
         )
         return jacobians
     else:
-        return None
         pass
 
 

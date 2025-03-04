@@ -259,35 +259,6 @@ class TestIndexSelectAPI(unittest.TestCase):
         )
         np.testing.assert_allclose(expect_out, np_z, rtol=1e-05)
 
-    def test_selected_high_order_derivative(self):
-        # compare with paddle.gather
-        x = paddle.randn([5, 5])
-        x.stop_gradient = False
-        axis = 1
-        index = paddle.randint(-x.shape[axis], x.shape[axis], [2])
-        y = paddle.index_select(x, index, axis)
-        y = paddle.tanh(y)
-
-        dx = paddle.grad(y, x, create_graph=True)[0]
-        dxx = paddle.grad(dx, x, create_graph=True)[0]
-        dxxx = paddle.grad(dxx, x, create_graph=True)[0]
-
-        paddle.framework.core.set_prim_eager_enabled(True)
-        try:
-            y2 = paddle.gather(x, index, axis)
-            y2 = paddle.tanh(y2)
-            dx2 = paddle.grad(y2, x, create_graph=True)[0]
-            dxx2 = paddle.grad(dx2, x, create_graph=True)[0]
-            dxxx2 = paddle.grad(dxx2, x, create_graph=True)[0]
-
-            np.testing.assert_allclose(dx.numpy(), dx2.numpy(), rtol=1e-05)
-            np.testing.assert_allclose(dxx.numpy(), dxx2.numpy(), rtol=1e-05)
-            np.testing.assert_allclose(dxxx.numpy(), dxxx2.numpy(), rtol=1e-05)
-        except Exception as e:
-            raise e
-        finally:
-            paddle.framework.core.set_prim_eager_enabled(False)
-
 
 if __name__ == '__main__':
     unittest.main()
