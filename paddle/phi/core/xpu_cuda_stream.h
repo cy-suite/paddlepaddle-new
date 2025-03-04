@@ -18,7 +18,6 @@ limitations under the License. */
 
 #include <cuda.h>
 #include <cuda_runtime.h>
-#include "glog/logging.h"
 #include "paddle/phi/backends/xpu/enforce_xpu.h"
 #include "paddle/phi/backends/xpu/xpu_info.h"
 #include "paddle/phi/common/place.h"
@@ -63,9 +62,9 @@ class XPUCUDAStream {
     PADDLE_ENFORCE_XPU_SUCCESS(cudaStreamCreateWithPriority(
         &stream, static_cast<unsigned int>(flag), priority));
 
-    VLOG(10) << "Create XPUCUDAStream " << stream
-             << " with priority = " << priority
-             << ", flag = " << static_cast<unsigned int>(flag);
+    // VLOG(10) << "Create XPUCUDAStream " << stream
+    //          << " with priority = " << priority
+    //          << ", flag = " << static_cast<unsigned int>(flag);
     stream_ = Stream(reinterpret_cast<StreamId>(stream));
     owned_ = true;
   }
@@ -101,7 +100,7 @@ class XPUCUDAStream {
   }
 
   void Synchronize() const {
-    VLOG(10) << "Synchronize " << raw_stream();
+    // VLOG(10) << "Synchronize " << raw_stream();
     backends::xpu::XpuStreamSync(raw_stream());
   }
 
@@ -110,7 +109,7 @@ class XPUCUDAStream {
   }
 
   ~XPUCUDAStream() {
-    VLOG(10) << "~XPUCUDAStream " << raw_stream();
+    // VLOG(10) << "~XPUCUDAStream " << raw_stream();
     Synchronize();
     if (owned_ && stream_.id() != 0) {
       backends::xpu::XPUDeviceGuard guard(place_.device);
