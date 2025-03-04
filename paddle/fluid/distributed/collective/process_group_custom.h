@@ -174,6 +174,8 @@ class ProcessGroupCustom final : public ProcessGroupWithStream {
 
   phi::ccl::CCLComm XCCLComm(const Place& place);
 
+  phi::distributed::XCCLCommContext* GetOrCreateCommContext(const Place& place);
+
   // TODO(liyurui): This API will be moved later
   std::shared_ptr<ProcessGroup::Task> AllReduce(
       std::vector<phi::DenseTensor>& in_tensors,

@@ -32,12 +32,14 @@
 #endif
 #include "paddle/phi/backends/device_manager.h"
 #include "paddle/phi/core/platform/cuda_graph_with_memory_pool.h"
-#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
+#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || \
+    defined(PADDLE_WITH_CUSTOM_DEVICE)
 #include "paddle/common/flags.h"
 #include "paddle/fluid/distributed/collective/process_group.h"
 #include "paddle/phi/core/distributed/comm_context_manager.h"
 #ifdef PADDLE_WITH_CUSTOM_DEVICE
 #include "paddle/fluid/distributed/collective/process_group_custom.h"
+#include "paddle/phi/core/distributed/xccl_comm_context.h"
 #else
 #include "paddle/fluid/distributed/collective/process_group_nccl.h"
 #include "paddle/fluid/platform/device/gpu/nccl_helper.h"
@@ -52,6 +54,14 @@ PD_DECLARE_bool(log_memory_stats);
 COMMON_DECLARE_string(static_runtime_data_save_path);
 COMMON_DECLARE_bool(save_static_runtime_data);
 namespace paddle::framework {
+
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+#define COMMCONTEXT phi::distributed::XCCLCommContext
+#define PROCESS_GROUP paddle::distributed::ProcessGroupCustom
+#else
+#define COMMCONTEXT phi::distributed::NCCLCommContext
+#define PROCESS_GROUP paddle::distributed::ProcessGroupNCCL
+#endif
 
 ProgramInterpreter::ProgramInterpreter(const phi::Place& place,
                                        const BlockDesc& block,
@@ -1019,7 +1029,8 @@ void ProgramInterpreter::RunOperator(const Instruction& instr_node) {
 
           auto dev_ctx =
               const_cast<phi::DeviceContext*>(&instr_node.DeviceContext());
-#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
+#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || \
+    defined(PADDLE_WITH_CUSTOM_DEVICE)
           auto attrs = op->Attrs();
           if (!dev_ctx->GetCommContext() &&
               attrs.find("ring_id") != attrs.end()) {
@@ -1033,19 +1044,11 @@ void ProgramInterpreter::RunOperator(const Instruction& instr_node) {
               comm_context = comm_context_manager.Get(std::to_string(ring_id));
             } else if (map->has(ring_id)) {
               distributed::ProcessGroup* pg = map->get(ring_id);
-
-#ifdef PADDLE_WITH_CUSTOM_DEVICE
-              static_cast<paddle::distributed::ProcessGroupCustom*>(pg)
-                  ->XCCLComm(place);
               comm_context =
-                  static_cast<paddle::distributed::ProcessGroupCustom*>(pg)
-                      ->GetCommContext()
-#else
-              comm_context =
-                  static_cast<paddle::distributed::ProcessGroupNCCL*>(pg)
-                      ->GetOrCreateCommContext(place);
-#endif
+                  static_cast<PROCESS_GROUP*>(pg)->GetOrCreateCommContext(
+                      place);
             }
+
             PADDLE_ENFORCE_NE(
                 comm_context,
                 nullptr,
@@ -1053,15 +1056,8 @@ void ProgramInterpreter::RunOperator(const Instruction& instr_node) {
                     "NCCLCommContext is nullptr. For op with ring_id attr, "
                     "comm_context should be set in dev_ctx, but it cannot be "
                     "get from CommContextManager or ProcessGroup."));
-#ifdef PADDLE_WITH_CUSTOM_DEVICE
-            dev_ctx =
-                static_cast<phi::distributed::XCCLCommContext*>(comm_context)
-                    ->GetDevContext();
-#else
-            dev_ctx =
-                static_cast<phi::distributed::NCCLCommContext*>(comm_context)
-                    ->GetDevContext();
-#endif
+
+            dev_ctx = static_cast<COMMCONTEXT*>(comm_context)->GetDevContext();
             dev_ctx->SetCommContext(comm_context);
           }
 #endif

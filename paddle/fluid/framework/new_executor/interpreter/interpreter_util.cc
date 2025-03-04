@@ -39,11 +39,13 @@
 #include "paddle/phi/core/kernel_context.h"
 #include "paddle/phi/core/kernel_factory.h"
 #include "paddle/phi/core/memory/stats.h"
-#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
+#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || \
+    defined(PADDLE_WITH_CUSTOM_DEVICE)
 #include "paddle/fluid/distributed/collective/process_group.h"
-#include "paddle/fluid/distributed/collective/process_group_nccl.h"
 #ifdef PADDLE_WITH_CUSTOM_DEVICE
 #include "paddle/fluid/distributed/collective/process_group_custom.h"
+#else
+#include "paddle/fluid/distributed/collective/process_group_nccl.h"
 #endif
 #endif
 
@@ -873,7 +875,8 @@ void BuildOpFuncList(const phi::Place& place,
             op_func_node.phi_kernel_->GetKernelRegisteredType() ==
                 phi::KernelRegisteredType::FUNCTION) {
           VLOG(6) << op_type << " run function kernel";
-#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
+#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || \
+    defined(PADDLE_WITH_CUSTOM_DEVICE)
           auto attrs = op->Attrs();
           if (attrs.find("ring_id") != attrs.end()) {
             auto ring_id_attr = attrs.at("ring_id");
@@ -882,28 +885,19 @@ void BuildOpFuncList(const phi::Place& place,
             if (map->has(ring_id)) {
 #ifdef PADDLE_WITH_CUSTOM_DEVICE
               auto original_stream =
-                  static_cast<phi::CustomContext*>(dev_ctx)->stream();
+                  static_cast<phi::CustomContext*>(dev_ctx)->GetStream();
               distributed::ProcessGroup* pg = map->get(ring_id);
-              static_cast<paddle::distributed::ProcessGroupCustom*>(pg)
-                  ->XCCLComm(place);
               auto comm_context =
                   static_cast<paddle::distributed::ProcessGroupCustom*>(pg)
-                      ->GetCommContext() dev_ctx =
-                      static_cast<phi::distributed::XCCLCommContext*>(
-                          comm_context)
-                          ->GetDevContext();
+                      ->GetOrCreateCommContext(place);
+              dev_ctx =
+                  static_cast<phi::distributed::XCCLCommContext*>(comm_context)
+                      ->GetDevContext();
               dev_ctx->SetCommContext(comm_context);
-
+              // set stream
               static_cast<phi::CustomContext*>(dev_ctx)->SetStream(
                   original_stream);
-              auto& instance =
-                  paddle::memory::allocation::AllocatorFacade::Instance();
-              dev_ctx->SetAllocator(
-                  instance
-                      .GetAllocator(
-                          place,
-                          static_cast<phi::CustomContext*>(dev_ctx)->stream())
-                      .get());
+              // todo  set allocator in custom device
 #else
 
               auto original_stream =
