@@ -30,6 +30,14 @@ DtensorToLocalGradNode::operator()(
 #ifdef PADDLE_WITH_DISTRIBUTE
   VLOG(3) << "Running AD API GRAD: "
           << "dtensor_to_local";
+  bool rank_is_in_current_mesh =
+      phi::distributed::IsCurRankInMesh(process_mesh);
+
+  if (!rank_is_in_current_mesh) {
+    VLOG(3) << "Current rank is not in the process mesh, returning the input "
+               "grads directly.";
+    return grads;
+  }
 
   // This 'Local_XXXGradNode' record event is different with
   // 'Global_XXXGradNode' event.
