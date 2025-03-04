@@ -143,25 +143,13 @@ class TrtConvertPreluTest(TrtLayerAutoScanTest):
             self.dynamic_shape.opt_input_shape = {"input_data": [1, 3]}
         elif self.dims == 3:
             if self.data_format == "NCHW":
-                self.dynamic_shape.min_input_shape = {
-                    "input_data": [1, 3, 16]
-                }
-                self.dynamic_shape.max_input_shape = {
-                    "input_data": [4, 3, 16]
-                }
-                self.dynamic_shape.opt_input_shape = {
-                    "input_data": [1, 3, 16]
-                }
+                self.dynamic_shape.min_input_shape = {"input_data": [1, 3, 16]}
+                self.dynamic_shape.max_input_shape = {"input_data": [4, 3, 16]}
+                self.dynamic_shape.opt_input_shape = {"input_data": [1, 3, 16]}
             elif self.data_format == "NHWC":
-                self.dynamic_shape.min_input_shape = {
-                    "input_data": [1, 16, 3]
-                }
-                self.dynamic_shape.max_input_shape = {
-                    "input_data": [4, 16, 3]
-                }
-                self.dynamic_shape.opt_input_shape = {
-                    "input_data": [1, 16, 3]
-                }
+                self.dynamic_shape.min_input_shape = {"input_data": [1, 16, 3]}
+                self.dynamic_shape.max_input_shape = {"input_data": [4, 16, 3]}
+                self.dynamic_shape.opt_input_shape = {"input_data": [1, 16, 3]}
             else:
                 raise AssertionError
         else:
