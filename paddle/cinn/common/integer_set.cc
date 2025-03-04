@@ -14,7 +14,7 @@
 
 #include "paddle/cinn/common/integer_set.h"
 
-#include "paddle/cinn/common/arithmetic.h"
+#include "paddle/cinn/common/ir_util.h"
 #include "paddle/cinn/ir/ir_mutator.h"
 #include "paddle/cinn/ir/op/ir_operators.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
@@ -463,14 +463,14 @@ ir::Expr SymbolicExprAnalyzer::LowerBound(const ir::Expr& expr) const {
   BoundReplacer bound_replacer(var_intervals_, true);
   ir::Expr bound = ir::ir_utils::IRCopy(expr);
   bound_replacer(&bound);
-  return AutoSimplify(bound);
+  return optim::ArithSimplify(bound);
 }
 
 ir::Expr SymbolicExprAnalyzer::UpperBound(const ir::Expr& expr) const {
   BoundReplacer bound_replacer(var_intervals_, false);
   ir::Expr bound = ir::ir_utils::IRCopy(expr);
   bound_replacer(&bound);
-  return AutoSimplify(bound);
+  return optim::ArithSimplify(bound);
 }
 
 std::optional<bool> ProveEQ(const SingleIntervalIntSet& lhs,

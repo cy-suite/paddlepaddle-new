@@ -645,16 +645,12 @@ def create_zip(*var: VariableBase):
 
 
 # map
-Dispatcher.register(
-    map,
-    (
-        "CallableVariable",
-        "VariableBase",
-    ),
-    lambda fn, var: MapVariable.from_iterator(
-        fn, var, graph=var.graph, tracker=DummyTracker([var])
-    ),
-)
+@Dispatcher.register_decorator(map)
+def create_map(func: CallableVariable, *var: VariableBase):
+    tracked_vars = [func, *var]
+    return MapVariable.from_iterator(
+        func, var, graph=Dispatcher.graph, tracker=DummyTracker(tracked_vars)
+    )
 
 
 # reversed
@@ -1446,6 +1442,43 @@ Dispatcher.register(
         tracker=DummyTracker([x]),
     ),
 )
+
+
+# any for list
+@Dispatcher.register_decorator(any)
+def dispatch_list_any(var: ContainerVariable | IterVariable):
+    graph = var.graph
+    to_bool = BuiltinVariable(bool, graph, DanglingTracker())
+    it = var.get_iter()
+    while True:
+        try:
+            item = it.next()
+            bool_item = to_bool(item)
+            assert isinstance(bool_item, ConstantVariable)
+            if bool_item.get_py_value():
+                return ConstantVariable(True, graph, DummyTracker([var]))
+        except StopIteration:
+            break
+    return ConstantVariable(False, graph, DummyTracker([var]))
+
+
+# all for list
+@Dispatcher.register_decorator(all)
+def dispatch_list_all(var: ContainerVariable | IterVariable):
+    graph = var.graph
+    to_bool = BuiltinVariable(bool, graph, DanglingTracker())
+    it = var.get_iter()
+    while True:
+        try:
+            item = it.next()
+            bool_item = to_bool(item)
+            assert isinstance(bool_item, ConstantVariable)
+            if not bool_item.get_py_value():
+                return ConstantVariable(False, graph, DummyTracker([var]))
+        except StopIteration:
+            break
+    return ConstantVariable(True, graph, DummyTracker([var]))
+
 
 Dispatcher.register(
     np.number.item,
