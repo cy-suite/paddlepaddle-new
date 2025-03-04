@@ -188,8 +188,6 @@ void ApplyGroupOpPass(::pir::Program* program,
   pass_manager->AddPass(cinn::dialect::ir::CreateDynamicReshapeOpPass());
   pass_manager->AddPass(cinn::dialect::ir::CreateFoldManipulationOpsPass());
   pass_manager->AddPass(pir::CreateDeadCodeEliminationPass());
-  // pass_manager->AddPass(
-  //     cinn::dialect::ir::CreateRemoveRedundantGroupOutputPass());
 
   pass_manager->Run(program);
 }
@@ -288,19 +286,7 @@ void ApplyCinnPass(
   PirToPyCodeConverter(program)
       .file_name("group_op_programs.py")
       .SaveIfFlagEnabled();
-  if (VLOG_IS_ON(1)) {
-    auto& shape_analysis = pir::ShapeAnalysisManager::Instance().Get(program);
-    std::cout << "Program before ApplyGroupOpPass: \n"
-              << pir::CustomPrintHelper(*program, shape_analysis.PrintHook())
-              << std::endl;
-  }
   ApplyGroupOpPass(program, CreatePassManager);
-  if (VLOG_IS_ON(1)) {
-    auto& shape_analysis = pir::ShapeAnalysisManager::Instance().Get(program);
-    std::cout << "Program before ApplyDivideGroupOpToFusionOpPass: \n"
-              << pir::CustomPrintHelper(*program, shape_analysis.PrintHook())
-              << std::endl;
-  }
   ApplyDivideGroupOpToFusionOpPass(program, CreatePassManager);
   PirToPyCodeConverter(program)
       .file_name("fusion_op_programs.py")
