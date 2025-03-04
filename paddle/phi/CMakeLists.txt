@@ -147,7 +147,7 @@ if(WITH_GPU)
                "-DCUDA_REAL_ARCHS=\"${NVCC_FLAGS_EXTRA_real_archs}\"")
   nv_library(
     phi_core ${PHI_BUILD_TYPE}
-    SRCS ${PHI_CORE_SRCS}
+    SRCS ${PHI_CORE_SRCS} ${PHI_GPU_SRCS}
     DEPS ${PHI_DEPS})
   nv_library(
     phi_gpu ${PHI_BUILD_TYPE}

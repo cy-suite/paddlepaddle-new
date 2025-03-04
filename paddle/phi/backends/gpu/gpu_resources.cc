@@ -168,7 +168,7 @@ void InitGpuProperties(Place place,
 
   // Check CUDA/CUDNN version compatiblity
   auto local_cuda_version =
-      (*driver_version / 1000) * 10 + (*driver_version % 100) / 10;
+      (*runtime_version / 1000) * 10 + (*runtime_version % 100) / 10;
   auto compile_cuda_version =
       (CUDA_VERSION / 1000) * 10 + (CUDA_VERSION % 100) / 10;
 
