@@ -24,6 +24,11 @@
 
 namespace cinn {
 namespace common {
+
+using optim::ChangeSeqOfDivMod;
+using optim::CheckPattern;
+using optim::ConstructIndexExprByNodeType;
+
 class TestIndexExpr : public ::testing::Test {
  public:
   void SetUp() override {
@@ -526,13 +531,13 @@ TEST_F(TestIndexExpr, TestCheckPattern) {
   ir::IndexExpr e1 = (S0 * (S1 + S2) + S1 * S2 + S2) / (S4 * S5) * S4 +
                      (S0 * (S1 + S2) + S1 * S2 + S2) % (S4 * S5) / S5;
   std::unordered_map<std::string, ir::IndexExpr> map;
-  EXPECT_TRUE(optim::CheckPattern(e, pattern, &map));
+  EXPECT_TRUE(CheckPattern(e, pattern, &map));
   map.clear();
-  EXPECT_FALSE(optim::CheckPattern(e, pattern1, &map));
+  EXPECT_FALSE(CheckPattern(e, pattern1, &map));
   map.clear();
-  EXPECT_FALSE(optim::CheckPattern(e1, pattern, &map));
+  EXPECT_FALSE(CheckPattern(e1, pattern, &map));
   map.clear();
-  EXPECT_TRUE(optim::CheckPattern(e1, pattern1, &map));
+  EXPECT_TRUE(CheckPattern(e1, pattern1, &map));
 }
 }  // namespace common
 }  // namespace cinn
