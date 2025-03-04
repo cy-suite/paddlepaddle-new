@@ -176,7 +176,9 @@ class AutoParallelSyncSharedParamsPass(PassBase):
 
         return shared_param_names
 
-    def apply_src_test(self, main_program, startup_program, params_grads):
+    def apply_src_test(
+        self, main_program, startup_program, params_grads, pre_name
+    ):
         print("xxx enter apply_src_test")
         for param_mess in self.params_maybe_shared:
             param_name = param_mess['param_name']
@@ -184,7 +186,9 @@ class AutoParallelSyncSharedParamsPass(PassBase):
             dst_mesh_ids = param_mess['dst_mesh'].process_ids
 
             # get (param, grad) value
-            param_value = main_program.get_parameter_value_by_name(param_name)
+            param_value = main_program.get_parameter_value_by_name(
+                pre_name + param_name
+            )
             grad_idx = None
             for p_idx, (p_param, _) in enumerate(params_grads):
                 if p_param.is_same(param_value):
@@ -195,8 +199,14 @@ class AutoParallelSyncSharedParamsPass(PassBase):
 
             # comm group
             cur_rank = paddle.distributed.get_rank()
-            idx = src_mesh_ids.index(cur_rank)
-            peer_rank = dst_mesh_ids[idx]
+
+            if cur_rank in self.src_ranks:
+                idx = src_mesh_ids.index(cur_rank)
+                peer_rank = dst_mesh_ids[idx]
+            if cur_rank in self.dst_ranks:
+                idx = dst_mesh_ids.index(cur_rank)
+                peer_rank = src_mesh_ids[idx]
+
             ar_group = new_process_group(sorted([cur_rank, peer_rank]))
 
             # insert allreduce in the end of backward
@@ -227,58 +237,6 @@ class AutoParallelSyncSharedParamsPass(PassBase):
 
         return params_grads
 
-    def apply_dst_test(self, main_program, startup_program, params_grads):
-        print("xxx enter apply_dst_test: ")
-        for param_mess in self.params_maybe_shared:
-            param_name = param_mess['param_name']
-            src_mesh_ids = param_mess['src_mesh'].process_ids
-            dst_mesh_ids = param_mess['dst_mesh'].process_ids
-
-            # get (param, grad) value
-            param_value = main_program.get_parameter_value_by_name(
-                "shared_" + param_name
-            )
-            grad_idx = None
-            for p_idx, (p_param, _) in enumerate(params_grads):
-                if p_param.is_same(param_value):
-                    grad_idx = p_idx
-                    break
-            assert grad_idx is not None
-            grad_value = params_grads[p_idx][1]
-
-            # comm group
-            cur_rank = paddle.distributed.get_rank()
-            idx = dst_mesh_ids.index(cur_rank)
-            peer_rank = src_mesh_ids[idx]
-            ar_group = new_process_group(sorted([cur_rank, peer_rank]))
-
-            # insert allreduce in the end of backward
-            insert_pos = self._find_fist_opt_user(main_program)
-            print("xxx insert pos : ", insert_pos)
-            paddle.pir.set_insertion_point(insert_pos)
-
-            with auto_complete_op_role(main_program, OpRole.Backward):
-                allreduce_val = paddle._C_ops.all_reduce(
-                    grad_value,
-                    ar_group.id,
-                    dist.ReduceOp.SUM,
-                )
-            allreduce_val.update_dist_attr(grad_value.dist_attr())
-            allreduce_op = allreduce_val.get_defining_op()
-
-            # update all_used_ops
-            for user in grad_value.all_used_ops():
-                if user.name() == "pd_op.all_reduce":
-                    continue
-                for idx, operand in enumerate(user.operands()):
-                    if user.operand_source(idx).is_same(grad_value):
-                        user.operand(idx).set_source(allreduce_val)
-
-        # update (param, grad) value
-        params_grads[p_idx] = (param_value, allreduce_val)
-
-        return params_grads
-
     def xxx_apply(self, main_program, startup_program, params_grads):
         # pipeline_strategy = self.get_attr('pipeline_strategy')
         # if pipeline_strategy.enable == False:
@@ -292,14 +250,12 @@ class AutoParallelSyncSharedParamsPass(PassBase):
         assert len(self.params_maybe_shared) == 1
         cur_rank = paddle.distributed.get_rank()
 
-        if cur_rank in self.src_ranks:
-            params_grads = self.apply_src_test(
-                main_program, startup_program, params_grads
-            )
+        pre_name = ""
         if cur_rank in self.dst_ranks:
-            params_grads = self.apply_dst_test(
-                main_program, startup_program, params_grads
-            )
+            pre_name = "shared_"
+        params_grads = self.apply_src_test(
+            main_program, startup_program, params_grads, pre_name
+        )
 
         return params_grads
 
