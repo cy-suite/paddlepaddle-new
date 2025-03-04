@@ -603,7 +603,13 @@ void IrNode::convert_int32_to_int64() {
   if (type_ == UInt(32)) type_ = UInt(64);
 
   for (Expr &operand : operands) {
-    operand->convert_int32_to_int64();
+    if (operand->node_type() == IrNodeTy::Cast) {
+      operand.type() = type_;
+    } else if (operand->node_type() == IrNodeTy::Load) {
+      operand = ir::Cast::Make(type_, operand);
+    } else {
+      operand->convert_int32_to_int64();
+    }
   }
 }
 
@@ -628,15 +634,17 @@ void IrNode::convert_int64_to_int32() {
   if (type_ == UInt(64)) type_ = UInt(32);
 
   for (Expr &operand : operands) {
-    if (operand->node_type() == IrNodeTy::Load) {
-      operand = ir::Cast::Make(Int(32), operand);
+    if (operand->node_type() == IrNodeTy::Cast) {
+      operand.type() = type_;
+    } else if (operand->node_type() == IrNodeTy::Load) {
+      operand = ir::Cast::Make(type_, operand);
     } else {
       operand->convert_int64_to_int32();
     }
   }
 }
 
-void TryElevateInt32ToInt64(const std::vector<Expr> &expr_vec) {
+void TryElevateInt32ToInt64(std::vector<Expr> expr_vec) {
   Type type = expr_vec.front()->type();
   for (const Expr &expr : expr_vec) {
     if (expr->type() == Int(64)) {
@@ -649,7 +657,7 @@ void TryElevateInt32ToInt64(const std::vector<Expr> &expr_vec) {
   if (type != Int(64)) {
     return;
   }
-  for (const Expr &expr : expr_vec) {
+  for (Expr &expr : expr_vec) {
     if (expr->type() != Int(64))
       if (expr->type() != Int(32))
         PADDLE_ENFORCE_EQ(expr->type().is_unk(),
@@ -659,17 +667,23 @@ void TryElevateInt32ToInt64(const std::vector<Expr> &expr_vec) {
                               "to int64_t, but get type is: %s",
                               expr->type()));
     if (expr->type() == Int(32)) {
-      expr->convert_int32_to_int64();
+      if (expr->node_type() == IrNodeTy::Cast) {
+        expr.type() = Int(64);
+      } else if (expr->node_type() == IrNodeTy::Load) {
+        expr = ir::Cast::Make(Int(64), expr);
+      } else {
+        expr->convert_int32_to_int64();
+      }
     }
   }
 }
 
-void TryElevateInt64ToInt32(const std::vector<Expr> &expr_vec) {
+void TryElevateInt64ToInt32(std::vector<Expr> expr_vec) {
   for (const Expr &expr : expr_vec) {
     if (!expr.is_index()) return;
   }
 
-  for (const Expr &expr : expr_vec) {
+  for (Expr &expr : expr_vec) {
     if (expr->type() != Int(64))
       if (expr->type() != Int(32))
         PADDLE_ENFORCE_EQ(expr->type().is_unk(),
@@ -679,7 +693,13 @@ void TryElevateInt64ToInt32(const std::vector<Expr> &expr_vec) {
                               "to int32_t, but get type is: %s",
                               expr->type()));
     if (expr->type() == Int(64)) {
-      expr->convert_int64_to_int32();
+      if (expr->node_type() == IrNodeTy::Cast) {
+        expr.type() = Int(32);
+      } else if (expr->node_type() == IrNodeTy::Load) {
+        expr = ir::Cast::Make(Int(32), expr);
+      } else {
+        expr->convert_int64_to_int32();
+      }
     }
   }
 }

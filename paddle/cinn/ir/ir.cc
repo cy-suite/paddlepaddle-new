@@ -1411,7 +1411,6 @@ Select::Select(Expr condition, Expr true_value, Expr false_value)
 }
 
 Type Select::type() const {
-  ir::TryElevateInt32ToInt64({true_value, false_value});
   PADDLE_ENFORCE_EQ(
       true_value.type(), false_value.type(), "Type of Select must be same");
   return type_;
