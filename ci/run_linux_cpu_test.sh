@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-source paddle/scripts/paddle_build/utils.sh
+source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/utils.sh
 init
 
 function run_linux_cpu_test() {
@@ -94,7 +94,7 @@ set +x
         rm -f $tmp_dir/*
         exec_times=0
         retry_unittests_record=''
-        retry_time=4
+        retry_time=2
         exec_time_array=('first' 'second' 'third' 'fourth')
         parallel_failed_tests_exec_retry_threshold=120
         exec_retry_threshold=30

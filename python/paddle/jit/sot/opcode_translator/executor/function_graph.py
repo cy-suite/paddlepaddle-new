@@ -22,7 +22,7 @@ import inspect
 from collections import namedtuple
 from copy import deepcopy
 from functools import cached_property, reduce
-from typing import Any, Callable, Tuple, Union
+from typing import TYPE_CHECKING, Any, Callable, Tuple, Union
 
 from typing_extensions import TypeAlias, TypeGuard
 
@@ -52,7 +52,12 @@ from ...utils import (
     map_if,
     switch_symbol_registry,
 )
-from ...utils.exceptions import BreakGraphError, SotExtraInfo
+from ...utils.exceptions import (
+    BreakGraphError,
+    DygraphInconsistentWithStaticBreak,
+    InferMetaBreak,
+    SotExtraInfo,
+)
 from ..instruction_utils import get_instructions
 from .guard import Guard, StringifiedExpression, make_guard
 from .mutable_data import MutationDel, MutationNew, MutationSet
@@ -82,6 +87,10 @@ from .variables import (
     find_traceable_vars,
     map_variables,
 )
+
+if TYPE_CHECKING:
+    import types
+
 
 CompileGraphResult: TypeAlias = Tuple[
     Callable[..., Any],
@@ -211,11 +220,13 @@ class FunctionGraph:
         ],
     )
 
-    def __init__(self, frame, **kwargs):
+    def __init__(
+        self, code: types.CodeType, globals: dict[str, object], **kwargs
+    ):
         self.sir_ctx = SymbolicTraceContext()
         self.inner_out = set()
         self.input_variables = []  # Store variables required within a function
-        self.pycode_gen = PyCodeGen(frame, disable_eval_frame=True)
+        self.pycode_gen = PyCodeGen(code, globals, disable_eval_frame=True)
         self.side_effects = SideEffects()
         self.need_cache = True
         self._global_guarded_variables: OrderedSet[VariableBase] = OrderedSet()
@@ -229,7 +240,7 @@ class FunctionGraph:
         # prepare builtins
         for name, value in builtins.__dict__.items():
             builtins_[name] = VariableFactory.from_value(
-                value, self, BuiltinTracker(name), debug_name=name
+                value, self, BuiltinTracker(name)
             )
         return builtins_
 
@@ -665,7 +676,9 @@ class FunctionGraph:
                     ):
                         # TODO(zrr1999): maybe we can continue to fallback to all args are constant.
                         raise BreakGraphError(
-                            f"InferMeta encount {type(e)}, but all args are not symbolic."
+                            InferMetaBreak(
+                                f"InferMeta encount {type(e)}, but all args are not symbolic."
+                            )
                         )
 
                     args, kwargs = map_if(
@@ -692,7 +705,9 @@ class FunctionGraph:
                         for arg in flatten_vars
                     ):
                         raise BreakGraphError(
-                            f"InferMeta encount {type(e)}, but all args are not symbolic."
+                            InferMetaBreak(
+                                f"InferMeta encount {type(e)}, but all args are not symbolic."
+                            )
                         )
 
                     args, kwargs = map_structure(
@@ -706,7 +721,9 @@ class FunctionGraph:
             except Exception as e:
                 if SotExtraInfo.from_exception(e).need_breakgraph:
                     raise BreakGraphError(
-                        f"API {func} encountered a need break graph error {e}"
+                        DygraphInconsistentWithStaticBreak(
+                            f"API {func} encountered a need break graph error {e}"
+                        )
                     )
                 raise e
 
