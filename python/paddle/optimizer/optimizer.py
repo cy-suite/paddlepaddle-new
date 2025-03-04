@@ -23,8 +23,6 @@ import os
 from collections import defaultdict
 from typing import TYPE_CHECKING
 
-import numpy as np
-
 import paddle
 import paddle.autograd as imperative_base
 from paddle import _C_ops
@@ -1545,10 +1543,7 @@ class Optimizer:
             else:
                 assert isinstance(callbacks, list)
             program = loss.block.program
-            assert np.prod(loss.shape) == 1, (
-                f"The number of elements of loss should be 1, but the current loss.shape is {loss.shape}, whose number of elements is not 1. "
-                "Maybe that you should call paddle.mean to process the current loss."
-            )
+
             parameter_list = parameters if parameters else self._parameter_list
             with paddle.static.program_guard(program, startup_program):
                 if in_pir_mode():
