@@ -1007,6 +1007,75 @@ struct FoldRepetitiveSymbol {
   }
 };
 
+DimExprCompareResult EasyCompareGTOrGE(const DimExpr& lhs, const DimExpr& rhs) {
+  // TODO(ooooo): not perfect but ensures accuracy now.Such as:
+  // S0 < Add(S0, Mul(S1, S2)), S2 also can be Add(S4, S5, -1)
+  // range info may be used.
+
+  // check with Div
+  DimExpr simplified_result_div = SimplifyDimExpr(DimExpr{lhs} / DimExpr{rhs});
+  auto CompareDivResult = common::Overloaded{
+      [](const std::int64_t& expr) {
+        return expr > 1 ? DimExprCompareResult::GT
+                        : DimExprCompareResult::UNKNOWN;
+      },
+      [](const std::string& expr) { return DimExprCompareResult::GE; },
+      [](const Mul<DimExpr>& expr) {
+        List<DimExpr> operands = expr.operands;
+        int64_t const_result = 0;
+        for (const auto& operand : *operands) {
+          if (operand.isa<int64_t>()) {
+            const_result = operand.dyn_cast<int64_t>();
+          }
+          if (!operand.isa<int64_t>() && !operand.isa<std::string>()) {
+            return DimExprCompareResult::UNKNOWN;
+          }
+        }
+        if (const_result == 0) {
+          return DimExprCompareResult::GE;
+        } else if (const_result < 0) {
+          return DimExprCompareResult::UNKNOWN;
+        } else {
+          return DimExprCompareResult::GT;
+        }
+      },
+      [](const auto& expr) { return DimExprCompareResult::UNKNOWN; }};
+  auto div_compare =
+      std::visit(CompareDivResult, simplified_result_div.variant());
+  if (div_compare != DimExprCompareResult::UNKNOWN) {
+    return div_compare;
+  }
+  // check with sub
+  DimExpr simplified_result_sub = SimplifyDimExpr(DimExpr{lhs} - DimExpr{rhs});
+  auto CompareSubResult = common::Overloaded{
+      [](const std::int64_t& expr) {
+        return expr > 0 ? DimExprCompareResult::GT
+                        : DimExprCompareResult::UNKNOWN;
+      },
+      [](const std::string& expr) { return DimExprCompareResult::GT; },
+      [](const Add<DimExpr>& expr) {
+        List<DimExpr> operands = expr.operands;
+        int64_t const_result = 0;
+        for (const auto& operand : *operands) {
+          if (operand.isa<int64_t>()) {
+            const_result = operand.dyn_cast<int64_t>();
+          }
+          if (!operand.isa<int64_t>() && !operand.isa<std::string>()) {
+            return DimExprCompareResult::UNKNOWN;
+          }
+        }
+        if (const_result >= 0) {
+          return DimExprCompareResult::GT;
+        } else {
+          return DimExprCompareResult::UNKNOWN;
+        }
+      },
+      [](const auto& expr) { return DimExprCompareResult::UNKNOWN; }};
+  auto sub_compare =
+      std::visit(CompareSubResult, simplified_result_sub.variant());
+  return sub_compare;
+}
+
 struct SimplifyBroadcastWithGE {
   using dim_expr_type = Broadcast<DimExpr>;
   static List<DimExpr> SearchErasable(const List<DimExpr>& operands) {
@@ -1015,18 +1084,20 @@ struct SimplifyBroadcastWithGE {
       bool is_redundant = false;
       std::size_t j = 0;
       for (j = 0; j < operands->size(); ++j) {
-        if (i != j && (symbol::Compare(operands->at(i), operands->at(j)) ==
-                           DimExprCompareResult::LT ||
-                       symbol::Compare(operands->at(i), operands->at(j)) ==
-                           DimExprCompareResult::LE)) {
+        if (i == j) {
+          continue;
+        }
+        if (EasyCompareGTOrGE(operands->at(j), operands->at(i)) ==
+            DimExprCompareResult::GT) {
+          return List<DimExpr>{operands->at(j)};
+        } else if (EasyCompareGTOrGE(operands->at(j), operands->at(i)) ==
+                   DimExprCompareResult::GE) {
           is_redundant = true;
           break;
         }
       }
       if (!is_redundant) {
         simplified_operands->push_back(operands->at(i));
-      } else {
-        return List<DimExpr>{operands->at(j)};
       }
     }
     return simplified_operands;
@@ -1051,10 +1122,10 @@ struct SimplifyMaxWithGE {
     for (std::size_t i = 0; i < operands->size(); ++i) {
       bool is_redundant = false;
       for (std::size_t j = 0; j < operands->size(); ++j) {
-        if (i != j && (symbol::Compare(operands->at(i), operands->at(j)) ==
-                           DimExprCompareResult::LT ||
-                       symbol::Compare(operands->at(i), operands->at(j)) ==
-                           DimExprCompareResult::LE)) {
+        if (i != j && (EasyCompareGTOrGE(operands->at(j), operands->at(i)) ==
+                           DimExprCompareResult::GT ||
+                       EasyCompareGTOrGE(operands->at(j), operands->at(i)) ==
+                           DimExprCompareResult::GE)) {
           is_redundant = true;
           break;
         }
@@ -1089,9 +1160,9 @@ struct SimplifyMinWithGE {
     for (std::size_t i = 0; i < operands->size(); ++i) {
       bool is_redundant = false;
       for (std::size_t j = 0; j < operands->size(); ++j) {
-        if (i != j && (symbol::Compare(operands->at(i), operands->at(j)) ==
+        if (i != j && (EasyCompareGTOrGE(operands->at(i), operands->at(j)) ==
                            DimExprCompareResult::GT ||
-                       symbol::Compare(operands->at(i), operands->at(j)) ==
+                       EasyCompareGTOrGE(operands->at(i), operands->at(j)) ==
                            DimExprCompareResult::GE)) {
           is_redundant = true;
           break;
@@ -1517,94 +1588,27 @@ IR_API PriorityComparisonStatus CompareDimExprPriority(const DimExpr& lhs,
 }
 
 DimExprCompareResult Compare(const DimExpr& lhs, const DimExpr& rhs) {
-  VLOG(0) << "begin compare lhs: " << lhs << " rhs: " << rhs;
-  std::unordered_map<DimExprCompareResult, DimExprCompareResult>
-      compareResultMap = {
-          {DimExprCompareResult::GE, DimExprCompareResult::LE},
-          {DimExprCompareResult::LE, DimExprCompareResult::GE},
-          {DimExprCompareResult::GT, DimExprCompareResult::LT},
-          {DimExprCompareResult::LT, DimExprCompareResult::GT},
-          {DimExprCompareResult::EQ, DimExprCompareResult::EQ},
-          {DimExprCompareResult::UNKNOWN, DimExprCompareResult::UNKNOWN},
-      };
-  // check with Div
-  DimExpr simplified_result_div = SimplifyDimExpr(DimExpr{lhs} / DimExpr{rhs});
-  auto CompareDivResult = common::Overloaded{
-      [](const std::int64_t& expr) {
-        return expr == 1  ? DimExprCompareResult::EQ
-               : expr < 1 ? DimExprCompareResult::UNKNOWN
-                          : DimExprCompareResult::GT;
+  auto CompareFunc = common::Overloaded{
+      [](const int& lhs, const int& rhs) {
+        return lhs == rhs ? DimExprCompareResult::EQ
+                          : (lhs < rhs ? DimExprCompareResult::LT
+                                       : DimExprCompareResult::GT);
       },
-      [](const std::string& expr) { return DimExprCompareResult::GE; },
-      [](const Mul<DimExpr>& expr) {
-        List<DimExpr> operands = expr.operands;
-        int64_t const_result = 0;
-        for (const auto& operand : *operands) {
-          if (operand.isa<int64_t>()) {
-            const_result = operand.dyn_cast<int64_t>();
-          }
-          if (!operand.isa<int64_t>() && !operand.isa<std::string>()) {
-            return DimExprCompareResult::UNKNOWN;
-          }
+      [](const Add<DimExpr>& lhs, const Add<DimExpr>& rhs) {
+        DimExpr simplified_result =
+            SimplifyDimExpr(DimExpr{lhs} - DimExpr{rhs});
+        if (simplified_result.isa<int64_t>()) {
+          int64_t const_result = simplified_result.dyn_cast<int64_t>();
+          return const_result == 0  ? DimExprCompareResult::EQ
+                 : const_result < 0 ? DimExprCompareResult::LT
+                                    : DimExprCompareResult::GT;
         }
-        if (const_result == 0) {
-          return DimExprCompareResult::GE;
-        } else if (const_result < 0) {
-          return DimExprCompareResult::UNKNOWN;
-        } else {
-          return DimExprCompareResult::GT;
-        }
+        return DimExprCompareResult::UNKNOWN;
       },
-      [](const auto& expr) { return DimExprCompareResult::UNKNOWN; }};
-  auto div_compare =
-      std::visit(CompareDivResult, simplified_result_div.variant());
-  if (div_compare != DimExprCompareResult::UNKNOWN) {
-    return div_compare;
-  }
-  // check with Div Reverse if UNKNOWN
-  div_compare = compareResultMap.at(
-      std::visit(CompareDivResult,
-                 SimplifyDimExpr(DimExpr{rhs} / DimExpr{lhs}).variant()));
-  if (div_compare != DimExprCompareResult::UNKNOWN) {
-    return div_compare;
-  }
-  // check with sub
-  DimExpr simplified_result_sub = SimplifyDimExpr(DimExpr{lhs} - DimExpr{rhs});
-  auto CompareSubResult = common::Overloaded{
-      [](const std::int64_t& expr) {
-        return expr == 0  ? DimExprCompareResult::EQ
-               : expr < 0 ? DimExprCompareResult::LT
-                          : DimExprCompareResult::GT;
-      },
-      [](const std::string& expr) { return DimExprCompareResult::GT; },
-      [](const Add<DimExpr>& expr) {
-        List<DimExpr> operands = expr.operands;
-        int64_t const_result = 0;
-        for (const auto& operand : *operands) {
-          if (operand.isa<int64_t>()) {
-            const_result = operand.dyn_cast<int64_t>();
-          }
-          if (!operand.isa<int64_t>() && !operand.isa<std::string>()) {
-            return DimExprCompareResult::UNKNOWN;
-          }
-        }
-        if (const_result >= 0) {
-          return DimExprCompareResult::GT;
-        } else {
-          return DimExprCompareResult::UNKNOWN;
-        }
-      },
-      [](const auto& expr) { return DimExprCompareResult::UNKNOWN; }};
-  auto sub_compare =
-      std::visit(CompareSubResult, simplified_result_sub.variant());
-  if (sub_compare != DimExprCompareResult::UNKNOWN) {
-    return sub_compare;
-  }
-  // check with Sub Reverse if UNKNOWN
-  sub_compare = compareResultMap.at(
-      std::visit(CompareSubResult,
-                 SimplifyDimExpr(DimExpr{rhs} - DimExpr{lhs}).variant()));
-  return sub_compare;
+      [](const auto& lhs, const auto& rhs) {
+        return DimExprCompareResult::UNKNOWN;
+      }};
+  return std::visit(CompareFunc, lhs.variant(), rhs.variant());
 }
 
 }  // namespace symbol

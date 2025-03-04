@@ -223,24 +223,34 @@ TEST(Simplify, SimplifyWithObviousGreaterThan) {
   DimExpr add1{Add<DimExpr>{{S0, S1}}};
   DimExpr max1{Max<DimExpr>{{S0, add1, S2}}};
   DimExpr min1{Min<DimExpr>{{S0, add1, S2}}};
+  // Broadcast(S0, Add(S0, S1), S2) => Add(S0, S1)
   DimExpr bc1{Broadcast<DimExpr>{{S0, add1, S2}}};
   ASSERT_TRUE((SimplifyDimExpr(max1) == Max<DimExpr>{{add1, S2}}));
   ASSERT_TRUE((SimplifyDimExpr(min1) == Min<DimExpr>{{S0, S2}}));
-  // ASSERT_TRUE((SimplifyDimExpr(bc1) == Broadcast<DimExpr>{{add1, S2}}));
+  ASSERT_TRUE((SimplifyDimExpr(bc1) == add1));
 
-  // Min(S0, Add(S0,S1), Mul(Add(S1,S2),S2)) => S0
+  // Min(S0, Add(S0,S1), Mul(Add(S1, S2), S2)) => S0
   DimExpr mul{Mul<DimExpr>{{add1, S2}}};
   DimExpr max2{Max<DimExpr>{{S0, add1, mul}}};
   DimExpr min2{Min<DimExpr>{{S0, add1, mul}}};
   DimExpr bc2{Broadcast<DimExpr>{{S0, add1, mul}}};
   ASSERT_TRUE((SimplifyDimExpr(max2) == mul));
   ASSERT_TRUE((SimplifyDimExpr(min2) == S0));
-  // ASSERT_TRUE((SimplifyDimExpr(bc2) == mul));
+  ASSERT_TRUE((SimplifyDimExpr(bc2) == add1));
 
   // Min(S0, Add(S0, -1)) => Add(S0, -1)
   DimExpr add2{Add<DimExpr>{{S0, Negative<DimExpr>{DimExpr(1)}}}};
   ASSERT_TRUE(
       (SimplifyDimExpr(Min<DimExpr>{{S0, add2}}) == Add<DimExpr>{{S0, -1}}));
+
+  // Broadcast(S0, Mul(S0, S1), S2) => Broadcast(Mul(S0, S1), S2)
+  DimExpr mul2{Mul<DimExpr>{{S0, S1}}};
+  DimExpr bc3{Broadcast<DimExpr>{{S0, mul2, S2}}};
+  ASSERT_TRUE((SimplifyDimExpr(bc3) == Broadcast<DimExpr>{{mul2, S2}}));
+
+  // Min(S0, Add(S0, -S1)) => Add(S0, -S1)
+  DimExpr add3{Add<DimExpr>{{S0, Negative<DimExpr>{S1}}}};
+  ASSERT_TRUE((SimplifyDimExpr(Min<DimExpr>{{S0, add3}}) == add3));
 }
 
 TEST(Simplify, Case1) {
