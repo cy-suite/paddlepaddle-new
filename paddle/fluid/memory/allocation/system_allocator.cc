@@ -361,17 +361,17 @@ void* XPUAllocator::Alloc(size_t* index, size_t size) {
       err_msg = string::Sprintf(
           "\n   3) Set environment variable `FLAGS_gpu_memory_limit_mb` to a "
           "larger value. Currently `FLAGS_gpu_memory_limit_mb` is %d, so the "
-          "maximum MLU memory usage is limited to %d MB.\n"
+          "maximum XPU memory usage is limited to %d MB.\n"
           "      The command is `export FLAGS_gpu_memory_limit_mb=xxx`.",
           limit_size,
           limit_size);
     }
 
     PADDLE_THROW_BAD_ALLOC(platform::errors::ResourceExhausted(
-        "\n\nOut of memory error on MLU %d. "
-        "Cannot allocate %s memory on MLU %d, %s memory has been allocated and "
+        "\n\nOut of memory error on XPU %d. "
+        "Cannot allocate %s memory on XPU %d, %s memory has been allocated and "
         "available memory is only %s.\n\n"
-        "Please check whether there is any other process using XPXU %d.\n"
+        "Please check whether there is any other process using XPU %d.\n"
         "1. If yes, please stop them, or start PaddlePaddle on another XPU.\n"
         "2. If no, please try one of the following suggestions:\n"
         "   1) Decrease the batch size of your model.\n"
