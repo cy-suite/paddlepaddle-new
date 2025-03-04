@@ -933,12 +933,12 @@ Buffer::internode_dispatch(
         cached_recv_gbl_rank_prefix_sum,
     int expert_alignment,
     const Config& config,
-    std::optional<EventHandle>& previous_event,
+    std::optional<EventHandle>& previous_event,  // NOLINT
     bool async,
     bool allocate_on_comm_stream) {
   const int num_channels = config.num_sms / 2;
   EP_HOST_ASSERT(config.num_sms % 2 == 0);
-  EP_HOST_ASSERT(0 < get_num_rdma_ranks() and
+  EP_HOST_ASSERT(0 < get_num_rdma_ranks() &&
                  get_num_rdma_ranks() <= NUM_MAX_RDMA_PEERS);
 
   bool cached_mode = cached_rdma_channel_prefix_matrix.has_value();
@@ -970,30 +970,30 @@ Buffer::internode_dispatch(
   }
 
   // Shape and contiguous checks
-  EP_HOST_ASSERT(x.dim() == 2 and x.is_contiguous());
+  EP_HOST_ASSERT(x.dim() == 2 && x.is_contiguous());
   EP_HOST_ASSERT((x.size(1) * x.element_size()) % sizeof(int4) == 0);
   if (cached_mode) {
-    EP_HOST_ASSERT(cached_rdma_channel_prefix_matrix->dim() == 2 and
+    EP_HOST_ASSERT(cached_rdma_channel_prefix_matrix->dim() == 2 &&
                    cached_rdma_channel_prefix_matrix->is_contiguous());
     EP_HOST_ASSERT(cached_rdma_channel_prefix_matrix->size(0) ==
-                       num_rdma_ranks and
+                       num_rdma_ranks &&
                    cached_rdma_channel_prefix_matrix->size(1) == num_channels);
-    EP_HOST_ASSERT(cached_recv_rdma_rank_prefix_sum->dim() == 1 and
+    EP_HOST_ASSERT(cached_recv_rdma_rank_prefix_sum->dim() == 1 &&
                    cached_recv_rdma_rank_prefix_sum->is_contiguous());
     EP_HOST_ASSERT(cached_recv_rdma_rank_prefix_sum->size(0) == num_rdma_ranks);
-    EP_HOST_ASSERT(cached_gbl_channel_prefix_matrix->dim() == 2 and
+    EP_HOST_ASSERT(cached_gbl_channel_prefix_matrix->dim() == 2 &&
                    cached_gbl_channel_prefix_matrix->is_contiguous());
-    EP_HOST_ASSERT(cached_gbl_channel_prefix_matrix->size(0) == num_ranks and
+    EP_HOST_ASSERT(cached_gbl_channel_prefix_matrix->size(0) == num_ranks &&
                    cached_gbl_channel_prefix_matrix->size(1) == num_channels);
-    EP_HOST_ASSERT(cached_recv_gbl_rank_prefix_sum->dim() == 1 and
+    EP_HOST_ASSERT(cached_recv_gbl_rank_prefix_sum->dim() == 1 &&
                    cached_recv_gbl_rank_prefix_sum->is_contiguous());
     EP_HOST_ASSERT(cached_recv_gbl_rank_prefix_sum->size(0) == num_ranks);
   } else {
-    EP_HOST_ASSERT(num_tokens_per_rank->dim() == 1 and
+    EP_HOST_ASSERT(num_tokens_per_rank->dim() == 1 &&
                    num_tokens_per_rank->is_contiguous());
-    EP_HOST_ASSERT(num_tokens_per_rdma_rank->dim() == 1 and
+    EP_HOST_ASSERT(num_tokens_per_rdma_rank->dim() == 1 &&
                    num_tokens_per_rdma_rank->is_contiguous());
-    EP_HOST_ASSERT(num_tokens_per_expert->dim() == 1 and
+    EP_HOST_ASSERT(num_tokens_per_expert->dim() == 1 &&
                    num_tokens_per_expert->is_contiguous());
     EP_HOST_ASSERT(num_tokens_per_rank->size(0) == num_ranks);
     EP_HOST_ASSERT(num_tokens_per_rdma_rank->size(0) == num_rdma_ranks);
@@ -1018,9 +1018,9 @@ Buffer::internode_dispatch(
   if (topk_idx.has_value()) {
     num_topk = static_cast<int>(topk_idx->size(1));
     EP_HOST_ASSERT(num_experts > 0);
-    EP_HOST_ASSERT(topk_idx->dim() == 2 and topk_idx->is_contiguous());
-    EP_HOST_ASSERT(topk_weights->dim() == 2 and topk_weights->is_contiguous());
-    EP_HOST_ASSERT(num_tokens == topk_idx->size(0) and
+    EP_HOST_ASSERT(topk_idx->dim() == 2 && topk_idx->is_contiguous());
+    EP_HOST_ASSERT(topk_weights->dim() == 2 && topk_weights->is_contiguous());
+    EP_HOST_ASSERT(num_tokens == topk_idx->size(0) &&
                    num_tokens == topk_weights->size(0));
     EP_HOST_ASSERT(num_topk == topk_weights->size(1));
     EP_HOST_ASSERT(topk_weights->scalar_type() == torch::kFloat32);
@@ -1034,7 +1034,7 @@ Buffer::internode_dispatch(
   if (x_scales.has_value()) {
     EP_HOST_ASSERT(x.element_size() == 1);
     EP_HOST_ASSERT(x_scales->scalar_type() == torch::kFloat32);
-    EP_HOST_ASSERT(x_scales->dim() > 0 and x_scales->dim() < 3 and
+    EP_HOST_ASSERT(x_scales->dim() > 0 && x_scales->dim() < 3 &&
                    x_scales->is_contiguous());
     EP_HOST_ASSERT(x_scales->size(0) == num_tokens);
     num_scales = x_scales->dim() == 1 ? 1 : static_cast<int>(x_scales->size(1));
@@ -1046,7 +1046,7 @@ Buffer::internode_dispatch(
   // auto compute_stream = c10::cuda::getCurrentCUDAStream();
   auto compute_stream = calc_ctx->stream();
   if (allocate_on_comm_stream) {
-    EP_HOST_ASSERT(previous_event.has_value() and async);
+    EP_HOST_ASSERT(previous_event.has_value() && async);
     c10::cuda::setCurrentCUDAStream(comm_stream);
   }
 
@@ -1168,8 +1168,8 @@ Buffer::internode_dispatch(
       num_rdma_recv_tokens = static_cast<int>(*moe_recv_rdma_counter);
 
       // Read per-expert count
-      bool ready = (num_recv_tokens >= 0) and (num_rdma_recv_tokens >= 0);
-      for (int i = 0; i < num_local_experts and ready; ++i)
+      bool ready = (num_recv_tokens >= 0) && (num_rdma_recv_tokens >= 0);
+      for (int i = 0; i < num_local_experts && ready; ++i)
         ready &= moe_recv_expert_counter[i] >= 0;
 
       if (ready) break;
@@ -1208,7 +1208,7 @@ Buffer::internode_dispatch(
       std::optional<deep_ep::detail::Tensor>();
   auto send_rdma_head = std::optional<deep_ep::detail::Tensor>();
   auto send_nvl_head = std::optional<deep_ep::detail::Tensor>();
-  if (not cached_mode) {
+  if (!cached_mode) {
     // recv_src_meta = torch::empty({num_recv_tokens,
     // internode::get_source_meta_bytes()},
     // torch::dtype(torch::kByte).device(torch::kCUDA));
@@ -1392,33 +1392,33 @@ Buffer::internode_combine(
     const deep_ep::detail::Tensor& combined_rdma_head,
     const deep_ep::detail::Tensor& combined_nvl_head,
     const Config& config,
-    std::optional<EventHandle>& previous_event,
+    std::optional<EventHandle>& previous_event,  // NOLINT
     bool async,
     bool allocate_on_comm_stream) {
   const int num_channels = config.num_sms / 2;
   EP_HOST_ASSERT(config.num_sms % 2 == 0);
 
   // Shape and contiguous checks
-  EP_HOST_ASSERT(x.dim() == 2 and x.is_contiguous());
-  EP_HOST_ASSERT(src_meta.dim() == 2 and src_meta.is_contiguous() and
+  EP_HOST_ASSERT(x.dim() == 2 && x.is_contiguous());
+  EP_HOST_ASSERT(src_meta.dim() == 2 && src_meta.is_contiguous() &&
                  src_meta.scalar_type() == torch::kByte);
-  EP_HOST_ASSERT(is_combined_token_in_rank.dim() == 2 and
-                 is_combined_token_in_rank.is_contiguous() and
+  EP_HOST_ASSERT(is_combined_token_in_rank.dim() == 2 &&
+                 is_combined_token_in_rank.is_contiguous() &&
                  is_combined_token_in_rank.scalar_type() == torch::kBool);
-  EP_HOST_ASSERT(rdma_channel_prefix_matrix.dim() == 2 and
-                 rdma_channel_prefix_matrix.is_contiguous() and
+  EP_HOST_ASSERT(rdma_channel_prefix_matrix.dim() == 2 &&
+                 rdma_channel_prefix_matrix.is_contiguous() &&
                  rdma_channel_prefix_matrix.scalar_type() == torch::kInt32);
-  EP_HOST_ASSERT(rdma_rank_prefix_sum.dim() == 1 and
-                 rdma_rank_prefix_sum.is_contiguous() and
+  EP_HOST_ASSERT(rdma_rank_prefix_sum.dim() == 1 &&
+                 rdma_rank_prefix_sum.is_contiguous() &&
                  rdma_rank_prefix_sum.scalar_type() == torch::kInt32);
-  EP_HOST_ASSERT(gbl_channel_prefix_matrix.dim() == 2 and
-                 gbl_channel_prefix_matrix.is_contiguous() and
+  EP_HOST_ASSERT(gbl_channel_prefix_matrix.dim() == 2 &&
+                 gbl_channel_prefix_matrix.is_contiguous() &&
                  gbl_channel_prefix_matrix.scalar_type() == torch::kInt32);
-  EP_HOST_ASSERT(combined_rdma_head.dim() == 2 and
-                 combined_rdma_head.is_contiguous() and
+  EP_HOST_ASSERT(combined_rdma_head.dim() == 2 &&
+                 combined_rdma_head.is_contiguous() &&
                  combined_rdma_head.scalar_type() == torch::kInt32);
-  EP_HOST_ASSERT(combined_nvl_head.dim() == 2 and
-                 combined_nvl_head.is_contiguous() and
+  EP_HOST_ASSERT(combined_nvl_head.dim() == 2 &&
+                 combined_nvl_head.is_contiguous() &&
                  combined_nvl_head.scalar_type() == torch::kInt32);
 
   auto num_tokens = static_cast<int>(x.size(0)),
@@ -1430,15 +1430,15 @@ Buffer::internode_combine(
   EP_HOST_ASSERT((hidden * x.element_size()) % sizeof(int4) == 0);
   EP_HOST_ASSERT(src_meta.size(1) == internode::get_source_meta_bytes());
   EP_HOST_ASSERT(is_combined_token_in_rank.size(1) == num_ranks);
-  EP_HOST_ASSERT(rdma_channel_prefix_matrix.size(0) == num_rdma_ranks and
+  EP_HOST_ASSERT(rdma_channel_prefix_matrix.size(0) == num_rdma_ranks &&
                  rdma_channel_prefix_matrix.size(1) == num_channels);
   EP_HOST_ASSERT(rdma_rank_prefix_sum.size(0) == num_rdma_ranks);
-  EP_HOST_ASSERT(gbl_channel_prefix_matrix.size(0) == num_ranks and
+  EP_HOST_ASSERT(gbl_channel_prefix_matrix.size(0) == num_ranks &&
                  gbl_channel_prefix_matrix.size(1) == num_channels);
-  EP_HOST_ASSERT(combined_rdma_head.dim() == 2 and
-                 combined_rdma_head.size(0) == num_combined_tokens and
+  EP_HOST_ASSERT(combined_rdma_head.dim() == 2 &&
+                 combined_rdma_head.size(0) == num_combined_tokens &&
                  combined_rdma_head.size(1) == num_rdma_ranks);
-  EP_HOST_ASSERT(combined_nvl_head.dim() == 2 and
+  EP_HOST_ASSERT(combined_nvl_head.dim() == 2 &&
                  combined_nvl_head.size(1) == NUM_MAX_NVL_PEERS);
 
   // Allocate all tensors on comm stream if set
@@ -1446,7 +1446,7 @@ Buffer::internode_combine(
   // auto compute_stream = c10::cuda::getCurrentCUDAStream();
   auto compute_stream = calc_ctx->stream();
   if (allocate_on_comm_stream) {
-    EP_HOST_ASSERT(previous_event.has_value() and async);
+    EP_HOST_ASSERT(previous_event.has_value() && async);
     c10::cuda::setCurrentCUDAStream(comm_stream);
   }
 
@@ -1463,7 +1463,7 @@ Buffer::internode_combine(
   float* topk_weights_ptr = nullptr;
   float* combined_topk_weights_ptr = nullptr;
   if (topk_weights.has_value()) {
-    EP_HOST_ASSERT(topk_weights->dim() == 2 and topk_weights->is_contiguous());
+    EP_HOST_ASSERT(topk_weights->dim() == 2 && topk_weights->is_contiguous());
     EP_HOST_ASSERT(topk_weights->size(0) == num_tokens);
     EP_HOST_ASSERT(topk_weights->scalar_type() == torch::kFloat32);
     num_topk = static_cast<int>(topk_weights->size(1));
@@ -1590,7 +1590,7 @@ void Buffer::clean_low_latency_buffer(int num_max_dispatch_tokens_per_rank,
   auto check_boundary = [=](void* ptr, size_t num_bytes) {
     auto offset = reinterpret_cast<int64_t>(ptr) -
                   reinterpret_cast<int64_t>(rdma_buffer_ptr);
-    EP_HOST_ASSERT(0 <= offset and
+    EP_HOST_ASSERT(0 <= offset &&
                    offset + static_cast<int64_t>(num_bytes) <= num_rdma_bytes);
   };
   check_boundary(clean_meta_0.first, clean_meta_0.second * sizeof(int));
@@ -1621,11 +1621,11 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
 
   // Tensor checks
   // By default using `ptp128c` FP8 cast
-  EP_HOST_ASSERT(x.dim() == 2 and x.is_contiguous() and
+  EP_HOST_ASSERT(x.dim() == 2 && x.is_contiguous() &&
                  x.scalar_type() == torch::kBFloat16);
-  EP_HOST_ASSERT(x.size(1) % sizeof(int4) == 0 and x.size(1) % 128 == 0);
-  EP_HOST_ASSERT(topk_idx.dim() == 2 and topk_idx.is_contiguous());
-  EP_HOST_ASSERT(x.size(0) == topk_idx.size(0) and
+  EP_HOST_ASSERT(x.size(1) % sizeof(int4) == 0 && x.size(1) % 128 == 0);
+  EP_HOST_ASSERT(topk_idx.dim() == 2 && topk_idx.is_contiguous());
+  EP_HOST_ASSERT(x.size(0) == topk_idx.size(0) &&
                  x.size(0) <= num_max_dispatch_tokens_per_rank);
   EP_HOST_ASSERT(topk_idx.scalar_type() == torch::kInt64);
   EP_HOST_ASSERT(num_experts % num_ranks == 0);
@@ -1650,8 +1650,8 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
   // auto compute_stream = c10::cuda::getCurrentCUDAStream();
   auto compute_stream = calc_ctx->stream();
   auto launch_stream = return_recv_hook ? compute_stream : comm_stream;
-  EP_HOST_ASSERT(not(async and return_recv_hook));
-  if (not return_recv_hook) stream_wait(launch_stream, compute_stream);
+  EP_HOST_ASSERT(!(async && return_recv_hook));
+  if (!return_recv_hook) stream_wait(launch_stream, compute_stream);
 
   // Allocate packed tensors
   // auto packed_recv_x = torch::empty({num_local_experts, num_ranks *
@@ -1683,7 +1683,7 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
                        torch::dtype(torch::kInt32).device(torch::kCUDA));
 
   // Allocate column-majored scales
-  EP_HOST_ASSERT((num_ranks * num_max_dispatch_tokens_per_rank) % 4 == 0 and
+  EP_HOST_ASSERT((num_ranks * num_max_dispatch_tokens_per_rank) % 4 == 0 &&
                  "TMA requires the number of tokens to be multiple of 4");
   // auto packed_recv_x_scales = torch::empty({num_local_experts, num_scales,
   // num_ranks * num_max_dispatch_tokens_per_rank},
@@ -1737,7 +1737,7 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
     // stream-wait happens, so in Python API, we must wrap all tensors into the
     // event handle.
     event = EventHandle(launch_stream);
-  } else if (not return_recv_hook) {
+  } else if (!return_recv_hook) {
     stream_wait(compute_stream, launch_stream);
   }
 
@@ -1770,24 +1770,24 @@ Buffer::low_latency_combine(const deep_ep::detail::Tensor& x,
   EP_HOST_ASSERT(low_latency_mode);
 
   // Tensor checks
-  EP_HOST_ASSERT(x.dim() == 3 and x.is_contiguous() and
+  EP_HOST_ASSERT(x.dim() == 3 && x.is_contiguous() &&
                  x.scalar_type() == torch::kBFloat16);
   EP_HOST_ASSERT(x.size(0) == num_experts / num_ranks);
   EP_HOST_ASSERT(x.size(1) == num_ranks * num_max_dispatch_tokens_per_rank);
-  EP_HOST_ASSERT(x.size(2) % sizeof(int4) == 0 and x.size(2) % 128 == 0);
-  EP_HOST_ASSERT(topk_idx.dim() == 2 and topk_idx.is_contiguous());
-  EP_HOST_ASSERT(topk_idx.size(0) == topk_weights.size(0) and
+  EP_HOST_ASSERT(x.size(2) % sizeof(int4) == 0 && x.size(2) % 128 == 0);
+  EP_HOST_ASSERT(topk_idx.dim() == 2 && topk_idx.is_contiguous());
+  EP_HOST_ASSERT(topk_idx.size(0) == topk_weights.size(0) &&
                  topk_idx.size(1) == topk_weights.size(1));
   EP_HOST_ASSERT(topk_idx.scalar_type() == torch::kInt64);
-  EP_HOST_ASSERT(topk_weights.dim() == 2 and topk_weights.is_contiguous());
+  EP_HOST_ASSERT(topk_weights.dim() == 2 && topk_weights.is_contiguous());
   EP_HOST_ASSERT(topk_weights.size(0) <= num_max_dispatch_tokens_per_rank);
   EP_HOST_ASSERT(topk_weights.scalar_type() == torch::kFloat32);
-  EP_HOST_ASSERT(src_info.dim() == 2 and src_info.is_contiguous());
-  EP_HOST_ASSERT(src_info.scalar_type() == torch::kInt32 and
+  EP_HOST_ASSERT(src_info.dim() == 2 && src_info.is_contiguous());
+  EP_HOST_ASSERT(src_info.scalar_type() == torch::kInt32 &&
                  x.size(0) == src_info.size(0));
-  EP_HOST_ASSERT(layout_range.dim() == 2 and layout_range.is_contiguous());
+  EP_HOST_ASSERT(layout_range.dim() == 2 && layout_range.is_contiguous());
   EP_HOST_ASSERT(layout_range.scalar_type() == torch::kInt64);
-  EP_HOST_ASSERT(layout_range.size(0) == num_experts / num_ranks and
+  EP_HOST_ASSERT(layout_range.size(0) == num_experts / num_ranks &&
                  layout_range.size(1) == num_ranks);
   auto hidden = static_cast<int>(x.size(2));
   auto num_local_experts = num_experts / num_ranks,
@@ -1810,8 +1810,8 @@ Buffer::low_latency_combine(const deep_ep::detail::Tensor& x,
   // auto compute_stream = c10::cuda::getCurrentCUDAStream();
   auto compute_stream = calc_ctx->stream();
   auto launch_stream = return_recv_hook ? compute_stream : comm_stream;
-  EP_HOST_ASSERT(not(async and return_recv_hook));
-  if (not return_recv_hook) stream_wait(launch_stream, compute_stream);
+  EP_HOST_ASSERT(!(async && return_recv_hook));
+  if (!return_recv_hook) stream_wait(launch_stream, compute_stream);
 
   // Allocate output tensor
   // auto combined_x = torch::empty({num_combined_tokens, hidden}, x.options());
@@ -1855,7 +1855,7 @@ Buffer::low_latency_combine(const deep_ep::detail::Tensor& x,
     // stream-wait happens, so in Python API, we must wrap all tensors into the
     // event handle.
     event = EventHandle(launch_stream);
-  } else if (not return_recv_hook) {
+  } else if (!return_recv_hook) {
     stream_wait(compute_stream, launch_stream);
   }
 
@@ -1902,7 +1902,7 @@ Buffer::internode_dispatch_api(
     const std::optional<paddle::Tensor>& cached_recv_gbl_rank_prefix_sum,
     int expert_alignment,
     const Config& config,
-    std::optional<EventHandle>& previous_event,
+    std::optional<EventHandle>& previous_event,  // NOLINT
     bool async,
     bool allocate_on_comm_stream) {
   const auto& x_ = ConvertPaddleTensorToDetailTensor(x);
@@ -2014,19 +2014,20 @@ Buffer::internode_dispatch_api(
 std::tuple<paddle::Tensor,
            std::optional<paddle::Tensor>,
            std::optional<EventHandle>>
-Buffer::internode_combine_api(const paddle::Tensor& x,
-                              const std::optional<paddle::Tensor>& topk_weights,
-                              const paddle::Tensor& src_meta,
-                              const paddle::Tensor& is_combined_token_in_rank,
-                              const paddle::Tensor& rdma_channel_prefix_matrix,
-                              const paddle::Tensor& rdma_rank_prefix_sum,
-                              const paddle::Tensor& gbl_channel_prefix_matrix,
-                              const paddle::Tensor& combined_rdma_head,
-                              const paddle::Tensor& combined_nvl_head,
-                              const Config& config,
-                              std::optional<EventHandle>& previous_event,
-                              bool async,
-                              bool allocate_on_comm_stream) {
+Buffer::internode_combine_api(
+    const paddle::Tensor& x,
+    const std::optional<paddle::Tensor>& topk_weights,
+    const paddle::Tensor& src_meta,
+    const paddle::Tensor& is_combined_token_in_rank,
+    const paddle::Tensor& rdma_channel_prefix_matrix,
+    const paddle::Tensor& rdma_rank_prefix_sum,
+    const paddle::Tensor& gbl_channel_prefix_matrix,
+    const paddle::Tensor& combined_rdma_head,
+    const paddle::Tensor& combined_nvl_head,
+    const Config& config,
+    std::optional<EventHandle>& previous_event,  // NOLINT
+    bool async,
+    bool allocate_on_comm_stream) {
   const auto& x_ = ConvertPaddleTensorToDetailTensor(x);
 
   std::optional<deep_ep::detail::Tensor> topk_weights_ =
