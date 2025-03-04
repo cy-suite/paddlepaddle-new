@@ -346,6 +346,13 @@ void CacheForwardOpSymbolicShape(
     Operation* op,
     InferSymbolicShapeContext* infer_context,
     const InferSymbolicShapeCacheKey& op_infer_cache_key) {
+  const bool is_grad_op = [&]() {
+    std::string suffix = "_grad";
+    const auto& op_name = op->name();
+    if (op_name.size() < suffix.size()) return false;
+    return op_name.compare(
+               op_name.size() - suffix.size(), suffix.size(), suffix) == 0;
+  }();
   std::vector<symbol::ShapeOrDataDimExprs> result_shape_or_data;
   const auto& CheckInferSymbolicShapeCacheConsistency =
       [&](const InferSymbolicShapeCacheValue& infer_result,
@@ -355,6 +362,9 @@ void CacheForwardOpSymbolicShape(
         } else {
           for (uint32_t i = 0; i < cache_result.size(); ++i) {
             if (infer_result[i] != cache_result[i]) {
+              if (is_grad_op && (!op->result(i) || !op->result(i).type())) {
+                continue;
+              }
               LOG(WARNING) << "cached shape is not consistent with real shape";
               VLOG(3) << "InferSymbolicShapeCacheKey is: "
                       << op_infer_cache_key;
