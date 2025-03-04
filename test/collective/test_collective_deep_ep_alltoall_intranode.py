@@ -22,9 +22,10 @@ from legacy_test.test_collective_api_base import TestDistBase
 
 import paddle
 import paddle.distributed as dist
+import paddle.distributed.communication.deep_ep as ep
 from paddle.base import core
 from paddle.base.core import Config
-from paddle.distributed import deep_ep, fleet
+from paddle.distributed import fleet
 from paddle.distributed.communication.group import Group
 
 
@@ -145,7 +146,7 @@ def test_main(
     num_local_ranks: int,
     num_ranks: int,
     rank: int,
-    buffer: deep_ep.Buffer,
+    buffer: ep.Buffer,
     group: Group,
 ):
     # Settings
@@ -468,11 +469,11 @@ class TestCollectiveDeepEPAllToAllIntranode(TestDistBase):
                 256,
                 9,
             )
-            num_rdma_bytes = deep_ep.Buffer.get_low_latency_rdma_size_hint(
+            num_rdma_bytes = ep.Buffer.get_low_latency_rdma_size_hint(
                 ll_num_tokens, ll_hidden, num_ranks, ll_num_experts
             )
 
-        buffer = deep_ep.Buffer(
+        buffer = ep.Buffer(
             ep_group,
             int(1e9),
             num_rdma_bytes,

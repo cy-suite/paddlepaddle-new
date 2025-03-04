@@ -16,7 +16,6 @@ from .all_reduce import all_reduce  # noqa: F401
 from .all_to_all import alltoall, alltoall_single  # noqa: F401
 from .batch_isend_irecv import P2POp, batch_isend_irecv  # noqa: F401
 from .broadcast import broadcast, broadcast_object_list  # noqa: F401
-from .deep_ep import Buffer  # noqa: F401
 from .gather import gather  # noqa: F401
 from .group import (  # noqa: F401
     barrier,

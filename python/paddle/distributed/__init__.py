@@ -85,7 +85,6 @@ from .communication import (  # noqa: F401
     batch_isend_irecv,
     broadcast,
     broadcast_object_list,
-    deep_ep,
     destroy_process_group,
     gather,
     get_backend,
