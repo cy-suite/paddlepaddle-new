@@ -897,14 +897,13 @@ class DygraphShardingOptimizerV2:
                         if g_sharding_v2_dump_padding_data:
                             now = datetime.now()
                             formatted_time = now.strftime("%m_%d_%H_%M")
-                            print(
-                                f"save padding tensor in ./{formatted_time}_{paddle.distributed.get_rank()}_{k}_pad_tensor.pt"
-                            )
                             paddle.save(
                                 pad_tensor,
                                 f"{formatted_time}_{paddle.distributed.get_rank()}_{k}_pad_tensor.pt",
                             )
-                        raise AssertionError
+                        raise AssertionError(
+                            f"The padding of Tensor {k} is not zero,already save padding tensor in ./{formatted_time}_{paddle.distributed.get_rank()}_{k}_pad_tensor.pt"
+                        )
         if self._enable_timer:
             self.timers("check-padding-zero").stop()
 
