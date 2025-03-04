@@ -526,6 +526,8 @@ class PyCodeGen:
         """
         Generates instructions to enable the evaluation frame.
         """
+        if sys.version_info >= (3, 12):
+            raise RuntimeError("Python 3.13 should be failed")
         self.gen_load_object(
             paddle.framework.core.set_eval_frame, "paddle_set_eval_frame_fn"
         )
