@@ -182,6 +182,30 @@ void BKCLCommContext::AllToAll(phi::DenseTensor* out_tensor,
                                              stream));
 }
 
+void BKCLCommContext::AllToAllV(phi::DenseTensor* out_tensor,
+                                const phi::DenseTensor& in_tensor,
+                                const phi::DenseTensor& out_size_tensor,
+                                const phi::DenseTensor& out_offset_tensor,
+                                const phi::DenseTensor& in_size_tensor,
+                                const phi::DenseTensor& in_offset_tensor,
+                                XPUStream stream) {
+  PADDLE_ENFORCE_XPU_SUCCESS(bkcl_all_to_all_v(
+      bkcl_comm_,
+      in_tensor.data(),
+      const_cast<size_t*>(
+          reinterpret_cast<const size_t*>(in_size_tensor.data())),
+      const_cast<size_t*>(
+          reinterpret_cast<const size_t*>(in_offset_tensor.data())),
+      ToBKCLDataType(in_tensor.type()),
+      out_tensor->data(),
+      const_cast<size_t*>(
+          reinterpret_cast<const size_t*>(out_size_tensor.data())),
+      const_cast<size_t*>(
+          reinterpret_cast<const size_t*>(out_offset_tensor.data())),
+      ToBKCLDataType(out_tensor->type()),
+      stream));
+}
+
 void BKCLCommContext::Reduce(phi::DenseTensor* out_tensor,
                              const phi::DenseTensor& in_tensor,
                              BKCLOp reduce_type,
