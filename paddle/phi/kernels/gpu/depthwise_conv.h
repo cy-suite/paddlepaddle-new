@@ -1103,11 +1103,12 @@ __device__ __inline__ void KernelDepthwiseConvFilterGradCFilterNHWC(
         }
       }
     }
+    const int numel = output_channels * c_filter * c_filter;
     for (int i = 0; i < c_filter * c_filter; ++i) {
-      T* weight = filter_grad_data + i * output_channels + kernel_id;
+      // T* weight = filter_grad_data + i * output_channels + kernel_id;
       NoReturnAtomicAdd(filter_grad_data,
                         i * output_channels + kernel_id,
-                        output_channels * c_filter * c_filter,
+                        numel,
                         r_weight[i]);
     }
   }
