@@ -35,7 +35,7 @@ class EventOverlap:
 
     Attributes:
         event: the CUDA event captured.
-        extra_tensors: an easier way to simulate PyTorch tensor `record_stream`, may be useful with CUDA graph.
+        extra_tensors: an easier way to simulate tensor `record_stream`, may be useful with CUDA graph.
     """
 
     def __init__(
@@ -48,7 +48,7 @@ class EventOverlap:
 
         Arguments:
             event: the CUDA event captured.
-            extra_tensors: an easier way to simulate PyTorch tensor `record_stream`, may be useful with CUDA graph.
+            extra_tensors: an easier way to simulate tensor `record_stream`, may be useful with CUDA graph.
         """
         self.event = event
 
@@ -58,7 +58,7 @@ class EventOverlap:
 
     def current_stream_wait(self) -> None:
         """
-        The current stream `torch.cuda.current_stream()` waits for the event to be finished.
+        The current stream waits for the event to be finished.
         """
         assert self.event is not None
         self.event.current_stream_wait()

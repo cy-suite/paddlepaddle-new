@@ -45,7 +45,6 @@ __host__ __device__ __forceinline__ void host_device_printf(const char* format, 
 #define printf host_device_printf
 #endif
 
-// Remove Torch restrictions
 #ifdef __CUDA_NO_HALF_CONVERSIONS__
 #undef __CUDA_NO_HALF_CONVERSIONS__
 #endif
