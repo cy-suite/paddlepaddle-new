@@ -206,7 +206,7 @@ def check_type(input, input_name, expected_type, op_name, extra_message=''):
     elif isinstance(input, core.eager.Tensor) and not lazy_init_helper().state:
         raise TypeError(
             "Please use `with base.dygraph.guard()` as context or `paddle.disable_static()` to switch to dygraph mode firstly. "
-            f"Because received '{input_name}' in {op_name} is a Eager Tensor."
+            f"Because received '{input_name}' in {op_name} is an Eager Tensor."
         )
     if not isinstance(input, expected_type):
         raise TypeError(
