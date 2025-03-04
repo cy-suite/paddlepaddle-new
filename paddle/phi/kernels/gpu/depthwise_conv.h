@@ -1004,13 +1004,17 @@ __device__ __forceinline__ void NoReturnAtomicAdd(T* tensor,
 
   if (low_byte && index < (numel - 1)) {
     __half2 value2;
-    value2.x = value.to_half();
-    value2.y = __int2half_rz(0);
+    // value2.x = value.to_half();
+    value2.x = *reinterpret_cast<__half *>(&value);
+    // value2.y = __int2half_rz(0);
+    value2.y = 0.0;
     atomicAdd(reinterpret_cast<__half2*>(target_addr), value2);
   } else if (!low_byte && index > 0) {
     __half2 value2;
-    value2.x = __int2half_rz(0);
-    value2.y = value.to_half();
+    // value2.x = __int2half_rz(0);
+    value2.x = 0.0;
+    // value2.y = value.to_half();
+    value2.y = *reinterpret_cast<__half *>(&value);
     atomicAdd(reinterpret_cast<__half2*>(target_addr - 1), value2);
   } else {
     atomicAdd(reinterpret_cast<__half*>(tensor) + index, value.to_half());
