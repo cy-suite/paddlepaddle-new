@@ -17,6 +17,7 @@ import os
 import warnings
 from collections import defaultdict
 from functools import reduce
+from datetime import datetime
 
 import paddle
 from paddle import framework
@@ -45,7 +46,9 @@ from ...utils.tensor_fusion_helper import (
 g_sharding_v2_check_zero_padding = int(
     os.getenv("FLAGS_sharding_v2_check_zero_padding", "0")
 )
-
+g_sharding_v2_dump_padding_data = int(
+    os.getenv("FLAGS_sharding_v2_dump_padding_data", "0")
+)
 
 def _is_trainable(param):
     return not param.stop_gradient
@@ -884,9 +887,17 @@ class DygraphShardingOptimizerV2:
             for k, v in comm_buffer._sharding_param_grad_view.items():
                 pad_tensor = v._get_padding()
                 if pad_tensor is not None:
-                    assert paddle.all(
-                        pad_tensor == 0
-                    ).item(), f"{SHARDING_PAD_NON_ZERO_ERROR}. The padding of Tensor {k} is not zero"
+                    try:
+                        assert paddle.all(
+                            pad_tensor == 0
+                        ).item(), f"{SHARDING_PAD_NON_ZERO_ERROR}. The padding of Tensor {k} is not zero"
+                    except AssertionError:
+                        if g_sharding_v2_dump_padding_data:
+                            now = datetime.now()
+                            formatted_time = now.strftime("%m_%d_%H_%M")
+                            print(f"save padding tensor in ./{formatted_time}_{paddle.distributed.get_rank()}_{k}_pad_tensor.pt")
+                            paddle.save(pad_tensor,f"{formatted_time}_{paddle.distributed.get_rank()}_{k}_pad_tensor.pt")
+                        raise AssertionError()
         if self._enable_timer:
             self.timers("check-padding-zero").stop()
 
