@@ -192,9 +192,12 @@ class FallbackError(SotErrorBase):
 
 # raise in inline function call strategy.
 class BreakGraphError(SotErrorBase):
-    def __init__(self, reason: BreakGraphReasonBase):
-        assert isinstance(reason, BreakGraphReasonBase)
-        super().__init__(reason.reason_str)
+    def __init__(self, reason: BreakGraphReasonBase | str = None):
+        super().__init__()
+
+        if isinstance(reason, str):
+            # if reason is a string, then create a UnspecifiedBreakReason object
+            reason = UnspecifiedBreakReason(reason)
         self.reason = reason
         BreakGraphReasonInfo.collect_break_graph_reason(reason)
 
