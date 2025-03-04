@@ -224,11 +224,7 @@ class ZipVariable(SequenceIterVariable):
                 return UserDefinedIterVariable(value, graph, tracker)
             zip_targets.append(iter_variable)
 
-        wrapped_zip_targets = TupleVariable(
-            tuple(zip_targets), graph, DummyTracker(zip_targets)
-        )
-
-        return ZipVariable(wrapped_zip_targets, graph, tracker)
+        return ZipVariable(zip_targets, graph, tracker)
 
 
 class MapVariable(SequenceIterVariable):
@@ -278,11 +274,7 @@ class MapVariable(SequenceIterVariable):
                 return UserDefinedIterVariable(value, graph, tracker)
             map_targets.append(iter_variable)
 
-        wrapped_map_targets = TupleVariable(
-            tuple(map_targets), graph, DummyTracker(map_targets)
-        )
-
-        return MapVariable(fn, wrapped_map_targets, graph, tracker)
+        return MapVariable(fn, map_targets, graph, tracker)
 
 
 # what UserDefinedIterVariable holds doesn't matter, because use user defined iterator will trigger break graph
