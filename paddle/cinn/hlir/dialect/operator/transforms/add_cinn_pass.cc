@@ -53,6 +53,7 @@
 #include "paddle/cinn/hlir/dialect/operator/transforms/pir_to_py_code_converter.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/reduce_as_to_sum_pass.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/remove_assign_out_pass.h"
+#include "paddle/cinn/hlir/dialect/operator/transforms/remove_redundant_group_output_pass.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/replace_dynamic_expand_pass.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/replace_zero_scale_to_full_pass.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/shape_ops_fallback_to_phi_pass.h"
@@ -187,6 +188,8 @@ void ApplyGroupOpPass(::pir::Program* program,
   pass_manager->AddPass(cinn::dialect::ir::CreateDynamicReshapeOpPass());
   pass_manager->AddPass(cinn::dialect::ir::CreateFoldManipulationOpsPass());
   pass_manager->AddPass(pir::CreateDeadCodeEliminationPass());
+  // pass_manager->AddPass(
+  //     cinn::dialect::ir::CreateRemoveRedundantGroupOutputPass());
 
   pass_manager->Run(program);
 }
@@ -196,6 +199,8 @@ void ApplyDivideGroupOpToFusionOpPass(
     const std::function<std::shared_ptr<pir::PassManager>()>&
         CreatePassManager) {
   std::shared_ptr<pir::PassManager> pass_manager = CreatePassManager();
+  pass_manager->AddPass(
+      cinn::dialect::ir::CreateRemoveRedundantGroupOutputPass());
   pass_manager->AddPass(cinn::dialect::ir::CreateAddStoreInGroupOpPass());
   pass_manager->AddPass(cinn::dialect::ir::CreateCinnGroupClusterPass());
 
@@ -283,7 +288,19 @@ void ApplyCinnPass(
   PirToPyCodeConverter(program)
       .file_name("group_op_programs.py")
       .SaveIfFlagEnabled();
+  if (VLOG_IS_ON(1)) {
+    auto& shape_analysis = pir::ShapeAnalysisManager::Instance().Get(program);
+    std::cout << "Program before ApplyGroupOpPass: \n"
+              << pir::CustomPrintHelper(*program, shape_analysis.PrintHook())
+              << std::endl;
+  }
   ApplyGroupOpPass(program, CreatePassManager);
+  if (VLOG_IS_ON(1)) {
+    auto& shape_analysis = pir::ShapeAnalysisManager::Instance().Get(program);
+    std::cout << "Program before ApplyDivideGroupOpToFusionOpPass: \n"
+              << pir::CustomPrintHelper(*program, shape_analysis.PrintHook())
+              << std::endl;
+  }
   ApplyDivideGroupOpToFusionOpPass(program, CreatePassManager);
   PirToPyCodeConverter(program)
       .file_name("fusion_op_programs.py")
