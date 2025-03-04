@@ -993,7 +993,7 @@ __device__ __forceinline__ void NoReturnAtomicAdd(T* tensor,
                                                   index_t index,
                                                   const index_t numel,
                                                   T value) {
-#if ((defined(CUDA_VERSION) && (CUDA_VERSION < 10000)) || \
+#if (defined(PADDLE_WITH_ROCM) || \
      (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ < 700)))
   phi::CudaAtomicAdd(tensor + index, value);
 #else
@@ -1004,17 +1004,13 @@ __device__ __forceinline__ void NoReturnAtomicAdd(T* tensor,
 
   if (low_byte && index < (numel - 1)) {
     __half2 value2;
-    // value2.x = value.to_half();
-    value2.x = *reinterpret_cast<__half *>(&value);
-    // value2.y = __int2half_rz(0);
-    value2.y = 0.0;
+    value2.x = value.to_half();
+    value2.y = __int2half_rz(0);
     atomicAdd(reinterpret_cast<__half2*>(target_addr), value2);
   } else if (!low_byte && index > 0) {
     __half2 value2;
-    // value2.x = __int2half_rz(0);
-    value2.x = 0.0;
-    // value2.y = value.to_half();
-    value2.y = *reinterpret_cast<__half *>(&value);
+    value2.x = __int2half_rz(0);
+    value2.y = value.to_half();
     atomicAdd(reinterpret_cast<__half2*>(target_addr - 1), value2);
   } else {
     atomicAdd(reinterpret_cast<__half*>(tensor) + index, value.to_half());
@@ -1065,7 +1061,7 @@ __device__ __inline__ void KernelDepthwiseConvFilterGradCFilterNHWC(
 
   for (int kernel_id = threadIdx.x; kernel_id < output_channels;
        kernel_id += blockDim.x) {
-    for (int i = 0; i < c_filter * c_filter; ++i) {
+    for (int i = 0; i < kWeightSize; ++i) {
       r_weight[i] = 0;
     }
     for (int i = threadIdx.y; i < wi_size * dilate_width; i += blockDim.y) {
@@ -1103,9 +1099,8 @@ __device__ __inline__ void KernelDepthwiseConvFilterGradCFilterNHWC(
         }
       }
     }
-    const int numel = output_channels * c_filter * c_filter;
-    for (int i = 0; i < c_filter * c_filter; ++i) {
-      // T* weight = filter_grad_data + i * output_channels + kernel_id;
+    const int numel = output_channels * kWeightSize;
+    for (int i = 0; i < kWeightSize; ++i) {
       NoReturnAtomicAdd(filter_grad_data,
                         i * output_channels + kernel_id,
                         numel,
