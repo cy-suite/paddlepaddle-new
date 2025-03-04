@@ -993,7 +993,7 @@ __device__ __forceinline__ void NoReturnAtomicAdd(T* tensor,
                                                   index_t index,
                                                   const index_t numel,
                                                   T value) {
-#if (defined(PADDLE_WITH_ROCM) || \
+#if (defined(PADDLE_WITH_HIP) || \
      (defined(__CUDA_ARCH__) && (__CUDA_ARCH__ < 700)))
   phi::CudaAtomicAdd(tensor + index, value);
 #else
@@ -1055,7 +1055,7 @@ __device__ __inline__ void KernelDepthwiseConvFilterGradCFilterNHWC(
   if (image_h >= output_height) {
     return;
   }
-  const int kWeightSize = c_filter * c_filter;
+  constexpr int kWeightSize = c_filter * c_filter;
   T r_weight[kWeightSize];
   const int wi_size = (output_width + dilate_width - 1) / dilate_width;
 
