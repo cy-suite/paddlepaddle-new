@@ -230,25 +230,19 @@ void RunReturnInstr(const std::shared_ptr<ReturnInstr>& instr,
                     FusionInterpreter* interpreter) {
   using namespace cinn::hlir::framework::pir::trivial_fusion_detail;  // NOLINT
   std::vector<ir::Expr> result;
+  // Insert if for append loop
   for (auto fusion_op : interpreter->scope[instr->target_]->fusion_ops) {
     auto exprs = std::visit(FusibleOp2Expr(), fusion_op);
-    for (const auto& expr : exprs) {
+    for (auto expr : exprs) {
+      std::string output_var_name = GetOutputTensor(expr)->name;
+      if (interpreter->global_var_names.count(output_var_name)) {
+        expr = ExprTransformerUtils::InsertIfForAppendVarsTransformer()(expr);
+      }
       result.push_back(expr);
     }
   }
-  // Insert if for append loop
-  std::set<std::string> global_vars_need_inline;
-  for (auto& expr : result) {
-    std::string output_var_name = GetOutputTensor(expr)->name;
-    if (interpreter->global_var_names.count(output_var_name)) {
-      expr = ExprTransformerUtils::InsertIfForAppendVarsTransformer()(expr);
-      if (!ExprSetFinderUtils::ChildIfThenElses(expr).empty()) {
-        global_vars_need_inline.insert(output_var_name);
-      }
-    }
-  }
   // Inline global vars
-  InlineGlobalVarCompute(result, global_vars_need_inline);
+  InlineGlobalVarCompute(result, interpreter->global_var_names);
   interpreter->ret_expr = result;
 }
 
