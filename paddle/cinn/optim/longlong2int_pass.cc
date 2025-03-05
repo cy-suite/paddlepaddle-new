@@ -21,6 +21,7 @@
 #include "paddle/cinn/ir/stmt.h"
 #include "paddle/cinn/ir/stmt_visitors.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
+#include "paddle/cinn/optim/simplify_util.h"
 #include "paddle/cinn/pass/pass_manager.h"
 
 namespace cinn {
@@ -121,8 +122,8 @@ class CastLonglong2IntMutator : public ir::IRMutator<> {
     std::for_each(
         node->indices.begin(), node->indices.end(), [&](cinn::ir::Expr& e) {
           ir::TryElevateInt64ToInt32({e});
-          if (cinn::common::VerifyIndex(e) == cinn::common::IndexType::kLoad ||
-              cinn::common::VerifyIndex(e) == cinn::common::IndexType::kCast) {
+          if (cinn::optim::VerifyIndex(e) == cinn::optim::IndexType::kLoad ||
+              cinn::optim::VerifyIndex(e) == cinn::optim::IndexType::kCast) {
             ir::IRMutator<>::Visit(&e, &e);
           }
         });
@@ -134,16 +135,16 @@ class CastLonglong2IntMutator : public ir::IRMutator<> {
     if (cond.is_cmp() && cond->operand(0).is_index() &&
         cond->operand(1).is_index()) {
       ir::TryElevateInt64ToInt32({cond->operands[0], cond->operands[1]});
-      if (cinn::common::VerifyIndex(cond->operands[0]) ==
-              cinn::common::IndexType::kLoad ||
-          cinn::common::VerifyIndex(cond->operands[0]) ==
-              cinn::common::IndexType::kCast) {
+      if (cinn::optim::VerifyIndex(cond->operands[0]) ==
+              cinn::optim::IndexType::kLoad ||
+          cinn::optim::VerifyIndex(cond->operands[0]) ==
+              cinn::optim::IndexType::kCast) {
         ir::IRMutator<>::Visit(&cond->operands[0], &cond->operands[0]);
       }
-      if (cinn::common::VerifyIndex(cond->operands[1]) ==
-              cinn::common::IndexType::kLoad ||
-          cinn::common::VerifyIndex(cond->operands[1]) ==
-              cinn::common::IndexType::kCast) {
+      if (cinn::optim::VerifyIndex(cond->operands[1]) ==
+              cinn::optim::IndexType::kLoad ||
+          cinn::optim::VerifyIndex(cond->operands[1]) ==
+              cinn::optim::IndexType::kCast) {
         ir::IRMutator<>::Visit(&cond->operands[1], &cond->operands[1]);
       }
     }
@@ -173,8 +174,8 @@ LogicalResult LongLong2IntStmtPass::Run(ir::stmt::StmtRef stmt) {
     Store store_stmt = stmt.as<Store>();
     for (Expr index : store_stmt->indices()) {
       ir::TryElevateInt64ToInt32({index});
-      if (cinn::common::VerifyIndex(index) == cinn::common::IndexType::kLoad ||
-          cinn::common::VerifyIndex(index) == cinn::common::IndexType::kCast) {
+      if (cinn::optim::VerifyIndex(index) == cinn::optim::IndexType::kLoad ||
+          cinn::optim::VerifyIndex(index) == cinn::optim::IndexType::kCast) {
         narrow(&index);
       }
     }
@@ -186,16 +187,16 @@ LogicalResult LongLong2IntStmtPass::Run(ir::stmt::StmtRef stmt) {
     if (cond.is_cmp() && cond->operand(0).is_index() &&
         cond->operand(1).is_index()) {
       ir::TryElevateInt64ToInt32({cond->operands[0], cond->operands[1]});
-      if (cinn::common::VerifyIndex(cond->operands[0]) ==
-              cinn::common::IndexType::kLoad ||
-          cinn::common::VerifyIndex(cond->operands[0]) ==
-              cinn::common::IndexType::kCast) {
+      if (cinn::optim::VerifyIndex(cond->operands[0]) ==
+              cinn::optim::IndexType::kLoad ||
+          cinn::optim::VerifyIndex(cond->operands[0]) ==
+              cinn::optim::IndexType::kCast) {
         narrow(&cond->operands[0]);
       }
-      if (cinn::common::VerifyIndex(cond->operands[1]) ==
-              cinn::common::IndexType::kLoad ||
-          cinn::common::VerifyIndex(cond->operands[1]) ==
-              cinn::common::IndexType::kCast) {
+      if (cinn::optim::VerifyIndex(cond->operands[1]) ==
+              cinn::optim::IndexType::kLoad ||
+          cinn::optim::VerifyIndex(cond->operands[1]) ==
+              cinn::optim::IndexType::kCast) {
         narrow(&cond->operands[1]);
       }
     }
