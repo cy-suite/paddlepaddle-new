@@ -1020,7 +1020,7 @@ def auto_recompute_pir_program(pir_program, is_forward_op_func=None):
             logger.info("No Forward Ops Found!")
 
     if fwd_op_end_idx == -1:
-        logger.info("Skip Recompute!")
+        logger.info("Skip Auto Recompute!")
         return pir_program
     backward_op_start_idx = fwd_op_end_idx + 1
 
