@@ -148,20 +148,18 @@ class Input:
                 self.input_data_type = 'float32'
 
             if self.input_range is None:
-                self.input_range = (
-                    (0.0, 1.0)
-                )
+                self.input_range = (0.0, 1.0)
 
             if 'int' in self.input_data_type:
-                self.input_min_data = np.zeros(
-                    self.min_input_shape
-                ).astype(self.input_data_type)
-                self.input_optim_data = np.zeros(
-                    self.optim_input_shape
-                ).astype(self.input_data_type)
-                self.input_max_data = np.zeros(
-                    self.max_input_shape
-                ).astype(self.input_data_type)
+                self.input_min_data = np.zeros(self.min_input_shape).astype(
+                    self.input_data_type
+                )
+                self.input_optim_data = np.zeros(self.optim_input_shape).astype(
+                    self.input_data_type
+                )
+                self.input_max_data = np.zeros(self.max_input_shape).astype(
+                    self.input_data_type
+                )
             else:
                 low, high = self.input_range if self.input_range else (0, 1)
                 self.input_min_data = np.random.uniform(
