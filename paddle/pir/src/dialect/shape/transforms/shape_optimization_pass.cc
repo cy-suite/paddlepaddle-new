@@ -14,6 +14,8 @@
 
 #include "paddle/pir/include/dialect/shape/transforms/shape_optimization_pass.h"
 
+#include "paddle/cinn/hlir/framework/op.h"
+#include "paddle/common/enforce.h"
 #include "paddle/common/errors.h"
 #include "paddle/common/flags.h"
 #include "paddle/pir/include/core/builtin_type.h"
@@ -342,6 +344,255 @@ void InferSymExprForOp(Operation* op,
   }
 }
 
+std::set<std::string> new_symbol_op_list = {
+    // cf_op.cc
+    "cf.stack_create",
+    // op_dialect.cc
+    "builtin.parameter",
+    // manual_op.cc
+    "pd_op.array_read",
+    "pd_op.array_to_tensor",
+    "pd_op.slice_array",
+    "pd_op.slice_array_dense",
+    "pd_op.array_pop",
+    // control_flow_op.cc
+    "pd_op.if",
+    "pd_op.while",
+    "pd_op.select_input",
+    // unary_infer_sym.cc
+    "pd_op.as_strided",
+    "pd_op.class_center_sample",
+    "pd_op.decode_jpeg",
+    "pd_op.diag",
+    "pd_op.distribute_fpn_proposals",
+    "pd_op.nonzero",
+    "pd_op.one_hot",
+    "pd_op.slice",
+    "pd_op.unique",
+    "pd_op.unique_consecutive",
+    "pd_op.unsqueeze",
+    "pd_op.arange",
+    "pd_op.data",
+    "pd_op.eye",
+    "pd_op.read_file",
+    // multiary_infer_sym.cc
+    "pd_op.batch_norm",
+    "pd_op.bicubic_interp",
+    "pd_op.assign_pos",
+    "pd_op.detection_map",
+    "pd_op.pd_op.flash_attn_varlen_qkvpacked",
+    "pd_op.generate_proposals",
+    "pd_op.pd_op.graph_khop_sampler",
+    "pd_op.pd_op.graph_sample_neighbors",
+    "pd_op.match_matrix_tensor",
+    "pd_op.multiclass_nms3",
+    "pd_op.pyramid_hash",
+    "pd_op.rnn",
+    "pd_op.viterbi_decode",
+    "pd_op.warpctc",
+    "pd_op.weighted_sample_neighbors",
+    // binary_infer_sym.cc
+    "pd_op.bincount",
+    "pd_op.masked_select",
+    "pd_op.matrix_nms",
+    "pd_op.repeat_interleave_with_tensor_index",
+    "pd_op.segment_pool",
+    "pd_op.sequence_mask",
+    "pd_op.conv3d_transpose",
+    "pd_op.conv2d_transpose",
+};
+
+enum class OpType {
+  kInt,
+  kSym,
+  kNegative,
+  kAdd,
+  kMul,
+  kDiv,
+  kMax,
+  kMin,
+  kBroadcast
+};
+
+OpType GetOpType(const symbol::DimExpr& expr) {
+  auto lambdas = common::Overloaded{
+      [](std::int64_t dim_expr) { return OpType::kInt; },
+      [](const std::string& dim_expr) { return OpType::kSym; },
+      [](const symbol::Negative<symbol::DimExpr>& dim_expr) {
+        return OpType::kNegative;
+      },
+      [](const symbol::Add<symbol::DimExpr>& dim_expr) { return OpType::kAdd; },
+      [](const symbol::Mul<symbol::DimExpr>& dim_expr) { return OpType::kMul; },
+      [](const symbol::Div<symbol::DimExpr>& dim_expr) { return OpType::kDiv; },
+      [](const symbol::Max<symbol::DimExpr>& dim_expr) { return OpType::kMax; },
+      [](const symbol::Min<symbol::DimExpr>& dim_expr) { return OpType::kMin; },
+      [](const symbol::Broadcast<symbol::DimExpr>& dim_expr) {
+        return OpType::kBroadcast;
+      }};
+  return std::visit(lambdas, expr.variant());
+}
+bool PatternMatch(const symbol::DimExpr& lhs,
+                  const symbol::DimExpr& rhs,
+                  std::unordered_map<std::string, std::string>* map);
+template <template <typename> class Op>
+bool ListPatternMatch(const symbol::DimExpr& lhs,
+                      const symbol::DimExpr& rhs,
+                      std::unordered_map<std::string, std::string>* map) {
+  const auto& [lhs_operands] = lhs.Get<Op<symbol::DimExpr>>();
+  const auto& [rhs_operands] = rhs.Get<Op<symbol::DimExpr>>();
+  if (lhs_operands->size() != rhs_operands->size()) {
+    return false;
+  }
+  for (size_t i = 0; i < lhs_operands->size(); ++i) {
+    if (!PatternMatch(lhs_operands->at(i), rhs_operands->at(i), map)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+template <template <typename> class Op>
+bool BinaryPatternMatch(const symbol::DimExpr& lhs,
+                        const symbol::DimExpr& rhs,
+                        std::unordered_map<std::string, std::string>* map) {
+  auto lhs_op = lhs.Get<Op<symbol::DimExpr>>();
+  auto rhs_op = rhs.Get<Op<symbol::DimExpr>>();
+  return PatternMatch(lhs_op->lhs, rhs_op->lhs, map) &&
+         PatternMatch(lhs_op->rhs, rhs_op->rhs, map);
+}
+
+bool DivPatternMatch(const symbol::DimExpr& lhs,
+                     const symbol::DimExpr& rhs,
+                     std::unordered_map<std::string, std::string>* map) {
+  const auto& lhs_op = lhs.Get<symbol::Div<symbol::DimExpr>>();
+  const auto& rhs_op = rhs.Get<symbol::Div<symbol::DimExpr>>();
+  return PatternMatch(lhs_op->lhs, rhs_op->lhs, map) &&
+         PatternMatch(lhs_op->rhs, rhs_op->rhs, map);
+}
+
+bool NegativePatternMatch(const symbol::DimExpr& lhs,
+                          const symbol::DimExpr& rhs,
+                          std::unordered_map<std::string, std::string>* map) {
+  const auto& lhs_op = lhs.Get<symbol::Negative<symbol::DimExpr>>();
+  const auto& rhs_op = rhs.Get<symbol::Negative<symbol::DimExpr>>();
+  return PatternMatch(lhs_op->data, rhs_op->data, map);
+}
+
+bool PatternMatch(const symbol::DimExpr& lhs,
+                  const symbol::DimExpr& rhs,
+                  std::unordered_map<std::string, std::string>* map) {
+  OpType lhs_type = GetOpType(lhs);
+  OpType rhs_type = GetOpType(rhs);
+  if (lhs_type != rhs_type) {
+    return false;
+  }
+  switch (rhs_type) {
+    case OpType::kAdd:
+      return ListPatternMatch<symbol::Add>(lhs, rhs, map);
+    case OpType::kMul:
+      return ListPatternMatch<symbol::Mul>(lhs, rhs, map);
+    case OpType::kMax:
+      return ListPatternMatch<symbol::Max>(lhs, rhs, map);
+    case OpType::kMin:
+      return ListPatternMatch<symbol::Min>(lhs, rhs, map);
+    case OpType::kBroadcast:
+      return ListPatternMatch<symbol::Broadcast>(lhs, rhs, map);
+    case OpType::kDiv:
+      return DivPatternMatch(lhs, rhs, map);
+    case OpType::kNegative:
+      return NegativePatternMatch(lhs, rhs, map);
+    case OpType::kInt:
+      return lhs == rhs;
+    case OpType::kSym:
+      auto it = map->find(rhs.Get<std::string>());
+      if (it != map->end()) {
+        return it->second == lhs.Get<std::string>();
+      } else {
+        map->insert({rhs.Get<std::string>(), lhs.Get<std::string>()});
+        return true;
+      }
+  }
+}
+
+enum class ShapeOrDataDimType {
+  kTensorShapeOrDataDimExprs,
+  kTensorListShapeOrDataDimExprs,
+  kRankedTensorArrayShapeOrDataDimExprs,
+  kNullShapeOrDataDimExpr
+};
+
+ShapeOrDataDimType GetShapeOrDataType(
+    const symbol::ShapeOrDataDimExprs& shape_or_data) {
+  auto lambdas = common::Overloaded{
+      [&](const symbol::TensorShapeOrDataDimExprs& tensor_shape_or_data) {
+        return ShapeOrDataDimType::kTensorShapeOrDataDimExprs;
+      },
+      [&](const symbol::TensorListShapeOrDataDimExprs& tensor_list) {
+        return ShapeOrDataDimType::kTensorListShapeOrDataDimExprs;
+      },
+      [&](const symbol::RankedTensorArrayShapeOrDataDimExprs& tensor_array) {
+        return ShapeOrDataDimType::kRankedTensorArrayShapeOrDataDimExprs;
+      },
+      [&](const symbol::NullShapeOrDataDimExpr& null_shape_or_data) {
+        return ShapeOrDataDimType::kNullShapeOrDataDimExpr;
+      }};
+  return std::visit(lambdas, shape_or_data.variant());
+}
+
+bool ShapeOrDataDimExprsPatternMatch(
+    const symbol::ShapeOrDataDimExprs& lhs,
+    const symbol::ShapeOrDataDimExprs& rhs,
+    std::unordered_map<std::string, std::string>* map) {
+  auto lhs_type = GetShapeOrDataType(lhs);
+  auto rhs_type = GetShapeOrDataType(rhs);
+  if (lhs_type != rhs_type) {
+    return false;
+  }
+  switch (rhs_type) {
+    case ShapeOrDataDimType::kTensorShapeOrDataDimExprs:
+      if (rhs.dyn_cast<symbol::TensorShapeOrDataDimExprs>().data().has_value() ^
+          lhs.dyn_cast<symbol::TensorShapeOrDataDimExprs>()
+              .data()
+              .has_value()) {
+        return false;
+      } else if (rhs.dyn_cast<symbol::TensorShapeOrDataDimExprs>()
+                     .data()
+                     .has_value()) {
+        auto rhs_data =
+            rhs.dyn_cast<symbol::TensorShapeOrDataDimExprs>().data().value();
+        auto lhs_data =
+            lhs.dyn_cast<symbol::TensorShapeOrDataDimExprs>().data().value();
+        if (rhs_data.size() != lhs_data.size()) {
+          return false;
+        }
+        for (size_t i = 0; i < rhs_data.size(); ++i) {
+          if (!PatternMatch(rhs_data[i], lhs_data[i], map)) {
+            return false;
+          }
+        }
+      } else {
+        auto rhs_shape =
+            rhs.dyn_cast<symbol::TensorShapeOrDataDimExprs>().shape();
+        auto lhs_shape =
+            lhs.dyn_cast<symbol::TensorShapeOrDataDimExprs>().shape();
+        if (rhs_shape.size() != lhs_shape.size()) {
+          return false;
+        }
+        for (size_t i = 0; i < rhs_shape.size(); ++i) {
+          if (!PatternMatch(rhs_shape[i], lhs_shape[i], map)) {
+            return false;
+          }
+        }
+      }
+      return true;
+    case ShapeOrDataDimType::kTensorListShapeOrDataDimExprs:
+    case ShapeOrDataDimType::kRankedTensorArrayShapeOrDataDimExprs:
+      return false;
+    case ShapeOrDataDimType::kNullShapeOrDataDimExpr:
+      return true;
+  }
+}
+
 void CacheForwardOpSymbolicShape(
     Operation* op,
     InferSymbolicShapeContext* infer_context,
@@ -355,6 +606,13 @@ void CacheForwardOpSymbolicShape(
         } else {
           for (uint32_t i = 0; i < cache_result.size(); ++i) {
             if (infer_result[i] != cache_result[i]) {
+              if (new_symbol_op_list.count(op->name())) {
+                std::unordered_map<std::string, std::string> map;
+                if (ShapeOrDataDimExprsPatternMatch(
+                        infer_result[i], cache_result[i], &map)) {
+                  continue;
+                }
+              }
               LOG(WARNING) << "cached shape is not consistent with real shape";
               VLOG(3) << "InferSymbolicShapeCacheKey is: "
                       << op_infer_cache_key;
