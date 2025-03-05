@@ -63,6 +63,33 @@ def _has_nvidia_smi():
     return shutil.which("nvidia-smi")
 
 
+def _has_xpu_smi():
+    """
+    check if xpu-smi is available
+    """
+    return shutil.which("xpu-smi")
+
+
+def _get_xpu_device(local_rank):
+    """
+    get currently used xpu physical device id
+    """
+    xpu_visible_devices = os.getenv("XPU_VISIBLE_DEVICES")
+    cuda_visible_devices = os.getenv("CUDA_VISIBLE_DEVICES")
+    if xpu_visible_devices is not None:
+        xpu_visible_devices = xpu_visible_devices.split(',')
+        if len(xpu_visible_devices) <= local_rank:
+            return None
+        return xpu_visible_devices[local_rank]
+    elif cuda_visible_devices is not None:
+        cuda_visible_devices = cuda_visible_devices.split(',')
+        if len(cuda_visible_devices) <= local_rank:
+            return None
+        return cuda_visible_devices[local_rank]
+    else:
+        return str(local_rank)
+
+
 def _get_gpu_device(local_rank):
     """
     get currently used gpu physical device id
@@ -88,6 +115,18 @@ def _get_gpu_numa_info(gpu_id):
     except Exception as e:
         logger.warn(f"_get_cpu_info failed, reason:{e}")
         return None
+
+
+def _get_xpu_affinity_mask(xpu_id):
+    xpu_id = int(xpu_id)
+    cmd = ["xpu-smi", "topo", "-m"]
+    output = subprocess.check_output(cmd, timeout=3).decode("utf-8")
+    cpu_affinity = output.splitlines()[xpu_id + 1].split()[-2]
+    affinity_mask = []
+    for affinity_range in cpu_affinity.split(','):
+        start, end = affinity_range.split('-')
+        affinity_mask.extend(range(int(start), int(end) + 1))
+    return affinity_mask
 
 
 def set_affinity_gpu():
@@ -131,9 +170,33 @@ def set_affinity_gpu():
     return SUCCESS_CODE
 
 
+def set_affinity_xpu():
+    if not _has_xpu_smi():
+        logger.warn(
+            "xpu-smi is not available, set_affinity is aborted, plz check your environment."
+        )
+        return FAIL_CODE
+    local_rank = max(os.getenv("PADDLE_LOCAL_RANK", 0), 0)
+    device_id = _get_xpu_device(local_rank)
+    if device_id is None:
+        logger.warn(
+            "Failed to get device id, set_affinity is aborted, plz check your environment."
+        )
+        return FAIL_CODE
+    affinity_mask = _get_xpu_affinity_mask(device_id)
+    affinity = os.sched_getaffinity(0)
+    logger.info(f"Check affinity before setting: {affinity}")
+    os.sched_setaffinity(0, affinity_mask)
+    affinity = os.sched_getaffinity(0)
+    logger.info(f"Check affinity after setting: {affinity}")
+    return SUCCESS_CODE
+
+
 def set_affinity():
     if paddle.device.is_compiled_with_cuda():
         return set_affinity_gpu()
+    elif paddle.device.is_compiled_with_xpu():
+        return set_affinity_xpu()
     else:
         # TODO(@gexiao): supports other devices if needed
         logger.warn("Currently set_affinity only supports gpu env.")
