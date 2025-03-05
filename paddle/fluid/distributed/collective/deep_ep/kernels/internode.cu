@@ -20,11 +20,13 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
+// clang-format off
 #include <nvshmem.h>
 #include <nvshmemx.h>
-#include <infiniband/mlx5dv.h>  // NOLINT
+#include <infiniband/mlx5dv.h>
 #include <non_abi/device/threadgroup/nvshmemi_common_device_defines.cuh>
-#include <device_host_transport/nvshmem_common_ibgda.h>  // NOLINT
+#include <device_host_transport/nvshmem_common_ibgda.h>
+// clang-format on
 
 #include "paddle/fluid/distributed/collective/deep_ep/kernels/buffer.cuh"
 #include "paddle/fluid/distributed/collective/deep_ep/kernels/configs.cuh"
