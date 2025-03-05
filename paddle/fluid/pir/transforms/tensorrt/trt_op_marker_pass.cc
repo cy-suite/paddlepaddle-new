@@ -57,6 +57,7 @@ DEFINE_GENERAL_PATTERN(Reshape, paddle::dialect::ReshapeOp)
 DEFINE_GENERAL_PATTERN(Dropout, paddle::dialect::DropoutOp)
 DEFINE_GENERAL_PATTERN(Bmm, paddle::dialect::BmmOp)
 DEFINE_GENERAL_PATTERN(Concat, paddle::dialect::ConcatOp)
+DEFINE_GENERAL_PATTERN(Nonzero, paddle::dialect::NonzeroOp)
 DEFINE_GENERAL_PATTERN(Gelu, paddle::dialect::GeluOp)
 DEFINE_GENERAL_PATTERN(Relu6, paddle::dialect::Relu6Op)
 DEFINE_GENERAL_PATTERN(Fused_gemm_epilogue,
@@ -1697,36 +1698,49 @@ class BilinearInterpV2Pattern
       return false;
     }
 #if IS_TRT_VERSION_GE(8200)
+    // TODO(lizexu123): Starting from the size_tensor, traverse up three levels.
+    // If a pd_op.shape64 operator is found within those three levels, then
+    // allow it to enter TRT; otherwise, prohibit TRT conversion to avoid
+    // potential bugs.
     auto size_tensor = op.operand_source(2);
     if (size_tensor.impl()) {
       auto *first_def_op = size_tensor.defining_op();
-      bool found_shape_op = false;
-      auto operand0 = first_def_op->operand_source(0);
-      auto *second_def_op = operand0.defining_op();
-      if (first_def_op && first_def_op->isa<paddle::dialect::ShapeOp>()) {
-        found_shape_op = true;
-      } else if ((first_def_op->name().find("builtin.combine") !=
-                  std::string::npos) &&
-                 (second_def_op->isa<paddle::dialect::DataOp>())) {
-        found_shape_op = true;
-      }
-      if (!found_shape_op && first_def_op && first_def_op->num_operands() > 0) {
-        if (operand0.impl()) {
-          if (second_def_op && second_def_op->isa<paddle::dialect::ShapeOp>()) {
-            found_shape_op = true;
+      std::vector<std::string> upstream_op_names;
+      if (first_def_op) {
+        upstream_op_names.push_back(first_def_op->name());
+        if (first_def_op->num_operands() > 0) {
+          auto second_input = first_def_op->operand_source(0);
+          if (second_input.impl()) {
+            auto *second_def_op = second_input.defining_op();
+            if (second_def_op) {
+              upstream_op_names.push_back(second_def_op->name());
+            }
+            auto third_input = second_def_op->operand_source(0);
+            if (third_input.impl()) {
+              auto *third_def_op = third_input.defining_op();
+              upstream_op_names.push_back(third_def_op->name());
+            }
           }
         }
       }
-      // TODO(Lizexu): trt8.6,in other cases the dynamic shape values cannot be
-      // obtained at runtime and are returned as -1, which causes a bug.
-      if (!found_shape_op) {
-        VLOG(3) << "BilinearInterpV2: size_tensor does not come from a valid "
-                   "ShapeOp within two layers or builtin.combine";
+      bool found_shape = false;
+      for (const auto &name : upstream_op_names) {
+        if (name.find("shape64") != std::string::npos) {
+          found_shape = true;
+        }
+      }
+      if (!found_shape) {
+        VLOG(3) << "BilinearInterpV2: Upstream ops do not contain 'shape':";
+        for (const auto &name : upstream_op_names) {
+          VLOG(3) << "\t" << name;
+        }
         return false;
       }
+
+      // 同时检查 size_tensor 类型为 VectorType 且大小为2
       auto size_tensor_type = size_tensor.type();
       if (size_tensor_type.isa<pir::VectorType>()) {
-        auto vector_type = size_tensor.type().dyn_cast<pir::VectorType>();
+        auto vector_type = size_tensor_type.dyn_cast<pir::VectorType>();
         if (vector_type.size() == 2) {
           op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
           return true;
@@ -1742,14 +1756,12 @@ class BilinearInterpV2Pattern
     }
 #endif
     pir::Value scale_tensor = op.operand_source(3);
-
     bool has_scale_input = false;
     if (scale_tensor) {
       has_scale_input = true;
     }
-
     if (has_scale_input) {
-      VLOG(3) << "BilinearInterpV2 has scale input can not into trt,support "
+      VLOG(3) << "BilinearInterpV2 has scale input can not into trt, support "
                  "scale attribute into trt";
       return false;
     }
@@ -1791,7 +1803,6 @@ class BilinearInterpV2Pattern
         }
       }
     }
-
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
   }
@@ -2938,6 +2949,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Dropout)
     ADD_PATTERN(Bmm)
     ADD_PATTERN(Concat)
+    ADD_PATTERN(Nonzero)
     ADD_PATTERN(Full)
     ADD_PATTERN(Fused_gemm_epilogue)
     ADD_PATTERN(Add)
