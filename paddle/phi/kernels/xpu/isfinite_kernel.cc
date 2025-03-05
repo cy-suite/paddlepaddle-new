@@ -52,7 +52,7 @@ void IsinfKernel(const Context& ctx, const DenseTensor& x, DenseTensor* out) {
                               reinterpret_cast<const XPUType*>(x.data<T>()),
                               out_data,
                               x.numel());
-  PADDLE_ENFORCE_XDNN_SUCCESS(r, "isfinite");
+  PADDLE_ENFORCE_XDNN_SUCCESS(r, "isinf");
 }
 
 }  // namespace phi
