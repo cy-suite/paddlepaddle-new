@@ -251,6 +251,19 @@ TEST(Simplify, SimplifyWithObviousGreaterThan) {
   // Min(S0, Add(S0, -S1)) => Add(S0, -S1)
   DimExpr add3{Add<DimExpr>{{S0, Negative<DimExpr>{S1}}}};
   ASSERT_TRUE((SimplifyDimExpr(Min<DimExpr>{{S0, add3}}) == add3));
+
+  // Min(S0, 0) => 0, Max(S0, 0) => S0
+  ASSERT_TRUE((SimplifyDimExpr(Min<DimExpr>{{S0, DimExpr(0)}}) == DimExpr(0)));
+  ASSERT_TRUE((SimplifyDimExpr(Max<DimExpr>{{S0, DimExpr(0)}}) == S0));
+
+  // Min(S0, 1) => 1, Max(S0, 1) => S0
+  ASSERT_TRUE((SimplifyDimExpr(Min<DimExpr>{{S0, DimExpr(1)}}) == DimExpr(1)));
+  ASSERT_TRUE((SimplifyDimExpr(Max<DimExpr>{{S0, DimExpr(1)}}) == S0));
+
+  // Min(Mul(S0, S1), 0) => Min(Mul(S0, S1), 0)
+  // Now simplify ability is limited.
+  ASSERT_TRUE((SimplifyDimExpr(Min<DimExpr>{{mul2, DimExpr(0)}}) ==
+               Min<DimExpr>{{mul2, DimExpr(0)}}));
 }
 
 TEST(Simplify, Case1) {

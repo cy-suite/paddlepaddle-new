@@ -1012,7 +1012,6 @@ DimExprCompareResult EasyCompareGTOrGE(const DimExpr& lhs, const DimExpr& rhs) {
   // range info may be used.
 
   // check with Div
-  DimExpr simplified_result_div = SimplifyDimExpr(DimExpr{lhs} / DimExpr{rhs});
   auto CompareDivResult = common::Overloaded{
       [](const std::int64_t& expr) {
         return expr > 1 ? DimExprCompareResult::GT
@@ -1039,8 +1038,15 @@ DimExprCompareResult EasyCompareGTOrGE(const DimExpr& lhs, const DimExpr& rhs) {
         }
       },
       [](const auto& expr) { return DimExprCompareResult::UNKNOWN; }};
-  auto div_compare =
-      std::visit(CompareDivResult, simplified_result_div.variant());
+  DimExprCompareResult div_compare;
+  if (rhs != symbol::DimExpr{0}) {
+    DimExpr simplified_result_div =
+        SimplifyDimExpr(DimExpr{lhs} / DimExpr{rhs});
+    div_compare = std::visit(CompareDivResult, simplified_result_div.variant());
+  } else {
+    div_compare = DimExprCompareResult::UNKNOWN;
+  }
+
   if (div_compare != DimExprCompareResult::UNKNOWN) {
     return div_compare;
   }
