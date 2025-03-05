@@ -34,6 +34,7 @@
 #include "paddle/fluid/distributed/collective/deep_ep/include/ScalarType.h"
 #include "paddle/fluid/distributed/collective/process_group_nccl.h"
 #include "paddle/phi/api/include/api.h"
+#include "paddle/phi/api/include/tensor_utils.h"
 #include "paddle/phi/common/data_type.h"
 #include "paddle/phi/common/place.h"
 #include "paddle/phi/core/distributed/utils.h"
@@ -646,11 +647,11 @@ Buffer::intranode_dispatch(
   EP_HOST_ASSERT(
       num_ranks * num_ranks * static_cast<int>(sizeof(int)) +  // prefix matrix
           num_channels * num_ranks *
-              static_cast<int>(sizeof(int)) +      // Channel start offset
+              static_cast<int>(sizeof(int)) +  // Channel start offset
           num_channels * num_ranks *
-              static_cast<int>(sizeof(int)) +      // Channel end offset
-          num_channels * num_ranks *
-              static_cast<int>((sizeof(int)) * 2 +  // Queue head and tail
+              static_cast<int>(sizeof(int)) +  // Channel end offset
+          num_channels * num_ranks * static_cast<int>(sizeof(int)) *
+              2 +  // Queue head and tail
           num_channels * num_ranks * config.num_max_nvl_chunked_recv_tokens *
               hidden * recv_x.element_size() +  // Data buffer
           num_channels * num_ranks * config.num_max_nvl_chunked_recv_tokens *
@@ -1050,7 +1051,7 @@ Buffer::internode_dispatch(
   auto compute_stream = calc_ctx->stream();
   if (allocate_on_comm_stream) {
     EP_HOST_ASSERT(previous_event.has_value() && async);
-    c10::cuda::setCurrentCUDAStream(comm_stream);
+    deep_ep::detail::setCurrentCUDAStream(comm_stream);
   }
 
   // Wait previous tasks to be finished
@@ -1362,7 +1363,8 @@ Buffer::internode_dispatch(
   }
 
   // Switch back compute stream
-  if (allocate_on_comm_stream) c10::cuda::setCurrentCUDAStream(compute_stream);
+  if (allocate_on_comm_stream)
+    deep_ep::detail::setCurrentCUDAStream(compute_stream);
 
   // Return values
   return {recv_x,
@@ -1454,7 +1456,7 @@ Buffer::internode_combine(
   auto compute_stream = calc_ctx->stream();
   if (allocate_on_comm_stream) {
     EP_HOST_ASSERT(previous_event.has_value() && async);
-    c10::cuda::setCurrentCUDAStream(comm_stream);
+    deep_ep::detail::setCurrentCUDAStream(comm_stream);
   }
 
   // Wait previous tasks to be finished
@@ -1521,7 +1523,7 @@ Buffer::internode_combine(
   auto combined_x =
       ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
           {num_combined_tokens, hidden}, x.dtype(), x.place()));
-  internode::combine(at::cuda::ScalarTypeToCudaDataType(x.scalar_type()),
+  internode::combine(deep_ep::detail::ScalarTypeToCudaDataType(x.scalar_type()),
                      combined_x.data_ptr(),
                      combined_topk_weights_ptr,
                      is_combined_token_in_rank.data_ptr<bool>(),
@@ -1575,7 +1577,8 @@ Buffer::internode_combine(
   }
 
   // Switch back compute stream
-  if (allocate_on_comm_stream) c10::cuda::setCurrentCUDAStream(compute_stream);
+  if (allocate_on_comm_stream)
+    deep_ep::detail::setCurrentCUDAStream(compute_stream);
 
   // Return values
   return {combined_x, combined_topk_weights, event};
@@ -1684,10 +1687,16 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
       paddle::experimental::empty({num_local_experts, num_ranks},
                                   phi::DataType::INT64,
                                   phi::GPUPlace(device_id)));
-  auto packed_recv_count = torch::from_blob(
-      buffer.dispatch_rdma_atomic_token_counter,
-      {num_local_experts},
-      torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
+  // auto packed_recv_count = torch::from_blob(
+  //     buffer.dispatch_rdma_atomic_token_counter,
+  //     {num_local_experts},
+  //     torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
+  auto packed_recv_count = ConvertPaddleTensorToDetailTensor(
+      paddle::from_blob(buffer.dispatch_rdma_atomic_token_counter,
+                        {num_local_experts},
+                        phi::DataType::INT32,
+                        phi::DataLayout::NCHW,
+                        phi::GPUPlace(device_id)));
 
   // Allocate column-majored scales
   EP_HOST_ASSERT((num_ranks * num_max_dispatch_tokens_per_rank) % 4 == 0 &&

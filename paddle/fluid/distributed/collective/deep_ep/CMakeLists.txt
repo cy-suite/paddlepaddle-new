@@ -13,7 +13,7 @@ cc_library(
 set_target_properties(deepep_kernels PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 set_target_properties(deepep_kernels PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 
-set(DEEPEP_SRCS deep_ep.cpp src/fake_torch/c10/cuda/CUDAStream.cc)
+set(DEEPEP_SRCS deep_ep.cpp)
 
 cc_library(
   deep_ep
