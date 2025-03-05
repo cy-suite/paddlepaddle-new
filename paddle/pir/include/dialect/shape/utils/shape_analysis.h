@@ -273,6 +273,7 @@ class IR_API ShapeAnalysisManager {
  public:
   static ShapeAnalysisManager& Instance();
   ShapeConstraintIRAnalysis& Get(const pir::Program* program);
+  void Clear() { tables_.clear(); }
 
   ShapeAnalysisManager(const ShapeAnalysisManager&) = delete;
   ShapeAnalysisManager(ShapeAnalysisManager&&) = delete;
