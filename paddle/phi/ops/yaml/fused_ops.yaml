@@ -41,6 +41,15 @@
     func : addcmul_xpu
     data_type : x
 
+- op : fused_multiply_add_xpu
+  args : (Tensor x, Tensor y, Tensor w)
+  output : Tensor(out)
+  infer_meta :
+    func : FusedMultiplyAddXpuInferMeta
+  kernel :
+    func : fused_multiply_add_xpu
+    data_type : x
+
 - op : blha_get_max_len
   args : (Tensor seq_lens_encoder, Tensor seq_lens_decoder, Tensor batch_size)
   output : Tensor(max_enc_len_this_time), Tensor(max_dec_len_this_time)

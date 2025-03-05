@@ -385,6 +385,8 @@ XPUOpMap& get_kl1_ops() {
        })},
       {"fused_adaLN_scale_residual_xpu",
        XPUKernelSet({phi::DataType::FLOAT32})},
+       {"fused_multiply_add_xpu",
+       XPUKernelSet({phi::DataType::FLOAT32})},
       // AddMore
   };
 

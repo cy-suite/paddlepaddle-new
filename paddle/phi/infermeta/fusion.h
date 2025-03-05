@@ -1484,4 +1484,9 @@ void FusedAdalnScaleResidualXpuInferMeta(const MetaTensor& input1,
                                          float scale_op_bias,
                                          bool bias_after_scale,
                                          MetaTensor* out);
+
+                                         void FusedMultiplyAddXpuInferMeta(const MetaTensor& x,
+                         const MetaTensor& y,
+                         const MetaTensor& w,
+                         MetaTensor* out);
 }  // namespace phi

@@ -6078,4 +6078,12 @@ void FusedAdalnScaleResidualXpuInferMeta(const MetaTensor& input1,
   out->set_dtype(input1.dtype());
   out->set_layout(input1.layout());
 }
+void FusedMultiplyAddXpuInferMeta(const MetaTensor& x,
+                         const MetaTensor& y,
+                         const MetaTensor& w,
+                         MetaTensor* out){
+                            out->set_dims(x.dims());
+  out->set_dtype(x.dtype());
+  out->set_layout(x.layout());
+                         }
 }  // namespace phi

@@ -560,6 +560,7 @@ XpuPassStrategy::XpuPassStrategy() : PassStrategy({}) {
       "add_layernorm_xpu_fuse_pass",
       "layer_norm_act_xpu_fuse_pass",
       "fast_layernorm_xpu_fuse_pass",
+      "fused_multiply_add_xpu_pass",
       "adaptive_layernorm_xpu_fuse_pass",
       "fused_adaLN_scale_residual_xpu_pass",
       "bn_act_xpu_fuse_pass",
@@ -627,6 +628,7 @@ const std::vector<std::string> kPirXpuPasses{
     "conv2d_bn_xpu_fuse_pass",
     "conv2d_add_xpu_fuse_pass",
     "group_norm_silu_fuse_pass",
+    "fused_multiply_add_xpu_pass",
     "fused_adaLN_scale_residual_xpu_pass",
     "fc_xpu_fuse_pass",
     "adaptive_layernorm_xpu_fuse_pass"};

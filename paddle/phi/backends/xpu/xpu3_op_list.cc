@@ -1620,6 +1620,10 @@ XPUOpMap& get_kl3_ops() {
        XPUKernelSet({phi::DataType::FLOAT32,
                      phi::DataType::FLOAT16,
                      phi::DataType::BFLOAT16})},
+                            {"fused_multiply_add_xpu",
+       XPUKernelSet({phi::DataType::FLOAT32,
+       phi::DataType::FLOAT16,
+                     phi::DataType::BFLOAT16})},
   };
 
   return s_xpu3_kernels;
