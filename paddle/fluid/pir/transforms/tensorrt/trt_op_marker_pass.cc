@@ -421,11 +421,11 @@ class Pool2dOpPattern
         op->attribute<pir::StrAttribute>("padding_algorithm").AsString();
 
     auto adaptive = op->attribute<pir::BoolAttribute>("adaptive").data();
-    // TODO(Lizexu): This piece of code exists in the old IR-TRT implementation
-    // but is not covered by unit tests, raising suspicions about its
-    // correctness. In the PIR-TRT implementation, following the same approach
-    // causes precision issues. For now, we will exclude it from entering
-    // TensorRT.
+    // TODO(lizexu123): This piece of code exists in the old IR-TRT
+    // implementation but is not covered by unit tests, raising suspicions about
+    // its correctness. In the PIR-TRT implementation, following the same
+    // approach causes precision issues. For now, we will exclude it from
+    // entering TensorRT.
     pir::Value input = op.operand_source(0);
     auto input_type = input.type().dyn_cast<paddle::dialect::DenseTensorType>();
     auto input_dims = input_type.dims();

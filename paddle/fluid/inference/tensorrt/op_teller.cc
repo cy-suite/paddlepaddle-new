@@ -955,6 +955,9 @@ struct SimpleOpTypeSetTeller : public Teller {
       if (resize_inputs.find("SizeTensor") != resize_inputs.end()) {
 #if IS_TRT_VERSION_GE(8200)
         if (desc.Input("SizeTensor").size() == 2) {
+          // TODO(lizexu123): When SizeTensor exists, at least one of the input
+          // variable names must contain 'shape' in order for TRT conversion to
+          // proceed; otherwise, TRT conversion will be disallowed."
           auto* block = desc.Block();
           if (block == nullptr) {
             VLOG(3)
@@ -962,6 +965,7 @@ struct SimpleOpTypeSetTeller : public Teller {
             return false;
           }
           bool valid_source = false;
+          //
           std::vector<std::string> size_tensor_names = desc.Input("SizeTensor");
           for (const auto& tensor_name : size_tensor_names) {
             auto* var_desc = block->FindVarRecursive(tensor_name);
