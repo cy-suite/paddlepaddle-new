@@ -3584,7 +3584,7 @@ def lu_solve(
     name=None,
 ):
     r"""
-    Computes the solution y to the system of linear equations :math:`Ax = b` ,
+    Computes the solution x to the system of linear equations :math:`Ax = b` ,
     given LU decomposition :math:`A` and column vector :math:`b`.
 
     Args:
@@ -3595,6 +3595,9 @@ def lu_solve(
         pivots (Tensor): Permutation matrix P of LU decomposition. It has shape :math:`(*, m)`, where :math:`*` is batch dimensions, that can be converted to a permutation matrix P, with data type int32.
 
         trans (str): The transpose of the matrix A. It can be "N" , "T" or "C", "N" means :math:`Ax=b`, "T" means :math:`A^Tx=b`, "C" means :math:`A^Hx=b`, default is "N".
+
+        name (str|None, optional): Name for the operation (optional, default is None).
+            For more information, please refer to :ref:`api_guide_Name`.
 
     Returns:
         Tensor, the same data type as the `b` and `lu`.
