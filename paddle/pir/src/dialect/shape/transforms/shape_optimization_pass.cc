@@ -510,6 +510,7 @@ bool PatternMatch(const symbol::DimExpr& lhs,
         return true;
       }
   }
+  return false;
 }
 
 enum class ShapeOrDataDimType {
@@ -589,6 +590,7 @@ bool ShapeOrDataDimExprsPatternMatch(
     case ShapeOrDataDimType::kNullShapeOrDataDimExpr:
       return true;
   }
+  return false;
 }
 
 void CacheForwardOpSymbolicShape(
