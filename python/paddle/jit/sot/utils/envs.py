@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import os
 from contextlib import contextmanager
+from typing import Dict, List
 
 import paddle
 from paddle.utils.environments import (
@@ -27,7 +28,7 @@ from paddle.utils.environments import (
 )
 
 
-class PEP508LikeEnvironmentVariable(EnvironmentVariable[dict[str, list[str]]]):
+class PEP508LikeEnvironmentVariable(EnvironmentVariable[Dict[str, List[str]]]):
     """
     Environment variable parser following PEP 508 extras specification syntax.
     https://peps.python.org/pep-0508/
@@ -40,7 +41,7 @@ class PEP508LikeEnvironmentVariable(EnvironmentVariable[dict[str, list[str]]]):
         super().__init__(name, default)
         assert isinstance(default, dict), "default must be a dict"
 
-    def get(self) -> dict[str, dict[str, list[str]]]:
+    def get(self) -> dict[str, list[str]]:
         env_var = os.getenv(self.name)
         if env_var is None or env_var == "":
             return self.default

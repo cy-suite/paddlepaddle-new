@@ -70,7 +70,7 @@ class InfoCollector(metaclass=Singleton):
         info_dict[info_class_name].append(info)
 
     def need_collect(self, cls: type[InfoBase]) -> bool:
-        return cls.SHORT_NAME in ENV_SOT_COLLECT_INFO.get()
+        return cls.SHORT_NAME in ENV_SOT_COLLECT_INFO.get_with_cache()
 
     def clear_step_info(self):
         self._step_info.clear()
@@ -311,7 +311,8 @@ class SubGraphInfo(InfoBase):
 
     def __init__(self, graph, op_num):
         super().__init__()
-        self.graph, self.op_num = graph, op_num
+        self.graph = graph
+        self.op_num = op_num
 
     def __str__(self):
         return f"OpNum: {self.op_num}\n{self.graph}"
