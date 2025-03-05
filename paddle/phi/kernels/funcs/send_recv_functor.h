@@ -20,7 +20,6 @@
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/tensor_array.h"
 
-
 namespace phi {
 
 #if (defined(PADDLE_WITH_RCCL) || defined(PADDLE_WITH_NCCL)) && \
@@ -33,18 +32,18 @@ void send_shape_info(const Context& dev_ctx,
                      int peer,
                      StreamType stream) {
 #if (defined(PADDLE_WITH_RCCL) || defined(PADDLE_WITH_NCCL)) && \
-        NCCL_VERSION_CODE >= 2703 
+    NCCL_VERSION_CODE >= 2703
   PADDLE_ENFORCE_EQ((stream != nullptr && comm_ctx != nullptr),
                     true,
                     errors::InvalidArgument(
                         "NCCLComm and Stream should be provided if use NCCL "
                         "to send the shape info."));
 #elif defined(PADDLE_WITH_XPU_BKCL)
-  PADDLE_ENFORCE_EQ((comm_ctx != nullptr),
-                    true,
-                    errors::InvalidArgument(
-                        "BKCLComm should be provided if use BKCL "
-                        "to send the shape info."));
+  PADDLE_ENFORCE_EQ(
+      (comm_ctx != nullptr),
+      true,
+      errors::InvalidArgument("BKCLComm should be provided if use BKCL "
+                              "to send the shape info."));
 #endif
   paddle::DataType shape_dtype = paddle::DataType::INT32;
   auto dims = x.dims();
@@ -104,18 +103,18 @@ DDim recv_shape_info(const Context& dev_ctx,
                      int peer) {
   StreamType stream = dev_ctx.stream();
 #if (defined(PADDLE_WITH_RCCL) || defined(PADDLE_WITH_NCCL)) && \
-        NCCL_VERSION_CODE >= 2703 
+    NCCL_VERSION_CODE >= 2703
   PADDLE_ENFORCE_EQ((stream != nullptr && comm_ctx != nullptr),
                     true,
                     errors::InvalidArgument(
                         "NCCLComm and Stream should be provided if use NCCL "
                         "to send the shape info."));
 #elif defined(PADDLE_WITH_XPU_BKCL)
-  PADDLE_ENFORCE_EQ((comm_ctx != nullptr),
-                    true,
-                    errors::InvalidArgument(
-                        "BKCLComm should be provided if use BKCL "
-                        "to send the shape info."));
+  PADDLE_ENFORCE_EQ(
+      (comm_ctx != nullptr),
+      true,
+      errors::InvalidArgument("BKCLComm should be provided if use BKCL "
+                              "to send the shape info."));
 #endif
   paddle::DataType shape_dtype = paddle::DataType::INT32;
 
