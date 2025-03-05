@@ -39,7 +39,7 @@ elseif(LINUX)
   endif()
 endif()
 
-file(TO_NATIVE_PATH ${PADDLE_SOURCE_DIR}/patches/eigen/TensorRandom.h.patch
+file(TO_NATIVE_PATH "${PADDLE_SOURCE_DIR}/patches/eigen/TensorRandom.h.patch"
      tensor_random_header)
 # See: [Why calling some `git` commands before `patch`?]
 set(EIGEN_PATCH_COMMAND git checkout -- . && git checkout ${EIGEN_TAG} && git
