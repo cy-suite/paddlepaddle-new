@@ -126,7 +126,6 @@ class TestRotaryPosEmb(TestCinnSubGraphBase):
         cinn_outs = self.eval(use_cinn=True)
         dy_outs = self.eval(use_cinn=False)
 
-        # TODO(phlrain): Need to check result
         for cinn_out, dy_out in zip(cinn_outs, dy_outs):
             np.testing.assert_allclose(
                 cinn_out.numpy(), dy_out.numpy(), atol=1e-6
