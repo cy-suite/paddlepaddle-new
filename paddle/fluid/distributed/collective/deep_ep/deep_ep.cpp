@@ -172,11 +172,10 @@ Buffer::~Buffer() noexcept(false) {
 
   // Free NVSHMEM
   if (num_rdma_bytes > 0) {
-    // CUDA_CHECK(cudaDeviceSynchronize());
-    // internode::barrier();
-    // internode::free(rdma_buffer_ptr);
-    // internode::finalize();
-    LOG(FATAL) << "not supported yet.";
+    CUDA_CHECK(cudaDeviceSynchronize());
+    internode::barrier();
+    internode::free(rdma_buffer_ptr);
+    internode::finalize();
   }
 
   // Free cuBLAS handle, workspace and MoE counter
@@ -261,28 +260,31 @@ void Buffer::sync(
 
   // Sync NVSHMEM handles and allocate memory
   if (num_rdma_bytes > 0) {
-    // // Initialize NVSHMEM
-    // EP_HOST_ASSERT(root_unique_id_opt.has_value());
-    // std::vector<uint8_t> root_unique_id(root_unique_id_opt->size());
-    // auto root_unique_id_str = root_unique_id_opt->cast<std::string>();
-    // std::memcpy(root_unique_id.data(), root_unique_id_str.c_str(),
-    // root_unique_id_opt->size()); auto nvshmem_rank = low_latency_mode ? rank
-    // : rdma_rank; auto num_nvshmem_ranks = low_latency_mode ? num_ranks :
-    // num_rdma_ranks; EP_HOST_ASSERT(nvshmem_rank ==
-    // internode::init(root_unique_id, nvshmem_rank, num_nvshmem_ranks,
-    // low_latency_mode)); internode::barrier();
+    // Initialize NVSHMEM
+    EP_HOST_ASSERT(root_unique_id_opt.has_value());
+    std::vector<uint8_t> root_unique_id(root_unique_id_opt->size());
+    auto root_unique_id_str = root_unique_id_opt->cast<std::string>();
+    std::memcpy(root_unique_id.data(),
+                root_unique_id_str.c_str(),
+                root_unique_id_opt->size());
+    auto nvshmem_rank = low_latency_mode ? rank : rdma_rank;
+    auto num_nvshmem_ranks = low_latency_mode ? num_ranks : num_rdma_ranks;
+    EP_HOST_ASSERT(nvshmem_rank == internode::init(root_unique_id,
+                                                   nvshmem_rank,
+                                                   num_nvshmem_ranks,
+                                                   low_latency_mode));
+    internode::barrier();
 
-    // // Allocate
-    // rdma_buffer_ptr = internode::alloc(num_rdma_bytes,
-    // NUM_BUFFER_ALIGNMENT_BYTES);
+    // Allocate
+    rdma_buffer_ptr =
+        internode::alloc(num_rdma_bytes, NUM_BUFFER_ALIGNMENT_BYTES);
 
-    // // Clean buffer (mainly for low-latency mode)
-    // CUDA_CHECK(cudaMemset(rdma_buffer_ptr, 0, num_rdma_bytes));
+    // Clean buffer (mainly for low-latency mode)
+    CUDA_CHECK(cudaMemset(rdma_buffer_ptr, 0, num_rdma_bytes));
 
-    // // Barrier
-    // internode::barrier();
-    // CUDA_CHECK(cudaDeviceSynchronize());
-    LOG(FATAL) << "Not implemented yet";
+    // Barrier
+    internode::barrier();
+    CUDA_CHECK(cudaDeviceSynchronize());
   }
 
   // Ready to use
