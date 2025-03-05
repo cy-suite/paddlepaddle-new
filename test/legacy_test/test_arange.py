@@ -244,13 +244,13 @@ class TestArangeImperative(unittest.TestCase):
         x13 = paddle.arange(start=0, end=10, step=-1)
 
         x13_expected_data = np.array([])
-        np.test.assert_array_equal(x13.numpy(), x13_expected_data)
+        np.testing.assert_array_equal(x13.numpy(), x13_expected_data)
 
         # [start>end step>0]
         x14 = paddle.arange(start=10, end=0, step=1)
 
         x14_expected_data = np.array([])
-        np.test.assert_array_equal(x14.numpy(), x14_expected_data)
+        np.testing.assert_array_equal(x14.numpy(), x14_expected_data)
 
         paddle.enable_static()
 
