@@ -307,17 +307,11 @@ class BreakGraphReasonInfo(InfoBase):
 
 class SubGraphInfo(InfoBase):
     SHORT_NAME = "subgraph_info"
-    TYPE = InfoType.E2E_INFO
+    TYPE = InfoType.STEP_INFO
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, graph, op_num):
         super().__init__()
-        self.clear()
-
-        self.graph, self.op_num, *_ = args
-
-    def clear(self):
-        self.graph = None
-        self.op_num = 0
+        self.graph, self.op_num = graph, op_num
 
     def __str__(self):
         return f"OpNum: {self.op_num}\n{self.graph}"
