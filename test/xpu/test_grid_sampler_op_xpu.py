@@ -484,6 +484,10 @@ class XPUTestGridSamplerOP(XPUOpTestWrapper):
             self.mode = "bilinear"
 
     # 3d grid_sample_grad is not supported yet
+    @unittest.skipIf(
+        core.get_xpu_device_version(0) == core.XPUVersion.XPU3,
+        "grid_sample3d for XPU3 is not supported",
+    )
     class TestGridSample3DBilinear(TestXPUGridSamplerOp):
         def initTestCase(self):
             self.x_shape = (2, 3, 5, 6, 7)
@@ -495,6 +499,10 @@ class XPUTestGridSamplerOP(XPUOpTestWrapper):
 
             self.no_need_check_grad = True
 
+    @unittest.skipIf(
+        core.get_xpu_device_version(0) == core.XPUVersion.XPU3,
+        "grid_sample3d for XPU3 is not supported",
+    )
     class TestGridSample3DNearest(TestXPUGridSamplerOp):
         def initTestCase(self):
             self.x_shape = (2, 3, 5, 6, 7)
@@ -506,6 +514,10 @@ class XPUTestGridSamplerOP(XPUOpTestWrapper):
 
             self.no_need_check_grad = True
 
+    @unittest.skipIf(
+        core.get_xpu_device_version(0) == core.XPUVersion.XPU3,
+        "grid_sample3d for XPU3 is not supported",
+    )
     class TestGridSample3DBorder(TestXPUGridSamplerOp):
         def initTestCase(self):
             self.x_shape = (2, 3, 5, 6, 7)
@@ -517,6 +529,10 @@ class XPUTestGridSamplerOP(XPUOpTestWrapper):
 
             self.no_need_check_grad = True
 
+    @unittest.skipIf(
+        core.get_xpu_device_version(0) == core.XPUVersion.XPU3,
+        "grid_sample3d for XPU3 is not supported",
+    )
     class TestGridSample3DReflection(TestXPUGridSamplerOp):
         def initTestCase(self):
             self.x_shape = (2, 3, 5, 6, 7)
@@ -528,6 +544,10 @@ class XPUTestGridSamplerOP(XPUOpTestWrapper):
 
             self.no_need_check_grad = True
 
+    @unittest.skipIf(
+        core.get_xpu_device_version(0) == core.XPUVersion.XPU3,
+        "grid_sample3d for XPU3 is not supported",
+    )
     class TestGridSample3DAlignCornersFalse(TestXPUGridSamplerOp):
         def initTestCase(self):
             self.x_shape = (2, 3, 5, 6, 7)
