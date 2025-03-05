@@ -35,9 +35,12 @@ from ...utils import (
     ENV_MIN_GRAPH_SIZE,
     ENV_SOT_FORCE_FALLBACK_SIR_IDS,
     BreakGraphError,
+    BuiltinFunctionBreak,
     FallbackError,
     InnerError,
     SotUndefinedVar,
+    UnsupportedIteratorBreak,
+    UnsupportedOperationBreak,
     get_static_function,
     is_comprehensive_name,
     log,
@@ -112,7 +115,7 @@ from .variables import (
 if TYPE_CHECKING:
     from .function_graph import CompileGraphResult, FunctionGraph
 
-SUPPORT_COMPARE_OP = {
+COMPARE_OP_NAME_TO_FN = {
     ">": operator.gt,
     "<": operator.lt,
     ">=": operator.ge,
@@ -185,7 +188,6 @@ def tos_inplace_op_wrapper(fn: Callable):
         res = BuiltinVariable(fn, graph=self._graph, tracker=DanglingTracker())(
             *args
         )
-        res.debug_name = args[0].debug_name
         self.stack.push(res)
 
     return inner
@@ -806,7 +808,9 @@ class OpcodeExecutorBase:
     def LOAD_SUPER_ATTR(self, instr: Instruction):
         # This bytecode is for Python 3.12+, and it will break graph in Python 3.11-.
         # We align it's behavior with Python 3.11-.
-        raise BreakGraphError("call super is not supported")
+        raise BreakGraphError(
+            BuiltinFunctionBreak(reason_str="call super is not supported")
+        )
 
     def LOAD_CONST(self, instr: Instruction):
         var = self._co_consts[instr.arg]
@@ -930,13 +934,11 @@ class OpcodeExecutorBase:
         """
         var = self.stack.pop()
         name = self._code.co_varnames[instr.arg]
-        var.debug_name = name
         self._locals[name] = var
 
     def STORE_GLOBAL(self, instr: Instruction):
         var = self.stack.pop()
         name = self._code.co_names[instr.arg]
-        var.debug_name = name
         self._globals.set(name, var)
 
     def DELETE_GLOBAL(self, instr: Instruction):
@@ -968,7 +970,6 @@ class OpcodeExecutorBase:
         BuiltinVariable(operator.setitem, self._graph, DanglingTracker())(
             container, key, value
         )
-        value.debug_name = f"{container.debug_name}[{key.debug_name}]"
 
     def DELETE_SUBSCR(self, instr: Instruction):
         key = self.stack.pop()
@@ -1082,7 +1083,11 @@ class OpcodeExecutorBase:
             if not isinstance(
                 item, (TupleVariable, ListVariable, RangeVariable)
             ):
-                raise BreakGraphError(f"{type(item)} not support unpack")
+                raise BreakGraphError(
+                    UnsupportedOperationBreak(
+                        reason_str=f"{type(item)} not support unpack"
+                    )
+                )
             retval.extend(item.get_iter().to_list())
 
         if instr.opname in {
@@ -1301,9 +1306,17 @@ class OpcodeExecutorBase:
             kwargs = {}
 
         args_variable = self.stack.pop()
-        assert isinstance(args_variable, (TupleVariable, ListVariable))
-        args = args_variable.get_wrapped_items()
-
+        args_iter = args_variable.get_iter()
+        assert isinstance(
+            args_iter, IterVariable
+        ), f"args_iter should be IterVariable, but got {args_iter}"
+        if not isinstance(args_iter, SequenceIterVariable):
+            raise BreakGraphError(
+                UnsupportedOperationBreak(
+                    reason_str="CALL_FUNCTION_EX only supports SequenceIterVariable for varargs"
+                )
+            )
+        args = args_iter.to_list()
         if sys.version_info >= (3, 11) and CALL_METHOD_LAYOUT_NULL_AFTER_VALUE:
             null = self.stack.pop()
             assert isinstance(null, NullVariable)
@@ -1347,7 +1360,7 @@ class OpcodeExecutorBase:
         right, left = self.stack.pop(), self.stack.pop()
         self.stack.push(
             BuiltinVariable(
-                SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
+                COMPARE_OP_NAME_TO_FN[op], self._graph, DanglingTracker()
             )(left, right)
         )
 
@@ -1366,7 +1379,7 @@ class OpcodeExecutorBase:
         op = "is" if instr.arg == 0 else "is not"
         self.stack.push(
             BuiltinVariable(
-                SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
+                COMPARE_OP_NAME_TO_FN[op], self._graph, DanglingTracker()
             )(left, right)
         )
 
@@ -1583,7 +1596,7 @@ class OpcodeExecutorBase:
         op = "in" if instr.arg == 0 else "not in"
         self.stack.push(
             BuiltinVariable(
-                SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
+                COMPARE_OP_NAME_TO_FN[op], self._graph, DanglingTracker()
             )(left, right)
         )
 
@@ -1662,7 +1675,7 @@ class OpcodeExecutorBase:
 
         if instr.argval >= 256:
             # NOTE: If the number of unpacked variables exceeds 256, python will report an error like:
-            # SyntaxError: too many expressions in star-unpacking assignmen,
+            # SyntaxError: too many expressions in star-unpacking assignment,
             # so if the number of unpacked variables exceeds 256, it will be treated as the following case.
             # a, b, *c, d = e
             front_nums = instr.arg & 0xFF
@@ -1930,7 +1943,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 else LocalTracker(name)
             )
             self._locals[name] = VariableFactory.from_value(
-                value, self._graph, tracker, debug_name=name
+                value, self._graph, tracker
             )
 
         for name in free_or_cell_vars:
@@ -1971,7 +1984,9 @@ class OpcodeExecutor(OpcodeExecutorBase):
         try:
             if not isinstance(iterator, SequenceIterVariable):
                 raise BreakGraphError(
-                    f"Can not simulate iterator of {type(iterator)}."
+                    UnsupportedIteratorBreak(
+                        f"Can not simulate iterator of {type(iterator)}."
+                    )
                 )
 
             backup_iter_idx = iterator.idx
