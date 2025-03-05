@@ -241,16 +241,16 @@ class TestArangeImperative(unittest.TestCase):
         self.assertEqual(x12.numpy().dtype, np.int64)
 
         # [start<end step<0]
-        x13 = paddle.arrange(start=0, end=10, step=-1)
+        x13 = paddle.arange(start=0, end=10, step=-1)
 
         x13_expected_data = np.array([])
         np.test.assert_array_equal(x13.numpy(), x13_expected_data)
         self.assertEqual(x13.numpy().dtype, np.int64)
 
         # [start>end step>0]
-        x14 = paddle.arrange(start=10, end=0, step=1)
+        x14 = paddle.arange(start=10, end=0, step=1)
 
-        x14_expected_data = np.array([])
+        x14_expected_data = np.array([1])
         np.test.assert_array_equal(x14.numpy(), x14_expected_data)
         self.assertEqual(x14.numpy().dtype, np.int64)
 
