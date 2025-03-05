@@ -23,6 +23,7 @@ import paddle
 
 from ...profiler import EventGuard
 from ...utils import (
+    ENV_SOT_ENABLE_CHECK_FASTER_GUARD,
     ENV_SOT_ENABLE_FASTER_GUARD,
     current_symbol_registry,
     log,
@@ -142,7 +143,10 @@ def make_guard(stringified_guards: list[StringifiedExpression]) -> Guard:
             guard = lambda frame: True
             guard.expr = "lambda frame: True"
             guard.original_guard = guard
-            if True and not ENV_SOT_ENABLE_FASTER_GUARD.get():
+            if (
+                ENV_SOT_ENABLE_CHECK_FASTER_GUARD.get()
+                and not ENV_SOT_ENABLE_FASTER_GUARD.get()
+            ):
                 guard.faster_guard = guard
             return guard
 
@@ -162,8 +166,10 @@ def make_guard(stringified_guards: list[StringifiedExpression]) -> Guard:
         guard.inlined_expr = inlined_guard_expr
         guard.expr = guard_expr
 
-        # TODO: add flag to enable faster guard
-        if True and not ENV_SOT_ENABLE_FASTER_GUARD.get():
+        if (
+            ENV_SOT_ENABLE_CHECK_FASTER_GUARD.get()
+            and not ENV_SOT_ENABLE_FASTER_GUARD.get()
+        ):
             faster_guard_expr_list: list[str] = []
             faster_guard_temp_free_vars: dict[str, Any] = {}
             for expr in stringified_guards:
