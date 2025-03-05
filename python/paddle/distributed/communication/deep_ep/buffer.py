@@ -187,31 +187,6 @@ class Buffer:
             num_max_dispatch_tokens_per_rank, hidden, num_ranks, num_experts
         )
 
-    # def get_local_buffer_tensor(
-    #     self,
-    #     dtype: torch.dtype,
-    #     size: Optional[torch.Size] = None,
-    #     offset: int = 0,
-    #     use_rdma_buffer: bool = False,
-    # ) -> paddle.Tensor:
-    #     """
-    #     Get the raw buffer (slice supported) as a PyTorch tensor.
-
-    #     Argument:
-    #         dtype: the data type (PyTorch `dtype`) for the tensor.
-    #         size: the slice size (by elements) to get from the buffer.
-    #         offset: the offset of the beginning element.
-    #         use_rdma_buffer: whether to return the RDMA buffer.
-    #     """
-    #     tensor = self.runtime.get_local_buffer_tensor(
-    #         dtype, offset, use_rdma_buffer
-    #     )
-    #     if size is None:
-    #         return tensor
-
-    #     assert tensor.numel() >= size.numel()
-    #     return tensor[: size.numel()].view(size)
-
     @staticmethod
     def get_dispatch_config(num_ranks: int) -> Config:
         """

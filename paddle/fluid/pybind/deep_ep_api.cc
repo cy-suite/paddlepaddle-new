@@ -55,8 +55,6 @@ void BindDeepEPApi(pybind11::module *m) {
       .def("get_local_ipc_handle", &deep_ep::Buffer::get_local_ipc_handle)
       .def("get_local_nvshmem_unique_id",
            &deep_ep::Buffer::get_local_nvshmem_unique_id)
-      // .def("get_local_buffer_tensor",
-      // &deep_ep::Buffer::get_local_buffer_tensor)
       .def("sync", &deep_ep::Buffer::sync)
       .def("get_dispatch_layout",
            [](deep_ep::Buffer &self,
