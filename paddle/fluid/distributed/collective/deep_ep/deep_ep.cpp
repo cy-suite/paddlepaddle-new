@@ -1245,8 +1245,8 @@ Buffer::internode_dispatch(
                                     phi::GPUPlace(device_id)));
     // send_rdma_head = torch::empty({num_tokens, num_rdma_ranks},
     // torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
-    recv_gbl_channel_prefix_matrix = ConvertPaddleTensorToDetailTensor(
-        paddle::experimental::empty({num_ranks, num_channels},
+    send_rdma_head = ConvertPaddleTensorToDetailTensor(
+        paddle::experimental::empty({num_tokens, num_rdma_ranks},
                                     phi::DataType::INT32,
                                     phi::GPUPlace(device_id)));
     // send_nvl_head = torch::empty({num_rdma_recv_tokens, NUM_MAX_NVL_PEERS},
@@ -1937,7 +1937,6 @@ Buffer::internode_dispatch_api(
   std::optional<deep_ep::detail::Tensor> topk_idx_ =
       ConvertOptionalPaddleTensorToDetailTensor(topk_idx);
   std::optional<deep_ep::detail::Tensor> topk_weights_ =
-
       ConvertOptionalPaddleTensorToDetailTensor(topk_weights);
   std::optional<deep_ep::detail::Tensor> num_tokens_per_rank_ =
       ConvertOptionalPaddleTensorToDetailTensor(num_tokens_per_rank);
