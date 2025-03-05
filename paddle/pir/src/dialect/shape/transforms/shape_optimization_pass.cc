@@ -258,7 +258,6 @@ const bool is_grad_op(Operation* op) {
   return op_name.compare(
              op_name.size() - suffix.size(), suffix.size(), suffix) == 0;
 }
-();
 
 void InferSymExprForOp(Operation* op,
                        InferSymbolicShapeContext* infer_context,
