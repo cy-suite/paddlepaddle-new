@@ -291,8 +291,8 @@ __global__ __launch_bounds__(
 
     // Wait local sends issued and send expert counts
     while (ld_acquire_global(atomic_finish_counter_per_expert +
-                             responsible_expert_idx) != FINISHED_SUM_TAG * 2)
-      ;
+                             responsible_expert_idx) != FINISHED_SUM_TAG * 2) {
+    }
     if (dst_rank != rank) {
       nvshmemi_ibgda_rma_p(
           rdma_recv_count + dst_expert_local_idx * num_ranks + rank,
@@ -356,8 +356,8 @@ LOW_LATENCY_DISPATCH_RECV:
       } else {
         while ((num_recv_tokens = ld_acquire_global(
                     rdma_recv_count + local_expert_idx * num_ranks +
-                    src_rank)) == 0)
-          ;
+                    src_rank)) == 0) {
+        }
       }
       num_recv_tokens = -num_recv_tokens - 1;
       recv_token_begin_idx = atomicAdd(
@@ -618,8 +618,8 @@ __global__ __launch_bounds__(
     asm volatile("bar.sync %0, %1;" ::"r"(warp_group_id + 1),
                  "r"(kNumWarpsPerGroup * 32));
     if (sub_warp_id == 1 && lane_id == 0) {
-      while (ld_acquire_global(atomic_clean_flag) == 0)
-        ;
+      while (ld_acquire_global(atomic_clean_flag) == 0) {
+      }
       if (dst_rank != rank) {
         nvshmemi_ibgda_rma_p(rdma_recv_flag + global_expert_idx,
                              1,
@@ -649,8 +649,9 @@ LOW_LATENCY_COMBINE_RECV:
       if (src_rank != rank) {
         nvshmemi_ibgda_poll_recv(src_rank, src_expert_idx);
       } else {
-        while (ld_acquire_global(rdma_recv_flag + responsible_expert_idx) == 0)
-          ;
+        while (ld_acquire_global(rdma_recv_flag + responsible_expert_idx) ==
+               0) {
+        }
       }
     }
   }

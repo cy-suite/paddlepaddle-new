@@ -795,9 +795,9 @@ class Buffer:
             low-latency kernels' result tensor at a single moment.
 
         Arguments:
-            x: `paddle.Tensor` with `torch.bfloat16`, shaped as `[num_tokens, hidden]`, only several hidden shapes are
+            x: `paddle.Tensor` with `paddle.bfloat16`, shaped as `[num_tokens, hidden]`, only several hidden shapes are
                 supported. The number of tokens to be dispatched must be less than `num_max_dispatch_tokens_per_rank`.
-            topk_idx: `paddle.Tensor` with `torch.int64`, shaped as `[num_tokens, num_topk]`, only several top-k shapes
+            topk_idx: `paddle.Tensor` with `paddle.int64`, shaped as `[num_tokens, num_topk]`, only several top-k shapes
                 are supported. `-1` indices (not selecting any expert) are supported.
             num_max_dispatch_tokens_per_rank: the maximum number of tokens to dispatch, all the ranks must hold the same value.
             num_experts: the number of all experts.
@@ -808,13 +808,13 @@ class Buffer:
 
         Returns:
             recv_x: a tuple with received tokens for each expert. The first element is a `paddle.Tensor` shaped as
-                `[num_local_experts, num_max_dispatch_tokens_per_rank * num_ranks, hidden]` with `torch.float8_e4m3fn`.
+                `[num_local_experts, num_max_dispatch_tokens_per_rank * num_ranks, hidden]` with `paddle.float8_e4m3fn`.
                 The second tensor is the corresponding scales for the first element with shape
-                `[num_local_experts, num_max_dispatch_tokens_per_rank * num_ranks, hidden // 128]` with `torch.float`.
+                `[num_local_experts, num_max_dispatch_tokens_per_rank * num_ranks, hidden // 128]` with `paddle.float32`.
                 Notice that, the last-two-dimension of the scaling tensors are in column-major for TMA compatibility.
                 Moreover, not all tokens are valid, only some of the `num_max_dispatch_tokens_per_rank * num_ranks` are,
                 as we do not synchronize CPU received count with GPU (also not incompatible with CUDA graph).
-            recv_count: a tensor shaped `[num_local_experts]` with type `torch.int`, indicating how many tokens each
+            recv_count: a tensor shaped `[num_local_experts]` with type `paddle.int32`, indicating how many tokens each
                 expert receive. As mentioned before, all not tokens are valid in `recv_x`.
             handle: the communication handle to be used in the `low_latency_combine` function.
             event: the event after executing the kernel (valid only if `async_finish` is set).
@@ -878,12 +878,12 @@ class Buffer:
             low-latency kernels' result tensor at a single moment.
 
         Arguments:
-            x: `[num_local_experts, num_max_dispatch_tokens_per_rank * num_ranks, hidden]` with `torch.bfloat16`,
+            x: `[num_local_experts, num_max_dispatch_tokens_per_rank * num_ranks, hidden]` with `paddle.bfloat16`,
                 the local calculated tokens to be sent to this original rank and reduced.
-            topk_idx: `[num_combined_tokens, num_topk]` with `torch.int64`, the expert indices selected by the dispatched
+            topk_idx: `[num_combined_tokens, num_topk]` with `paddle.int64`, the expert indices selected by the dispatched
                 tokens. `-1` indices (not selecting any expert) are supported. Note that, `num_combined_tokens` equals
                 to the number of dispatched tokens.
-            topk_weights: `[num_combined_tokens, num_topk]` with `torch.float`, the expert weights selected by the dispatched
+            topk_weights: `[num_combined_tokens, num_topk]` with `paddle.float32`, the expert weights selected by the dispatched
                 tokens. The received tokens will be reduced with the weights in this tensor.
             handle: the communication handle given by the `dispatch` function.
             async_finish: the current stream will not wait for the communication kernels to be finished if set.
@@ -892,7 +892,7 @@ class Buffer:
                 If you not set this flag, the kernel will ensure the data's arrival.
 
         Returns:
-            combined_x: the reduced token tensor, with shape `[num_combined_tokens, num_topk]` and type `torch.bfloat16`.
+            combined_x: the reduced token tensor, with shape `[num_combined_tokens, num_topk]` and type `paddle.bfloat16`.
             event: the event after executing the kernel (valid only if `async_finish` is set).
             hook: the receiving hook function (valid only if `return_recv_hook` is set).
         """

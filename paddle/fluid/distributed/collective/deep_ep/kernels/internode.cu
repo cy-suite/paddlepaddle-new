@@ -430,8 +430,8 @@ __global__ void notify_dispatch(const int* num_tokens_per_rank,
             i)[NUM_MAX_NVL_PEERS + num_rdma_experts];
         recv_rdma_rank_prefix_sum[i] = sum;
       }
-      while (ld_volatile_global(moe_recv_rdma_counter_mapped) != -1)
-        ;
+      while (ld_volatile_global(moe_recv_rdma_counter_mapped) != -1) {
+      }
       *moe_recv_rdma_counter_mapped = sum;
     }
 
@@ -464,8 +464,8 @@ __global__ void notify_dispatch(const int* num_tokens_per_rank,
         sum += nvl_recv_num_tokens_per_rank.buffer(src_nvl_rank)[src_rdma_rank];
         recv_gbl_rank_prefix_sum[i] = sum;
       }
-      while (ld_volatile_global(moe_recv_counter_mapped) != -1)
-        ;
+      while (ld_volatile_global(moe_recv_counter_mapped) != -1) {
+      }
       *moe_recv_counter_mapped = sum;
     }
     if (thread_id < num_nvl_experts) {
@@ -475,8 +475,8 @@ __global__ void notify_dispatch(const int* num_tokens_per_rank,
         sum += nvl_recv_num_tokens_per_expert.buffer(i)[thread_id];
       sum = (sum + expert_alignment - 1) / expert_alignment * expert_alignment;
       while (ld_volatile_global(moe_recv_expert_counter_mapped + thread_id) !=
-             -1)
-        ;
+             -1) {
+      }
       moe_recv_expert_counter_mapped[thread_id] = sum;
     }
 
@@ -937,8 +937,8 @@ __global__ void __launch_bounds__(
             lane_id * NUM_MAX_NVL_PEERS);
 
       // Acquire sequential lock
-      while (lane_id == 0 && rdma_send_next_token_idx != token_idx)
-        ;
+      while (lane_id == 0 && rdma_send_next_token_idx != token_idx) {
+      }
       __syncwarp();
 
       // Acquire next tail
@@ -1047,8 +1047,8 @@ __global__ void __launch_bounds__(
 
     // Epilogue
     // Acquire sequential lock
-    while (lane_id == 0 && rdma_send_next_token_idx != token_idx)
-      ;
+    while (lane_id == 0 && rdma_send_next_token_idx != token_idx) {
+    }
     __syncwarp();
 
     // Update last token tail
@@ -1291,8 +1291,7 @@ __global__ void __launch_bounds__(
         if (lane_id == src_rdma_rank) {
           auto cached_head = is_in_dst_nvl_rank ? rdma_nvl_token_idx : -1;
           rdma_nvl_token_idx += is_in_dst_nvl_rank;
-          if (!kCachedMode)
-            send_nvl_head[i * NUM_MAX_NVL_PEERS] = cached_head;
+          if (!kCachedMode) send_nvl_head[i * NUM_MAX_NVL_PEERS] = cached_head;
         }
         if (!is_in_dst_nvl_rank) continue;
 
@@ -1398,8 +1397,8 @@ __global__ void __launch_bounds__(
         break;
 
       // Update remote head
-      if (min_head != std::numeric_limits<int>::max() &&
-          min_head > last_head && lane_id < kNumRDMARanks)
+      if (min_head != std::numeric_limits<int>::max() && min_head > last_head &&
+          lane_id < kNumRDMARanks)
         nvshmem_uint64_p(
             rdma_channel_head.buffer(rdma_rank),
             last_head = min_head,
@@ -2131,10 +2130,9 @@ __global__ void __launch_bounds__((NUM_MAX_NVL_PEERS + 1 + kNumForwarders) * 32,
       // Sync token start index and count
       for (int current_rdma_idx = 0; current_rdma_idx < kNumRDMARanks;
            ++current_rdma_idx) {
-        if (__shfl_sync(
-                0xffffffff,
-                (token_start_idx >= token_end_idx) || (!is_lane_ready),
-                current_rdma_idx))
+        if (__shfl_sync(0xffffffff,
+                        (token_start_idx >= token_end_idx) || (!is_lane_ready),
+                        current_rdma_idx))
           continue;
 
         // Sync token start index
@@ -2567,7 +2565,7 @@ __global__ void __launch_bounds__((NUM_MAX_NVL_PEERS + 1 + kNumForwarders) * 32,
         if (is_rdma_receiver_sm &&
             __all_sync(
                 0xffffffff,
-                lane_id >= kNumRDMAReceivers or rdma_receiver_retired[lane_id]))
+                lane_id >= kNumRDMAReceivers || rdma_receiver_retired[lane_id]))
           break;
         if (!is_rdma_receiver_sm &&
             __all_sync(0xffffffff,

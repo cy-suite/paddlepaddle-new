@@ -51,6 +51,20 @@ set(NVSHMEM_PATCH_COMMAND
     "paddle@baidu.com" && git add . && git commit -m "init" && git apply
     ${NVSHMEM_PATCH_PATH})
 
+set(NVSHMEM_LIB ${NVSHMEM_INSTALL_DIR}/lib/libnvshmem.a)
+set(NVSHMEM_BOOTSTRAP_UID_LIB
+    ${NVSHMEM_INSTALL_DIR}/lib/nvshmem_bootstrap_uid.so)
+set(NVSHMEM_BOOTSTRAP_MPI_LIB
+    ${NVSHMEM_INSTALL_DIR}/lib/nvshmem_bootstrap_mpi.so)
+set(NVSHMEM_BOOTSTRAP_PMI_LIB
+    ${NVSHMEM_INSTALL_DIR}/lib/nvshmem_bootstrap_pmi.so)
+set(NVSHMEM_BOOTSTRAP_PMI2_LIB
+    ${NVSHMEM_INSTALL_DIR}/lib/nvshmem_bootstrap_pmi2.so)
+set(NVSHMEM_TRANSPORT_IBRC_LIB
+    ${NVSHMEM_INSTALL_DIR}/lib/nvshmem_transport_ibrc.so.3)
+set(NVSHMEM_TRANSPORT_IBGDA_LIB
+    ${NVSHMEM_INSTALL_DIR}/lib/nvshmem_transport_ibgda.so.3)
+
 string(REGEX REPLACE " " ";" CUDA_ARCHITECTURES "${NVCC_ARCH_BIN}")
 
 ExternalProject_Add(
@@ -76,15 +90,8 @@ ExternalProject_Add(
              -DNVSHMEM_IBRC_SUPPORT=1
              -DNVSHMEM_BUILD_TESTS=0
   CMAKE_CACHE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${NVSHMEM_INSTALL_DIR}
-  BUILD_BYPRODUCTS ${NVSHMEM_LIBRARIES})
+  BUILD_BYPRODUCTS ${NVSHMEM_LIB})
 
 add_library(nvshmem STATIC IMPORTED GLOBAL)
-set_property(TARGET nvshmem PROPERTY IMPORTED_LOCATION
-                                     ${NVSHMEM_INSTALL_DIR}/lib/libnvshmem.a)
+set_property(TARGET nvshmem PROPERTY IMPORTED_LOCATION ${NVSHMEM_LIB})
 add_dependencies(nvshmem extern_nvshmem)
-
-add_library(nvshmem_device STATIC IMPORTED GLOBAL)
-set_property(
-  TARGET nvshmem_device PROPERTY IMPORTED_LOCATION
-                                 ${NVSHMEM_INSTALL_DIR}/lib/libnvshmem_device.a)
-add_dependencies(nvshmem_device extern_nvshmem)

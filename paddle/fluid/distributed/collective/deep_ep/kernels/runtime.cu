@@ -20,9 +20,6 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#include <cstring>
-#include <vector>
-
 // clang-format off
 #include <nvshmem.h>
 #include <nvshmemx.h>
@@ -30,6 +27,9 @@
 #include <non_abi/device/threadgroup/nvshmemi_common_device_defines.cuh>
 #include <device_host_transport/nvshmem_common_ibgda.h>
 // clang-format on
+
+#include <cstring>
+#include <vector>
 
 #include "paddle/fluid/distributed/collective/deep_ep/kernels/configs.cuh"
 #include "paddle/fluid/distributed/collective/deep_ep/kernels/exception.cuh"
@@ -109,7 +109,8 @@ int init(const std::vector<uint8_t>& root_unique_id_val,
   nvshmemx_init_attr(NVSHMEMX_INIT_WITH_UNIQUEID, &attr);
 
   // Create sub-RDMA teams
-  // NOTES: if `num_ranks <= NUM_MAX_NVL_PEERS` then only low-latency kernels are used 
+  // NOTES: if `num_ranks <= NUM_MAX_NVL_PEERS` then only low-latency kernels
+  // are used
   if (low_latency_mode && num_ranks > NUM_MAX_NVL_PEERS) {
     EP_HOST_ASSERT(cpu_rdma_team == NVSHMEM_TEAM_INVALID);
     EP_HOST_ASSERT(num_ranks % NUM_MAX_NVL_PEERS == 0);
