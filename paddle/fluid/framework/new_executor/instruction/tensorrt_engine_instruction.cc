@@ -26,6 +26,7 @@ namespace paddle {
 namespace framework {
 
 using TensorRTEngine = paddle::platform::TensorRTEngine;
+static const int kMaxDim = 60000;
 
 TensorRTEngineInstruction::TensorRTEngineInstruction(
     size_t id,
@@ -631,8 +632,15 @@ void TensorRTEngineInstruction::BindOutputTensor(
     if (dims.d[nb_dims - 1] != 1 || nb_dims == outputs_rank_[output_index])
       break;
   }
+  bool has_unknown_dim =
+      false;  // not dynamic shape, some shape is unknown before run trt engine.
   for (int i = 0; i < nb_dims; i++) {
-    ddim.push_back(dims.d[i]);
+    if (dims.d[i] == -1) {
+      has_unknown_dim = true;
+      ddim.push_back(kMaxDim);
+    } else {
+      ddim.push_back(dims.d[i]);
+    }
   }
 #else
   PADDLE_THROW(
@@ -641,7 +649,19 @@ void TensorRTEngineInstruction::BindOutputTensor(
                                     "Please check your TensorRT "
                                     "in your env."));
 #endif
-  auto *fluid_t = output_tensor;
+
+  phi::DenseTensor *fluid_t = nullptr;
+  if (has_unknown_dim) {
+    const paddle::framework::Scope &scope = *(value_exec_info_->GetScope());
+    std::string tmp_output = output_name + "_tmp";
+    if (scope.FindVar(tmp_output) == nullptr) {
+      const_cast<framework::Scope *>(&scope)->Var(tmp_output);
+    }
+    fluid_t = scope.FindVar(tmp_output)->GetMutable<phi::DenseTensor>();
+  } else {
+    fluid_t = output_tensor;
+  }
+
   fluid_t->Resize(common::make_ddim(ddim));
   PADDLE_ENFORCE_LT(bind_index,
                     num_bindings,
@@ -734,11 +754,67 @@ void TensorRTEngineInstruction::RunTrt() {
   VLOG(4) << "Start running trt engine...";
   // Execute the engine.
   trt_engine_->Execute(runtime_batch, &buffers, stream);
+
   VLOG(4) << "End running trt engine and deal with output";
   for (const auto &index_name_pair : output_names_) {
     size_t i = index_name_pair.first;
     auto type = outputs_dtype_[i];
 
+    // deal with output that has unknown shape
+    std::string output_name = index_name_pair.second;
+    int bind_index = -1;
+    int binding_offset = 0;
+    binding_offset = trt_engine_->GetBindingsOffset();
+    for (int i = 0; i < trt_engine_->engine()->getNbIOTensors(); ++i) {
+      if (std::string(output_name.c_str()) ==
+          std::string(trt_engine_->engine()->getIOTensorName(i))) {
+        bind_index = i + binding_offset;
+        break;
+      }
+    }
+
+    auto trt_output_name = trt_engine_->engine()->getIOTensorName(bind_index);
+    auto trt_dims = trt_engine_->context()->getTensorShape(trt_output_name);
+    // find the tmp tensor(Allocated extra memory space for unknown dim) and
+    // copy its element to actual output tensor(Allocated appropriate memory
+    // space)
+    std::string tmp_output = output_name + "_tmp";
+    if (scope.FindVar(tmp_output) != nullptr) {
+      auto *output_tensor_tmp =
+          scope.FindVar(tmp_output)->GetMutable<phi::DenseTensor>();
+      auto *output_tensor = const_cast<phi::DenseTensor *>(
+          &(out_variable_array->at(i)->Get<phi::DenseTensor>()));
+      std::vector<int> ddim;
+      for (int i = 0; i < trt_dims.nbDims; i++) {
+        ddim.push_back(trt_dims.d[i]);
+      }
+      output_tensor->Resize(common::make_ddim(ddim));
+      dev_ctx_->Alloc(output_tensor, type);
+      if (type == phi::DataType::FLOAT32) {
+        auto *mutable_output =
+            output_tensor->mutable_data<float>(phi::GPUPlace());
+        phi::memory_utils::Copy(phi::GPUPlace(),
+                                mutable_output,
+                                phi::GPUPlace(),
+                                output_tensor_tmp->data<float>(),
+                                sizeof(float) * output_tensor->numel(),
+                                nullptr);
+      } else if (type == phi::DataType::INT64 || type == phi::DataType::INT32) {
+        auto *mutable_output =
+            output_tensor->mutable_data<int32_t>(phi::GPUPlace());
+        phi::memory_utils::Copy(phi::GPUPlace(),
+                                mutable_output,
+                                phi::GPUPlace(),
+                                output_tensor_tmp->data<int32_t>(),
+                                sizeof(int32_t) * output_tensor->numel(),
+                                nullptr);
+      } else {
+        PADDLE_THROW(common::errors::Unimplemented(
+            "Unsupported data type: %d when deal with output", type));
+      }
+    }
+
+    // Type transformation for INT64 and FLOAT64
     if (type == phi::DataType::INT64) {
       auto y = index_name_pair.second;
       auto *fluid_v = out_variable_array->at(i);
