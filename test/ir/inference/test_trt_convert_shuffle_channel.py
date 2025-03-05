@@ -59,9 +59,15 @@ class TrtConvertShuffleChannelTest(TrtLayerAutoScanTest):
                 yield program_config
 
     def generate_dynamic_shape(self):
-        self.dynamic_shape.min_input_shape = {"shuffle_channel_input": [1, 6, 24, 24]}
-        self.dynamic_shape.max_input_shape = {"shuffle_channel_input": [4, 6, 48, 48]}
-        self.dynamic_shape.opt_input_shape = {"shuffle_channel_input": [1, 6, 24, 48]}
+        self.dynamic_shape.min_input_shape = {
+            "shuffle_channel_input": [1, 6, 24, 24]
+        }
+        self.dynamic_shape.max_input_shape = {
+            "shuffle_channel_input": [4, 6, 48, 48]
+        }
+        self.dynamic_shape.opt_input_shape = {
+            "shuffle_channel_input": [1, 6, 24, 48]
+        }
         return self.dynamic_shape
 
     def sample_predictor_configs(

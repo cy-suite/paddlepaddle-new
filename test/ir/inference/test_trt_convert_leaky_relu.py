@@ -75,7 +75,9 @@ class TrtConvertLeakyReluTest(TrtLayerAutoScanTest):
             self.dynamic_shape.opt_input_shape = {"input_data": [2, 16, 64]}
         elif self.input_dim == 4:
             self.dynamic_shape.min_input_shape = {"input_data": [1, 8, 8, 4]}
-            self.dynamic_shape.max_input_shape = {"input_data": [64, 64, 128, 128]}
+            self.dynamic_shape.max_input_shape = {
+                "input_data": [64, 64, 128, 128]
+            }
             self.dynamic_shape.opt_input_shape = {"input_data": [2, 16, 64, 32]}
         return self.dynamic_shape
 
