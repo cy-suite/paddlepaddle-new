@@ -592,11 +592,7 @@ struct UnaryOpNode : public ExprNode<T> {
 template <typename T>
 struct BinaryOpNode : public ExprNode<T> {
   BinaryOpNode() { operands().resize(2); }
-  BinaryOpNode(Type type, Expr a, Expr b) : ExprNode<T>(type) {
-    PADDLE_ENFORCE_EQ(
-        type.valid(),
-        true,
-        ::common::errors::InvalidArgument("The type must be valid."));
+  BinaryOpNode(Expr a, Expr b) : ExprNode<T>() {
     PADDLE_ENFORCE_EQ(
         a.defined(),
         true,
@@ -698,9 +694,15 @@ Expr ExprNode<T>::Copy() const {
   return Expr();
 }
 
-void TryElevateInt32ToInt64(const std::vector<Expr>& expr_vec);
+void TryElevateInt32ToInt64_(std::vector<Expr>& expr_vec);  // NOLINT
 
-void TryElevateInt64ToInt32(const std::vector<Expr>& expr_vec);
+void ElevateInt64ToInt32_(std::vector<Expr>& expr_vec);  // NOLINT
+
+void ElevateInt64ToInt32_(Expr& expr_vec);  // NOLINT
+
+std::vector<Expr> TryElevateInt32ToInt64(const std::vector<Expr>& expr_vec);
+
+std::vector<Expr> ElevateInt64ToInt32(const std::vector<Expr>& expr_vec);
 
 }  // namespace ir
 }  // namespace cinn

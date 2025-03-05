@@ -133,7 +133,6 @@ void BinaryNodeVerify(const Expr &a, const Expr &b, absl::string_view ir_name) {
       true,
       ::common::errors::InvalidArgument("The second operand is not defined. "
                                         "A valid expression is required."));
-  TryElevateInt32ToInt64({a, b});
   PADDLE_ENFORCE_EQ(a.type(),
                     b.type(),
                     ::common::errors::InvalidArgument(
@@ -360,7 +359,6 @@ void Let::Verify() const {
                         "A defined symbol is required for the Let node."));
   // The default value(contained in body) is not required.
   if (body.defined()) {
-    TryElevateInt32ToInt64({symbol, body});
     PADDLE_ENFORCE_EQ(
         symbol.type(),
         body.type(),
@@ -512,7 +510,11 @@ Expr For::Make(Var loop_var,
                Expr body,
                VectorizeInfo vector_info,
                BindInfo bind_info) {
-  ir::TryElevateInt32ToInt64({loop_var, min, extent});
+  auto promote_args =
+      std::move(ir::TryElevateInt32ToInt64({loop_var, min, extent}));
+  loop_var = promote_args.at(0);
+  min = promote_args.at(1);
+  extent = promote_args.at(2);
   auto node = make_shared<For>();
 
   PADDLE_ENFORCE_EQ(
@@ -1014,14 +1016,14 @@ Expr Load::Make(Expr tensor, const std::vector<Expr> &origin_indices) {
       true,
       ::common::errors::InvalidArgument("The tensor type is not valid. "
                                         "A valid tensor type is required."));
-  const auto indices = utils::GetCompatibleStoreLoadIndices(
-      tensor.as_tensor_ref(), origin_indices);
+  auto indices = utils::GetCompatibleStoreLoadIndices(tensor.as_tensor_ref(),
+                                                      origin_indices);
   PADDLE_ENFORCE_EQ(
       !indices.empty(),
       true,
       ::common::errors::InvalidArgument("The indices should not be empty. "
                                         "At least one index is required."));
-  TryElevateInt32ToInt64(indices);
+  TryElevateInt32ToInt64_(indices);
   for (auto &idx : indices) {
     PADDLE_ENFORCE_EQ(
         idx.type().ElementOf() == Int(64) || idx.type().ElementOf() == Int(32),
@@ -1222,9 +1224,12 @@ Expr Sum::Make(const std::vector<Expr> &vs) {
   if (vs.size() == 1) return vs.front();
 
   auto *n = make_shared<Sum>();
-  TryElevateInt32ToInt64(vs);
-  auto type = vs.front().type();
-  for (auto &v : vs) {
+
+  n->operands() = vs;
+
+  TryElevateInt32ToInt64_(n->operands());
+  auto type = n->operands().front().type();
+  for (auto &v : n->operands()) {
     PADDLE_ENFORCE_EQ(v.type(),
                       type,
                       ::common::errors::InvalidArgument(
@@ -1233,9 +1238,7 @@ Expr Sum::Make(const std::vector<Expr> &vs) {
                           type.to_string().c_str(),
                           v.type().to_string().c_str()));
   }
-
-  n->operands() = vs;
-  n->set_type(vs.front()->type());
+  n->set_type(n->operands().front()->type());
 
   return Expr(n);
 }
@@ -1248,18 +1251,21 @@ Expr Product::Make(const std::vector<Expr> &vs) {
                                         "should have at least one element"));
 
   auto *n = make_shared<Product>();
-  TryElevateInt32ToInt64(vs);
-  auto type = vs.front().type();
-  for (auto &v : vs)
-    PADDLE_ENFORCE_EQ(
-        v.type(),
-        type,
-        ::common::errors::InvalidArgument("The operands' types of the node "
-                                          "[Product] don't match"));
 
   n->operands() = vs;
 
-  n->set_type(vs.front()->type());
+  TryElevateInt32ToInt64_(n->operands());
+  auto type = n->operands().front().type();
+  for (auto &v : n->operands()) {
+    PADDLE_ENFORCE_EQ(v.type(),
+                      type,
+                      ::common::errors::InvalidArgument(
+                          "The operands' types of the node [Sum] don't match. "
+                          "Expected type: %s, but got type: %s",
+                          type.to_string().c_str(),
+                          v.type().to_string().c_str()));
+  }
+  n->set_type(n->operands().front()->type());
 
   return Expr(n);
 }
@@ -1396,7 +1402,10 @@ Select::Select(Expr condition, Expr true_value, Expr false_value)
       condition(condition),
       true_value(true_value),
       false_value(false_value) {
-  TryElevateInt32ToInt64({true_value, false_value});
+  auto promote_args =
+      std::move(ir::TryElevateInt32ToInt64({true_value, false_value}));
+  true_value = promote_args.at(0);
+  false_value = promote_args.at(1);
   PADDLE_ENFORCE_EQ(true_value.type(),
                     false_value.type(),
                     ::common::errors::InvalidArgument(

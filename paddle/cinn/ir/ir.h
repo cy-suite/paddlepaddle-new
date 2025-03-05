@@ -83,7 +83,12 @@ struct Cast : public ExprNode<Cast> {
  * The sum of two expressions.
  */
 struct Add : public BinaryOpNode<Add> {
-  Add(Expr a, Expr b) : BinaryOpNode<Add>(a.type(), a, b) { Verify(); }
+  Add(Expr a, Expr b) : BinaryOpNode<Add>(a, b) {
+    auto promote_args = std::move(TryElevateInt32ToInt64({a, b}));
+    this->a() = std::move(promote_args.at(0));
+    this->b() = std::move(promote_args.at(1));
+    Verify();
+  }
 
   static Expr Make(Expr a, Expr b);
   static IndexExpr Make(IndexExpr a, IndexExpr b);
@@ -97,7 +102,12 @@ struct Add : public BinaryOpNode<Add> {
  * The difference of two expressions.
  */
 struct Sub : public BinaryOpNode<Sub> {
-  Sub(Expr a, Expr b) : BinaryOpNode<Sub>(a.type(), a, b) { Verify(); }
+  Sub(Expr a, Expr b) : BinaryOpNode<Sub>(a, b) {
+    auto promote_args = std::move(TryElevateInt32ToInt64({a, b}));
+    this->a() = std::move(promote_args.at(0));
+    this->b() = std::move(promote_args.at(1));
+    Verify();
+  }
 
   static Expr Make(Expr a, Expr b);
   static IndexExpr Make(IndexExpr a, IndexExpr b);
@@ -111,7 +121,12 @@ struct Sub : public BinaryOpNode<Sub> {
  * The product of two expressions.
  */
 struct Mul : public BinaryOpNode<Mul> {
-  Mul(Expr a, Expr b) : BinaryOpNode<Mul>(a.type(), a, b) { Verify(); }
+  Mul(Expr a, Expr b) : BinaryOpNode<Mul>(a, b) {
+    auto promote_args = std::move(TryElevateInt32ToInt64({a, b}));
+    this->a() = std::move(promote_args.at(0));
+    this->b() = std::move(promote_args.at(1));
+    Verify();
+  }
 
   static Expr Make(Expr a, Expr b);
   static IndexExpr Make(IndexExpr a, IndexExpr b);
@@ -125,7 +140,12 @@ struct Mul : public BinaryOpNode<Mul> {
  * The ratio of two expressions.
  */
 struct Div : public BinaryOpNode<Div> {
-  Div(Expr a, Expr b) : BinaryOpNode<Div>(a.type(), a, b) { Verify(); }
+  Div(Expr a, Expr b) : BinaryOpNode<Div>(a, b) {
+    auto promote_args = std::move(TryElevateInt32ToInt64({a, b}));
+    this->a() = std::move(promote_args.at(0));
+    this->b() = std::move(promote_args.at(1));
+    Verify();
+  }
 
   static Expr Make(Expr a, Expr b);
   static IndexExpr Make(IndexExpr a, IndexExpr b);
@@ -138,7 +158,12 @@ struct Div : public BinaryOpNode<Div> {
  * The mod of two expressions.
  */
 struct Mod : public BinaryOpNode<Mod> {
-  Mod(Expr a, Expr b) : BinaryOpNode<Mod>(a.type(), a, b) { Verify(); }
+  Mod(Expr a, Expr b) : BinaryOpNode<Mod>(a, b) {
+    auto promote_args = std::move(TryElevateInt32ToInt64({a, b}));
+    this->a() = std::move(promote_args.at(0));
+    this->b() = std::move(promote_args.at(1));
+    Verify();
+  }
 
   static Expr Make(Expr a, Expr b);
   static IndexExpr Make(IndexExpr a, IndexExpr b);
@@ -150,7 +175,12 @@ struct Mod : public BinaryOpNode<Mod> {
  * The lesser of two expressions.
  */
 struct Min : public BinaryOpNode<Min> {
-  Min(Expr a, Expr b) : BinaryOpNode<Min>(a.type(), a, b) { Verify(); }
+  Min(Expr a, Expr b) : BinaryOpNode<Min>(a, b) {
+    auto promote_args = std::move(TryElevateInt32ToInt64({a, b}));
+    this->a() = std::move(promote_args.at(0));
+    this->b() = std::move(promote_args.at(1));
+    Verify();
+  }
 
   static Expr Make(Expr a, Expr b);
   // TODO(liiujinnan): simplify Min and Max.
@@ -164,7 +194,12 @@ struct Min : public BinaryOpNode<Min> {
  * The larger of two expressions.
  */
 struct Max : public BinaryOpNode<Max> {
-  Max(Expr a, Expr b) : BinaryOpNode<Max>(a.type(), a, b) { Verify(); }
+  Max(Expr a, Expr b) : BinaryOpNode<Max>(a, b) {
+    auto promote_args = std::move(TryElevateInt32ToInt64({a, b}));
+    this->a() = std::move(promote_args.at(0));
+    this->b() = std::move(promote_args.at(1));
+    Verify();
+  }
 
   static Expr Make(Expr a, Expr b);
   // TODO(liiujinnan): simplify Min and Max.
@@ -179,9 +214,14 @@ struct Max : public BinaryOpNode<Max> {
  * Tell whether the first expression equals to the second expression.
  */
 struct EQ : public BinaryOpNode<EQ> {
-  EQ(Expr a, Expr b) : BinaryOpNode<EQ>(a.type(), a, b) { Verify(); }
+  EQ(Expr a, Expr b) : BinaryOpNode<EQ>(a, b) {
+    auto promote_args = std::move(TryElevateInt32ToInt64({a, b}));
+    this->a() = std::move(promote_args.at(0));
+    this->b() = std::move(promote_args.at(1));
+    Verify();
+  }
 
-  Type type() const { return Bool(a()->type().lanes()); }
+  Type type() const { return Bool(this->a()->type().lanes()); }
 
   static Expr Make(Expr a, Expr b);
   void Verify() const override;
@@ -192,9 +232,14 @@ struct EQ : public BinaryOpNode<EQ> {
  * Tell whether the first expression not equals to the second expression.
  */
 struct NE : public BinaryOpNode<NE> {
-  NE(Expr a, Expr b) : BinaryOpNode<NE>(a.type(), a, b) { Verify(); }
+  NE(Expr a, Expr b) : BinaryOpNode<NE>(a, b) {
+    auto promote_args = std::move(TryElevateInt32ToInt64({a, b}));
+    this->a() = std::move(promote_args.at(0));
+    this->b() = std::move(promote_args.at(1));
+    Verify();
+  }
 
-  Type type() const { return Bool(a()->type().lanes()); }
+  Type type() const { return Bool(this->a()->type().lanes()); }
 
   static Expr Make(Expr a, Expr b);
   void Verify() const override;
@@ -205,9 +250,14 @@ struct NE : public BinaryOpNode<NE> {
  * Tell whether the first expression is lower than the second expression.
  */
 struct LT : public BinaryOpNode<LT> {
-  LT(Expr a, Expr b) : BinaryOpNode<LT>(a.type(), a, b) { Verify(); }
+  LT(Expr a, Expr b) : BinaryOpNode<LT>(a, b) {
+    auto promote_args = std::move(TryElevateInt32ToInt64({a, b}));
+    this->a() = std::move(promote_args.at(0));
+    this->b() = std::move(promote_args.at(1));
+    Verify();
+  }
 
-  Type type() const { return Bool(a()->type().lanes()); }
+  Type type() const { return Bool(this->a()->type().lanes()); }
 
   static Expr Make(Expr a, Expr b);
   void Verify() const override;
@@ -218,9 +268,14 @@ struct LT : public BinaryOpNode<LT> {
  * Tell whether the first expression is no larger than the second expression.
  */
 struct LE : public BinaryOpNode<LE> {
-  LE(Expr a, Expr b) : BinaryOpNode<LE>(a.type(), a, b) { Verify(); }
+  LE(Expr a, Expr b) : BinaryOpNode<LE>(a, b) {
+    auto promote_args = std::move(TryElevateInt32ToInt64({a, b}));
+    this->a() = std::move(promote_args.at(0));
+    this->b() = std::move(promote_args.at(1));
+    Verify();
+  }
 
-  Type type() const { return Bool(a()->type().lanes()); }
+  Type type() const { return Bool(this->a()->type().lanes()); }
 
   static Expr Make(Expr a, Expr b);
   void Verify() const override;
@@ -231,9 +286,14 @@ struct LE : public BinaryOpNode<LE> {
  * Tell whether the first expression is larger than the second expression.
  */
 struct GT : public BinaryOpNode<GT> {
-  GT(Expr a, Expr b) : BinaryOpNode<GT>(a.type(), a, b) { Verify(); }
+  GT(Expr a, Expr b) : BinaryOpNode<GT>(a, b) {
+    auto promote_args = std::move(TryElevateInt32ToInt64({a, b}));
+    this->a() = std::move(promote_args.at(0));
+    this->b() = std::move(promote_args.at(1));
+    Verify();
+  }
 
-  Type type() const { return Bool(a()->type().lanes()); }
+  Type type() const { return Bool(this->a()->type().lanes()); }
 
   static Expr Make(Expr a, Expr b);
   void Verify() const override;
@@ -244,9 +304,14 @@ struct GT : public BinaryOpNode<GT> {
  * Tell whether the first expression is not less than the second expression.
  */
 struct GE : public BinaryOpNode<GE> {
-  GE(Expr a, Expr b) : BinaryOpNode<GE>(a.type(), a, b) { Verify(); }
+  GE(Expr a, Expr b) : BinaryOpNode<GE>(a, b) {
+    auto promote_args = std::move(TryElevateInt32ToInt64({a, b}));
+    this->a() = std::move(promote_args.at(0));
+    this->b() = std::move(promote_args.at(1));
+    Verify();
+  }
 
-  Type type() const { return Bool(a()->type().lanes()); }
+  Type type() const { return Bool(this->a()->type().lanes()); }
 
   static Expr Make(Expr a, Expr b);
   void Verify() const override;
@@ -257,7 +322,7 @@ struct GE : public BinaryOpNode<GE> {
  * Logical and.
  */
 struct And : public BinaryOpNode<And> {
-  And(Expr a, Expr b) : BinaryOpNode<And>(a.type(), a, b) {
+  And(Expr a, Expr b) : BinaryOpNode<And>(a, b) {
     PADDLE_ENFORCE_EQ(
         a->type().is_bool(),
         true,
@@ -268,7 +333,7 @@ struct And : public BinaryOpNode<And> {
         ::common::errors::PreconditionNotMet("The type of 'b' must be bool."));
   }
 
-  Type type() const { return Bool(a()->type().lanes()); }
+  Type type() const { return Bool(this->a()->type().lanes()); }
 
   static Expr Make(Expr a, Expr b);
   void Verify() const override;
@@ -290,7 +355,7 @@ struct Minus : public UnaryOpNode<Minus> {
  * Logical or.
  */
 struct Or : public BinaryOpNode<Or> {
-  Or(Expr a, Expr b) : BinaryOpNode<Or>(Bool(), a, b) {
+  Or(Expr a, Expr b) : BinaryOpNode<Or>(a, b) {
     PADDLE_ENFORCE_EQ(
         a->type().is_bool(),
         true,
@@ -959,18 +1024,20 @@ struct FracOp : public BinaryOpNode<FracOp> {
 
   static Expr Make(Expr n, Expr d);
 
-  bool is_constant() const { return a().is_constant() && b().is_constant(); }
+  bool is_constant() const {
+    return this->a().is_constant() && this->b().is_constant();
+  }
 
   double get_constant() const {
     PADDLE_ENFORCE_EQ(is_constant(),
                       true,
                       ::common::errors::PreconditionNotMet(
                           "The expression must be constant."));
-    PADDLE_ENFORCE_NE(b().get_constant(),
+    PADDLE_ENFORCE_NE(this->b().get_constant(),
                       0.f,
                       ::common::errors::InvalidArgument(
                           "The denominator of FracOp should not be 0"));
-    return a().get_constant() / b().get_constant();
+    return this->a().get_constant() / this->b().get_constant();
   }
 
   void Verify() const override;
