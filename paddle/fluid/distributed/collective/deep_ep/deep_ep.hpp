@@ -124,6 +124,8 @@ struct Buffer {
 
   pybind11::bytearray get_local_ipc_handle() const;
 
+  pybind11::bytearray get_local_nvshmem_unique_id() const;
+
   void sync(const std::vector<int>& device_ids,
             const std::vector<std::optional<pybind11::bytearray>>&
                 all_gathered_handles,

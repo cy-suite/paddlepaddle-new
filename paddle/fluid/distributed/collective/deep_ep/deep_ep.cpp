@@ -211,6 +211,13 @@ pybind11::bytearray Buffer::get_local_ipc_handle() const {
   return {ipc_handles[nvl_rank].reserved, CUDA_IPC_HANDLE_SIZE};
 }
 
+pybind11::bytearray Buffer::get_local_nvshmem_unique_id() const {
+  EP_HOST_ASSERT(rdma_rank == 0 &&
+                 "Only RDMA rank 0 can get NVSHMEM unique ID");
+  auto unique_id = internode::get_unique_id();
+  return {reinterpret_cast<const char*>(unique_id.data()), unique_id.size()};
+}
+
 void Buffer::sync(
     const std::vector<int>& device_ids,
     const std::vector<std::optional<pybind11::bytearray>>& all_gathered_handles,
