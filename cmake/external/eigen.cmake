@@ -47,9 +47,7 @@ set(EIGEN_PATCH_COMMAND git checkout -- . && git checkout ${EIGEN_TAG} && git
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   file(TO_NATIVE_PATH ${PADDLE_SOURCE_DIR}/patches/eigen/Complex.h.patch
        complex_header)
-  set(EIGEN_PATCH_COMMAND
-      ${EIGEN_PATCH_COMMAND} && patch -Nd
-      ${SOURCE_DIR}/Eigen/src/Core/arch/SSE/ < ${complex_header})
+  set(EIGEN_PATCH_COMMAND ${EIGEN_PATCH_COMMAND} && git apply ${complex_header})
 endif()
 
 set(EIGEN_INCLUDE_DIR ${SOURCE_DIR})
