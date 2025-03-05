@@ -251,7 +251,7 @@ class ShapeOptimizationPass : public pir::Pass {
 
 }  // namespace
 
-const bool is_grad_op(Operation* op) {
+const bool IsGradOp(Operation* op) {
   std::string suffix = "_grad";
   const auto& op_name = op->name();
   if (op_name.size() < suffix.size()) return false;
@@ -288,7 +288,7 @@ void InferSymExprForOp(Operation* op,
                         op_name) != special_cached_ops.end());
     }();
 
-    if (!is_grad_op(op))
+    if (!IsGradOp(op))
       LOG(WARNING) << op->name()
                    << " DOES NOT have InferSymbolicShapeInterface!";
 
@@ -355,7 +355,7 @@ void CacheForwardOpSymbolicShape(
         } else {
           for (uint32_t i = 0; i < cache_result.size(); ++i) {
             if (infer_result[i] != cache_result[i]) {
-              if (is_grad_op(op) && (!op->result(i) || !op->result(i).type())) {
+              if (IsGradOp(op) && (!op->result(i) || !op->result(i).type())) {
                 continue;
               }
               LOG(WARNING) << "cached shape is not consistent with real shape";
