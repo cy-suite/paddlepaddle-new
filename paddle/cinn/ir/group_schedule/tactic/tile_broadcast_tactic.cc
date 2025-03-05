@@ -130,7 +130,6 @@ class TileBroadcastTactic final : public ScheduleTactic {
   int64_t preserved_size_;
 };
 
-/// TODO: 这又是要干什么？
 std::unordered_set<ir::Var> CollectIterVars(
     const std::vector<ir::Expr>& exprs) {
   std::unordered_set<ir::Var> result;
