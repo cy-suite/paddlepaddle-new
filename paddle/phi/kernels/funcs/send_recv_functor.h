@@ -43,7 +43,7 @@ void send_shape_info(const Context& dev_ctx,
   PADDLE_ENFORCE_EQ((comm_ctx != nullptr),
                     true,
                     errors::InvalidArgument(
-                        "Stream should be provided if use BKCL "
+                        "BKCLComm should be provided if use BKCL "
                         "to send the shape info."));
 #endif
   paddle::DataType shape_dtype = paddle::DataType::INT32;
@@ -114,7 +114,7 @@ DDim recv_shape_info(const Context& dev_ctx,
   PADDLE_ENFORCE_EQ((comm_ctx != nullptr),
                     true,
                     errors::InvalidArgument(
-                        "Stream should be provided if use BKCL "
+                        "BKCLComm should be provided if use BKCL "
                         "to send the shape info."));
 #endif
   paddle::DataType shape_dtype = paddle::DataType::INT32;
