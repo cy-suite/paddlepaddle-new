@@ -250,7 +250,7 @@ class TestArangeImperative(unittest.TestCase):
         # [start>end step>0]
         x14 = paddle.arange(start=10, end=0, step=1)
 
-        x14_expected_data = np.array([1])
+        x14_expected_data = np.array([])
         np.test.assert_array_equal(x14.numpy(), x14_expected_data)
         self.assertEqual(x14.numpy().dtype, np.int64)
 
