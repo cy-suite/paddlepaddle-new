@@ -390,20 +390,21 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupBKCL::AllToAll(
   CheckSizeOnEachRank(out_dim, out_size_each_rank, size_);
   CheckSizeOnEachRank(in_dim, in_size_each_rank, size_);
 
-  bool is_all_to_all_equal_split = true;
+  bool is_equal_split = true;
 
   int64_t avg_in_size_on_each_rank = in_dim[0] / size_;
   int64_t avg_out_size_on_each_rank = out_dim[0] / size_;
   for (size_t i = 0; i < in_size_each_rank.size(); i++) {
     if (in_size_each_rank[i] != avg_in_size_on_each_rank ||
         out_size_each_rank[i] != avg_out_size_on_each_rank) {
-      is_all_to_all_equal_split = false;
+      is_equal_split = false;
       break;
     }
   }
 
-  // AllToAllV requires allocating temporary memory and must use calc_stream to
-  // ensure the correct lifecycle management of the temporary tensor.
+  // AllToAllUnequalSplit requires allocating temporary memory and must use
+  // calc_stream to ensure the correct lifecycle management of the temporary
+  // tensor.
   if (!use_calc_stream) {
     VLOG(3) << "For XPU, Communication on non-calc stream has minor effect on "
                "performance and might be conflict with streams in calc_ctx, so "
@@ -433,11 +434,11 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupBKCL::AllToAll(
                 << string::join_strings(out_size_each_rank, ',')
                 << ", in_size_each_rank: "
                 << string::join_strings(in_size_each_rank, ',')
-                << ", is_all_to_all_equal_split: " << is_all_to_all_equal_split
+                << ", is_equal_split: " << is_equal_split
                 << ", sync_op: " << sync_op
                 << ", use_calc_stream: " << use_calc_stream;
 
-        if (is_all_to_all_equal_split) {
+        if (is_equal_split) {
           comm_context->AllToAll(out_tensor, in_tensor, stream);
         } else {
           int64_t in_row_size =
@@ -507,13 +508,13 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupBKCL::AllToAll(
                          out_offset_vec.data(),
                          out_offset_tensor.numel() * sizeof(int64_t));
 
-            comm_context->AllToAllV(out_tensor,
-                                    in_tensor,
-                                    out_size_tensor,
-                                    out_offset_tensor,
-                                    in_size_tensor,
-                                    in_offset_tensor,
-                                    stream);
+            comm_context->AllToAllUnequalSplit(out_tensor,
+                                               in_tensor,
+                                               out_size_tensor,
+                                               out_offset_tensor,
+                                               in_size_tensor,
+                                               in_offset_tensor,
+                                               stream);
           }
         }
       },

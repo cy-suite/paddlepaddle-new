@@ -521,7 +521,7 @@ class TestDistBase(unittest.TestCase):
             np.testing.assert_allclose(
                 tr1_out, need_result2, rtol=1e-05, atol=1e-05
             )
-        elif col_type in ["alltoallv_single"]:
+        elif col_type in ["alltoall_single_unequal_split"]:
             need_result1 = np.vstack(
                 (
                     input1[0 : input1.shape[0] // 2 - 1, :],

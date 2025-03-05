@@ -23,7 +23,7 @@ from paddle import core
 paddle.enable_static()
 
 
-class TestCollectiveAllToAllVSingleAPI(TestDistBase):
+class TestCollectiveAllToAllSingleUnequalSplitAPI(TestDistBase):
     def _setup_config(self):
         pass
 
@@ -31,12 +31,12 @@ class TestCollectiveAllToAllVSingleAPI(TestDistBase):
         not core.is_compiled_with_xpu() or paddle.device.xpu.device_count() < 2,
         "run test when having at least 2 XPUs.",
     )
-    def test_alltoallv_single(self):
+    def test_alltoall_single_unequal_split(self):
         support_types = get_xpu_op_support_types('c_alltoall')
         for dtype in support_types:
             self.check_with_place(
-                "collective_alltoallv_single_api_dygraph.py",
-                "alltoallv_single",
+                "collective_alltoall_single_unequal_split_api_dygraph.py",
+                "alltoall_single_unequal_split",
                 static_mode="0",
                 dtype=dtype,
             )

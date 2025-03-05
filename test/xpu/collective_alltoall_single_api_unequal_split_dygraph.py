@@ -20,7 +20,9 @@ import paddle.distributed as dist
 from paddle import base
 
 
-class TestCollectiveAllToAllVSingleAPI(test_base.TestCollectiveAPIRunnerBase):
+class TestCollectiveAllToAllSingleUnequalSplitAPI(
+    test_base.TestCollectiveAPIRunnerBase
+):
     def __init__(self):
         self.global_ring_id = 0
 
@@ -62,4 +64,7 @@ class TestCollectiveAllToAllVSingleAPI(test_base.TestCollectiveAPIRunnerBase):
 
 
 if __name__ == "__main__":
-    test_base.runtime_main(TestCollectiveAllToAllVSingleAPI, "alltoallv_single")
+    test_base.runtime_main(
+        TestCollectiveAllToAllSingleUnequalSplitAPI,
+        "alltoall_single_unequal_split",
+    )
