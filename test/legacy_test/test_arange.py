@@ -129,6 +129,20 @@ class TestZeroSizeArangeOp(TestArangeOp):
         self.case = (0, 0, 1)
 
 
+class TestZeroOutputOp1(TestArangeOp):
+    def init_config(self):
+        self.dtype = np.int32
+        self.python_api = paddle.arange
+        self.case = (1, 10, -1)
+
+
+class TestZeroOutputOp2(TestArangeOp):
+    def init_config(self):
+        self.dtype = np.int32
+        self.python_api = paddle.arange
+        self.case = (-1, -10, 1)
+
+
 class TestArangeOpError(unittest.TestCase):
 
     def test_static_errors(self):
