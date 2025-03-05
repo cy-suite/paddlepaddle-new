@@ -23,7 +23,7 @@
 from __future__ import annotations
 
 import os
-from typing import TYPE_CHECKING, Callable, List, Optional, Tuple, Union
+from typing import TYPE_CHECKING, Callable
 
 import paddle
 import paddle.distributed as dist
@@ -80,7 +80,6 @@ class Buffer:
                 to the number of local experts.
         """
 
-        # TODO: argument docs
         # Initialize the CPP runtime
         self.rank = group.rank
         self.group_size = group.world_size
@@ -584,25 +583,25 @@ class Buffer:
     # noinspection PyTypeChecker
     def internode_dispatch(
         self,
-        x: Union[paddle.Tensor, Tuple[paddle.Tensor, paddle.Tensor]],
-        handle: Optional[Tuple] = None,
-        num_tokens_per_rank: Optional[paddle.Tensor] = None,
-        num_tokens_per_rdma_rank: Optional[paddle.Tensor] = None,
-        is_token_in_rank: Optional[paddle.Tensor] = None,
-        num_tokens_per_expert: Optional[paddle.Tensor] = None,
-        topk_idx: Optional[paddle.Tensor] = None,
-        topk_weights: Optional[paddle.Tensor] = None,
+        x: paddle.Tensor | tuple[paddle.Tensor, paddle.Tensor],
+        handle: tuple | None = None,
+        num_tokens_per_rank: paddle.Tensor | None = None,
+        num_tokens_per_rdma_rank: paddle.Tensor | None = None,
+        is_token_in_rank: paddle.Tensor | None = None,
+        num_tokens_per_expert: paddle.Tensor | None = None,
+        topk_idx: paddle.Tensor | None = None,
+        topk_weights: paddle.Tensor | None = None,
         expert_alignment: int = 1,
-        config: Optional[Config] = None,
-        previous_event: Optional[EventOverlap] = None,
+        config: Config | None = None,
+        previous_event: EventOverlap | None = None,
         async_finish: bool = False,
         allocate_on_comm_stream: bool = False,
-    ) -> Tuple[
-        Union[Tuple[paddle.Tensor, paddle.Tensor], paddle.Tensor],
-        Optional[paddle.Tensor],
-        Optional[paddle.Tensor],
-        List[int],
-        Tuple,
+    ) -> tuple[
+        tuple[paddle.Tensor, paddle.Tensor] | paddle.Tensor,
+        paddle.Tensor | None,
+        paddle.Tensor | None,
+        list[int],
+        tuple,
         EventOverlap,
     ]:
         """
@@ -728,13 +727,13 @@ class Buffer:
     def internode_combine(
         self,
         x: paddle.Tensor,
-        handle: Union[tuple, list],
-        topk_weights: Optional[paddle.Tensor] = None,
-        config: Optional[Config] = None,
-        previous_event: Optional[EventOverlap] = None,
+        handle: tuple | list,
+        topk_weights: paddle.Tensor | None = None,
+        config: Config | None = None,
+        previous_event: EventOverlap | None = None,
         async_finish: bool = False,
         allocate_on_comm_stream: bool = False,
-    ) -> Tuple[paddle.Tensor, Optional[paddle.Tensor], EventOverlap]:
+    ) -> tuple[paddle.Tensor, paddle.Tensor | None, EventOverlap]:
         """
         Internode combine implementation, for more details, please refer to the `combine` docs.
         Normally, you should not directly call this function.
@@ -805,10 +804,10 @@ class Buffer:
         num_experts: int,
         async_finish: bool = False,
         return_recv_hook: bool = False,
-    ) -> Tuple[
-        Tuple[paddle.Tensor, paddle.Tensor],
+    ) -> tuple[
+        tuple[paddle.Tensor, paddle.Tensor],
         paddle.Tensor,
-        Tuple,
+        tuple,
         EventOverlap,
         Callable,
     ]:
@@ -894,7 +893,7 @@ class Buffer:
         handle: tuple,
         async_finish: bool = False,
         return_recv_hook: bool = False,
-    ) -> Tuple[paddle.Tensor, EventOverlap, Callable]:
+    ) -> tuple[paddle.Tensor, EventOverlap, Callable]:
         """
         A low-latency implementation for combining tokens (reduce **with weights**) with IBGDA.
         This kernel requires all the ranks (no matter intranode or internode) should be visible via RDMA
