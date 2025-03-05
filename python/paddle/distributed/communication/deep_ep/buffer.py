@@ -129,9 +129,7 @@ class Buffer:
 
             # NOTES: make sure AR (Adaptive Routing) is turned off while running normal kernels, as we cannot verify AR status in the code
             # Synchronize using the root ID
-            nvshmem_unique_ids = [
-                None,
-            ] * self.group_size
+            nvshmem_unique_ids = []
             if (low_latency_mode and self.rank == 0) or (
                 not low_latency_mode and self.runtime.get_rdma_rank() == 0
             ):
