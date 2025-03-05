@@ -3537,8 +3537,10 @@ All parameter, weight, gradient are variables in Paddle.
   BindVjp(&m);
   BindDecompRule(&m);
   BindDecompVjp(&m);
-#if defined(PADDLE_WITH_DISTRIBUTE) && defined(PADDLE_WITH_DEEP_EP)
+#ifdef PADDLE_WITH_DISTRIBUTE
   BindDistApi(&m);
+#endif
+#if defined(PADDLE_WITH_DISTRIBUTE) && defined(PADDLE_WITH_DEEP_EP)
   BindDeepEPApi(&m);
 #endif
 }
