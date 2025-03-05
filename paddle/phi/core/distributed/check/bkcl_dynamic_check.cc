@@ -49,6 +49,7 @@ void BKCLDynamicCheck::CheckDataType(const phi::DenseTensor& tensor,
   if (root_rank == cur_rank) {
     VLOG(3) << "Dynamic check broadcast metadata, dtype: " << dtype_host;
   } else {
+    PADDLE_ENFORCE_XPU_SUCCESS(xpu_wait());
     PADDLE_ENFORCE_XPU_SUCCESS(xpu_memcpy(
         &dtype_host, dtype_device, kSize, XPUMemcpyKind::XPU_DEVICE_TO_HOST));
     VLOG(3) << "Dynamic check recv metadata, dtype: " << dtype_host;
@@ -96,6 +97,7 @@ void BKCLDynamicCheck::CheckShape(const phi::DenseTensor& out_tensor,
                                            rank,
                                            0));
     if (rank == cur_rank) {
+      PADDLE_ENFORCE_XPU_SUCCESS(xpu_wait());
       PADDLE_ENFORCE_XPU_SUCCESS(xpu_memcpy(&in_shape_host,
                                             in_shape_device,
                                             kSize,

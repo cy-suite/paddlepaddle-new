@@ -390,14 +390,14 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupBKCL::AllToAll(
   CheckSizeOnEachRank(out_dim, out_size_each_rank, size_);
   CheckSizeOnEachRank(in_dim, in_size_each_rank, size_);
 
-  bool is_all_to_all_single = true;
+  bool is_all_to_all_equal_split = true;
 
   int64_t avg_in_size_on_each_rank = in_dim[0] / size_;
   int64_t avg_out_size_on_each_rank = out_dim[0] / size_;
   for (size_t i = 0; i < in_size_each_rank.size(); i++) {
     if (in_size_each_rank[i] != avg_in_size_on_each_rank ||
         out_size_each_rank[i] != avg_out_size_on_each_rank) {
-      is_all_to_all_single = false;
+      is_all_to_all_equal_split = false;
       break;
     }
   }
@@ -433,10 +433,11 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupBKCL::AllToAll(
                 << string::join_strings(out_size_each_rank, ',')
                 << ", in_size_each_rank: "
                 << string::join_strings(in_size_each_rank, ',')
+                << ", is_all_to_all_equal_split: " << is_all_to_all_equal_split
                 << ", sync_op: " << sync_op
                 << ", use_calc_stream: " << use_calc_stream;
 
-        if (is_all_to_all_single) {
+        if (is_all_to_all_equal_split) {
           comm_context->AllToAll(out_tensor, in_tensor, stream);
         } else {
           int64_t in_row_size =
