@@ -1701,16 +1701,17 @@ class BilinearInterpV2Pattern
     if (size_tensor.impl()) {
       auto *first_def_op = size_tensor.defining_op();
       bool found_shape_op = false;
+      auto operand0 = first_def_op->operand_source(0);
+      auto *second_def_op = operand0.defining_op();
       if (first_def_op && first_def_op->isa<paddle::dialect::ShapeOp>()) {
         found_shape_op = true;
-      } else if (first_def_op->name().find("builtin.combine") !=
-                 std::string::npos) {
+      } else if ((first_def_op->name().find("builtin.combine") !=
+                  std::string::npos) &&
+                 (second_def_op->isa<paddle::dialect::DataOp>())) {
         found_shape_op = true;
       }
       if (!found_shape_op && first_def_op && first_def_op->num_operands() > 0) {
-        auto operand0 = first_def_op->operand_source(0);
         if (operand0.impl()) {
-          auto *second_def_op = operand0.defining_op();
           if (second_def_op && second_def_op->isa<paddle::dialect::ShapeOp>()) {
             found_shape_op = true;
           }
