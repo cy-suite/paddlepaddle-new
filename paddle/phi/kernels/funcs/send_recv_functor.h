@@ -20,7 +20,6 @@
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/tensor_array.h"
 
-#include "glog/logging.h"
 
 namespace phi {
 
