@@ -47,15 +47,14 @@ struct FusionInterpreter {
     for (size_t i = 0; i < ops.size(); i++) {
       if (output_ops.count(ops[i]) ||
           ops[i]->HasTrait<paddle::dialect::InplaceTrait>()) {
-        global_var_names.push_back(GetOutputTensor(init_fusible_op[i])->name);
+        global_var_names.insert(GetOutputTensor(init_fusible_op[i])->name);
       }
     }
     VLOG(4) << "Create FusionInterpreter, Tracker is:\n" << tracker->DebugStr();
-    VLOG(4) << "Global var names: " << utils::Join(global_var_names, ", ");
   }
 
   std::vector<FusibleOp> initialized_lowered_op;
-  std::vector<std::string> global_var_names;
+  std::set<std::string> global_var_names;
   std::unordered_map<std::string, ScopeElementPtr> scope;
   DimExprMap substitute_dimexpr_map;
   FusionTrackerPtr tracker;
