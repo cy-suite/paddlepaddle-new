@@ -18,13 +18,16 @@ import numpy
 import utils
 
 import paddle
+from paddle.static import InputSpec
 
 
 class TestTranspose(unittest.TestCase):
-    def eval(self, dy_compute, inputs):
+    def eval(self, dy_compute, inputs, input_spec=None):
         dy_out = dy_compute(*inputs)
 
-        static_compute = utils.apply_to_static(dy_compute, use_cinn=True)
+        static_compute = utils.apply_to_static(
+            dy_compute, use_cinn=True, input_spec=input_spec
+        )
         st_out = static_compute(*inputs)
 
         for a, b in zip(
@@ -47,6 +50,15 @@ class TestTranspose(unittest.TestCase):
             return x * (x + 1)
 
         x = paddle.uniform([32, 128, 14, 14])
+
+        self.eval(func, [x])
+
+    def test_self_cross(self):
+        def func(x):
+            x_t = x.transpose([0, 2, 1])
+            return x + x_t
+
+        x = paddle.uniform([100, 200, 200])
 
         self.eval(func, [x])
 
@@ -87,6 +99,43 @@ class TestTranspose(unittest.TestCase):
         x = paddle.uniform([1, 1024, 1])
 
         self.eval(func, [x])
+
+    def test_small_0231_dynshape(self):
+        def func(x):
+            return x.transpose([0, 2, 3, 1]) + 1
+
+        x = paddle.uniform([2, 8, 16, 160])
+        x_spec = InputSpec(shape=[2, 80, None, 160])
+
+        self.eval(func, [x], [x_spec])
+
+    def test_large_0312_dynshape(self):
+        def func(x):
+            return x.transpose([0, 3, 1, 2]) + 1
+
+        x = paddle.uniform([32, 14, 14, 128])
+        x_spec = InputSpec([None, 14, 14, None])
+
+        self.eval(func, [x], [x_spec])
+
+    def test_all_permuted_3210_dynshape(self):
+        def func(x):
+            x = x.transpose([3, 2, 1, 0])
+            return x * (x + 1)
+
+        x = paddle.uniform([32, 14, 14, 128])
+        x_spec = InputSpec([None, None, None, 128])
+
+        self.eval(func, [x], [x_spec])
+
+    def test_unit_loop_021_dynshape(self):
+        def func(x):
+            return x.transpose([0, 2, 1]) + 1
+
+        x = paddle.uniform([1024, 1, 1])
+        x_spec = InputSpec([None, None, 1])
+
+        self.eval(func, [x], [x_spec])
 
 
 if __name__ == "__main__":
