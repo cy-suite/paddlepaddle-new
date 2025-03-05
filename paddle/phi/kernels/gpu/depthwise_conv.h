@@ -1637,6 +1637,7 @@ class DepthwiseConvFilterGradFunctor<phi::GPUContext,
             std::min(block_size, batch_size * output_height * output_width));
       }
     } else {
+      if (std::is_same_v<T, phi::dtype::float16>) block_size = 256;
       blocks = std::min(
           std::max(block_size / output_channels, 1),
           ((output_width + dilate_width - 1) / dilate_width) * dilate_width);
