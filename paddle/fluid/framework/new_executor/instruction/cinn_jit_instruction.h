@@ -62,6 +62,8 @@ class CinnJitInstruction : public InstructionBase {
   std::vector<phi::DenseTensor> temp_space_tensors_;
 
   ::pir::Operation* op_{nullptr};  // not owned
+
+  std::set<size_t> no_need_buffer_set;
 };
 
 }  // namespace framework
