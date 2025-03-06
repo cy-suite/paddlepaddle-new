@@ -227,12 +227,6 @@ class MoeHelper {
       softmax_out_ = nullptr;
     }
 
-    DenseTensor finished_tensor = Empty<bool>(ctx, {num_rows});
-    bool *finished = finished_tensor.data<bool>();
-    // set false
-    funcs::SetConstant<GPUContext, bool> zero;
-    zero(ctx, &finished_tensor, false);
-
     DenseTensor expert_scales_tensor_float = Empty<float>(ctx, {num_rows, k});
     float *expert_scales_float = expert_scales_tensor_float.data<float>();
 
