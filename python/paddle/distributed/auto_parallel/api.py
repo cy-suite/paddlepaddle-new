@@ -3280,6 +3280,7 @@ class ShardDataloader:
         input_keys: list[str] | tuple[str] | None = None,
         shard_dims: list | tuple | str | int | None = None,
         is_dataset_splitted: bool = False,
+        dtensor_idx: list | None = None,
     ):
         # do some check
         if is_dataset_splitted is True and shard_dims is None:
@@ -3350,6 +3351,7 @@ class ShardDataloader:
             )
         # Note(lizhiyu): In dygraph mode, the flag "pin_memory" is default "True", but it decrease the speed of `AutoParallel`
         self._dataloader.pin_memory = False
+        self.dtensor_idx = dtensor_idx
 
     def _process_shard_dims(self, shard_dims):
         if isinstance(shard_dims, (int, str)) or shard_dims is None:
@@ -3446,12 +3448,19 @@ class ShardDataloader:
             placements.append(placement)
         return meshes, placements
 
-    def _dtensors_from_list_input(self, list_tensors, meshes, placements):
+    def _dtensors_from_list_input(
+        self, list_tensors, meshes, placements, dtensor_idx=None
+    ):
         dist_data = []
         for j in range(len(list_tensors)):
-            dist_data.append(
-                dtensor_from_local(list_tensors[j], meshes[j], placements[j])
-            )
+            if dtensor_idx is not None and j in dtensor_idx:
+                dist_data.append(list_tensors[j])
+            else:
+                dist_data.append(
+                    dtensor_from_local(
+                        list_tensors[j], meshes[j], placements[j]
+                    )
+                )
         return dist_data
 
     def _get_batch(self, batch_data):
@@ -3502,7 +3511,7 @@ class ShardDataloader:
                         i, len(input_data)
                     )
                     dist_batch_data[key] = self._dtensors_from_list_input(
-                        input_data, meshes, placements
+                        input_data, meshes, placements, self.dtensor_idx
                     )
                 elif isinstance(input_data, paddle.Tensor):
                     mesh, placements = self._get_mesh_and_placement(i)
@@ -3532,6 +3541,7 @@ def shard_dataloader(
     input_keys: Sequence[str] | None = None,
     shard_dims: Sequence[str] | Sequence[int] | str | int | None = None,
     is_dataset_splitted: bool = False,
+    dtensor_idx: list | None = None,
 ) -> ShardDataloader:
     """
     Convert the dataloader to a ShardDataloader which provided two capabilities:
@@ -3715,7 +3725,12 @@ def shard_dataloader(
     """
 
     return ShardDataloader(
-        dataloader, meshes, input_keys, shard_dims, is_dataset_splitted
+        dataloader,
+        meshes,
+        input_keys,
+        shard_dims,
+        is_dataset_splitted,
+        dtensor_idx,
     )
 
 
