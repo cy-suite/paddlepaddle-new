@@ -14,10 +14,10 @@
 
 #include "paddle/cinn/ir/schedule/impl/ir_schedule.h"
 
-#include "paddle/cinn/common/cas.h"
 #include "paddle/cinn/common/integer_set.h"
 #include "paddle/cinn/common/iter_simplify.h"
 #include "paddle/cinn/common/macros.h"
+#include "paddle/cinn/optim/ir_simplify.h"
 #include "paddle/common/enforce.h"
 /** \brief A macro that guards the beginning of each implementation of schedule
  */
@@ -181,7 +181,7 @@ std::vector<Expr> DyScheduleImpl::Split(const Expr& loop,
 
   bool exact_split = (tot_extent == optim::ArithSimplify(process_factors[0] *
                                                          process_factors[1]));
-  if (!exact_split) {
+  if (!exact_split && idx_neg1 <= process_factors.size()) {
     process_factors[idx_neg1] =
         optim::ArithSimplify(process_factors[idx_neg1] + Expr(1));
   }
