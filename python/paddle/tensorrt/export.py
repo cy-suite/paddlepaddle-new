@@ -617,13 +617,13 @@ def convert(model_path, config):
             >>> import paddle.nn.functional as F
 
             >>> class LinearNet(nn.Layer):
-            >>>    def __init__(self, input_dim):
-            >>>        super().__init__()
-            >>>        self.linear = nn.Linear(input_dim, input_dim)
+            >>>   def __init__(self, input_dim):
+            >>>      super().__init__()
+            >>>      self.linear = nn.Linear(input_dim, input_dim)
 
             >>>   def forward(self, x):
-            >>>        return F.relu(self.linear(x))
-            >>>  def test_paddle_to_tensorrt_conversion():
+            >>>       return F.relu(self.linear(x))
+            >>>   def test_paddle_to_tensorrt_conversion():
             >>>      input_dim = 3
             >>>      layer = LinearNet(input_dim)
             >>>      save_path = "/tmp/linear_net"
