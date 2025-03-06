@@ -1211,8 +1211,7 @@ struct SimplifyDiv {
 struct SimplifyMin {
   using dim_expr_type = Min<DimExpr>;
 
-  static const bool IsLhsGreatEqualThanRhs(const DimExpr& lhs,
-                                           const DimExpr& rhs) const {
+  static bool IsLhsGreatEqualThanRhs(const DimExpr& lhs, const DimExpr& rhs) {
     const auto LhsOperandsVisitor =
         common::Overloaded{[&](const Add<DimExpr>& add) {
                              bool lhs_great_equal_than_rhs = false;
@@ -1243,7 +1242,7 @@ struct SimplifyMin {
            symbol::Compare(lhs, rhs) == DimExprCompareResult::GT;
   }
 
-  List<DimExpr> SearchErasable(const List<DimExpr>& operands) {
+  static List<DimExpr> SearchErasable(const List<DimExpr>& operands) {
     List<DimExpr> ret_operands{};
     for (std::size_t i = 0; i < operands->size(); i++) {
       bool is_redundant = false;
@@ -1263,7 +1262,7 @@ struct SimplifyMin {
     return ret_operands;
   }
 
-  DimExpr Rewrite(const DimExpr& expr) const {
+  DimExpr Rewrite(const DimExpr& expr) {
     const auto& [operands] = expr.Get<Min<DimExpr>>();
     List<DimExpr> ret_operands = SearchErasable(operands);
     if (ret_operands->size() == 1) {
