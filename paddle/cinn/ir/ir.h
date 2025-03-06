@@ -950,11 +950,11 @@ struct FracOp : public BinaryOpNode<FracOp> {
                       true,
                       ::common::errors::PreconditionNotMet(
                           "The expression must be constant."));
-    PADDLE_ENFORCE_NE(this->b().get_constant(),
+    PADDLE_ENFORCE_NE(b().get_constant(),
                       0.f,
                       ::common::errors::InvalidArgument(
                           "The denominator of FracOp should not be 0"));
-    return this->a().get_constant() / this->b().get_constant();
+    return a().get_constant() / b().get_constant();
   }
 
   void Verify() const override;
