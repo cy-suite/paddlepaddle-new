@@ -242,16 +242,27 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupCustom::AllToAll(
     phi::DenseTensor* out_tensor,
     const phi::DenseTensor& in_tensor,
     const std::vector<int64_t>& out_size_each_rank,
-    const std::vector<int64_t>& in_size_each_rank,
+    const std::vector<int64_t>& in_split_sizes,
     bool sync_op,
     bool use_calc_stream) {
   CheckTensorContiguous(in_tensor);
   CheckTensorContiguous(*out_tensor);
 
+  std::vector<int64_t> out_split_sizes;
+  std::vector<int64_t> in_split_sizes;
+  if (out_size_each_rank.empty() && in_size_each_rank.empty()) {
+    out_split_sizes =
+        std::vector<int64_t>(size_, out_tensor->dims()[0] / size_);
+    in_split_sizes = std::vector<int64_t>(size_, in_tensor.dims()[0] / size_);
+  } else {
+    out_split_sizes = out_size_each_rank;
+    in_split_sizes = in_size_each_rank;
+  }
+
   const phi::DDim& out_dim = out_tensor->dims();
   const phi::DDim& in_dim = in_tensor.dims();
-  CheckSizeOnEachRank(out_dim, out_size_each_rank, size_);
-  CheckSizeOnEachRank(in_dim, in_size_each_rank, size_);
+  CheckSizeOnEachRank(out_dim, out_split_sizes, size_);
+  CheckSizeOnEachRank(in_dim, in_split_sizes, size_);
 
   // NOTE: Since `all_to_all` needs other processes' participation, it cannot
   // simply be covered by static checks. Factors are set to 0 here to skip the
@@ -270,9 +281,9 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupCustom::AllToAll(
         std::vector<size_t> send_count, recv_count;
         std::vector<phi::DataType> send_dtype, recv_dtype;
         for (auto i = 0; i < size_; i++) {
-          in_numel = in_size_each_rank[i] * in_row_size;
+          in_numel = in_split_sizes[i] * in_row_size;
           input_partial = GetPartialTensor(in_tensor, in_offset, in_numel);
-          out_numel = out_size_each_rank[i] * out_row_size;
+          out_numel = out_split_sizes[i] * out_row_size;
           output_partial = GetPartialTensor(*out_tensor, out_offset, out_numel);
           in_offset += in_numel;
           out_offset += out_numel;

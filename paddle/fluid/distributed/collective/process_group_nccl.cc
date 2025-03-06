@@ -307,10 +307,21 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::AllToAll(
   CheckTensorContiguous(in_tensor);
   CheckTensorContiguous(*out_tensor);
 
+  std::vector<int64_t> out_split_sizes;
+  std::vector<int64_t> in_split_sizes;
+  if (out_size_each_rank.empty() && in_size_each_rank.empty()) {
+    out_split_sizes =
+        std::vector<int64_t>(size_, out_tensor->dims()[0] / size_);
+    in_split_sizes = std::vector<int64_t>(size_, in_tensor.dims()[0] / size_);
+  } else {
+    out_split_sizes = out_size_each_rank;
+    in_split_sizes = in_size_each_rank;
+  }
+
   const phi::DDim& out_dim = out_tensor->dims();
   const phi::DDim& in_dim = in_tensor.dims();
-  CheckSizeOnEachRank(out_dim, out_size_each_rank, size_);
-  CheckSizeOnEachRank(in_dim, in_size_each_rank, size_);
+  CheckSizeOnEachRank(out_dim, out_split_sizes, size_);
+  CheckSizeOnEachRank(in_dim, in_split_sizes, size_);
 
   return Collective(
       [&](phi::distributed::NCCLCommContext* comm_context, gpuStream_t stream) {
@@ -318,7 +329,7 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::AllToAll(
           phi::distributed::NCCLDynamicCheck::CheckShape(
               *out_tensor,
               in_tensor,
-              in_size_each_rank,
+              in_split_sizes,
               rank_,
               size_,
               comm_context->GetNcclComm());
@@ -338,24 +349,24 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::AllToAll(
                 << NCCLDTypeToString(phi::ToNCCLDataType(in_tensor.dtype()))
                 << ", ncclcomm: " << comm_context->GetNcclComm()
                 << ", stream: " << stream << ", rank_in_group: " << rank_
-                << ", nranks: " << size_ << ", out_size_each_rank: "
-                << string::join_strings(out_size_each_rank, ',')
-                << ", in_size_each_rank: "
-                << string::join_strings(in_size_each_rank, ',')
+                << ", nranks: " << size_ << ", out_split_sizes: "
+                << string::join_strings(out_split_sizes, ',')
+                << ", in_split_sizes: "
+                << string::join_strings(in_split_sizes, ',')
                 << ", sync_op: " << sync_op
                 << ", use_calc_stream: " << use_calc_stream << ", "
                 << GetGroupMessage();
 
         GroupStart();
         for (auto i = 0; i < size_; i++) {
-          in_numel = in_size_each_rank[i] * in_row_size;
+          in_numel = in_split_sizes[i] * in_row_size;
 
           if (in_numel > 0) {
             input_partial = GetPartialTensor(in_tensor, in_offset, in_numel);
             comm_context->Send(input_partial, in_numel, i, stream);
           }
           in_offset += in_numel;
-          out_numel = out_size_each_rank[i] * out_row_size;
+          out_numel = out_split_sizes[i] * out_row_size;
           if (out_numel > 0) {
             output_partial =
                 GetPartialTensor(*out_tensor, out_offset, out_numel);

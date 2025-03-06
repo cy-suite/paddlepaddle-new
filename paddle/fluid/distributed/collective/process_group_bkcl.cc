@@ -376,6 +376,17 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupBKCL::AllToAll(
   CheckTensorContiguous(in_tensor);
   CheckTensorContiguous(*out_tensor);
 
+  std::vector<int64_t> out_split_sizes;
+  std::vector<int64_t> in_split_sizes;
+  if (out_size_each_rank.empty() && in_size_each_rank.empty()) {
+    out_split_sizes =
+        std::vector<int64_t>(size_, out_tensor->dims()[0] / size_);
+    in_split_sizes = std::vector<int64_t>(size_, in_tensor.dims()[0] / size_);
+  } else {
+    out_split_sizes = out_size_each_rank;
+    in_split_sizes = in_size_each_rank;
+  }
+
   const phi::DDim& out_dim = out_tensor->dims();
   const phi::DDim& in_dim = in_tensor.dims();
 
@@ -395,13 +406,13 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupBKCL::AllToAll(
           in_dim[0],
           size_));
   int64_t size_on_each_rank = in_dim[0] / size_;
-  for (size_t i = 0; i < in_size_each_rank.size(); i++) {
+  for (size_t i = 0; i < in_split_sizes.size(); i++) {
     PADDLE_ENFORCE_EQ(size_on_each_rank,
-                      in_size_each_rank[i],
+                      in_split_sizes[i],
                       common::errors::PreconditionNotMet(
                           "XPU AllToAll only support all_to_all_single mode"));
     PADDLE_ENFORCE_EQ(size_on_each_rank,
-                      out_size_each_rank[i],
+                      out_split_sizes[i],
                       common::errors::PreconditionNotMet(
                           "XPU AllToAll only support all_to_all_single mode"));
   }

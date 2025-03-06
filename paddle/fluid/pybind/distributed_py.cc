@@ -341,13 +341,11 @@ void BindDistributed(py::module *m) {
                 auto in_dense = *p_in_tensor;
 
                 // in_tensor_list should not be empty
-                int world_size = self.GetSize();
-                auto task =
-                    self.AllToAll(out_dense,
-                                  in_dense,
-                                  GetDefaultSplitSizes(*out_dense, world_size),
-                                  GetDefaultSplitSizes(in_dense, world_size),
-                                  sync_op);
+                auto task = self.AllToAll(out_dense,
+                                          in_dense,
+                                          GetSplitSizes(out_tensor_list),
+                                          GetSplitSizes(in_tensor_list),
+                                          sync_op);
                 auto *dev_ctx =
                     self.GetDeviceContext(in_tensor_list.back().place());
                 SplitTensor(*dev_ctx, *out_dense, &out_tensor_list);
@@ -376,14 +374,7 @@ void BindDistributed(py::module *m) {
                     in_tensor.impl());
                 auto in_dense = *p_in_tensor;
 
-                int world_size = self.GetSize();
-
-                return self.AllToAll(
-                    out_dense,
-                    in_dense,
-                    GetDefaultSplitSizes(*out_dense, world_size),
-                    GetDefaultSplitSizes(in_dense, world_size),
-                    sync_op);
+                return self.AllToAll(out_dense, in_dense, {}, {}, sync_op);
               },
               py::arg("out"),
               py::arg("in"),
@@ -929,14 +920,12 @@ void BindDistributed(py::module *m) {
                 auto in_dense = *p_in_tensor;
 
                 // in_tensor_list should not be empty
-                int world_size = self.GetSize();
-                auto task =
-                    self.AllToAll(out_dense,
-                                  in_dense,
-                                  GetDefaultSplitSizes(*out_dense, world_size),
-                                  GetDefaultSplitSizes(in_dense, world_size),
-                                  /*sync_op*/ true,
-                                  /*use_calc_stream*/ true);
+                auto task = self.AllToAll(out_dense,
+                                          in_dense,
+                                          GetSplitSizes(out_tensor_list),
+                                          GetSplitSizes(in_tensor_list),
+                                          /*sync_op*/ true,
+                                          /*use_calc_stream*/ true);
                 auto *dev_ctx = self.GetDeviceContext(
                     in_tensor_list.back().place(), /*use_calc_stream*/ true);
                 SplitTensor(*dev_ctx, *out_dense, &out_tensor_list);
@@ -962,14 +951,12 @@ void BindDistributed(py::module *m) {
                     in_tensor.impl());
                 auto in_dense = *p_in_tensor;
 
-                int world_size = self.GetSize();
-                return self.AllToAll(
-                    out_dense,
-                    in_dense,
-                    GetDefaultSplitSizes(*out_dense, world_size),
-                    GetDefaultSplitSizes(in_dense, world_size),
-                    /*sync_op*/ true,
-                    /*use_calc_stream*/ true);
+                return self.AllToAll(out_dense,
+                                     in_dense,
+                                     {},
+                                     {},
+                                     /*sync_op*/ true,
+                                     /*use_calc_stream*/ true);
               },
               py::arg("out"),
               py::arg("in"))
