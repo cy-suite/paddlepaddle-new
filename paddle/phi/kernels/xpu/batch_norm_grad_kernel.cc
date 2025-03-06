@@ -191,18 +191,18 @@ void BatchNormGradKernel(const Context &dev_ctx,
 
   const auto *global_mean = mean.get_ptr();
   const auto *global_var = variance.get_ptr();
-  PADDLE_ENFORCE_NOT_NULL(
-      global_mean,
-      errors::InvalidArgument(
-          "global_mean cannot be nullptr when use_global_stats is True"));
-  PADDLE_ENFORCE_NOT_NULL(
-      global_var,
-      errors::InvalidArgument(
-          "global_var cannot be nullptr when use_global_stats is True"));
-
   float *global_inv_std_data = nullptr;
   int r = 0;
   if (use_global_stats) {
+    PADDLE_ENFORCE_NOT_NULL(
+        global_mean,
+        errors::InvalidArgument(
+            "global_mean cannot be nullptr when use_global_stats is True"));
+    PADDLE_ENFORCE_NOT_NULL(
+        global_var,
+        errors::InvalidArgument(
+            "global_var cannot be nullptr when use_global_stats is True"));
+
     global_inv_std_data = RAII_GUARD.alloc_l3_or_gm<float>(global_var->numel());
     float *epsilon_data = RAII_GUARD.alloc_l3_or_gm<float>(1);
     r = CalculateInvVar(dev_ctx.x_context(),
