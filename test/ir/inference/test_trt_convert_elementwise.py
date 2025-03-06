@@ -200,7 +200,7 @@ class TrtConvertElementwiseTestOneInputSpecialCase1(TrtLayerAutoScanTest):
             else:
                 return np.random.randn(1).astype(np.float32)
 
-        for shape in [[4]]:
+        for shape in [[32]]:
             for op_type in [
                 "elementwise_add",
                 "elementwise_mul",
@@ -250,9 +250,9 @@ class TrtConvertElementwiseTestOneInputSpecialCase1(TrtLayerAutoScanTest):
                     yield program_config
 
     def generate_dynamic_shape(self):
-        self.dynamic_shape.min_input_shape = {"input_data": [4]}
-        self.dynamic_shape.max_input_shape = {"input_data": [8]}
-        self.dynamic_shape.opt_input_shape = {"input_data": [4]}
+        self.dynamic_shape.min_input_shape = {"input_data": [32]}
+        self.dynamic_shape.max_input_shape = {"input_data": [64]}
+        self.dynamic_shape.opt_input_shape = {"input_data": [32]}
         return self.dynamic_shape
 
     def sample_predictor_configs(

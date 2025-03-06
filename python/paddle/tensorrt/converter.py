@@ -407,7 +407,7 @@ class PaddleToTensorRTConverter:
             min_value = []
             opt_value = []
             max_value = []
-            if is_shape_tensor(result_value):
+            if value_to_trt_tensor[result_value.id].is_shape_tensor:
                 min_value = get_value_shape_range_info(
                     result_value, True, paddle.base.core.ShapeMode.kMIN
                 )

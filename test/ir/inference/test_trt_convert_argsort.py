@@ -36,7 +36,7 @@ class TrtConvertArgsort(TrtLayerAutoScanTest):
             elif self.dims == 2:
                 return np.random.random([1, 24]).astype(np.float32)
             else:
-                return np.random.random([4]).astype(np.float32)
+                return np.random.random([24]).astype(np.float32)
 
         for dims in [1, 2, 3, 4]:
             for axis in [-1, 0]:
@@ -102,13 +102,13 @@ class TrtConvertArgsort(TrtLayerAutoScanTest):
             }
         else:
             self.dynamic_shape.min_input_shape = {
-                "input_data": [1],
+                "input_data": [24],
             }
             self.dynamic_shape.max_input_shape = {
-                "input_data": [8],
+                "input_data": [25],
             }
             self.dynamic_shape.opt_input_shape = {
-                "input_data": [4],
+                "input_data": [24],
             }
         return self.dynamic_shape
 

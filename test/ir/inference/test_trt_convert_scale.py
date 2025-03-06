@@ -48,7 +48,7 @@ class TrtConvertScaleTest(TrtLayerAutoScanTest):
                     np.int32 if is_int else np.float32
                 )
             elif self.dims == 1:
-                return np.ones([4]).astype(np.int32 if is_int else np.float32)
+                return np.ones([24]).astype(np.int32 if is_int else np.float32)
             elif self.dims == 0:
                 return np.ones([]).astype(np.int32 if is_int else np.float32)
 
@@ -134,9 +134,15 @@ class TrtConvertScaleTest(TrtLayerAutoScanTest):
 
     def generate_dynamic_shape(self):
         if self.dims == 4:
-            self.dynamic_shape.min_input_shape = {"scale_input": [1, 3, 24, 24]}
-            self.dynamic_shape.max_input_shape = {"scale_input": [4, 3, 24, 24]}
-            self.dynamic_shape.opt_input_shape = {"scale_input": [1, 3, 24, 24]}
+            self.dynamic_shape.min_input_shape = {
+                "scale_input": [1, 3, 24, 24]
+            }
+            self.dynamic_shape.max_input_shape = {
+                "scale_input": [4, 3, 24, 24]
+            }
+            self.dynamic_shape.opt_input_shape = {
+                "scale_input": [1, 3, 24, 24]
+            }
         elif self.dims == 3:
             self.dynamic_shape.min_input_shape = {"scale_input": [1, 3, 24]}
             self.dynamic_shape.max_input_shape = {"scale_input": [4, 3, 24]}
@@ -146,9 +152,9 @@ class TrtConvertScaleTest(TrtLayerAutoScanTest):
             self.dynamic_shape.max_input_shape = {"scale_input": [9, 48]}
             self.dynamic_shape.opt_input_shape = {"scale_input": [1, 24]}
         elif self.dims == 1:
-            self.dynamic_shape.min_input_shape = {"scale_input": [1]}
-            self.dynamic_shape.max_input_shape = {"scale_input": [8]}
-            self.dynamic_shape.opt_input_shape = {"scale_input": [4]}
+            self.dynamic_shape.min_input_shape = {"scale_input": [24]}
+            self.dynamic_shape.max_input_shape = {"scale_input": [48]}
+            self.dynamic_shape.opt_input_shape = {"scale_input": [24]}
         elif self.dims == 0:
             self.dynamic_shape.min_input_shape = {"scale_input": []}
             self.dynamic_shape.max_input_shape = {"scale_input": []}

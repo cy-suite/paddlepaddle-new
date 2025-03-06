@@ -50,15 +50,15 @@ class TrtConvertReduceTest(TrtLayerAutoScanTest):
     def sample_program_configs(self):
         def generate_input1(dtype, attrs: list[dict[str, Any]]):
             if dtype == -1 or dtype == 5:
-                return np.random.random([1, 3, 4, 4]).astype(np.float32)
+                return np.random.random([1, 3, 64, 64]).astype(np.float32)
             elif dtype == 2:
-                return np.random.random([1, 3, 4, 4]).astype(np.int32)
+                return np.random.random([1, 3, 64, 64]).astype(np.int32)
             elif dtype == 0:
-                return np.random.random([1, 3, 4, 4]).astype(np.bool_)
+                return np.random.random([1, 3, 64, 64]).astype(np.bool_)
             elif dtype == 3:
-                return np.random.random([1, 3, 4, 4]).astype(np.int64)
+                return np.random.random([1, 3, 64, 64]).astype(np.int64)
             elif dtype == 6:
-                return np.random.random([1, 3, 4, 4]).astype(np.float64)
+                return np.random.random([1, 3, 64, 64]).astype(np.float64)
 
         for keep_dim in [True, False]:
             for dim in [
@@ -135,9 +135,9 @@ class TrtConvertReduceTest(TrtLayerAutoScanTest):
                             yield program_config
 
     def generate_dynamic_shape(self):
-        self.dynamic_shape.min_input_shape = {"input_data": [1, 3, 1, 1]}
-        self.dynamic_shape.max_input_shape = {"input_data": [4, 3, 8, 8]}
-        self.dynamic_shape.opt_input_shape = {"input_data": [1, 3, 4, 4]}
+        self.dynamic_shape.min_input_shape = {"input_data": [1, 3, 32, 32]}
+        self.dynamic_shape.max_input_shape = {"input_data": [4, 3, 64, 64]}
+        self.dynamic_shape.opt_input_shape = {"input_data": [1, 3, 64, 64]}
         return self.dynamic_shape
 
     def sample_predictor_configs(
