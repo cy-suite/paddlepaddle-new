@@ -33,7 +33,7 @@ class InnerLayer(paddle.nn.Layer):
         return self.linear(x)
 
 
-class MyLayer(paddle.nn.Layer):
+class NestedLayerForDeepcopy(paddle.nn.Layer):
     def __init__(self):
         super().__init__()
         self.inner = InnerLayer()
@@ -84,7 +84,7 @@ class TestDeepCopy(Dy2StTestBase):
 
     @test_ast_only
     def test_nested_net(self):
-        model = MyLayer()
+        model = NestedLayerForDeepcopy()
         static_model = paddle.jit.to_static(model)
         x = paddle.randn([1, 256, 32])
         out = model(x)
