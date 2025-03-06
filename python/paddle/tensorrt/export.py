@@ -161,7 +161,7 @@ class Input:
                     self.input_data_type
                 )
             else:
-                low, high = self.input_range if self.input_range else (0, 1)
+                low, high = self.input_range
                 self.input_min_data = np.random.uniform(
                     low, high, size=self.min_input_shape
                 ).astype(self.input_data_type)
