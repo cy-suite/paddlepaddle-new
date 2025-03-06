@@ -22,6 +22,7 @@ function run_sot_test() {
     export MIN_GRAPH_SIZE=0
     export SOT_LOG_LEVEL=0
     export FLAGS_cudnn_deterministic=True
+    export SOT_ENABLE_STRICT_GUARD_CHECK=True
 
     # Install PaddlePaddle
     echo "::group::Installing paddle wheel..."
@@ -54,7 +55,7 @@ function run_sot_test() {
                 echo "skip ${PY_VERSION_NO_DOT} ${file}"
                 continue
             fi
-            echo Running:" STRICT_MODE=1 COST_MODEL=False MIN_GRAPH_SIZE=0 SOT_LOG_LEVEL=0 FLAGS_cudnn_deterministic=True SOT_ENABLE_CHECK_FASTER_GUARD=True python " $file
+            echo Running:" STRICT_MODE=1 COST_MODEL=False MIN_GRAPH_SIZE=0 SOT_LOG_LEVEL=0 FLAGS_cudnn_deterministic=True SOT_ENABLE_STRICT_GUARD_CHECK=True python " $file
             # run unittests
             python_output=$($PYTHON_WITH_SPECIFY_VERSION $file 2>&1)
 

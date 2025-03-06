@@ -23,8 +23,8 @@ import paddle
 
 from ...profiler import EventGuard
 from ...utils import (
-    ENV_SOT_ENABLE_CHECK_FASTER_GUARD,
     ENV_SOT_ENABLE_FASTER_GUARD,
+    ENV_SOT_ENABLE_STRICT_GUARD_CHECK,
     current_symbol_registry,
     log,
     log_do,
@@ -100,7 +100,12 @@ class FasterStringifiedExpression(StringifiedExpression):
     ):
         self.faster_guard = faster_guard
         if ENV_SOT_ENABLE_FASTER_GUARD.get():
-            original_expr_template = expr_template
+            if ENV_SOT_ENABLE_STRICT_GUARD_CHECK.get():
+                self.py_guard_expr_template = original_expr_template = (
+                    expr_template
+                )
+            else:
+                original_expr_template = expr_template
             expr_template, free_vars = gen_faster_guard_expr_template(
                 faster_guard, sub_exprs, free_vars
             )
@@ -143,11 +148,8 @@ def make_guard(stringified_guards: list[StringifiedExpression]) -> Guard:
             guard = lambda frame: True
             guard.expr = "lambda frame: True"
             guard.original_guard = guard
-            if (
-                ENV_SOT_ENABLE_CHECK_FASTER_GUARD.get()
-                and not ENV_SOT_ENABLE_FASTER_GUARD.get()
-            ):
-                guard.faster_guard = guard
+            if ENV_SOT_ENABLE_STRICT_GUARD_CHECK.get():
+                guard.mirror_guard = lambda frame: True
             return guard
 
         free_vars = union_free_vars(
@@ -166,37 +168,41 @@ def make_guard(stringified_guards: list[StringifiedExpression]) -> Guard:
         guard.inlined_expr = inlined_guard_expr
         guard.expr = guard_expr
 
-        if (
-            ENV_SOT_ENABLE_CHECK_FASTER_GUARD.get()
-            and not ENV_SOT_ENABLE_FASTER_GUARD.get()
-        ):
-            faster_guard_expr_list: list[str] = []
-            faster_guard_temp_free_vars: dict[str, Any] = {}
+        def check_guard_callable(guard: GuardBase):
+            assert callable(guard), "guard must be callable."
+
+        if ENV_SOT_ENABLE_STRICT_GUARD_CHECK.get():
+            mirror_guard_expr_list: list[str] = []
+            mirror_guard_temp_free_vars: dict[str, Any] = {}
             for expr in stringified_guards:
                 if isinstance(expr, FasterStringifiedExpression):
-                    expr_template, expr_free_vars = (
-                        gen_faster_guard_expr_template(
-                            expr.faster_guard, expr.sub_exprs, expr.free_vars
+                    if not ENV_SOT_ENABLE_FASTER_GUARD.get():
+                        expr_template, expr_free_vars = (
+                            gen_faster_guard_expr_template(
+                                expr.faster_guard,
+                                expr.sub_exprs,
+                                expr.free_vars,
+                            )
                         )
-                    )
+                    else:
+                        expr_template = expr.py_guard_expr_template
+                        expr_free_vars = expr.free_vars
                     expr = StringifiedExpression(
                         expr_template, expr.sub_exprs, expr_free_vars
                     )
-                faster_guard_expr_list.append(expr.inlined_expr)
-                faster_guard_temp_free_vars.update(expr.free_vars)
-            faster_guard_expr = "lambda frame: " + " and ".join(
-                faster_guard_expr_list
+                mirror_guard_expr_list.append(expr.inlined_expr)
+                mirror_guard_temp_free_vars.update(expr.free_vars)
+            mirror_guard_expr = "lambda frame: " + " and ".join(
+                mirror_guard_expr_list
             )
-            faster_guard_free_vars = union_free_vars(
-                faster_guard_temp_free_vars
+            mirror_guard_free_vars = union_free_vars(
+                mirror_guard_temp_free_vars
             )
-            guard.faster_guard = eval(faster_guard_expr, faster_guard_free_vars)
-            guard.faster_guard.expr = faster_guard_expr
-            assert callable(
-                guard.faster_guard
-            ), "faster guard must be callable."
+            guard.mirror_guard = eval(mirror_guard_expr, mirror_guard_free_vars)
+            guard.mirror_guard.expr = mirror_guard_expr
+            check_guard_callable(guard.mirror_guard)
 
-        assert callable(guard), "guard must be callable."
+        check_guard_callable(guard)
 
         return guard
 

@@ -24,6 +24,7 @@ from ...profiler import EventGuard, event_register
 from ...psdb import NO_FALLBACK_CODES
 from ...utils import (
     ENV_SOT_ALLOW_DYNAMIC_SHAPE,
+    ENV_SOT_ENABLE_STRICT_GUARD_CHECK,
     BreakGraphError,
     CompileCountInfo,
     FallbackError,
@@ -48,6 +49,8 @@ GuardedFunctions = List[GuardedFunction]
 dummy_guard: Guard = lambda frame: True
 dummy_guard.expr = "lambda frame: True"
 dummy_guard.inlined_expr = "lambda frame: True"
+if ENV_SOT_ENABLE_STRICT_GUARD_CHECK.get():
+    dummy_guard.mirror_guard = lambda frame: True
 
 
 class OpcodeExecutorCache(metaclass=Singleton):
@@ -127,16 +130,23 @@ class OpcodeExecutorCache(metaclass=Singleton):
             return CustomCode(None, False)
 
         for custom_code, guard_fn in guarded_fns:
+            if ENV_SOT_ENABLE_STRICT_GUARD_CHECK.get():
+                mirror_guard_error = None
+                try:
+                    with EventGuard("try mirror guard"):
+                        mirror_guard_result = guard_fn.mirror_guard(frame)
+                except Exception as e:
+                    log(2, f"[Cache] Mirror guard error: {e}\n")
+                    mirror_guard_error = e
+
             try:
                 with EventGuard("try guard"):
                     guard_result = guard_fn(frame)
-                    if hasattr(guard_fn, "faster_guard"):
-                        faster_guard_result: bool = guard_fn.faster_guard(frame)
-                if hasattr(guard_fn, "faster_guard"):
-                    assert faster_guard_result == guard_result, (
+                if ENV_SOT_ENABLE_STRICT_GUARD_CHECK.get():
+                    assert mirror_guard_result == guard_result, (
                         "faster guard result is not equal to guard result, "
                         f"guard_expr: {getattr(guard_fn, 'expr', 'None')}, "
-                        f"faster_guard_expr: {getattr(guard_fn.faster_guard, 'expr', 'None')},"
+                        f"faster_guard_expr: {getattr(guard_fn.mirror_guard, 'expr', 'None')},"
                     )
                 if guard_result:
                     log(
@@ -167,8 +177,23 @@ class OpcodeExecutorCache(metaclass=Singleton):
                     2,
                     self.analyse_guard_error(guard_fn, frame),
                 )
-
-                continue
+                if ENV_SOT_ENABLE_STRICT_GUARD_CHECK.get():
+                    # lambda_head = "lambda frame: "
+                    # guard_expr = guard_fn.mirror_guard.expr.replace(lambda_head, "")
+                    # for faster_g in guard_expr.split(" and "):
+                    #     try:
+                    #         if eval(lambda_head + faster_g, guard_fn.mirror_guard.__globals__)(frame) is False:
+                    #             breakpoint()
+                    #     except Exception as e:
+                    #         breakpoint()
+                    # breakpoint()
+                    assert type(e) == type(mirror_guard_error) and str(
+                        e
+                    ) == str(mirror_guard_error), (
+                        "mirror guard error is not equal to guard error, "
+                        f"guard_error: {e}, "
+                        f"mirror_guard_error: {mirror_guard_error},"
+                    )
 
         log(2, "[Cache]: all guards missed\n")
         new_custom_code, guard_fn = self.translate(frame, **kwargs)
