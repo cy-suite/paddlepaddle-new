@@ -95,11 +95,28 @@ def ref_batch_norm_global(
 
 
 def ref_batch_norm_train(
-    x, y_grad, scale, bias, mean, variance, momentum, epsilon, data_layout, use_global
+    x,
+    y_grad,
+    scale,
+    bias,
+    mean,
+    variance,
+    momentum,
+    epsilon,
+    data_layout,
+    use_global,
 ):
     if use_global:
         return ref_batch_norm_global(
-            x, y_grad, scale, bias, mean, variance, momentum, epsilon, data_layout
+            x,
+            y_grad,
+            scale,
+            bias,
+            mean,
+            variance,
+            momentum,
+            epsilon,
+            data_layout,
         )
     # Forward
     if data_layout == "NCHW":
@@ -114,7 +131,9 @@ def ref_batch_norm_train(
         saved_mean_tile = np.tile(saved_mean_tile, (n, 1, h, w))
         saved_variance_tile = np.reshape(saved_variance, (1, c, 1, 1))
         saved_variance_tile = np.tile(saved_variance_tile, (n, 1, h, w))
-        normalized_x = (x - saved_mean_tile) / np.sqrt(saved_variance_tile + epsilon)
+        normalized_x = (x - saved_mean_tile) / np.sqrt(
+            saved_variance_tile + epsilon
+        )
         scale_tile = np.reshape(scale, (1, c, 1, 1))
         scale_tile = np.tile(scale_tile, (n, 1, h, w))
         bias_tile = np.reshape(bias, (1, c, 1, 1))
@@ -168,7 +187,9 @@ class XPUTestBatchNormOp(XPUOpTestWrapper):
         self.op_name = "batch_norm"
         self.use_dynamic_create_class = False
 
-    @unittest.skipIf(not paddle.is_compiled_with_xpu(), "core is not compiled with XPU")
+    @unittest.skipIf(
+        not paddle.is_compiled_with_xpu(), "core is not compiled with XPU"
+    )
     class TestBatchNormOp(unittest.TestCase):
         def setUp(self):
             self.op_type = "batch_norm"
@@ -194,8 +215,12 @@ class XPUTestBatchNormOp(XPUOpTestWrapper):
                 )
             np.random.seed(1024)
             self.x_np = np.random.random_sample(self.shape).astype(self.dtype)
-            self.scale_np = np.random.random_sample([channel_size]).astype(np.float32)
-            self.bias_np = np.random.random_sample([channel_size]).astype(np.float32)
+            self.scale_np = np.random.random_sample([channel_size]).astype(
+                np.float32
+            )
+            self.bias_np = np.random.random_sample([channel_size]).astype(
+                np.float32
+            )
             self.mean_np = np.zeros([channel_size]).astype(np.float32)
             self.variance_np = np.ones([channel_size]).astype(np.float32)
             self.saved_mean_np = np.zeros([channel_size]).astype(np.float32)
@@ -294,7 +319,9 @@ class XPUTestBatchNormOp(XPUOpTestWrapper):
                         net2.training = False
                     y1 = net1(x)
                     y2 = net2(x)
-                    np.testing.assert_allclose(y1.numpy(), y2.numpy(), rtol=1e-5)
+                    np.testing.assert_allclose(
+                        y1.numpy(), y2.numpy(), rtol=1e-5
+                    )
 
     class TestBatchNormOpUseGlobalStats1(TestBatchNormOpUseGlobalStats):
         # test mode
@@ -346,8 +373,12 @@ class XPUTestBatchNormGradOp(XPUOpTestWrapper):
                 )
             np.random.seed(1024)
             self.x_np = np.random.random_sample(self.shape).astype(self.dtype)
-            self.scale_np = np.random.random_sample([channel_size]).astype(np.float32)
-            self.bias_np = np.random.random_sample([channel_size]).astype(np.float32)
+            self.scale_np = np.random.random_sample([channel_size]).astype(
+                np.float32
+            )
+            self.bias_np = np.random.random_sample([channel_size]).astype(
+                np.float32
+            )
             self.mean_np = np.zeros([channel_size]).astype(np.float32)
             self.variance_np = np.ones([channel_size]).astype(np.float32)
             self.saved_mean_np = np.zeros([channel_size]).astype(np.float32)
@@ -370,7 +401,9 @@ class XPUTestBatchNormGradOp(XPUOpTestWrapper):
 
         def test_train(self):
             with paddle.pir_utils.OldIrGuard():
-                y_grad_np = np.random.random_sample(self.shape).astype(self.dtype)
+                y_grad_np = np.random.random_sample(self.shape).astype(
+                    self.dtype
+                )
                 (
                     y_np,
                     mean_out_np,
