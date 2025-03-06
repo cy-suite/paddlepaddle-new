@@ -786,3 +786,16 @@ def update_tuple_pop_origin_inputs(tuple_pop_outputs):
 
     # pass inlets
     return tuple_push_inputs_with_if[1:]
+
+
+def value_in_block(value, block):
+    value_block = value.get_defining_op().get_parent_block()
+    while block.parent_op.name() != "builtin.module":
+        if block == value_block:
+            return True
+        block = block.parent_block
+    # now block is module op's block
+    if block == value_block:
+        return True
+
+    return False

@@ -49,6 +49,7 @@ from paddle.autograd.backward_utils import (
     update_no_grad_set_by_stopgradient,
     update_tuple_pop_origin_inputs,
     update_while_output_stopgradient,
+    value_in_block,
     warning_once,
     while_prune_check,
 )
@@ -645,7 +646,8 @@ def append_backward_ops(
                     new_value = return_map_value(
                         value, control_flow_value_to_copyvalue_map
                     )
-                    if new_value.get_defining_op().get_parent_block() != block:
+                    if not value_in_block(new_value, block):
+                        # new_value.defining_op is another if block's tuple_pop
                         state.value_to_valuegrad[value] = [
                             [paddle.pir.fake_value()]
                         ]
@@ -831,6 +833,7 @@ def append_backward_ops(
                             sub_control_flow_value_to_copyvalue_map = (
                                 control_flow_value_to_copyvalue_map.copy()
                             )
+
                             append_backward_ops(
                                 op,
                                 [input[0] for input in inputs[1:]],
@@ -1255,6 +1258,7 @@ def calc_gradient_helper(
         state,
         ValueDict(),
     )
+
     # now value_to_valuegrad should be value <-> value (add sum op for the same values's grad value)
     outputs_set, inputs_set, no_gradvar_set = create_backward_prune_set(
         outputs_fwd_set, inputs_fwd_set, no_grad_set, state
