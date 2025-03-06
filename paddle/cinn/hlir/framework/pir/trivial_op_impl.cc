@@ -94,7 +94,7 @@ ir::Expr GetComputeBody(const FusibleOp& op) {
       const auto& compute_body =
           (ExprSetFinderUtils::ChildStores * ExprSetFinderUtils::Store2Value)
               .GetSingle(compute_realize);
-      return ExprTransformerUtils::SubstitudeByScheduleBlockRealize(
+      return ExprTransformerUtils::SubstituteByScheduleBlockRealize(
           compute_realize)(compute_body);
     }
     ir::Expr operator()(const TrivialOp& op) {
@@ -104,7 +104,7 @@ ir::Expr GetComputeBody(const FusibleOp& op) {
       const auto& compute_body =
           (ExprSetFinderUtils::ChildStores * ExprSetFinderUtils::Store2Value)
               .GetSingle(compute_realize);
-      return ExprTransformerUtils::SubstitudeByScheduleBlockRealize(
+      return ExprTransformerUtils::SubstituteByScheduleBlockRealize(
           compute_realize)(compute_body);
     }
   };
@@ -325,7 +325,7 @@ ir::Expr CreateExprWithNewComputeBody(const FusibleOp& fusible_op,
 }
 
 int GetTensorCounter() {
-  static int counter = 1;
+  static thread_local std::atomic<int> counter = 1;
   return counter++;
 }
 
@@ -604,7 +604,7 @@ std::shared_ptr<FusionGroupInfo> GetFusionGroupInfo(
 
   if (FLAGS_cinn_enable_vectorize) {
     group_info->vectorize_info =
-        GetCanApplyVectorize(op_compute_bodies, group_args);
+        GetGroupVectorizeInfo(op_compute_bodies, group_args);
   }
 
   VLOG(4) << group_info->DebugPrint();

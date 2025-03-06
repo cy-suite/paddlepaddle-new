@@ -25,6 +25,9 @@
 #ifdef CINN_WITH_HIP
 #include "paddle/cinn/backends/hip/codegen_hip_dev.h"
 #endif
+#ifdef CINN_WITH_SYCL
+#include "paddle/cinn/backends/sycl/codegen_sycl_dev.h"
+#endif
 #include "paddle/cinn/cinn.h"
 #include "paddle/cinn/ir/ir.h"
 #include "paddle/cinn/ir/ir_mutator.h"
@@ -118,7 +121,7 @@ struct CollectHostFunctionVisitor : public ir::IRMutator<> {
     ir::Var kernel_stream(KERNEL_STREAM, type_of<void*>());
 
     // shared_mem_bytes Can be calculated after codegen_cuda_dev buffer creation
-    // however, this make CodeGenCudaDev before spliting the host and device
+    // however, this make CodeGenCudaDev before splitting the host and device
     // module Maybe we could reorder the process.
     std::optional<Expr> shared_mem_bytes;
     cinn::common::DefaultDeviceTarget().arch.Match(
@@ -140,7 +143,14 @@ struct CollectHostFunctionVisitor : public ir::IRMutator<> {
           shared_mem_bytes = codegen_dev.GetDynSharedMemOffset();
 #endif
         },
-        [&](common::HygonDCUArchSYCL) { CINN_NOT_IMPLEMENTED });
+        [&](common::HygonDCUArchSYCL) {
+#ifdef CINN_WITH_SYCL
+          sycl::CodeGenSyclDevice codegen_dev(
+              cinn::common::DefaultHygonDcuSyclTarget());
+          codegen_dev.Compile(ir::LoweredFunc(func));
+          shared_mem_bytes = codegen_dev.GetDynSharedMemOffset();
+#endif
+        });
 
     VLOG(6) << "Add a call node for func->name " << func->name << "\n"
             << "grid_dim: (" << func->cuda_axis_info.grid_dim(0) << ", "

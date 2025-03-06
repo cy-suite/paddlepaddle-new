@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "paddle/cinn/backends/codegen_device_util.h"
-#include "paddle/cinn/common/cas.h"
 #include "paddle/cinn/hlir/dialect/operator/ir/symbol_bindings.h"
 #include "paddle/cinn/hlir/framework/op.h"
 #include "paddle/cinn/hlir/framework/op_strategy.h"
@@ -24,6 +23,7 @@
 #include "paddle/cinn/hlir/pe/schedule.h"
 #include "paddle/cinn/hlir/pe/transform.h"
 #include "paddle/cinn/ir/ir_printer.h"
+#include "paddle/cinn/optim/ir_simplify.h"
 #include "paddle/cinn/utils/string.h"
 #include "paddle/common/enforce.h"
 #include "paddle/pir/include/dialect/shape/utils/dim_expr.h"
@@ -147,11 +147,8 @@ std::shared_ptr<OpStrategy> StrategyForCustomCall(
     *ret = CINNValuePack{{CINNValue(func)}};
   });
 
-  framework::CINNSchedule schedule(
-      [=](lang::Args args, lang::RetValue *ret) {});
-
   auto strategy = std::make_shared<framework::OpStrategy>();
-  strategy->AddImpl(compute, schedule, "strategy.custom_call.x86", 1);
+  strategy->AddImpl(compute, "strategy.custom_call.x86", 1);
   return strategy;
 }
 
