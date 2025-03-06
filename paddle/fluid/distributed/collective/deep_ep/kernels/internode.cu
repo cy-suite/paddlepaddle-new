@@ -206,7 +206,7 @@ struct SourceMeta {
 
   __forceinline__ SourceMeta() = default;
 
-  // TODO(Xreki): faster encoding
+  // TODO(Hongqing-work): faster encoding
   __device__ __forceinline__ SourceMeta(int rdma_rank,
                                         const bool* is_token_in_nvl_ranks) {
     src_rdma_rank = rdma_rank;

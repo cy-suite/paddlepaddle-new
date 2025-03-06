@@ -3541,5 +3541,8 @@ All parameter, weight, gradient are variables in Paddle.
   BindDistApi(&m);
   BindDeepEPApi(&m);
 #endif
+#if defined(PADDLE_WITH_DISTRIBUTE) && defined(PADDLE_WITH_DEEP_EP)
+  BindDeepEPApi(&m);
+#endif
 }
 }  // namespace paddle::pybind
