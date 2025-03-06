@@ -18,6 +18,7 @@ import tensorrt as trt
 from paddle.tensorrt.converter_utils import (
     get_input_constant_value,
     get_shape_tensor_element,
+    set_layer_name,
     squeeze_trt,
     trt_cast,
     trt_gather,
@@ -32,13 +33,16 @@ from paddle.tensorrt.register import converter_registry
 def non_zero_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
     cast_layer = network.add_cast(input_tensor, trt.float32)
+    set_layer_name(cast_layer, paddle_op)
+
     non_zero_layer = network.add_non_zero(cast_layer.get_output(0))
     nonzero_output = non_zero_layer.get_output(0)
+    set_layer_name(non_zero_layer, paddle_op)
 
     shuffle_layer = network.add_shuffle(input=nonzero_output)
     shuffle_layer.first_transpose = (1, 0)
-
     transposed_output = shuffle_layer.get_output(0)
+    set_layer_name(shuffle_layer, paddle_op)
     return transposed_output
 
 
