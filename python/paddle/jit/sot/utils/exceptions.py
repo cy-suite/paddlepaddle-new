@@ -199,6 +199,12 @@ class FallbackError(SotErrorBase):
 class BreakGraphError(SotErrorBase):
     def __init__(self, reason: BreakGraphReasonBase = None):
         super().__init__(str(reason))
+
+        if isinstance(reason, BreakGraphReasonBase):
+            raise ValueError(
+                "reason must be a subclass of BreakGraphReasonBase"
+            )
+
         self.reason = reason
         BreakGraphReasonInfo.collect_break_graph_reason(reason)
 
