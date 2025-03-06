@@ -29,6 +29,7 @@ void SwiGLUKernel(const Context &ctx,
                   const paddle::optional<DenseTensor> &y,
                   DenseTensor *z) {
   if (x.numel() == 0) {
+    ctx.template Alloc<T>(z);
     return;
   }
   const auto *x_ptr = x.data<T>();

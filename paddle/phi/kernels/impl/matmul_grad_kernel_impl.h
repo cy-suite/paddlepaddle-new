@@ -230,6 +230,7 @@ void MatmulGradKernel(const Context& dev_ctx,
                       DenseTensor* dx,
                       DenseTensor* dy) {
   if (x.numel() == 0) {
+    dev_ctx.template Alloc<T>(dx);
     phi::FullKernel<T>(
         dev_ctx, common::vectorize(y.dims()), 0.0, y.dtype(), dy);
 
