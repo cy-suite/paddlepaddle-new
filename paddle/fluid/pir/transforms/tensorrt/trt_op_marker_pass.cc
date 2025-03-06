@@ -1706,21 +1706,17 @@ class BilinearInterpV2Pattern
     if (size_tensor.impl()) {
       auto *first_def_op = size_tensor.defining_op();
       std::vector<std::string> upstream_op_names;
-      if (first_def_op) {
-        upstream_op_names.push_back(first_def_op->name());
-        if (first_def_op->num_operands() > 0) {
-          auto second_input = first_def_op->operand_source(0);
-          if (second_input.impl()) {
-            auto *second_def_op = second_input.defining_op();
-            if (second_def_op) {
-              upstream_op_names.push_back(second_def_op->name());
-            }
-            auto third_input = second_def_op->operand_source(0);
-            if (third_input.impl()) {
-              auto *third_def_op = third_input.defining_op();
-              upstream_op_names.push_back(third_def_op->name());
-            }
-          }
+      upstream_op_names.push_back(first_def_op->name());
+      if (first_def_op->num_operands() > 0 &&
+          first_def_op->operand_source(0).impl()) {
+        auto second_input = first_def_op->operand_source(0);
+        auto *second_def_op = second_input.defining_op();
+        upstream_op_names.push_back(second_def_op->name());
+        if (second_def_op->num_operands() > 0 &&
+            second_def_op->operand_source(0).impl()) {
+          auto third_input = second_def_op->operand_source(0);
+          auto *third_def_op = third_input.defining_op();
+          upstream_op_names.push_back(third_def_op->name());
         }
       }
       bool found_shape = false;
