@@ -22,6 +22,7 @@
 #include "paddle/cinn/optim/cast_bool_to_int8.h"
 #include "paddle/cinn/optim/eliminate_broadcast_in_forloop.h"
 #include "paddle/cinn/optim/eliminate_invariant_loop.h"
+#include "paddle/cinn/optim/entail_loop_condition_pass.h"
 #include "paddle/cinn/optim/extern_call_process_pass.h"
 #include "paddle/cinn/optim/fold_cinn_call_arguments.h"
 #include "paddle/cinn/optim/if_fold_pass.h"
@@ -43,7 +44,6 @@
 #include "paddle/cinn/optim/transform_polyfor_to_for.h"
 #include "paddle/cinn/optim/unroll_loops.h"
 #include "paddle/cinn/optim/vectorize_for_trans.h"
-#include "paddle/cinn/optim/vectorize_loops.h"
 #include "paddle/cinn/pass/pass_manager.h"
 
 PD_DECLARE_bool(cinn_enable_vectorize);
@@ -107,7 +107,7 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
         VLOG(10) << "After Optimize TransBufferWithDynamicShape:" << copied;
 #endif
       },
-      [&](common::HygonDCUArchHIP) {
+      [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
 #ifdef CINN_WITH_HIP
         ir::SetCudaAxisInfo(copied);
         if (remove_gpu_for_loops) {
@@ -124,11 +124,10 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
         VLOG(10) << "After Optimize CudaSyncThreadsDropIfThenElse:" << copied;
 #endif
       },
-      [&](common::HygonDCUArchSYCL) { CINN_NOT_IMPLEMENTED },
       [](auto) {});
 
-  SimplifyBlocks(&copied->body);
-  VLOG(4) << "After SimplifyBlocks:" << copied;
+  SimplifyUnitBlock(&copied->body);
+  VLOG(4) << "After SimplifyUnitBlock:" << copied;
 
   MapExternCall(&copied->body, target);
   VLOG(10) << "After Optimize MapExternCall:" << copied;
@@ -147,7 +146,9 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
 
   BlockPassManager pass_manager;
   pass_manager.AddPass(CreateIfFusionPass());
+  pass_manager.AddPass(CreateEntailLoopConditionPass());
   pass_manager.Run(copied);
+  VLOG(4) << "After Optimize IfFusion and EntailLoopCondition:" << copied;
 
   target.arch.Match(
       [&](common::NVGPUArch) {

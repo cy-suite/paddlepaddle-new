@@ -1,4 +1,4 @@
-// Copyright (c) 2021 CINN Authors. All Rights Reserved.
+// Copyright (c) 2025 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,24 +14,14 @@
 
 #pragma once
 
-#include "paddle/cinn/ir/ir_mutator.h"
+#include "paddle/pir/include/pass/pass.h"
 
 namespace cinn {
-namespace optim {
+namespace dialect {
+namespace ir {
 
-/**
- * Vectorize the forloops(For) if its for_type is marked as kVectorize.
- * @param expr
- * @param target
- */
-void VectorizeLoops(Expr* expr, const Target& target);
+std::unique_ptr<pir::Pass> CreateFoldFullOpPass();
 
-namespace detail {
-
-//! Vecorize the \p expr by making the \p var has \p lanes lanes.
-void Vectorize(Var var, int lanes, Expr* expr);
-
-}  // namespace detail
-
-}  // namespace optim
+}  // namespace ir
+}  // namespace dialect
 }  // namespace cinn
