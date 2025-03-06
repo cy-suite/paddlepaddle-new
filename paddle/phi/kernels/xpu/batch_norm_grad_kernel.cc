@@ -191,6 +191,12 @@ void BatchNormGradKernel(const Context &dev_ctx,
 
   const auto *global_mean = mean.get_ptr();
   const auto *global_var = variance.get_ptr();
+  PADDLE_ENFORCE_NOT_NULL(global_mean,
+    errors::InvalidArgument(
+      "global_mean cannot be nullptr when use_global_stats is True")
+  PADDLE_ENFORCE_NOT_NULL(global_var,
+    errors::InvalidArgument(
+      "global_var cannot be nullptr when use_global_stats is True")
 
   float *global_inv_std_data = nullptr;
   int r = 0;
