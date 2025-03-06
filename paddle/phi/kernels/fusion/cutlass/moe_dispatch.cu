@@ -173,9 +173,8 @@ void MoeDispatchKernel(const Context& ctx,
 
   token_nums_per_expert->Resize({expert_num});
 
-  compute_total_rows_before_expert<T>(
+  compute_total_rows_before_expert(
       permuted_experts_,
-      X.data<T>(),
       moe_topk * num_rows,
       expert_num,
       ctx.template Alloc<int64_t>(token_nums_per_expert),

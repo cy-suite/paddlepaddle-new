@@ -800,7 +800,6 @@ void initialize_moe_routing_kernelLauncher(
 
 // ============================== Infer GEMM sizes
 // =================================
-template <typename T>
 __device__ inline int find_total_elts_leq_target(int* sorted_indices,
                                                  const int64_t arr_length,
                                                  const int64_t target) {
@@ -818,7 +817,6 @@ __device__ inline int find_total_elts_leq_target(int* sorted_indices,
   return target_location + 1;
 }
 
-template <typename T>
 __global__ void compute_total_rows_before_expert_kernel(
     int* sorted_experts,
     const int64_t sorted_experts_len,
@@ -830,12 +828,10 @@ __global__ void compute_total_rows_before_expert_kernel(
 
   // This should construct the last index where each expert occurs.
   total_rows_before_expert[expert] =
-      find_total_elts_leq_target<T>(sorted_experts, sorted_experts_len, expert);
+      find_total_elts_leq_target(sorted_experts, sorted_experts_len, expert);
 }
 
-template <typename T>
 void compute_total_rows_before_expert(int* sorted_indices,
-                                      const T* kkk,
                                       const int64_t total_indices,
                                       const int64_t num_experts,
                                       int64_t* total_rows_before_expert,
@@ -843,7 +839,7 @@ void compute_total_rows_before_expert(int* sorted_indices,
   const int threads = std::min(int64_t(1024), num_experts);
   const int blocks = (num_experts + threads - 1) / threads;
 
-  compute_total_rows_before_expert_kernel<T><<<blocks, threads, 0, stream>>>(
+  compute_total_rows_before_expert_kernel<<<blocks, threads, 0, stream>>>(
       sorted_indices, total_indices, num_experts, total_rows_before_expert);
 }
 
@@ -1055,20 +1051,7 @@ template void finalize_moe_routing_kernelLauncher(const __nv_bfloat16*,
                                                   const float,
                                                   cudaStream_t);
 #endif
-template void compute_total_rows_before_expert(int*,
-                                               const half*,
-                                               const int64_t,
-                                               const int64_t,
-                                               int64_t*,
-                                               cudaStream_t stream);
-#ifdef PADDLE_CUDA_BF16
-template void compute_total_rows_before_expert(int*,
-                                               const __nv_bfloat16*,
-                                               const int64_t,
-                                               const int64_t,
-                                               int64_t*,
-                                               cudaStream_t stream);
-#endif
+
 }  // namespace phi
 
 #endif

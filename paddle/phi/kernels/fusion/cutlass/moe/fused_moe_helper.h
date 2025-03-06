@@ -315,12 +315,11 @@ class MoeHelper {
 
     const int64_t expanded_active_expert_rows = k * num_rows;
 
-    compute_total_rows_before_expert<T>(permuted_experts_,
-                                        input_activations,
-                                        expanded_active_expert_rows,
-                                        num_experts,
-                                        total_rows_before_expert_,
-                                        ctx.stream());
+    compute_total_rows_before_expert(permuted_experts_,
+                                     expanded_active_expert_rows,
+                                     num_experts,
+                                     total_rows_before_expert_,
+                                     ctx.stream());
 
     using NvType = typename phi::PDDataTypeTraits<T>::DataType;
 
