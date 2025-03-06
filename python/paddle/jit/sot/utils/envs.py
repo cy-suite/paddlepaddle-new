@@ -65,6 +65,10 @@ class PEP508LikeEnvironmentVariable(EnvironmentVariable[Dict[str, List[str]]]):
             env_list.append(f"{k}" + (f"[{','.join(v)}]" if len(v) else ""))
         os.environ[self.name] = ",".join(env_list)
 
+        self._cached_value = (
+            value  # https://github.com/PaddlePaddle/Paddle/pull/71430
+        )
+
     @staticmethod
     def split_by_unbracketed_commas(input_str: str) -> list[str]:
         """Split string by commas that are not enclosed in square brackets"""

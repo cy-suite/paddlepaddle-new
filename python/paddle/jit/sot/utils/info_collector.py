@@ -319,9 +319,23 @@ class SubGraphInfo(InfoBase):
 
     @classmethod
     def summary(cls, history: list[Self]) -> str:
-        return "\n".join(
-            [
-                f"SubGraphIdx: {idx} {info}"
-                for idx, info in enumerate(map(str, history))
-            ]
+
+        num_of_subgraph = len(history)
+        sum_of_op_num = sum(item.op_num for item in history)
+
+        need_details = (
+            "details" in ENV_SOT_COLLECT_INFO.get_with_cache()[cls.SHORT_NAME]
         )
+
+        details = ""
+        if need_details:
+            details = "\n".join(
+                [
+                    f"SubGraphIdx: {idx} {info}"
+                    for idx, info in enumerate(map(str, history))
+                ]
+            )
+
+        summary = f"[Number of subgraph]: {num_of_subgraph} [Sum of opnum]: {sum_of_op_num}"
+
+        return f"{summary}\n{details}"
