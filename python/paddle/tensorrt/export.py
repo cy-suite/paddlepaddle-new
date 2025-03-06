@@ -87,9 +87,9 @@ class Input:
             >>> # example 1:
             >>> from paddle.tensorrt.export import Input
             >>> input_config = Input(
-            >>>    min_input_shape=(1,100),
-            >>>    optim_input_shape=(4,100),
-            >>>    max_input_shape=(8,100),
+            >>>     min_input_shape=(1,100),
+            >>>     optim_input_shape=(4,100),
+            >>>     max_input_shape=(8,100),
             >>> )
             >>> input_config.input_data_type='int64'
             >>> input_config.input_range=(1,10)
@@ -98,11 +98,11 @@ class Input:
             >>> from paddle.tensorrt.export import Input
             >>> import numpy as np
             >>> input_config = Input(
-            >>>   warmup_data=(
-            >>>       np.random.rand(1,100).astype(np.float32),
-            >>>       np.random.rand(4,100).astype(np.float32),
-            >>>       np.random.rand(8,100).astype(np.float32),
-            >>>   )
+            >>>     warmup_data=(
+            >>>         np.random.rand(1,100).astype(np.float32),
+            >>>         np.random.rand(4,100).astype(np.float32),
+            >>>         np.random.rand(8,100).astype(np.float32),
+            >>>     )
             >>> )
     """
 
