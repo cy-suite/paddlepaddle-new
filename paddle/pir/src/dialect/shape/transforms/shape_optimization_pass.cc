@@ -14,7 +14,6 @@
 
 #include "paddle/pir/include/dialect/shape/transforms/shape_optimization_pass.h"
 
-#include "paddle/common/enforce.h"
 #include "paddle/common/errors.h"
 #include "paddle/common/flags.h"
 #include "paddle/pir/include/core/builtin_type.h"
