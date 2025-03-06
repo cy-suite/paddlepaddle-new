@@ -879,7 +879,7 @@ class TestWhereDygraphAPIBroadcast(unittest.TestCase):
 
 
 class TestWhereDygraphAPIDtypePromotion(unittest.TestCase):
-    def test_dtype_auto_promotion_float(self):
+    def test_dtype_auto_promotion_tensor_float32_tensor_float64(self):
         with base.dygraph.guard():
             x_i = np.random.randn(4, 5, 6).astype('float32')
             y_i = np.random.randn(4, 5, 6).astype('float64')
@@ -889,6 +889,34 @@ class TestWhereDygraphAPIDtypePromotion(unittest.TestCase):
             cond = paddle.to_tensor(cond_i)
             out = paddle.where(cond, x, y)
             self.assertEqual(out.dtype, y.dtype)
+            np.testing.assert_array_equal(
+                out.numpy(), np.where(cond_i, x_i, y_i)
+            )
+
+    def test_dtype_auto_promotion_tensor_float32_scalar_float(self):
+        with base.dygraph.guard():
+            x_i = np.random.randn(4, 5, 6).astype('float32')
+            y_i = 1.0
+            cond_i = np.random.randn(4, 5, 6).astype('bool')
+            x = paddle.to_tensor(x_i)
+            y = paddle.to_tensor(y_i)
+            cond = paddle.to_tensor(cond_i)
+            out = paddle.where(cond, x, y)
+            self.assertEqual(out.dtype, x.dtype)
+            np.testing.assert_array_equal(
+                out.numpy(), np.where(cond_i, x_i, y_i)
+            )
+
+    def test_dtype_auto_promotion_tensor_float64_scalar_float(self):
+        with base.dygraph.guard():
+            x_i = np.random.randn(4, 5, 6).astype('float64')
+            y_i = 1.0
+            cond_i = np.random.randn(4, 5, 6).astype('bool')
+            x = paddle.to_tensor(x_i)
+            y = paddle.to_tensor(y_i)
+            cond = paddle.to_tensor(cond_i)
+            out = paddle.where(cond, x, y)
+            self.assertEqual(out.dtype, x.dtype)
             np.testing.assert_array_equal(
                 out.numpy(), np.where(cond_i, x_i, y_i)
             )

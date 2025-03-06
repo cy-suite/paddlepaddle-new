@@ -758,17 +758,27 @@ def where(
             [[2],
              [3]]),)
     """
-    if np.isscalar(x):
-        x = paddle.full([1], x, np.array([x]).dtype.name)
-
-    if np.isscalar(y):
-        y = paddle.full([1], y, np.array([y]).dtype.name)
-
     if x is None and y is None:
         return nonzero(condition, as_tuple=True)
 
     if x is None or y is None:
         raise ValueError("either both or neither of x and y should be given")
+
+    dtype = paddle.get_default_dtype()
+    cdtype = "complex64" if dtype != "float64" else "complex128"
+    if np.isscalar(x):
+        x = paddle.full(
+            [1],
+            x,
+            cdtype if np.iscomplex(x) else dtype,
+        )
+
+    if np.isscalar(y):
+        y = paddle.full(
+            [1],
+            y,
+            cdtype if np.iscomplex(y) else dtype,
+        )
 
     # NOTE: We might need to adapt the broadcast_shape and broadcast_to for dynamic shape
     # so dynamic and pir branch can be merged into one code block
