@@ -309,13 +309,14 @@ class SubGraphInfo(InfoBase):
     SHORT_NAME = "subgraph_info"
     TYPE = InfoType.STEP_INFO
 
-    def __init__(self, graph, op_num):
+    def __init__(self, graph, op_num, sir_name):
         super().__init__()
         self.graph = graph
         self.op_num = op_num
+        self.sir_name = sir_name
 
     def __str__(self):
-        return f"OpNum: {self.op_num}\n{self.graph}"
+        return f"[SIR Name]: {self.sir_name}   [OpNum]: {self.op_num}\n{self.graph}"
 
     @classmethod
     def summary(cls, history: list[Self]) -> str:
@@ -329,7 +330,7 @@ class SubGraphInfo(InfoBase):
         if need_details:
             details = "\n".join(
                 [
-                    f"SubGraphIdx: {idx} {info}"
+                    f"[SubGraphIdx]: {idx}   {info}"
                     for idx, info in enumerate(map(str, history))
                 ]
             )
