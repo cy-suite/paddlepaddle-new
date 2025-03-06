@@ -222,7 +222,7 @@ void Buffer::sync(
 
   // Sync IPC handles
   if (num_nvl_bytes > 0) {
-    EP_HOST_ASSERT(num_ranks == static_cast<int>(device_ids.size()));
+    EP_HOST_ASSERT(num_ranks == static_cast<int64_t>(device_ids.size()));
     EP_HOST_ASSERT(device_ids.size() == all_gathered_handles.size());
     for (int i = 0, offset = rdma_rank * num_nvl_ranks; i < num_nvl_ranks;
          ++i) {
@@ -558,7 +558,7 @@ Buffer::intranode_dispatch(
     *moe_recv_counter = -1;
     for (int i = 0; i < num_local_experts; ++i) moe_recv_expert_counter[i] = -1;
     EP_HOST_ASSERT(num_ranks * (num_ranks + num_local_experts) *
-                       static_cast<int>(sizeof(int)) <=
+                       static_cast<int64_t>(sizeof(int)) <=
                    num_nvl_bytes);
     intranode::notify_dispatch(num_tokens_per_rank->data_ptr<int>(),
                                moe_recv_counter_mapped,
@@ -651,25 +651,27 @@ Buffer::intranode_dispatch(
 
   // Dispatch
   EP_HOST_ASSERT(
-      num_ranks * num_ranks * static_cast<int>(sizeof(int)) +  // prefix matrix
+      num_ranks * num_ranks *
+              static_cast<int64_t>(sizeof(int)) +  // prefix matrix
           num_channels * num_ranks *
-              static_cast<int>(sizeof(int)) +  // Channel start offset
+              static_cast<int64_t>(sizeof(int)) +  // Channel start offset
           num_channels * num_ranks *
-              static_cast<int>(sizeof(int)) +  // Channel end offset
-          num_channels * num_ranks * static_cast<int>(sizeof(int)) *
+              static_cast<int64_t>(sizeof(int)) +  // Channel end offset
+          num_channels * num_ranks * static_cast<int64_t>(sizeof(int)) *
               2 +  // Queue head and tail
           num_channels * num_ranks * config.num_max_nvl_chunked_recv_tokens *
               hidden * recv_x.element_size() +  // Data buffer
           num_channels * num_ranks * config.num_max_nvl_chunked_recv_tokens *
-              static_cast<int>(sizeof(int)) +  // Source index buffer
+              static_cast<int64_t>(sizeof(int)) +  // Source index buffer
           num_channels * num_ranks * config.num_max_nvl_chunked_recv_tokens *
               num_topk *
-              static_cast<int>(sizeof(int64_t)) +  // Top-k index buffer
+              static_cast<int64_t>(sizeof(int64_t)) +  // Top-k index buffer
           num_channels * num_ranks * config.num_max_nvl_chunked_recv_tokens *
               num_topk *
-              static_cast<int>(sizeof(float)) +  // Top-k weight buffer
+              static_cast<int64_t>(sizeof(float)) +  // Top-k weight buffer
           num_channels * num_ranks * config.num_max_nvl_chunked_recv_tokens *
-              static_cast<int>(sizeof(float)) * num_scales  // FP8 scale buffer
+              static_cast<int64_t>(sizeof(float)) *
+              num_scales  // FP8 scale buffer
       <= num_nvl_bytes);
   intranode::dispatch(
       recv_x.data_ptr(),
@@ -825,7 +827,8 @@ Buffer::intranode_combine(
   }
 
   // Launch barrier and reset queue head and tail
-  EP_HOST_ASSERT(num_channels * num_ranks * static_cast<int>(sizeof(int)) * 2 <=
+  EP_HOST_ASSERT(num_channels * num_ranks * static_cast<int64_t>(sizeof(int)) *
+                     2 <=
                  num_nvl_bytes);
   intranode::cached_notify_combine(buffer_ptrs_gpu,
                                    send_head.data_ptr<int>(),
@@ -845,14 +848,15 @@ Buffer::intranode_combine(
   auto recv_x = ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
       {num_recv_tokens, hidden}, x.dtype(), x.place()));
   EP_HOST_ASSERT(
-      num_channels * num_ranks * static_cast<int>(sizeof(int)) *
+      num_channels * num_ranks * static_cast<int64_t>(sizeof(int)) *
               2 +  // Queue head and tail
           num_channels * num_ranks * config.num_max_nvl_chunked_recv_tokens *
               hidden * x.element_size() +  // Data buffer
           num_channels * num_ranks * config.num_max_nvl_chunked_recv_tokens *
-              static_cast<int>(sizeof(int)) +  // Source index buffer
+              static_cast<int64_t>(sizeof(int)) +  // Source index buffer
           num_channels * num_ranks * config.num_max_nvl_chunked_recv_tokens *
-              num_topk * static_cast<int>(sizeof(float))  // Top-k weight buffer
+              num_topk *
+              static_cast<int64_t>(sizeof(float))  // Top-k weight buffer
       <= num_nvl_bytes);
   intranode::combine(deep_ep::detail::ScalarTypeToCudaDataType(x.scalar_type()),
                      recv_x.data_ptr(),
@@ -1111,25 +1115,17 @@ Buffer::internode_dispatch(
         low_latency_mode);
     move_fifo_slots(2);
   } else {
-    // rdma_channel_prefix_matrix = torch::empty({num_rdma_ranks, num_channels},
-    // torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
     rdma_channel_prefix_matrix = ConvertPaddleTensorToDetailTensor(
         paddle::experimental::empty({num_rdma_ranks, num_channels},
                                     phi::DataType::INT32,
                                     phi::GPUPlace(device_id)));
-    // recv_rdma_rank_prefix_sum = torch::empty({num_rdma_ranks},
-    // torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
     recv_rdma_rank_prefix_sum =
         ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
             {num_rdma_ranks}, phi::DataType::INT32, phi::GPUPlace(device_id)));
-    // gbl_channel_prefix_matrix = torch::empty({num_ranks, num_channels},
-    // torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
     gbl_channel_prefix_matrix = ConvertPaddleTensorToDetailTensor(
         paddle::experimental::empty({num_ranks, num_channels},
                                     phi::DataType::INT32,
                                     phi::GPUPlace(device_id)));
-    // recv_gbl_rank_prefix_sum = torch::empty({num_ranks},
-    // torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
     recv_gbl_rank_prefix_sum =
         ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
             {num_ranks}, phi::DataType::INT32, phi::GPUPlace(device_id)));
@@ -1205,7 +1201,6 @@ Buffer::internode_dispatch(
   }
 
   // Allocate new tensors
-  // auto recv_x = torch::empty({num_recv_tokens, hidden}, x.options());
   auto recv_x = ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
       {num_recv_tokens, hidden}, x.dtype(), x.place()));
   auto recv_topk_idx = std::optional<deep_ep::detail::Tensor>(),
@@ -1219,35 +1214,23 @@ Buffer::internode_dispatch(
   auto send_rdma_head = std::optional<deep_ep::detail::Tensor>();
   auto send_nvl_head = std::optional<deep_ep::detail::Tensor>();
   if (!cached_mode) {
-    // recv_src_meta = torch::empty({num_recv_tokens,
-    // internode::get_source_meta_bytes()},
-    // torch::dtype(deep_ep::detail::kByte).device(torch::kCUDA));
     recv_src_meta =
         ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
             {num_recv_tokens, internode::get_source_meta_bytes()},
             phi::DataType::INT8,
             phi::GPUPlace(device_id)));
-    // recv_rdma_channel_prefix_matrix = torch::empty({num_rdma_ranks,
-    // num_channels},
-    // torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
     recv_rdma_channel_prefix_matrix = ConvertPaddleTensorToDetailTensor(
         paddle::experimental::empty({num_rdma_ranks, num_channels},
                                     phi::DataType::INT32,
                                     phi::GPUPlace(device_id)));
-    // recv_gbl_channel_prefix_matrix = torch::empty({num_ranks, num_channels},
-    // torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
     recv_gbl_channel_prefix_matrix = ConvertPaddleTensorToDetailTensor(
         paddle::experimental::empty({num_ranks, num_channels},
                                     phi::DataType::INT32,
                                     phi::GPUPlace(device_id)));
-    // send_rdma_head = torch::empty({num_tokens, num_rdma_ranks},
-    // torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
     send_rdma_head = ConvertPaddleTensorToDetailTensor(
         paddle::experimental::empty({num_tokens, num_rdma_ranks},
                                     phi::DataType::INT32,
                                     phi::GPUPlace(device_id)));
-    // send_nvl_head = torch::empty({num_rdma_recv_tokens, NUM_MAX_NVL_PEERS},
-    // torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
     send_nvl_head = ConvertPaddleTensorToDetailTensor(
         paddle::experimental::empty({num_rdma_recv_tokens, NUM_MAX_NVL_PEERS},
                                     phi::DataType::INT32,
@@ -1259,13 +1242,9 @@ Buffer::internode_dispatch(
   float* recv_topk_weights_ptr = nullptr;
   float* recv_x_scales_ptr = nullptr;
   if (topk_idx.has_value()) {
-    // recv_topk_idx = torch::empty({num_recv_tokens, num_topk},
-    // topk_idx->options());
     recv_topk_idx =
         ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
             {num_recv_tokens, num_topk}, topk_idx->dtype(), topk_idx->place()));
-    // recv_topk_weights = torch::empty({num_recv_tokens, num_topk},
-    // topk_weights->options());
     recv_topk_weights = ConvertPaddleTensorToDetailTensor(
         paddle::experimental::empty({num_recv_tokens, num_topk},
                                     topk_weights->dtype(),
@@ -1274,10 +1253,6 @@ Buffer::internode_dispatch(
     recv_topk_weights_ptr = recv_topk_weights->data_ptr<float>();
   }
   if (x_scales.has_value()) {
-    // recv_x_scales = x_scales->dim() == 1 ?
-    //                 torch::empty({num_recv_tokens}, x_scales->options()) :
-    //                 torch::empty({num_recv_tokens, num_scales},
-    //                 x_scales->options());
     recv_x_scales =
         x_scales->dim() == 1
             ? ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
@@ -1483,8 +1458,6 @@ Buffer::internode_combine(
     EP_HOST_ASSERT(topk_weights->scalar_type() == deep_ep::detail::kFloat32);
     num_topk = static_cast<int>(topk_weights->size(1));
     topk_weights_ptr = topk_weights->data_ptr<float>();
-    // combined_topk_weights = torch::empty({num_combined_tokens, num_topk},
-    // topk_weights->options());
     combined_topk_weights = ConvertPaddleTensorToDetailTensor(
         paddle::experimental::empty({num_combined_tokens, num_topk},
                                     topk_weights->dtype(),
@@ -1525,7 +1498,6 @@ Buffer::internode_combine(
   move_fifo_slots(2);
 
   // Launch data combine
-  // auto combined_x = torch::empty({num_combined_tokens, hidden}, x.options());
   auto combined_x =
       ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
           {num_combined_tokens, hidden}, x.dtype(), x.place()));
@@ -1670,33 +1642,21 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
   if (!return_recv_hook) stream_wait(launch_stream, compute_stream);
 
   // Allocate packed tensors
-  // auto packed_recv_x = torch::empty({num_local_experts, num_ranks *
-  // num_max_dispatch_tokens_per_rank, hidden},
-  // x.options().dtype(deep_ep::detail::kFloat8_e4m3fn));
   auto packed_recv_x = ConvertPaddleTensorToDetailTensor(
       paddle::experimental::empty({num_local_experts,
                                    num_ranks * num_max_dispatch_tokens_per_rank,
                                    hidden},
                                   phi::DataType::FLOAT8_E4M3FN,
                                   x.place()));
-  // auto packed_recv_src_info = torch::empty({num_local_experts, num_ranks *
-  // num_max_dispatch_tokens_per_rank},
-  // torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
   auto packed_recv_src_info =
       ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
           {num_local_experts, num_ranks * num_max_dispatch_tokens_per_rank},
           phi::DataType::INT32,
           phi::GPUPlace(device_id)));
-  // auto packed_recv_layout_range = torch::empty({num_local_experts,
-  // num_ranks}, torch::dtype(deep_ep::detail::kInt64).device(torch::kCUDA));
   auto packed_recv_layout_range = ConvertPaddleTensorToDetailTensor(
       paddle::experimental::empty({num_local_experts, num_ranks},
                                   phi::DataType::INT64,
                                   phi::GPUPlace(device_id)));
-  // auto packed_recv_count = torch::from_blob(
-  //     buffer.dispatch_rdma_atomic_token_counter,
-  //     {num_local_experts},
-  //     torch::dtype(deep_ep::detail::kInt32).device(torch::kCUDA));
   auto packed_recv_count = ConvertPaddleTensorToDetailTensor(
       paddle::from_blob(buffer.dispatch_rdma_atomic_token_counter,
                         {num_local_experts},
@@ -1707,9 +1667,6 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
   // Allocate column-majored scales
   EP_HOST_ASSERT((num_ranks * num_max_dispatch_tokens_per_rank) % 4 == 0 &&
                  "TMA requires the number of tokens to be multiple of 4");
-  // auto packed_recv_x_scales = torch::empty({num_local_experts, num_scales,
-  // num_ranks * num_max_dispatch_tokens_per_rank},
-  // torch::dtype(deep_ep::detail::kFloat32).device(torch::kCUDA));
   auto packed_recv_x_scales =
       ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
           {num_local_experts,
@@ -1717,7 +1674,6 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
            num_ranks * num_max_dispatch_tokens_per_rank},
           phi::DataType::FLOAT32,
           phi::GPUPlace(device_id)));
-  // packed_recv_x_scales = torch::transpose(packed_recv_x_scales, 1, 2);
   packed_recv_x_scales =
       ConvertPaddleTensorToDetailTensor(paddle::experimental::transpose(
           ConvertDetailTensorToPaddleTensor(packed_recv_x_scales),
@@ -1836,7 +1792,6 @@ Buffer::low_latency_combine(const deep_ep::detail::Tensor& x,
   if (!return_recv_hook) stream_wait(launch_stream, compute_stream);
 
   // Allocate output tensor
-  // auto combined_x = torch::empty({num_combined_tokens, hidden}, x.options());
   auto combined_x =
       ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
           {num_combined_tokens, hidden}, x.dtype(), x.place()));
