@@ -212,7 +212,6 @@ class TestBilinearOutSizeTRTPattern(TensorRTBaseTest):
 def bilinear_python_size_tensor_api(x, OutSize, SizeTensor, Scale, attrs):
     if SizeTensor is None:
         if SizeTensor is None:
-            # Ensure x is a paddle.Tensor; 如果x还不是tensor，则转换
             if not isinstance(x, paddle.Tensor):
                 x = paddle.to_tensor(x)
             shape_tensor = paddle.shape(x)
