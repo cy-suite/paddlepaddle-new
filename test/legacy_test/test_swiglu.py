@@ -21,6 +21,7 @@ import paddle
 import paddle.distributed as dist
 import paddle.nn.functional as F
 from paddle import _C_ops
+from paddle.base import core
 from paddle.distributed.auto_parallel.static.dist_attribute import (
     DistTensorSpec,
     TensorDistAttr,
@@ -277,6 +278,9 @@ class TestSwigluSpmd(unittest.TestCase):
         self.assertEqual(inferred_output_dist_attrs[0].dims_mapping, [0, -1])
 
 
+@unittest.skipIf(
+    not core.is_compiled_with_cuda(), "mamtul 0 size only with in cuda"
+)
 class TestSwiglu0SizeDygraph(unittest.TestCase):
     def test_swiglu(self):
         x = paddle.ones([0, 128], dtype="float32")
