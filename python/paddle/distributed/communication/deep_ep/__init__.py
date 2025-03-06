@@ -12,12 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-mkdir -p /home/data/cfs/.cache/build
-echo "CACHE_DIR=/home/data/cfs/.cache/build" >> $2
-if [ -f '/home/data/gzcfs/gz.txt' ];then
-    mkdir -p /home/data/gzcfs/.ccache/$1
-    echo "CCACHE_DIR=/home/data/gzcfs/.ccache/$1" >> $2
-else
-    mkdir -p /home/data/cfs/.ccache/$1
-    echo "CCACHE_DIR=/home/data/cfs/.ccache/$1" >> $2
-fi
+from .buffer import Buffer
+
+__all__ = ["Buffer"]
