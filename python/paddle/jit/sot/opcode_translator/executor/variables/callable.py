@@ -249,7 +249,7 @@ class UserDefinedFunctionVariable(FunctionVariable):
 
             raise BreakGraphError(
                 exception_class(
-                    f"{location_info} encountered breakgraph error caused by `{error}`"
+                    f"{location_info} encountered breakgraph error caused by\n    {error}"
                 )
             )
         return output
