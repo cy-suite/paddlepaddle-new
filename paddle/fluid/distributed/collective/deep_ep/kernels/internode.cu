@@ -1398,11 +1398,14 @@ __global__ void __launch_bounds__(
 
       // Update remote head
       if (min_head != std::numeric_limits<int>::max() && min_head > last_head &&
-          lane_id < kNumRDMARanks)
-        nvshmem_uint64_p(
+          lane_id < kNumRDMARanks) {
+        nvshmemx_signal_op(
             rdma_channel_head.buffer(rdma_rank),
-            last_head = min_head,
+            min_head - last_head,
+            NVSHMEM_SIGNAL_ADD,
             translate_dst_rdma_rank<kLowLatencyMode>(lane_id, nvl_rank));
+        last_head = min_head;
+      }
 
       // Nanosleep and let other warps work
       __nanosleep(NUM_WAIT_NANOSECONDS);
@@ -2581,11 +2584,14 @@ __global__ void __launch_bounds__((NUM_MAX_NVL_PEERS + 1 + kNumForwarders) * 32,
               min_head =
                   min(min_head, rdma_receiver_rdma_head[i][dst_rdma_rank]);
           if (min_head != std::numeric_limits<int>::max() &&
-              min_head > last_rdma_head && lane_id < kNumRDMARanks)
-            nvshmem_uint64_p(rdma_channel_head.buffer(rdma_rank),
-                             last_rdma_head = min_head,
-                             translate_dst_rdma_rank<kLowLatencyMode>(
-                                 dst_rdma_rank, nvl_rank));
+              min_head > last_rdma_head && lane_id < kNumRDMARanks) {
+            nvshmemx_signal_op(rdma_channel_head.buffer(rdma_rank),
+                               min_head - last_rdma_head,
+                               NVSHMEM_SIGNAL_ADD,
+                               translate_dst_rdma_rank<kLowLatencyMode>(
+                                   dst_rdma_rank, nvl_rank));
+            last_rdma_head = min_head;
+          }
         } else {
 // Find minimum head for NVL ranks
 #pragma unroll
