@@ -248,6 +248,11 @@ def _alltoall_single_in_dygraph(
     sync_op: bool,
     use_calc_stream: bool,
 ) -> task:
+    if out_split_sizes is None:
+        out_split_sizes = []
+    if in_split_sizes is None:
+        in_split_sizes = []
+
     if use_calc_stream:
         return group.process_group.all_to_all_single_on_calc_stream(
             out_tensor, in_tensor, out_split_sizes, in_split_sizes
