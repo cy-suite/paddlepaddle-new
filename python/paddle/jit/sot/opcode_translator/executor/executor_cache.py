@@ -145,7 +145,7 @@ class OpcodeExecutorCache(metaclass=Singleton):
                 if ENV_SOT_ENABLE_STRICT_GUARD_CHECK.get():
                     assert mirror_guard_result == guard_result, (
                         "faster guard result is not equal to guard result, "
-                        f"guard_expr: {getattr(guard_fn, 'expr', 'None')}, "
+                        f"guard_expr: {getattr(guard_fn, 'expr', 'None')} \n"
                         f"faster_guard_expr: {getattr(guard_fn.mirror_guard, 'expr', 'None')},"
                     )
                 if guard_result:
@@ -178,20 +178,11 @@ class OpcodeExecutorCache(metaclass=Singleton):
                     self.analyse_guard_error(guard_fn, frame),
                 )
                 if ENV_SOT_ENABLE_STRICT_GUARD_CHECK.get():
-                    # lambda_head = "lambda frame: "
-                    # guard_expr = guard_fn.mirror_guard.expr.replace(lambda_head, "")
-                    # for faster_g in guard_expr.split(" and "):
-                    #     try:
-                    #         if eval(lambda_head + faster_g, guard_fn.mirror_guard.__globals__)(frame) is False:
-                    #             breakpoint()
-                    #     except Exception as e:
-                    #         breakpoint()
-                    # breakpoint()
                     assert type(e) == type(mirror_guard_error) and str(
                         e
                     ) == str(mirror_guard_error), (
                         "mirror guard error is not equal to guard error, "
-                        f"guard_error: {e}, "
+                        f"guard_error: {e} \n"
                         f"mirror_guard_error: {mirror_guard_error},"
                     )
 
