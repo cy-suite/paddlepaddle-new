@@ -65,7 +65,7 @@ class Input:
 
     Args:
         warmup_data (tuple):
-            the tuple of actual input data (for the automatic shape collection mechanism).
+            The tuple of actual input data (for the automatic shape collection mechanism).
         min_input_shape (tuple):
             The shape of the minimum input tensor.
         max_input_shape (tuple):
