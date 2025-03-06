@@ -343,7 +343,7 @@ void InferSymExprForOp(Operation* op,
   }
 }
 
-std::set<std::string> new_symbol_op_set = {
+static const std::set<std::string> new_symbol_op_set = {
     // cf_op.cc
     "cf.stack_create",
     // op_dialect.cc
@@ -379,10 +379,10 @@ std::set<std::string> new_symbol_op_set = {
     "pd_op.bicubic_interp",
     "pd_op.assign_pos",
     "pd_op.detection_map",
-    "pd_op.pd_op.flash_attn_varlen_qkvpacked",
+    "pd_op.flash_attn_varlen_qkvpacked",
     "pd_op.generate_proposals",
-    "pd_op.pd_op.graph_khop_sampler",
-    "pd_op.pd_op.graph_sample_neighbors",
+    "pd_op.graph_khop_sampler",
+    "pd_op.graph_sample_neighbors",
     "pd_op.match_matrix_tensor",
     "pd_op.multiclass_nms3",
     "pd_op.pyramid_hash",
@@ -431,6 +431,7 @@ OpType GetOpType(const symbol::DimExpr& expr) {
       [](const auto& dim_expr) {
         PADDLE_THROW(::common::errors::InvalidArgument(
             "Unsupported DimExpr for %s", dim_expr));
+        return;
       }};
   return std::visit(lambdas, expr.variant());
 }
@@ -585,6 +586,7 @@ bool ShapeOrDataDimExprsPatternMatch(
       return true;
     case ShapeOrDataDimType::kTensorListShapeOrDataDimExprs:
     case ShapeOrDataDimType::kRankedTensorArrayShapeOrDataDimExprs:
+      // TODO(ooooo): support list and array pattern match if nessaary.
       return false;
     case ShapeOrDataDimType::kNullShapeOrDataDimExpr:
       return true;
