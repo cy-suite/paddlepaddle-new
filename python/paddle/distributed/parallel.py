@@ -88,17 +88,21 @@ def _build_default_parallel_strategy():
     return strategy
 
 
-def _coalesce_tensors(var_groups):
+def _coalesce_tensors(var_groups, fake_output=False):
     coalesced_grads_and_grad_vars = []
     for group_id, grad_vars in var_groups.items():
         flattened_vars = []
         g_var_shapes = []
+        sizes = 0
         for g_var in grad_vars:
             g_var_shapes.append(g_var.shape)
-            flattened_vars.append(
-                paddle.reshape(x=g_var, shape=[np.prod(g_var.shape)])
-            )
-        coalesced_grad = paddle.concat(flattened_vars)
+            size = np.prod(g_var.shape)
+            flattened_vars.append(paddle.reshape(x=g_var, shape=[size]))
+            sizes += size
+        if not fake_output:
+            coalesced_grad = paddle.concat(flattened_vars)
+        else:
+            coalesced_grad = paddle.empty([sizes], flattened_vars[0].dtype)
         coalesced_grads_and_grad_vars.append(
             [coalesced_grad, grad_vars, g_var_shapes]
         )
@@ -137,7 +141,7 @@ def _split_tensors(coalesced_grads_and_grad_vars):
 @imperative_base.no_grad
 @framework.dygraph_only
 def build_groups(
-    vars: list[Tensor], group_size: int
+    vars: list[Tensor], group_size: int, fake_output: bool = False
 ) -> list[list[Tensor | list[Tensor] | list[int]]]:
     group_idx = 0
     memory_counter = 0
@@ -156,7 +160,7 @@ def build_groups(
             dtype = var.dtype
             group_idx += 1
         var_groups.setdefault(group_idx, []).append(var)
-    return _coalesce_tensors(var_groups)
+    return _coalesce_tensors(var_groups, fake_output)
 
 
 @imperative_base.no_grad
