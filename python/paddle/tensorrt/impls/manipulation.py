@@ -1030,9 +1030,13 @@ def tile_converter(network, paddle_op, inputs):
         repeat_tensor = inputs[1]
         if isinstance(repeat_tensor, list):
             repeat_rank = len(repeat_tensor)
-            repeat_tensor = trt_concat(network, repeat_tensor, name=[paddle_op.name(), 'repeat_tensor'])
+            repeat_tensor = trt_concat(
+                network, repeat_tensor, name=[paddle_op.name(), 'repeat_tensor']
+            )
         else:
-            repeat_tensor = resize_to_1d(network, repeat_tensor, name=[paddle_op.name(), 'repeat_tensor'])
+            repeat_tensor = resize_to_1d(
+                network, repeat_tensor, name=[paddle_op.name(), 'repeat_tensor']
+            )
             repeat_shape = paddle_op.operands()[1].source().shape
             repeat_rank = repeat_shape[0]
 
