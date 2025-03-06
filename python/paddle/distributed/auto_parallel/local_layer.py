@@ -134,16 +134,12 @@ class LocalLayer(Layer):
                         self.grad_dist_attrs[idx][0],
                         self.grad_dist_attrs[idx][1],
                     )
-                current_rank = dist.get_rank()
-                if current_rank in mesh.process_ids:
-                    inputs[idx] = dist.auto_parallel.api.dtensor_to_local(
-                        inputs[idx], mesh, placement
-                    )
+
+                inputs[idx] = dist.auto_parallel.api.dtensor_to_local(
+                    inputs[idx], mesh, placement
+                )
 
         outputs = Layer.__call__(self, *inputs, **kwargs)
-        if current_rank not in mesh.process_ids:
-            return outputs
-
         list_outs = paddle.utils.flatten(outputs)
         assert len(list_outs) == len(
             self.out_dist_attrs
