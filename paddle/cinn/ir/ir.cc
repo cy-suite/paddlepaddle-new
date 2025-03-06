@@ -291,12 +291,14 @@ Expr And::Make(Expr a, Expr b) {
 }
 
 void And::Verify() const {
-  BinaryNodeVerify(a(), b(), "And");
   PADDLE_ENFORCE_EQ(
-      a().type(),
-      type_of<bool>(),
-      ::common::errors::InvalidArgument(
-          "The type of the operands of the node [And] should be bool"));
+      a()->type().is_bool(),
+      true,
+      ::common::errors::PreconditionNotMet("The type of 'a' must be bool."));
+  PADDLE_ENFORCE_EQ(
+      b()->type().is_bool(),
+      true,
+      ::common::errors::PreconditionNotMet("The type of 'b' must be bool."));
 }
 
 Expr Or::Make(Expr a, Expr b) {
@@ -305,15 +307,15 @@ Expr Or::Make(Expr a, Expr b) {
 }
 
 void Or::Verify() const {
-  BinaryNodeVerify(a(), b(), "Or");
   PADDLE_ENFORCE_EQ(
-      a().type(),
-      type_of<bool>(),
-      ::common::errors::InvalidArgument(
-          "The type of the operands of the node [Or] should be bool"));
+      a()->type().is_bool(),
+      true,
+      ::common::errors::PreconditionNotMet("The type of 'a' must be bool."));
+  PADDLE_ENFORCE_EQ(
+      b()->type().is_bool(),
+      true,
+      ::common::errors::PreconditionNotMet("The type of 'b' must be bool."));
 }
-
-Type Or::type() const { return type_; }
 
 Expr Not::Make(Expr v) {
   auto node = make_shared<Not>(v);
@@ -327,8 +329,6 @@ void Not::Verify() const {
       ::common::errors::InvalidArgument(
           "The type of the operand of the node [Not] should be bool"));
 }
-
-Type Not::type() const { return type_; }
 
 Expr Let::Make(Expr symbol, Expr body) {
   auto *n = make_shared<Let>();
