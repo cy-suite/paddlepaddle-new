@@ -13,6 +13,8 @@
 # limitations under the License.
 
 
+import logging
+
 import paddle
 import paddle.distributed as dist
 from paddle.base.core import TensorDistAttr
@@ -27,7 +29,12 @@ from paddle.distributed.auto_parallel.static.utils import (
 from paddle.distributed.fleet.meta_optimizers.common import OpRole
 from paddle.static.pir_io import get_pir_parameters
 
+from ..auto_parallel.static.utils import (
+    get_logger,
+)
 from .pass_base import PassBase, register_pass
+
+logger = get_logger(logging.INFO)
 
 
 @register_pass("auto_parallel_sync_shared_params")
@@ -39,6 +46,9 @@ class AutoParallelSyncSharedParamsPass(PassBase):
         self.dst_ranks = []
 
     def _check_self(self):
+        pipeline_strategy = self.get_attr('pipeline_strategy')
+        if not pipeline_strategy.enable:
+            return False
         return True
 
     def _check_conflict(self, other_pass):
@@ -49,14 +59,11 @@ class AutoParallelSyncSharedParamsPass(PassBase):
             if op.op_role == 2:
                 return op
 
-    def pre_analysis_test(self, main_program, startup_program):
+    def init_shared_params(self, main_program, startup_program):
         pipeline_strategy = self.get_attr('pipeline_strategy')
         print("xxx pipeline_strategy: ", pipeline_strategy)
-        # if pipeline_strategy.enable == False:
-        #     return
+        new_shared_params = []
         pp_degree = pipeline_strategy.pp_degree
-
-        shared_param_names = []
 
         params, _ = get_pir_parameters(main_program)
         for param in params:
@@ -84,16 +91,11 @@ class AutoParallelSyncSharedParamsPass(PassBase):
                         dst_mesh, pp_degree
                     )
 
-                    if src_stage is None or dst_stage is None:
-                        continue
-                    if src_stage == dst_stage:
-                        continue
-
                     param_name = param.get_defining_op().str_attr(
                         'parameter_name'
                     )
 
-                    # add builtin.parameter
+                    # add shared parameter builtin.parameter
                     with auto_complete_op_role(main_program, OpRole.Forward):
                         with paddle.static.program_guard(
                             main_program, startup_program
@@ -103,14 +105,13 @@ class AutoParallelSyncSharedParamsPass(PassBase):
                                 shape=param.shape,
                                 name="shared_" + param_name,
                                 process_mesh=dst_mesh,
-                                placements=dst_dist_attr.placements,
+                                placements=src_dist_attr.placements,
                                 initializer=paddle.nn.initializer.Constant(
                                     value=0
                                 ),
                             )
                     main_program.set_parameters_from(startup_program)
-
-                    print("add shared_param: ", shared_param.get_defining_op())
+                    new_shared_params.append("shared_" + param_name)
 
                     # set dynamic value
                     concrete_program = self.get_attr("concrete_program")
@@ -124,7 +125,7 @@ class AutoParallelSyncSharedParamsPass(PassBase):
 
                     new_dist_attr = TensorDistAttr()
                     new_dist_attr.process_mesh = dst_mesh
-                    new_dist_attr.dims_mapping = dst_dist_attr.dims_mapping
+                    new_dist_attr.dims_mapping = src_dist_attr.dims_mapping
                     with paddle.no_grad():
                         dy_shared_param = paddle.base.core.reshard(
                             dy_param, new_dist_attr
@@ -140,32 +141,43 @@ class AutoParallelSyncSharedParamsPass(PassBase):
                             dy_shared_param.get_tensor().get_tensor()
                         )
 
-                    # restore in params_maybe_shared
+                    # record in params_maybe_shared
                     self.params_maybe_shared.append(
                         {
                             'src_mesh': src_mesh,
                             'dst_mesh': dst_mesh,
+                            'src_dist_attr': src_dist_attr,
+                            'dst_dist_attr': dst_dist_attr,
                             'param_name': param_name,
                         }
                     )
 
-                    # del reshard op
-                    reshard_op.result(0).replace_all_uses_with(shared_param)
-                    reshard_op.erase()
+                    # update reshared op
+                    new_src_dist_attr = (
+                        paddle.base.libpaddle.pir.create_tensor_dist_attribute(
+                            dst_dist_attr.process_mesh,
+                            src_dist_attr.dims_mapping,
+                            src_dist_attr.partial_status,
+                        )
+                    )
+                    reshard_op.dist_attr = (
+                        paddle.base.libpaddle.pir.create_op_dist_attribute(
+                            dst_mesh,
+                            [new_src_dist_attr],
+                            [dst_dist_attr],
+                            -1,
+                        )
+                    )
+                    reshard_op.operand(0).set_source(shared_param)
 
                     self.src_ranks.extend(src_mesh.process_ids)
                     self.dst_ranks.extend(dst_mesh.process_ids)
 
-                    shared_param_names.append("shared_" + param_name)
-
-        print("xxx self.params_maybe_shared : ", self.params_maybe_shared)
-        print("xxx self.src_ranks : ", self.src_ranks)
-        print("xxx self.dst_ranks : ", self.dst_ranks)
         if len(self.params_maybe_shared) == 0:
-            print("xxx no params_maybe_shared!!!!!!!!!!!!!!")
-            return shared_param_names
+            logger.info("No parameter need to share, skip pass.")
+            return []
 
-        # prepare comm group, otherwise hang
+        # init comm group
         for idx in range(len(self.src_ranks)):
             group = new_process_group(
                 sorted([self.src_ranks[idx], self.dst_ranks[idx]])
@@ -173,13 +185,11 @@ class AutoParallelSyncSharedParamsPass(PassBase):
         all_group = new_process_group(
             sorted(src_mesh.process_ids + dst_mesh.process_ids)
         )
+        return new_shared_params
 
-        return shared_param_names
-
-    def apply_src_test(
+    def apply_allreduce(
         self, main_program, startup_program, params_grads, pre_name
     ):
-        print("xxx enter apply_src_test")
         for param_mess in self.params_maybe_shared:
             param_name = param_mess['param_name']
             src_mesh_ids = param_mess['src_mesh'].process_ids
@@ -199,15 +209,7 @@ class AutoParallelSyncSharedParamsPass(PassBase):
 
             # comm group
             cur_rank = paddle.distributed.get_rank()
-
-            if cur_rank in self.src_ranks:
-                idx = src_mesh_ids.index(cur_rank)
-                peer_rank = dst_mesh_ids[idx]
-            if cur_rank in self.dst_ranks:
-                idx = dst_mesh_ids.index(cur_rank)
-                peer_rank = src_mesh_ids[idx]
-
-            ar_group = new_process_group(sorted([cur_rank, peer_rank]))
+            ar_group = new_process_group(sorted(src_mesh_ids + dst_mesh_ids))
 
             # insert allreduce in the end of backward
             insert_pos = self._find_fist_opt_user(main_program)
@@ -215,13 +217,14 @@ class AutoParallelSyncSharedParamsPass(PassBase):
             paddle.pir.set_insertion_point(insert_pos)
 
             with auto_complete_op_role(main_program, OpRole.Backward):
-                with auto_complete_op_role(main_program, OpRole.Backward):
-                    allreduce_val = paddle._C_ops.all_reduce(
-                        grad_value,
-                        ar_group.id,
-                        dist.ReduceOp.SUM,
-                    )
-            allreduce_val.update_dist_attr(grad_value.dist_attr())
+                allreduce_val = paddle._C_ops.all_reduce(
+                    grad_value,
+                    ar_group.id,
+                    dist.ReduceOp.SUM,
+                )
+                allreduce_val.update_dist_attr(grad_value.dist_attr())
+                scaled_grad = paddle._C_ops.add(allreduce_val, allreduce_val)
+                scaled_grad.update_dist_attr(allreduce_val.dist_attr())
             allreduce_op = allreduce_val.get_defining_op()
 
             # update all_used_ops
@@ -237,10 +240,14 @@ class AutoParallelSyncSharedParamsPass(PassBase):
 
         return params_grads
 
-    def xxx_apply(self, main_program, startup_program, params_grads):
-        # pipeline_strategy = self.get_attr('pipeline_strategy')
-        # if pipeline_strategy.enable == False:
-        #     return
+    def allreduce_shared_param_weight(
+        self, main_program, startup_program, params_grads
+    ):
+        if not self._check_self():
+            logger.info(
+                "AutoParallelSyncSharedParamsPass need support pipeline parallel, skip pass."
+            )
+            return params_grads
 
         if len(self.params_maybe_shared) == 0:
             return
@@ -253,7 +260,7 @@ class AutoParallelSyncSharedParamsPass(PassBase):
         pre_name = ""
         if cur_rank in self.dst_ranks:
             pre_name = "shared_"
-        params_grads = self.apply_src_test(
+        params_grads = self.apply_allreduce(
             main_program, startup_program, params_grads, pre_name
         )
 

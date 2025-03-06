@@ -744,8 +744,7 @@ class Engine:
                 [dist_program], [startup_program]
             )
 
-        sync_new = False
-        if sync_new:
+        if self._strategy.pipeline.auto_parallel_sync_shared_params:
             config = {}
             config["concrete_program"] = self.concrete_program
             config["pipeline_strategy"] = self._strategy.pipeline
@@ -753,11 +752,10 @@ class Engine:
                 "auto_parallel_sync_shared_params", config
             )
             shared_params = (
-                auto_parallel_sync_shared_params_pass.pre_analysis_test(
+                auto_parallel_sync_shared_params_pass.init_shared_params(
                     dist_program, startup_program
                 )
             )
-            # add shared params
             for pname in shared_params:
                 self._parameter_name_list.append(pname)
 
@@ -881,6 +879,7 @@ class Engine:
         #   resolute the reshard op into special collective operation.
         #   collect the communicator created during resolution.
         ReshardPasses.apply_reshard_pass(dist_program, global_params_grads)
+        print("123 2 ")
 
         # Note(luchang): When using VPP pipeline pass, we need to split the whole graph into
         # multiple chunks and adjust the process mesh accordingly. Here, we need to store the
@@ -889,13 +888,20 @@ class Engine:
         self.program_helper.cache_whole_graph_dist_attr(all_params)
 
         RemovePasses.apply_all(dist_program, startup_program, params_grads)
+        print("123 3 ")
 
-        if sync_new:
-            global_params_grads = (
-                auto_parallel_sync_shared_params_pass.xxx_apply(
-                    dist_program, startup_program, global_params_grads
-                )
+        if self._strategy.pipeline.auto_parallel_sync_shared_params:
+            print("xxx global_params_grads len : ", len(global_params_grads))
+            global_params_grads = auto_parallel_sync_shared_params_pass.allreduce_shared_param_weight(
+                dist_program, startup_program, global_params_grads
             )
+            print("xxx global_params_grads len : ", len(global_params_grads))
+
+            if mode == "train" and self._loss and self._optimizer:
+                global_params_grads = params_grads
+            else:
+                global_params_grads = []
+                params_grads = []
 
         # Part 4: Optimization Pass
         # NOTE Only those Optimization Pass that related to Parallelism (need dist attr) should be placed here and all the Pass should be Optional.
@@ -934,6 +940,7 @@ class Engine:
                 [dist_program], [startup_program]
             )
 
+        print("123 4 ")
         if (
             self._strategy.pipeline.enable
             and self._strategy.pipeline.schedule_mode == "VPP"
@@ -969,6 +976,8 @@ class Engine:
             self._strategy.fused_passes.fused_passes_list.remove(
                 "fused_gemm_epilogue_pass"
             )
+
+        print("123 5 ")
 
         if self._strategy.pipeline.enable:
             self._job_plan = pipeline_pass(
@@ -1037,6 +1046,9 @@ class Engine:
         self._pir_dense_main_progs[mode] = dense_program
         self._pir_dist_main_progs[mode] = dist_program
         self._pir_dist_startup_progs[mode] = startup_program
+
+        print("xxx last startup_program: ", startup_program)
+        print("xxx last dist_program: ", dist_program)
 
     def _prepare_program(self, mode, init_parameters=True):
         if self._in_pir_mode:
@@ -1476,6 +1488,7 @@ class Engine:
 
                 for op in changed_output_op_list:
                     op.operand_source(0).persistable = True
+
                 self._executor.run(startup_prog)
                 if self._job_plan is not None:
                     # pipeline scheduling should be enabled after running
@@ -2145,6 +2158,15 @@ class Engine:
                 fetch_names = [loss_value]
             fetch_names += self._pir_fetch_values
 
+        # print("xxx run main_program  ")
+        # for op in self.main_program.global_block().ops:
+        #     # if op.name() == "pd_op.cross_entropy_with_softmax":  # no!!!!!!
+        #     #     print("xxxx op : ", op)
+        #     #     fetch_names += [op.result(0)]
+        #     if op.name() == "pd_op.matmul":
+        #         print("xxxx op : ", op)
+        #         fetch_names += [op.result(0)]
+        print("xxx run dist_program: ", self.main_program)
         outs = self._executor.run(
             self.main_program,
             feed=feed_dict,
@@ -2152,6 +2174,9 @@ class Engine:
             use_program_cache=use_cache,
             return_numpy=self._strategy.return_numpy,
         )
+
+        # for idx, out in enumerate(outs):
+        #     print("xxxx outs : ", idx, out)
 
         if self._in_pir_mode:
             if no_fetch:
