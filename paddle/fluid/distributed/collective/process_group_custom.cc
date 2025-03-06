@@ -242,7 +242,7 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupCustom::AllToAll(
     phi::DenseTensor* out_tensor,
     const phi::DenseTensor& in_tensor,
     const std::vector<int64_t>& out_size_each_rank,
-    const std::vector<int64_t>& in_split_sizes,
+    const std::vector<int64_t>& in_size_each_rank,
     bool sync_op,
     bool use_calc_stream) {
   CheckTensorContiguous(in_tensor);
