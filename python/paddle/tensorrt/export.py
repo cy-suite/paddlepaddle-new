@@ -679,9 +679,11 @@ def convert(model_path, config):
             >>>     paddle.jit.save(layer, save_path, [paddle.static.InputSpec(shape=[-1, input_dim])])
 
             >>>     input_config = Input(
-            >>>         min_input_shape=[1, input_dim],
-            >>>         optim_input_shape=[2, input_dim],
-            >>>         max_input_shape=[4, input_dim]
+            >>>         warmup_data=(
+            >>>             np.random.rand(1,3).astype(np.float32),
+            >>>             np.random.rand(2,3).astype(np.float32),
+            >>>             np.random.rand(4,3).astype(np.float32),
+            >>>         )
             >>>     )
 
             >>>     trt_config = TensorRTConfig(inputs=[input_config])
