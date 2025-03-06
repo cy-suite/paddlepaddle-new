@@ -16,8 +16,12 @@ import unittest
 
 import paddle
 from paddle import _C_ops
+from paddle.base import core
 
 
+@unittest.skipIf(
+    not core.is_compiled_with_cuda(), "mamtul 0 size only with in cuda"
+)
 class TestMatmulDygraph(unittest.TestCase):
     def test_matmul(self):
         x = paddle.ones([0, 128], dtype="float32")
