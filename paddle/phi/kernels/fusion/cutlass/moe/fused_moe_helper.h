@@ -277,7 +277,6 @@ class MoeHelper {
     }
 
     topk_gating_softmax_kernelLauncher<float>(gating_output,
-                                              finished,
                                               expert_scales_float,
                                               softmax_out_,
                                               expert_for_source_row,

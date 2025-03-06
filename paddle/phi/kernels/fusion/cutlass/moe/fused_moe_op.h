@@ -76,7 +76,6 @@ inline GpuLaunchConfig Get1DBlocksAnd2DGridsMoe(const int64_t cols) {
 template <typename T, int TPB>
 __launch_bounds__(TPB) __global__
     void group_moe_softmax(const T* input,
-                           const bool* finished,
                            T* output,
                            T* softmax_max_prob,
                            const int64_t num_cols,
@@ -154,7 +153,6 @@ __launch_bounds__(TPB) __global__
 
 template <typename T, int TPB>
 __launch_bounds__(TPB) __global__ void moe_top_k(const T* inputs_after_softmax,
-                                                 const bool* finished,
                                                  T* output,
                                                  int* indices,
                                                  int* source_rows,
@@ -174,7 +172,6 @@ __launch_bounds__(TPB) __global__ void moe_top_k(const T* inputs_after_softmax,
     return;
   }
 
-  const bool should_process_row = finished ? !finished[block_row] : true;
   const int thread_read_offset = block_row * num_experts;
 
   for (int k_idx = 0; k_idx < k; ++k_idx) {
@@ -204,7 +201,7 @@ __launch_bounds__(TPB) __global__ void moe_top_k(const T* inputs_after_softmax,
       const int idx = k * block_row + k_idx;
       // restore normalized probes
       output[idx] = result_kvp.value / T(softmax_max_prob[idx]);
-      indices[idx] = should_process_row ? result_kvp.key : num_experts;
+      indices[idx] = result_kvp.key;
       source_rows[idx] = k_idx * num_rows + block_row;
     }
     __syncthreads();
@@ -213,7 +210,6 @@ __launch_bounds__(TPB) __global__ void moe_top_k(const T* inputs_after_softmax,
 
 template <typename T, int TPB>
 __launch_bounds__(TPB) __global__ void moe_softmax(const T* input,
-                                                   const bool* finished,
                                                    T* output,
                                                    const int64_t num_cols,
                                                    const int64_t num_rows) {
@@ -231,11 +227,6 @@ __launch_bounds__(TPB) __global__ void moe_softmax(const T* input,
 
   cub::Sum sum;
   float threadData(-FLT_MAX);
-
-  // Don't touch finished rows.
-  if ((finished != nullptr) && finished[globalIdx]) {
-    return;
-  }
 
   for (int ii = threadIdx.x; ii < num_cols; ii += TPB) {
     const int idx = thread_row_offset + ii;
@@ -272,7 +263,6 @@ __launch_bounds__(TPB) __global__ void moe_softmax(const T* input,
 
 template <typename T, int TPB>
 __launch_bounds__(TPB) __global__ void moe_top_k(const T* inputs_after_softmax,
-                                                 const bool* finished,
                                                  T* output,
                                                  int* indices,
                                                  int* source_rows,
@@ -291,7 +281,6 @@ __launch_bounds__(TPB) __global__ void moe_top_k(const T* inputs_after_softmax,
     return;
   }
 
-  const bool should_process_row = finished ? !finished[block_row] : true;
   const int thread_read_offset = block_row * num_experts;
 
   for (int k_idx = 0; k_idx < k; ++k_idx) {
@@ -320,7 +309,7 @@ __launch_bounds__(TPB) __global__ void moe_top_k(const T* inputs_after_softmax,
     if (threadIdx.x == 0) {
       const int idx = k * block_row + k_idx;
       output[idx] = result_kvp.value;
-      indices[idx] = should_process_row ? result_kvp.key : num_experts;
+      indices[idx] = result_kvp.key;
       source_rows[idx] = k_idx * num_rows + block_row;
     }
     __syncthreads();
@@ -350,7 +339,6 @@ template <typename T,
           int BYTES_PER_LDG>
 __launch_bounds__(WARPS_PER_CTA* WARP_SIZE) __global__
     void topk_gating_softmax(const T* input,
-                             const bool* finished,
                              T* output,
                              const int64_t num_rows,
                              int* indices,
@@ -409,7 +397,6 @@ __launch_bounds__(WARPS_PER_CTA* WARP_SIZE) __global__
 
   // Threads with indices out of bounds should early exit here.
   if (thread_row >= num_rows) return;
-  const bool should_process_row = finished ? !finished[thread_row] : true;
 
   // We finally start setting up the read pointers for each thread. First, each
   // thread jumps to the start of the row it will read.
@@ -544,7 +531,7 @@ __launch_bounds__(WARPS_PER_CTA* WARP_SIZE) __global__
       // input/output matrices.
       const int idx = k * thread_row + k_idx;
       output[idx] = T(max_val);
-      indices[idx] = should_process_row ? expert : NUM_EXPERTS;
+      indices[idx] = expert;
       source_rows[idx] = k_idx * num_rows + thread_row;
     }
 
@@ -587,7 +574,6 @@ struct TopkConstants {
 
 template <typename T, int EXPERTS, int WARPS_PER_TB>
 void topk_gating_softmax_launcher_helper(const T* input,
-                                         const bool* finished,
                                          T* output,
                                          int* indices,
                                          int* source_row,
@@ -607,12 +593,11 @@ void topk_gating_softmax_launcher_helper(const T* input,
   dim3 block_dim(WARP_SIZE, WARPS_PER_TB);
   topk_gating_softmax<T, VPT, EXPERTS, WARPS_PER_TB, BYTES_PER_LDG>
       <<<num_blocks, block_dim, 0, stream>>>(
-          input, finished, output, num_rows, indices, source_row, k);
+          input, output, num_rows, indices, source_row, k);
 }
 
 template <typename T>
 void topk_gating_softmax_kernelLauncher(const T* input,
-                                        const bool* finished,
                                         T* output,
                                         T* softmax,
                                         int* indices,
@@ -628,23 +613,16 @@ void topk_gating_softmax_kernelLauncher(const T* input,
     static constexpr int TPB = 256;
     const auto config_topk = Get1DBlocksAnd2DGridsMoe(num_rows);
     moe_top_k<T, TPB><<<config_topk.block_per_grid, TPB, 0, stream>>>(
-        input, finished, output, indices, source_row, num_experts, k, num_rows);
+        input, output, indices, source_row, num_experts, k, num_rows);
     return;
   }
   static constexpr int WARPS_PER_TB = 4;
 
-#define LAUNCH_TOPK_GATING_SOFTMAX_HELPER(N)                             \
-  case N: {                                                              \
-    topk_gating_softmax_launcher_helper<T, N, WARPS_PER_TB>(input,       \
-                                                            finished,    \
-                                                            output,      \
-                                                            indices,     \
-                                                            source_row,  \
-                                                            num_rows,    \
-                                                            num_experts, \
-                                                            k,           \
-                                                            stream);     \
-    break;                                                               \
+#define LAUNCH_TOPK_GATING_SOFTMAX_HELPER(N)                                   \
+  case N: {                                                                    \
+    topk_gating_softmax_launcher_helper<T, N, WARPS_PER_TB>(                   \
+        input, output, indices, source_row, num_rows, num_experts, k, stream); \
+    break;                                                                     \
   }
 
   switch (num_experts) {
@@ -665,7 +643,6 @@ void topk_gating_softmax_kernelLauncher(const T* input,
         group_moe_softmax<T, TPB>
             <<<config_softmax.block_per_grid, TPB, 0, stream>>>(
                 input,
-                finished,
                 softmax,
                 softmax_max_prob,
                 group_experts,
@@ -673,7 +650,6 @@ void topk_gating_softmax_kernelLauncher(const T* input,
         const auto config_topk = Get1DBlocksAnd2DGridsMoe(num_rows);
         moe_top_k<T, TPB>
             <<<config_topk.block_per_grid, TPB, 0, stream>>>(softmax,
-                                                             finished,
                                                              output,
                                                              indices,
                                                              source_row,
@@ -684,16 +660,9 @@ void topk_gating_softmax_kernelLauncher(const T* input,
       } else {
         const auto config_topk = Get1DBlocksAnd2DGridsMoe(num_rows);
         moe_softmax<T, TPB><<<config_topk.block_per_grid, TPB, 0, stream>>>(
-            input, finished, softmax, num_experts, num_rows);
-        moe_top_k<T, TPB>
-            <<<config_topk.block_per_grid, TPB, 0, stream>>>(softmax,
-                                                             finished,
-                                                             output,
-                                                             indices,
-                                                             source_row,
-                                                             num_experts,
-                                                             k,
-                                                             num_rows);
+            input, softmax, num_experts, num_rows);
+        moe_top_k<T, TPB><<<config_topk.block_per_grid, TPB, 0, stream>>>(
+            softmax, output, indices, source_row, num_experts, k, num_rows);
       }
     }
   }
@@ -817,31 +786,11 @@ __device__ inline int find_total_elts_leq_target(int* sorted_indices,
   return target_location + 1;
 }
 
-__global__ void compute_total_rows_before_expert_kernel(
-    int* sorted_experts,
-    const int64_t sorted_experts_len,
-    const int64_t num_experts,
-    int64_t* total_rows_before_expert) {
-  // First, compute the global tid. We only need 1 thread per expert.
-  const int expert = blockIdx.x * blockDim.x + threadIdx.x;
-  if (expert >= num_experts) return;
-
-  // This should construct the last index where each expert occurs.
-  total_rows_before_expert[expert] =
-      find_total_elts_leq_target(sorted_experts, sorted_experts_len, expert);
-}
-
 void compute_total_rows_before_expert(int* sorted_indices,
                                       const int64_t total_indices,
                                       const int64_t num_experts,
                                       int64_t* total_rows_before_expert,
-                                      cudaStream_t stream) {
-  const int threads = std::min(int64_t(1024), num_experts);
-  const int blocks = (num_experts + threads - 1) / threads;
-
-  compute_total_rows_before_expert_kernel<<<blocks, threads, 0, stream>>>(
-      sorted_indices, total_indices, num_experts, total_rows_before_expert);
-}
+                                      cudaStream_t stream);
 
 // Final kernel to unpermute and scale
 // This kernel unpermutes the original data, does the k-way reduction and
@@ -937,7 +886,6 @@ void finalize_moe_routing_kernelLauncher(
 // ========================= TopK Softmax specializations
 // ===========================
 template void topk_gating_softmax_kernelLauncher(const float*,
-                                                 const bool*,
                                                  float*,
                                                  float*,
                                                  int*,
@@ -950,7 +898,6 @@ template void topk_gating_softmax_kernelLauncher(const float*,
                                                  cudaStream_t,
                                                  const bool);
 template void topk_gating_softmax_kernelLauncher(const half*,
-                                                 const bool*,
                                                  half*,
                                                  half*,
                                                  int*,
@@ -964,7 +911,6 @@ template void topk_gating_softmax_kernelLauncher(const half*,
                                                  const bool);
 #ifdef PADDLE_CUDA_BF16
 template void topk_gating_softmax_kernelLauncher(const __nv_bfloat16*,
-                                                 const bool*,
                                                  __nv_bfloat16*,
                                                  __nv_bfloat16*,
                                                  int*,
