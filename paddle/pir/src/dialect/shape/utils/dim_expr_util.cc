@@ -257,7 +257,7 @@ struct IsLhsBeforeRhsStruct<Div<DimExpr>, Div<DimExpr>> {
     const auto& rhs_lhs = rhs->lhs;
     const auto& rhs_rhs = rhs->rhs;
 
-    return IsLhsBeforeRhs(lhs_lhs, rhs_lhs) && IsLhsBeforeRhs(lhs_rhs, rhs_rhs);
+    return IsLhsBeforeRhs(lhs_lhs, rhs_lhs);
   }
 };
 
