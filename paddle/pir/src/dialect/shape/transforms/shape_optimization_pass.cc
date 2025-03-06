@@ -14,6 +14,7 @@
 
 #include "paddle/pir/include/dialect/shape/transforms/shape_optimization_pass.h"
 
+#include "paddle/common/enforce.h"
 #include "paddle/common/errors.h"
 #include "paddle/common/flags.h"
 #include "paddle/pir/include/core/builtin_type.h"
@@ -342,7 +343,7 @@ void InferSymExprForOp(Operation* op,
   }
 }
 
-std::set<std::string> new_symbol_op_list = {
+std::set<std::string> new_symbol_op_set = {
     // cf_op.cc
     "cf.stack_create",
     // op_dialect.cc
@@ -426,12 +427,18 @@ OpType GetOpType(const symbol::DimExpr& expr) {
       [](const symbol::Min<symbol::DimExpr>& dim_expr) { return OpType::kMin; },
       [](const symbol::Broadcast<symbol::DimExpr>& dim_expr) {
         return OpType::kBroadcast;
+      },
+      [](const auto& dim_expr) {
+        PADDLE_THROW(::common::errors::InvalidArgument(
+            "Unsupported DimExpr for %s", dim_expr));
       }};
   return std::visit(lambdas, expr.variant());
 }
+
 bool PatternMatch(const symbol::DimExpr& lhs,
                   const symbol::DimExpr& rhs,
                   std::unordered_map<std::string, std::string>* map);
+
 template <template <typename> class Op>
 bool ListPatternMatch(const symbol::DimExpr& lhs,
                       const symbol::DimExpr& rhs,
@@ -459,20 +466,12 @@ bool BinaryPatternMatch(const symbol::DimExpr& lhs,
          PatternMatch(lhs_op->rhs, rhs_op->rhs, map);
 }
 
-bool DivPatternMatch(const symbol::DimExpr& lhs,
-                     const symbol::DimExpr& rhs,
-                     std::unordered_map<std::string, std::string>* map) {
-  const auto& lhs_op = lhs.Get<symbol::Div<symbol::DimExpr>>();
-  const auto& rhs_op = rhs.Get<symbol::Div<symbol::DimExpr>>();
-  return PatternMatch(lhs_op->lhs, rhs_op->lhs, map) &&
-         PatternMatch(lhs_op->rhs, rhs_op->rhs, map);
-}
-
-bool NegativePatternMatch(const symbol::DimExpr& lhs,
-                          const symbol::DimExpr& rhs,
-                          std::unordered_map<std::string, std::string>* map) {
-  const auto& lhs_op = lhs.Get<symbol::Negative<symbol::DimExpr>>();
-  const auto& rhs_op = rhs.Get<symbol::Negative<symbol::DimExpr>>();
+template <template <typename> class Op>
+bool UnaryPatternMatch(const symbol::DimExpr& lhs,
+                       const symbol::DimExpr& rhs,
+                       std::unordered_map<std::string, std::string>* map) {
+  auto lhs_op = lhs.Get<Op<symbol::DimExpr>>();
+  auto rhs_op = rhs.Get<Op<symbol::DimExpr>>();
   return PatternMatch(lhs_op->data, rhs_op->data, map);
 }
 
@@ -496,9 +495,9 @@ bool PatternMatch(const symbol::DimExpr& lhs,
     case OpType::kBroadcast:
       return ListPatternMatch<symbol::Broadcast>(lhs, rhs, map);
     case OpType::kDiv:
-      return DivPatternMatch(lhs, rhs, map);
+      return BinaryPatternMatch<symbol::Div>(lhs, rhs, map);
     case OpType::kNegative:
-      return NegativePatternMatch(lhs, rhs, map);
+      return UnaryPatternMatch<symbol::Negative>(lhs, rhs, map);
     case OpType::kInt:
       return lhs == rhs;
     case OpType::kSym:
@@ -549,36 +548,36 @@ bool ShapeOrDataDimExprsPatternMatch(
   }
   switch (rhs_type) {
     case ShapeOrDataDimType::kTensorShapeOrDataDimExprs:
-      if (rhs.dyn_cast<symbol::TensorShapeOrDataDimExprs>().data().has_value() ^
-          lhs.dyn_cast<symbol::TensorShapeOrDataDimExprs>()
+      if (lhs.dyn_cast<symbol::TensorShapeOrDataDimExprs>().data().has_value() ^
+          rhs.dyn_cast<symbol::TensorShapeOrDataDimExprs>()
               .data()
               .has_value()) {
         return false;
-      } else if (rhs.dyn_cast<symbol::TensorShapeOrDataDimExprs>()
+      } else if (lhs.dyn_cast<symbol::TensorShapeOrDataDimExprs>()
                      .data()
                      .has_value()) {
-        auto rhs_data =
-            rhs.dyn_cast<symbol::TensorShapeOrDataDimExprs>().data().value();
         auto lhs_data =
             lhs.dyn_cast<symbol::TensorShapeOrDataDimExprs>().data().value();
-        if (rhs_data.size() != lhs_data.size()) {
+        auto rhs_data =
+            rhs.dyn_cast<symbol::TensorShapeOrDataDimExprs>().data().value();
+        if (lhs_data.size() != rhs_data.size()) {
           return false;
         }
-        for (size_t i = 0; i < rhs_data.size(); ++i) {
-          if (!PatternMatch(rhs_data[i], lhs_data[i], map)) {
+        for (size_t i = 0; i < lhs_data.size(); ++i) {
+          if (!PatternMatch(lhs_data.at(i), rhs_data.at(i), map)) {
             return false;
           }
         }
       } else {
-        auto rhs_shape =
-            rhs.dyn_cast<symbol::TensorShapeOrDataDimExprs>().shape();
         auto lhs_shape =
             lhs.dyn_cast<symbol::TensorShapeOrDataDimExprs>().shape();
-        if (rhs_shape.size() != lhs_shape.size()) {
+        auto rhs_shape =
+            rhs.dyn_cast<symbol::TensorShapeOrDataDimExprs>().shape();
+        if (lhs_shape.size() != rhs_shape.size()) {
           return false;
         }
-        for (size_t i = 0; i < rhs_shape.size(); ++i) {
-          if (!PatternMatch(rhs_shape[i], lhs_shape[i], map)) {
+        for (size_t i = 0; i < lhs_shape.size(); ++i) {
+          if (!PatternMatch(lhs_shape.at(i), rhs_shape.at(i), map)) {
             return false;
           }
         }
@@ -604,14 +603,14 @@ void CacheForwardOpSymbolicShape(
         if (infer_result.size() != cache_result.size()) {
           LOG(WARNING) << "cached shape is not consistent with real shape";
         } else {
+          std::unordered_map<std::string, std::string> map = {};
           for (uint32_t i = 0; i < cache_result.size(); ++i) {
             if (infer_result[i] != cache_result[i]) {
-              if (new_symbol_op_list.count(op->name())) {
-                std::unordered_map<std::string, std::string> map;
-                if (ShapeOrDataDimExprsPatternMatch(
-                        infer_result[i], cache_result[i], &map)) {
-                  continue;
-                }
+              if (new_symbol_op_set.find(op->name()) !=
+                      new_symbol_op_set.end() &&
+                  ShapeOrDataDimExprsPatternMatch(
+                      infer_result[i], cache_result[i], &map)) {
+                continue;
               }
               LOG(WARNING) << "cached shape is not consistent with real shape";
               VLOG(3) << "InferSymbolicShapeCacheKey is: "
