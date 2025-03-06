@@ -1208,6 +1208,72 @@ struct SimplifyDiv {
   }
 };
 
+struct SimplifyMin {
+  using dim_expr_type = Min<DimExpr>;
+
+  static const bool IsLhsGreatEqualThanRhs(const DimExpr& lhs,
+                                           const DimExpr& rhs) const {
+    const auto LhsOperandsVisitor =
+        common::Overloaded{[&](const Add<DimExpr>& add) {
+                             bool lhs_great_equal_than_rhs = false;
+                             for (const auto& expr : *add.operands) {
+                               if (expr == rhs)
+                                 lhs_great_equal_than_rhs = true;
+                               else if (!(expr.isa<std::int64_t>() &&
+                                          expr.dyn_cast<std::int64_t>() > 0) &&
+                                        !expr.isa<std::string>())
+                                 return false;
+                             }
+                             return lhs_great_equal_than_rhs;
+                           },
+                           [&](const Mul<DimExpr>& mul) {
+                             bool lhs_great_equal_than_rhs = false;
+                             for (const auto& expr : *mul.operands) {
+                               if (expr == rhs)
+                                 lhs_great_equal_than_rhs = true;
+                               else if (!(expr.isa<std::int64_t>() &&
+                                          expr.dyn_cast<std::int64_t>() > 1) &&
+                                        !expr.isa<std::string>())
+                                 return false;
+                             }
+                             return lhs_great_equal_than_rhs;
+                           },
+                           [&](const auto& lhs) { return false; }};
+    return std::visit(LhsOperandsVisitor, lhs.variant()) ||
+           symbol::Compare(lhs, rhs) == DimExprCompareResult::GT;
+  }
+
+  List<DimExpr> SearchErasable(const List<DimExpr>& operands) {
+    List<DimExpr> ret_operands{};
+    for (std::size_t i = 0; i < operands->size(); i++) {
+      bool is_redundant = false;
+      for (std::size_t j = 0; j < operands->size(); j++) {
+        if (i == j) continue;
+        const auto& lhs = operands->at(i);
+        const auto& rhs = operands->at(j);
+        if (IsLhsGreatEqualThanRhs(lhs, rhs)) {
+          is_redundant = true;
+          break;
+        }
+      }
+      if (!is_redundant) {
+        ret_operands->emplace_back(operands->at(i));
+      }
+    }
+    return ret_operands;
+  }
+
+  DimExpr Rewrite(const DimExpr& expr) const {
+    const auto& [operands] = expr.Get<Min<DimExpr>>();
+    List<DimExpr> ret_operands = SearchErasable(operands);
+    if (ret_operands->size() == 1) {
+      return ret_operands->at(0);
+    } else {
+      return Min<DimExpr>{ret_operands};
+    }
+  }
+};
+
 template <typename PassT>
 void DoPass(bool* rewritten, DimExpr* expr) {
   const auto old_expr = *expr;
@@ -1248,6 +1314,7 @@ DimExpr Simplify(const DimExpr& expr) {
     DoPass<FoldRedundantSymbolicBroadcast>(&keep_rewrite, &ret);
     DoPass<SimplifyBroadcast>(&keep_rewrite, &ret);
     DoPass<SimplifyDiv>(&keep_rewrite, &ret);
+    DoPass<SimplifyMin>(&keep_rewrite, &ret);
     if (expr_before_run_pipeline == ret) break;
   }
   return ret;

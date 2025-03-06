@@ -210,6 +210,29 @@ TEST(Simplify, FoldRedundantBroadcast) {
   ASSERT_TRUE((simplify_bc == Broadcast<DimExpr>{{S0, S1}}));
 }
 
+TEST(Simplify, SimplifyMin) {
+  // Min(S0, Add(S0,S1), Mul(Add(S1, S2), S2)) => S0
+  DimExpr S0{"S0"};
+  DimExpr S1{"S1"};
+  DimExpr S2{"S2"};
+  DimExpr add{Add<DimExpr>{{S0, S1}}};
+  DimExpr mul{Mul<DimExpr>{{Add<DimExpr>{{S1, S2}}, S2}}};
+  DimExpr min{Min<DimExpr>{{S0, add, mul}}};
+  DimExpr simplify_min = SimplifyDimExpr(min);
+  ASSERT_TRUE((simplify_min == S0));
+  // Min(S0, Add(S0, -1)) => Add(S0, -1)
+  DimExpr neg1{Negative<DimExpr>{DimExpr{1}}};
+  DimExpr add2{Add<DimExpr>{{S0, neg1}}};
+  DimExpr min2{Min<DimExpr>{{S0, add2}}};
+  DimExpr simplify_min2 = SimplifyDimExpr(min2);
+  ASSERT_TRUE((simplify_min2 == add2));
+  // Min(576, Mul(576, S0)) => 576
+  DimExpr mul3{Mul<DimExpr>{{DimExpr{576}, S0}}};
+  DimExpr min3{Min<DimExpr>{{DimExpr{576}, mul3}}};
+  DimExpr simplify_min3 = SimplifyDimExpr(min3);
+  ASSERT_TRUE((simplify_min3 == DimExpr{576}));
+}
+
 TEST(Simplify, Case1) {
   // Div(Mul(Div(Mul(Broadcast(S11, S8), Broadcast(S10, S13, S4, S7),
   // Broadcast(S12, S3, S6, S9)), S0)), 16), 49)
