@@ -26,7 +26,7 @@ namespace paddle {
 namespace framework {
 
 using TensorRTEngine = paddle::platform::TensorRTEngine;
-static const int kMaxDim = 60000;
+static const int kMaxDim = 1000;
 
 TensorRTEngineInstruction::TensorRTEngineInstruction(
     size_t id,
