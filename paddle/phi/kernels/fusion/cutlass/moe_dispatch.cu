@@ -134,7 +134,6 @@ void MoeDispatchKernel(const Context& ctx,
 
   topk_gating_softmax_kernelLauncher<float>(
       gating_output.data<float>(),
-      finished,
       ctx.template Alloc<float>(expert_scales_float),
       softmax_out_,
       expert_for_source_row,
