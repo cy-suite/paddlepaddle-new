@@ -118,7 +118,7 @@ class Input:
         if warmup_data is not None:
             if min_input_shape or max_input_shape or optim_input_shape:
                 raise ValueError(
-                    "Input data provided; min/max/optim shapes are ignored."
+                    "warmup data provided; min/max/optim shapes are ignored."
                 )
             if input_data_type is not None or input_range is not None:
                 _logger.warning(
@@ -128,7 +128,7 @@ class Input:
         else:
             if None in (min_input_shape, max_input_shape, optim_input_shape):
                 raise ValueError(
-                    "When input_data is None, min/max/optim shapes must be specified."
+                    "When warm_data is None, min/max/optim shapes must be specified."
                 )
 
         self.warmup_data = warmup_data
