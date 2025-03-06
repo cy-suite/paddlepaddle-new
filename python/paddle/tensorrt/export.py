@@ -116,7 +116,7 @@ class Input:
             if input_data_type is not None or input_range is not None:
                 _logger.warning(
                     "When warmup_data is provided,input_data_type and input_range are ignored."
-                    "These parameeters only apply whtn generate random data using min/opt/max shapes."
+                    "These parameters only apply whtn generate random data using min/opt/max shapes."
                 )
         else:
             if None in (min_input_shape, max_input_shape, optim_input_shape):

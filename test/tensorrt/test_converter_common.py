@@ -435,21 +435,6 @@ def linear_interp_test(
     align_corners=True,
     align_mode=0,
 ):
-<<<<<<< HEAD
-    # if isinstance(scale, (float, int)):
-    #     scale_list = []
-    #     for _ in range(len(x.shape) - 2):
-    #         scale_list.append(scale)
-    #     scale = list(map(float, scale_list))
-    # elif isinstance(scale, (list, tuple)):
-    #     scale = list(map(float, scale))
-    # if SizeTensor is not None:
-    #     if not isinstance(SizeTensor, list) and not isinstance(
-    #         SizeTensor, tuple
-    #     ):
-    #         SizeTensor = [SizeTensor]
-=======
->>>>>>> 644acc5d2720e09b4bd7d5cc38341506274b4aee
     return paddle._C_ops.linear_interp(
         x,
         OutSize,
@@ -491,12 +476,9 @@ class TestLinearInterpTRTPattern(TensorRTBaseTest):
     def test_trt_result(self):
         self.check_trt_result()
 
-<<<<<<< HEAD
-=======
     def test_fp16_trt_result(self):
         self.check_trt_result(precision_mode="fp16")
 
->>>>>>> 644acc5d2720e09b4bd7d5cc38341506274b4aee
 
 class TestLinearInterpCase1TRTPattern(TensorRTBaseTest):
     def setUp(self):
@@ -523,12 +505,9 @@ class TestLinearInterpCase1TRTPattern(TensorRTBaseTest):
     def test_trt_result(self):
         self.check_trt_result()
 
-<<<<<<< HEAD
-=======
     def test_fp16_trt_result(self):
         self.check_trt_result(precision_mode="fp16")
 
->>>>>>> 644acc5d2720e09b4bd7d5cc38341506274b4aee
 
 class TestLinearInterpCase2TRTPattern(TensorRTBaseTest):
     def setUp(self):
@@ -555,12 +534,9 @@ class TestLinearInterpCase2TRTPattern(TensorRTBaseTest):
     def test_trt_result(self):
         self.check_trt_result()
 
-<<<<<<< HEAD
-=======
     def test_fp16_trt_result(self):
         self.check_trt_result(precision_mode="fp16")
 
->>>>>>> 644acc5d2720e09b4bd7d5cc38341506274b4aee
 
 class TestLinearInterpCase3TRTPattern(TensorRTBaseTest):
     def setUp(self):
@@ -587,12 +563,9 @@ class TestLinearInterpCase3TRTPattern(TensorRTBaseTest):
     def test_trt_result(self):
         self.check_trt_result()
 
-<<<<<<< HEAD
-=======
     def test_fp16_trt_result(self):
         self.check_trt_result(precision_mode="fp16")
 
->>>>>>> 644acc5d2720e09b4bd7d5cc38341506274b4aee
 
 class TestLinearInterpCase4TRTPattern(TensorRTBaseTest):
     def setUp(self):
@@ -619,12 +592,9 @@ class TestLinearInterpCase4TRTPattern(TensorRTBaseTest):
     def test_trt_result(self):
         self.check_trt_result()
 
-<<<<<<< HEAD
-=======
     def test_fp16_trt_result(self):
         self.check_trt_result(precision_mode="fp16")
 
->>>>>>> 644acc5d2720e09b4bd7d5cc38341506274b4aee
 
 class TestLinearInterpCase5TRTPattern(TensorRTBaseTest):
     def setUp(self):
@@ -643,11 +613,7 @@ class TestLinearInterpCase5TRTPattern(TensorRTBaseTest):
             "align_corners": True,
             "align_mode": 0,
         }
-<<<<<<< HEAD
-        self.program_config = {"feed_list": ["x", "Scale"]}
-=======
         self.program_config = {"feed_list": ["x"]}
->>>>>>> 644acc5d2720e09b4bd7d5cc38341506274b4aee
         self.min_shape = {"x": [1, 3, 64]}
         self.opt_shape = {"x": [2, 3, 64]}
         self.max_shape = {"x": [4, 3, 64]}
@@ -655,8 +621,6 @@ class TestLinearInterpCase5TRTPattern(TensorRTBaseTest):
     def test_trt_result(self):
         self.check_trt_result()
 
-<<<<<<< HEAD
-=======
     def test_fp16_trt_result(self):
         self.check_trt_result(precision_mode="fp16")
 
@@ -753,7 +717,6 @@ class TestLinearInterpCase8TRTPattern(TensorRTBaseTest):
     def test_fp16_trt_result(self):
         self.check_trt_result(precision_mode="fp16")
 
->>>>>>> 644acc5d2720e09b4bd7d5cc38341506274b4aee
 
 if __name__ == "__main__":
     unittest.main()
