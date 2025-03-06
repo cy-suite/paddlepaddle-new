@@ -408,7 +408,7 @@ void Conv3dTransposeKernel(const Context& dev_ctx,
     PADDLE_ENFORCE_LE(
         dilation,
         1,
-        errors::InvalidArgument(
+        errors::Unimplemented(
             "XPU do not support dilation > 1 in conv3d_transpose."));
   }
 
@@ -431,9 +431,9 @@ void Conv3dTransposeKernel(const Context& dev_ctx,
     PADDLE_ENFORCE_LE(
         groups,
         1,
-        errors::InvalidArgument("XPU do not support group > 1 when data_format "
-                                "is NHWC(in Python, it is specified as NDHWC) "
-                                "in conv3d_transpose."));
+        errors::Unimplemented("XPU do not support group > 1 when data_format "
+                              "is NHWC(in Python, it is specified as NDHWC) "
+                              "in conv3d_transpose."));
   }
 
   const XPUType* filter_data =
