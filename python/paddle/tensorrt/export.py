@@ -52,9 +52,16 @@ _logger = get_logger(
 
 class Input:
     """
-    A class used to configure and generate random input data for different shapes and data types.
+    A class used to configure input data for models. This class serves two purposes:
 
-    This class supports generating random input data for minimum, optimal, and maximum shapes, with configurable data types (e.g., 'int' or 'float') and value ranges.
+    1. **Random Data Generation:** When no input data is supplied, it automatically generates
+       random input data based on the specified minimum, optimal, and maximum shapes. In this mode,
+       you can configure the data type (e.g., 'float32', 'int64', etc.) and the range of values (e.g.,
+       (0.0, 1.0) for floats or (1, 10) for integers).
+
+    2. **User-Provided Input:** Alternatively, you can supply your own input data via the
+       `warmup_data` argument. In this case, the provided data will be used directly, and the
+       `input_data_type` and `input_range` settings will be ignored.
 
     Args:
         warmup_data (tuple):
