@@ -85,29 +85,42 @@ struct SplitDenseTensor<phi::CustomContext, T> {
     VLOG(10) << "SplitDenseTensor: " << out->size();
     auto kernel_result =
         phi::KernelFactory::Instance().SelectKernelOrThrowError(
-            "split_with_num",
+            "split",
             phi::KernelKey(phi::TransToPhiBackend(context.GetPlace()),
                            phi::DataLayout::ALL_LAYOUT,
                            phi::CppTypeToDataType<T>::Type()));
     const auto &kernel = kernel_result.kernel;
     using kernel_signature = void (*)(const phi::DeviceContext &,
                                       const phi::DenseTensor &,
-                                      int,
+                                      const phi::IntArray &,
                                       const phi::Scalar &,
                                       std::vector<phi::DenseTensor *>);
     auto *kernel_fn = kernel.GetVariadicKernelFn<kernel_signature>();
 
     auto in_dims = common::vectorize(in.dims());
-    auto origin_out_dims = common::vectorize(out->at(0)->dims());
+    auto flattened_in_dims = {in.numel()};
+    std::vector<std::vector<int64_t>> origin_out_dims;
+    std::vector<int64_t> sections;
+
+    phi::DenseTensor in_flatten(in.Holder(), in.meta());
+    in_flatten.Resize(flattened_in_dims);
+
     for (auto *tensor : *out) {
-      if (origin_out_dims.size() != in_dims.size()) {
-        std::vector<int> new_dims({1});
-        new_dims.insert(
-            new_dims.end(), origin_out_dims.begin(), origin_out_dims.end());
-        tensor->Resize(common::make_ddim(new_dims));
+      auto tensor_dims = common::vectorize(tensor->dims());
+      origin_out_dims.push_back(tensor_dims);
+      sections.push_back(tensor->numel());
+
+      std::vector<int64_t> new_dims = {tensor->numel()};
+      if (tensor_dims != new_dims) {
+        // flatten
+        tensor->Resize();
       }
     }
-    (*kernel_fn)(context, in, out->size(), phi::Scalar(0), *out);
+    (*kernel_fn)(
+        context, in_flatten, phi::IntArray(sections), phi::Scalar(0), *out);
+    if (in_dims != flattened_in_dims) {
+      in.Resize(in_dims);
+    }
     for (auto *tensor : *out) {
       auto tensor_dims = common::vectorize(tensor->dims());
       if (tensor_dims.size() != origin_out_dims.size()) {
@@ -380,11 +393,11 @@ inline std::vector<int64_t> GetDefaultSplitSizes(const phi::DenseTensor &tensor,
   return std::vector<int64_t>(world_size, tensor.dims()[0] / world_size);
 }
 
-inline std::vector<int64_t> GetSplitSizes(
+inline std::vector<int64_t> GetSplitSizesByNumel(
     const std::vector<Tensor> &tensor_list) {
   std::vector<int64_t> split_sizes;
   for (auto &tensor : tensor_list) {
-    split_sizes.push_back(tensor.dims()[0]);
+    split_sizes.push_back(tensor.numel());
   }
   return split_sizes;
 }

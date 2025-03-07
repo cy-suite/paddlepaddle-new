@@ -21,6 +21,7 @@
 #include "paddle/phi/core/device_context.h"
 #include "paddle/phi/core/distributed/check/static_check.h"
 #include "paddle/phi/core/distributed/comm_context_manager.h"
+#include "paddle/phi/core/distributed/utils.h"
 #include "paddle/phi/core/enforce.h"
 #include "paddle/phi/core/memory/allocation/allocator_facade.h"
 #include "paddle/phi/core/platform/device/xpu/bkcl_helper.h"
@@ -28,6 +29,8 @@
 
 namespace paddle {
 namespace distributed {
+
+using phi::distributed::CheckSizeOnEachRank;
 
 ProcessGroupBKCL::BKCLTask::BKCLTask(const Place& place,
                                      int rank,
@@ -389,6 +392,9 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupBKCL::AllToAll(
 
   const phi::DDim& out_dim = out_tensor->dims();
   const phi::DDim& in_dim = in_tensor.dims();
+
+  CheckSizeOnEachRank(out_dim, out_split_sizes, size_);
+  CheckSizeOnEachRank(in_dim, in_split_sizes, size_);
 
   // XCCL only support all_to_all_single
   PADDLE_ENFORCE_EQ(
