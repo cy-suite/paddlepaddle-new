@@ -752,7 +752,7 @@ class Engine:
                 "auto_parallel_sync_shared_params", config
             )
             shared_params = (
-                auto_parallel_sync_shared_params_pass.init_shared_params(
+                auto_parallel_sync_shared_params_pass.sync_shared_parameters(
                     dist_program, startup_program
                 )
             )
@@ -889,7 +889,7 @@ class Engine:
         RemovePasses.apply_all(dist_program, startup_program, params_grads)
 
         if self._strategy.pipeline.auto_parallel_sync_shared_params:
-            global_params_grads = auto_parallel_sync_shared_params_pass.allreduce_shared_param_gradient(
+            global_params_grads = auto_parallel_sync_shared_params_pass.sync_shared_parameter_gradient(
                 dist_program, startup_program, global_params_grads
             )
 

@@ -14,6 +14,7 @@
 
 import hashlib
 import random
+import unittest
 
 import numpy as np
 
@@ -93,7 +94,7 @@ class RandomDataset(paddle.io.Dataset):
         return self.num_samples
 
 
-class TestSimpleNetForSemiAutoParallel:
+class TestSimpleNetForSharedParameter(unittest.TestCase):
     def __init__(self):
         self._seed = 1024
         self._init_loss_scaling = 1024.0
@@ -170,12 +171,19 @@ class TestSimpleNetForSemiAutoParallel:
 
     def get_shared_params_count(self, program):
         shared_param_count = 0
+        allreduce_count = 0
+
         params, _ = get_pir_parameters(program)
         for param in params:
             param_name = param.get_defining_op().str_attr('parameter_name')
             if "shared_" in param_name:
                 shared_param_count += 1
-        return shared_param_count
+
+        for op in program.global_block().ops:
+            if op.name() == "pd_op.all_reduce":
+                allreduce_count += 1
+
+        return shared_param_count, allreduce_count
 
     def run_test_case(self):
         sync_strategy = self.init_strategy(need_apply_sync_weight_pass=True)
@@ -185,15 +193,24 @@ class TestSimpleNetForSemiAutoParallel:
         ori_loss, ori_program = self.run_pp_demo_net(ori_strategy)
 
         if paddle.distributed.get_rank() == 1:
-            ori_shared_param_count = self.get_shared_params_count(ori_program)
-            sync_shared_param_count = self.get_shared_params_count(sync_program)
+            ori_shared_param_count, ori_allreduce_count = (
+                self.get_shared_params_count(ori_program)
+            )
+            sync_shared_param_count, sync_allreduce_count = (
+                self.get_shared_params_count(sync_program)
+            )
 
-            assert ori_shared_param_count == 0
-            assert sync_shared_param_count == 1
+            # Check shared parameter count.
+            self.assertTrue(ori_shared_param_count == 0)
+            self.assertTrue(sync_shared_param_count == 1)
+
+            # Check allreduce shared parameter gradient count.
+            self.assertTrue(ori_allreduce_count == 0)
+            self.assertTrue(sync_allreduce_count == 1)
 
             for idx in range(self.num_batch):
-                assert sync_loss[idx] == ori_loss[idx]
+                self.assertTrue(sync_loss[idx] == ori_loss[idx])
 
 
 if __name__ == '__main__':
-    TestSimpleNetForSemiAutoParallel().run_test_case()
+    TestSimpleNetForSharedParameter().run_test_case()

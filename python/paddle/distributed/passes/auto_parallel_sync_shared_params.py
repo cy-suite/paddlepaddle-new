@@ -62,15 +62,19 @@ class AutoParallelSyncSharedParamsPass(PassBase):
             if op.op_role == 2:
                 return op
 
-    def _add_comm_group(self, ranks=[]):
+    def _get_comm_group(self, ranks=[]):
         ranks = sorted(ranks)
         if tuple(ranks) in self.comm_group:
             return self.comm_group[tuple(ranks)].id
+        # The communication group of this `all_reduce` op satisfies len (ranks)==2.
+        # When `force_new_group=False` is set, the `send&recv` group will be returned,
+        # At this point, `all_reduce` and `send&recv` share the same group, and
+        # the process will hang up.
         group = new_process_group(ranks, force_new_group=True)
         self.comm_group[tuple(ranks)] = group.id
         return group.id
 
-    def init_shared_params(self, main_program, startup_program):
+    def sync_shared_parameters(self, main_program, startup_program):
         if not self._check_self():
             logger.info(
                 "AutoParallelSyncSharedParamsPass need support pipeline parallel, skip pass."
@@ -80,8 +84,9 @@ class AutoParallelSyncSharedParamsPass(PassBase):
         params, _ = get_pir_parameters(main_program)
         for param in params:
             users = param.all_used_ops()
-            for reshard_op in users:
-                if reshard_op.name() == "dist_op.reshard":
+            for user_op in users:
+                if user_op.name() == "dist_op.reshard":
+                    reshard_op = user_op
                     dist_attr = reshard_op.dist_attr
                     src_dist_attr = dist_attr.operand(0).as_tensor_dist_attr()
                     dst_dist_attr = dist_attr.result(0).as_tensor_dist_attr()
@@ -137,7 +142,10 @@ class AutoParallelSyncSharedParamsPass(PassBase):
                         if tmp_param.name == param_name:
                             dy_param = tmp_param
                             break
-                    assert dy_param is not None
+                    assert (
+                        dy_param is not None
+                    ), f"The parameter {param_name} was not found in the concrete_degram"
+
                     new_dist_attr = TensorDistAttr()
                     new_dist_attr.process_mesh = dst_mesh
                     new_dist_attr.dims_mapping = src_dist_attr.dims_mapping
@@ -201,7 +209,7 @@ class AutoParallelSyncSharedParamsPass(PassBase):
 
         return new_shared_params
 
-    def allreduce_shared_param_gradient(
+    def sync_shared_parameter_gradient(
         self, main_program, startup_program, params_grads
     ):
         if not self._check_self():
@@ -214,8 +222,11 @@ class AutoParallelSyncSharedParamsPass(PassBase):
             logger.info("No parameter need to share, skip pass.")
             return params_grads
 
-        # Only support one shared param.
-        assert len(self.params_maybe_shared) == 1
+        # Only support one shared parameter.
+        # TODO: support more shared parameters
+        assert (
+            len(self.params_maybe_shared) == 1
+        ), "Currently, only one shared parameter is supported, and it cannot support more at the moment."
 
         cur_rank = paddle.distributed.get_rank()
 
@@ -236,7 +247,9 @@ class AutoParallelSyncSharedParamsPass(PassBase):
                 if p_param.is_same(param_value):
                     grad_idx = p_idx
                     break
-            assert grad_idx is not None
+            assert (
+                grad_idx is not None
+            ), f"Parameter {param_name} not found in params_grades, unable to find corresponding gradient value."
             grad_value = params_grads[p_idx][1]
 
             # Create allreduce op comm group.
@@ -247,7 +260,7 @@ class AutoParallelSyncSharedParamsPass(PassBase):
             if cur_rank in self.dst_ranks:
                 idx = dst_mesh_ids.index(cur_rank)
                 peer_rank = src_mesh_ids[idx]
-            ar_group_id = self._add_comm_group([cur_rank, peer_rank])
+            ar_group_id = self._get_comm_group([cur_rank, peer_rank])
 
             # Insert allreduce op in the end of backward.
             insert_pos = self._find_fist_opt_user(main_program)
