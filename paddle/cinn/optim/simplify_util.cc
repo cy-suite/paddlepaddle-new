@@ -234,7 +234,7 @@ IndexType VerifyIndex(const ir::Expr &expr) {
     }
     case ir::IrNodeTy::Cast: {
       IndexType result = VerifyIndex(expr->operand(0));
-      return result == IndexType::kValid && expr.type().is_index_type()
+      return result != IndexType::kInvalid && expr.type().is_index_type()
                  ? IndexType::kCast
                  : IndexType::kInvalid;
     }
