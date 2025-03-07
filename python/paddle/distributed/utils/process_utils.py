@@ -185,6 +185,9 @@ def set_affinity_gpu():
 
 
 def set_affinity_xpu():
+    """
+    set affinity for xpu
+    """
     if not _has_xpu_smi():
         logger.warn(
             "xpu-smi is not available, set_affinity is aborted, plz check your environment."
