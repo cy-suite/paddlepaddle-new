@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <set>
-
 #include "paddle/phi/kernels/reduce_sum_kernel.h"
 
 #include "paddle/phi/backends/cpu/cpu_context.h"
@@ -37,12 +35,13 @@ void SumRawKernel(const Context& dev_ctx,
   }
 
   if (x.numel() == 0) {
-    dev_ctx.template Alloc<T>(out);
-    out_dims = out->dims();
+    auto out_dims = phi::vectorize(out->dims());
     FullKernel<T, Context>(
-        dev_ctx, out_dims, 0, out_dtype, out);
+        dev_ctx, out_dims, static_cast<T>(0),
+        out_dtype, out);
     return;
   }
+  
   phi::Reduce<CPUContext, T, phi::funcs::SumFunctor>(
       dev_ctx, x, reduce_all, dims.GetData(), keep_dim, out_dtype, out);
 }

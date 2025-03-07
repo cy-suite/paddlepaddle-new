@@ -13,8 +13,10 @@ See the License for the specific language governing permissions and
 limitations under the License. */
 
 #include "paddle/phi/kernels/reduce_mean_kernel.h"
+
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/kernels/onednn/reduce_kernel_impl.h"
+#include "paddle/phi/kernels/full_kernel.h"
 
 namespace phi {
 template <typename T, typename Context>
@@ -25,6 +27,16 @@ void MeanRawKernel(const Context& dev_ctx,
                    bool reduce_all,
                    DenseTensor* out) {
   reduce_all = recompute_reduce_all(x, dims, reduce_all);
+
+  if (x.numel() == 0) {
+    dev_ctx.template Alloc<T>(out);
+    auto out_dims = phi::vectorize(out->dims());
+    auto out_dtype = x.dtype();
+    FullKernel<T, Context>(
+        dev_ctx, out_dims, static_cast<T>(std::numeric_limits<double>::quiet_NaN()), out_dtype, out);
+    return;
+  }
+
   ReduceKernel<T, Context>(dev_ctx,
                            x,
                            dims,

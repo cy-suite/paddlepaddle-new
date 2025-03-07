@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include <limits>
-#include <set>
 #include "paddle/phi/common/complex.h"
 #include "paddle/phi/core/enforce.h"
 #include "paddle/phi/core/kernel_registry.h"
@@ -46,6 +45,14 @@ void ProdKernel(const Context& dev_ctx,
                 DenseTensor* out) {
   reduce_all = recompute_reduce_all(x, dims, reduce_all);
   auto out_dtype = x.dtype();
+  
+  if (x.numel() == 0) {
+    auto out_dims = phi::vectorize(out->dims());
+    FullKernel<T, Context>(
+        dev_ctx, out_dims, static_cast<T>(1), out_dtype, out);
+    return;
+  }
+
   phi::Reduce<T, kps::MulFunctor, kps::IdentityFunctor>(
       dev_ctx, x, reduce_all, dims.GetData(), keep_dim, out_dtype, out);
 }
@@ -121,6 +128,14 @@ void MeanRawKernel(const Context& dev_ctx,
                    DenseTensor* out) {
   reduce_all = recompute_reduce_all(x, dims, reduce_all);
   auto out_dtype = x.dtype();
+  
+  if (x.numel() == 0) {
+    auto out_dims = phi::vectorize(out->dims());
+    FullKernel<T, Context>(
+        dev_ctx, out_dims, static_cast<T>(std::numeric_limits<double>::quiet_NaN()), out_dtype, out);
+    return;
+  }
+
   phi::Reduce<T, kps::AddFunctor, kps::IdentityFunctor, true>(
       dev_ctx, x, reduce_all, dims.GetData(), keep_dim, out_dtype, out);
 }
@@ -199,61 +214,14 @@ void SumRawKernel(const Context& dev_ctx,
   if (out_dtype == DataType::UNDEFINED && out->dtype() != x.dtype()) {
     out_dtype = out->dtype();
   }
+  
   if (x.numel() == 0) {
-    auto x_dims = x.dims();
-    std::vector<int> out_dims;
-    if (reduce_all) {
-      if (keep_dim) {
-        out_dims.resize(x_dims.size(), 1);
-      } else {
-        out_dims = std::vector<int>();
-      }
-    } else {
-      std::set<int> reduce_dims;
-      auto dims_vec = dims.GetData();
-      for (auto dim : dims_vec) {
-        PADDLE_ENFORCE_GE(dim,
-                          -x_dims.size(),
-                          common::errors::InvalidArgument(
-                              "The dimension index is out of range, "
-                              "expected index >= %d, but received %d.",
-                              -x_dims.size(),
-                              dim));
-        PADDLE_ENFORCE_LT(dim,
-                          x_dims.size(),
-                          common::errors::InvalidArgument(
-                              "The dimension index is out of range, "
-                              "expected index < %d, but received %d.",
-                              x_dims.size(),
-                              dim));
-        if (dim < 0) {
-          dim += x_dims.size();
-        }
-        reduce_dims.insert(dim);
-      }
-      if (keep_dim) {
-        out_dims.resize(x_dims.size());
-        for (int i = 0; i < x_dims.size(); ++i) {
-          if (reduce_dims.count(i)) {
-            out_dims[i] = 1;
-          } else {
-            out_dims[i] = x_dims[i];
-          }
-        }
-      } else {
-        for (int i = 0; i < x_dims.size(); ++i) {
-          if (!reduce_dims.count(i)) {
-            out_dims.push_back(x_dims[i]);
-          }
-        }
-      }
-    }
-    out->Resize(phi::make_ddim(out_dims));
-    dev_ctx.template Alloc<T>(out);
+    auto out_dims = phi::vectorize(out->dims());
     FullKernel<T, Context>(
-        dev_ctx, out_dims, 0, phi::CppTypeToDataType<T>::Type(), out);
+        dev_ctx, out_dims, static_cast<T>(0), out_dtype, out);
     return;
   }
+  
   if (x.numel() > std::numeric_limits<int32_t>::max()) {
 #ifndef PADDLE_WITH_XPU_KP
     if (out_dtype != phi::DataType::UNDEFINED && out_dtype != x.dtype()) {
