@@ -374,7 +374,7 @@ class AdamW(Optimizer):
         acc_dtype = p.dtype
         if (
             self._is_dtype_fp16_or_bf16(acc_dtype)
-            or not self._use_lowprecision_moment
+            and not self._use_lowprecision_moment
         ):
             acc_dtype = (
                 DataType.FLOAT32 if in_pir_mode() else core.VarDesc.VarType.FP32
