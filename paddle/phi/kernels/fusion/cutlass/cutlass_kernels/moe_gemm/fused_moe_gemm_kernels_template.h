@@ -616,7 +616,7 @@ void dispatch_moe_gemm_to_cutlass(const T* A,
                                   int* occupancy = nullptr) {
 #define dispatch_gemm_config_macro(AA, BB, CC, DD, EE, FF)      \
   case CutlassTileConfig::                                      \
-      CtaShape##AAx##BBx##CC##_WarpShape##DD##x##EE##x##FF:     \
+      CtaShape##AA##x##BB##x##CC##_WarpShape##DD##x##EE##x##FF: \
     dispatch_gemm_config<T,                                     \
                          WeightType,                            \
                          arch,                                  \
@@ -641,28 +641,28 @@ void dispatch_moe_gemm_to_cutlass(const T* A,
   switch (gemm_config.tile_config) {
     dispatch_gemm_config_macro(16, 128, 64, 16, 32, 64);
     dispatch_gemm_config_macro(32, 128, 64, 32, 32, 64);
-    
-    case CutlassTileConfig::CtaShape64x128x64_WarpShape64x32x64
-        : dispatch_gemm_config<T,
-                               WeightType,
-                               arch,
-                               EpilogueTag,
-                               cutlass::gemm::GemmShape<64, 128, 64>,
-                               cutlass::gemm::GemmShape<64, 32, 64>>(
-              A,
-              B,
-              weight_scales,
-              biases,
-              C,
-              total_rows_before_expert,
-              gemm_n,
-              gemm_k,
-              num_experts,
-              gemm_config,
-              multi_processor_count,
-              stream,
-              occupancy);
-    break;
+
+    case CutlassTileConfig::CtaShape64x128x64_WarpShape64x32x64:
+      dispatch_gemm_config<T,
+                           WeightType,
+                           arch,
+                           EpilogueTag,
+                           cutlass::gemm::GemmShape<64, 128, 64>,
+                           cutlass::gemm::GemmShape<64, 32, 64>>(
+          A,
+          B,
+          weight_scales,
+          biases,
+          C,
+          total_rows_before_expert,
+          gemm_n,
+          gemm_k,
+          num_experts,
+          gemm_config,
+          multi_processor_count,
+          stream,
+          occupancy);
+      break;
     case CutlassTileConfig::CtaShape64x128x64_WarpShape64x64x64:
       dispatch_gemm_config<T,
                            WeightType,
