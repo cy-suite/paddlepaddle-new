@@ -893,12 +893,6 @@ class Engine:
                 dist_program, startup_program, global_params_grads
             )
 
-            if mode == "train" and self._loss and self._optimizer:
-                global_params_grads = params_grads
-            else:
-                global_params_grads = []
-                params_grads = []
-
         # Part 4: Optimization Pass
         # NOTE Only those Optimization Pass that related to Parallelism (need dist attr) should be placed here and all the Pass should be Optional.
 
