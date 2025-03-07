@@ -367,95 +367,34 @@ void dispatch_gemm_config(const T* A,
                           int multi_processor_count,
                           cudaStream_t stream,
                           int* occupancy = nullptr) {
+#define dispatch_stages_macro(STAGE)                           \
+  case STAGE:                                                  \
+    dispatch_stages<T,                                         \
+                    WeightType,                                \
+                    arch,                                      \
+                    EpilogueTag,                               \
+                    ThreadblockShape,                          \
+                    WarpShape,                                 \
+                    STAGE>::dispatch(A,                        \
+                                     B,                        \
+                                     weight_scales,            \
+                                     biases,                   \
+                                     C,                        \
+                                     total_rows_before_expert, \
+                                     gemm_n,                   \
+                                     gemm_k,                   \
+                                     num_experts,              \
+                                     gemm_config,              \
+                                     multi_processor_count,    \
+                                     stream,                   \
+                                     occupancy);               \
+    break;
+
   switch (gemm_config.stages) {
-    case 2:
-      using DispatcherStages2 = dispatch_stages<T,
-                                                WeightType,
-                                                arch,
-                                                EpilogueTag,
-                                                ThreadblockShape,
-                                                WarpShape,
-                                                2>;
-      DispatcherStages2::dispatch(A,
-                                  B,
-                                  weight_scales,
-                                  biases,
-                                  C,
-                                  total_rows_before_expert,
-                                  gemm_n,
-                                  gemm_k,
-                                  num_experts,
-                                  gemm_config,
-                                  multi_processor_count,
-                                  stream,
-                                  occupancy);
-      break;
-    case 3:
-      using DispatcherStages3 = dispatch_stages<T,
-                                                WeightType,
-                                                arch,
-                                                EpilogueTag,
-                                                ThreadblockShape,
-                                                WarpShape,
-                                                3>;
-      DispatcherStages3::dispatch(A,
-                                  B,
-                                  weight_scales,
-                                  biases,
-                                  C,
-                                  total_rows_before_expert,
-                                  gemm_n,
-                                  gemm_k,
-                                  num_experts,
-                                  gemm_config,
-                                  multi_processor_count,
-                                  stream,
-                                  occupancy);
-      break;
-    case 4:
-      using DispatcherStages4 = dispatch_stages<T,
-                                                WeightType,
-                                                arch,
-                                                EpilogueTag,
-                                                ThreadblockShape,
-                                                WarpShape,
-                                                4>;
-      DispatcherStages4::dispatch(A,
-                                  B,
-                                  weight_scales,
-                                  biases,
-                                  C,
-                                  total_rows_before_expert,
-                                  gemm_n,
-                                  gemm_k,
-                                  num_experts,
-                                  gemm_config,
-                                  multi_processor_count,
-                                  stream,
-                                  occupancy);
-      break;
-    case 5:
-      using DispatcherStages5 = dispatch_stages<T,
-                                                WeightType,
-                                                arch,
-                                                EpilogueTag,
-                                                ThreadblockShape,
-                                                WarpShape,
-                                                5>;
-      DispatcherStages5::dispatch(A,
-                                  B,
-                                  weight_scales,
-                                  biases,
-                                  C,
-                                  total_rows_before_expert,
-                                  gemm_n,
-                                  gemm_k,
-                                  num_experts,
-                                  gemm_config,
-                                  multi_processor_count,
-                                  stream,
-                                  occupancy);
-      break;
+    dispatch_stages_macro(2);
+    dispatch_stages_macro(3);
+    dispatch_stages_macro(4);
+    dispatch_stages_macro(5);
     default:
       std::string err_msg = "dispatch_gemm_config does not support stages " +
                             std::to_string(gemm_config.stages);
