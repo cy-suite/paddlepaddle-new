@@ -267,6 +267,9 @@ def start_translate(
         InfoCollector().attach(CompileCountInfo, frame.f_code)
         with sot_simulation_mode_guard(True):
             new_custom_code, guard_fn = simulator.transform(frame)
+            if ENV_SOT_ENABLE_STRICT_GUARD_CHECK.get():
+                assert guard_fn(frame)
+                assert guard_fn.mirror_guard(frame)
         if not simulator._graph.need_cache:
             return (
                 CustomCode(None, True),

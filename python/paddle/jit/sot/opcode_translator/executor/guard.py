@@ -116,6 +116,24 @@ class FasterStringifiedExpression(StringifiedExpression):
 
         super().__init__(expr_template, sub_exprs, free_vars)
 
+    def gen_mirror_guard(
+        self, enable_faster_gurad: bool
+    ) -> StringifiedExpression:
+        if not enable_faster_gurad:
+            # gen faster_guard_expr
+            expr_template, expr_free_vars = gen_faster_guard_expr_template(
+                self.faster_guard,
+                self.sub_exprs,
+                self.free_vars,
+            )
+            return StringifiedExpression(
+                expr_template, self.sub_exprs, expr_free_vars
+            )
+        # gen pyGuard_expr
+        return StringifiedExpression(
+            self.py_guard_expr_template, self.sub_exprs, self.free_vars
+        )
+
 
 def gen_faster_guard_expr_template(
     faster_guard: GuardBase,
@@ -174,22 +192,10 @@ def make_guard(stringified_guards: list[StringifiedExpression]) -> Guard:
         if ENV_SOT_ENABLE_STRICT_GUARD_CHECK.get():
             mirror_guard_expr_list: list[str] = []
             mirror_guard_temp_free_vars: dict[str, Any] = {}
+            enable_faster_gurad = ENV_SOT_ENABLE_FASTER_GUARD.get()
             for expr in stringified_guards:
                 if isinstance(expr, FasterStringifiedExpression):
-                    if not ENV_SOT_ENABLE_FASTER_GUARD.get():
-                        expr_template, expr_free_vars = (
-                            gen_faster_guard_expr_template(
-                                expr.faster_guard,
-                                expr.sub_exprs,
-                                expr.free_vars,
-                            )
-                        )
-                    else:
-                        expr_template = expr.py_guard_expr_template
-                        expr_free_vars = expr.free_vars
-                    expr = StringifiedExpression(
-                        expr_template, expr.sub_exprs, expr_free_vars
-                    )
+                    expr = expr.gen_mirror_guard(enable_faster_gurad)
                 mirror_guard_expr_list.append(expr.inlined_expr)
                 mirror_guard_temp_free_vars.update(expr.free_vars)
             mirror_guard_expr = "lambda frame: " + " and ".join(
