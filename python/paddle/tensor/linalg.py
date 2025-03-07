@@ -3580,8 +3580,8 @@ def lu_solve(
     b: Tensor,
     lu: Tensor,
     pivots: Tensor,
-    trans: str = "N",
-    name=None,
+    trans: Literal['N', 'T', 'C'] = 'N',
+    name: str | None = None,
 ):
     r"""
     Computes the solution x to the system of linear equations :math:`Ax = b` ,
