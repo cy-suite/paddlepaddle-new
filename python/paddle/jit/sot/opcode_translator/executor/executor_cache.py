@@ -129,8 +129,10 @@ class OpcodeExecutorCache(metaclass=Singleton):
             log(2, "[Cache]: Exceed max cache size, skip it\n")
             return CustomCode(None, False)
 
+        enable_strict_guard = ENV_SOT_ENABLE_STRICT_GUARD_CHECK.get()
+
         for custom_code, guard_fn in guarded_fns:
-            if ENV_SOT_ENABLE_STRICT_GUARD_CHECK.get():
+            if enable_strict_guard:
                 mirror_guard_error = None
                 try:
                     with EventGuard("try mirror guard"):
@@ -142,7 +144,7 @@ class OpcodeExecutorCache(metaclass=Singleton):
             try:
                 with EventGuard("try guard"):
                     guard_result = guard_fn(frame)
-                if ENV_SOT_ENABLE_STRICT_GUARD_CHECK.get():
+                if enable_strict_guard:
                     assert mirror_guard_result == guard_result, (
                         "faster guard result is not equal to guard result, "
                         f"guard_expr: {getattr(guard_fn, 'expr', 'None')} \n"
@@ -177,7 +179,7 @@ class OpcodeExecutorCache(metaclass=Singleton):
                     2,
                     self.analyse_guard_error(guard_fn, frame),
                 )
-                if ENV_SOT_ENABLE_STRICT_GUARD_CHECK.get():
+                if enable_strict_guard:
                     assert type(e) == type(mirror_guard_error) and str(
                         e
                     ) == str(mirror_guard_error), (
