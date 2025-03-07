@@ -521,7 +521,7 @@ void CutlassFpAIntBGemmRunner<T, WeightType>::dispatch_to_arch<EpilogueTag,
         "[CutlassFpAIntBGemmRunner][GEMM Dispatch] Arch unsupported for "
         "CUTLASS mixed type GEMM");
 #endif
-  } else if (sm_ >= 80 && sm_ < 91) {
+  } else if (sm_ >= 80) {
 #if defined(USE_FPAINTB_GEMM_WITH_SM80) || defined(USE_FPAINTB_GEMM_WITH_SM90)
     dispatch_gemm_to_cutlass<T,
                              WeightType,
