@@ -1529,22 +1529,31 @@ IR_API PriorityComparisonStatus CompareDimExprPriority(const DimExpr& lhs,
 }
 
 DimExprCompareResult Compare(const DimExpr& lhs, const DimExpr& rhs) {
+  auto CompareExpressions = [](const auto& lhs_val, const auto& rhs_val) {
+    DimExpr simplified_result =
+        SimplifyDimExpr(DimExpr{lhs_val} - DimExpr{rhs_val});
+    if (simplified_result.isa<int64_t>()) {
+      int64_t const_result = simplified_result.dyn_cast<int64_t>();
+      return const_result == 0  ? DimExprCompareResult::EQ
+             : const_result < 0 ? DimExprCompareResult::LT
+                                : DimExprCompareResult::GT;
+    }
+    return DimExprCompareResult::UNKNOWN;
+  };
   auto CompareFunc = common::Overloaded{
       [](const int& lhs, const int& rhs) {
         return lhs == rhs ? DimExprCompareResult::EQ
                           : (lhs < rhs ? DimExprCompareResult::LT
                                        : DimExprCompareResult::GT);
       },
-      [](const Add<DimExpr>& lhs, const Add<DimExpr>& rhs) {
-        DimExpr simplified_result =
-            SimplifyDimExpr(DimExpr{lhs} - DimExpr{rhs});
-        if (simplified_result.isa<int64_t>()) {
-          int64_t const_result = simplified_result.dyn_cast<int64_t>();
-          return const_result == 0  ? DimExprCompareResult::EQ
-                 : const_result < 0 ? DimExprCompareResult::LT
-                                    : DimExprCompareResult::GT;
-        }
-        return DimExprCompareResult::UNKNOWN;
+      [&CompareExpressions](const auto& lhs, const Add<DimExpr>& rhs) {
+        return CompareExpressions(lhs, rhs);
+      },
+      [&CompareExpressions](const Add<DimExpr>& lhs, const auto& rhs) {
+        return CompareExpressions(lhs, rhs);
+      },
+      [&CompareExpressions](const Add<DimExpr>& lhs, const Add<DimExpr>& rhs) {
+        return CompareExpressions(lhs, rhs);
       },
       [](const auto& lhs, const auto& rhs) {
         return DimExprCompareResult::UNKNOWN;

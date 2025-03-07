@@ -225,7 +225,7 @@ TEST(Simplify, SimplifyMin) {
   DimExpr add2{Add<DimExpr>{{S0, neg1}}};
   DimExpr min2{Min<DimExpr>{{S0, add2}}};
   DimExpr simplify_min2 = SimplifyDimExpr(min2);
-  ASSERT_TRUE((simplify_min2 == add2));
+  ASSERT_TRUE((simplify_min2 == Add<DimExpr>{{S0, -1}}));
   // Min(576, Mul(576, S0)) => 576
   DimExpr mul3{Mul<DimExpr>{{DimExpr{576}, S0}}};
   DimExpr min3{Min<DimExpr>{{DimExpr{576}, mul3}}};
