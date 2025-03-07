@@ -662,12 +662,12 @@ class StaticFunction(Generic[_InputT, _RetT]):
                 >>> out = net(x)
         """
 
-        def rollback_impl(class_instance):
-            for name, func in class_instance._original_funcs.items():
-                setattr(class_instance, name, func.__get__(class_instance))
+        # def rollback_impl(class_instance):
+        #     for name, func in class_instance._original_funcs.items():
+        #         setattr(class_instance, name, func.__get__(class_instance))
 
-            for sublayer in class_instance.sublayers(include_self=False):
-                rollback_impl(sublayer)
+        #     for sublayer in class_instance.sublayers(include_self=False):
+        #         rollback_impl(sublayer)
 
         if self.class_instance is None:
             return self._dygraph_function
@@ -684,8 +684,8 @@ class StaticFunction(Generic[_InputT, _RetT]):
         func = self.class_instance._original_funcs[fn_name]
         setattr(self.class_instance, fn_name, func.__get__(self.class_instance))
 
-        for sublayer in self.class_instance.sublayers(include_self=False):
-            rollback_impl(sublayer)
+        # for sublayer in self.class_instance.sublayers(include_self=False):
+        #     rollback_impl(sublayer)
 
         return getattr(self.class_instance, fn_name)
 
