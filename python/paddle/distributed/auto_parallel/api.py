@@ -1167,7 +1167,7 @@ class _ShardOptimizer(Optimizer):
                 self._inner_opt._master_weights[param.name] = (
                     self._shard_fn.shard_master_weight(param, master_weight)
                 )
-                self._inner_opt._master_weights[param.name] = target_name
+                self._inner_opt._master_weights[param.name].name = target_name
 
         # shard the accumulators
         for key in self._inner_opt._accumulators.keys():
