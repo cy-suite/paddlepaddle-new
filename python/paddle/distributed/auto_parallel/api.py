@@ -3271,6 +3271,29 @@ class ShardDataloader:
             Users can specify the shard_dim of each mesh or specify a single shard_dim for all meshes.
             Default: None, which means the data loader will not be split, i.e. mp.
         is_dataset_splitted (bool): Whether the dataset has been splitted.
+        dense_tensor_idx (list): A 2D list specifies the index of the dense_tensor in the output of dataloader.
+            It allows users to identify which elements within each output batch are dense_tensor.
+            Default: None, which means all the outputs are dist_tensors.
+            e.g.
+            1. If the collator function returns:
+                return {
+                    "input_ids": [
+                        features["input_ids"],
+                        features["attention_mask"],
+                        features["position_ids"],
+                    ],
+                    "image": features["image"],
+                    "labels": features["labels"],
+                }
+            2. If `dense_tensor_idx = [[1, 2], [0], []]`:
+                - For "input_ids":
+                    input_ids["input_ids"] is a dist_tensor
+                    input_ids["attention_mask"] is a dense_tensor
+                    input_ids["position_ids"] is a dense_tensor
+                - For "image":
+                    image is a dense_tensor
+                - For "labels":
+                    labels is a dist_tensor
     """
 
     def __init__(
@@ -3477,16 +3500,27 @@ class ShardDataloader:
                     ) = self._get_meshes_and_placements_for_list_input(
                         i, len(input_data)
                     )
+                    _dense_tensor_idx = (
+                        None
+                        if self.dense_tensor_idx is None
+                        else self.dense_tensor_idx[i]
+                    )
                     dist_batch_data.append(
                         self._dtensors_from_list_input(
-                            input_data, meshes, placements
+                            input_data, meshes, placements, _dense_tensor_idx
                         )
                     )
                 elif isinstance(input_data, paddle.Tensor):
-                    mesh, placements = self._get_mesh_and_placement(i)
-                    dist_batch_data.append(
-                        dtensor_from_local(input_data, mesh, placements)
-                    )
+                    if (
+                        self.dense_tensor_idx is not None
+                        and self.dense_tensor_idx[i] != []
+                    ):
+                        dist_batch_data.append(input_data)
+                    else:
+                        mesh, placements = self._get_mesh_and_placement(i)
+                        dist_batch_data.append(
+                            dtensor_from_local(input_data, mesh, placements)
+                        )
                 else:
                     raise ValueError(
                         f"Unsupported input_data type {type(input_data)}"
@@ -3510,14 +3544,25 @@ class ShardDataloader:
                     ) = self._get_meshes_and_placements_for_list_input(
                         i, len(input_data)
                     )
+                    _dense_tensor_idx = (
+                        None
+                        if self.dense_tensor_idx is None
+                        else self.dense_tensor_idx[i]
+                    )
                     dist_batch_data[key] = self._dtensors_from_list_input(
-                        input_data, meshes, placements, self.dense_tensor_idx
+                        input_data, meshes, placements, _dense_tensor_idx
                     )
                 elif isinstance(input_data, paddle.Tensor):
-                    mesh, placements = self._get_mesh_and_placement(i)
-                    dist_batch_data[key] = dtensor_from_local(
-                        batch_data[key], mesh, placements
-                    )
+                    if (
+                        self.dense_tensor_idx is not None
+                        and self.dense_tensor_idx[i] != []
+                    ):
+                        dist_batch_data.append(input_data)
+                    else:
+                        mesh, placements = self._get_mesh_and_placement(i)
+                        dist_batch_data[key] = dtensor_from_local(
+                            batch_data[key], mesh, placements
+                        )
                 else:
                     raise ValueError(
                         f"Unsupported input_data type {type(input_data)}"
@@ -3566,6 +3611,29 @@ def shard_dataloader(
             Users can specify the shard_dim of each mesh or specify a single shard_dim for all meshes.
             Default: None, which means the data loader will not be split, i.e. mp.
         is_dataset_splitted (bool): Whether the dataset has been splitted, Default: False.
+        dense_tensor_idx (list): A 2D list specifies the index of the dense_tensor in the output of dataloader.
+            It allows users to identify which elements within each output batch are dense_tensor.
+            Default: None, which means all the outputs are dist_tensors.
+            e.g.
+            1. If the collator function returns:
+                return {
+                    "input_ids": [
+                        features["input_ids"],
+                        features["attention_mask"],
+                        features["position_ids"],
+                    ],
+                    "image": features["image"],
+                    "labels": features["labels"],
+                }
+            2. If `dense_tensor_idx = [[1, 2], [0], []]`:
+                - For "input_ids":
+                    input_ids["input_ids"] is a dist_tensor
+                    input_ids["attention_mask"] is a dense_tensor
+                    input_ids["position_ids"] is a dense_tensor
+                - For "image":
+                    image is a dense_tensor
+                - For "labels":
+                    labels is a dist_tensor
     Returns:
         ShardDataloader: The sharded dataloader.
 
