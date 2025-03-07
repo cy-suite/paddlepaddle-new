@@ -77,8 +77,9 @@ class SendRecvMeta:
             src_rank = _hcg._get_p2p_prev_rank()
             paddle.distributed.recv(data_numel, src=src_rank, group=group)
         else:
-            src_rank = _hcg.get_pipe_parallel_group().ranks[0]
-            paddle.distributed.broadcast(data_numel, src=src_rank, group=group)
+            paddle.distributed.broadcast(
+                data_numel, src=group.ranks[0], group=group
+            )
         data_numel = data_numel.item()
 
         data = paddle.empty([data_numel], dtype="int64")
@@ -86,7 +87,7 @@ class SendRecvMeta:
         if not broadcast:
             paddle.distributed.recv(data, src=src_rank, group=group)
         else:
-            paddle.distributed.broadcast(data, src=src_rank, group=group)
+            paddle.distributed.broadcast(data, src=group.ranks[0], group=group)
         data = data.numpy().tolist()
         # parse data
         tensor_type = data.pop(0)
@@ -172,14 +173,15 @@ class SendRecvMeta:
             )
             paddle.distributed.send(data_tensor, dst=dst_rank, group=group)
         else:
-            src_rank = _hcg.get_pipe_parallel_group().ranks[0]
-            assert src_rank == _hcg.get_pipe_parallel_group().rank
+            assert group.rank == 0
             paddle.distributed.broadcast(
                 paddle.to_tensor(data_numel).astype("int64"),
-                src=src_rank,
+                src=group.ranks[0],
                 group=group,
             )
-            paddle.distributed.broadcast(data_tensor, src=src_rank, group=group)
+            paddle.distributed.broadcast(
+                data_tensor, src=group.ranks[0], group=group
+            )
 
     def _obtain_send_message(self, tensor):
         if isinstance(tensor, paddle.Tensor):

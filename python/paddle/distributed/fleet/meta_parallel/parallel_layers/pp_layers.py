@@ -814,7 +814,7 @@ class PipelineLayer(nn.Layer):
             # NOTE(shenliang03): need set different seeds for pipeline parameters initialization.
             # Since the parameters of model_parallel are controlled by its own RNG_STATE_TRACKER,
             # only non-mp parameters in pp are controlled here.
-            paddle.seed(self._base_seed + start)
+            paddle.seed(self._base_seed + layer_index)
 
             if isinstance(layer, nn.Layer):
                 self.groupable_layers.append(layer)

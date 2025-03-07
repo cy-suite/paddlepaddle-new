@@ -812,6 +812,8 @@ if(LOCAL_ALL_ARCH AND (LINUX OR APPLE))
     test_zero_bubble_utils
     START_BASH
     ../../legacy_test/dist_test.sh
+    TIMEOUT
+    "500"
     LABELS
     "RUN_TYPE=DIST"
     ENVS

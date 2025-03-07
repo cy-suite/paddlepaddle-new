@@ -35,7 +35,7 @@ class BatchCommHelper:
 
     def _send_meta(self, tensors, group, broadcast=False):
         self._send_recv_meta.set_send_message(tensors)
-        self._send_recv_meta.send_meta(tensors, group, broadcast)
+        self._send_recv_meta.send_meta(tensors, group, broadcast=broadcast)
         self._send_recv_meta.recv_shape_message = (
             self._send_recv_meta.send_shape_message
         )
@@ -44,7 +44,7 @@ class BatchCommHelper:
         )
 
     def _recv_meta(self, group, broadcast=False):
-        self._send_recv_meta.recv_meta(group, broadcast)
+        self._send_recv_meta.recv_meta(group, broadcast=broadcast)
 
     def _build_from_meta(self):
         shape_message = self._send_recv_meta.recv_shape_message

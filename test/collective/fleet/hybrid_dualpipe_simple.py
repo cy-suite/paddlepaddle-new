@@ -64,7 +64,23 @@ class SharedLinear(Layer):
         self.weight = weight
 
     def forward(self, input):
+        if isinstance(input, list):
+            input = input[0]
         return paddle.matmul(input, self.weight)
+
+
+class LinearPipe(nn.Linear):
+    def forward(self, input):
+        if isinstance(input, list):
+            input = input[0]
+        return paddle.matmul(input, self.weight)
+
+
+class CrossEntropyLossPipe(nn.loss.CrossEntropyLoss):
+    def forward(self, logits, label):
+        if isinstance(logits, list):
+            logits = logits[0]
+        return super().forward(logits, label)
 
 
 class SimpleNet(Layer):
@@ -89,19 +105,19 @@ class SimpleNetPipeDesc(PipelineLayer):
         decs = [
             LocalSharedLayerDesc(
                 "shared_linear",
-                nn.Linear,
+                LinearPipe,
                 shared_weight_attr="weight",
                 in_features=5,
                 out_features=5,
                 bias_attr=False,
             ),
-            LayerDesc(nn.Linear, 5, 5, bias_attr=False),
-            LayerDesc(nn.Linear, 5, 5, bias_attr=False),
+            LayerDesc(LinearPipe, 5, 5, bias_attr=False),
+            LayerDesc(LinearPipe, 5, 5, bias_attr=False),
             LocalSharedLayerDesc(
                 "shared_linear", SharedLinear, shared_weight_attr="weight"
             ),
         ]
-        super().__init__(layers=decs, loss_fn=nn.CrossEntropyLoss(), **kwargs)
+        super().__init__(layers=decs, loss_fn=CrossEntropyLossPipe(), **kwargs)
 
 
 class TestDistPPTraining(unittest.TestCase):

@@ -12,9 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# The file has been adapted from DeepSeek DeepEP project
+# The file has been adapted from DeepSeek DualPipe project
 # Copyright (c) 2025 DeepSeek
-# Licensed under the MIT License - https://github.com/deepseek-ai/DeepEP/blob/main/LICENSE
+# Licensed under the MIT License - https://github.com/deepseek-ai/DualPipe/blob/main/LICENSE
 
 from __future__ import annotations
 
@@ -61,7 +61,7 @@ class DualPipeVParallel(PipelineParallel):
         )
 
         self.num_ranks = self.num_stages
-        self.group_rank = self.pp_group.get_group_rank(self.pp_group.rank)
+        self.group_rank = self.pp_group.rank
         self.prev_rank = self.pp_group.ranks[
             (self.group_rank - 1) % self.pp_group.world_size
         ]
@@ -82,27 +82,19 @@ class DualPipeVParallel(PipelineParallel):
         return self.group_rank == self.num_ranks - 1
 
     def _reset_states(self):
-        self.input_tensors: tuple[
-            list[list[paddle.Tensor]], list[list[paddle.Tensor]]
-        ] = ([], [])
-        self.output_tensors: tuple[
-            list[list[paddle.Tensor]], list[list[paddle.Tensor]]
-        ] = ([], [])
-        self.input_grad_tensors: tuple[
-            list[list[paddle.Tensor]], list[list[paddle.Tensor]]
-        ] = ([], [])
-        self.output_grad_tensors: tuple[
-            list[list[paddle.Tensor]], list[list[paddle.Tensor]]
-        ] = ([], [])
+        self.input_tensors = ([], [])
+        self.output_tensors = ([], [])
+        self.input_grad_tensors = ([], [])
+        self.output_grad_tensors = ([], [])
         self.loss_tensors: list[paddle.Tensor] = []
 
         # The first value in the list corresponds to phase 0, and the second value corresponds to phase 1.
-        self.current_f_acc_id: list[int] = [0, 0]
-        self.current_b_acc_id: list[int] = [0, 0]
-        self.current_send_f_acc_id: list[int] = [0, 0]
-        self.current_send_b_acc_id: list[int] = [0, 0]
-        self.current_recv_f_acc_id: list[int] = [0, 0]
-        self.current_recv_b_acc_id: list[int] = [0, 0]
+        self.current_f_acc_id = [0, 0]
+        self.current_b_acc_id = [0, 0]
+        self.current_send_f_acc_id = [0, 0]
+        self.current_send_b_acc_id = [0, 0]
+        self.current_recv_f_acc_id = [0, 0]
+        self.current_recv_b_acc_id = [0, 0]
         self.comm_ops: list[P2POp] = []
         self.to_free: list[paddle.Tensor] = []
 
@@ -110,7 +102,7 @@ class DualPipeVParallel(PipelineParallel):
         is_first_stage = self.is_pipeline_first_stage() and phase == 0
         if is_first_stage:
             assert micro_datasets is not None
-            self.input_tensors[phase].append([next(micro_datasets[phase])[0]])
+            self.input_tensors[phase].append(next(micro_datasets[phase])[0])
         if self.forward_only:
             self.input_tensors[phase][acc_id] = None
         return self.input_tensors[phase][acc_id]
@@ -125,12 +117,10 @@ class DualPipeVParallel(PipelineParallel):
         else:
             return None
 
-    def _compute_forward_loss(self, micro_datasets, phase, acc_id, logits):
-        is_last_stage = self.is_pipeline_first_stage() and phase == 1
-        if is_last_stage and self._compute_loss:
-            labels = self._get_forward_labels(micro_datasets, phase, acc_id)
-            loss_tensor = self._layers._loss_fn[0](*logits, labels)
-            self._store_forward_loss(phase, loss_tensor)
+    def _loss_compute(self, micro_datasets, phase, acc_id, logits):
+        labels = self._get_forward_labels(micro_datasets, phase, acc_id)
+        loss_tensor = self._layers._loss_fn[0](logits, labels)
+        self._store_forward_loss(phase, loss_tensor)
 
     def _store_forward_tensors(self, phase, outputs):
         if self.is_pipeline_last_stage() and phase == 0:
@@ -147,10 +137,12 @@ class DualPipeVParallel(PipelineParallel):
 
         inputs = self._get_forward_inputs(micro_datasets, phase, acc_id)
 
-        outputs = self._layers.forward(*inputs, chunk_id=phase)
+        outputs = self._layers.forward(inputs, chunk_id=phase)
         outputs = [outputs] if isinstance(outputs, paddle.Tensor) else outputs
 
-        self._compute_forward_loss(micro_datasets, phase, acc_id, outputs)
+        is_last_stage = self.is_pipeline_first_stage() and phase == 1
+        if is_last_stage and self._compute_loss:
+            self._loss_compute(micro_datasets, phase, acc_id, outputs)
         self._store_forward_tensors(phase, outputs)
 
     def _get_backward_inputs(self, phase, acc_id):
@@ -167,7 +159,9 @@ class DualPipeVParallel(PipelineParallel):
     def _store_backward_tensors(self, phase, acc_id):
         inputs = self.input_tensors[phase][acc_id]
         self.input_tensors[phase][acc_id] = None
-        input_grads = [t.grad for t in inputs if not t.stop_gradient]
+        input_grads = [
+            t.grad for t in inputs if (t is not None and not t.stop_gradient)
+        ]
         if self.is_pipeline_last_stage() and phase == 1:
             self.output_grad_tensors[0].append(input_grads)
         else:
