@@ -98,8 +98,8 @@ class TileBroadcastTactic final : public ScheduleTactic {
 
   enum class TacticExtension : uint8_t {
     Invalid = 0x0,
-    NCHWTested,
-    NHWCAlphaExt,
+    NCHWExt,
+    NHWCExt,
     NumSupportedExt
   };
 
@@ -322,8 +322,8 @@ void TileBroadcastTactic::Init(ScheduleContext* context, ir::IRSchedule* sch) {
     if (low_broadcast_size_ % 32 != 0) {
       return;
     }
-    applied_ext_ = TacticExtension::NCHWTested;
-    VLOG(4) << "TileBroadcastTactic::Init: select extension: NCHWTested\n";
+    applied_ext_ = TacticExtension::NCHWExt;
+    VLOG(4) << "TileBroadcastTactic::Init: select extension: NCHWExt\n";
   } else {
     // 3. For NHWC layout, we need valid preserved axis and broadcast axis
     if (preserved_axis_.empty() || broadcast_axis_.empty()) {
@@ -334,8 +334,8 @@ void TileBroadcastTactic::Init(ScheduleContext* context, ir::IRSchedule* sch) {
     if (broadcast_size_ % 32 != 0 || preserved_size_ % 32 != 0) {
       return;
     }
-    applied_ext_ = TacticExtension::NHWCAlphaExt;
-    VLOG(4) << "TileBroadcastTactic::Init: select extension: NHWCAlphaExt\n";
+    applied_ext_ = TacticExtension::NHWCExt;
+    VLOG(4) << "TileBroadcastTactic::Init: select extension: NHWCExt\n";
   }
   // Now we can apply this tactic
   ir::Expr module_root = sch->GetModule().GetExprs().front();
@@ -399,15 +399,20 @@ void TileBroadcastTactic::InitBroadcastSizeInfo() {
 
 int TileBroadcastTactic::CalcNumWarps(int64_t num_warps) {
   constexpr int MAX_WARP_BLOCK = 32;
+  // the largest preserved size is 1024, for size bigger than 1024
+  // TODO(heqianyue): the code should be revised to be a DP version, see (6)
+  if (num_warps > 1024) {
+    return -1;
+  }
   // several rules to decide the thread block size
   // (1) if the num_warps is power of 2, use thread block size 256
   if ((num_warps & (num_warps - 1)) == 0) {
     return 8;
   }
-  // (2) preserved size is 96, return 192 as block size to have a big enough
-  // block
-  if (num_warps == 3) {
-    return 6;
+  // (2) the preserved size (channel) is too small
+  // we need more threads in a block
+  if (num_warps <= 3) {
+    return std::max(4l, num_warps * 2);
   }
   // (3) if num_warps is smaller than 32, use the num_warps * 32 as thread block
   // size
@@ -425,7 +430,7 @@ int TileBroadcastTactic::CalcNumWarps(int64_t num_warps) {
   }
   // (6) actually, the full problem is a variant to the backpack problem, DP
   // should be used here But since the problem is not large enough, we can use a
-  // simple greedy algorithm
+  // simple greedy algorithm. TODO(heqianyue): use DP to solve bigger psize
   return best;
 }
 
@@ -439,14 +444,13 @@ void TileBroadcastTactic::Apply(ir::IRSchedule* sch,
   int block_size = 256;
   // check the number of warps here, if not a applicable
   // preserved_size, func will return later
-  if (applied_ext_ == TacticExtension::NHWCAlphaExt) {
+  if (applied_ext_ == TacticExtension::NHWCExt) {
     block_size = TileBroadcastTactic::CalcNumWarps(preserved_size_ >> 5);
     if (block_size == -1) {
       applied_ext_ = TacticExtension::Invalid;
     }
     block_size = block_size << 5;
   }
-
   if (applied_ext_ == TacticExtension::Invalid) return;
 
   // Cluster and fuse axis of the same type to get exactly 3 loops.
@@ -454,7 +458,7 @@ void TileBroadcastTactic::Apply(ir::IRSchedule* sch,
   FuseAxisGroups(sch, block_id);
 
   std::vector<std::string> axis_bind;
-  if (applied_ext_ == TacticExtension::NCHWTested) {
+  if (applied_ext_ == TacticExtension::NCHWExt) {
     // Do tiling.
     // To achieve best performance, we apply different tiling templates based on
     // low_broadcast_size. The key is which axis to allocate inner loop:
@@ -480,27 +484,45 @@ void TileBroadcastTactic::Apply(ir::IRSchedule* sch,
       axis_bind = {"blockIdx.y", "blockIdx.x", "", "threadIdx.x"};
     }
     VLOG(4) << "TileBroadcastTactic using original NCHW layout extension\n";
-  } else if (applied_ext_ == TacticExtension::NHWCAlphaExt) {
+  } else if (applied_ext_ == TacticExtension::NHWCExt) {
     // NHWC layout will have 2 fused loops, so we start with (blockIdx.x,
     // threadIdx.x)
-    sch->Split(block_id, 1, {-1, block_size});
-    sch->Fuse(block_id, {0, 1});
-    if (broadcast_size_ <= 64 || preserved_size_ > 1024) {
+    if (broadcast_size_ <= 64) {
       /**
-       * when not to use thread coarsening?
-       * 1. when there is not enough blocks (low occupancy, we need more blocks)
-       * 2. when the load/store addressing range for preserved channel is larger
-       * than the block size. In this case, we need to load/store per it in the
-       * for loop anyway, so there is no load/store reuse. In order to have more
-       * eligible warps to hide the latency, we need more blocks.
-       *
-       * TODO: heqianyue: check for4 thread coarsening necessity
-       * it can improve performance by a bit, but it is not the actual problem
+       * if the broadcast size is smaller than 64
+       * this means we need more blocks to increase the occupancy
+       * so no thread coarsening anyway
        */
+      sch->Split(block_id, 1, {-1, block_size});
+      sch->Fuse(block_id, {0, 1});
       axis_bind = {"blockIdx.x", "threadIdx.x"};
-    } else if (broadcast_size_ <= 1024) {
-      sch->Split(block_id, 0, {-1, 4});
-      axis_bind = {"blockIdx.x", "", "threadIdx.x"};
+    } else {
+      if (preserved_size_ == block_size) {
+        // block size is enough to cover
+        sch->Split(block_id, 1, {-1, block_size});
+        sch->Fuse(block_id, {0, 1});
+        sch->Split(block_id, 0, {-1, 4});
+        axis_bind = {"blockIdx.x", "", "threadIdx.x"};
+      } else if (preserved_size_ < block_size) {
+        // block size is larger (deliberately, to have enough threads)
+        // than preserved size
+        sch->Fuse(block_id, {0, 1});  // single fused loop
+        sch->Split(block_id,
+                   0,
+                   {-1, 4, block_size / preserved_size_, preserved_size_});
+        sch->Reorder(block_id, {0, 2, 1, 3});
+        axis_bind = {"blockIdx.x", "", "threadIdx.y", "threadIdx.x"};
+      } else {
+        /**
+         * block size is not enough to cover the preserved size
+         * make the load index invariant to inner loop
+         * (-1, 4, p_size / block_size, block_size)
+         */
+        sch->Split(block_id, 1, {-1, block_size});
+        sch->Fuse(block_id, {0, 1});
+        sch->Split(block_id, 0, {-1, 4, preserved_size_ / block_size});
+        axis_bind = {"blockIdx.x", "", "blockIdx.y", "threadIdx.x"};
+      }
     }
 
     VLOG(4) << "TileBroadcastTactic using NHWC layout extension, block size: "
@@ -539,7 +561,7 @@ void TileBroadcastTactic::FuseAxisGroups(ir::IRSchedule* sch,
       sch->Fuse(block_id, loops_index);
     }
   };
-  if (applied_ext_ == TacticExtension::NCHWTested) {
+  if (applied_ext_ == TacticExtension::NCHWExt) {
     std::vector<int> high_axis_perm = high_broadcast_axis_;
     high_axis_perm.insert(
         high_axis_perm.end(), preserved_axis_.begin(), preserved_axis_.end());
@@ -552,7 +574,7 @@ void TileBroadcastTactic::FuseAxisGroups(ir::IRSchedule* sch,
     FuseRange(high_axis_num + mid_axis_num, low_axis_num);
     FuseRange(high_axis_num, mid_axis_num);
     FuseRange(0, high_axis_num);
-  } else if (applied_ext_ == TacticExtension::NHWCAlphaExt) {
+  } else if (applied_ext_ == TacticExtension::NHWCExt) {
     std::vector<int> broadcast_axis_perm = broadcast_axis_;
     broadcast_axis_perm.insert(broadcast_axis_perm.end(),
                                preserved_axis_.begin(),
