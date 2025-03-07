@@ -1,3 +1,5 @@
+# DeepEP commit: 1fc40d50f3b199758b57b775e85c1d01080482d9
+
 set(CMAKE_CUDA_FLAGS
     "${CMAKE_CUDA_FLAGS} -rdc=true --ptxas-options=--register-usage-level=10,--warn-on-local-memory-usage"
 )

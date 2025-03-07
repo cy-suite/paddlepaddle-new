@@ -203,7 +203,7 @@ struct SourceMeta {
 
   __forceinline__ SourceMeta() = default;
 
-  // TODO(Hongqing-work): faster encoding
+  // TODO(Xreki): faster encoding
   __device__ __forceinline__ SourceMeta(int rdma_rank,
                                         const bool* is_token_in_nvl_ranks) {
     src_rdma_rank = rdma_rank;
@@ -528,8 +528,7 @@ __global__ void notify_dispatch(const int* num_tokens_per_rank,
 
     // Calculate prefix sum
     __syncthreads();
-    EP_STATIC_ASSERT(kNumRDMARanks <= 32, "Invalid number of RDMA ranks");
-    if (thread_id < kNumRDMARanks) {
+    if (thread_id == 0) {
       auto prefix_row =
           rdma_channel_prefix_matrix + dst_rdma_rank * num_channels;
 #pragma unroll
@@ -1394,7 +1393,8 @@ __global__ void __launch_bounds__(
         break;
 
       // Update remote head
-      if (min_head != std::numeric_limits<int>::max() && min_head > last_head &&
+      if (min_head != std::numeric_limits<int>::max() &&
+          min_head >= last_head + num_max_rdma_chunked_send_tokens &&
           lane_id < kNumRDMARanks) {
         nvshmemx_signal_op(
             rdma_channel_head.buffer(rdma_rank),
@@ -2581,7 +2581,8 @@ __global__ void __launch_bounds__((NUM_MAX_NVL_PEERS + 1 + kNumForwarders) * 32,
               min_head =
                   min(min_head, rdma_receiver_rdma_head[i][dst_rdma_rank]);
           if (min_head != std::numeric_limits<int>::max() &&
-              min_head > last_rdma_head && lane_id < kNumRDMARanks) {
+              min_head >= last_rdma_head + num_max_rdma_chunked_send_tokens &&
+              lane_id < kNumRDMARanks) {
             nvshmemx_signal_op(rdma_channel_head.buffer(rdma_rank),
                                min_head - last_rdma_head,
                                NVSHMEM_SIGNAL_ADD,
