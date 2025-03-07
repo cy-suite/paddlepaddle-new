@@ -294,7 +294,7 @@ def get_complete_pp_mesh(mesh):
     process_id = mesh.process_ids[0]
     global_mesh = fleet.auto.get_mesh()
 
-    if "pp" in global_mesh.dim_names:
+    if global_mesh and "pp" in global_mesh.dim_names:
         pp_degree = global_mesh.get_dim_size("pp")
         for i in range(pp_degree):
             pp_mesh = global_mesh.get_mesh_with_dim("pp", i)
