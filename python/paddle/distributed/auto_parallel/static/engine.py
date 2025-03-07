@@ -744,7 +744,6 @@ class Engine:
                 [dist_program], [startup_program]
             )
 
-        self._strategy.pipeline.auto_parallel_sync_shared_params = True
         if self._strategy.pipeline.auto_parallel_sync_shared_params:
             config = {}
             config["concrete_program"] = self.concrete_program
@@ -890,11 +889,9 @@ class Engine:
         RemovePasses.apply_all(dist_program, startup_program, params_grads)
 
         if self._strategy.pipeline.auto_parallel_sync_shared_params:
-            print("xxx global_params_grads len : ", len(global_params_grads))
             global_params_grads = auto_parallel_sync_shared_params_pass.allreduce_shared_param_weight(
                 dist_program, startup_program, global_params_grads
             )
-            print("xxx global_params_grads len : ", len(global_params_grads))
 
             if mode == "train" and self._loss and self._optimizer:
                 global_params_grads = params_grads
@@ -939,7 +936,6 @@ class Engine:
                 [dist_program], [startup_program]
             )
 
-        print("123 4 ")
         if (
             self._strategy.pipeline.enable
             and self._strategy.pipeline.schedule_mode == "VPP"
@@ -975,8 +971,6 @@ class Engine:
             self._strategy.fused_passes.fused_passes_list.remove(
                 "fused_gemm_epilogue_pass"
             )
-
-        print("123 5 ")
 
         if self._strategy.pipeline.enable:
             self._job_plan = pipeline_pass(
@@ -1484,7 +1478,6 @@ class Engine:
 
                 for op in changed_output_op_list:
                     op.operand_source(0).persistable = True
-
                 self._executor.run(startup_prog)
                 if self._job_plan is not None:
                     # pipeline scheduling should be enabled after running

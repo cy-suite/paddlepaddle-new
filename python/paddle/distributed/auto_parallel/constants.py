@@ -356,8 +356,6 @@ if TYPE_CHECKING:
 
     class _MPOptimizationConfig(TypedDict, total=False):  # noqa: PYI049
         allreduce_matmul_grad_overlapping: bool
-        replace_with_c_embedding: bool
-        replace_with_parallel_cross_entropy: bool
 
 
 #########################################
