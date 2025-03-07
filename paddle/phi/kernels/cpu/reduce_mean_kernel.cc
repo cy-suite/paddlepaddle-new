@@ -35,7 +35,7 @@ void MeanRawKernel(const Context& dev_ctx,
 
   if (x.numel() == 0) {
     dev_ctx.template Alloc<T>(out);
-    out_dims = out->dims();
+    auto out_dims = phi::vectorize(out->dims());
     FullKernel<T, Context>(
         dev_ctx, out_dims, static_cast<T>(std::numeric_limits<double>::quiet_NaN()),
         out_dtype, out);

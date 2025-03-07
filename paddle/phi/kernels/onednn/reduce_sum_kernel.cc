@@ -26,6 +26,16 @@ void SumRawKernel(const Context& dev_ctx,
                   DataType out_dtype UNUSED,
                   DenseTensor* out) {
   reduce_all = recompute_reduce_all(x, dims, reduce_all);
+  auto out_dtype = x.dtype();
+
+  if (x.numel() == 0) {
+    dev_ctx.template Alloc<T>(out);
+    auto out_dims = phi::vectorize(out->dims());
+    FullKernel<T, Context>(
+        dev_ctx, out_dims, static_cast<T>(0), out_dtype, out);
+    return;
+  }
+  
   ReduceKernel<T, Context>(dev_ctx,
                            x,
                            dims,

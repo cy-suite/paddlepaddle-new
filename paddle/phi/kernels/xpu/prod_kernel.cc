@@ -29,6 +29,16 @@ void ProdKernel(const Context& dev_ctx,
                 bool reduce_all,
                 DenseTensor* out) {
   reduce_all = recompute_reduce_all(x, dims, reduce_all);
+  auto out_dtype = x.dtype();
+  
+  if (x.numel() == 0) {
+    dev_ctx.template Alloc<T>(out);
+    auto out_dims = phi::vectorize(out->dims());
+    FullKernel<T, Context>(
+        dev_ctx, out_dims, static_cast<T>(1), out_dtype, out);
+    return;
+  }
+  
   using XPUType = typename XPUTypeTrait<T>::Type;
 
   auto f = [](xpu::Context* ctx,

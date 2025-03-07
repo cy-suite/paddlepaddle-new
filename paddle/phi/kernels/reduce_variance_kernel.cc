@@ -27,6 +27,13 @@ void VarianceKernel(const Context& dev_ctx,
                     const std::vector<int64_t>& dims,
                     bool keep_dim,
                     DenseTensor* out) {
+  if (x.numel() == 0) {
+    dev_ctx.template Alloc<T>(out);
+    auto out_dims = phi::vectorize(out->dims());
+    FullKernel<T, Context>(
+        dev_ctx, out_dims, static_cast<T>(std::numeric_limits<double>::quiet_NaN()), out->dtype(), out);
+    return;
+  }
   DenseTensor temp_mean = Mean<T, Context>(dev_ctx, x, dims, true);
   DenseTensor temp_differences = Subtract<T, Context>(dev_ctx, x, temp_mean);
   DenseTensor temp_pow =

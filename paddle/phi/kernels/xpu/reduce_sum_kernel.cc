@@ -31,6 +31,15 @@ void SumRawKernel(const Context& dev_ctx,
   if (out_dtype == DataType::UNDEFINED && out->dtype() != x.dtype()) {
     out_dtype = out->dtype();
   }
+
+  if (x.numel() == 0) {
+    dev_ctx.template Alloc<T>(out);
+    auto out_dims = phi::vectorize(out->dims());
+    FullKernel<T, Context>(
+        dev_ctx, out_dims, static_cast<T>(0), out_dtype, out);
+    return;
+  }
+  
   XPUReduce<Context, T, phi::SumFunctor>(
       dev_ctx, x, dims.GetData(), keep_dim, reduce_all, out_dtype, out);
 }
