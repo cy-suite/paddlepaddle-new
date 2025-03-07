@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import hashlib
 import random
 
 import numpy as np
@@ -22,10 +23,10 @@ from paddle import nn
 from paddle.io import DataLoader
 from paddle.static.pir_io import get_pir_parameters
 
-BATCH_SIZE = 8
+BATCH_SIZE = 2
 BATCH_NUM = 4
-IMAGE_SIZE = 16
-CLASS_NUM = 8
+IMAGE_SIZE = 4
+CLASS_NUM = 2
 
 
 class PPDemoNet(nn.Layer):
@@ -137,8 +138,9 @@ class TestSimpleNetForSemiAutoParallel:
                 else:
                     image, label = data
                 loss = dist_model(image, label)
-                loss = np.mean(loss)
-                loss_list.append(loss)
+                if paddle.distributed.get_rank() == 1:
+                    md5_loss = hashlib.md5(np.array(loss).tobytes()).hexdigest()
+                    loss_list.append(md5_loss)
 
         return loss_list, dist_model
 
