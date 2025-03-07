@@ -70,24 +70,34 @@ def _has_xpu_smi():
     return shutil.which("xpu-smi")
 
 
+def _get_xpu_device_from_env(str_device_list, local_rank):
+    if len(str_device_list.strip()) == 0:
+        return None
+    visible_devices = str_device_list.split(',')
+    if len(visible_devices) <= local_rank:
+        return None
+    return visible_devices[local_rank]
+
+
 def _get_xpu_device(local_rank):
     """
     get currently used xpu physical device id
     """
+    # NOTE(lijin23): priority XPULINK_VISIBLE_DEVICES > XPU_VISIBLE_DEVICES >
+    # CUDA_VISIBLE_DEVICES
+    xpulink_visible_devices = os.getenv("XPULINK_VISIBLE_DEVICES")
+    if xpulink_visible_devices:
+        return _get_xpu_device_from_env(xpulink_visible_devices, local_rank)
+
     xpu_visible_devices = os.getenv("XPU_VISIBLE_DEVICES")
-    cuda_visible_devices = os.getenv("CUDA_VISIBLE_DEVICES")
     if xpu_visible_devices is not None:
-        xpu_visible_devices = xpu_visible_devices.split(',')
-        if len(xpu_visible_devices) <= local_rank:
-            return None
-        return xpu_visible_devices[local_rank]
-    elif cuda_visible_devices is not None:
-        cuda_visible_devices = cuda_visible_devices.split(',')
-        if len(cuda_visible_devices) <= local_rank:
-            return None
-        return cuda_visible_devices[local_rank]
-    else:
-        return str(local_rank)
+        return _get_xpu_device_from_env(xpu_visible_devices, local_rank)
+
+    cuda_visible_devices = os.getenv("CUDA_VISIBLE_DEVICES")
+    if cuda_visible_devices is not None:
+        return _get_xpu_device_from_env(cuda_visible_devices, local_rank)
+
+    return str(local_rank)
 
 
 def _get_gpu_device(local_rank):
@@ -120,6 +130,10 @@ def _get_gpu_numa_info(gpu_id):
 def _get_xpu_affinity_mask(xpu_id):
     xpu_id = int(xpu_id)
     cmd = ["xpu-smi", "topo", "-m"]
+    if os.getenv("CUDA_DEVICE_ORDER") == "OAM_ID":
+        # NOTE(lijin23): if CUDA_DEVICE_ORDER is set to OAM_ID,
+        #  we need to get the cpu affinity using OAM_ID
+        cmd = ["xpu-smi", "topo", "-mo"]
     output = subprocess.check_output(cmd, timeout=3).decode("utf-8")
     cpu_affinity = output.splitlines()[xpu_id + 1].split()[-2]
     affinity_mask = []
@@ -176,7 +190,7 @@ def set_affinity_xpu():
             "xpu-smi is not available, set_affinity is aborted, plz check your environment."
         )
         return FAIL_CODE
-    local_rank = max(os.getenv("PADDLE_LOCAL_RANK", 0), 0)
+    local_rank = max(int(os.getenv("PADDLE_LOCAL_RANK", "0")), 0)
     device_id = _get_xpu_device(local_rank)
     if device_id is None:
         logger.warn(
