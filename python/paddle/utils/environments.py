@@ -39,21 +39,27 @@ class EnvironmentVariable(Generic[T]):
     def __init__(self, name: str, default: T):
         self.name = name
         self.default = default
+        self._last_env_value: str | None = None
         self._cached_value: T | None = None
 
     def get(self) -> T:
-        if self._cached_value is None:
-            self._cached_value = self.parse()
+        _current_env_value = os.getenv(self.name)
+        if (
+            self._cached_value is None
+            or self._last_env_value != _current_env_value
+        ):
+            self._cached_value = self.parse_from_string()
+            self._last_env_value = _current_env_value
         return self._cached_value
 
     def set(self, value: T) -> None:
-        os.environ[self.name] = self.serialize(value)
+        os.environ[self.name] = self.convert_to_string(value)
         self._cached_value = value
 
-    def parse(self) -> T:
+    def parse_from_string(self) -> T:
         raise NotImplementedError
 
-    def serialize(self, value: T) -> str:
+    def convert_to_string(self, value: T) -> str:
         raise NotImplementedError
 
     def delete(self) -> None:
@@ -68,10 +74,10 @@ class StringEnvironmentVariable(EnvironmentVariable[str]):
         super().__init__(name, default)
         assert isinstance(default, str), "default must be a string"
 
-    def parse(self) -> str:
+    def parse_from_string(self) -> str:
         return os.getenv(self.name, self.default)
 
-    def serialize(self, value: str) -> str:
+    def convert_to_string(self, value: str) -> str:
         assert isinstance(value, str), "value must be a string"
         return value
 
@@ -81,12 +87,12 @@ class BooleanEnvironmentVariable(EnvironmentVariable[bool]):
         super().__init__(name, default)
         assert isinstance(default, bool), "default must be a boolean"
 
-    def parse(self) -> bool:
+    def parse_from_string(self) -> bool:
         default = str(self.default)
         env_str = os.getenv(self.name, default)
         return strtobool(env_str)
 
-    def serialize(self, value: bool) -> str:
+    def convert_to_string(self, value: bool) -> str:
         assert isinstance(value, bool), "value must be a boolean"
         return str(value).lower()
 
@@ -104,13 +110,13 @@ class IntegerEnvironmentVariable(EnvironmentVariable[int]):
             default, bool
         ), "default must be an integer"
 
-    def parse(self) -> int:
+    def parse_from_string(self) -> int:
         try:
             return int(os.getenv(self.name, str(self.default)))
         except ValueError:
             return self.default
 
-    def serialize(self, value: int) -> str:
+    def convert_to_string(self, value: int) -> str:
         assert isinstance(value, int) and not isinstance(
             value, bool
         ), "value must be an integer"
@@ -122,10 +128,10 @@ class StringListEnvironmentVariable(EnvironmentVariable[List[str]]):
         super().__init__(name, default)
         assert isinstance(default, list), "default must be a list"
 
-    def parse(self) -> list[str]:
+    def parse_from_string(self) -> list[str]:
         return os.getenv(self.name, ",".join(self.default)).split(",")
 
-    def serialize(self, value: list[str]) -> str:
+    def convert_to_string(self, value: list[str]) -> str:
         assert isinstance(value, list), "value must be a list"
         assert all(
             isinstance(x, str) for x in value

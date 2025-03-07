@@ -41,7 +41,7 @@ class PEP508LikeEnvironmentVariable(EnvironmentVariable[Dict[str, List[str]]]):
         super().__init__(name, default)
         assert isinstance(default, dict), "default must be a dict"
 
-    def parse(self) -> dict[str, list[str]]:
+    def parse_from_string(self) -> dict[str, list[str]]:
         env_var = os.getenv(self.name)
         if env_var is None or env_var == "":
             return self.default
@@ -51,7 +51,7 @@ class PEP508LikeEnvironmentVariable(EnvironmentVariable[Dict[str, List[str]]]):
             ret.update(self.parse_parameterized_key(item))
         return ret
 
-    def serialize(self, value: dict[str, list[str]]) -> str:
+    def convert_to_string(self, value: dict[str, list[str]]) -> str:
         assert isinstance(value, dict), "The input must be a dict"
         assert all(
             isinstance(x, str) for x in value.keys()
