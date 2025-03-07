@@ -3656,22 +3656,7 @@ def lu_solve(
         else paddle.broadcast_to(lu, batch_shape + list(lu.shape[-2:]))
     )
     pivots.stop_gradient = True
-    if in_dynamic_or_pir_mode():
-        out = _C_ops.lu_solve(b, lu, pivots, trans)
-    else:
-        check_variable_and_dtype(b, 'dtype', ['float32', 'float64'], 'lu_solve')
-        check_variable_and_dtype(
-            lu, 'dtype', ['float32', 'float64'], 'lu_solve'
-        )
-        check_variable_and_dtype(pivots, 'dtype', ['int32'], 'lu_solve')
-        helper = LayerHelper('lu_solve', **locals())
-        out = helper.create_variable_for_type_inference(dtype=b.dtype)
-        helper.append_op(
-            type='lu_solve',
-            inputs={'B': b, 'Lu': lu, 'Pivots': pivots},
-            outputs={'Out': out},
-            attrs={'trans': trans},
-        )
+    out = _C_ops.lu_solve(b, lu, pivots, trans)
     return out
 
 
