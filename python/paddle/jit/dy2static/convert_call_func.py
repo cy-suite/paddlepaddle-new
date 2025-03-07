@@ -22,6 +22,7 @@ import logging
 import os
 import pdb  # noqa: T100
 import re
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any, Callable
 
 import numpy
@@ -42,7 +43,7 @@ from .program_translator import (
     convert_to_static,
     unwrap_decorators,
 )
-from .utils import WeakMethod, is_builtin, is_paddle_func
+from .utils import is_builtin, is_paddle_func
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -203,6 +204,67 @@ def is_unsupported(func):
     return False
 
 
+def patch_method(instance: object, name: str, new_method: Callable[..., Any]):
+    def get_original_method(instance: object, name: str):
+        """
+        There are two case we don't need to restore the method:
+        1. If the attribute is not existed
+        2. If the obj.attr.__func__ is obj.__class__.attr
+        If the method need restore, return the original method.
+        Otherwise, return None, indicating that the method can be simply deleted.
+        """
+        if not hasattr(instance, name):
+            return None
+
+        original_method = getattr(instance, name)
+        if not inspect.ismethod(original_method):
+            # obj.attr is a function or other object (not a bound method)
+            return original_method
+
+        if not hasattr(instance.__class__, name):
+            # obj.__class__ has not the same unbound method
+            return original_method
+
+        if original_method.__func__ is not getattr(instance.__class__, name):
+            # obj.attr is a bound method, but it's unbound method is
+            # different from obj.__class__.attr
+            return original_method
+        return None
+
+    original_method = get_original_method(instance, name)
+    object.__setattr__(instance, name, new_method)
+
+    def restorer(instance):
+        if original_method is None:
+            object.__delattr__(instance, name)
+        else:
+            object.__setattr__(instance, name, original_method)
+
+    return restorer
+
+
+@contextmanager
+def patch_method_guard(
+    instance: object, name: str, new_method: Callable[..., Any]
+):
+    restorer = patch_method(instance, name, new_method)
+    try:
+        yield
+    finally:
+        restorer(instance)
+
+
+class StaticLayerWrapper:
+    def __init__(self, layer):
+        self.layer = layer
+
+    def __call__(self, *args, **kwargs):
+        with patch_method_guard(
+            self.layer, "forward", convert_call(self.layer.forward)
+        ):
+            return self.layer(*args, **kwargs)
+
+
 def convert_call(func):
     """
     Converts a function call which needs to be transformed to static function.
@@ -355,18 +417,19 @@ def convert_call(func):
 
     elif hasattr(func, '__class__') and callable(func.__class__):
         if hasattr(func, 'forward') and isinstance(func, Layer):
-            try:
-                _, forward_func = unwrap_decorators(func.forward)
-                func._original_funcs['forward'] = forward_func.__func__
-                forward_func = convert_to_static(forward_func.__func__)
-                # Bound method will be convert into plain function after `convert_to_static`.
-                # So descriptor mechanism is used to bound `self` instance on function to
-                # keep it as bound method.
-                func.forward = WeakMethod(forward_func, func)
-            except (OSError, TypeError):
-                # NOTE: func.forward may have been decorated.
-                func_self = None if func_self else func_self
-            converted_call = func
+            return StaticLayerWrapper(func)
+            # try:
+            #     _, forward_func = unwrap_decorators(func.forward)
+            #     func._original_funcs['forward'] = forward_func.__func__
+            #     forward_func = convert_to_static(forward_func.__func__)
+            #     # Bound method will be convert into plain function after `convert_to_static`.
+            #     # So descriptor mechanism is used to bound `self` instance on function to
+            #     # keep it as bound method.
+            #     func.forward = WeakMethod(forward_func, func)
+            # except (OSError, TypeError):
+            #     # NOTE: func.forward may have been decorated.
+            #     func_self = None if func_self else func_self
+            # converted_call = func
         else:
             try:
                 call_func = func.__class__.__call__
