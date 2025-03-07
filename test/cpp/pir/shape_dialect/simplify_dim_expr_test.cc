@@ -216,7 +216,7 @@ TEST(Simplify, SimplifyMin) {
   DimExpr S1{"S1"};
   DimExpr S2{"S2"};
   DimExpr add{Add<DimExpr>{{S0, S1}}};
-  DimExpr mul{Mul<DimExpr>{{Add<DimExpr>{{S1, S2}}, S2}}};
+  DimExpr mul{Mul<DimExpr>{{add, S2}}};
   DimExpr min{Min<DimExpr>{{S0, add, mul}}};
   DimExpr simplify_min = SimplifyDimExpr(min);
   ASSERT_TRUE((simplify_min == S0));
