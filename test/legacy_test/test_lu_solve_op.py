@@ -229,7 +229,6 @@ class TestLuSolveOpAPI(unittest.TestCase):
 
     def test_static(self):
         def run(place):
-            paddle.set_flags({'FLAGS_enable_pir_api': False})
             paddle.enable_static()
             with paddle.static.program_guard(
                 paddle.static.Program(), paddle.static.Program()
