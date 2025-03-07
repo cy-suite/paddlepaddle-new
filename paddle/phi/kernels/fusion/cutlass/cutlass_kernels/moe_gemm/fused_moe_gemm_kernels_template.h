@@ -639,7 +639,7 @@ void dispatch_moe_gemm_to_cutlass(const T* A,
     break;
 
   switch (gemm_config.tile_config) {
-    dispatch_gemm_config_macro(16, 128, 64, 16, 32, 64);
+    // dispatch_gemm_config_macro(16, 128, 64, 16, 32, 64);
     dispatch_gemm_config_macro(32, 128, 64, 32, 32, 64);
     dispatch_gemm_config_macro(64, 128, 64, 64, 32, 64);
     dispatch_gemm_config_macro(64, 128, 64, 64, 64, 64);
