@@ -26,7 +26,9 @@ class IR_API Parameter {
  public:
   Parameter(void* data, size_t size, pir::Type type) {
     data_ = malloc(size);
-    memcpy(data_, data, size);
+    if (size > 0) {
+      memcpy(data_, data, size);
+    }
     size_ = size;
     type_ = type;
   }

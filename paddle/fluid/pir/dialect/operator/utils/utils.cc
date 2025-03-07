@@ -463,7 +463,8 @@ std::vector<int64_t> ParseValueShape(const pir::Value& shape,
                           .attribute("value")
                           .dyn_cast<pir::FloatAttribute>()
                           .data();
-    vec_shape = {static_cast<int64_t>(shape_item)};
+    vec_shape.clear();
+    vec_shape.push_back(static_cast<int64_t>(shape_item));
   } else if (shape.isa<pir::OpResult>() &&
              shape.defining_op()->isa<paddle::dialect::StackOp>()) {
     std::vector<pir::Value> inputs =
