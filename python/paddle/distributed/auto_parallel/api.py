@@ -1414,14 +1414,12 @@ class _ShardingStageBase:
         self, param: Tensor, master_weight: Tensor
     ) -> Tensor:
         if param.is_dist():
+            placements = get_placement_with_sharding(param, self._sharding_axis)
             if isinstance(master_weight, pir.Value):
                 data_op = master_weight.get_defining_op()
                 assert (
                     data_op.name() == "pd_op.data"
                 ), "The master weight must be a result of data op."
-                placements = get_placement_with_sharding(
-                    param, self._sharding_axis
-                )
                 dim_map, partial_status = to_dim_map(
                     placements, len(master_weight.shape)
                 )
@@ -1438,6 +1436,13 @@ class _ShardingStageBase:
                     paddle.base.libpaddle.pir.create_op_dist_attribute(
                         param.process_mesh, [], [dist_attr]
                     )
+                )
+
+            if paddle.in_dynamic_mode() and master_weight.is_dist():
+                master_weight = reshard(
+                    master_weight,
+                    mesh=param.process_mesh,
+                    placements=placements,
                 )
         return master_weight
 
