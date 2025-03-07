@@ -622,7 +622,7 @@ void TensorRTEngineInstruction::BindOutputTensor(
       binding_offset;
 #endif
   std::vector<int> ddim;
-
+  phi::DenseTensor *fluid_t = nullptr;
 #if IS_TRT_VERSION_GE(8500)
   auto x_name = trt_engine_->engine()->getIOTensorName(bind_index);
   auto dims = trt_context->getTensorShape(x_name);
@@ -642,15 +642,7 @@ void TensorRTEngineInstruction::BindOutputTensor(
       ddim.push_back(dims.d[i]);
     }
   }
-#else
-  PADDLE_THROW(
-      common::errors::Unimplemented("PIR-TRT only support TensorRT "
-                                    "version that is >= 8.5,"
-                                    "Please check your TensorRT "
-                                    "in your env."));
-#endif
 
-  phi::DenseTensor *fluid_t = nullptr;
   if (has_unknown_dim) {
     const paddle::framework::Scope &scope = *(value_exec_info_->GetScope());
     std::string tmp_output = output_name + "_tmp";
@@ -661,6 +653,14 @@ void TensorRTEngineInstruction::BindOutputTensor(
   } else {
     fluid_t = output_tensor;
   }
+
+#else
+  PADDLE_THROW(
+      common::errors::Unimplemented("PIR-TRT only support TensorRT "
+                                    "version that is >= 8.5,"
+                                    "Please check your TensorRT "
+                                    "in your env."));
+#endif
 
   fluid_t->Resize(common::make_ddim(ddim));
   PADDLE_ENFORCE_LT(bind_index,
@@ -760,6 +760,7 @@ void TensorRTEngineInstruction::RunTrt() {
     size_t i = index_name_pair.first;
     auto type = outputs_dtype_[i];
 
+#if IS_TRT_VERSION_GE(8500)
     // deal with output that has unknown shape
     std::string output_name = index_name_pair.second;
     int bind_index = -1;
@@ -791,8 +792,7 @@ void TensorRTEngineInstruction::RunTrt() {
       output_tensor->Resize(common::make_ddim(ddim));
       dev_ctx_->Alloc(output_tensor, type);
       if (type == phi::DataType::FLOAT32) {
-        auto *mutable_output =
-            output_tensor->mutable_data<float>(phi::GPUPlace());
+        auto *mutable_output = output_tensor->data<float>();
         phi::memory_utils::Copy(phi::GPUPlace(),
                                 mutable_output,
                                 phi::GPUPlace(),
@@ -800,8 +800,7 @@ void TensorRTEngineInstruction::RunTrt() {
                                 sizeof(float) * output_tensor->numel(),
                                 nullptr);
       } else if (type == phi::DataType::INT64 || type == phi::DataType::INT32) {
-        auto *mutable_output =
-            output_tensor->mutable_data<int32_t>(phi::GPUPlace());
+        auto *mutable_output = output_tensor->data<int32_t>();
         phi::memory_utils::Copy(phi::GPUPlace(),
                                 mutable_output,
                                 phi::GPUPlace(),
@@ -813,6 +812,7 @@ void TensorRTEngineInstruction::RunTrt() {
             "Unsupported data type: %d when deal with output", type));
       }
     }
+#endif
 
     // Type transformation for INT64 and FLOAT64
     if (type == phi::DataType::INT64) {
