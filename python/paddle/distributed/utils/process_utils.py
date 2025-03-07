@@ -86,7 +86,7 @@ def _get_xpu_device(local_rank):
     # NOTE(lijin23): priority XPULINK_VISIBLE_DEVICES > XPU_VISIBLE_DEVICES >
     # CUDA_VISIBLE_DEVICES
     xpulink_visible_devices = os.getenv("XPULINK_VISIBLE_DEVICES")
-    if xpulink_visible_devices:
+    if xpulink_visible_devices is not None:
         return _get_xpu_device_from_env(xpulink_visible_devices, local_rank)
 
     xpu_visible_devices = os.getenv("XPU_VISIBLE_DEVICES")
@@ -119,7 +119,7 @@ def _get_gpu_numa_info(gpu_id):
     """
     try:
         cmd = ["nvidia-smi", "topo", "-C", "-i", gpu_id]
-        output = subprocess.check_output(cmd, timeout=3).decode("utf-8")
+        output = subprocess.check_output(cmd, timeout=30).decode("utf-8")
         numa_id = output.strip().split()[-1]
         return numa_id
     except Exception as e:
