@@ -138,7 +138,6 @@ class AutoParallelSyncSharedParamsPass(PassBase):
                             dy_param = tmp_param
                             break
                     assert dy_param is not None
-
                     new_dist_attr = TensorDistAttr()
                     new_dist_attr.process_mesh = dst_mesh
                     new_dist_attr.dims_mapping = src_dist_attr.dims_mapping
@@ -202,7 +201,7 @@ class AutoParallelSyncSharedParamsPass(PassBase):
 
         return new_shared_params
 
-    def allreduce_shared_param_weight(
+    def allreduce_shared_param_gradient(
         self, main_program, startup_program, params_grads
     ):
         if not self._check_self():
@@ -217,6 +216,7 @@ class AutoParallelSyncSharedParamsPass(PassBase):
 
         # Only support one shared param.
         assert len(self.params_maybe_shared) == 1
+
         cur_rank = paddle.distributed.get_rank()
 
         pre_name = ""
@@ -224,14 +224,13 @@ class AutoParallelSyncSharedParamsPass(PassBase):
             pre_name = "shared_"
 
         for param_mess in self.params_maybe_shared:
-            param_name = param_mess['param_name']
+            param_name = pre_name + param_mess['param_name']
             src_mesh_ids = param_mess['src_mesh'].process_ids
             dst_mesh_ids = param_mess['dst_mesh'].process_ids
 
             # Get (param, grad) value
-            param_value = main_program.get_parameter_value_by_name(
-                pre_name + param_name
-            )
+            param_value = main_program.get_parameter_value_by_name(param_name)
+
             grad_idx = None
             for p_idx, (p_param, _) in enumerate(params_grads):
                 if p_param.is_same(param_value):
@@ -240,9 +239,8 @@ class AutoParallelSyncSharedParamsPass(PassBase):
             assert grad_idx is not None
             grad_value = params_grads[p_idx][1]
 
-            # Comm group
+            # Create allreduce op comm group.
             cur_rank = paddle.distributed.get_rank()
-
             if cur_rank in self.src_ranks:
                 idx = src_mesh_ids.index(cur_rank)
                 peer_rank = dst_mesh_ids[idx]
@@ -251,10 +249,11 @@ class AutoParallelSyncSharedParamsPass(PassBase):
                 peer_rank = src_mesh_ids[idx]
             ar_group_id = self._add_comm_group([cur_rank, peer_rank])
 
-            # Insert allreduce in the end of backward
+            # Insert allreduce op in the end of backward.
             insert_pos = self._find_fist_opt_user(main_program)
             paddle.pir.set_insertion_point(insert_pos)
 
+            # Build allreduce op to sync gradient.
             with auto_complete_op_role(main_program, OpRole.Backward):
                 allreduce_val = paddle._C_ops.all_reduce(
                     grad_value,
