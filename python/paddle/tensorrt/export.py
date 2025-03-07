@@ -650,10 +650,6 @@ def convert(model_path, config):
 
             >>>     output_converted = predictor.run([model_input])
 
-
-            >>> if __name__ == "__main__":
-            >>>     test_paddle_to_tensorrt_conversion()
-
             >>> # example 2:
             >>> # In this example, the user specifies the actual input.
             >>> import numpy as np
@@ -702,10 +698,6 @@ def convert(model_path, config):
             >>>     model_input = paddle.to_tensor(input_data)
 
             >>>     output_converted = predictor.run([model_input])
-
-
-            >>> if __name__ == "__main__":
-            >>>     test_paddle_to_tensorrt_conversion()
 
     """
     if os.path.abspath(config.save_model_dir) == os.path.abspath(model_path):
