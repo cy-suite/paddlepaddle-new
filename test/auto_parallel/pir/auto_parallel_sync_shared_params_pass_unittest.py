@@ -36,8 +36,7 @@ class PPDemoNet(nn.Layer):
         self._mesh2 = mesh2
         self.linear_0 = nn.Linear(IMAGE_SIZE, IMAGE_SIZE, bias_attr=False)
         self.linear_1 = nn.Linear(IMAGE_SIZE, CLASS_NUM, bias_attr=False)
-        # self.linear_2 = nn.Linear(IMAGE_SIZE, CLASS_NUM, bias_attr=False)
-        self.linear_3 = nn.Linear(IMAGE_SIZE, IMAGE_SIZE, bias_attr=False)
+        self.linear_2 = nn.Linear(IMAGE_SIZE, IMAGE_SIZE, bias_attr=False)
         self.relu_0 = nn.ReLU()
         self.relu_1 = nn.ReLU()
         self.relu_2 = nn.ReLU()
@@ -60,13 +59,14 @@ class PPDemoNet(nn.Layer):
         x.stop_gradient = False
         out = self.relu_0(x)
         out = self.linear_0(out)
-        out = self.linear_0(out)
         out = self.relu_1(out)
         out = dist.reshard(out, self._mesh2, [dist.Replicate()])
-        out = self.linear_3(out)
+        out = self.linear_2(out)
 
-        y = dist.reshard(self.shared_weight, self._mesh2, [dist.Replicate()])
-        out = paddle.matmul(out, y)
+        shared_weight = dist.reshard(
+            self.shared_weight, self._mesh2, [dist.Replicate()]
+        )
+        out = paddle.matmul(out, shared_weight)
         out = self.linear_1(out)
         out = self.relu_2(out)
         out = paddle.cast(out, 'float32')
@@ -127,7 +127,6 @@ class TestSimpleNetForSemiAutoParallel:
             layer, dist_loader, loss_fn, opt, strategy=strategy
         )
         loss_list = []
-
         dist_model.train()
 
         for epoch in range(self.num_batch):
@@ -188,8 +187,10 @@ class TestSimpleNetForSemiAutoParallel:
         if paddle.distributed.get_rank() == 1:
             ori_shared_param_count = self.get_shared_params_count(ori_program)
             sync_shared_param_count = self.get_shared_params_count(sync_program)
+
             assert ori_shared_param_count == 0
             assert sync_shared_param_count == 1
+
             for idx in range(self.num_batch):
                 assert sync_loss[idx] == ori_loss[idx]
 
