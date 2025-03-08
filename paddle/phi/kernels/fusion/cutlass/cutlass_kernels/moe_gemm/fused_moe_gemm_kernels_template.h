@@ -403,30 +403,7 @@ void dispatch_gemm_config(const T* A,
   }
 }
 
-// This overload will handle tensorop gemms. It is disabled via SFINAE for fp32.
-// This overload is only enabled when T == WeightType.
-template <typename T,
-          typename WeightType,
-          typename arch,
-          typename EpilogueTag,
-          typename std::enable_if<!std::is_same<T, float>::value &&
-                                  std::is_same<T, WeightType>::value>::type* =
-              nullptr>
-void dispatch_moe_gemm_to_cutlass(const T* A,
-                                  const WeightType* B,
-                                  const T* weight_scales,
-                                  const T* biases,
-                                  T* C,
-                                  int64_t* total_rows_before_expert,
-                                  int64_t total_rows,
-                                  int64_t gemm_n,
-                                  int64_t gemm_k,
-                                  int num_experts,
-                                  CutlassGemmConfig gemm_config,
-                                  int sm_version,
-                                  int multi_processor_count,
-                                  cudaStream_t stream,
-                                  int* occupancy = nullptr) {
+
 #define dispatch_gemm_config_macro(AA, BB, CC, DD, EE, FF)      \
   case CutlassTileConfig::                                      \
       CtaShape##AA##x##BB##x##CC##_WarpShape##DD##x##EE##x##FF: \
@@ -451,6 +428,30 @@ void dispatch_moe_gemm_to_cutlass(const T* A,
         occupancy);                                             \
     break;
 
+// This overload will handle tensorop gemms. It is disabled via SFINAE for fp32.
+// This overload is only enabled when T == WeightType.
+template <typename T,
+          typename WeightType,
+          typename arch,
+          typename EpilogueTag,
+          typename std::enable_if<!std::is_same<T, float>::value &&
+                                  std::is_same<T, WeightType>::value>::type* =
+              nullptr>
+void dispatch_moe_gemm_to_cutlass(const T* A,
+                                  const WeightType* B,
+                                  const T* weight_scales,
+                                  const T* biases,
+                                  T* C,
+                                  int64_t* total_rows_before_expert,
+                                  int64_t total_rows,
+                                  int64_t gemm_n,
+                                  int64_t gemm_k,
+                                  int num_experts,
+                                  CutlassGemmConfig gemm_config,
+                                  int sm_version,
+                                  int multi_processor_count,
+                                  cudaStream_t stream,
+                                  int* occupancy = nullptr) {
   switch (gemm_config.tile_config) {
     dispatch_gemm_config_macro(32, 128, 64, 32, 32, 64);
     dispatch_gemm_config_macro(64, 128, 64, 32, 64, 64);
@@ -497,30 +498,6 @@ void dispatch_moe_gemm_to_cutlass(const T* A,
                                   int multi_processor_count,
                                   cudaStream_t stream,
                                   int* occupancy = nullptr) {
-#define dispatch_gemm_config_macro(AA, BB, CC, DD, EE, FF)      \
-  case CutlassTileConfig::                                      \
-      CtaShape##AA##x##BB##x##CC##_WarpShape##DD##x##EE##x##FF: \
-    dispatch_gemm_config<T,                                     \
-                         WeightType,                            \
-                         arch,                                  \
-                         EpilogueTag,                           \
-                         cutlass::gemm::GemmShape<AA, BB, CC>,  \
-                         cutlass::gemm::GemmShape<DD, EE, FF>>( \
-        A,                                                      \
-        B,                                                      \
-        weight_scales,                                          \
-        biases,                                                 \
-        C,                                                      \
-        total_rows_before_expert,                               \
-        gemm_n,                                                 \
-        gemm_k,                                                 \
-        num_experts,                                            \
-        gemm_config,                                            \
-        multi_processor_count,                                  \
-        stream,                                                 \
-        occupancy);                                             \
-    break;
-
   switch (gemm_config.tile_config) {
     // dispatch_gemm_config_macro(16, 128, 64, 16, 32, 64);
     dispatch_gemm_config_macro(32, 128, 64, 32, 32, 64);
@@ -568,27 +545,7 @@ void dispatch_moe_gemm_to_cutlass(const T* A,
                                   cudaStream_t stream,
                                   int* occupancy = nullptr) {
   switch (gemm_config.tile_config) {
-    case CutlassTileConfig::CtaShape128x128x8_WarpShape64x64x8:
-      dispatch_gemm_config<T,
-                           WeightType,
-                           arch,
-                           EpilogueTag,
-                           cutlass::gemm::GemmShape<128, 128, 8>,
-                           cutlass::gemm::GemmShape<64, 64, 8>>(
-          A,
-          B,
-          weight_scales,
-          biases,
-          C,
-          total_rows_before_expert,
-          gemm_n,
-          gemm_k,
-          num_experts,
-          gemm_config,
-          multi_processor_count,
-          stream,
-          occupancy);
-      break;
+    dispatch_gemm_config_macro(128, 128, 8, 64, 64, 8);
     case CutlassTileConfig::Undefined:
       PADDLE_FATAL(
           "[dispatch_moe_gemm_to_cutlass][SIMT] gemm config "
