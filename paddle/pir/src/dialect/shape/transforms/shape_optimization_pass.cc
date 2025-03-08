@@ -350,12 +350,14 @@ void CacheForwardOpSymbolicShape(
   const auto& CheckInferSymbolicShapeCacheConsistency =
       [&](const InferSymbolicShapeCacheValue& infer_result,
           const InferSymbolicShapeCacheValue& cache_result) {
+        std::set<std::string> skip_op_set = {"pd_op.data"};
         if (infer_result.size() != cache_result.size()) {
           LOG(WARNING) << "cached shape is not consistent with real shape";
         } else {
           for (uint32_t i = 0; i < cache_result.size(); ++i) {
             if (infer_result[i] != cache_result[i]) {
-              if (IsGradOp(op) && (!op->result(i) || !op->result(i).type())) {
+              if (IsGradOp(op) && (!op->result(i) || !op->result(i).type()) ||
+                  skip_op_set.count(op->name())) {
                 continue;
               }
               LOG(WARNING) << "cached shape is not consistent with real shape";
