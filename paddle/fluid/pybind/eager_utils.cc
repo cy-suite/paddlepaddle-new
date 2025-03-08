@@ -2882,7 +2882,7 @@ PyObject* CalcPlaceHash(PyObject* dummy, PyObject* tensors) {
           "The input tensors should be a list of Tensor."));
     }
   }
-  auto hash_with_seed = [](int64_t value, int64_t seed) {
+  const auto& hash_with_seed = [](int64_t value, int64_t seed) {
     return seed + 0x9e3779b9 + (value << 6) + (value >> 2);
   };
   int64_t place_hash_key = 0;
