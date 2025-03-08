@@ -172,6 +172,8 @@ void ApplyBuildGroupOpPass(
   pass_manager->AddPass(pir::CreateBuildCinnPass());
 
   pass_manager->Run(program);
+  std::cout << "After BuildCinnPass:" << std::endl;
+  std::cout << *program;
 }
 
 void ApplyGroupOpPass(::pir::Program* program,
