@@ -192,24 +192,26 @@ def var(
             x, 'x', ['float16', 'float32', 'float64'], 'var'
         )
 
-    if paddle.numel(x) == 0:
-        return mean(x, axis, keepdim, name)
+    is_empty = paddle.equal(paddle.numel(x), 0)
 
-    u = mean(x, axis, True, name)
+    def _var():
+        u = mean(x, axis, True, name)
+        
+        out = paddle.sum(paddle.pow((x - u), 2), axis, keepdim=keepdim, name=name)
+
+        dtype = x.dtype
+        n = paddle.cast(paddle.numel(x), "int64") / paddle.cast(
+            paddle.numel(out), "int64"
+        )
+        n = n.astype(dtype)
+        if unbiased:
+            one_const = paddle.ones([], x.dtype)
+            n = where(n > one_const, n - 1.0, one_const)
+        n.stop_gradient = True
+        out /= n
+        return out
     
-    out = paddle.sum(paddle.pow((x - u), 2), axis, keepdim=keepdim, name=name)
-
-    dtype = x.dtype
-    n = paddle.cast(paddle.numel(x), "int64") / paddle.cast(
-        paddle.numel(out), "int64"
-    )
-    n = n.astype(dtype)
-    if unbiased:
-        one_const = paddle.ones([], x.dtype)
-        n = where(n > one_const, n - 1.0, one_const)
-    n.stop_gradient = True
-    out /= n
-    return out
+    return paddle.static.nn.cond(is_empty, lambda: mean(x, axis, keepdim, name), _var)
 
 
 def std(
@@ -274,10 +276,9 @@ def std(
         )
     out = var(**locals())
 
-    if paddle.numel(x) == 0:
-        return out
+    is_empty = paddle.equal(paddle.numel(x), 0)
     
-    return paddle.sqrt(out)
+    return paddle.static.nn.cond(is_empty, lambda: out, lambda: paddle.sqrt(out))
 
 
 def numel(x: Tensor, name: str | None = None) -> Tensor:
