@@ -697,7 +697,6 @@ void MoeGemmRunner<T, WeightType>::run_gemm<EpilogueTag>(
     int profile_total_rows =
         std::min(gemmConfigManager.nextPowerOfTwo(total_rows),
                  gemmConfigManager.getMaxProfileM());
-    bool found_one = false;
 
     for (size_t ii = 0; ii < candidate_configs.size(); ++ii) {
       for (int i = 0; i < warm_time; i++) {
@@ -736,7 +735,6 @@ void MoeGemmRunner<T, WeightType>::run_gemm<EpilogueTag>(
       }
       check_cuda_error(cudaEventRecord(stop, stream));
       check_cuda_error(cudaEventSynchronize(stop));
-      found_one = true;
       float elapsed;
       check_cuda_error(cudaEventElapsedTime(&elapsed, start, stop));
       check_cuda_error(cudaEventDestroy(start));
@@ -756,10 +754,8 @@ void MoeGemmRunner<T, WeightType>::run_gemm<EpilogueTag>(
       VLOG(4) << "elapsed time: " << elapsed;
       VLOG(4) << "best_time: " << best_time;
     }
-    if (found_one) {
-      gemmConfigManager.addBestConfig(gemmId, profile_total_rows, best_config);
-      chosen_config = best_config;
-    }
+    gemmConfigManager.addBestConfig(gemmId, profile_total_rows, best_config);
+    chosen_config = best_config;
   }
 
   VLOG(4) << "chosen_config tile_config"
