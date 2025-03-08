@@ -158,6 +158,11 @@ class Input:
             >>> input.input_range=(1,10)
             >>> input_min_data, input_optim_data, input_max_data = input_config.generate_input_data()
         """
+        if self.warmup_data is not None:
+            raise RuntimeError(
+                "generate_input_data() should not be called when warmup_data is provided."
+            )
+
         if self.input_range is None:
             self.input_range = (
                 (0.0, 1.0) if 'float' in self.input_data_type else (1, 10)
@@ -324,16 +329,24 @@ def convert_to_trt(program, trt_config, scope):
             feed_name.append(param_name)
 
     with paddle.pir_utils.IrGuard():
-        input_tuples = [i.generate_input_data() for i in trt_config.inputs]
-        # Check all inputs have same number of warmup_data samples
-        assert (
-            len({len(t) for t in input_tuples}) == 1
-        ), "All inputs must have the same number of warmup_data samples."
-        feeds = [
-            {name: t[i] for t, name in zip(input_tuples, feed_name)}
-            for i in range(len(input_tuples[0]))
-        ]
-
+        feeds = []
+        if trt_config.inputs[0].warmup_data is not None:
+            input_tuples = [inp.warmup_data for inp in trt_config.inputs]
+            # Check all inputs have the same number of warmup_data samples
+            assert len({len(t) for t in input_tuples}) == 1
+            num_samples = len(input_tuples[0])
+            for sample_idx in range(num_samples):
+                feed_dict = {
+                    name: input_tuples[i][sample_idx]
+                    for i, name in enumerate(feed_name)
+                }
+                feeds.append(feed_dict)
+        else:
+            input_tuples = [i.generate_input_data() for i in trt_config.inputs]
+            feeds = [
+                {name: t[i] for t, name in zip(input_tuples, feed_name)}
+                for i in range(len(input_tuples[0]))
+            ]
         # run pir pass (including trt_op_marker_pass)
         program_with_pir = run_pir_pass(
             program,
