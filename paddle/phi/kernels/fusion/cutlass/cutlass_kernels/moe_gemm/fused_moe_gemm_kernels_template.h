@@ -427,91 +427,35 @@ void dispatch_moe_gemm_to_cutlass(const T* A,
                                   int multi_processor_count,
                                   cudaStream_t stream,
                                   int* occupancy = nullptr) {
+#define dispatch_gemm_config_macro(AA, BB, CC, DD, EE, FF)      \
+  case CutlassTileConfig::                                      \
+      CtaShape##AA##x##BB##x##CC##_WarpShape##DD##x##EE##x##FF: \
+    dispatch_gemm_config<T,                                     \
+                         WeightType,                            \
+                         arch,                                  \
+                         EpilogueTag,                           \
+                         cutlass::gemm::GemmShape<AA, BB, CC>,  \
+                         cutlass::gemm::GemmShape<DD, EE, FF>>( \
+        A,                                                      \
+        B,                                                      \
+        weight_scales,                                          \
+        biases,                                                 \
+        C,                                                      \
+        total_rows_before_expert,                               \
+        gemm_n,                                                 \
+        gemm_k,                                                 \
+        num_experts,                                            \
+        gemm_config,                                            \
+        multi_processor_count,                                  \
+        stream,                                                 \
+        occupancy);                                             \
+    break;
+
   switch (gemm_config.tile_config) {
-    case CutlassTileConfig::CtaShape32x128x64_WarpShape32x32x64:
-      dispatch_gemm_config<T,
-                           WeightType,
-                           arch,
-                           EpilogueTag,
-                           cutlass::gemm::GemmShape<32, 128, 64>,
-                           cutlass::gemm::GemmShape<32, 32, 64>>(
-          A,
-          B,
-          weight_scales,
-          biases,
-          C,
-          total_rows_before_expert,
-          gemm_n,
-          gemm_k,
-          num_experts,
-          gemm_config,
-          multi_processor_count,
-          stream,
-          occupancy);
-      break;
-    case CutlassTileConfig::CtaShape64x128x64_WarpShape32x64x64:
-      dispatch_gemm_config<T,
-                           WeightType,
-                           arch,
-                           EpilogueTag,
-                           cutlass::gemm::GemmShape<64, 128, 64>,
-                           cutlass::gemm::GemmShape<32, 64, 64>>(
-          A,
-          B,
-          weight_scales,
-          biases,
-          C,
-          total_rows_before_expert,
-          gemm_n,
-          gemm_k,
-          num_experts,
-          gemm_config,
-          multi_processor_count,
-          stream,
-          occupancy);
-      break;
-    case CutlassTileConfig::CtaShape128x128x64_WarpShape64x32x64:
-      dispatch_gemm_config<T,
-                           WeightType,
-                           arch,
-                           EpilogueTag,
-                           cutlass::gemm::GemmShape<128, 128, 64>,
-                           cutlass::gemm::GemmShape<64, 32, 64>>(
-          A,
-          B,
-          weight_scales,
-          biases,
-          C,
-          total_rows_before_expert,
-          gemm_n,
-          gemm_k,
-          num_experts,
-          gemm_config,
-          multi_processor_count,
-          stream,
-          occupancy);
-      break;
-    case CutlassTileConfig::CtaShape128x256x64_WarpShape64x64x64:
-      dispatch_gemm_config<T,
-                           WeightType,
-                           arch,
-                           EpilogueTag,
-                           cutlass::gemm::GemmShape<128, 256, 64>,
-                           cutlass::gemm::GemmShape<64, 64, 64>>(
-          A,
-          B,
-          weight_scales,
-          biases,
-          C,
-          total_rows_before_expert,
-          gemm_n,
-          gemm_k,
-          num_experts,
-          gemm_config,
-          multi_processor_count,
-          stream,
-          occupancy);
-      break;
+    dispatch_gemm_config_macro(32, 128, 64, 32, 32, 64);
+    dispatch_gemm_config_macro(64, 128, 64, 32, 64, 64);
+    dispatch_gemm_config_macro(128, 128, 64, 64, 32, 64);
+    dispatch_gemm_config_macro(128, 256, 64, 64, 64, 64);
     case CutlassTileConfig::Undefined:
       PADDLE_FATAL("[dispatch_moe_gemm_to_cutlass] gemm config undefined.");
       break;
