@@ -17,22 +17,17 @@
 // Licensed under the MIT License -
 // https://github.com/deepseek-ai/DeepEP/blob/main/LICENSE
 
-// clang-format off
-#include <nvshmem.h>
-#include <nvshmemx.h>
-#include <infiniband/mlx5dv.h>
-#include <non_abi/device/threadgroup/nvshmemi_common_device_defines.cuh>
-#include <device_host_transport/nvshmem_common_ibgda.h>
-// clang-format on
-
 #include <cstring>
 #include <vector>
 
 #include "paddle/fluid/distributed/collective/deep_ep/kernels/configs.cuh"
 #include "paddle/fluid/distributed/collective/deep_ep/kernels/exception.cuh"
-#include "paddle/fluid/distributed/collective/deep_ep/kernels/ibgda_device.cuh"
 #include "paddle/fluid/distributed/collective/deep_ep/kernels/launch.cuh"
 #include "paddle/fluid/distributed/collective/deep_ep/kernels/utils.cuh"
+
+#ifdef PADDLE_WITH_NVSHMEM
+#include "paddle/fluid/distributed/collective/deep_ep/kernels/ibgda_device.cuh"
+#endif
 
 namespace deep_ep {
 
@@ -59,6 +54,7 @@ void barrier(int** task_fifo_ptrs,
 
 }  // namespace intranode
 
+#ifdef PADDLE_WITH_NVSHMEM
 namespace internode {
 
 nvshmem_team_t cpu_rdma_team = NVSHMEM_TEAM_INVALID;
@@ -157,4 +153,5 @@ void finalize() {
 }
 
 }  // namespace internode
+#endif  // PADDLE_WITH_NVSHMEM
 }  // namespace deep_ep

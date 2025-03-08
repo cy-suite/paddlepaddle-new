@@ -87,9 +87,11 @@ struct Config {
         num_channels * num_nvl_ranks * (2 * num_rdma_ranks + 3) * sizeof(int);
     num_bytes += num_channels * num_nvl_ranks *
                  num_max_nvl_chunked_recv_tokens * hidden_bytes;
+#ifdef PADDLE_WITH_NVSHMEM
     num_bytes += num_channels * num_nvl_ranks *
                  num_max_nvl_chunked_recv_tokens *
                  internode::get_source_meta_bytes();
+#endif
     num_bytes += num_channels * num_nvl_ranks *
                  num_max_nvl_chunked_recv_tokens * kNumMaxTopK *
                  sizeof(int64_t);
@@ -120,9 +122,11 @@ struct Config {
                  2 * sizeof(int);
     num_bytes += num_channels * num_rdma_ranks *
                  num_max_rdma_chunked_recv_tokens * hidden_bytes * 2;
+#ifdef PADDLE_WITH_NVSHMEM
     num_bytes += num_channels * num_rdma_ranks *
                  num_max_rdma_chunked_recv_tokens *
                  internode::get_source_meta_bytes() * 2;
+#endif
     num_bytes += num_channels * num_rdma_ranks *
                  num_max_rdma_chunked_recv_tokens * kNumMaxTopK *
                  sizeof(int64_t) * 2;

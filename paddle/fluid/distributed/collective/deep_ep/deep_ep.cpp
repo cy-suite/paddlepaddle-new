@@ -167,6 +167,7 @@ Buffer::~Buffer() noexcept(false) {
     CUDA_CHECK(cudaFree(buffer_ptrs[nvl_rank]));
   }
 
+#ifdef PADDLE_WITH_NVSHMEM
   // Free NVSHMEM
   if (num_rdma_bytes > 0) {
     CUDA_CHECK(cudaDeviceSynchronize());
@@ -174,6 +175,7 @@ Buffer::~Buffer() noexcept(false) {
     internode::free(rdma_buffer_ptr);
     internode::finalize();
   }
+#endif
 
   // Free cuBLAS handle, workspace and MoE counter
   CUDA_CHECK(cudaFree(workspace));
@@ -190,7 +192,11 @@ void Buffer::move_fifo_slots(int num_slots) {
 bool Buffer::is_available() const { return available; }
 
 bool Buffer::is_internode_available() const {
+#ifdef PADDLE_WITH_NVSHMEM
   return is_available() && num_ranks > NUM_MAX_NVL_PEERS;
+#else
+  return false;
+#endif
 }
 
 int Buffer::get_num_rdma_ranks() const { return num_rdma_ranks; }
@@ -208,9 +214,15 @@ pybind11::bytearray Buffer::get_local_ipc_handle() const {
 }
 
 pybind11::bytearray Buffer::get_local_nvshmem_unique_id() const {
+#ifdef PADDLE_WITH_NVSHMEM
   EP_HOST_ASSERT(rdma_rank == 0 &&
                  "Only RDMA rank 0 can get NVSHMEM unique ID");
   auto unique_id = internode::get_unique_id();
+#else
+  LOG(ERROR) << "NVSHMEM is not enabled. You can enable it by setting cmake "
+                "option WITH_NVSHMEM=ON.";
+  std::vector<uint8_t> unique_id;
+#endif
   return {reinterpret_cast<const char*>(unique_id.data()), unique_id.size()};
 }
 
@@ -255,6 +267,7 @@ void Buffer::sync(
     CUDA_CHECK(cudaDeviceSynchronize());
   }
 
+#ifdef PADDLE_WITH_NVSHMEM
   // Sync NVSHMEM handles and allocate memory
   if (num_rdma_bytes > 0) {
     // Initialize NVSHMEM
@@ -283,6 +296,7 @@ void Buffer::sync(
     internode::barrier();
     CUDA_CHECK(cudaDeviceSynchronize());
   }
+#endif
 
   // Ready to use
   available = true;
@@ -304,7 +318,6 @@ Buffer::get_dispatch_layout(const deep_ep::detail::Tensor& topk_idx,
 
   // Allocate all tensors on comm stream if set
   // NOTES: do not allocate tensors upfront!
-  // auto compute_stream = deep_ep::detail::getCurrentCUDAStream();
   auto compute_stream = calc_ctx->stream();
   if (allocate_on_comm_stream) {
     EP_HOST_ASSERT(previous_event.has_value() && async);
@@ -331,6 +344,7 @@ Buffer::get_dispatch_layout(const deep_ep::detail::Tensor& topk_idx,
       paddle::experimental::empty({num_tokens, num_ranks},
                                   phi::DataType::BOOL,
                                   phi::GPUPlace(device_id)));
+#ifdef PADDLE_WITH_NVSHMEM
   if (is_internode_available())
     num_tokens_per_rdma_rank =
         ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
@@ -349,6 +363,7 @@ Buffer::get_dispatch_layout(const deep_ep::detail::Tensor& topk_idx,
       num_ranks,
       num_experts,
       comm_stream);
+#endif
 
   // Wait streams
   std::optional<EventHandle> event;
@@ -908,6 +923,7 @@ Buffer::intranode_combine(
   return {recv_x, recv_topk_weights, event};
 }
 
+#ifdef PADDLE_WITH_NVSHMEM
 std::tuple<deep_ep::detail::Tensor,
            std::optional<deep_ep::detail::Tensor>,
            std::optional<deep_ep::detail::Tensor>,
@@ -1057,7 +1073,6 @@ Buffer::internode_dispatch(
 
   // Allocate all tensors on comm stream if set
   // NOTES: do not allocate tensors upfront!
-  // auto compute_stream = c10::cuda::getCurrentCUDAStream();
   auto compute_stream = calc_ctx->stream();
   if (allocate_on_comm_stream) {
     EP_HOST_ASSERT(previous_event.has_value() && async);
@@ -1433,7 +1448,6 @@ Buffer::internode_combine(
 
   // Allocate all tensors on comm stream if set
   // NOTES: do not allocate tensors upfront!
-  // auto compute_stream = c10::cuda::getCurrentCUDAStream();
   auto compute_stream = calc_ctx->stream();
   if (allocate_on_comm_stream) {
     EP_HOST_ASSERT(previous_event.has_value() && async);
@@ -1561,10 +1575,12 @@ Buffer::internode_combine(
   // Return values
   return {combined_x, combined_topk_weights, event};
 }
+#endif  // PADDLE_WITH_NVSHMEM
 
 void Buffer::clean_low_latency_buffer(int num_max_dispatch_tokens_per_rank,
                                       int hidden,
                                       int num_experts) {
+#ifdef PADDLE_WITH_NVSHMEM
   EP_HOST_ASSERT(low_latency_mode);
 
   auto layout = LowLatencyLayout(rdma_buffer_ptr,
@@ -1588,10 +1604,14 @@ void Buffer::clean_low_latency_buffer(int num_max_dispatch_tokens_per_rank,
                                          clean_meta_0.second,
                                          clean_meta_1.first,
                                          clean_meta_1.second,
-                                         // c10::cuda::getCurrentCUDAStream());
                                          calc_ctx->stream());
+#else
+  LOG(ERROR) << "NVSHMEM is not enabled. You can enable it by setting cmake "
+                "option WITH_NVSHMEM=ON.";
+#endif
 }
 
+#ifdef PADDLE_WITH_NVSHMEM
 std::tuple<deep_ep::detail::Tensor,
            deep_ep::detail::Tensor,
            deep_ep::detail::Tensor,
@@ -1635,7 +1655,6 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
 
   // Wait previous tasks to be finished
   // NOTES: the hook mode will always use the default stream
-  // auto compute_stream = c10::cuda::getCurrentCUDAStream();
   auto compute_stream = calc_ctx->stream();
   auto launch_stream = return_recv_hook ? compute_stream : comm_stream;
   EP_HOST_ASSERT(!(async && return_recv_hook));
@@ -1783,7 +1802,6 @@ Buffer::low_latency_combine(const deep_ep::detail::Tensor& x,
 
   // Wait previous tasks to be finished
   // NOTES: the hook mode will always use the default stream
-  // auto compute_stream = c10::cuda::getCurrentCUDAStream();
   auto compute_stream = calc_ctx->stream();
   auto launch_stream = return_recv_hook ? compute_stream : comm_stream;
   EP_HOST_ASSERT(!(async && return_recv_hook));
@@ -1844,6 +1862,7 @@ Buffer::low_latency_combine(const deep_ep::detail::Tensor& x,
                     std::optional<std::function<void()>>>{
       deep_ep::detail::Tensor{combined_x}, event, recv_hook};
 }
+#endif  // PADDLE_WITH_NVSHMEM
 
 std::tuple<paddle::Tensor,
            std::optional<paddle::Tensor>,
@@ -1880,6 +1899,7 @@ Buffer::internode_dispatch_api(
     std::optional<EventHandle>& previous_event,  // NOLINT
     bool async,
     bool allocate_on_comm_stream) {
+#ifdef PADDLE_WITH_NVSHMEM
   const auto& x_ = ConvertPaddleTensorToDetailTensor(x);
   std::optional<deep_ep::detail::Tensor> x_scales_ =
       ConvertOptionalPaddleTensorToDetailTensor(x_scales);
@@ -1983,6 +2003,11 @@ Buffer::internode_dispatch_api(
           send_rdma_head_,
           send_nvl_head_,
           event};
+#else
+  LOG(ERROR) << "NVSHMEM is not enabled. You can enable it by setting cmake "
+                "option WITH_NVSHMEM=ON.";
+  return {};
+#endif
 }
 
 std::tuple<paddle::Tensor,
@@ -2002,6 +2027,7 @@ Buffer::internode_combine_api(
     std::optional<EventHandle>& previous_event,  // NOLINT
     bool async,
     bool allocate_on_comm_stream) {
+#ifdef PADDLE_WITH_NVSHMEM
   const auto& x_ = ConvertPaddleTensorToDetailTensor(x);
 
   std::optional<deep_ep::detail::Tensor> topk_weights_ =
@@ -2044,6 +2070,11 @@ Buffer::internode_combine_api(
   const auto& event = std::get<2>(res);
 
   return {combined_x_, combined_topk_weights_, event};
+#else
+  LOG(ERROR) << "NVSHMEM is not enabled. You can enable it by setting cmake "
+                "option WITH_NVSHMEM=ON.";
+  return {};
+#endif
 }
 
 std::tuple<paddle::Tensor,
@@ -2059,6 +2090,7 @@ Buffer::low_latency_dispatch_api(const paddle::Tensor& x,
                                  int num_experts,
                                  bool async,
                                  bool return_recv_hook) {
+#ifdef PADDLE_WITH_NVSHMEM
   const auto& x_ = ConvertPaddleTensorToDetailTensor(x);
   const auto& topk_idx_ = ConvertPaddleTensorToDetailTensor(topk_idx);
 
@@ -2088,6 +2120,11 @@ Buffer::low_latency_dispatch_api(const paddle::Tensor& x,
           packed_recv_layout_range_,
           event,
           recv_hook};
+#else
+  LOG(ERROR) << "NVSHMEM is not enabled. You can enable it by setting cmake "
+                "option WITH_NVSHMEM=ON.";
+  return {};
+#endif
 }
 
 std::tuple<paddle::Tensor,
@@ -2102,6 +2139,7 @@ Buffer::low_latency_combine_api(const paddle::Tensor& x,
                                 int num_experts,
                                 bool async,
                                 bool return_recv_hook) {
+#ifdef PADDLE_WITH_NVSHMEM
   const auto& x_ = ConvertPaddleTensorToDetailTensor(x);
   const auto& topk_idx_ = ConvertPaddleTensorToDetailTensor(topk_idx);
   const auto& topk_weights_ = ConvertPaddleTensorToDetailTensor(topk_weights);
@@ -2123,6 +2161,11 @@ Buffer::low_latency_combine_api(const paddle::Tensor& x,
   auto recv_hook = std::get<2>(res);
 
   return {combined_x_, event, recv_hook};
+#else
+  LOG(ERROR) << "NVSHMEM is not enabled. You can enable it by setting cmake "
+                "option WITH_NVSHMEM=ON.";
+  return {};
+#endif
 }
 
 std::tuple<paddle::Tensor,
@@ -2239,10 +2282,6 @@ Buffer::intranode_dispatch_api(
                                 async,
                                 allocate_on_comm_stream);
 
-  //   {recv_x, recv_x_scales, recv_topk_idx, recv_topk_weights,
-  //   num_recv_tokens_per_expert_list, rank_prefix_matrix,
-  //   channel_prefix_matrix, recv_channel_prefix_matrix, recv_src_idx,
-  //   send_head, event};
   const auto& recv_x = std::get<0>(res);
   const auto& recv_x_scales = std::get<1>(res);
   const auto& recv_topk_idx = std::get<2>(res);

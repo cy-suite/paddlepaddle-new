@@ -29,6 +29,7 @@ void barrier(int **task_fifo_ptrs, int head, int rank, int num_ranks, cudaStream
 
 } // namespace intranode
 
+#ifdef PADDLE_WITH_NVSHMEM
 // Internode runtime
 namespace internode {
 
@@ -45,6 +46,7 @@ void barrier();
 void finalize();
 
 } // namespace internode
+#endif  // PADDLE_WITH_NVSHMEM
 
 // Intranode kernels
 namespace intranode {
@@ -82,6 +84,7 @@ void combine(cudaDataType_t type,
 
 } // namespace intranode
 
+#ifdef PADDLE_WITH_NVSHMEM
 // Internode kernels
 namespace internode {
 
@@ -168,5 +171,5 @@ void combine(void* combined_x,
              void* workspace, cudaStream_t stream, int phases);
 
 } // namespace internode_ll
-
+#endif  // PADDLE_WITH_NVSHMEM
 } // namespace deep_ep

@@ -21,8 +21,8 @@ if(GDRCOPY_HOME)
   message(STATUS "GDRCOPY_HOME: ${GDRCOPY_HOME}")
 else()
   message(
-    STATUS
-      "You can set GDRCOPY_HOME environment or cmake option to specify your GDRCOPY."
+    WARNING
+      "Setting GDRCOPY_HOME environment or cmake option maybe needed to specify your install path GDRCOPY."
   )
 endif()
 
@@ -48,8 +48,8 @@ set(NVSHMEM_DOWNLOAD_COMMAND
 set(NVSHMEM_PATCH_PATH ${PADDLE_SOURCE_DIR}/third_party/nvshmem.patch)
 set(NVSHMEM_PATCH_COMMAND
     git init && git config user.name "PaddlePaddle" && git config user.email
-    "paddle@baidu.com" && git add . && git commit -m "init" && git apply
-    ${NVSHMEM_PATCH_PATH})
+    "paddle@baidu.com" && git config --add safe.directory . && git add . && git
+    commit -m "init" && git apply ${NVSHMEM_PATCH_PATH})
 
 set(NVSHMEM_LIB ${NVSHMEM_INSTALL_DIR}/lib/libnvshmem.a)
 set(NVSHMEM_BOOTSTRAP_UID_LIB
@@ -65,7 +65,8 @@ set(NVSHMEM_TRANSPORT_IBRC_LIB
 set(NVSHMEM_TRANSPORT_IBGDA_LIB
     ${NVSHMEM_INSTALL_DIR}/lib/nvshmem_transport_ibgda.so.3)
 
-string(REGEX REPLACE " " ";" CUDA_ARCHITECTURES "${NVCC_ARCH_BIN}")
+# only compile nvshmem for sm90
+set(CUDA_ARCHITECTURES "90")
 
 ExternalProject_Add(
   extern_nvshmem
@@ -92,6 +93,7 @@ ExternalProject_Add(
   CMAKE_CACHE_ARGS -DCMAKE_INSTALL_PREFIX:PATH=${NVSHMEM_INSTALL_DIR}
   BUILD_BYPRODUCTS ${NVSHMEM_LIB})
 
+add_definitions(-DPADDLE_WITH_NVSHMEM)
 add_library(nvshmem STATIC IMPORTED GLOBAL)
 set_property(TARGET nvshmem PROPERTY IMPORTED_LOCATION ${NVSHMEM_LIB})
 add_dependencies(nvshmem extern_nvshmem)
