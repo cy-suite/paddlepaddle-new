@@ -100,6 +100,8 @@ class InplaceMap:
 
     def pop(self, program):
         key = _program_hash(program)
+        if key not in self.params_dict:
+            return
         del self.params_dict[key]
 
     def restore_checkpoint(self, checkpoint):
