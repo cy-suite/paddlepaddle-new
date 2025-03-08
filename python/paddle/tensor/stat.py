@@ -192,10 +192,10 @@ def var(
             x, 'x', ['float16', 'float32', 'float64'], 'var'
         )
 
-    u = mean(x, axis, True, name)
-
     if paddle.numel(x) == 0:
-        return u
+        return mean(x, axis, keepdim, name)
+
+    u = mean(x, axis, True, name)
     
     out = paddle.sum(paddle.pow((x - u), 2), axis, keepdim=keepdim, name=name)
 
@@ -273,7 +273,7 @@ def std(
             x, 'x', ['float16', 'float32', 'float64'], 'std'
         )
     out = var(**locals())
-    
+
     if paddle.numel(x) == 0:
         return out
     
