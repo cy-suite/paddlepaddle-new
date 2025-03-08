@@ -326,12 +326,19 @@ void TileBroadcastTactic::Init(ScheduleContext* context, ir::IRSchedule* sch) {
     VLOG(4) << "TileBroadcastTactic::Init: select extension: NCHWExt\n";
   } else {
     // 3. For NHWC layout, we need valid preserved axis and broadcast axis
-    if (preserved_axis_.empty() || broadcast_axis_.empty()) {
+    // also, to be more stable, we only handles NHW(C) broadcast
+    if (preserved_axis_.empty() || broadcast_axis_.empty() ||
+        preserved_axis_.size() > 1) {
       return;
     }
     InitBroadcastSizeInfo();
     // 4. compatible size is the multiple of 32
     if (broadcast_size_ % 32 != 0 || preserved_size_ % 32 != 0) {
+      return;
+    }
+    int num_warps = TileBroadcastTactic::CalcNumWarps(preserved_size_ >> 5);
+    // 5. check whether NHWC extension can be successfully applied
+    if (num_warps < 0) {
       return;
     }
     applied_ext_ = TacticExtension::NHWCExt;
@@ -405,14 +412,14 @@ int TileBroadcastTactic::CalcNumWarps(int64_t num_warps) {
     return -1;
   }
   // several rules to decide the thread block size
-  // (1) if the num_warps is power of 2, use thread block size 256
-  if ((num_warps & (num_warps - 1)) == 0) {
-    return 8;
-  }
-  // (2) the preserved size (channel) is too small
+  // (1) the preserved size (channel) is too small
   // we need more threads in a block
   if (num_warps <= 3) {
     return std::max(4l, num_warps * 2);
+  }
+  // (2) if the num_warps is power of 2, use thread block size 256
+  if ((num_warps & (num_warps - 1)) == 0) {
+    return 8;
   }
   // (3) if num_warps is smaller than 32, use the num_warps * 32 as thread block
   // size
@@ -449,7 +456,7 @@ void TileBroadcastTactic::Apply(ir::IRSchedule* sch,
     if (block_size == -1) {
       applied_ext_ = TacticExtension::Invalid;
     }
-    block_size = block_size << 5;
+    block_size = std::clamp(block_size << 5, 128, 1024);
   }
   if (applied_ext_ == TacticExtension::Invalid) return;
 
@@ -510,7 +517,6 @@ void TileBroadcastTactic::Apply(ir::IRSchedule* sch,
         sch->Split(block_id,
                    0,
                    {-1, 4, block_size / preserved_size_, preserved_size_});
-        sch->Reorder(block_id, {0, 2, 1, 3});
         axis_bind = {"blockIdx.x", "", "threadIdx.y", "threadIdx.x"};
       } else {
         /**
