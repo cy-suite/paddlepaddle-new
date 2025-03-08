@@ -403,7 +403,6 @@ void dispatch_gemm_config(const T* A,
   }
 }
 
-
 #define dispatch_gemm_config_macro(AA, BB, CC, DD, EE, FF)      \
   case CutlassTileConfig::                                      \
       CtaShape##AA##x##BB##x##CC##_WarpShape##DD##x##EE##x##FF: \
