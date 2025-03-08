@@ -688,63 +688,30 @@ void MoeGemmRunner<T, WeightType>::dispatch_to_arch<EpilogueTag>(
     CutlassGemmConfig gemm_config,
     cudaStream_t stream,
     int* occupancy) {
+#define dispatch_moe_gemm_to_cutlass_macro(ARCH)                  \
+  dispatch_moe_gemm_to_cutlass<T, WeightType, ARCH, EpilogueTag>( \
+      A,                                                          \
+      B,                                                          \
+      weight_scales,                                              \
+      biases,                                                     \
+      C,                                                          \
+      total_rows_before_expert,                                   \
+      total_rows,                                                 \
+      gemm_n,                                                     \
+      gemm_k,                                                     \
+      num_experts,                                                \
+      gemm_config,                                                \
+      sm_,                                                        \
+      multi_processor_count_,                                     \
+      stream,                                                     \
+      occupancy);
+
   if (sm_ >= 70 && sm_ < 75) {
-    dispatch_moe_gemm_to_cutlass<T,
-                                 WeightType,
-                                 cutlass::arch::Sm70,
-                                 EpilogueTag>(A,
-                                              B,
-                                              weight_scales,
-                                              biases,
-                                              C,
-                                              total_rows_before_expert,
-                                              total_rows,
-                                              gemm_n,
-                                              gemm_k,
-                                              num_experts,
-                                              gemm_config,
-                                              sm_,
-                                              multi_processor_count_,
-                                              stream,
-                                              occupancy);
+    dispatch_moe_gemm_to_cutlass_macro(cutlass::arch::Sm70);
   } else if (sm_ >= 75 && sm_ < 80) {
-    dispatch_moe_gemm_to_cutlass<T,
-                                 WeightType,
-                                 cutlass::arch::Sm75,
-                                 EpilogueTag>(A,
-                                              B,
-                                              weight_scales,
-                                              biases,
-                                              C,
-                                              total_rows_before_expert,
-                                              total_rows,
-                                              gemm_n,
-                                              gemm_k,
-                                              num_experts,
-                                              gemm_config,
-                                              sm_,
-                                              multi_processor_count_,
-                                              stream,
-                                              occupancy);
+    dispatch_moe_gemm_to_cutlass_macro(cutlass::arch::Sm75);
   } else if (sm_ >= 80 && sm_ < 91) {
-    dispatch_moe_gemm_to_cutlass<T,
-                                 WeightType,
-                                 cutlass::arch::Sm80,
-                                 EpilogueTag>(A,
-                                              B,
-                                              weight_scales,
-                                              biases,
-                                              C,
-                                              total_rows_before_expert,
-                                              total_rows,
-                                              gemm_n,
-                                              gemm_k,
-                                              num_experts,
-                                              gemm_config,
-                                              sm_,
-                                              multi_processor_count_,
-                                              stream,
-                                              occupancy);
+    dispatch_moe_gemm_to_cutlass_macro(cutlass::arch::Sm80);
   } else {
     PADDLE_FATAL("[MoE][GEMM Dispatch] Arch unsupported for MoE GEMM");
   }
