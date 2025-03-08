@@ -661,7 +661,7 @@ def convert_conv2d(network, paddle_op, inputs):
             input=input_tensor,
             num_output_maps=n_output,
             kernel_shape=nv_ksize,
-            kernel=filter,
+            kernel=trt.Weights(),
             bias=bias,
         )
     elif (
@@ -672,10 +672,10 @@ def convert_conv2d(network, paddle_op, inputs):
             input=input_tensor,
             num_output_maps=n_input * groups,
             kernel_shape=nv_ksize,
-            kernel=filter,
+            kernel=trt.Weights(),
             bias=None,
         )
-
+    layer.set_input(1, filter)
     layer.stride_nd = nv_strides
     layer.pre_padding = pre_paddings
 
@@ -728,7 +728,7 @@ def convert_conv3d(network, paddle_op, inputs):
             input=input_tensor,
             num_output_maps=n_output,
             kernel_shape=nv_ksize,
-            kernel=filter,
+            kernel=trt.Weights(),
             bias=None,
         )
     elif paddle_op.name() == "pd_op.conv3d_transpose":
@@ -736,9 +736,10 @@ def convert_conv3d(network, paddle_op, inputs):
             input=input_tensor,
             num_output_maps=n_input * groups,
             kernel_shape=nv_ksize,
-            kernel=filter,
+            kernel=trt.Weights(),
             bias=None,
         )
+    layer.set_input(1, filter)
     layer.stride_nd = nv_strides
     layer.pre_padding = nv_pre_paddings
 

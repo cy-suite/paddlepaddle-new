@@ -281,16 +281,7 @@ def support_fp32_mix_precision(op_type, layer, trt_config=None):
 def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name):
     # the following op needn't cast trt.Weight to ITensor, because the layer need weight as input
     forbid_cast_op = [
-        "pd_op.depthwise_conv2d",
-        "pd_op.conv2d",
-        "pd_op.conv2d_transpose",
-        "pd_op.conv3d",
-        "pd_op.conv3d_transpose",
-        "pd_op.batch_norm",
-        "pd_op.batch_norm_",
         "pd_op.layer_norm",
-        "pd_op.depthwise_conv2d_transpose",
-        "pd_op.fused_conv2d_add_act",
         "pd_op.affine_channel",
         "pd_op.prelu",
         "pd_op.fused_bias_dropout_residual_layer_norm",
@@ -298,18 +289,14 @@ def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name):
     ]
     if use_op_name in forbid_cast_op:
         return trt_tensor
-    elif isinstance(trt_tensor, trt.ITensor):
-        return trt_tensor  # 已经是 ITensor，直接返回
-    elif isinstance(trt_tensor, trt.Weights):
-        # 对于动态创建的权重，添加常量层
+    if isinstance(trt_tensor, trt.Weights):
         input_shape = paddle_value.shape
         constant_layer = network.add_constant(input_shape, trt_tensor)
         constant_layer.name = (
             f"dynamic_weight_{paddle_value.id}_for_{use_op_name}"
         )
         return constant_layer.get_output(0)
-    else:
-        raise TypeError(f"Unexpected type for trt_tensor: {type(trt_tensor)}")
+    return trt_tensor
 
 
 def zero_dims_to_one_dims(network, trt_tensor):
