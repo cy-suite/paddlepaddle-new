@@ -193,6 +193,10 @@ def var(
         )
 
     u = mean(x, axis, True, name)
+
+    if paddle.numel(x) == 0:
+        return u
+    
     out = paddle.sum(paddle.pow((x - u), 2), axis, keepdim=keepdim, name=name)
 
     dtype = x.dtype
@@ -269,6 +273,10 @@ def std(
             x, 'x', ['float16', 'float32', 'float64'], 'std'
         )
     out = var(**locals())
+    
+    if paddle.numel(x) == 0:
+        return out
+    
     return paddle.sqrt(out)
 
 
