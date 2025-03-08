@@ -71,14 +71,14 @@ class PaddleToTensorRTConverter:
         self.scope = scope
         self.program = paddle_program
         self.trt_config = trt_config
-        constant_manager = TensorRTConstantManager()
+        self.constant_manager = TensorRTConstantManager()
         params = paddle_program.global_block().all_parameters()
         param_dict = {}
         # save parameters
         for v in params:
             name = v.get_defining_op().attrs()["parameter_name"]
             weight_tensor = self.scope.var(name).get_tensor()
-            constant_manager.set_constant_value(name, weight_tensor, v)
+            self.constant_manager.set_constant_value(name, weight_tensor, v)
 
         self.input_info = {}
         self.trt_output_value_map = {}
@@ -151,7 +151,6 @@ class PaddleToTensorRTConverter:
         max_value_map = {}
         input_names = []
         new_input_values = []
-        constant_manager = TensorRTConstantManager()
         precision_mode = PrecisionMode.FP32
         if self.trt_config is not None:
             precision_mode = self.trt_config.precision_mode
@@ -174,22 +173,35 @@ class PaddleToTensorRTConverter:
             defining_op = value.get_defining_op()
             if defining_op.name() == "builtin.parameter":
                 param_name = defining_op.attrs()["parameter_name"]
+                _logger.info(f"param_name:{param_name}")
                 weight = trt.Weights(
-                    constant_manager.get_constant_value(param_name)
+                    self.constant_manager.get_constant_value(param_name)
                 )
-                value_to_trt_tensor[value.id] = weight
+                paddle_shape = value.shape
+                trt_shape = trt.Dims(paddle_shape)
+                constant_layer = network.add_constant(trt_shape, weight)
+                constant_layer.name = param_name
+                value_to_trt_tensor[value.id] = (weight, param_name)
             elif defining_op.name() == "builtin.constant":
                 constant_value_name = defining_op.attrs()["value"]
                 constant_tensor = self.scope.var(
                     constant_value_name
                 ).get_tensor()
-                constant_manager.set_constant_value(
+                self.constant_manager.set_constant_value(
                     constant_value_name, constant_tensor, value
                 )
                 constant_tensor = trt.Weights(
-                    constant_manager.get_constant_value(constant_value_name)
+                    self.constant_manager.get_constant_value(
+                        constant_value_name
+                    )
                 )
-                value_to_trt_tensor[value.id] = constant_tensor
+                paddle_shape = value.shape
+                trt_shape = trt.Dims(paddle_shape)
+                constant_layer = network.add_constant(
+                    trt_shape, constant_tensor
+                )
+                constant_layer.name = constant_value_name
+                value_to_trt_tensor[value.id] = (weight, param_name)
             else:
                 shape = value.shape
                 dtype = map_dtype(value.dtype.name)

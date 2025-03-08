@@ -55,6 +55,7 @@ struct EngineParams {
   // From tensorrt_subgraph_pass, only used for OpConverter.
   //
   bool use_varseqlen{false};
+  std::string refit_params_path;
   bool with_interleaved{false};
   std::string tensorrt_transformer_posid;
   std::string tensorrt_transformer_maskid;

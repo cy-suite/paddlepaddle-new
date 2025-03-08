@@ -298,10 +298,18 @@ def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name):
     ]
     if use_op_name in forbid_cast_op:
         return trt_tensor
-    input_shape = paddle_value.shape
-    if type(trt_tensor) == trt.Weights:
-        return network.add_constant(input_shape, trt_tensor).get_output(0)
-    return trt_tensor
+    elif isinstance(trt_tensor, trt.ITensor):
+        return trt_tensor  # 已经是 ITensor，直接返回
+    elif isinstance(trt_tensor, trt.Weights):
+        # 对于动态创建的权重，添加常量层
+        input_shape = paddle_value.shape
+        constant_layer = network.add_constant(input_shape, trt_tensor)
+        constant_layer.name = (
+            f"dynamic_weight_{paddle_value.id}_for_{use_op_name}"
+        )
+        return constant_layer.get_output(0)
+    else:
+        raise TypeError(f"Unexpected type for trt_tensor: {type(trt_tensor)}")
 
 
 def zero_dims_to_one_dims(network, trt_tensor):

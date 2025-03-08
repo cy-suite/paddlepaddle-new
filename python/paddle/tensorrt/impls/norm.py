@@ -31,6 +31,10 @@ from paddle.tensorrt.converter_utils import (
 )
 from paddle.tensorrt.register import converter_registry
 
+from ..util import (
+    TensorRTConstantManager,
+)
+
 
 @converter_registry.register(
     "pd_op.layer_norm", trt_version="trt_version_ge=8.6"
@@ -86,26 +90,57 @@ def layernorm_converter(network, paddle_op, inputs):
     "pd_op.batch_norm_", trt_version="trt_version_ge=8.0"
 )
 def batch_norm_converter(network, paddle_op, inputs):
-    input_tensor, mean, variance, scale, bias = inputs
+    constant_manager = TensorRTConstantManager()
+
+    input_tensor, mean_tensor, variance_tensor, scale_tensor, bias_tensor = (
+        inputs
+    )
     scale_shape = paddle_op.operands()[3].source().shape
     eps = paddle_op.attrs().get("epsilon", 1e-8)
-    mean_np = mean.numpy()
-    variance_np = variance.numpy()
-    scale_np = scale.numpy()
-    bias_np = bias.numpy()
+
+    mean_name = (
+        paddle_op.operands()[1]
+        .source()
+        .get_defining_op()
+        .attrs()['parameter_name']
+    )
+    variance_name = (
+        paddle_op.operands()[2]
+        .source()
+        .get_defining_op()
+        .attrs()['parameter_name']
+    )
+    scale_name = (
+        paddle_op.operands()[3]
+        .source()
+        .get_defining_op()
+        .attrs()['parameter_name']
+    )
+    bias_name = (
+        paddle_op.operands()[4]
+        .source()
+        .get_defining_op()
+        .attrs()['parameter_name']
+    )
+
+    mean_np = constant_manager.get_constant_value(mean_name)
+    variance_np = constant_manager.get_constant_value(variance_name)
+    scale_np = constant_manager.get_constant_value(scale_name)
+    bias_np = constant_manager.get_constant_value(bias_name)
 
     actual_scale_np = scale_np / np.sqrt(variance_np + eps)
     actual_bias_np = bias_np - mean_np * actual_scale_np
+
     bias = trt.Weights(actual_bias_np)
     scale = trt.Weights(actual_scale_np)
-    power = np.ones(scale_shape, dtype='float32')
-    power = trt.Weights(power)
+    power = trt.Weights(np.ones(scale_shape, dtype='float32'))
+
     input_tensor_shape = paddle_op.operands()[0].source().shape
     if has_dynamic_shape(input_tensor_shape):
         assert (
             input_tensor.shape[1] != -1
         ), "Channel dim can't be dynamic for batch norm."
-    # For BatchNorm1d ,reshape 1d to 2d
+
     output_shape = input_tensor_shape
 
     if not network.has_implicit_batch_dimension and len(input_tensor_shape) < 4:
@@ -129,12 +164,12 @@ def batch_norm_converter(network, paddle_op, inputs):
             )
         set_layer_name(reshape_layer, paddle_op)
         input_tensor = reshape_layer.get_output(0)
-    # (self: tensorrt.tensorrt.INetworkDefinition, input: tensorrt.tensorrt.ITensor, mode: tensorrt.tensorrt.ScaleMode, shift: tensorrt.tensorrt.Weights = None, scale: tensorrt.tensorrt.Weights = None, power: tensorrt.tensorrt.Weights = None) -> tensorrt.tensorrt.IScaleLayer
+
     batch_norm_layer = network.add_scale(
         input_tensor, trt.ScaleMode.CHANNEL, bias, scale, power
     )
     set_layer_name(batch_norm_layer, paddle_op)
-    # For BatchNorm1d,reshape output back to 1d
+
     if not network.has_implicit_batch_dimension and len(output_shape) < 4:
         reshape_output_layer = network.add_shuffle(
             batch_norm_layer.get_output(0)
