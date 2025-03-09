@@ -245,44 +245,6 @@ void AdamwDenseKernel(const Context& dev_ctx,
   int threads = 512;
   int blocks = (param.numel() + threads - 1) / threads;
 
-  // int kThreadsPerBlock = 512;
-  // int64_t numel = param.numel();
-  // int blocks = (numel + kThreadsPerBlock - 1) / kThreadsPerBlock;
-
-  // // Skip update logic
-  // if (skip_update.is_initialized() && skip_update->data<bool>()[0]) {
-  //   phi::Copy(dev_ctx, param, dev_ctx.GetPlace(), false, param_out);
-  //   phi::Copy(dev_ctx, moment1, dev_ctx.GetPlace(), false, moment1_out);
-  //   phi::Copy(dev_ctx, moment2, dev_ctx.GetPlace(), false, moment2_out);
-  //   if (amsgrad) {
-  //     phi::Copy(dev_ctx,
-  //               moment2_max.get(),
-  //               dev_ctx.GetPlace(),
-  //               false,
-  //               moment2_max_out);
-  //   }
-  //   if (!use_global_beta_pow) {
-  //     phi::Copy(dev_ctx, beta1_pow, beta1_pow.place(), false, beta1_pow_out);
-  //     phi::Copy(dev_ctx, beta2_pow, beta2_pow.place(), false, beta2_pow_out);
-  //   }
-  //   return;
-  // }
-
-  // // Prepare parameters
-  // const MPDType beta1_val = beta1.to<MPDType>();
-  // const MPDType beta2_val = beta2.to<MPDType>();
-  // const MPDType epsilon_val = epsilon.to<MPDType>();
-  // const MPDType coeff_val =
-  //     with_decay ? static_cast<MPDType>(coeff) : MPDType(0.0);
-  // const MPDType lr_ratio_val = static_cast<MPDType>(lr_ratio);
-
-  // // Master parameter pointer
-  // const MPDType* master_in =
-  //     multi_precision ? master_param->data<MPDType>() : nullptr;
-  // MPDType* master_out = multi_precision
-  //                           ? dev_ctx.template
-  //                           Alloc<MPDType>(master_param_outs) : nullptr;
-
   // Determine BetaPow location
   const bool beta_pow_on_cpu =
       beta1_pow.place() == CPUPlace() && beta2_pow.place() == CPUPlace();
