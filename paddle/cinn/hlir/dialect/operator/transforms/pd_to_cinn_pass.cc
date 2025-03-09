@@ -121,8 +121,9 @@ class SumOpPattern : public pir::OpRewritePattern<paddle::dialect::SumOp> {
     if (dtype != phi::DataType::UNDEFINED &&
         dtype != paddle::dialect::TransToPhiDataType(in_data_type)) {
       in = rewriter.Build<paddle::dialect::CastOp>(in, dtype).result(0);
-    } else if (in_data_type.isa<pir::Int32Type>() ||
-               in_data_type.isa<pir::BoolType>()) {
+    } else if (dtype == phi::DataType::UNDEFINED &&
+               (in_data_type.isa<pir::Int32Type>() ||
+                in_data_type.isa<pir::BoolType>())) {
       in = rewriter.Build<paddle::dialect::CastOp>(in, phi::DataType::INT64)
                .result(0);
     }
@@ -474,7 +475,7 @@ class SliceOpPattern : public pir::OpRewritePattern<paddle::dialect::SliceOp> {
                                                infer_flags,
                                                decrease_axis);
     // NOTE(Aurelius84): In SliceRawInferMeta, it not always share_lod, so
-    // we need to update it maually.
+    // we need to update it manually.
     cinn_slice.result(0).set_type(op.result(0).type());
     rewriter.ReplaceAllUsesWith(op.result(0), cinn_slice.result(0));
     rewriter.EraseOp(op);
@@ -846,7 +847,7 @@ class AddNOpPattern : public pir::OpRewritePattern<paddle::dialect::AddNOp> {
     rewriter.ReplaceAllUsesWith(op.result(0), tmp);
 
     rewriter.EraseOp(op);
-    rewriter.EraseOp(combine_op);
+    if (combine_op->use_empty()) rewriter.EraseOp(combine_op);
 
     return true;
   }

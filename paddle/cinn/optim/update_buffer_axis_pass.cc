@@ -16,13 +16,13 @@
 
 #include <unordered_map>
 
-#include "paddle/cinn/common/cas.h"
 #include "paddle/cinn/ir/ir.h"
 #include "paddle/cinn/ir/ir_mutator.h"
 #include "paddle/cinn/ir/ir_printer.h"
 #include "paddle/cinn/ir/stmt_visitors.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
 #include "paddle/cinn/ir/utils/ir_replace.h"
+#include "paddle/cinn/optim/ir_simplify.h"
 #include "paddle/cinn/optim/replace_var_with_expr.h"
 #include "paddle/cinn/utils/string.h"
 
@@ -148,7 +148,7 @@ class AnalyzeBufferAxis : public ir::IRMutator<>,
       for (int i = 0; i < indices.size(); ++i) {
         if (tensor->buffer->memory_type == ir::MemoryType::GPUShared) {
           // In GPUShared case, the thread vars cannot be simplified
-          std::set<ir::Expr> var_nodes =
+          std::vector<ir::Expr> var_nodes =
               ir::ir_utils::CollectIRNodesWithoutTensor(
                   indices[i], [&](const Expr* x) {
                     const ir::_Var_* var = x->As<ir::_Var_>();
@@ -171,7 +171,8 @@ class AnalyzeBufferAxis : public ir::IRMutator<>,
         buffer_name_access_same_index_expr[buffer_name];
     for (int i = 0; i < indices.size(); ++i) {
       if (index_expr.count(i)) {
-        if (index_expr[i] != GetIndexBindExpr(indices[i])) {
+        if (index_expr[i].as_index() !=
+            GetIndexBindExpr(indices[i]).as_index()) {
           index_expr.erase(i);
         }
       }
