@@ -173,9 +173,10 @@ class ProcessGroupFlagcx final : public ProcessGroupWithStream {
                                            bool sync_op,
                                            bool use_calc_stream) override;
 
-  static void GroupStart();
+    // Can't declare these two functions as static because we access non-static variable in these functions
+     void GroupStart();
 
-  static void GroupEnd();
+   void GroupEnd();
 
   flagcxComm_t FlagcxComm(const Place& place) const;
 
@@ -227,7 +228,8 @@ class ProcessGroupFlagcx final : public ProcessGroupWithStream {
     for (const auto& allocation_stream : allocation_stream_pairs_) {
       auto holder_ptr = allocation_stream.first.lock();
       if (holder_ptr) {
-        memory::EraseStream(holder_ptr, allocation_stream.second);
+        auto stream = (gpuStream_t*)allocation_stream.second;
+        memory::EraseStream(holder_ptr, *stream);
       }
     }
     VLOG(5) << "After task wait/synchronize, total "
