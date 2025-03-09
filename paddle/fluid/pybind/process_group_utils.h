@@ -118,7 +118,7 @@ struct SplitDenseTensor<phi::CustomContext, T> {
     }
     (*kernel_fn)(
         context, in_flatten, phi::IntArray(sections), phi::Scalar(0), *out);
-    for (int64_t i = 0; i < out->size(); ++i) {
+    for (size_t i = 0; i < out->size(); ++i) {
       auto tensor = (*out)[i];
       auto tensor_dims = common::vectorize(tensor->dims());
       if (tensor_dims.size() != origin_out_dims[i].size()) {
