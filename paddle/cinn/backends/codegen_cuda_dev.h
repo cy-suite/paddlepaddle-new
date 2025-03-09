@@ -31,10 +31,18 @@ class CodeGenCudaDev : public CodeGenGpuDev {
  public:
   explicit CodeGenCudaDev(Target target);
   static const std::string& GetSourceHeader();
+  static const std::string& GetDefaultSourceHeader();
+  static const std::string& GetCudaRunTimeSourceHeader();
+  static const std::string& GetFloat16SourceHeader();
+  static const std::string& GetBFloat16SourceHeader();
   void PrintIncludes() override;
 
  private:
   static const std::string source_header_;
+  static const std::string default_source_header_;
+  static const std::string cuda_runtime_source_header_;
+  static const std::string float16_source_header_;
+  static const std::string bfloat16_source_header_;
 };
 
 }  // namespace backends
