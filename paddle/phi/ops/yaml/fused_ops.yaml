@@ -4,6 +4,15 @@
 # if one operator have "support_dygraph_mode : true", it supports dygraph mode,
 # otherwise the operator only could be used in static mode.
 
+- op : adaptive_layernorm_xpu
+  args : (Tensor x, Tensor scale, Tensor bias, Tensor tensor1, Tensor tensor2, int begin_norm_axis = 2, float epsilon = 1e-5, float factor = 1.0f, float scale_bias = 1.0f, bool bias_after_scale = true )
+  output : Tensor(out)
+  infer_meta :
+    func : AdaptiveLayernormXPUInferMeta
+  kernel :
+    func : adaptive_layernorm_xpu
+    data_type : x
+
 - op : add_act_xpu
   args : (Tensor x, Tensor x_max, Tensor y, Tensor y_max, int act_type)
   output : Tensor(out), Tensor(out_max)
@@ -30,6 +39,15 @@
     func : AddCMulXPUInferMeta
   kernel :
     func : addcmul_xpu
+    data_type : x
+
+- op : fused_multiply_add_xpu
+  args : (Tensor x, Tensor y, Tensor w)
+  output : Tensor(out)
+  infer_meta :
+    func : FusedMultiplyAddXpuInferMeta
+  kernel :
+    func : fused_multiply_add_xpu
     data_type : x
 
 - op : blha_get_max_len
@@ -855,6 +873,15 @@
   optional : scale, bias, residual, residual_out
   support_dygraph_mode : true
   interfaces : paddle::dialect::LayoutTransformationInterface
+
+- op: fused_adaLN_scale_residual_xpu
+  args: (Tensor input1, Tensor input2, Tensor tensor1, Tensor tensor2, Tensor tensor3, Tensor ln_weight, Tensor ln_bias, int begin_norm_axis = 2, float epsilon = 1e-5f, float scale_op_weight = 1.0f, float scale_op_bias = 1.0f, bool bias_after_scale = true)
+  output: Tensor (out)
+  infer_meta:
+    func: FusedAdalnScaleResidualXpuInferMeta
+  kernel:
+    func: fused_adaLN_scale_residual_xpu
+    data_type : input1
 
 - op: fused_embedding_fc_lstm
   args: (Tensor ids, Tensor embeddings, Tensor weight_h, Tensor bias, Tensor h0, Tensor
