@@ -44,8 +44,8 @@ struct BetaPowAccessor<MT, true> {  // CPU accessor
   BetaPowAccessor(const MT* beta1_pow, const MT* beta2_pow)
       : beta1(*beta1_pow), beta2(*beta2_pow) {}
 
-  __device__ __forceinline__ MT GetBeta1() const { return beta1; }
-  __device__ __forceinline__ MT GetBeta2() const { return beta2; }
+  __device__ MT GetBeta1() const { return beta1; }
+  __device__ MT GetBeta2() const { return beta2; }
 };
 
 template <typename MT>
@@ -56,8 +56,8 @@ struct BetaPowAccessor<MT, false> {  // GPU pointer
   BetaPowAccessor(const MT* beta1, const MT* beta2)
       : beta1_pow(beta1), beta2_pow(beta2) {}
 
-  __device__ __forceinline__ MT GetBeta1() const { return *beta1_pow; }
-  __device__ __forceinline__ MT GetBeta2() const { return *beta2_pow; }
+  __device__ MT GetBeta1() const { return *beta1_pow; }
+  __device__ MT GetBeta2() const { return *beta2_pow; }
 };
 
 // Unified kernel template
@@ -71,7 +71,7 @@ __global__ void AdamWKernel(MT beta1,
                             MT epsilon,
                             MT coeff,
                             MT lr_ratio,
-                            const MT* lr,
+                            const MT* lr_,
                             const TG* grad,
                             const T* param,
                             T* param_out,
@@ -84,51 +84,44 @@ __global__ void AdamWKernel(MT beta1,
                             const TM* moment2_max,
                             TM* moment2_max_out,
                             BetaAccessor beta_accessor,
-                            int64_t numel,
+                            int64_t ndim,
                             bool amsgrad) {
-  const int64_t idx = blockIdx.x * blockDim.x + threadIdx.x;
-  const MT lr_val = *lr * lr_ratio;
+  int64_t id = blockIdx.x * blockDim.x + threadIdx.x;
+  MT lr = *lr_ * lr_ratio;
+  // Get beta powers
+  MT beta1_pow = beta_accessor.GetBeta1();
+  MT beta2_pow = beta_accessor.GetBeta2();
 
-  for (int64_t i = idx; i < numel; i += gridDim.x * blockDim.x) {
-    // Read data and convert precision
-    MT p = master_param ? master_param[i] : static_cast<MT>(param[i]);
-    const MT g = static_cast<MT>(grad[i]);
-    MT m1 = static_cast<MT>(moment1[i]);  // Automatic type conversion
-    MT m2 = static_cast<MT>(moment2[i]);
+  for (; id < ndim; id += gridDim.x * blockDim.x) {
+    MT p = master_param ? master_param[id] : static_cast<MT>(param[id]);
+    MT g = static_cast<MT>(grad[id]);
+    MT mom1 = static_cast<MT>(moment1[id]);
+    MT mom2 = static_cast<MT>(moment2[id]);
 
-    // Get beta powers
-    const MT beta1_pow = beta_accessor.GetBeta1();
-    const MT beta2_pow = beta_accessor.GetBeta2();
+    p *= (static_cast<MT>(1.0) - lr * coeff);
 
-    // Weight decay
-    p *= (1.0f - lr_val * coeff);
+    mom1 = beta1 * mom1 + (static_cast<MT>(1.0) - beta1) * g;
+    mom2 = beta2 * mom2 + (static_cast<MT>(1.0) - beta2) * g * g;
 
-    // Update first moment
-    m1 = beta1 * m1 + (1.0f - beta1) * g;
-    // Update second moment
-    m2 = beta2 * m2 + (1.0f - beta2) * g * g;
-
-    // Calculate denominator
     MT denom;
     if (amsgrad) {
-      const MT m2_max = static_cast<MT>(moment2_max[i]);
-      const MT m2_max_new = max(m2, m2_max);
-      moment2_max_out[i] =
-          static_cast<TM>(m2_max_new);  // Convert back to storage type
-      denom = sqrt(m2_max_new) / sqrt(1.0f - beta2_pow) + epsilon;
+      MT mom2_max = static_cast<MT>(moment2_max[id]);
+      MT mom2_max_ = std::max(mom2, mom2_max);
+      moment2_max_out[id] = mom2_max_;
+
+      denom =
+          (sqrt(mom2_max_) / sqrt(static_cast<MT>(1.0) - beta2_pow)) + epsilon;
     } else {
-      denom = sqrt(m2) / sqrt(1.0f - beta2_pow) + epsilon;
+      denom = (sqrt(mom2) / sqrt(static_cast<MT>(1.0) - beta2_pow)) + epsilon;
     }
 
-    // Update parameters
-    p += (m1 / denom) * (-lr_val / (1.0f - beta1_pow));
+    p += (mom1 / denom) * (-(lr / (static_cast<MT>(1.0) - beta1_pow)));
 
-    // Write back results
-    moment1_out[i] = static_cast<TM>(m1);  // Convert back to storage type
-    moment2_out[i] = static_cast<TM>(m2);
-    param_out[i] = static_cast<T>(p);
+    moment1_out[id] = mom1;
+    moment2_out[id] = mom2;
+    param_out[id] = static_cast<T>(p);
     if (master_param_out) {
-      master_param_out[i] = p;
+      master_param_out[id] = p;
     }
   }
 }
