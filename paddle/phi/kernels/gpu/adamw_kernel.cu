@@ -169,12 +169,25 @@ void AdamwDenseKernel(const Context& dev_ctx,
                       DenseTensor* beta2_pow_out,
                       DenseTensor* master_param_outs) {
   using MPDType = typename phi::dtype::MPTypeTrait<T>::Type;
-  constexpr int kThreadsPerBlock = 512;
-  const int64_t numel = param.numel();
-  const int blocks = (numel + kThreadsPerBlock - 1) / kThreadsPerBlock;
+  MPDType coeff_ = static_cast<MPDType>(coeff);
+  MPDType lr_ratio_ = static_cast<MPDType>(lr_ratio);
 
-  // Skip update logic
-  if (skip_update.is_initialized() && skip_update->data<bool>()[0]) {
+  bool skip_update_ = false;
+  if (skip_update.is_initialized()) {
+    PADDLE_ENFORCE_EQ(
+        skip_update->numel(),
+        1,
+        errors::InvalidArgument("Input(SkipUpdate) size must be 1, but get %d",
+                                skip_update->numel()));
+    std::vector<bool> skip_update_vec;
+    phi::TensorToVector(*skip_update, dev_ctx, &skip_update_vec);
+    skip_update_ = skip_update_vec[0];
+  }
+
+  // skip_update=true, just copy input to output, and TensorCopy will call
+  // mutable_data
+  if (skip_update_) {
+    VLOG(4) << "Adamw skip update";
     phi::Copy(dev_ctx, param, dev_ctx.GetPlace(), false, param_out);
     phi::Copy(dev_ctx, moment1, dev_ctx.GetPlace(), false, moment1_out);
     phi::Copy(dev_ctx, moment2, dev_ctx.GetPlace(), false, moment2_out);
@@ -192,20 +205,83 @@ void AdamwDenseKernel(const Context& dev_ctx,
     return;
   }
 
-  // Prepare parameters
-  const MPDType beta1_val = beta1.to<MPDType>();
-  const MPDType beta2_val = beta2.to<MPDType>();
-  const MPDType epsilon_val = epsilon.to<MPDType>();
-  const MPDType coeff_val =
-      with_decay ? static_cast<MPDType>(coeff) : MPDType(0.0);
-  const MPDType lr_ratio_val = static_cast<MPDType>(lr_ratio);
+  // if with_decay = false, coeff = 0
+  if (!with_decay) {
+    coeff_ = static_cast<MPDType>(0.0);
+  }
 
-  // Master parameter pointer
-  const MPDType* master_in =
+  MPDType beta1_ = beta1.to<MPDType>();
+  MPDType beta2_ = beta2.to<MPDType>();
+  MPDType epsilon_ = epsilon.to<MPDType>();
+  VLOG(3) << "beta1_pow.numel() : " << beta1_pow.numel()
+          << "beta2_pow.numel() : " << beta2_pow.numel();
+  VLOG(3) << "param.numel(): " << param.numel();
+  PADDLE_ENFORCE_EQ(
+      beta1_pow_out->numel(),
+      1,
+      errors::InvalidArgument("beta1 pow output size should be 1, but received "
+                              "value is:%d.",
+                              beta1_pow_out->numel()));
+
+  PADDLE_ENFORCE_EQ(
+      beta2_pow_out->numel(),
+      1,
+      errors::InvalidArgument("beta2 pow output size should be 1, but received "
+                              "value is:%d.",
+                              beta2_pow_out->numel()));
+
+  const MPDType* master_in_data =
       multi_precision ? master_param->data<MPDType>() : nullptr;
-  MPDType* master_out = multi_precision
-                            ? dev_ctx.template Alloc<MPDType>(master_param_outs)
-                            : nullptr;
+  MPDType* master_out_data =
+      multi_precision ? dev_ctx.template Alloc<MPDType>(master_param_outs)
+                      : nullptr;
+
+  const MPDType* moment2_max_in_data =
+      amsgrad ? moment2_max.get().data<MPDType>() : nullptr;
+  MPDType* moment2_max_out_data =
+      amsgrad ? dev_ctx.template Alloc<MPDType>(moment2_max_out) : nullptr;
+
+  // update param and moment
+  int threads = 512;
+  int blocks = (param.numel() + threads - 1) / threads;
+
+  // int kThreadsPerBlock = 512;
+  // int64_t numel = param.numel();
+  // int blocks = (numel + kThreadsPerBlock - 1) / kThreadsPerBlock;
+
+  // // Skip update logic
+  // if (skip_update.is_initialized() && skip_update->data<bool>()[0]) {
+  //   phi::Copy(dev_ctx, param, dev_ctx.GetPlace(), false, param_out);
+  //   phi::Copy(dev_ctx, moment1, dev_ctx.GetPlace(), false, moment1_out);
+  //   phi::Copy(dev_ctx, moment2, dev_ctx.GetPlace(), false, moment2_out);
+  //   if (amsgrad) {
+  //     phi::Copy(dev_ctx,
+  //               moment2_max.get(),
+  //               dev_ctx.GetPlace(),
+  //               false,
+  //               moment2_max_out);
+  //   }
+  //   if (!use_global_beta_pow) {
+  //     phi::Copy(dev_ctx, beta1_pow, beta1_pow.place(), false, beta1_pow_out);
+  //     phi::Copy(dev_ctx, beta2_pow, beta2_pow.place(), false, beta2_pow_out);
+  //   }
+  //   return;
+  // }
+
+  // // Prepare parameters
+  // const MPDType beta1_val = beta1.to<MPDType>();
+  // const MPDType beta2_val = beta2.to<MPDType>();
+  // const MPDType epsilon_val = epsilon.to<MPDType>();
+  // const MPDType coeff_val =
+  //     with_decay ? static_cast<MPDType>(coeff) : MPDType(0.0);
+  // const MPDType lr_ratio_val = static_cast<MPDType>(lr_ratio);
+
+  // // Master parameter pointer
+  // const MPDType* master_in =
+  //     multi_precision ? master_param->data<MPDType>() : nullptr;
+  // MPDType* master_out = multi_precision
+  //                           ? dev_ctx.template
+  //                           Alloc<MPDType>(master_param_outs) : nullptr;
 
   // Determine BetaPow location
   const bool beta_pow_on_cpu =
@@ -224,18 +300,18 @@ void AdamwDenseKernel(const Context& dev_ctx,
                                             beta2_pow.data<MPDType>());        \
     if (use_bfloat32_grad) {                                                   \
       AdamWKernel<T, float, MPDType, MOMENT_T, BetaPowAccessor<MPDType, true>> \
-          <<<blocks, kThreadsPerBlock, 0, dev_ctx.stream()>>>(                 \
-              beta1_val,                                                       \
-              beta2_val,                                                       \
-              epsilon_val,                                                     \
-              coeff_val,                                                       \
-              lr_ratio_val,                                                    \
+          <<<blocks, threads, 0, dev_ctx.stream()>>>(                          \
+              beta1_,                                                          \
+              beta2_,                                                          \
+              epsilon_,                                                        \
+              coeff_,                                                          \
+              lr_ratio_,                                                       \
               learning_rate.data<MPDType>(),                                   \
               grad.data<float>(),                                              \
               param.data<T>(),                                                 \
               dev_ctx.template Alloc<T>(param_out),                            \
-              master_in,                                                       \
-              master_out,                                                      \
+              master_in_data,                                                  \
+              master_out_data,                                                 \
               moment1.data<MOMENT_T>(),                                        \
               dev_ctx.template Alloc<MOMENT_T>(moment1_out),                   \
               moment2.data<MOMENT_T>(),                                        \
@@ -244,22 +320,22 @@ void AdamwDenseKernel(const Context& dev_ctx,
               amsgrad ? dev_ctx.template Alloc<MOMENT_T>(moment2_max_out)      \
                       : nullptr,                                               \
               accessor,                                                        \
-              numel,                                                           \
+              param.numel(),                                                   \
               amsgrad);                                                        \
     } else {                                                                   \
       AdamWKernel<T, T, MPDType, MOMENT_T, BetaPowAccessor<MPDType, true>>     \
-          <<<blocks, kThreadsPerBlock, 0, dev_ctx.stream()>>>(                 \
-              beta1_val,                                                       \
-              beta2_val,                                                       \
-              epsilon_val,                                                     \
-              coeff_val,                                                       \
-              lr_ratio_val,                                                    \
+          <<<blocks, threads, 0, dev_ctx.stream()>>>(                          \
+              beta1_,                                                          \
+              beta2_,                                                          \
+              epsilon_,                                                        \
+              coeff_,                                                          \
+              lr_ratio_,                                                       \
               learning_rate.data<MPDType>(),                                   \
               grad.data<T>(),                                                  \
               param.data<T>(),                                                 \
               dev_ctx.template Alloc<T>(param_out),                            \
-              master_in,                                                       \
-              master_out,                                                      \
+              master_in_data,                                                  \
+              master_out_data,                                                 \
               moment1.data<MOMENT_T>(),                                        \
               dev_ctx.template Alloc<MOMENT_T>(moment1_out),                   \
               moment2.data<MOMENT_T>(),                                        \
@@ -268,7 +344,7 @@ void AdamwDenseKernel(const Context& dev_ctx,
               amsgrad ? dev_ctx.template Alloc<MOMENT_T>(moment2_max_out)      \
                       : nullptr,                                               \
               accessor,                                                        \
-              numel,                                                           \
+              param.numel(),                                                   \
               amsgrad);                                                        \
     }                                                                          \
   } else {                                                                     \
@@ -280,18 +356,18 @@ void AdamwDenseKernel(const Context& dev_ctx,
                   MPDType,                                                     \
                   MOMENT_T,                                                    \
                   BetaPowAccessor<MPDType, false>>                             \
-          <<<blocks, kThreadsPerBlock, 0, dev_ctx.stream()>>>(                 \
-              beta1_val,                                                       \
-              beta2_val,                                                       \
-              epsilon_val,                                                     \
-              coeff_val,                                                       \
-              lr_ratio_val,                                                    \
+          <<<blocks, threads, 0, dev_ctx.stream()>>>(                          \
+              beta1_,                                                          \
+              beta2_,                                                          \
+              epsilon_,                                                        \
+              coeff_,                                                          \
+              lr_ratio_,                                                       \
               learning_rate.data<MPDType>(),                                   \
               grad.data<float>(),                                              \
               param.data<T>(),                                                 \
               dev_ctx.template Alloc<T>(param_out),                            \
-              master_in,                                                       \
-              master_out,                                                      \
+              master_in_data,                                                  \
+              master_out_data,                                                 \
               moment1.data<MOMENT_T>(),                                        \
               dev_ctx.template Alloc<MOMENT_T>(moment1_out),                   \
               moment2.data<MOMENT_T>(),                                        \
@@ -300,22 +376,22 @@ void AdamwDenseKernel(const Context& dev_ctx,
               amsgrad ? dev_ctx.template Alloc<MOMENT_T>(moment2_max_out)      \
                       : nullptr,                                               \
               accessor,                                                        \
-              numel,                                                           \
+              param.numel(),                                                   \
               amsgrad);                                                        \
     } else {                                                                   \
       AdamWKernel<T, T, MPDType, MOMENT_T, BetaPowAccessor<MPDType, false>>    \
-          <<<blocks, kThreadsPerBlock, 0, dev_ctx.stream()>>>(                 \
-              beta1_val,                                                       \
-              beta2_val,                                                       \
-              epsilon_val,                                                     \
-              coeff_val,                                                       \
-              lr_ratio_val,                                                    \
+          <<<blocks, threads, 0, dev_ctx.stream()>>>(                          \
+              beta1_,                                                          \
+              beta2_,                                                          \
+              epsilon_,                                                        \
+              coeff_,                                                          \
+              lr_ratio_,                                                       \
               learning_rate.data<MPDType>(),                                   \
               grad.data<T>(),                                                  \
               param.data<T>(),                                                 \
               dev_ctx.template Alloc<T>(param_out),                            \
-              master_in,                                                       \
-              master_out,                                                      \
+              master_in_data,                                                  \
+              master_out_data,                                                 \
               moment1.data<MOMENT_T>(),                                        \
               dev_ctx.template Alloc<MOMENT_T>(moment1_out),                   \
               moment2.data<MOMENT_T>(),                                        \
@@ -324,7 +400,7 @@ void AdamwDenseKernel(const Context& dev_ctx,
               amsgrad ? dev_ctx.template Alloc<MOMENT_T>(moment2_max_out)      \
                       : nullptr,                                               \
               accessor,                                                        \
-              numel,                                                           \
+              param.numel(),                                                   \
               amsgrad);                                                        \
     }                                                                          \
   }
@@ -344,12 +420,12 @@ void AdamwDenseKernel(const Context& dev_ctx,
           dev_ctx.template HostAlloc<MPDType>(beta1_pow_out);
       auto* beta2_pow_out_data =
           dev_ctx.template HostAlloc<MPDType>(beta2_pow_out);
-      beta1_pow_out_data[0] = beta1_val * beta1_pow.data<MPDType>()[0];
-      beta2_pow_out_data[0] = beta2_val * beta2_pow.data<MPDType>()[0];
+      beta1_pow_out_data[0] = beta1_ * beta1_pow.data<MPDType>()[0];
+      beta2_pow_out_data[0] = beta2_ * beta2_pow.data<MPDType>()[0];
     } else {
       UpdateBetaPowKernel<MPDType><<<1, 1, 0, dev_ctx.stream()>>>(
-          beta1_val,
-          beta2_val,
+          beta1_,
+          beta2_,
           beta1_pow.data<MPDType>(),
           beta2_pow.data<MPDType>(),
           dev_ctx.template Alloc<MPDType>(beta1_pow_out),
