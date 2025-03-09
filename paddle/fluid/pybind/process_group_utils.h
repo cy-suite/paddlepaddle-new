@@ -113,12 +113,12 @@ struct SplitDenseTensor<phi::CustomContext, T> {
       std::vector<int64_t> new_dims = {tensor->numel()};
       if (tensor_dims.size() != new_dims.size()) {
         // flatten
-        tensor->Resize();
+        tensor->Resize(common::new_dims(new_dims));
       }
     }
     (*kernel_fn)(
         context, in_flatten, phi::IntArray(sections), phi::Scalar(0), *out);
-    if (in_dims != flattened_in_dims) {
+    if (in_dims.size() != flattened_in_dims.size()) {
       in.Resize(in_dims);
     }
     for (int64_t i = 0; i < out->size(); ++i) {
