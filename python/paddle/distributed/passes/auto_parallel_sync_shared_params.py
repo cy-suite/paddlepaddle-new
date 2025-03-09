@@ -48,8 +48,9 @@ class AutoParallelSyncSharedParamsPass(PassBase):
 
     def _check_self(self):
         pipeline_strategy = self.get_attr('pipeline_strategy')
-        if not pipeline_strategy.enable or pipeline_strategy.pp_degree <= 1:
+        if (not pipeline_strategy.enable) or pipeline_strategy.pp_degree <= 1:
             return False
+        return True
 
     def _check_conflict(self, other_pass):
         return True
@@ -287,8 +288,4 @@ class AutoParallelSyncSharedParamsPass(PassBase):
         return params_grads
 
     def _apply_single_impl(self, main_program, startup_program, context):
-        # Since `PassBase` cannot receive additional parameters when calling
-        # `pass.apply()` after initialization, it is not convenient for
-        # sharing parameter gradient synchronization, so the
-        # `_apply_single_impl` function is not called.
         return
