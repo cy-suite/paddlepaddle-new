@@ -4,6 +4,15 @@
 # if one operator have "support_dygraph_mode : true", it supports dygraph mode,
 # otherwise the operator only could be used in static mode.
 
+- op : adaptive_layernorm_xpu
+  args : (Tensor x, Tensor scale, Tensor bias, Tensor in1, Tensor in2, int begin_norm_axis, float epsilon, float factor, float scale_bias, bool bias_after_scale, int64_t unsqueeze1_axis, int64_t unsqueeze2_axis)
+  output : Tensor(out)
+  infer_meta :
+    func : AdaptiveLayernormXPUInferMeta
+  kernel :
+    func : adaptive_layernorm_xpu
+    data_type : x
+
 - op : add_act_xpu
   args : (Tensor x, Tensor x_max, Tensor y, Tensor y_max, int act_type)
   output : Tensor(out), Tensor(out_max)
@@ -843,6 +852,15 @@
     func : yolo_box_xpu
     data_type : x
   optional : x_max
+
+- op: adaptive_layer_norm_xpu
+  args: (Tensor x, Tensor scale, Tensor bias, Tensor input1, Tensor input2, int begin_norm_axis, float epsilon, int64_t unsqueeze_dims1, float factor1, float bias1, bool bias_after_scale, int64_t unsqueeze_dims2)
+  output: Tensor (out)
+  infer_meta:
+    func: AdaptiveLayerNormInferMeta
+  kernel:
+    func: adaptive_layer_norm_xpu
+    data_type: x
 
 - op: add_group_norm_silu
   args : (Tensor x,Tensor residual, Tensor scale, Tensor bias, float epsilon = 1e-5, int groups = -1, str data_format = "NCHW", str activation = "")
