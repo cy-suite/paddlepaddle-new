@@ -1307,6 +1307,32 @@ void relu_grad(const Tensor& out, const Tensor& out_grad, Tensor* x_grad) {
 }
 
 template <typename T>
+void elu_grad(const Tensor& x,
+              const Tensor& out,
+              const Tensor& out_grad,
+              float alpha,
+              Tensor* x_grad) {
+  if (x_grad) {
+    auto promoted_out_grad = ConvertToMT<T>(out_grad);
+    Tensor zeros = full_scalar<T>(0.0, promoted_out_grad.dtype());
+    if (alpha >= 0) {
+      auto promoted_out = ConvertToMT<T>(out);
+      auto mask = greater_than<T>(promoted_out, zeros);
+      auto res = where<T>(
+          mask, promoted_out_grad, promoted_out_grad * (promoted_out + alpha));
+      set_output<T>(ConvertToOrig<T>(res, x.dtype()), x_grad);
+    } else {
+      auto promoted_x = ConvertToMT<T>(x);
+      auto mask = greater_than<T>(promoted_x, zeros);
+      auto res = where<T>(mask,
+                          promoted_out_grad,
+                          promoted_out_grad * alpha * exp<T>(promoted_x));
+      set_output<T>(ConvertToOrig<T>(res, x.dtype()), x_grad);
+    }
+  }
+}
+
+template <typename T>
 void relu6_grad(const Tensor& out, const Tensor& out_grad, Tensor* x_grad) {
   if (x_grad) {
     Tensor zeros = full_scalar<T>(0.0, out.dtype());
