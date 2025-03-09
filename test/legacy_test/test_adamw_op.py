@@ -1798,6 +1798,14 @@ class TestAdamwMomentBfloat16Amp(unittest.TestCase):
                 atol=1e-2,
             )
 
+    def _get_places(self):
+        places = []
+        if paddle.is_compiled_with_cuda():
+            places.append('gpu')
+        if paddle.is_compiled_with_xpu():
+            places.append('xpu')
+        return places
+
     def _test_adamw_op_dygraph_place_amp_with_maingrad_with_moment_bf16(
         self, place, shape, use_main_grad
     ):
@@ -1947,11 +1955,12 @@ class TestAdamwMomentBfloat16Amp(unittest.TestCase):
     def test_adamw_op_dygraph_place_amp_with_maingrad_with_moment_bf16(self):
         for _ in range(10):
             shape = paddle.randint(1, 1024, [2])
-            use_main_grad_list = [True, False]
-            for use_main_grad in use_main_grad_list:
-                self._test_adamw_op_dygraph_place_amp_with_maingrad_with_moment_bf16(
-                    'gpu', shape, use_main_grad
-                )
+            for place in self._get_places():
+                use_main_grad_list = [True, False]
+                for use_main_grad in use_main_grad_list:
+                    self._test_adamw_op_dygraph_place_amp_with_maingrad_with_moment_bf16(
+                        place, shape, use_main_grad
+                    )
 
 
 if __name__ == "__main__":
