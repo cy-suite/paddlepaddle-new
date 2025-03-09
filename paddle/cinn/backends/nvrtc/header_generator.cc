@@ -61,9 +61,14 @@ std::string read_file_as_string(const std::string& file_path) {
                            << file_path;
       return "";
     }
+    std::stringstream buffer;
+    buffer << file.rdbuf();
+    file.close();
+    return buffer.str();
   }
   std::stringstream buffer;
   buffer << file.rdbuf();
+  file.close();
   return buffer.str();
 #else
   return "";
