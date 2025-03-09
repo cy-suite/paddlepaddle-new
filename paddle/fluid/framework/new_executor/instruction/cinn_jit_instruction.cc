@@ -229,13 +229,13 @@ class CinnJitInstruction::FnPtrImpl {
   void CheckDimGTZero(const DDim& dim, const std::string& kernel_name) {
     VLOG(3) << "Start Check that Dims is greater than zero in jit instruction.";
     for (int i = 0; i < dim.size(); ++i) {
-      PADDLE_ENFORCE_EQ(dim.at(i) > 0,
-                        true,
-                        phi::errors::PreconditionNotMet(
-                            "The dim of tensor MUST greater than 0. "
-                            "Jit Kernel name: %s. Tensor dim: %s",
-                            kernel_name,
-                            dim.to_str()));
+      PADDLE_ENFORCE_EQ(
+          dim.at(i) >= 0,
+          true,
+          phi::errors::PreconditionNotMet("The dim of tensor MUST >= 0. "
+                                          "Jit Kernel name: %s. Tensor dim: %s",
+                                          kernel_name,
+                                          dim.to_str()));
     }
   }
 
