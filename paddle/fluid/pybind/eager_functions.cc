@@ -73,6 +73,9 @@ typedef SSIZE_T ssize_t;
 #include "paddle/phi/infermeta/spmd_rules/rules.h"
 #endif
 
+// vmap related
+#include "paddle/phi/core/batched_tensor.h"
+
 COMMON_DECLARE_string(tensor_operants_mode);
 
 using egr::ConvertAllInputsToDistTensor;
@@ -166,6 +169,76 @@ static PyObject* eager_api_run_backward(PyObject* self,
   RETURN_PY_NONE
   EAGER_CATCH_AND_THROW_RETURN_NULL
 }
+
+static PyObject* eager__add_batch_dim(PyObject* self,
+                                      PyObject* args,
+                                      PyObject* kwargs) {
+  EAGER_TRY
+  auto tensor = CastPyArg2Tensor(PyTuple_GET_ITEM(args, 0), 0);
+  int64_t bdim = CastPyArg2Long(PyTuple_GET_ITEM(args, 1), "bdim", 1);
+  int64_t level = CastPyArg2Long(PyTuple_GET_ITEM(args, 2), "level", 2);
+  {
+    eager_gil_scoped_release guard;
+    EagerSetDeviceId();
+    auto batched_tensor = phi::addBatchDim(tensor, level, bdim);
+    return ToPyObject(batched_tensor,
+                      true /* return_py_none_if_not_initialize */);
+  }
+  RETURN_PY_NONE
+  EAGER_CATCH_AND_THROW_RETURN_NULL
+}
+
+// static PyObject* eager_get_level(PyObject* self,
+//                                  PyObject* args,
+//                                  PyObject* kwargs) {
+//   EAGER_TRY
+//   auto batched_tensor = CastPyArg2Tensor(PyTuple_GET_ITEM(args, 0), 0);
+//   {
+//     phi::BatchDimsRef bdims = batched_tensor.bdims();
+//     std::vector<int64_t> level_vec;
+//     for (auto i = 0; i < bdims.size(); ++i) {
+//       level_vec.emplace_back(bdims[i].level());
+//     }
+//     return ToPyObject(level_vec, true /* return_py_none_if_not_initialize
+//     */);
+//   }
+//   RETURN_PY_NONE
+//   EAGER_CATCH_AND_THROW_RETURN_NULL
+// }
+
+// static PyObject* eager_get_level(PyObject* self,
+//                                  PyObject* args,
+//                                  PyObject* kwargs) {
+//   EAGER_TRY
+//   auto batched_tensor = CastPyArg2Tensor(PyTuple_GET_ITEM(args, 0), 0);
+//   {
+//     phi::BatchDimsRef bdims = batched_tensor.impl()->bdims();
+//     std::vector<int64_t> level_vec;
+//     for (auto i = 0; i < bdims.size(); ++i) {
+//       level_vec.emplace_back(bdims[i].level());
+//     }
+//     return ToPyObject(level_vec, true /* return_py_none_if_not_initialize
+//     */);
+//   }
+//   RETURN_PY_NONE
+//   EAGER_CATCH_AND_THROW_RETURN_NULL
+// }
+
+// static PyObject* eager_get_value(PyObject* self,
+//                                  PyObject* args,
+//                                  PyObject* kwargs) {
+//   EAGER_TRY
+//   auto batched_tensor = CastPyArg2Tensor(PyTuple_GET_ITEM(args, 0), 0);
+//   {
+//     eager_gil_scoped_release guard;
+//     EagerSetDeviceId();
+//     auto vanilla_tensor = batched_tensor.impl()->value();
+//     return ToPyObject(vanilla_tensor, true /*
+//     return_py_none_if_not_initialize */);
+//   }
+//   RETURN_PY_NONE
+//   EAGER_CATCH_AND_THROW_RETURN_NULL
+// }
 
 static PyObject* eager_api_run_partial_grad(PyObject* self,
                                             PyObject* args,
@@ -1500,6 +1573,20 @@ PyMethodDef variable_functions[] = {  // NOLINT
      METH_VARARGS | METH_KEYWORDS,
      nullptr},
 #endif
+    /*vmap utilities*/
+    {"_add_batch_dim",
+     (PyCFunction)(void (*)())eager__add_batch_dim,
+     METH_VARARGS | METH_KEYWORDS,
+     nullptr},
+    // {"bdim",
+    //  (PyCFunction)(void (*)())eager_get_bdim,
+    //  METH_VARARGS | METH_KEYWORDS,
+    //  nullptr},
+    // {"level",
+    //  (PyCFunction)(void (*)())eager_get_level,
+    //  METH_VARARGS | METH_KEYWORDS,
+    //  nullptr},
+    // {"value",
     {nullptr, nullptr, 0, nullptr}};
 
 void BindFunctions(PyObject* module) {

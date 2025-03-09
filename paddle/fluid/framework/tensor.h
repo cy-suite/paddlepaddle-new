@@ -15,6 +15,7 @@ limitations under the License. */
 #pragma once
 
 #include "paddle/fluid/framework/data_type.h"
+#include "paddle/phi/core/batched_tensor.h"
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/mixed_vector.h"
 #include "paddle/phi/core/sparse_coo_tensor.h"

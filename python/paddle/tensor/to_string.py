@@ -439,6 +439,48 @@ def dist_tensor_to_string(tensor, prefix='Tensor'):
         )
 
 
+def batched_tensor_to_string(tensor, prefix='BatchedTensor'):
+    """
+    BatchedTensor(lvl=2, bdim=1, value=
+        BatchedTensor(lvl=1, bdim=0, value=
+            Tensor(shape=[2, 2], dtype=float32, place=Place(gpu:0), stop_gradient=True,
+                   [[-0.59367222, -1.18588030],
+                       [-0.28574693,  2.93930435]])
+        )
+    )
+    """
+    indent = 4
+    _template = (
+        "{prefix}(lvl={lvl}, bdim={bdim}, value=\n{indent}{value_string})"
+    )
+
+    def gen_nested_batch_tensor_str(
+        bdims: list[int], levels: list[int], ptr: int
+    ) -> str:
+        assert len(bdims) > 0
+        assert ptr <= len(
+            levels
+        ), "ptr should less than or equal to lengths of levels(bdims)"
+        if ptr == len(levels):
+            return tensor_to_string(tensor._value())
+
+        inner_content = gen_nested_batch_tensor_str(bdims, levels, ptr + 1)
+        return _template.format(
+            prefix=prefix,
+            lvl=levels[ptr],
+            bdim=bdims[ptr],
+            indent=' ' * indent,
+            value_string=inner_content,
+        )
+
+    bdims: list[int] = tensor.bdims()
+    levels: list[int] = tensor.levels()
+    assert len(bdims) == len(
+        levels
+    ), "bdims and levels should have the same length"
+    return gen_nested_batch_tensor_str(bdims, levels, 0)
+
+
 def tensor_to_string(tensor, prefix='Tensor'):
     indent = len(prefix) + 1
 
@@ -456,6 +498,9 @@ def tensor_to_string(tensor, prefix='Tensor'):
 
     if tensor.is_dist():
         return dist_tensor_to_string(tensor, prefix)
+
+    if tensor.is_batched():
+        return batched_tensor_to_string(tensor, 'BatchedTensor')
 
     if not tensor._is_dense_tensor_hold_allocation():
         return "Tensor(Not initialized)"

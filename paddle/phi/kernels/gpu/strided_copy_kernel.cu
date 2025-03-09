@@ -1269,12 +1269,12 @@ void StridedCopyKernel(const Context& dev_ctx,
   meta.offset = offset;
   out->set_meta(meta);
 
-  PADDLE_ENFORCE_EQ(input.dims(),
-                    out->dims(),
-                    common::errors::InvalidArgument(
-                        "Input shape(%s) must be equal with out shape(%s).",
-                        input.dims(),
-                        out->dims()));
+  // PADDLE_ENFORCE_EQ(input.dims(),
+  //                   out->dims(),
+  //                   common::errors::InvalidArgument(
+  //                       "Input shape(%s) must be equal with out shape(%s).",
+  //                       input.dims(),
+  //                       out->dims()));
 
   PADDLE_ENFORCE_EQ(input.numel(),
                     out->numel(),

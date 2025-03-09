@@ -1092,6 +1092,32 @@ void BindTensor(pybind11::module &m) {  // NOLINT
       .def("indices", [](const phi::SparseCooTensor &self) -> phi::DenseTensor {
         return self.indices();
       });
+
+  // py::class_<phi::BatchedTensor>(m, "BatchedTensor")
+  //     .def("bdims", [](const phi::BatchedTensor &self) ->
+  //     std::vector<int64_t> {
+  //       std::cout << "call BatchedTensor::bdims" << std::endl;
+  //       std::vector<int64_t> bdims_vec;
+  //       const auto& bdims = self.bdims();
+  //       for (auto i = 0; i < bdims.size(); ++i) {
+  //         bdims_vec.emplace_back(bdims[i].dim());
+  //       }
+  //       return bdims_vec;
+  //     })
+  //     .def("levels", [](const phi::BatchedTensor &self) ->
+  //     std::vector<int64_t> {
+  //       std::cout << "call BatchedTensor::levels" << std::endl;
+  //       std::vector<int64_t> levels_vec;
+  //       const auto& bdims = self.bdims();
+  //       for (auto i = 0; i < bdims.size(); ++i) {
+  //         levels_vec.emplace_back(bdims[i].level());
+  //       }
+  //       return levels_vec;
+  //     })
+  //     .def("_value", [](const phi::BatchedTensor &self) -> paddle::Tensor {
+  //       std::cout << "call BatchedTensor::_value" << std::endl;
+  //       return self.value();
+  //     });
 }
 
 }  // namespace paddle::pybind
