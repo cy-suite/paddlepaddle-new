@@ -122,7 +122,6 @@ bool ProcessGroupFlagcx::FlagcxTask::Wait(std::chrono::milliseconds timeout) {
 // #else  // PADDLE_WITH_HIP
 //     PADDLE_ENFORCE_GPU_SUCCESS(hipDeviceSynchronize());
 // #endif
-  }
   RemoveHolderStreamInGroup();
   return true;
 }
@@ -283,9 +282,9 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::AllReduce(
                 << "sendbuff: " << in_tensor.data()
                 << ", recvbuff: " << out_tensor->data()
                 << ", count: " << in_tensor.numel() << ", datatype: "
-                << flagcxDTypeToString(phi::ToFlagcxDataType(in_tensor.dtype()))
+                << FlagcxDTypeToString(phi::ToFlagcxDataType(in_tensor.dtype()))
                 << ", redop: "
-                << NCCLRedTypeToString(ToFlagcxRedType(opts.reduce_op))
+                << FlagcxRedTypeToString(ToFlagcxRedType(opts.reduce_op))
                 << ", flagcxcomm: " << comm_context->GetFlagcxComm()
                 << ", stream: " << stream << ", rank_in_group: " << rank_
                 << ", nranks: " << size_ << ", sync_op: " << sync_op
@@ -458,7 +457,7 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Reduce(
                 << GetGroupMessage();
         comm_context->Reduce(out_tensor,
                              in_tensor,
-                             ToNCCLRedType(opts.reduce_op),
+                             ToFlagcxRedType(opts.reduce_op),
                              opts.root_rank,
                              stream);
       },
@@ -485,14 +484,14 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::ReduceScatter(
                 << ", count: " << in_tensor.numel() << ", datatype: "
                 << FlagcxDTypeToString(phi::ToFlagcxDataType(in_tensor.dtype()))
                 << ", redop: "
-                << NCCLRedTypeToString(ToNCCLRedType(opts.reduce_op))
+                << FlagcxRedTypeToString(ToFlagcxRedType(opts.reduce_op))
                 << ", flagcxcomm: " << comm_context->GetFlagcxComm()
                 << ", stream: " << stream << ", rank_in_group: " << rank_
                 << ", nranks: " << size_ << ", sync_op: " << sync_op
                 << ", use_calc_stream: " << use_calc_stream << ", "
                 << GetGroupMessage();
         comm_context->ReduceScatter(
-            out_tensor, in_tensor, ToNCCLRedType(opts.reduce_op), stream);
+            out_tensor, in_tensor, ToFlagcxRedType(opts.reduce_op), stream);
       },
       in_tensor,
       CommType::REDUCE_SCATTER,
@@ -541,14 +540,14 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Scatter(
         if (rank_ == opts.root_rank) {
           int64_t offset = 0;
           phi::DenseTensor partial_tensor;
-          GroupStart();
+          this->GroupStart();
           for (auto i = 0; i < size_; i++) {
             partial_tensor = GetPartialTensor(in_tensor, offset, numel);
             comm_context->Send(partial_tensor, numel, i, stream);
             offset += numel;
           }
           comm_context->Recv(out_tensor, numel, opts.root_rank, stream);
-          GroupEnd();
+          this->GroupEnd();
         } else {
           comm_context->Recv(out_tensor, numel, opts.root_rank, stream);
         }
@@ -623,7 +622,7 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Gather(
             << ", use_calc_stream: " << use_calc_stream << ", "
             << ", " << GetGroupMessage();
 
-    GroupStart();
+    this->GroupStart();
     // root receive from all devices
     if (rank_ == opts.root_rank) {
       for (auto i = 0; i < size_; i++) {
@@ -633,7 +632,7 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Gather(
     }
     // send to root
     comm_context->Send(in_tensor, in_tensor.numel(), opts.root_rank, stream);
-    GroupEnd();
+    this->GroupEnd();
   };
   return Collective(
       gather_func, in_tensor, CommType::GATHER, sync_op, use_calc_stream);
@@ -698,7 +697,7 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Send(
         VLOG(3) << "[flagcxSend] "
                 << "sendbuff: " << tensor_maybe_partial.data()
                 << ", count: " << tensor_maybe_partial.numel() << ", datatype: "
-                << flagcxDTypeToString(
+                << FlagcxDTypeToString(
                        phi::ToFlagcxDataType(tensor_maybe_partial.dtype()))
                 << ", dst_in_group: " << dst_rank
                 << ", flagcxcomm: " << comm_context->GetFlagcxComm()
@@ -777,9 +776,9 @@ void ProcessGroupFlagcx::CreateFlagcxEnvCache(const Place& place,
   // NCCL_CHECK(phi::dynload::ncclGroupEnd());
 
   auto flagcx_comm_ctx = this->GetCommContext(&store_key);
-  VLOG(3) << "Get flagcx comm: " << flagcx_comm_ctx->GetFlagcxComm()
-          << " for place_key: " << place_key << " on rank_in_group: " << rank
-          << " nranks: " << num_ranks << " gid: " << gid_;
+  VLOG(3) << "Get flagcx comm: " << flagcx_comm_ctx->GetFlagcxComm();
+          // << " for place_key: " << place_key << " on rank_in_group: " << rank
+          // << " nranks: " << num_ranks << " gid: " << gid_;
 
   flagcx_comm_ = flagcx_comm_ctx->GetFlagcxComm();
   auto comm_ctx = std::make_unique<phi::GPUContext>(place);
@@ -936,7 +935,16 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Collective(
   const auto* calc_ctx = place_to_calc_ctx_.at(key);
   const auto& comm_ctx = place_to_comm_ctx_.at(key);
   // auto nccl_comm = comm_ctx->nccl_comm();
-  auto flagcx_stream = use_calc_stream ? (flagcxStream_t)&calc_ctx->stream() : (flagcxStream_t)&comm_ctx->stream();
+  // auto flagcx_stream = use_calc_stream ? (flagcxStream_t)&calc_ctx->stream() : (flagcxStream_t)&comm_ctx->stream();
+  flagcxStream_t flagcx_stream;
+  if (use_calc_stream) {
+      // Question: the returned stream type is essentially a cudaStream_t, can we cast it to flagcxStream_t?
+      auto calc_stream = calc_ctx->stream();
+      flagcx_stream = (flagcxStream_t)&calc_stream;
+  } else {
+      auto comm_stream = comm_ctx->stream();
+      flagcx_stream = (flagcxStream_t)&comm_stream;
+  }
 
   auto flagcx_comm_ctx = this->GetCommContext(&store_key);
 
@@ -997,7 +1005,7 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Collective(
 // #else  // PADDLE_WITH_HIP
 //     PADDLE_ENFORCE_GPU_SUCCESS(hipDeviceSynchronize());
 // #endif
-  }
+  
 
   return task;
 }
@@ -1019,19 +1027,19 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Point2Point(
   bool is_batch_p2p = s_group_call_counter > 0;
   std::string key = "";
 
-  int p2p_nrank = 0;
+  // int p2p_nrank = 0;
   if (is_batch_p2p) {
     key = GetKeyFromPlace(place);
     p2p_rank = rank_;
     p2p_target_rank = peer;
-    p2p_nrank = GetSize();
+    // p2p_nrank = GetSize();
   } else {
     int low_rank = rank_ < peer ? rank_ : peer;
     int high_rank = rank_ < peer ? peer : rank_;
     key = std::to_string(low_rank) + "->" + std::to_string(high_rank);
     p2p_rank = rank_ < peer ? 0 : 1;
     p2p_target_rank = 1 - p2p_rank;
-    p2p_nrank = 2;
+    // p2p_nrank = 2;
   }
 
   platform::CUDADeviceGuard cuda_guard(place);
@@ -1057,7 +1065,16 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Point2Point(
   const auto& comm_ctx = place_to_comm_ctx_.at(key);
 
   // auto nccl_comm = comm_ctx->nccl_comm();
-  auto flagcx_stream = use_calc_stream ? (flagcxStream_t)&calc_ctx->stream() : (flagcxStream_t)&comm_ctx->stream();
+  // auto flagcx_stream = use_calc_stream ? (flagcxStream_t)&calc_ctx->stream() : (flagcxStream_t)&comm_ctx->stream();
+  flagcxStream_t flagcx_stream;
+  if (use_calc_stream) {
+      // Question: the returned stream type is essentially a cudaStream_t, can we cast it to flagcxStream_t?
+      auto calc_stream = calc_ctx->stream();
+      flagcx_stream = (flagcxStream_t)&calc_stream;
+  } else {
+      auto comm_stream = comm_ctx->stream();
+      flagcx_stream = (flagcxStream_t)&comm_stream;
+  }
 
   std::string group_key = place_to_group_key_.at(key);
   // auto comm_task =
@@ -1119,7 +1136,7 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Point2Point(
 // #else  // PADDLE_WITH_HIP
 //     PADDLE_ENFORCE_GPU_SUCCESS(hipDeviceSynchronize());
 // #endif
-  }
+  
 
   return task;
 }
@@ -1159,12 +1176,12 @@ void ProcessGroupFlagcx::StartCoalescing() {
                     common::errors::PreconditionNotMet(
                         "Coalescing is on, please call EndCoalesce."));
   is_coalescing_ = true;
-  GroupStart();
+  this->GroupStart();
 }
 
 void ProcessGroupFlagcx::EndCoalescing(
     std::optional<std::vector<std::shared_ptr<ProcessGroup::Task>>> tasks_opt) {
-  GroupEnd();
+  this->GroupEnd();
 
   // NOTE(shenliang03): If using calculate stream, no need to record stream and
   // update task.
@@ -1188,7 +1205,9 @@ void ProcessGroupFlagcx::EndCoalescing(
     const auto& tensor = coalescing_tensors_[i];
     const auto& key = coalescing_place_keys_[i];
     const auto& comm_ctx = place_to_comm_ctx_.at(key);
-    auto flagcx_stream = (flagcxStream_t)&comm_ctx->stream();
+    // Question: the returned stream type is essentially a cudaStream_t, can we cast it to flagcxStream_t?
+    auto comm_stream = comm_ctx->stream();
+    auto flagcx_stream = (flagcxStream_t)&comm_stream;
 
     // if (FLAGS_use_stream_safe_cuda_allocator ||
     //     FLAGS_use_cuda_malloc_async_allocator) {
@@ -1203,5 +1222,4 @@ void ProcessGroupFlagcx::EndCoalescing(
   coalescing_tensors_.clear();
   coalescing_place_keys_.clear();
 }
-
 }  // namespace paddle::distributed

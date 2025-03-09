@@ -85,6 +85,10 @@ using GlooStore = paddle::distributed::ProcessGroupGloo::GlooStore;
 using GlooOptions = paddle::distributed::ProcessGroupGloo::GlooOptions;
 #endif
 
+#if defined(PADDLE_WITH_FLAGCX)
+using ProcessGroupFlagcx = paddle::distributed::ProcessGroupFlagcx;
+#endif
+
 static UNUSED void *use_ccl_comm_func =
     phi::detail::GetCCLComm(phi::CPUPlace());
 
@@ -1470,9 +1474,9 @@ void BindDistributed(py::module *m) {
                   py::arg("rank"),
                   py::arg("world_size"),
                   py::arg("group_id") = 0,
+                  py::arg("timeout") = 30 * 60 * 1000,
+                  py::arg("nccl_comm_init_option") = 0,
                   py::call_guard<py::gil_scoped_release>());
-      .def_static("group_start", distributed::ProcessGroupFlagcx::GroupStart)
-      .def_static("group_end", distributed::ProcessGroupFlagcx::GroupEnd);
 #endif
 
   m->def(
