@@ -22,7 +22,6 @@
 #include "paddle/phi/core/distributed/check/static_check.h"
 #include "paddle/phi/core/distributed/comm_context_manager.h"
 #include "paddle/phi/core/distributed/comm_task_manager.h"
-#include "paddle/phi/core/distributed/flagcx_comm_task.h"
 #include "paddle/phi/core/distributed/flagcx_tools.h"
 #include "paddle/phi/core/distributed/utils.h"
 #include "paddle/phi/core/enforce.h"

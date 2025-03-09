@@ -6,7 +6,7 @@ endif()
 
 if(WITH_FLAGCX)
     set(FLAGCX_ROOT
-      "/share/project/gzy/FlagCX" # flagcx的默认安装路径
+      $ENV{FLAGCX_ROOT}
       CACHE PATH "FLAGCX_ROOT")
     message(STATUS "FLAGCX_ROOT is ${FLAGCX_ROOT}")
     find_path(
@@ -15,7 +15,7 @@ if(WITH_FLAGCX)
     message(STATUS "FLAGCX_INCLUDE_DIR is ${FLAGCX_INCLUDE_DIR}")
     include_directories(SYSTEM ${FLAGCX_INCLUDE_DIR})
     set(FLAGCX_LIB
-      "/share/project/gzy/FlagCX/build/lib/libflagcx.so"
+      "${FLAGCX_ROOT}/build/lib/libflagcx.so"
       CACHE FILEPATH "flagcx library." FORCE)
     generate_dummy_static_lib(LIB_NAME "flagcx" GENERATOR "flagcx.cmake")
     target_link_libraries(flagcx ${FLAGCX_LIB})
