@@ -49,9 +49,18 @@ std::string read_file_as_string(const std::string& file_path) {
   std::ifstream file(cinn_path + '/' + file_path);
 #ifdef CINN_WITH_CUDA
   if (!file.is_open()) {
-    LOG_FIRST_N(INFO, 1) << "Unable to open file : " << cinn_path << '/'
-                         << file_path;
-    return "";
+    std::string from = "runtime/cuda";
+    std::string to = "common";
+    size_t pos = cinn_path.rfind(from);
+    if (pos != std::string::npos) {
+      cinn_path.replace(pos, from.length(), to);
+    }
+    std::ifstream file(cinn_path + '/' + file_path);
+    if (!file.is_open()) {
+      LOG_FIRST_N(INFO, 1) << "Unable to open file : " << cinn_path << '/'
+                           << file_path;
+      return "";
+    }
   }
   std::stringstream buffer;
   buffer << file.rdbuf();
