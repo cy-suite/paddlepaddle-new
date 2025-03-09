@@ -51,11 +51,6 @@ prog_logger = TranslatorLogger()
 FAKE_VALUE_NAME = "FakeValue"
 
 
-def hash_with_seed(value, seed):
-    result = seed + 0x9E3779B9 + (value << 6) + (value >> 2)
-    return result & ((1 << 64) - 1)
-
-
 def get_value_name(value):
     if is_fake_value(value):
         return FAKE_VALUE_NAME
@@ -723,18 +718,12 @@ class PartialProgramLayer:
         in_vars = self._prepare_inputs(inputs)
         out_vars = self._prepare_outputs()
         attrs = self._prepare_attributes(in_sot_mode=False)
-        inputs = self._valid_vars(in_vars)
         _legacy_C_ops.pir_run_program(
-            inputs,
+            self._valid_vars(in_vars),
             self._valid_vars(self._params),
             self._valid_vars(out_vars),
             self._create_scope_vec(
-                cache_key=(
-                    hash_with_seed(
-                        self.program_id, self._calc_input_places_hash(inputs)
-                    )
-                ),
-                use_scope_cache=True,
+                program_id=self.program_id, use_scope_cache=True
             ),
             self._cuda_graph_vec,
             *attrs,
@@ -748,18 +737,12 @@ class PartialProgramLayer:
         """
         out_vars = self._prepare_outputs()
         attrs = self._prepare_attributes(in_sot_mode=True)
-        inputs = self._valid_vars(inputs)
         _legacy_C_ops.pir_run_program(
-            inputs,
+            self._valid_vars(inputs),
             self._valid_vars(self._params),
             self._valid_vars(out_vars),
             self._create_scope_vec(
-                cache_key=(
-                    hash_with_seed(
-                        self.program_id, self._calc_input_places_hash(inputs)
-                    )
-                ),
-                use_scope_cache=True,
+                program_id=self.program_id, use_scope_cache=True
             ),
             self._cuda_graph_vec,
             *attrs,
@@ -784,23 +767,18 @@ class PartialProgramLayer:
     def add_hooker(self, hooker):
         self._hookers.append(hooker)
 
-    def _get_scope(self, cache_key=None, use_scope_cache=False):
+    def _get_scope(self, program_id=None, use_scope_cache=False):
         if not use_scope_cache:
             return core.Scope()
-        if cache_key not in self._scope_cache:
-            self._scope_cache[cache_key] = []
-        cached_scopes = self._scope_cache[cache_key]
+        if program_id not in self._scope_cache:
+            self._scope_cache[program_id] = []
+        cached_scopes = self._scope_cache[program_id]
         for scope in cached_scopes:
             if scope._can_reused:
                 return scope
         scope = core.Scope()
         cached_scopes.append(scope)
         return scope
-
-    def _calc_input_places_hash(self, inputs):
-        if not inputs:
-            return 0
-        return paddle.base.libpaddle.calc_place_hash(inputs)
 
     # whole
     @switch_to_static_graph
@@ -1193,9 +1171,9 @@ class PartialProgramLayer:
             self._outputs.var_list
         )
 
-    def _create_scope_vec(self, cache_key=None, use_scope_cache=False):
+    def _create_scope_vec(self, program_id=None, use_scope_cache=False):
         inner_scope = self._get_scope(
-            cache_key=cache_key, use_scope_cache=use_scope_cache
+            program_id=program_id, use_scope_cache=use_scope_cache
         )
         return [inner_scope]
 
