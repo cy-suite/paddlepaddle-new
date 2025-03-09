@@ -18,11 +18,13 @@ namespace cinn {
 namespace backends {
 
 const std::string CodeGenCudaDev::source_header_ =  // NOLINT
-    R"(#include <cstdint>
+    R"(
+    #pragma once
+#include <cinn_with_cuda_h>
 
-#define CINN_WITH_CUDA
-#include "bfloat16.h"
-#include "float16.h"
+#include <bfloat16_h>
+#include <cstdint>
+#include <float16_h>
 using cinn::common::bfloat16;
 using cinn::common::float16;
 using cinn::common::float8;
@@ -34,8 +36,8 @@ using cinn::common::float162;
 using cinn::common::bfloat168;
 using cinn::common::bfloat164;
 using cinn::common::bfloat162;
+#include <cinn_cuda_runtime_source_h>
 
-#include "cinn_cuda_runtime_source.cuh"
 )";
 
 const std::string &CodeGenCudaDev::GetSourceHeader() { return source_header_; }
