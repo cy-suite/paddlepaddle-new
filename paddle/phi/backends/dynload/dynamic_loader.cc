@@ -70,11 +70,7 @@ PHI_DEFINE_string(rccl_dir,
 
 // use hardcoded path for now to ensure correctness
 #ifdef PADDLE_WITH_FLAGCX
-PHI_DEFINE_string(flagcx_dir,
-                  "/share/project/gzy/FlagCX/build/lib",
-                  "Specify path for loading libflagcx.so. For instance, "
-                  "/usr/local/lib. If empty [default], dlopen will search "
-                  "flagcx from LD_LIBRARY_PATH");
+COMMON_DECLARE_string(flagcx_dir);
 #endif
 
 #ifdef PADDLE_WITH_XPU

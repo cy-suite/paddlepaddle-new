@@ -17,13 +17,9 @@
 #include "paddle/phi/backends/gpu/gpu_context.h"
 #include "paddle/phi/backends/gpu/gpu_decls.h"
 #include "paddle/phi/core/distributed/comm_context.h"
+#include "paddle/phi/backends/dynload/flagcx.h"
 
-#include <flagcx.h>
-// #if defined(PADDLE_WITH_RCCL)
-// #include "paddle/phi/backends/dynload/rccl.h"
-// #else
-// #include "paddle/phi/backends/dynload/nccl.h"
-// #endif
+
 
 namespace phi {
 class DenseTensor;
@@ -85,8 +81,6 @@ class FlagcxCommContext final : public CommContext {
   int flagcx_version_;
 
   flagcxHandlerGroup_t flagcx_handler_;
-  std::unordered_map<int, flagcxStream_t> flagcx_streams_;
-  std::unordered_map<int, std::unique_ptr<flagcxEvent>> flagcxEvents_;
 
   std::unique_ptr<phi::GPUContext> dev_ctx_;
 

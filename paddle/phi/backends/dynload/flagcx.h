@@ -14,24 +14,12 @@ limitations under the License. */
 #pragma once
 
 #include <flagcx.h>
-// #ifndef FLAGCX_H_
-// #warning "FlagCX header is not found"
-// #else
-// #warning "found flagcx header file"
-// #endif
 
 #include <mutex>  // NOLINT
 
 #include "paddle/phi/backends/dynload/dynamic_loader.h"
 #include "paddle/phi/common/port.h"
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-#ifdef __cplusplus
-}
-#endif
 
 namespace phi {
 namespace dynload {
@@ -39,25 +27,20 @@ namespace dynload {
 extern std::once_flag flagcx_dso_flag;
 extern void* flagcx_dso_handle;
 
-#define DECLARE_DYNAMIC_LOAD_FLAGCX_WRAP(__name)                   \
-  struct DynLoad__##__name {                                     \
-    static auto GetFLAGCXFunc() {                                  \
-      using flagcx_func = decltype(&::__name);                     \
-      std::call_once(flagcx_dso_flag, []() {                       \
-        flagcx_dso_handle = phi::dynload::GetFLAGCXDsoHandle();      \
-      });                                                        \
-      static void* p_##__name = dlsym(flagcx_dso_handle, #__name); \
-      return reinterpret_cast<flagcx_func>(p_##__name);            \
-    }                                                            \
-                                                                 \
-    template <typename... Args>                                  \
-    auto operator()(Args... args) -> decltype(__name(args...)) { \
-      return GetFLAGCXFunc()(args...);                             \
-    }                                                            \
-                                                                 \
-    static bool IsValid() { return GetFLAGCXFunc() != nullptr; }   \
-  };                                                             \
-  extern DynLoad__##__name __name
+
+#define DECLARE_DYNAMIC_LOAD_FLAGCX_WRAP(__name)                       \
+  struct DynLoad__##__name {                                         \
+    template <typename... Args>                                      \
+    auto operator()(Args... args) -> DECLARE_TYPE(__name, args...) { \
+      using flagcx_func = decltype(&::__name);                         \
+      std::call_once(flagcx_dso_flag, []() {                           \
+        flagcx_dso_handle = phi::dynload::GetFLAGCXDsoHandle();          \
+      });                                                            \
+      static void* p_##__name = dlsym(flagcx_dso_handle, #__name);     \
+      return reinterpret_cast<flagcx_func>(p_##__name)(args...);       \
+    }                                                                \
+  };                                                                 \
+  extern struct DynLoad__##__name __name
 
 #define FLAGCX_RAND_ROUTINE_EACH(__macro) \
   __macro(flagcxGetUniqueId);             \
@@ -74,9 +57,15 @@ extern void* flagcx_dso_handle;
   __macro(flagcxReduce);                  \
   __macro(flagcxReduceScatter);           \
   __macro(flagcxCommGetAsyncError);       \
+  __macro(flagcxSend);           \
+  __macro(flagcxRecv);           \
+  __macro(flagcxHandleInit);     \
+  __macro(flagcxHandleFree);     \
   __macro(flagcxGetErrorString);
 
 FLAGCX_RAND_ROUTINE_EACH(DECLARE_DYNAMIC_LOAD_FLAGCX_WRAP)
+
+#undef DECLARE_DYNAMIC_LOAD_FLAGCX_WRAP
 
 
 }  // namespace dynload
