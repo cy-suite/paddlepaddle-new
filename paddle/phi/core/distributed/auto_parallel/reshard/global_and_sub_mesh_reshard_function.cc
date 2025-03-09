@@ -33,7 +33,7 @@ bool GlobalToSubMeshReshardFunction::IsSuitable(
 
   int sub_mesh_dim = SubMeshDim(in_process_mesh, out_process_mesh);
   RESHARD_SHORTCUT_IF_FALSE(sub_mesh_dim != -1);
-  // 1. the splitted dimension must be replicated
+  // 1. the split dimension must be replicated
   // 2. out mesh is the value of a certain dimension of global mesh
   // e.g. global_mesh = [[1, 2], [3, 4]], out_mesh = [1, 2] or [3, 4]
   //      global_mesh = [[[1, 2], [3, 4]], [[5, 6], [7, 8]]]
@@ -79,10 +79,6 @@ void SubMeshToGlobalReshardFunction::Eval(phi::DeviceContext* dev_ctx,
                                           const TensorDistAttr& out_dist_attr,
                                           DistTensor* out) {
   VLOG(3) << "Call SubMeshToGlobalReshardFunction Eval";
-#if defined(PADDLE_WITH_XPU)
-  PADDLE_THROW(::common::errors::Unimplemented(
-      "Not supported PSendKernel/PRecv on xpu yet."));
-#else
   const TensorDistAttr& in_dist_attr = in.dist_attr();
   const ProcessMesh& in_process_mesh = in_dist_attr.process_mesh();
   const ProcessMesh& out_process_mesh = out_dist_attr.process_mesh();
@@ -136,7 +132,6 @@ void SubMeshToGlobalReshardFunction::Eval(phi::DeviceContext* dev_ctx,
                               GetMutableTensor(out));
   }
   SetDistProps(out, in.dims(), out_dist_attr);
-#endif
 }
 
 }  // namespace phi::distributed
