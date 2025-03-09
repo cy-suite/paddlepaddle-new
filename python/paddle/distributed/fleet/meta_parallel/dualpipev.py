@@ -18,8 +18,6 @@
 
 from __future__ import annotations
 
-from functools import partial
-
 import paddle
 from paddle import framework
 from paddle.distributed.communication.batch_isend_irecv import (
@@ -247,8 +245,8 @@ class DualPipeVParallel(PipelineParallel):
                 outputs1 = [t for t in outputs1 if not t.stop_gradient]
 
         # forward & backward
-        module0 = partial(self._layers.forward, chunk_id=phase0)
-        module1 = partial(self._layers.forward, chunk_id=phase1)
+        module0 = self._layers._model_chunks[phase0].get_run_function()
+        module1 = self._layers._model_chunks[phase1].get_run_function()
         outputs0, loss0 = self._layers.overlapped_forward_backward(
             module0,
             inputs0,
