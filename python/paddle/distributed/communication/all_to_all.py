@@ -60,7 +60,6 @@ def alltoall(
             >>> dist.init_parallel_env()
 
             >>> # all_to_all with equal split sizes
-
             >>> out_tensor_list = [] # type: ignore
             >>> if dist.get_rank() == 0:
             ...     data1 = paddle.to_tensor([[1, 2, 3], [4, 5, 6]])
@@ -73,10 +72,21 @@ def alltoall(
             >>> # [[[1, 2, 3], [4, 5, 6]], [[13, 14, 15], [16, 17, 18]]] (2 GPUs, out for rank 0)
             >>> # [[[7, 8, 9], [10, 11, 12]], [[19, 20, 21], [22, 23, 24]]] (2 GPUs, out for rank 1)
 
-
             >>> # all_to_all with unequal split sizes
-
-            >>> # TODO
+            >>> if dist.get_rank() == 0:
+            ...     data1 = paddle.to_tensor([[1, 2, 3], [4, 5, 6]])       # shape: (2, 3)
+            ...     data2 = paddle.to_tensor([7])                          # shape: (1, )
+            ...     out_data1 = paddle.empty((2, 3), dtype=data1.dtype)
+            ...     out_data2 = paddle.empty((3, 2), dtype=data1.dtype)
+            >>> else:
+            ...     data1 = paddle.to_tensor([[8, 9], [10, 11], [12, 13]]) # shape: (3, 2)
+            ...     data2 = paddle.to_tensor([[14, 15, 16, 17]])           # shape: (1, 4)
+            ...     out_data1 = paddle.empty((1,), dtype=data1.dtype)
+            ...     out_data2 = paddle.empty((1, 4), dtype=data1.dtype)
+            >>> dist.alltoall([out_data1, out_data2], [data1, data2])
+            >>> print([out_data1, out_data2])
+            >>> # [[[1, 2, 3], [4, 5, 6]], [[8, 9], [10, 11], [12, 13]]]  (2 GPUs, out for rank 0)
+            >>> # [[7], [[14, 15, 16, 17]]]                               (2 GPUs, out for rank 1)
     """
     return stream.alltoall(
         out_tensor_list, in_tensor_list, group, sync_op, False
