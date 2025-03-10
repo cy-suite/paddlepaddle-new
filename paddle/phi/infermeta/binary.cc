@@ -2414,8 +2414,6 @@ void IndexSelectInferMeta(const MetaTensor& x,
                           MetaTensor* output) {
   auto input_dim = x.dims();
   auto index_dim = index.dims();
-  std::cerr << "index select dim " << input_dim << " !!! " << index_dim
-            << std::endl;
 
   PADDLE_ENFORCE_EQ(
       dim < input_dim.size() && dim >= (0 - input_dim.size()),
