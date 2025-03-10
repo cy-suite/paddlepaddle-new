@@ -80,8 +80,6 @@ class FlagcxCommContext final : public CommContext {
 
   int flagcx_version_;
 
-  flagcxHandlerGroup_t flagcx_handler_;
-
   std::unique_ptr<phi::GPUContext> dev_ctx_;
 
   // used for comm wait compute, compute_stream-->event-->comm_stream
@@ -89,6 +87,10 @@ class FlagcxCommContext final : public CommContext {
 
   // used for compute wait comm, comm_stream-->event-->compute_stream
   std::shared_ptr<std::remove_pointer<phi::gpuEvent_t>::type> comm_event_;
+
+ public:
+  flagcxHandlerGroup_t flagcx_handler_;
+
 };
 
 }  // namespace distributed

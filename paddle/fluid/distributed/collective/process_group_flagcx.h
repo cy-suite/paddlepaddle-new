@@ -270,9 +270,10 @@ class ProcessGroupFlagcx final : public ProcessGroupWithStream {
   int flagcx_comm_init_option_;
 
   // optimize memory for process_group
-  std::vector<std::pair<std::weak_ptr<phi::Allocation>, flagcxStream_t>>
+  std::vector<std::pair<std::weak_ptr<phi::Allocation>, gpuStream_t>>
       allocation_stream_pairs_;
-  flagcxComm_t flagcx_comm_;
+  flagcxComm_t flagcx_comm_{nullptr};
+  std::string store_key_;
 
   // For coalescing tensors processing (eg. batch_isend_irecv)
   bool is_coalescing_{false};
