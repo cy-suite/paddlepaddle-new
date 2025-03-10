@@ -150,7 +150,7 @@ def main():
                     step_infos.append([float("inf"), float("-inf")])
                 step_infos[i][0] = min(step_infos[i][0], info[0])
                 step_infos[i][1] = max(step_infos[i][1], info[1])
-            return start_step
+        return start_step
 
     if args.multi_machine:
         multi_machine_dirs = os.listdir(args.log_dir)
