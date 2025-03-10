@@ -1440,7 +1440,7 @@ def _program_hash(program):
     because program is not deleted while calling from_func_spec.
     so it's ok to use id(program)
     """
-    return hash(f"{id(program)}{program.blocks}")
+    return id(program)
 
 
 class ParametersRecorder:
