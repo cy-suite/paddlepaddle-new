@@ -634,22 +634,28 @@ def convert(model_path, config):
             >>>         return F.relu(self.linear(x))
 
             >>> input_dim = 3
+            >>> # 1.Instantiate the network.
             >>> layer = LinearNet(input_dim)
 
             >>> save_path = "/tmp/linear_net"
+            >>> # 2.Convert dynamic graph to static graph and save as a JSON file.
             >>> paddle.jit.save(layer, save_path, [paddle.static.InputSpec(shape=[-1, input_dim])])
 
+            >>> 3.Create Input
             >>> input_config = Input(
             >>>     min_input_shape=[1, input_dim],
             >>>     optim_input_shape=[2, input_dim],
             >>>     max_input_shape=[4, input_dim]
             >>> )
 
+            >>> 4.Create TensorRTConfig
             >>> trt_config = TensorRTConfig(inputs=[input_config])
             >>> trt_config.save_model_dir = "/tmp/linear_net_trt"
 
+            >>> 5.Perform TensorRT conversion
             >>> program_with_trt = paddle.tensorrt.convert(save_path, trt_config)
 
+            >>> 6.Create config based on the path saved by TensorRT
             >>> config = paddle_infer.Config(
             >>>     trt_config.save_model_dir + '.json',
             >>>     trt_config.save_model_dir + '.pdiparams',
@@ -680,11 +686,14 @@ def convert(model_path, config):
             >>>         return F.relu(self.linear(x))
 
             >>> input_dim = 3
+            >>> # 1.Instantiate the network.
             >>> layer = LinearNet(input_dim)
 
             >>> save_path = "/tmp/linear_net"
+            >>> 2.Convert dynamic graph to static graph and save as a JSON file.
             >>> paddle.jit.save(layer, save_path, [paddle.static.InputSpec(shape=[-1, input_dim])])
 
+            >>> 3.Create Input
             >>> input_config = Input(
             >>>     warmup_data=(
             >>>         np.random.rand(1,3).astype(np.float32),
@@ -693,11 +702,14 @@ def convert(model_path, config):
             >>>     )
             >>> )
 
+            >>> 4.Create TensorRTConfig
             >>> trt_config = TensorRTConfig(inputs=[input_config])
             >>> trt_config.save_model_dir = "/tmp/linear_net_trt"
 
+            >>> 5.Perform TensorRT conversion
             >>> program_with_trt = paddle.tensorrt.convert(save_path, trt_config)
 
+            >>> 6.Create config based on the path saved by TensorRT
             >>> config = paddle_infer.Config(
             >>>     trt_config.save_model_dir + '.json',
             >>>     trt_config.save_model_dir + '.pdiparams',
