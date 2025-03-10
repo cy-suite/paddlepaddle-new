@@ -2414,6 +2414,8 @@ void IndexSelectInferMeta(const MetaTensor& x,
                           MetaTensor* output) {
   auto input_dim = x.dims();
   auto index_dim = index.dims();
+  std::cerr << "index select dim " << input_dim << " !!! " << index_dim
+            << std::endl;
 
   PADDLE_ENFORCE_EQ(
       dim < input_dim.size() && dim >= (0 - input_dim.size()),
@@ -2434,6 +2436,9 @@ void IndexSelectInferMeta(const MetaTensor& x,
           "the dimension of Input(Index) is [%d].",
           index_dim,
           index_dim.size()));
+  if (dim < 0) {
+    dim += input_dim.size();
+  }
 
   if (input_dim[dim] != 0) {
     PADDLE_ENFORCE_EQ(index_dim[0] != 0,
@@ -2443,9 +2448,7 @@ void IndexSelectInferMeta(const MetaTensor& x,
   }
 
   auto output_dim = common::vectorize(input_dim);
-  if (dim < 0) {
-    dim += input_dim.size();
-  }
+
   output_dim[dim] = index_dim[0];
   output->set_dims(common::make_ddim(output_dim));
   output->set_dtype(x.dtype());
