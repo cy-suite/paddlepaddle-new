@@ -50,7 +50,6 @@ class DataDependencyControlFlowBreak(DataDependencyBreak):
 
     def __init__(self, reason_str=None, file_path="", line_number=-1):
         if reason_str is None:
-
             reason_str = "OpcodeInlineExecutor want break graph when simulate control flow."
 
         super().__init__(
@@ -144,6 +143,18 @@ class InlineCallBreak(BreakGraphReasonBase):
     pass
 
 
+class FallbackInlineCallBreak(InlineCallBreak):
+    pass
+
+
+class BreakGraphInlineCallBreak(InlineCallBreak):
+    pass
+
+
+class OtherInlineCallBreak(InlineCallBreak):
+    pass
+
+
 class DygraphInconsistentWithStaticBreak(BreakGraphReasonBase):
     pass
 
@@ -154,12 +165,6 @@ class PsdbBreakReason(BreakGraphReasonBase):
 
 class InferMetaBreak(BreakGraphReasonBase):
     """Break reason during meta information inference phase."""
-
-    pass
-
-
-class UnspecifiedBreakReason(BreakGraphReasonBase):
-    """Break reason for cases that don't fall into other categories."""
 
     pass
 
@@ -192,12 +197,14 @@ class FallbackError(SotErrorBase):
 
 # raise in inline function call strategy.
 class BreakGraphError(SotErrorBase):
-    def __init__(self, reason: BreakGraphReasonBase | str = None):
-        super().__init__()
+    def __init__(self, reason: BreakGraphReasonBase = None):
+        super().__init__(str(reason))
 
-        if isinstance(reason, str):
-            # if reason is a string, then create a UnspecifiedBreakReason object
-            reason = UnspecifiedBreakReason(reason)
+        if not isinstance(reason, BreakGraphReasonBase):
+            raise ValueError(
+                "reason must be a subclass of BreakGraphReasonBase"
+            )
+
         self.reason = reason
         BreakGraphReasonInfo.collect_break_graph_reason(reason)
 

@@ -572,7 +572,10 @@ EXPAND_REDUCE_FP16_MACRO(CINN_WARP_SHUFFLE_INTERNAL_IMPL)
   }                                                                \
   __syncthreads();                                                 \
   if (threadIdx.x < (blockDim.x + 31) / 32) {                      \
-    shm[0] = cinn_warp_shuffle_internal(shm[threadIdx.x]);         \
+    tmp_val = cinn_warp_shuffle_internal(shm[threadIdx.x]);        \
+    if (threadIdx.x == 0) {                                        \
+      shm[0] = tmp_val;                                            \
+    }                                                              \
   }                                                                \
   __syncthreads();                                                 \
   return shm[0];
@@ -823,6 +826,10 @@ CINN_NVGPU_INDEX_ADD(fp16, float16)
 #endif
 
 #undef CINN_CUDA_INDEX_ADD
+
+#define CINN_ENTAIL_LOOP_CONDITION(__loop_var, __cond, __stride) \
+  }                                                              \
+  for (decltype(__stride) __loop_var = 0; __cond; __loop_var += __stride) {
 
 __device__ int cinn_cuda_resize_bilinear(const int *buf,
                                          const int c_size,

@@ -17,7 +17,6 @@
 #include <cmath>
 #include <vector>
 
-#include "paddle/cinn/common/cas.h"
 #include "paddle/cinn/common/ir_util.h"
 #include "paddle/cinn/common/type.h"
 #include "paddle/cinn/ir/ir_mutator.h"
@@ -135,7 +134,7 @@ struct PolyForWithSimpleConditionToForMutator : public ir::IRMutator<Expr*> {
 
     Expr lhs = lt_n ? lt_n->a() : le_n->a();
     Expr rhs = lt_n ? lt_n->b() : PlusOneWithMinMax(le_n->b());
-    rhs = cinn::common::AutoSimplify(rhs);
+    rhs = optim::ArithSimplify(rhs);
 
     if (op->is_vectorized())
       PADDLE_ENFORCE_EQ(

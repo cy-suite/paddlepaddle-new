@@ -14,12 +14,12 @@
 
 #include "paddle/cinn/common/integer_set.h"
 
-#include "paddle/cinn/common/cas.h"
 #include "paddle/cinn/common/ir_util.h"
 #include "paddle/cinn/ir/ir_mutator.h"
 #include "paddle/cinn/ir/op/ir_operators.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
 #include "paddle/cinn/optim/replace_var_with_expr.h"
+#include "paddle/cinn/optim/simplify_util.h"
 #include "paddle/common/enforce.h"
 
 namespace cinn {
@@ -360,7 +360,7 @@ std::optional<bool> SymbolicExprAnalyzer::ProveDivisible(
                     ::common::errors::InvalidArgument(
                         "Rhs in ProveDivisible must be defined."));
   PADDLE_ENFORCE_EQ(
-      cinn::common::IsPureMath(lhs),
+      cinn::optim::IsPureMath(lhs),
       true,
       ::common::errors::InvalidArgument(
           "Lhs in ProveDivisible must be a pure math expression."));
@@ -431,11 +431,6 @@ std::optional<bool> SymbolicExprAnalyzer::ProveDivisible(
         });
         res = OptionalAnd(res, is_ge);
         return res;
-      case cinn::ir::IrNodeTy::FracOp:
-        tmp_expr = cinn::common::AutoSimplify(lhs);
-        if (tmp_expr.node_type() == cinn::ir::IrNodeTy::FracOp)
-          return std::nullopt;
-        return OptionalAnd(ProveDivisible(tmp_expr, rhs), is_ge);
       case cinn::ir::IrNodeTy::FloatImm:
         return false;
       case cinn::ir::IrNodeTy::Add:
@@ -449,7 +444,7 @@ std::optional<bool> SymbolicExprAnalyzer::ProveDivisible(
                         ProveDivisible(lhs.As<ir::Sub>()->b(), rhs)),
             is_ge);
       case cinn::ir::IrNodeTy::Div:
-        tmp_expr = cinn::common::AutoSimplify(lhs);
+        tmp_expr = optim::ArithSimplify(lhs);
         if (tmp_expr.node_type() == cinn::ir::IrNodeTy::Div)
           return std::nullopt;
         return OptionalAnd(ProveDivisible(tmp_expr, rhs), is_ge);

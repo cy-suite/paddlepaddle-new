@@ -487,6 +487,8 @@ def _cal_global_shape(local_shape, mesh, placements):
     for idx, placement in enumerate(placements):
         if placement.is_shard():
             shard_dim = placement.get_dim()
+            if global_shape[shard_dim] == -1:
+                continue
             local_dim_size = global_shape[shard_dim]
             global_shape[shard_dim] = local_dim_size * mesh.shape[idx]
     return global_shape
@@ -727,7 +729,7 @@ def moe_sub_mesh_tensors(
 
 def dtensor_from_local(local_tensor, mesh, placements):
     if paddle.in_dynamic_mode():
-        if local_tensor.is_dist() is True:
+        if local_tensor.is_dist() is True and local_tensor._is_initialized():
             raise ValueError("The input should be a local tensor.")
 
         return paddle.base.core.dtensor_from_local(
