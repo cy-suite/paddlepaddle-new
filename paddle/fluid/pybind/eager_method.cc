@@ -2729,7 +2729,7 @@ static PyObject* tensor_method__value(TensorObject* self,
       std::dynamic_pointer_cast<phi::BatchedTensor>(self->tensor.impl());
 
   const Tensor& value = batched_tensor->value();
-  return ToPyObject(value);
+  return ToPyObject(value, false);
   EAGER_CATCH_AND_THROW_RETURN_NULL
 }
 

@@ -14,7 +14,6 @@ limitations under the License. */
 
 #include "paddle/fluid/eager/vectorize/vmap_transforms.h"
 #include "paddle/fluid/eager/api/generated/eager_generated/forwards/dygraph_functions.h"
-#include "paddle/phi/api/include/api.h"
 #include "paddle/phi/api/include/tensor.h"
 #include "paddle/phi/core/batched_tensor.h"
 
@@ -53,7 +52,7 @@ static Tensor permuteBatchDimsToFront(phi::BatchedTensor* batched) {
     }
     permutation[idx++] = static_cast<int64_t>(ptr);
   }
-  return paddle::experimental::transpose(physical_tensor, permutation);
+  return transpose_ad_func(physical_tensor, permutation);
 }
 
 VmapPhysicalView MultiBatchVmapTransform::logicalToPhysical(
@@ -199,7 +198,7 @@ static Tensor alignBatchDimsAtFront(
     }
     level++;
   }
-  return paddle::experimental::view_shape(physical_tensor, aligned_sizes);
+  return view_shape_ad_func(physical_tensor, aligned_sizes);
 }
 
 // The algorithm is as follows:
@@ -254,9 +253,8 @@ VmapPhysicalViewVec MultiBatchVmapTransform::logicalToPhysical(
     expanded_size.insert(expanded_size.end(),
                          physical_sizes.begin() + num_batch_dims,
                          physical_sizes.end());
-    result.emplace_back(
-        paddle::experimental::expand(physical_tensor, expanded_size),
-        collective_levels);
+    result.emplace_back(expand_ad_func(physical_tensor, expanded_size),
+                        collective_levels);
   }
   return result;
 }

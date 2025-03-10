@@ -25,7 +25,7 @@ limitations under the License. */
 
 // NOTE: [Logical vs physical args]
 // Consider the following vmap.
-//   vmap(vmap(func, in_dims=(2,)), in_dims=(0,))(torch.ones(2, 3, 4))
+//   vmap(vmap(func, in_dims=(2,)), in_dims=(0,))(paddle.ones(2, 3, 4))
 // This would produce a BatchedTensor wrapping a paddle::Tensor of size [2, 3,
 // 4], with batch dims 0 and 2:
 //   BatchedTensor(ones(2, 3, 4), bdims=[(lvl=1,dim=0),(lvl=2,dim=2)])
@@ -37,7 +37,7 @@ limitations under the License. */
 //
 // This notion of logical vs physical also extends to non-tensor arguments.
 // Consider the previous tensor; let's assume the user called
-// `torch.sum(tensor, dim=0)` inside of `func`. Then the logical
+// `paddle.sum(tensor, axis=0)` inside of `func`. Then the logical
 // dimension they are reducing over is dim 0 but the physical dim is dim 1
 // (the first non-batch dimension)
 // Overload for explicit function and ArrayRef
@@ -63,12 +63,12 @@ inline std::vector<R> fmap(const T& inputs) {
 // Forward declared; see NOTE: [What is a VmapPhysicalView?]
 struct VmapPhysicalView;
 
-// Most PyTorch operators take 4 or fewer inputs.
+// Most Paddle operators take 4 or fewer inputs.
 constexpr int64_t kVmapTransformStaticInputSize = 4;
 using VmapPhysicalViewVec =
     paddle::small_vector<VmapPhysicalView, kVmapTransformStaticInputSize>;
 
-// Pytorch generally advertises good performance for <= 5 dims.
+// Paddle generally advertises good performance for <= 7 dims.
 // (see ATen/core/DimVector.h). We add a few extra dims (~3) for vmap
 // dimensions to get 8. Adjust this number as necessary
 constexpr int64_t kVmapStaticDimVecSize = 8;
@@ -190,7 +190,7 @@ struct TEST_API VmapPhysicalView {
 // the mapping and assumes that the batch dimensions in the physical tensor all
 // occur at the front of the tensor.
 struct TEST_API VmapPhysicalToLogicalMap {
-  VmapPhysicalToLogicalMap(std::bitset<phi::kVmapNumLevels> levels)
+  explicit VmapPhysicalToLogicalMap(std::bitset<phi::kVmapNumLevels> levels)
       : levels_(levels) {}
 
   // Maps a physical tensor to a new logical tensor (BatchedTensor).
@@ -207,7 +207,8 @@ struct TEST_API VmapPhysicalToLogicalMap {
   //    "batch dimensions" are at the front of the physical tensors.
   // 2. stores the new logical tensors back into the passed-in vector. This is
   //    to avoid additional dynamic allocations.
-  void applyInplace(std::vector<paddle::Tensor>& physical_tensors) const;
+  void applyInplace(
+      std::vector<paddle::Tensor>& physical_tensors) const;  // NOLINT
 
   std::bitset<phi::kVmapNumLevels> levels_;
 };
