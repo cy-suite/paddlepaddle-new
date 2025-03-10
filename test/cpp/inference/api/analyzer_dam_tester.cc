@@ -281,6 +281,8 @@ void compare(bool use_mkldnn = false) {
     std::unordered_set<std::string> op_list = {
         "softmax", "elementwise_add", "relu"};
     cfg.SetMKLDNNOp(op_list);
+  } else {
+    cfg.DisableMKLDNN();
   }
 
   std::vector<std::vector<PaddleTensor>> input_slots_all;
@@ -318,6 +320,7 @@ TEST(Analyzer_dam, compare_mkldnn) { compare(true /* use_mkldnn */); }
 TEST(Analyzer_dam, compare_determine) {
   AnalysisConfig cfg;
   SetConfig(&cfg);
+  cfg.DisableMKLDNN();
 
   std::vector<std::vector<PaddleTensor>> input_slots_all;
   SetInput(&input_slots_all);
