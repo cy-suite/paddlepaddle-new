@@ -1647,6 +1647,11 @@ PHI_DEFINE_EXPORTED_int32(
 PHI_DEFINE_EXPORTED_bool(print_ir, false, "Whether print ir debug str.");
 
 PHI_DEFINE_EXPORTED_bool(
+    comp_skip_default_ops,
+    true,
+    "Whether to skip decomposing comp op in default list (decomp_trans.cc).");
+
+PHI_DEFINE_EXPORTED_bool(
     prim_skip_dynamic,
     true,
     "Whether to skip decomposing vjp op with dynamic shape.");
@@ -1725,19 +1730,6 @@ PHI_DEFINE_EXPORTED_int64(alloc_fill_value,
                           -1,
                           "Whether to fill fixed value after allocation. "
                           "This is useful for debugging.");
-
-/**
- * Apply shape optimization pass to PIR FLAG
- * Name: pir_apply_shape_optimization_pass
- * Since Version: 3.0.0
- * Value Range: bool, default=false
- * Example:
- * Note: If True, will apply shape_optimization pass to PIR.
- */
-PHI_DEFINE_EXPORTED_bool(pir_apply_shape_optimization_pass,
-                         false,
-                         "Whether to apply shape_optimization pass "
-                         "to infer symbolic shape");
 
 PHI_DEFINE_EXPORTED_int64(
     pir_broadcast_tree_limit,
