@@ -181,7 +181,10 @@ class PaddleToTensorRTConverter:
                 trt_shape = trt.Dims(paddle_shape)
                 constant_layer = network.add_constant(trt_shape, weight)
                 constant_layer.name = param_name
-                value_to_trt_tensor[value.id] = (weight, param_name)
+                value_to_trt_tensor[value.id] = constant_layer.get_output(0)
+                self.constant_manager.set_trt_weight_tensor(
+                    constant_layer.get_output(0).name, weight
+                )
             elif defining_op.name() == "builtin.constant":
                 constant_value_name = defining_op.attrs()["value"]
                 constant_tensor = self.scope.var(
@@ -201,7 +204,10 @@ class PaddleToTensorRTConverter:
                     trt_shape, constant_tensor
                 )
                 constant_layer.name = constant_value_name
-                value_to_trt_tensor[value.id] = (weight, param_name)
+                value_to_trt_tensor[value.id] = constant_layer.get_output(0)
+                self.constant_manager.set_trt_weight_tensor(
+                    constant_layer.get_output(0).name, weight
+                )
             else:
                 shape = value.shape
                 dtype = map_dtype(value.dtype.name)

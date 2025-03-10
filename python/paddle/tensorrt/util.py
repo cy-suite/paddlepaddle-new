@@ -253,6 +253,7 @@ class TensorRTConstantManager:
         if not cls._instance:
             cls._instance = super().__new__(cls)
             cls._instance.constant_dict = {}
+            cls._instance.trt_weights_dict = {}
         return cls._instance
 
     def set_constant_value(self, name, tensor_data, value):
@@ -266,6 +267,12 @@ class TensorRTConstantManager:
 
     def get_constant_value(self, name):
         return self.constant_dict[name]
+
+    def set_trt_weight_tensor(self, name, trt_weights):
+        self.trt_weights_dict[name] = trt_weights
+
+    def get_trt_weight_tensor(self, name):
+        return self.trt_weights_dict[name]
 
 
 # In TensorRT FP16 inference, this function sets the precision of specific
@@ -281,9 +288,6 @@ def support_fp32_mix_precision(op_type, layer, trt_config=None):
 def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name):
     # the following op needn't cast trt.Weight to ITensor, because the layer need weight as input
     forbid_cast_op = [
-        "pd_op.layer_norm",
-        "pd_op.affine_channel",
-        "pd_op.prelu",
         "pd_op.fused_bias_dropout_residual_layer_norm",
         "pd_op.deformable_conv",
     ]

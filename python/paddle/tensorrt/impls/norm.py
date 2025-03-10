@@ -31,8 +31,7 @@ from paddle.tensorrt.converter_utils import (
     trt_sum,
 )
 from paddle.tensorrt.register import converter_registry
-
-from ..util import (
+from paddle.tensorrt.util import (
     TensorRTConstantManager,
 )
 
@@ -225,6 +224,11 @@ def fused_bias_dropout_residual_layer_norm_converter(
     network, paddle_op, inputs
 ):
     input1, input2, ele_bias, scale, bias = inputs
+    constant_manager = TensorRTConstantManager()
+    ele_bias = constant_manager.get_trt_weight_tensor(ele_bias.name)
+    scale = constant_manager.get_trt_weight_tensor(scale.name)
+    bias = constant_manager.get_trt_weight_tensor(bias.name)
+    constant_manager = TensorRTConstantManager()
     has_bias = ele_bias is not None
     bias_size = bias.size
     scale_size = scale.size
