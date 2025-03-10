@@ -35,7 +35,7 @@ class TestCollectiveAllToAllSingleUnequalSplitAPI(TestDistBase):
         support_types = get_xpu_op_support_types('c_alltoall')
         for dtype in support_types:
             self.check_with_place(
-                "collective_alltoall_single_unequal_split_api_dygraph.py",
+                "collective_alltoall_single_api_unequal_split_dygraph.py",
                 "alltoall_single_unequal_split",
                 static_mode="0",
                 dtype=dtype,
