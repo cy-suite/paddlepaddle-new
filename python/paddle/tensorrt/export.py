@@ -54,14 +54,9 @@ class Input:
     """
     A class used to configure input data for models. This class serves two purposes:
 
-    1. Random Data Generation: When no input data is supplied, it automatically generates
-       random input data based on the specified minimum, optimal, and maximum shapes. In this mode,
-       you can configure the data type (e.g., 'float32', 'int64', etc.) and the range of values (e.g.,
-       (0.0, 1.0) for floats or (1, 10) for integers).
+    1. Random Data Generation: When no input data is supplied, it automatically generates random input data based on the specified minimum, optimal, and maximum shapes. In this mode,you can configure the data type (e.g., 'float32', 'int64', etc.) and the range of values (e.g.,(0.0, 1.0) for floats or (1, 10) for integers).
 
-    2. User-Provided Input: Alternatively, you can supply your own input data via the
-       `warmup_data` argument. In this case, the provided data will be used directly, and the
-       `input_data_type` and `input_range` settings will be ignored.
+    2. User-Provided Input: Alternatively, you can supply your own input data via the `warmup_data` argument. In this case, the provided data will be used directly, and the`input_data_type` and `input_range` settings will be ignored.
 
     Args:
         warmup_data (tuple):
@@ -641,21 +636,20 @@ def convert(model_path, config):
             >>> # 2.Convert dynamic graph to static graph and save as a JSON file.
             >>> paddle.jit.save(layer, save_path, [paddle.static.InputSpec(shape=[-1, input_dim])])
 
-            >>> 3.Create Input
+            >>> # 3.Create TensorRTConfig
             >>> input_config = Input(
             >>>     min_input_shape=[1, input_dim],
             >>>     optim_input_shape=[2, input_dim],
             >>>     max_input_shape=[4, input_dim]
             >>> )
 
-            >>> 4.Create TensorRTConfig
             >>> trt_config = TensorRTConfig(inputs=[input_config])
             >>> trt_config.save_model_dir = "/tmp/linear_net_trt"
 
-            >>> 5.Perform TensorRT conversion
+            >>> # 4.Perform TensorRT conversion
             >>> program_with_trt = paddle.tensorrt.convert(save_path, trt_config)
 
-            >>> 6.Create config based on the path saved by TensorRT
+            >>> # 5.Create a Predictor and run TensorRT inference.
             >>> config = paddle_infer.Config(
             >>>     trt_config.save_model_dir + '.json',
             >>>     trt_config.save_model_dir + '.pdiparams',
