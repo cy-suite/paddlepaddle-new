@@ -50,7 +50,8 @@ ExternalProject_Add(
   SOURCE_DIR ${ROCKSDB_SOURCE_DIR}
   UPDATE_COMMAND ""
   PATCH_COMMAND ${ROCKSDB_PATCH_COMMAND}
-  COMMAND git apply ${PADDLE_SOURCE_DIR}/patches/rocksdb/compaction_picker_level.cc.patch
+  COMMAND git checkout -- . && git apply
+          ${PADDLE_SOURCE_DIR}/patches/rocksdb/compaction_picker_level.cc.patch
   CMAKE_ARGS -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
              -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
              -DWITH_BZ2=OFF
