@@ -631,37 +631,36 @@ def convert(model_path, config):
             >>>         self.linear = nn.Linear(input_dim, input_dim)
 
             >>>     def forward(self, x):
-                    return F.relu(self.linear(x))
+            >>>         return F.relu(self.linear(x))
 
-            >>> def test_paddle_to_tensorrt_conversion():
-            >>>     input_dim = 3
-            >>>     layer = LinearNet(input_dim)
+            >>> input_dim = 3
+            >>> layer = LinearNet(input_dim)
 
-            >>>     save_path = "/tmp/linear_net"
-            >>>     paddle.jit.save(layer, save_path, [paddle.static.InputSpec(shape=[-1, input_dim])])
+            >>> save_path = "/tmp/linear_net"
+            >>> paddle.jit.save(layer, save_path, [paddle.static.InputSpec(shape=[-1, input_dim])])
 
-            >>>     input_config = Input(
-            >>>         min_input_shape=[1, input_dim],
-            >>>         optim_input_shape=[2, input_dim],
-            >>>         max_input_shape=[4, input_dim]
-            >>>     )
+            >>> input_config = Input(
+            >>>     min_input_shape=[1, input_dim],
+            >>>     optim_input_shape=[2, input_dim],
+            >>>     max_input_shape=[4, input_dim]
+            >>> )
 
-            >>>     trt_config = TensorRTConfig(inputs=[input_config])
-            >>>     trt_config.save_model_dir = "/tmp/linear_net_trt"
+            >>> trt_config = TensorRTConfig(inputs=[input_config])
+            >>> trt_config.save_model_dir = "/tmp/linear_net_trt"
 
-            >>>     program_with_trt = paddle.tensorrt.convert(save_path, trt_config)
+            >>> program_with_trt = paddle.tensorrt.convert(save_path, trt_config)
 
-            >>>     config = paddle_infer.Config(
-            >>>         trt_config.save_model_dir + '.json',
-            >>>         trt_config.save_model_dir + '.pdiparams',
-            >>>     )
-            >>>     config.enable_use_gpu(100, 0)
-            >>>     predictor = paddle_infer.create_predictor(config)
+            >>> config = paddle_infer.Config(
+            >>>     trt_config.save_model_dir + '.json',
+            >>>     trt_config.save_model_dir + '.pdiparams',
+            >>> )
+            >>> config.enable_use_gpu(100, 0)
+            >>> predictor = paddle_infer.create_predictor(config)
 
-            >>>     input_data = np.random.randn(2, 3).astype(np.float32)
-            >>>     model_input = paddle.to_tensor(input_data)
+            >>> input_data = np.random.randn(2, 3).astype(np.float32)
+            >>> model_input = paddle.to_tensor(input_data)
 
-            >>>     output_converted = predictor.run([model_input])
+            >>> output_converted = predictor.run([model_input])
 
             >>> # example 2:
             >>> # In this example, the user specifies the actual input.
@@ -680,37 +679,36 @@ def convert(model_path, config):
             >>>     def forward(self, x):
             >>>         return F.relu(self.linear(x))
 
-            >>> def test_paddle_to_tensorrt_conversion():
-            >>>     input_dim = 3
-            >>>     layer = LinearNet(input_dim)
+            >>> input_dim = 3
+            >>> layer = LinearNet(input_dim)
 
-            >>>     save_path = "/tmp/linear_net"
-            >>>     paddle.jit.save(layer, save_path, [paddle.static.InputSpec(shape=[-1, input_dim])])
+            >>> save_path = "/tmp/linear_net"
+            >>> paddle.jit.save(layer, save_path, [paddle.static.InputSpec(shape=[-1, input_dim])])
 
-            >>>     input_config = Input(
-            >>>         warmup_data=(
-            >>>             np.random.rand(1,3).astype(np.float32),
-            >>>             np.random.rand(2,3).astype(np.float32),
-            >>>             np.random.rand(4,3).astype(np.float32),
-            >>>         )
+            >>> input_config = Input(
+            >>>     warmup_data=(
+            >>>         np.random.rand(1,3).astype(np.float32),
+            >>>         np.random.rand(2,3).astype(np.float32),
+            >>>         np.random.rand(4,3).astype(np.float32),
             >>>     )
+            >>> )
 
-            >>>     trt_config = TensorRTConfig(inputs=[input_config])
-            >>>     trt_config.save_model_dir = "/tmp/linear_net_trt"
+            >>> trt_config = TensorRTConfig(inputs=[input_config])
+            >>> trt_config.save_model_dir = "/tmp/linear_net_trt"
 
-            >>>     program_with_trt = paddle.tensorrt.convert(save_path, trt_config)
+            >>> program_with_trt = paddle.tensorrt.convert(save_path, trt_config)
 
-            >>>     config = paddle_infer.Config(
-            >>>         trt_config.save_model_dir + '.json',
-            >>>         trt_config.save_model_dir + '.pdiparams',
-            >>>     )
-            >>>     config.enable_use_gpu(100, 0)
-            >>>     predictor = paddle_infer.create_predictor(config)
+            >>> config = paddle_infer.Config(
+            >>>     trt_config.save_model_dir + '.json',
+            >>>     trt_config.save_model_dir + '.pdiparams',
+            >>> )
+            >>> config.enable_use_gpu(100, 0)
+            >>> predictor = paddle_infer.create_predictor(config)
 
-            >>>     input_data = np.random.randn(2, 3).astype(np.float32)
-            >>>     model_input = paddle.to_tensor(input_data)
+            >>> input_data = np.random.randn(2, 3).astype(np.float32)
+            >>> model_input = paddle.to_tensor(input_data)
 
-            >>>     output_converted = predictor.run([model_input])
+            >>> output_converted = predictor.run([model_input])
 
     """
     if os.path.abspath(config.save_model_dir) == os.path.abspath(model_path):
