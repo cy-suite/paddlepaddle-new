@@ -2105,7 +2105,8 @@ All parameter, weight, gradient are variables in Paddle.
 #endif
           })
       .def_static(
-          "create", [](phi::XPUPinnedPlace &place) -> phi::DeviceContext * {
+          "create",
+          [](phi::XPUPinnedPlace &place) -> phi::DeviceContext * {
 #if !defined(PADDLE_WITH_XPU)
             PADDLE_THROW(common::errors::PermissionDenied(
                 "Cannot use XPUPinnedPlace in CPU only version, "

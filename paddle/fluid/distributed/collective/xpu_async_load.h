@@ -54,7 +54,8 @@ class XpuAsyncLoad {
   };
 
   // Offload from XPU to XPUPinned memory.
-  std::shared_ptr<Task> Offload(phi::DenseTensor* dst, const phi::DenseTensor& src);
+  std::shared_ptr<Task> Offload(phi::DenseTensor* dst,
+                                const phi::DenseTensor& src);
 
   // Offload a portion (with offset) from XPU to XPUPinned memory.
   std::shared_ptr<Task> OffloadWithOffset(phi::DenseTensor* dst,
@@ -64,7 +65,8 @@ class XpuAsyncLoad {
                                           size_t offload_size);
 
   // Reload data from XPUPinned memory back to XPU.
-  std::shared_ptr<Task> Reload(phi::DenseTensor* dst, const phi::DenseTensor& src);
+  std::shared_ptr<Task> Reload(phi::DenseTensor* dst,
+                               const phi::DenseTensor& src);
 
   // Prepare the load environment (if needed).
   void PrepareLoadEnv(const std::string& key, const Place& place);
@@ -72,7 +74,7 @@ class XpuAsyncLoad {
   // Instead of using a device event’s Record/Wait, we use the XPUEventManager.
   void SyncCalcStream(const Place& place,
                       phi::XPUContext* ctx,
-                      XPUEventManager& event_manager);
+                      XPUEventManager* event_manager);
 
  private:
   std::shared_ptr<Task> CreateTask(const Place& place);
@@ -80,7 +82,7 @@ class XpuAsyncLoad {
   // Map from a key (e.g. "load") to an XPUEventManager instance.
   std::unordered_map<std::string, XPUEventManager> place_to_calc_event_;
   bool is_initialized_{false};
-  //std::unique_ptr<phi::XPUContext> load_ctx_;
+  // std::unique_ptr<phi::XPUContext> load_ctx_;
   Place xpu_place_;
 };
 

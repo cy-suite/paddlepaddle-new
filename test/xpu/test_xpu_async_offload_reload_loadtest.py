@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
-import numpy as np
 import time
+import unittest
+
+import numpy as np
+
 import paddle
 
 # Disable static mode so that .numpy() can be called.
@@ -26,6 +28,7 @@ from paddle.incubate.tensor.manipulation import (
     create_xpu_async_load,
 )
 
+
 def print_debug_info(tensor, name):
     """Prints debug information for a tensor."""
     print(f"{name} is on device: {tensor.place}")
@@ -36,6 +39,7 @@ def print_debug_info(tensor, name):
         print(f"{name} first 5 elements: {flat[:5]}")
     except Exception as e:
         print(f"{name} cannot be converted to numpy array: {e}")
+
 
 class TestLargeTensorOffloadAndReloadRepeated(unittest.TestCase):
     def test_large_data_performance_repeated(self):
@@ -54,7 +58,7 @@ class TestLargeTensorOffloadAndReloadRepeated(unittest.TestCase):
             task_offload.cpu_wait()  # Wait for offload completion.
             t1 = time.time()
             offload_time = t1 - t0
-            print("Offload time: {:.4f} seconds".format(offload_time))
+            print(f"Offload time: {offload_time:.4f} seconds")
 
             # Reload the tensor.
             t2 = time.time()
@@ -62,7 +66,8 @@ class TestLargeTensorOffloadAndReloadRepeated(unittest.TestCase):
             task_reload.cpu_wait()  # Wait for reload completion.
             t3 = time.time()
             reload_time = t3 - t2
-            print("Reload time: {:.4f} seconds".format(reload_time))
+            print(f"Reload time: {reload_time:.4f} seconds")
+
 
 if __name__ == '__main__':
     print("Default Paddle device:", paddle.get_device())

@@ -18,9 +18,9 @@
 #include "paddle/phi/core/platform/profiler/mem_tracing.h"
 
 #if defined(PADDLE_WITH_XPU)
-#include "paddle/phi/backends/xpu/enforce_xpu.h"
-#include <cuda_runtime.h>
 #include <cuda.h>
+#include <cuda_runtime.h>
+#include "paddle/phi/backends/xpu/enforce_xpu.h"
 #endif
 
 namespace paddle::memory::allocation {
@@ -28,9 +28,7 @@ namespace paddle::memory::allocation {
 // Define the destructor so the vtable gets emitted.
 XPUPinnedAllocator::~XPUPinnedAllocator() = default;
 
-bool XPUPinnedAllocator::IsAllocThreadSafe() const {
-  return true;
-}
+bool XPUPinnedAllocator::IsAllocThreadSafe() const { return true; }
 
 void XPUPinnedAllocator::FreeImpl(phi::Allocation* allocation) {
 #if defined(PADDLE_WITH_XPU)

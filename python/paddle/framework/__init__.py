@@ -18,10 +18,10 @@ from ..base import core  # noqa: F401
 from ..base.core import (  # noqa: F401
     CPUPlace,
     CUDAPinnedPlace,
-    XPUPinnedPlace,
     CUDAPlace,
     CustomPlace,
     IPUPlace,
+    XPUPinnedPlace,
     XPUPlace,
 )
 from ..base.dygraph import base  # noqa: F401

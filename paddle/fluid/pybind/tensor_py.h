@@ -351,7 +351,7 @@ T TensorGetElement(const phi::DenseTensor &self, size_t offset) {
   if (phi::is_cpu_place(self.place()) ||
       phi::is_cuda_pinned_place(self.place())) {
     b = self.data<T>()[offset];
-  } else if (phi::is_xpu_place(self.place()) || 
+  } else if (phi::is_xpu_place(self.place()) ||
              phi::is_xpu_pinned_place(self.place())) {
 #ifdef PADDLE_WITH_XPU
     const T *a = self.data<T>();

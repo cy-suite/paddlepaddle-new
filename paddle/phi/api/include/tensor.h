@@ -310,7 +310,7 @@ class PADDLE_API Tensor final {
    */
   bool is_xpu() const;
 
-    /**
+  /**
    * @brief Determine whether the tensor device is XPU_PINNED
    *
    * @return bool

@@ -20,9 +20,9 @@
 #include "paddle/phi/backends/gpu/rocm/hip_graph.h"
 #endif
 
-#include "glog/logging.h"
-#include <typeinfo>
 #include <iostream>
+#include <typeinfo>
+#include "glog/logging.h"
 
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/enforce.h"

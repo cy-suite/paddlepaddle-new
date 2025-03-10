@@ -13,7 +13,9 @@
 # limitations under the License.
 
 import unittest
+
 import numpy as np
+
 import paddle
 
 # Disable static mode so that .numpy() can be called.
@@ -26,6 +28,7 @@ from paddle.incubate.tensor.manipulation import (
     create_xpu_async_load,
 )
 
+
 def print_debug_info(tensor, name):
     """Prints debug information for a tensor."""
     print(f"{name} is on device: {tensor.place}")
@@ -37,6 +40,7 @@ def print_debug_info(tensor, name):
         print(f"{name} full array:\n{arr}")
     except Exception as e:
         print(f"{name} cannot be converted to numpy array: {e}")
+
 
 class TestSaveLoadLargeParameters(unittest.TestCase):
     def offload_and_reload(self, data0):
@@ -84,13 +88,18 @@ class TestSaveLoadLargeParameters(unittest.TestCase):
         # Create a fixed tensor with known values using linspace.
         arr = np.linspace(0, 1, 50).reshape([10, 5]).astype("float32")
         data0 = paddle.to_tensor(arr, place=paddle.XPUPlace(0))
-        print_debug_info(data0, "data0 in test_large_parameters_paddle_save_tensor")
+        print_debug_info(
+            data0, "data0 in test_large_parameters_paddle_save_tensor"
+        )
         self.offload_and_reload(data0)
 
     def test_large_parameters_paddle_save_model_weight(self):
         model = paddle.nn.Linear(10, 5)
         data0 = model.weight
-        print_debug_info(data0, "model.weight in test_large_parameters_paddle_save_model_weight")
+        print_debug_info(
+            data0,
+            "model.weight in test_large_parameters_paddle_save_model_weight",
+        )
         self.offload_and_reload(data0)
 
     def test_offload_with_offset(self):
@@ -133,6 +142,7 @@ class TestSaveLoadLargeParameters(unittest.TestCase):
         diff = np.max(np.abs(data1.numpy() - data2.numpy()))
         print("Max diff (data1 - data2):", diff)
         np.testing.assert_array_equal(data1.numpy(), data2.numpy())
+
 
 if __name__ == '__main__':
     print("Default Paddle device:", paddle.get_device())

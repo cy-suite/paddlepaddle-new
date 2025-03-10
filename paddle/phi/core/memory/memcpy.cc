@@ -21,12 +21,12 @@ limitations under the License. */
 #include "paddle/utils/test_macros.h"
 
 #ifdef PADDLE_WITH_XPU
-#include "paddle/phi/backends/xpu/xpu_header.h"
-#include "xpu/runtime.h"
-#include "xpu/runtime_ex.h"
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <chrono>
+#include "paddle/phi/backends/xpu/xpu_header.h"
+#include "xpu/runtime.h"
+#include "xpu/runtime_ex.h"
 #endif
 
 namespace paddle::memory {
@@ -414,10 +414,10 @@ void Copy<phi::XPUPinnedPlace, phi::XPUPlace>(phi::XPUPinnedPlace dst_place,
     phi::RecordEvent record_event(
         "cudaMemcpyAsync:XPU->XPUPinned", phi::TracerEventType::UserDefined, 1);
     cudaMemcpyAsync(dst,
-                             src,
-                             num,
-                             cudaMemcpyDeviceToHost,
-                             reinterpret_cast<cudaStream_t>(stream));
+                    src,
+                    num,
+                    cudaMemcpyDeviceToHost,
+                    reinterpret_cast<cudaStream_t>(stream));
 
   } else {
     phi::RecordEvent record_event(
@@ -429,7 +429,6 @@ void Copy<phi::XPUPinnedPlace, phi::XPUPlace>(phi::XPUPinnedPlace dst_place,
   auto end = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double, std::milli> elapsed = end - start;
   VLOG(4) << "cudaMemcpy time: " << elapsed.count() << " ms";
-  
 }
 
 // template <>
@@ -446,7 +445,8 @@ void Copy<phi::XPUPinnedPlace, phi::XPUPlace>(phi::XPUPinnedPlace dst_place,
 //           << dst_place << " by stream(" << stream << ")";
 //   if (stream) {
 //     phi::RecordEvent record_event(
-//         "cudaMemcpyAsync:XPUPinned->XPU", phi::TracerEventType::UserDefined, 1);
+//         "cudaMemcpyAsync:XPUPinned->XPU", phi::TracerEventType::UserDefined,
+//         1);
 //     cudaMemcpyAsync(dst,
 //                              src,
 //                              num,
@@ -502,8 +502,6 @@ void Copy<phi::XPUPlace, phi::XPUPinnedPlace>(phi::XPUPlace dst_place,
   std::chrono::duration<double, std::milli> elapsed = end - start;
   VLOG(4) << "cudaMemcpy time: " << elapsed.count() << " ms";
 }
-
-
 
 // NOTE: only for (CPUPlace, CUDAPlace and CUDAPinnedPlace) -> (CUDAPinnedPlace)
 template <>

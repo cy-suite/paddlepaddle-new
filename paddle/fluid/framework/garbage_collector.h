@@ -77,7 +77,7 @@ class XPUGarbageCollector : public GarbageCollector {
 class XPUPinnedGarbageCollector : public GarbageCollector {
  public:
   XPUPinnedGarbageCollector(const phi::XPUPinnedPlace &place,
-                             size_t max_memory_size);
+                            size_t max_memory_size);
 
  protected:
   void ClearCallback(const std::function<void()> &callback) override;

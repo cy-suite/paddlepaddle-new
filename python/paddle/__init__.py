@@ -151,11 +151,11 @@ from .distributed import DataParallel
 from .framework import (  # noqa: F401
     CPUPlace,
     CUDAPinnedPlace,
-    XPUPinnedPlace,
     CUDAPlace,
     CustomPlace,
     IPUPlace,
     ParamAttr,
+    XPUPinnedPlace,
     XPUPlace,
     async_save,
     clear_async_save_task_queue,

@@ -35,5 +35,3 @@ class XPUPinnedAllocator : public Allocator {
 }  // namespace allocation
 }  // namespace memory
 }  // namespace paddle
-
-

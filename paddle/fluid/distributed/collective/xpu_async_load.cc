@@ -12,12 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/fluid/distributed/collective/xpu_async_load.h"
-#include "paddle/phi/common/memory_utils.h"
-#include "paddle/phi/backends/xpu/xpu_context.h"  // For phi::XPUContext
-#include "paddle/phi/core/memory/allocation/allocator_facade.h"
-#include "paddle/phi/common/place.h"
-
 #include <chrono>
 #include <ctime>
 #include <iomanip>
@@ -25,6 +19,11 @@
 #include <memory>
 #include <sstream>
 
+#include "paddle/fluid/distributed/collective/xpu_async_load.h"
+#include "paddle/phi/backends/xpu/xpu_context.h"  // For phi::XPUContext
+#include "paddle/phi/common/memory_utils.h"
+#include "paddle/phi/common/place.h"
+#include "paddle/phi/core/memory/allocation/allocator_facade.h"
 
 namespace paddle {
 namespace distributed {
@@ -34,9 +33,9 @@ namespace distributed {
 //
 
 XpuAsyncLoad::Task::Task(const Place& place)
-    : task_place_(place),
-      event_manager_(std::make_shared<XPUEventManager>()) {
-  std::cout << "[XpuAsyncLoad::Task] Created task for place: " << task_place_ << std::endl;
+    : task_place_(place), event_manager_(std::make_shared<XPUEventManager>()) {
+  std::cout << "[XpuAsyncLoad::Task] Created task for place: " << task_place_
+            << std::endl;
 }
 
 XpuAsyncLoad::Task::~Task() {}
@@ -61,7 +60,9 @@ void XpuAsyncLoad::Task::CpuSynchronize() {
 void XpuAsyncLoad::Task::UpdateWaitChain(const phi::DeviceContext& ctx) {
   auto* xpu_ctx = dynamic_cast<const phi::XPUContext*>(&ctx);
   if (xpu_ctx) {
-    std::cout << "[XpuAsyncLoad::Task] UpdateWaitChain: Recording event on XPU context" << std::endl;
+    std::cout << "[XpuAsyncLoad::Task] UpdateWaitChain: Recording event on XPU "
+                 "context"
+              << std::endl;
     event_manager_->Record(*xpu_ctx);
   }
 }
@@ -70,83 +71,106 @@ void XpuAsyncLoad::Task::UpdateWaitChain(const phi::DeviceContext& ctx) {
 // Implementation of XpuAsyncLoad methods
 //
 
-std::shared_ptr<XpuAsyncLoad::Task> XpuAsyncLoad::CreateTask(const Place& place) {
+std::shared_ptr<XpuAsyncLoad::Task> XpuAsyncLoad::CreateTask(
+    const Place& place) {
   return std::make_shared<Task>(place);
 }
 
 void XpuAsyncLoad::SyncCalcStream(const Place& /*place*/,
                                   phi::XPUContext* ctx,
-                                  XPUEventManager& event_manager) {
-  std::cout << "[SyncCalcStream] Recording event and blocking on context." << std::endl;
-  event_manager.Record(*ctx);
-  event_manager.Block(*ctx);
+                                  XPUEventManager* event_manager) {
+  std::cout << "[SyncCalcStream] Recording event and blocking on context."
+            << std::endl;
+  event_manager->Record(*ctx);
+  event_manager->Block(*ctx);
 }
 
 // Helper function to get the current timestamp as a string.
 std::string currentTimestamp() {
-    auto now = std::chrono::system_clock::now();
-    auto now_time_t = std::chrono::system_clock::to_time_t(now);
-    std::stringstream ss;
-    ss << std::put_time(std::localtime(&now_time_t), "%F %T");
-    return ss.str();
+  auto now = std::chrono::system_clock::now();
+  auto now_time_t = std::chrono::system_clock::to_time_t(now);
+  std::stringstream ss;
+  ss << std::put_time(std::localtime(&now_time_t), "%F %T");
+  return ss.str();
 }
 
 std::shared_ptr<XpuAsyncLoad::Task> XpuAsyncLoad::Offload(
     phi::DenseTensor* dst, const phi::DenseTensor& src) {
   // XPU -> XPUPinned
   const auto& place = src.place();
-  std::cout << "[" << currentTimestamp() << "] src place is: " << phi::AllocationTypeStr(src.place().GetType()) << std::endl;
+  std::cout << "[" << currentTimestamp() << "] src place is: "
+            << phi::AllocationTypeStr(src.place().GetType()) << std::endl;
 
-  PADDLE_ENFORCE_EQ(
-      phi::is_xpu_place(place),
-      true,
-      common::errors::InvalidArgument("XpuAsyncLoad::Offload only supports XPU -> XPUPinned now, src place is not correct"));
-  
+  PADDLE_ENFORCE_EQ(phi::is_xpu_place(place),
+                    true,
+                    common::errors::InvalidArgument(
+                        "XpuAsyncLoad::Offload only supports XPU -> XPUPinned "
+                        "now, src place is not correct"));
 
-  std::cout << "[" << currentTimestamp() << "] [Offload] Offloading tensor from place: " << place << std::endl;
+  std::cout << "[" << currentTimestamp()
+            << "] [Offload] Offloading tensor from place: " << place
+            << std::endl;
   dst->Resize(src.dims());
   auto size = src.numel() * phi::SizeOf(src.dtype());
-  std::cout << "[" << currentTimestamp() << "] [Offload] Tensor size in bytes: " << size << std::endl;
+  std::cout << "[" << currentTimestamp()
+            << "] [Offload] Tensor size in bytes: " << size << std::endl;
 
   auto* dev_ctx = static_cast<phi::XPUContext*>(
       phi::DeviceContextPool::Instance().Get(place));
-  
+
   // Set allocators for dev_ctx using the AllocatorFacade.
-  dev_ctx->SetAllocator(memory::allocation::AllocatorFacade::Instance().GetAllocator(place).get());
-  dev_ctx->SetPinnedAllocator(memory::allocation::AllocatorFacade::Instance().GetAllocator(::phi::GetPinnedPlace(place)).get());
-  
-  std::cout << "[" << currentTimestamp() << "] [Offload] Start Allocating destination pinned memory" << std::endl;
+  dev_ctx->SetAllocator(memory::allocation::AllocatorFacade::Instance()
+                            .GetAllocator(place)
+                            .get());
+  dev_ctx->SetPinnedAllocator(memory::allocation::AllocatorFacade::Instance()
+                                  .GetAllocator(::phi::GetPinnedPlace(place))
+                                  .get());
+
+  std::cout << "[" << currentTimestamp()
+            << "] [Offload] Start Allocating destination pinned memory"
+            << std::endl;
 
   // Allocate pinned memory (true)
   auto* dst_ptr = dev_ctx->Alloc(dst, src.dtype(), size, true);
 
-  std::cout << "[" << currentTimestamp() << "] [Offload] Allocated destination pinned memory at: " << dst_ptr << std::endl;
+  std::cout << "[" << currentTimestamp()
+            << "] [Offload] Allocated destination pinned memory at: " << dst_ptr
+            << std::endl;
   auto* src_ptr = src.data();
-  std::cout << "[" << currentTimestamp() << "] [Offload] Source data pointer: " << src_ptr << std::endl;
+  std::cout << "[" << currentTimestamp()
+            << "] [Offload] Source data pointer: " << src_ptr << std::endl;
 
   std::string key = "load";
   if (!is_initialized_) {
     is_initialized_ = true;
     xpu_place_ = place;
-    std::cout << "[" << currentTimestamp() << "] [Offload] Initializing load environment on place: " << place << std::endl;
+    std::cout << "[" << currentTimestamp()
+              << "] [Offload] Initializing load environment on place: " << place
+              << std::endl;
     // Create and store an XPUEventManager for this key.
     place_to_calc_event_.emplace(key, XPUEventManager());
   }
-  
-  std::cout << "[" << currentTimestamp() << "] dst place is: " << phi::AllocationTypeStr(dst->place().GetType()) << std::endl;
-  PADDLE_ENFORCE_EQ(
-      phi::is_xpu_pinned_place(dst->place()),
-      true,
-      common::errors::InvalidArgument("XpuAsyncLoad::Offload only supports XPU -> XPUPinned now, dst place is not correct"));
-      
+
+  std::cout << "[" << currentTimestamp() << "] dst place is: "
+            << phi::AllocationTypeStr(dst->place().GetType()) << std::endl;
+  PADDLE_ENFORCE_EQ(phi::is_xpu_pinned_place(dst->place()),
+                    true,
+                    common::errors::InvalidArgument(
+                        "XpuAsyncLoad::Offload only supports XPU -> XPUPinned "
+                        "now, dst place is not correct"));
+
   // Perform the synchronous memory copy.
-  std::cout << "[" << currentTimestamp() << "] [Offload] Copying memory from src (" << src_ptr << ") to dst (" << dst_ptr << ") size " << size << std::endl;
+  std::cout << "[" << currentTimestamp()
+            << "] [Offload] Copying memory from src (" << src_ptr
+            << ") to dst (" << dst_ptr << ") size " << size << std::endl;
   phi::memory_utils::Copy(dst->place(), dst_ptr, src.place(), src_ptr, size);
   dev_ctx->Wait();
-  // SyncCalcStream(xpu_place_, dev_ctx, place_to_calc_event_.at(key));
+  // SyncCalcStream(xpu_place_, dev_ctx, &place_to_calc_event_.at(key));
   // auto stream = dev_ctx->stream();
-  // phi::memory_utils::Copy(dst->place(), dst_ptr, src.place(), src_ptr, size, stream);
-  std::cout << "[" << currentTimestamp() << "] [Offload] Copy complete; device context waited." << std::endl;
+  // phi::memory_utils::Copy(dst->place(), dst_ptr, src.place(), src_ptr, size,
+  // stream);
+  std::cout << "[" << currentTimestamp()
+            << "] [Offload] Copy complete; device context waited." << std::endl;
 
   auto task = CreateTask(place);
   task->UpdateWaitChain(*dev_ctx);
@@ -161,64 +185,91 @@ std::shared_ptr<XpuAsyncLoad::Task> XpuAsyncLoad::OffloadWithOffset(
     size_t offload_size) {
   // XPU -> XPUPinned
   const auto& place = src.place();
-  std::cout << "[" << currentTimestamp() << "] src place is: " << phi::AllocationTypeStr(src.place().GetType()) << std::endl;
-  
-  PADDLE_ENFORCE_EQ(
-      phi::is_xpu_place(place),
-      true,
-      common::errors::InvalidArgument("XpuAsyncLoad::OffloadWithOffset only supports XPU src now, src place is not correct"));
-  PADDLE_ENFORCE_EQ(dst->initialized(), true,
-      common::errors::PreconditionNotMet("XpuAsyncLoad::OffloadWithOffset requires initialized tensors for both dst and src."));
-  PADDLE_ENFORCE_LE(
-      src_offset + offload_size,
-      src.numel(),
-      common::errors::InvalidArgument("XpuAsyncLoad::OffloadWithOffset: src_offset + offload_size must be <= src tensor size."));
-  PADDLE_ENFORCE_LE(
-      dst_offset + offload_size,
-      dst->numel(),
-      common::errors::InvalidArgument("XpuAsyncLoad::OffloadWithOffset: dst_offset + offload_size must be <= dst tensor size."));
+  std::cout << "[" << currentTimestamp() << "] src place is: "
+            << phi::AllocationTypeStr(src.place().GetType()) << std::endl;
 
-  std::cout << "[" << currentTimestamp() << "] [OffloadWithOffset] Offloading with offset; offload_size: " << offload_size << std::endl;
+  PADDLE_ENFORCE_EQ(phi::is_xpu_place(place),
+                    true,
+                    common::errors::InvalidArgument(
+                        "XpuAsyncLoad::OffloadWithOffset only supports XPU src "
+                        "now, src place is not correct"));
+  PADDLE_ENFORCE_EQ(dst->initialized(),
+                    true,
+                    common::errors::PreconditionNotMet(
+                        "XpuAsyncLoad::OffloadWithOffset requires initialized "
+                        "tensors for both dst and src."));
+  PADDLE_ENFORCE_LE(src_offset + offload_size,
+                    src.numel(),
+                    common::errors::InvalidArgument(
+                        "XpuAsyncLoad::OffloadWithOffset: src_offset + "
+                        "offload_size must be <= src tensor size."));
+  PADDLE_ENFORCE_LE(dst_offset + offload_size,
+                    dst->numel(),
+                    common::errors::InvalidArgument(
+                        "XpuAsyncLoad::OffloadWithOffset: dst_offset + "
+                        "offload_size must be <= dst tensor size."));
+
+  std::cout << "[" << currentTimestamp()
+            << "] [OffloadWithOffset] Offloading with offset; offload_size: "
+            << offload_size << std::endl;
   auto size_in_bytes = offload_size * phi::SizeOf(src.dtype());
   auto src_offset_in_bytes = src_offset * phi::SizeOf(src.dtype());
   auto dst_offset_in_bytes = dst_offset * phi::SizeOf(src.dtype());
 
   auto* dst_ptr = dst->data();
   auto* src_ptr = src.data();
-  std::cout << "[" << currentTimestamp() << "] [OffloadWithOffset] Original dst pointer: " << dst_ptr << ", src pointer: " << src_ptr << std::endl;
+  std::cout << "[" << currentTimestamp()
+            << "] [OffloadWithOffset] Original dst pointer: " << dst_ptr
+            << ", src pointer: " << src_ptr << std::endl;
   auto* dst_ptr_tmp = static_cast<char*>(dst_ptr);
   auto* src_ptr_tmp = static_cast<const char*>(src_ptr);
   dst_ptr = static_cast<void*>(dst_ptr_tmp + dst_offset_in_bytes);
   src_ptr = static_cast<const void*>(src_ptr_tmp + src_offset_in_bytes);
-  std::cout << "[" << currentTimestamp() << "] [OffloadWithOffset] Adjusted dst pointer: " << dst_ptr << ", src pointer: " << src_ptr << std::endl;
+  std::cout << "[" << currentTimestamp()
+            << "] [OffloadWithOffset] Adjusted dst pointer: " << dst_ptr
+            << ", src pointer: " << src_ptr << std::endl;
 
   auto* dev_ctx = static_cast<phi::XPUContext*>(
       phi::DeviceContextPool::Instance().Get(place));
-  
-  dev_ctx->SetAllocator(memory::allocation::AllocatorFacade::Instance().GetAllocator(place).get());
-  dev_ctx->SetPinnedAllocator(memory::allocation::AllocatorFacade::Instance().GetAllocator(::phi::GetPinnedPlace(place)).get());
+
+  dev_ctx->SetAllocator(memory::allocation::AllocatorFacade::Instance()
+                            .GetAllocator(place)
+                            .get());
+  dev_ctx->SetPinnedAllocator(memory::allocation::AllocatorFacade::Instance()
+                                  .GetAllocator(::phi::GetPinnedPlace(place))
+                                  .get());
 
   std::string key = "load";
   if (!is_initialized_) {
     is_initialized_ = true;
     xpu_place_ = place;
-    std::cout << "[" << currentTimestamp() << "] [OffloadWithOffset] Initializing load environment with offset on place: " << place << std::endl;
+    std::cout << "[" << currentTimestamp()
+              << "] [OffloadWithOffset] Initializing load environment with "
+                 "offset on place: "
+              << place << std::endl;
     place_to_calc_event_.emplace(key, XPUEventManager());
   }
 
-  std::cout << "[" << currentTimestamp() << "] dst place is: " << phi::AllocationTypeStr(dst->place().GetType()) << std::endl;
-  PADDLE_ENFORCE_EQ(
-      phi::is_xpu_pinned_place(dst->place()),
-      true,
-      common::errors::InvalidArgument("XpuAsyncLoad::Offload only supports XPU -> XPUPinned now, dst place is not correct"));
+  std::cout << "[" << currentTimestamp() << "] dst place is: "
+            << phi::AllocationTypeStr(dst->place().GetType()) << std::endl;
+  PADDLE_ENFORCE_EQ(phi::is_xpu_pinned_place(dst->place()),
+                    true,
+                    common::errors::InvalidArgument(
+                        "XpuAsyncLoad::Offload only supports XPU -> XPUPinned "
+                        "now, dst place is not correct"));
 
-  std::cout << "[" << currentTimestamp() << "] [OffloadWithOffset] Copying " << size_in_bytes << " bytes with offset." << std::endl;
-  phi::memory_utils::Copy(dst->place(), dst_ptr, src.place(), src_ptr, size_in_bytes);
+  std::cout << "[" << currentTimestamp() << "] [OffloadWithOffset] Copying "
+            << size_in_bytes << " bytes with offset." << std::endl;
+  phi::memory_utils::Copy(
+      dst->place(), dst_ptr, src.place(), src_ptr, size_in_bytes);
   dev_ctx->Wait();
-  // SyncCalcStream(xpu_place_, dev_ctx, place_to_calc_event_.at(key));
+  // SyncCalcStream(xpu_place_, dev_ctx, &place_to_calc_event_.at(key));
   // auto stream = dev_ctx->stream();
-  // phi::memory_utils::Copy(dst->place(), dst_ptr, src.place(), src_ptr, size_in_bytes, stream);
-  std::cout << "[" << currentTimestamp() << "] [OffloadWithOffset] Copy complete; waited on dev_ctx." << std::endl;
+  // phi::memory_utils::Copy(dst->place(), dst_ptr, src.place(), src_ptr,
+  // size_in_bytes, stream);
+  std::cout << "[" << currentTimestamp()
+            << "] [OffloadWithOffset] Copy complete; waited on dev_ctx."
+            << std::endl;
 
   auto task = CreateTask(place);
   task->UpdateWaitChain(*dev_ctx);
@@ -229,40 +280,54 @@ std::shared_ptr<XpuAsyncLoad::Task> XpuAsyncLoad::Reload(
     phi::DenseTensor* dst, const phi::DenseTensor& src) {
   // XPUPinned -> XPU
   const auto& place = src.place();
-  std::cout << "src place is: " << phi::AllocationTypeStr(src.place().GetType()) << std::endl;
-  
-  PADDLE_ENFORCE_EQ(
-      phi::is_xpu_pinned_place(place),
-      true,
-      common::errors::InvalidArgument("XpuAsyncLoad::Reload only supports XPUPinned -> XPU now, src place is not correct"));
-  
-  PADDLE_ENFORCE_EQ(is_initialized_, true,
-      common::errors::PreconditionNotMet("You must call Offload before Reload."));
+  std::cout << "src place is: " << phi::AllocationTypeStr(src.place().GetType())
+            << std::endl;
 
-  std::cout << "[" << currentTimestamp() << "] [Reload] Reloading tensor from XPUPinned to XPU." << std::endl;
+  PADDLE_ENFORCE_EQ(phi::is_xpu_pinned_place(place),
+                    true,
+                    common::errors::InvalidArgument(
+                        "XpuAsyncLoad::Reload only supports XPUPinned -> XPU "
+                        "now, src place is not correct"));
+
+  PADDLE_ENFORCE_EQ(is_initialized_,
+                    true,
+                    common::errors::PreconditionNotMet(
+                        "You must call Offload before Reload."));
+
+  std::cout << "[" << currentTimestamp()
+            << "] [Reload] Reloading tensor from XPUPinned to XPU."
+            << std::endl;
   auto* dev_ctx = static_cast<phi::XPUContext*>(
       phi::DeviceContextPool::Instance().Get(xpu_place_));
 
   dst->Resize(src.dims());
   auto size = src.numel() * phi::SizeOf(src.dtype());
-  std::cout << "[" << currentTimestamp() << "] [Reload] Allocating destination XPU memory; size: " << size << std::endl;
+  std::cout << "[" << currentTimestamp()
+            << "] [Reload] Allocating destination XPU memory; size: " << size
+            << std::endl;
   auto* dst_ptr = dev_ctx->Alloc(dst, src.dtype(), size, /*pinned=*/false);
   auto* src_ptr = src.data();
 
-  std::cout << "[" << currentTimestamp() << "] dst place is: " << phi::AllocationTypeStr(dst->place().GetType()) << std::endl;
-  PADDLE_ENFORCE_EQ(
-      phi::is_xpu_place(dst->place()),
-      true,
-      common::errors::InvalidArgument("XpuAsyncLoad::Offload only supports XPU -> XPUPinned now, dst place is not correct"));
+  std::cout << "[" << currentTimestamp() << "] dst place is: "
+            << phi::AllocationTypeStr(dst->place().GetType()) << std::endl;
+  PADDLE_ENFORCE_EQ(phi::is_xpu_place(dst->place()),
+                    true,
+                    common::errors::InvalidArgument(
+                        "XpuAsyncLoad::Offload only supports XPU -> XPUPinned "
+                        "now, dst place is not correct"));
 
-  std::cout << "[" << currentTimestamp() << "] [Reload] Copying data from pinned src (" << src_ptr << ") to XPU dst (" << dst_ptr << ")" << std::endl;
+  std::cout << "[" << currentTimestamp()
+            << "] [Reload] Copying data from pinned src (" << src_ptr
+            << ") to XPU dst (" << dst_ptr << ")" << std::endl;
   phi::memory_utils::Copy(dst->place(), dst_ptr, src.place(), src_ptr, size);
   dev_ctx->Wait();
   // std::string key = "load";
-  // SyncCalcStream(xpu_place_, dev_ctx, place_to_calc_event_.at(key));
+  // SyncCalcStream(xpu_place_, dev_ctx, &place_to_calc_event_.at(key));
   // auto stream = dev_ctx->stream();
-  // phi::memory_utils::Copy(dst->place(), dst_ptr, src.place(), src_ptr, size, stream);
-  std::cout << "[" << currentTimestamp() << "] [Reload] Reload complete; waited on dev_ctx." << std::endl;
+  // phi::memory_utils::Copy(dst->place(), dst_ptr, src.place(), src_ptr, size,
+  // stream);
+  std::cout << "[" << currentTimestamp()
+            << "] [Reload] Reload complete; waited on dev_ctx." << std::endl;
 
   auto task = CreateTask(xpu_place_);
   task->UpdateWaitChain(*dev_ctx);

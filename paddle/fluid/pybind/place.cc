@@ -552,7 +552,7 @@ void BindPlace(pybind11::module &m) {  // NOLINT
       .def("__repr__", string::to_string<const phi::GPUPinnedPlace &>)
       .def("__str__", string::to_string<const phi::GPUPinnedPlace &>);
 
-  //XPUPinnedPlace
+  // XPUPinnedPlace
   py::class_<phi::XPUPinnedPlace> xpupinnedplace(m, "XPUPinnedPlace", R"DOC(
     XPUPinnedPlace is a descriptor of a device.
     It refers to the page locked memory allocated by the CUDA function `cudaHostAlloc()` in the host memory.

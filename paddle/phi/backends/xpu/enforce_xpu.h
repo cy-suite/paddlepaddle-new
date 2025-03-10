@@ -14,7 +14,6 @@ limitations under the License. */
 
 #pragma once
 
-
 #ifdef PADDLE_WITH_XPU
 #include <cuda.h>
 #include <cuda_runtime.h>

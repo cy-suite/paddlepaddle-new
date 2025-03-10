@@ -1160,6 +1160,7 @@ def cuda_pinned_places(
         device_count = len(_cuda_ids())
     return [core.CUDAPinnedPlace()] * device_count
 
+
 def xpu_pinned_places(
     device_count: int | None = None,
 ) -> list[core.XPUPinnedPlace]:

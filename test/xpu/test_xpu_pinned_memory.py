@@ -15,38 +15,46 @@
 # (c) 2023-2025 PaddlePaddle Authors
 
 import unittest
+
 import numpy as np
+
 import paddle
 
 if not hasattr(paddle, "XPUPinnedPlace"):
     from paddle.base.core import XPUPinnedPlace as _XPUPinnedPlace
+
     paddle.XPUPinnedPlace = lambda: _XPUPinnedPlace(0)
+
 
 def print_debug_info(tensor, name):
     """Prints the device placement of a tensor."""
     print(f"{name} is on device: {tensor.place}")
 
+
 class TestXPUPinnedToCpuCopy(unittest.TestCase):
     def test_copy_from_xpu_pinned_to_cpu(self):
         # Create a sample numpy array.
         arr = np.random.rand(10, 10).astype('float32')
-        
+
         # Create an XPU pinned memory place using the same interface as GPU pinned memory.
         xpu_pinned_place = paddle.XPUPinnedPlace()
-        
+
         # Create a tensor in XPU pinned memory.
         tensor_pinned = paddle.to_tensor(arr, place=paddle.XPUPinnedPlace())
         print_debug_info(tensor_pinned, "tensor_pinned (XPU pinned)")
-        
+
         # Since tensor.copy_to() is not available, copy the tensor by converting to NumPy and back.
-        tensor_cpu = paddle.to_tensor(tensor_pinned.numpy(), place=paddle.CPUPlace())
+        tensor_cpu = paddle.to_tensor(
+            tensor_pinned.numpy(), place=paddle.CPUPlace()
+        )
         print_debug_info(tensor_cpu, "tensor_cpu (after copy to CPU)")
-        
+
         # Verify that the destination tensor is on CPU.
         self.assertIn("cpu", str(tensor_cpu.place))
-        
+
         # Check correctness: ensure the data remains unchanged after the copy.
         np.testing.assert_array_equal(tensor_cpu.numpy(), arr)
+
 
 if __name__ == '__main__':
     print("Default Paddle device:", paddle.get_device())

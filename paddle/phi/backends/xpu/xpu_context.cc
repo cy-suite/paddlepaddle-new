@@ -498,5 +498,4 @@ Eigen::DefaultDevice* XPUPinnedContext::eigen_device() const {
 const Place& XPUPinnedContext::GetPlace() const { return place_; }
 #endif
 
-
 }  // namespace phi

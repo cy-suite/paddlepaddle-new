@@ -37,8 +37,8 @@ limitations under the License. */
 #endif
 
 #ifdef PADDLE_WITH_XPU
-#include <cuda_runtime.h>
 #include <cuda.h>
+#include <cuda_runtime.h>
 #include <chrono>
 #include <ctime>
 #include <iomanip>
@@ -293,35 +293,40 @@ bool CUDAPinnedAllocator::UseGpu() const { return false; }
 
 #endif
 
-
 #ifdef PADDLE_WITH_XPU
 
 std::string currentTimestamp() {
-    auto now = std::chrono::system_clock::now();
-    auto now_time_t = std::chrono::system_clock::to_time_t(now);
-    std::stringstream ss;
-    ss << std::put_time(std::localtime(&now_time_t), "%F %T");
-    return ss.str();
+  auto now = std::chrono::system_clock::now();
+  auto now_time_t = std::chrono::system_clock::to_time_t(now);
+  std::stringstream ss;
+  ss << std::put_time(std::localtime(&now_time_t), "%F %T");
+  return ss.str();
 }
 
 // XPU PINNED memory allows direct DMA transfers by the XPU to and from system
 // memory. It’s locked to a physical address.
 void* XPUPinnedAllocator::Alloc(size_t* index, size_t size) {
-  std::cout << "[" << currentTimestamp() << "] Alloc start, requested size: " << size << " bytes" << std::endl;
+  std::cout << "[" << currentTimestamp()
+            << "] Alloc start, requested size: " << size << " bytes"
+            << std::endl;
   if (size <= 0) {
-    std::cout << "[" << currentTimestamp() << "] Requested size <= 0, returning nullptr" << std::endl;
+    std::cout << "[" << currentTimestamp()
+              << "] Requested size <= 0, returning nullptr" << std::endl;
     return nullptr;
   }
 
   // NOTE: here, we use CUDAPinnedMaxAllocSize as the maximum memory size
   // of host pinned allocation. Allocates too much would reduce
   // the amount of memory available to the underlying system for paging.
-  size_t usable = phi::backends::cpu::CUDAPinnedMaxAllocSize() - xpu_pinned_alloc_size_;
-  std::cout << "[" << currentTimestamp() << "] Usable pinned memory: " << usable << " bytes" << std::endl;
+  size_t usable =
+      phi::backends::cpu::CUDAPinnedMaxAllocSize() - xpu_pinned_alloc_size_;
+  std::cout << "[" << currentTimestamp() << "] Usable pinned memory: " << usable
+            << " bytes" << std::endl;
 
   if (size > usable) {
     std::cout << "[" << currentTimestamp() << "] Requested size (" << size
-              << " bytes) exceeds usable pinned memory (" << usable << " bytes)" << std::endl;
+              << " bytes) exceeds usable pinned memory (" << usable << " bytes)"
+              << std::endl;
     LOG(WARNING) << "Cannot malloc " << size / 1024.0 / 1024.0
                  << " MB pinned memory."
                  << ", available " << usable / 1024.0 / 1024.0
@@ -330,10 +335,12 @@ void* XPUPinnedAllocator::Alloc(size_t* index, size_t size) {
   }
 
   void* p = nullptr;
-  std::cout << "[" << currentTimestamp() << "] Calling cudaHostAlloc for " << size << " bytes" << std::endl;
+  std::cout << "[" << currentTimestamp() << "] Calling cudaHostAlloc for "
+            << size << " bytes" << std::endl;
   // PINNED memory is visible to all CUDA contexts.
   cudaError_t result = cudaHostAlloc(&p, size, cudaHostAllocPortable);
-  std::cout << "[" << currentTimestamp() << "] cudaHostAlloc returned: " << result << std::endl;
+  std::cout << "[" << currentTimestamp()
+            << "] cudaHostAlloc returned: " << result << std::endl;
 
   if (result == cudaSuccess) {
     *index = 1;  // PINNED memory
@@ -341,10 +348,13 @@ void* XPUPinnedAllocator::Alloc(size_t* index, size_t size) {
     HOST_MEMORY_STAT_UPDATE(Reserved, 0, size);
     platform::RecordMemEvent(
         p, CPUPlace(), size, phi::TracerMemEventType::ReservedAllocate);
-    std::cout << "[" << currentTimestamp() << "] cudaHostAlloc succeeded. Allocated pointer: " << p << std::endl;
+    std::cout << "[" << currentTimestamp()
+              << "] cudaHostAlloc succeeded. Allocated pointer: " << p
+              << std::endl;
     return p;
   } else {
-    std::cout << "[" << currentTimestamp() << "] cudaHostAlloc failed." << std::endl;
+    std::cout << "[" << currentTimestamp() << "] cudaHostAlloc failed."
+              << std::endl;
     LOG(WARNING) << "cudaHostAlloc failed.";
     return nullptr;
   }
@@ -387,9 +397,6 @@ void XPUPinnedAllocator::Free(void* p, size_t size, size_t index) {
 
 bool XPUPinnedAllocator::UseGpu() const { return false; }
 #endif
-
-
-
 
 #ifdef PADDLE_WITH_CUSTOM_DEVICE
 void* CustomAllocator::Alloc(size_t* index, size_t size) {

@@ -742,8 +742,8 @@ void AnalysisPredictor::InitDeviceContexts() {
               phi::DefaultXPUGenerator(place_.GetDeviceId()).get());
           xpu_context->SetPinnedAllocator(
               memory::allocation::AllocatorFacade::Instance()
-                .GetAllocator(phi::XPUPinnedPlace())
-                .get());
+                  .GetAllocator(phi::XPUPinnedPlace())
+                  .get());
           xpu_context->SetHostAllocator(
               instance.GetAllocator(phi::CPUPlace()).get());
           xpu_context->SetHostGenerator(phi::DefaultCPUGenerator().get());

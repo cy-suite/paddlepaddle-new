@@ -21,10 +21,10 @@ if TYPE_CHECKING:
     from paddle import (
         CPUPlace,
         CUDAPinnedPlace,
-        XPUPinnedPlace,
         CUDAPlace,
         CustomPlace,
         IPUPlace,
+        XPUPinnedPlace,
         XPUPlace,
     )
 

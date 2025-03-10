@@ -12,9 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import unittest
-import numpy as np
 import time
+import unittest
+
+import numpy as np
+
 import paddle
 
 # Disable static mode so that .numpy() can be called.
@@ -26,6 +28,7 @@ from paddle.incubate.tensor.manipulation import (
     async_reload,
     create_xpu_async_load,
 )
+
 
 def print_debug_info(tensor, name):
     """Prints debug information for a tensor."""
@@ -39,6 +42,7 @@ def print_debug_info(tensor, name):
         # print(f"{name} full array:\n{arr}")
     except Exception as e:
         print(f"{name} cannot be converted to numpy array: {e}")
+
 
 class TestSaveLoadLargeParameters(unittest.TestCase):
     def offload_and_reload(self, data0):
@@ -86,13 +90,18 @@ class TestSaveLoadLargeParameters(unittest.TestCase):
         # Create a fixed tensor with known values using linspace.
         arr = np.linspace(0, 1, 50).reshape([10, 5]).astype("float32")
         data0 = paddle.to_tensor(arr, place=paddle.XPUPlace(0))
-        print_debug_info(data0, "data0 in test_large_parameters_paddle_save_tensor")
+        print_debug_info(
+            data0, "data0 in test_large_parameters_paddle_save_tensor"
+        )
         self.offload_and_reload(data0)
 
     def test_large_parameters_paddle_save_model_weight(self):
         model = paddle.nn.Linear(10, 5)
         data0 = model.weight
-        print_debug_info(data0, "model.weight in test_large_parameters_paddle_save_model_weight")
+        print_debug_info(
+            data0,
+            "model.weight in test_large_parameters_paddle_save_model_weight",
+        )
         self.offload_and_reload(data0)
 
     def test_offload_with_offset(self):
@@ -150,7 +159,7 @@ class TestSaveLoadLargeParameters(unittest.TestCase):
         task_offload.cpu_wait()  # Wait for offload completion.
         t1 = time.time()
         offload_time = t1 - t0
-        print("Offload time for 100MB tensor: {:.4f} seconds".format(offload_time))
+        print(f"Offload time for 100MB tensor: {offload_time:.4f} seconds")
 
         # Measure reload time.
         t2 = time.time()
@@ -158,7 +167,7 @@ class TestSaveLoadLargeParameters(unittest.TestCase):
         task_reload.cpu_wait()  # Wait for reload completion.
         t3 = time.time()
         reload_time = t3 - t2
-        print("Reload time for 100MB tensor: {:.4f} seconds".format(reload_time))
+        print(f"Reload time for 100MB tensor: {reload_time:.4f} seconds")
 
         # Verify that the reloaded tensor matches the original.
         a = large_tensor.numpy()
@@ -166,6 +175,7 @@ class TestSaveLoadLargeParameters(unittest.TestCase):
         max_diff = np.max(np.abs(a - c))
         print("Max diff (large_tensor - xpu_large):", max_diff)
         np.testing.assert_array_equal(a, c)
+
 
 if __name__ == '__main__':
     print("Default Paddle device:", paddle.get_device())

@@ -485,13 +485,6 @@ uint64_t Release<phi::XPUPinnedPlace>(const phi::XPUPinnedPlace &place) {
 #endif
 }
 
-
-
-
-
-
-
-
 // For CustomDevice
 #ifdef PADDLE_WITH_CUSTOM_DEVICE
 class BuddyAllocatorList {

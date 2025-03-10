@@ -215,7 +215,8 @@ bool places_are_same_class(const Place &p1, const Place &p2) {
 
 bool is_same_place(const Place &p1, const Place &p2) {
   if (places_are_same_class(p1, p2)) {
-    if (is_cpu_place(p1) || is_cuda_pinned_place(p1) || is_xpu_pinned_place(p1)) {
+    if (is_cpu_place(p1) || is_cuda_pinned_place(p1) ||
+        is_xpu_pinned_place(p1)) {
       return true;
     } else {
       return p1 == p2;
