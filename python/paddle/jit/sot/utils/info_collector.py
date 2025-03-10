@@ -307,26 +307,34 @@ class BreakGraphReasonInfo(InfoBase):
 
 class SubGraphInfo(InfoBase):
     SHORT_NAME = "subgraph_info"
-    TYPE = InfoType.E2E_INFO
+    TYPE = InfoType.STEP_INFO
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, graph, op_num, sir_name):
         super().__init__()
-        self.clear()
-
-        self.graph, self.op_num, *_ = args
-
-    def clear(self):
-        self.graph = None
-        self.op_num = 0
+        self.graph = graph
+        self.op_num = op_num
+        self.sir_name = sir_name
 
     def __str__(self):
-        return f"OpNum: {self.op_num}\n{self.graph}"
+        return f"[SIR Name]: {self.sir_name}   [OpNum]: {self.op_num}\n{self.graph}"
 
     @classmethod
     def summary(cls, history: list[Self]) -> str:
-        return "\n".join(
-            [
-                f"SubGraphIdx: {idx} {info}"
-                for idx, info in enumerate(map(str, history))
-            ]
-        )
+
+        num_of_subgraph = len(history)
+        sum_of_op_num = sum(item.op_num for item in history)
+
+        need_details = "details" in ENV_SOT_COLLECT_INFO.get()[cls.SHORT_NAME]
+
+        details = ""
+        if need_details:
+            details = "\n".join(
+                [
+                    f"[SubGraphIdx]: {idx}   {info}"
+                    for idx, info in enumerate(map(str, history))
+                ]
+            )
+
+        summary = f"[Number of subgraph]: {num_of_subgraph} [Sum of opnum]: {sum_of_op_num}"
+
+        return f"{summary}\n{details}"
