@@ -222,6 +222,7 @@ flagcxComm_t ProcessGroupFlagcx::FlagcxComm(const Place& place) const {
 
 phi::distributed::FlagcxCommContext* ProcessGroupFlagcx::GetOrCreateCommContext(
     const Place& place, CommType comm_type) {
+  VLOG(3) << "flagcx debug: entered ProcessGroupFlagcx::GetOrCreateCommContext";
   const auto& key = GetKeyFromPlace(place);
   std::string store_key;
   GetStoreKey(key, comm_type, &store_key);
@@ -273,8 +274,11 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::AllReduce(
     const AllreduceOptions& opts,
     bool sync_op,
     bool use_calc_stream) {
+  VLOG(3) << "flagcx debug: entered ProcessGroupFlagcx::AllReduce" << 
+          " sync_op: " << sync_op << "use_calc_stream: " << use_calc_stream;
   CheckTensorContiguous(in_tensor);
   CheckTensorContiguous(*out_tensor);
+  VLOG(3) << "flagcx debug: finished checking input and output tensor";
 
   return Collective(
       [&](phi::distributed::FlagcxCommContext* comm_context, flagcxStream_t stream) {
@@ -749,6 +753,7 @@ void ProcessGroupFlagcx::CreateFlagcxEnvCache(const Place& place,
                                               const std::string& store_key,
                                               CommType comm_type,
                                               int p2p_rank) {
+  VLOG(3) << "flagcx debug: entered ProcessGroupFlagcx::CreateFlagcxEnvCache";
   //TODO(changtao): we only support one flagcx comm ctx
   if (flagcx_comm_ != nullptr) {
     return;
@@ -756,6 +761,7 @@ void ProcessGroupFlagcx::CreateFlagcxEnvCache(const Place& place,
   VLOG(3) << "init flagcx rank_in_group: " << rank_ << ", nranks: " << size_
           << ", gid: " << gid_ << ", place key: " << place_key
           << ", store_key: " << store_key;
+  store_key_ = store_key;
 
   // for (size_t i = 0; i < s_group_call_counter; ++i) {
   //   NCCL_CHECK(phi::dynload::ncclGroupEnd());
@@ -770,6 +776,7 @@ void ProcessGroupFlagcx::CreateFlagcxEnvCache(const Place& place,
   // NCCL_CHECK(phi::dynload::ncclGroupStart());
 
   // phi::distributed::P2POption p2p_opts({is_p2p_op, p2p_rank, num_ranks, rank});
+  VLOG(3) << "flagcx debug: before CreateFlagcxCommContext";
   phi::distributed::CommContextManager::CreateFlagcxCommContext(
       store_, store_key, rank_, size_, "");
 
@@ -779,7 +786,7 @@ void ProcessGroupFlagcx::CreateFlagcxEnvCache(const Place& place,
   VLOG(3) << "Get flagcx comm: " << flagcx_comm_ctx->GetFlagcxComm();
           // << " for place_key: " << place_key << " on rank_in_group: " << rank
           // << " nranks: " << num_ranks << " gid: " << gid_;
-
+  VLOG(3) << "flagcx debug: get flagcx comm";
   flagcx_comm_ = flagcx_comm_ctx->GetFlagcxComm();
   auto comm_ctx = std::make_unique<phi::GPUContext>(place);
   // comm_ctx->set_nccl_comm(flagcx_comm_ctx->GetFlagcxComm());
@@ -831,6 +838,7 @@ void ProcessGroupFlagcx::CreateFlagcxEnvCache(const Place& place,
   auto* calc_ctx = static_cast<phi::GPUContext*>(
       phi::DeviceContextPool::Instance().Get(place));
 
+  VLOG(3) << "flagcx debug: adding key to maps";
   place_to_calc_event_.emplace(
       place_key,
       platform::DeviceEvent(place, platform::GenerateDeviceEventFlag()));
@@ -910,45 +918,59 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Collective(
     CommType comm_type,
     bool sync_op,
     bool use_calc_stream) {
+  VLOG(3) << "flagcx debug: Entered ProcessGroupFlagcx::Collective";
   CheckTensorContiguous(tensor);
+  VLOG(3) << "flagcx debug: finished checking tensor in Collective API";
 
   comm_seq_++;
   const auto& place = tensor.place();
+  VLOG(3) << "flagcx debug: getting key from place";
   const auto& key = GetKeyFromPlace(place);
 
+  VLOG(3) << "flagcx debug: adding cuda guard to device";
   platform::CUDADeviceGuard cuda_guard(place);
 
   std::string store_key;
+  VLOG(3) << "flagcx debug: getting store key";
   GetStoreKey(key, comm_type, &store_key);
 
   if (place_to_comm_ctx_.find(key) == place_to_comm_ctx_.end()) {
+    VLOG(3) << "flagcx debug: creating flagcx env cache";
     CreateFlagcxEnvCache(place, key, store_key, comm_type);
   }
 
   if (!use_calc_stream) {
+    VLOG(3) << "flagcx debug: syncing calc stream";
     SyncCalcStream(place, key);
   }
 
   auto task =
       CreateTask(place, rank_, comm_type, sync_op, use_calc_stream, gid_);
 
-  const auto* calc_ctx = place_to_calc_ctx_.at(key);
+  VLOG(3) << "flagcx debug: getting comm context";
   const auto& comm_ctx = place_to_comm_ctx_.at(key);
+  VLOG(3) << "flagcx debug: getting calc context";
+  const auto* calc_ctx = place_to_calc_ctx_.at(key);
   // auto nccl_comm = comm_ctx->nccl_comm();
   // auto flagcx_stream = use_calc_stream ? (flagcxStream_t)&calc_ctx->stream() : (flagcxStream_t)&comm_ctx->stream();
+  
+  VLOG(3) << "flagcx debug: getting comm context";
+  auto flagcx_comm_ctx = this->GetCommContext(&store_key);
+
   flagcxStream_t flagcx_stream;
   if (use_calc_stream) {
       // Question: the returned stream type is essentially a cudaStream_t, can we cast it to flagcxStream_t?
+      VLOG(3) << "flagcx debug: getting calc stream";
       auto calc_stream = calc_ctx->stream();
-      flagcx_stream = (flagcxStream_t)&calc_stream;
+      flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(&flagcx_stream, (void *)&calc_stream);
   } else {
+      VLOG(3) << "flagcx debug: getting comm stream";
       auto comm_stream = comm_ctx->stream();
-      flagcx_stream = (flagcxStream_t)&comm_stream;
+      flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(&flagcx_stream, (void *)&comm_stream);
   }
 
-  auto flagcx_comm_ctx = this->GetCommContext(&store_key);
-
   if (!FLAGS_enable_async_trace) {
+    VLOG(3) << "flagcx debug: calling function";
     fn(flagcx_comm_ctx, flagcx_stream);
   } else {
     // std::string group_key = place_to_group_key_.at(key);
@@ -981,9 +1003,11 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Collective(
       //     FLAGS_use_cuda_malloc_async_allocator) {
       //   memory::RecordStream(tensor.Holder(), nccl_stream);
       // }
+      VLOG(3) << "flagcx debug: not coalescing, updating wait chain";
       task->UpdateWaitChain(*comm_ctx);
-      allocation_stream_pairs_.emplace_back(tensor.Holder(), flagcx_stream);
+      allocation_stream_pairs_.emplace_back(tensor.Holder(), *(gpuStream_t*)flagcx_stream);
     } else {
+      VLOG(3) << "flagcx debug: coalescing tensors";
       coalescing_tensors_.emplace_back(
           std::make_shared<phi::DenseTensor>(tensor));
       coalescing_place_keys_.push_back(key);
@@ -996,6 +1020,7 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Collective(
   // }
 
   if (sync_op) {
+    VLOG(3) << "flagcx debug: task wait";
     task->Wait();
   }
 
@@ -1006,6 +1031,8 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Collective(
 //     PADDLE_ENFORCE_GPU_SUCCESS(hipDeviceSynchronize());
 // #endif
   
+  VLOG(3) << "flagcx debug: free flagcx tmp stream";
+  flagcx_comm_ctx->flagcx_handler_->devHandle->streamFree(flagcx_stream);
 
   return task;
 }
@@ -1064,19 +1091,23 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Point2Point(
   const auto* calc_ctx = place_to_calc_ctx_.at(key);
   const auto& comm_ctx = place_to_comm_ctx_.at(key);
 
+  auto flagcx_comm_ctx = this->GetCommContext(&store_key);
+
   // auto nccl_comm = comm_ctx->nccl_comm();
   // auto flagcx_stream = use_calc_stream ? (flagcxStream_t)&calc_ctx->stream() : (flagcxStream_t)&comm_ctx->stream();
   flagcxStream_t flagcx_stream;
   if (use_calc_stream) {
       // Question: the returned stream type is essentially a cudaStream_t, can we cast it to flagcxStream_t?
+      VLOG(3) << "flagcx debug: getting calc stream";
       auto calc_stream = calc_ctx->stream();
-      flagcx_stream = (flagcxStream_t)&calc_stream;
+      flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(&flagcx_stream, (void *)&calc_stream);
   } else {
+      VLOG(3) << "flagcx debug: getting comm stream";
       auto comm_stream = comm_ctx->stream();
-      flagcx_stream = (flagcxStream_t)&comm_stream;
+      flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(&flagcx_stream, (void *)&comm_stream);
   }
 
-  std::string group_key = place_to_group_key_.at(key);
+  // std::string group_key = place_to_group_key_.at(key);
   // auto comm_task =
   //     std::make_shared<phi::distributed::FlagcxCommTask>(place,
   //                                                      group_key,
@@ -1092,7 +1123,6 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Point2Point(
   //                                                      comm_type,
   //                                                      pg_timeout_);
 
-  auto flagcx_comm_ctx = this->GetCommContext(&store_key);
 
   if (!FLAGS_enable_async_trace) {
     fn(flagcx_comm_ctx, flagcx_stream, p2p_target_rank);
@@ -1113,7 +1143,7 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Point2Point(
       //   memory::RecordStream(tensor.Holder(), nccl_stream);
       // }
       task->UpdateWaitChain(*comm_ctx);
-      allocation_stream_pairs_.emplace_back(tensor.Holder(), flagcx_stream);
+      allocation_stream_pairs_.emplace_back(tensor.Holder(), *(gpuStream_t*)flagcx_stream);
     } else {
       coalescing_tensors_.emplace_back(
           std::make_shared<phi::DenseTensor>(tensor));
@@ -1137,7 +1167,7 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Point2Point(
 //     PADDLE_ENFORCE_GPU_SUCCESS(hipDeviceSynchronize());
 // #endif
   
-
+  flagcx_comm_ctx->flagcx_handler_->devHandle->streamFree(flagcx_stream);
   return task;
 }
 
@@ -1205,9 +1235,11 @@ void ProcessGroupFlagcx::EndCoalescing(
     const auto& tensor = coalescing_tensors_[i];
     const auto& key = coalescing_place_keys_[i];
     const auto& comm_ctx = place_to_comm_ctx_.at(key);
+    auto flagcx_comm_ctx = this->GetCommContext(&store_key_);
     // Question: the returned stream type is essentially a cudaStream_t, can we cast it to flagcxStream_t?
     auto comm_stream = comm_ctx->stream();
-    auto flagcx_stream = (flagcxStream_t)&comm_stream;
+    flagcxStream_t flagcx_stream;
+    flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(&flagcx_stream, (void *)&comm_stream);
 
     // if (FLAGS_use_stream_safe_cuda_allocator ||
     //     FLAGS_use_cuda_malloc_async_allocator) {
@@ -1215,7 +1247,8 @@ void ProcessGroupFlagcx::EndCoalescing(
     // }
 
     flagcx_task->UpdateWaitChain(*comm_ctx);
-    allocation_stream_pairs_.emplace_back(tensor->Holder(), flagcx_stream);
+    allocation_stream_pairs_.emplace_back(tensor->Holder(), *(gpuStream_t*)flagcx_stream);
+    flagcx_comm_ctx->flagcx_handler_->devHandle->streamFree(flagcx_stream);
   }
 
   is_coalescing_ = false;

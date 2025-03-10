@@ -253,11 +253,10 @@ void CommContextManager::CreateFlagcxCommContext(const std::shared_ptr<Store>& s
     return;
   }
   flagcxHandlerGroup_t flagcx_handler;
-  // phi::dynload::flagcxHandleInit(&flagcx_handler);
-  flagcxHandleInit(&flagcx_handler);
+  VLOG(3) << "flagcx debug: flagcxHendleInit";
+  phi::dynload::flagcxHandleInit(&flagcx_handler);
   if (rank == 0) {
-    // phi::dynload::flagcxGetUniqueId(&flagcx_handler->uniqueId);
-    flagcxGetUniqueId(&flagcx_handler->uniqueId);
+    phi::dynload::flagcxGetUniqueId(&flagcx_handler->uniqueId);
   }
 
   std::string unique_key = "FlagcxCommContext/" + unique_comm_key + hash_key;
@@ -299,8 +298,11 @@ void CommContextManager::CreateFlagcxCommContext(const std::shared_ptr<Store>& s
     // flagcx_comm_context->SetComputeEvent(std::move(compute_event));
     // flagcx_comm_context->SetCommEvent(std::move(comm_event));
   // }
+  comm_context_manager.SetStore(store);
+  comm_context_manager.Emplace(unique_comm_key, std::move(flagcx_comm_context));
 }
 #endif
+
 CommContext* CommContextManager::Emplace(
     const std::string& unique_comm_key,
     std::unique_ptr<CommContext> comm_context) {
