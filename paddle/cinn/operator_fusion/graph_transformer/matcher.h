@@ -32,8 +32,10 @@ struct NonSinkNodeMatcher {
 
 struct IsOutputNodeMatcher {
   bool operator()(const PatternGraph& graph, const PatternNodePtr& node) {
-    bool res = IsAnyFirstInSecond(node->sink_op()->results(), graph.outputs());
-    return res;
+    return std::any_of(
+        node->ops().begin(), node->ops().end(), [&](pir::Operation* op) {
+          return graph.output_ops().count(op);
+        });
   }
 };
 
@@ -243,6 +245,7 @@ struct RecomputeNodeMatcher {
     };
 
     return StmtPatternGraphMatcher<AnchorPattern>()(graph, node) &&
+           !IsOutputNodeMatcher()(graph, node) &&
            node->downstream().size() >= 1 && can_recompute_fn(node) &&
            input_output_nums_constraint(graph, node);
   }
