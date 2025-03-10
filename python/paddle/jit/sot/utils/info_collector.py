@@ -15,6 +15,8 @@
 from __future__ import annotations
 
 import atexit
+import base64
+import json
 import sys
 from abc import ABC, abstractmethod
 from enum import Enum
@@ -30,6 +32,11 @@ if TYPE_CHECKING:
     import types
 
     from .exceptions import BreakGraphReasonBase
+
+
+PREFIX = "<sot>"
+SUFFIX = "</sot>"
+ENCODING = "utf-8"
 
 
 def try_import_graphviz():
@@ -103,6 +110,9 @@ class InfoCollector(metaclass=Singleton):
             cls = info_list[0].__class__
             report += f"{info_class_name} ({cls.SHORT_NAME}):\n"
             report += cls.summary(info_list)
+            need_json = "json" in ENV_SOT_COLLECT_INFO.get()[cls.SHORT_NAME]
+            if need_json:
+                report += cls.json_report(info_list)
             report += "\n"
         return report
 
@@ -304,6 +314,26 @@ class BreakGraphReasonInfo(InfoBase):
 
         InfoCollector().attach(BreakGraphReasonInfo, reason)
 
+    @classmethod
+    def json_report(cls, history: list[Self]) -> str:
+        reason_groups = {}
+
+        for entry in history:
+            reason_cls_name = entry.reason.__class__.__name__
+            if reason_cls_name not in reason_groups:
+                reason_groups[reason_cls_name] = []
+            reason_groups[reason_cls_name].append(str(entry.reason))
+
+        sorted_reasons = sorted(
+            reason_groups.items(), key=lambda group: len(group[1]), reverse=True
+        )
+
+        json_data = json.dumps({cls.SHORT_NAME: sorted_reasons})
+        b64_bytes = base64.b64encode(json_data.encode(ENCODING))
+        b64_str = f"\n{PREFIX}{b64_bytes.decode(ENCODING)}{SUFFIX}"
+
+        return b64_str
+
 
 class SubGraphInfo(InfoBase):
     SHORT_NAME = "subgraph_info"
@@ -338,3 +368,27 @@ class SubGraphInfo(InfoBase):
         summary = f"[Number of subgraph]: {num_of_subgraph} [Sum of opnum]: {sum_of_op_num}"
 
         return f"{summary}\n{details}"
+
+    @classmethod
+    def json_report(cls, history: list[Self]) -> str:
+
+        need_details = "details" in ENV_SOT_COLLECT_INFO.get()[cls.SHORT_NAME]
+
+        aggregated_info_list = []
+        for idx, record in enumerate(history):
+            entry_data = {}
+
+            entry_data["SIR_name"] = record.sir_name
+            entry_data["OpNum"] = record.op_num
+            entry_data["Graph"] = ""
+            if need_details:
+                entry_data["Graph"] = str(record.graph)
+            aggregated_info_list.append(entry_data)
+
+        _json_str = json.dumps({cls.SHORT_NAME: aggregated_info_list})
+        base64_encoded = base64.b64encode(_json_str.encode(ENCODING))
+        formatted_encoded_data = (
+            f"{PREFIX}{base64_encoded.decode(ENCODING)}{SUFFIX}"
+        )
+
+        return formatted_encoded_data
