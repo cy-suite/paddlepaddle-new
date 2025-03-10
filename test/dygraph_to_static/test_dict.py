@@ -173,7 +173,6 @@ class TestDictPop(Dy2StTestBase):
             if paddle.is_compiled_with_cuda()
             else paddle.CPUPlace()
         )
-        self._set_test_func()
 
     def get_test_func(self):
         return test_dict_pop
