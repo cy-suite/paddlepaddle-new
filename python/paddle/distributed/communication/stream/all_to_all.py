@@ -207,7 +207,6 @@ def alltoall(
             >>> # [[[1, 2, 3], [4, 5, 6]], [[8, 9], [10, 11], [12, 13]]]  (2 GPUs, out for rank 0)
             >>> # [[7], [[14, 15, 16, 17]]]                               (2 GPUs, out for rank 1)
     """
-    """
     if _warn_cur_rank_not_in_group(group):
         return
 
