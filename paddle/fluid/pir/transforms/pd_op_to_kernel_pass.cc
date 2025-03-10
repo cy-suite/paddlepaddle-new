@@ -1200,6 +1200,17 @@ phi::KernelKey GetKernelKey(
     return res;
   }
 
+  if (op->isa<MemcpyOp>()) {
+    auto dst_place = MemcpyOpAttr2Place.at(
+        op->attribute("dst_place_type").dyn_cast<pir::Int32Attribute>().data());
+    auto backend = paddle::experimental::ParseBackend(dst_place, place);
+    return {
+        backend,
+        phi::DataLayout::ANY,
+        TransToPhiDataType(
+            op->operand_source(0).type().dyn_cast<DenseTensorType>().dtype())};
+  }
+
   phi::Backend kernel_backend = phi::Backend::UNDEFINED;
   phi::DataLayout kernel_layout = phi::DataLayout::UNDEFINED;
   phi::DataType kernel_dtype = phi::DataType::UNDEFINED;
@@ -2401,11 +2412,10 @@ void HandleForTensorRTOp(
   std::vector<pir::Type> op_output_types;
 
   for (size_t i = 0; i < op_item->num_results(); ++i) {
-    phi::Place out_place = phi::TransToPhiPlace(kernel_key.backend());
     PushBackOutputTypes(ctx,
                         op_item,
                         op_item->result(i).type(),
-                        out_place,
+                        place,
                         kernel_key,
                         &op_output_types);
   }

@@ -725,14 +725,14 @@ void AucInferMeta(const MetaTensor& input,
       0,
       common::errors::InvalidArgument(
           "The Input(Predict) has not been initialized properly. The "
-          "shape of Input(Predict) = [%s], the shape can not involes 0.",
+          "shape of Input(Predict) = [%s], the shape can not involves 0.",
           predict_dims));
   PADDLE_ENFORCE_NE(
       common::product(label_dims),
       0,
       common::errors::InvalidArgument(
           "The Input(Label) has not been initialized properly. The "
-          "shape of Input(Label) = [%s], the shape can not involes 0.",
+          "shape of Input(Label) = [%s], the shape can not involves 0.",
           label_dims));
 
   if (config.is_runtime) {
@@ -1117,10 +1117,20 @@ void BroadcastTensorsInferMeta(const std::vector<const MetaTensor*>& x,
 
       if (target_dim_size != 1 && dim_size != 1 &&
           target_dim_size != dim_size) {
-        PADDLE_THROW(errors::InvalidArgument(
-            "BroadcastTensorsOp inputs does not satisfy bcast semantics, "
-            "please check axis = %d in reverse order",
-            index));
+        if (dim_size == -1) {
+          dim_size = target_dim_size;
+        } else if (target_dim_size == -1) {
+          target_dim_size = dim_size;
+          continue;
+        } else {
+          PADDLE_THROW(errors::InvalidArgument(
+              "BroadcastTensorsOp inputs does not satisfy bcast semantics, "
+              "please check axis = %d in reverse order, dim_size[%d] != "
+              "target_dim_size[%d]",
+              index,
+              dim_size,
+              target_dim_size));
+        }
       }
 
       // We performed bcast semantics check at python level

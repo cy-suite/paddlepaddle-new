@@ -1938,7 +1938,8 @@ void PirInterpreter::RunInstructionBase(InstructionBase* instr_node) {
       std::string op_name = instr_node->Name();
       ::pir::Operation* op = instr_node->Operation();
       if (!calculate_stream_timer_->IsStarted() && op_name != "pd_op.feed" &&
-          !op->HasAttribute("ring_id")) {
+          !op->HasAttribute("ring_id") && op_name != "pd_op.shadow_feed" &&
+          op_name != "pd_op.full_int_array") {
         VLOG(3) << "Start calculated stream timer from op: " << op_name;
         calculate_stream_timer_->Start();
       }
@@ -1958,15 +1959,15 @@ void PirInterpreter::RunInstructionBase(InstructionBase* instr_node) {
             << "Before: " << cur_place << " "
             << instr_node->DebugStringEx(scope_, value_exe_info_.get());
 
-    if (FLAGS_enable_collect_shape) {
-      CollectShapeManager::Instance().CollectShapeInfo(
-          instr_node, value_exe_info_.get(), scope_);
-    }
-
     if (execution_config_.used_for_inference) {
       for (auto& hook : pir_input_hookfuncs_) {
         hook(instr_node, value_exe_info_.get(), scope_);
       }
+    }
+
+    if (FLAGS_enable_collect_shape) {
+      CollectShapeManager::Instance().CollectShapeInfo(
+          instr_node, value_exe_info_.get(), scope_);
     }
 
     if (!instr_node->IsArtificial()) {
@@ -1984,6 +1985,7 @@ void PirInterpreter::RunInstructionBase(InstructionBase* instr_node) {
                 << "): context wait and get last error";
 #endif
       }
+
       if (FLAGS_check_nan_inf) {
         CheckTensorHasNanOrInf(instr_node, scope_, value_exe_info_.get());
       }
@@ -2009,6 +2011,7 @@ void PirInterpreter::RunInstructionBase(InstructionBase* instr_node) {
     }
 
     VLOG(5) << "after run kernel";
+
     instr_node->RecordEvent(cur_place);
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
     if (enable_job_schedule_profiler_) {
