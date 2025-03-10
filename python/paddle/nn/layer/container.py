@@ -626,6 +626,14 @@ class LayerList(Layer):
                 >>> print(linears[-2] is another)
                 True
         """
+        if len(self._sub_layers) == 0:
+            if index != 0:
+                raise IndexError(
+                    f'LayerList is empty, can only insert at index 0, but got index {index}'
+                )
+            self.append(sublayer)
+            return
+
         assert isinstance(index, int) and -len(self._sub_layers) <= index < len(
             self._sub_layers
         ), f"index should be an integer in range [{-len(self)}, {len(self)})"

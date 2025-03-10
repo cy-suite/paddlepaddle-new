@@ -147,5 +147,26 @@ class TestStringSlice(TestCaseBase):
         self.assert_results(string_slice, x)
 
 
+class TestLayerListEmptyInsert(unittest.TestCase):
+    def test_insert_empty_list(self):
+
+        # Test successful case - insert at index 0
+        layers = paddle.nn.LayerList()
+        try:
+            layers.insert(0, paddle.nn.Linear(10, 10))
+            self.assertEqual(len(layers), 1)
+        except Exception as e:
+            self.fail(f"Insert at index 0 raised unexpected exception: {e}")
+
+        # Test failure case - insert at index 1
+        layers = paddle.nn.LayerList()
+        with self.assertRaises(IndexError) as context:
+            layers.insert(1, paddle.nn.Linear(10, 10))
+        self.assertTrue(
+            'LayerList is empty, can only insert at index 0'
+            in str(context.exception)
+        )
+
+
 if __name__ == "__main__":
     unittest.main()
