@@ -20,10 +20,6 @@
 #include "paddle/phi/backends/gpu/rocm/hip_graph.h"
 #endif
 
-#include <iostream>
-#include <typeinfo>
-#include "glog/logging.h"
-
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/enforce.h"
 #include "paddle/phi/core/selected_rows.h"
@@ -182,10 +178,6 @@ struct DeviceContext::Impl {
       allocator = cuda_graph_allocator_;
     }
 #endif
-
-    VLOG(10) << "is_pinned: " << pinned;
-    VLOG(10) << "Allocator type: " << typeid(*allocator).name();
-
     return tensor->AllocateFrom(const_cast<Allocator*>(allocator),
                                 dtype,
                                 requested_size,

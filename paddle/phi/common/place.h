@@ -72,7 +72,7 @@ class TEST_API Place {
   explicit Place(AllocationType type, const std::string& dev_type = "");
 
   // See NOTE [ Why need to temporarily adapt to PlaceType? ]
-  explicit Place(paddle::PlaceType type);  // NOLINT
+  Place(paddle::PlaceType type);  // NOLINT
 
   void Reset(AllocationType type,
              int8_t device_id = 0,
@@ -171,8 +171,8 @@ class XPUPinnedPlace : public Place {
 
   // Allow construction from a generic Place.
   // (Typically the passed Place should be an XPUPlace.)
-  explicit XPUPinnedPlace(const Place& place)
-      : Place(AllocationType::XPUPINNED) {}
+  XPUPinnedPlace(const Place& place)         // NOLINT
+      : Place(AllocationType::XPUPINNED) {}  // NOLINT
 };
 
 class IPUPlace : public Place {
