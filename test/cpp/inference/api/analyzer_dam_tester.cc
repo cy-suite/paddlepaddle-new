@@ -231,6 +231,8 @@ void profile(bool use_mkldnn = false) {
     std::unordered_set<std::string> op_list = {
         "softmax", "elementwise_add", "relu", "fc"};
     cfg.SetMKLDNNOp(op_list);
+  } else {
+    cfg.DisableMKLDNN();
   }
 
   std::vector<std::vector<PaddleTensor>> outputs;
