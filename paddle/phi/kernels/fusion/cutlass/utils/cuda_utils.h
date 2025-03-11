@@ -33,7 +33,6 @@
 #include <cublasLt.h>
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
-#include <glog/logging.h>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -139,7 +138,6 @@ inline void syncAndCheck(const char* const file, int const line) {
                                  (_cudaGetErrorEnum(result)) + " " + file +
                                  ":" + std::to_string(line) + " \n");
       }
-      VLOG(2) << "run syncAndCheck at " << file << ":" << line;
     }
   }
 
@@ -188,9 +186,9 @@ void check_max_val(const T* result, const int size);
 template <typename T>
 void check_abs_mean_val(const T* result, const int size);
 
-#define PRINT_FUNC_NAME_()                       \
-  do {                                           \
-    VLOG(2) << "[CALL] " << __FUNCTION__ << " "; \
+#define PRINT_FUNC_NAME_()                         \
+  do {                                             \
+    std::cout << "[CALL] " << __FUNCTION__ << " "; \
   } while (0)
 
 [[noreturn]] inline void throwRuntimeError(const char* const file,
@@ -452,22 +450,22 @@ void compareTwoTensor(const T1* pred,
   }
 
   if (print_size > 0) {
-    VLOG(2) << "  id |   pred  |   ref   |abs diff | rel diff (%) |";
+    std::cout << "  id |   pred  |   ref   |abs diff | rel diff (%) |";
   }
   float mean_abs_diff = 0.0f;
   float mean_rel_diff = 0.0f;
   int count = 0;
   for (int i = 0; i < size; i++) {
     if (i < print_size) {
-      VLOG(2) << i << " | " << static_cast<float>(h_pred[i]) << " | "
-              << static_cast<float>(h_ref[i]) << " | "
-              << (abs(static_cast<float>(h_pred[i]) -
-                      static_cast<float>(h_ref[i])))
-              << " | "
-              << (abs(static_cast<float>(h_pred[i]) -
-                      static_cast<float>(h_ref[i])) /
-                  (abs(static_cast<float>(h_ref[i])) + 1e-6f) * 100.f)
-              << " | ";
+      std::cout << i << " | " << static_cast<float>(h_pred[i]) << " | "
+                << static_cast<float>(h_ref[i]) << " | "
+                << (abs(static_cast<float>(h_pred[i]) -
+                        static_cast<float>(h_ref[i])))
+                << " | "
+                << (abs(static_cast<float>(h_pred[i]) -
+                        static_cast<float>(h_ref[i])) /
+                    (abs(static_cast<float>(h_ref[i])) + 1e-6f) * 100.f)
+                << " | ";
     }
     if (static_cast<float>(h_pred[i]) == 0) {
       continue;
@@ -492,8 +490,8 @@ void compareTwoTensor(const T1* pred,
   }
   mean_abs_diff = mean_abs_diff / static_cast<float>(count);
   mean_rel_diff = mean_rel_diff / static_cast<float>(count);
-  VLOG(2) << "mean_abs_diff: " << mean_abs_diff
-          << ", mean_rel_diff: " << mean_rel_diff;
+  std::cout << "mean_abs_diff: " << mean_abs_diff
+            << ", mean_rel_diff: " << mean_rel_diff;
 
   if (fd != nullptr) {
     fprintf(fd,
