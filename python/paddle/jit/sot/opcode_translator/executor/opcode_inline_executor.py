@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-import contextlib
 import sys
 from typing import TYPE_CHECKING
 
@@ -133,17 +132,6 @@ class FunctionClosureTracker(Tracker):
 
     def __repr__(self) -> str:
         return f"FunctionClosureTracker(fn={self.fn}, idx={self.idx})"
-
-
-@contextlib.contextmanager
-def signature_clear_guard(fn, name):
-    if not hasattr(fn, name):
-        yield
-    else:
-        saved_attr = getattr(fn, name)
-        delattr(fn, name)
-        yield
-        setattr(fn, name, saved_attr)
 
 
 class OpcodeInlineExecutor(OpcodeExecutorBase):
