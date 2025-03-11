@@ -197,12 +197,13 @@ void generic_mixed_gemm_kernelLauncher(const T* A,
     if (gemm.get_workspace_size(args) > workspace_bytes) {
       // TODO(wangbojun) here to reset the split-k in gemm args, but no work for
       // now to run bf16 mixgemm, we have set the split-k factor to 1
-      VLOG(1) << "Requested split-k but workspace size insufficient. Falling "
-                 "back to non-split-k implementation.";
-      VLOG(1) << "need workspace size of: " << gemm.get_workspace_size(args)
-              << ", but got " << workspace_bytes;
-      VLOG(1) << "args.batch_stride_D:" << args.batch_stride_D;
-      VLOG(1) << "args.batch_count:" << args.batch_count;
+      // VLOG(1) << "Requested split-k but workspace size insufficient. Falling
+      // "
+      //            "back to non-split-k implementation.";
+      // VLOG(1) << "need workspace size of: " << gemm.get_workspace_size(args)
+      //         << ", but got " << workspace_bytes;
+      // VLOG(1) << "args.batch_stride_D:" << args.batch_stride_D;
+      // VLOG(1) << "args.batch_count:" << args.batch_count;
       // If requested split-k factor will require more workspace bytes, revert
       // to standard gemm.
       //
@@ -304,12 +305,13 @@ void generic_mixed_gemm_kernelLauncher(const T* A,
 
     Gemm gemm;
     if (gemm.get_workspace_size(args) > workspace_bytes) {
-      VLOG(1) << "Requested split-k but workspace size insufficient. Falling "
-                 "back to non-split-k implementation.";
-      VLOG(1) << "Requested workspace_size: " << gemm.get_workspace_size(args);
-      VLOG(1) << "get workspace_size: " << workspace_bytes;
-      // If requested split-k factor will require more workspace bytes, revert
-      // to standard gemm.
+      // VLOG(1) << "Requested split-k but workspace size insufficient. Falling
+      // "
+      //            "back to non-split-k implementation.";
+      // VLOG(1) << "Requested workspace_size: " <<
+      // gemm.get_workspace_size(args); VLOG(1) << "get workspace_size: " <<
+      // workspace_bytes; If requested split-k factor will require more
+      // workspace bytes, revert to standard gemm.
       args.batch_count = 1;
     }
 
