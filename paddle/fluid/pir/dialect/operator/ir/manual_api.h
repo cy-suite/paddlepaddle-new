@@ -127,7 +127,9 @@ std::vector<pir::Value> tensorrt_engine(
     std::vector<std::string> output_names,
     std::vector<std::vector<int64_t>> outputs_shape,
     std::vector<phi::DataType> outputs_dtype,
-    const std::string& converter_debug_info);
+    const std::string& converter_debug_info,
+    const std::string refit_params_path,
+    const std::vector<std::string>& refit_param_names);
 
 pir::Operation* share_var(const std::vector<pir::Value>& x);
 }  // namespace dialect

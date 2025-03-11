@@ -1157,14 +1157,15 @@ static PyObject *static_api_tensorrt_engine(PyObject *self,
     // Call ir static api
     CallStackRecorder callstack_recoder("tensorrt_engine");
     callstack_recoder.Record();
-    auto static_api_out =
-        paddle::dialect::tensorrt_engine(x,
-                                         trt_param,
-                                         input_names,
-                                         output_names,
-                                         outputs_shape,
-                                         outputs_dtype,
-                                         converter_debug_info);
+    auto static_api_out = paddle::dialect::tensorrt_engine(x,
+                                                           trt_param,
+                                                           input_names,
+                                                           output_names,
+                                                           outputs_shape,
+                                                           outputs_dtype,
+                                                           converter_debug_info,
+                                                           refit_params_path,
+                                                           refit_param_names);
     callstack_recoder.AttachToOps();
     return ToPyObject(static_api_out);
   } catch (...) {
