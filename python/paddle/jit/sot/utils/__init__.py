@@ -23,6 +23,7 @@ from .envs import (  # noqa: F401
     ENV_SOT_LOG_LEVEL,
     ENV_SOT_WITH_CONTROL_FLOW,
     ENV_STRICT_MODE,
+    PEP508LikeEnvironmentVariable,
     allow_dynamic_shape_guard,
     export_guard,
     faster_guard_guard,
@@ -52,6 +53,7 @@ from .info_collector import (  # noqa: F401
     CompileCountInfo,
     InfoCollector,
     NewSymbolHitRateInfo,
+    SubGraphInfo,
     SubGraphRelationInfo,
 )
 from .magic_methods import magic_method_builtin_dispatch  # noqa: F401
@@ -65,7 +67,6 @@ from .paddle_api_config import (  # noqa: F401
 from .utils import (  # noqa: F401
     Cache,
     ConstTypes,
-    GraphLogger,
     NameGenerator,
     ResumeFnNameFactory,
     Singleton,
