@@ -43,6 +43,13 @@ class TestVarAPI(unittest.TestCase):
             else paddle.CPUPlace()
         )
 
+        self.zero_size_cases = {
+            'empty': np.array([], dtype=self.dtype),
+            'shape_0': np.array([], dtype=self.dtype).reshape([0]),
+            'shape_0x3': np.array([], dtype=self.dtype).reshape([0, 3]),
+            'shape_2x0x4': np.array([], dtype=self.dtype).reshape([2, 0, 4])
+        }
+
     def set_attrs(self):
         pass
 
@@ -74,6 +81,21 @@ class TestVarAPI(unittest.TestCase):
             self.assertTrue(np.equal(out_ref.shape, out_static.shape).all())
 
         test_static_or_pir_mode()
+
+        for name, zero_input in self.zero_size_cases.items():
+            paddle.disable_static()
+            x_tensor = paddle.to_tensor(zero_input)
+            out_dy = paddle.var(x_tensor)
+            out_ref = np.array([np.nan], dtype=self.dtype)
+            np.testing.assert_allclose(out_dy.numpy(), out_ref, equal_nan=True)
+            paddle.enable_static()
+
+            with paddle.static.program_guard(paddle.static.Program()):
+                x = paddle.static.data('X', zero_input.shape, self.dtype)
+                out = paddle.var(x)
+                exe = paddle.static.Executor(self.place)
+                res = exe.run(feed={'X': zero_input}, fetch_list=[out])
+                np.testing.assert_allclose(res[0], out_ref, equal_nan=True)
 
 
 class TestVarAPI_dtype(TestVarAPI):
