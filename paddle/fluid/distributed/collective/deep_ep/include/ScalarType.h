@@ -1,4 +1,4 @@
-// Copyright (c) 2021 CINN Authors. All Rights Reserved.
+// Copyright (c) 2025 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,20 +13,19 @@
 // limitations under the License.
 
 #pragma once
-#include "paddle/cinn/ir/ir.h"
 
-/** simplify expressions with vars' div and mod.
- *
- * For example, input the code
- * \code
- * ((i_j_k_fused / 3) * 144) + (48 * (i_j_k_fused % 3))
- * \endcode
- *
- * with the `i_j_k_fused` set as var will be simplified to i_j_k_fused
- *
- */
-namespace cinn::optim {
+#include "paddle/phi/common/data_type.h"
 
-void VarModSimplify(Expr* e);
+namespace deep_ep::detail {
 
-}  // namespace cinn::optim
+using ScalarType = phi::DataType;
+
+constexpr auto kInt32 = phi::DataType::INT32;
+constexpr auto kInt64 = phi::DataType::INT64;
+constexpr auto kBool = phi::DataType::BOOL;
+constexpr auto kFloat8_e4m3fn = phi::DataType::FLOAT8_E4M3FN;
+constexpr auto kBFloat16 = phi::DataType::BFLOAT16;
+constexpr auto kFloat32 = phi::DataType::FLOAT32;
+constexpr auto kByte = phi::DataType::INT8;
+
+}  // namespace deep_ep::detail
