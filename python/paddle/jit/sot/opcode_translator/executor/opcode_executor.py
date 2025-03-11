@@ -289,7 +289,9 @@ def call_break_graph_decorator(push_n: int | Callable[[int | None], int]):
                         f"{self._code.co_name} should not break graph, but got '{e}'"
                     )
                 if isinstance(self, OpcodeExecutor):
-                    log(3, f"[BreakGraph] call function Break graph: {e}\n")
+                    log(
+                        3, f"[BreakGraph] call function Break graph:\n    {e}\n"
+                    )
                     self._break_graph_when_call(origin_stack, instr, push_n)
                     return Stop(state="BreakGraph")
                 else:
@@ -1675,7 +1677,7 @@ class OpcodeExecutorBase:
 
         if instr.argval >= 256:
             # NOTE: If the number of unpacked variables exceeds 256, python will report an error like:
-            # SyntaxError: too many expressions in star-unpacking assignmen,
+            # SyntaxError: too many expressions in star-unpacking assignment,
             # so if the number of unpacked variables exceeds 256, it will be treated as the following case.
             # a, b, *c, d = e
             front_nums = instr.arg & 0xFF
