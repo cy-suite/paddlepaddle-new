@@ -164,8 +164,13 @@ void RunAxisTransformInstr(const std::shared_ptr<AxisTransformInstr>& instr,
   auto substitute_dimexpr_for_shape = [&](std::vector<symbol::DimExpr>& shape) {
     for (auto& dim_expr : shape) {
       if (dim_expr.isa<std::int64_t>()) continue;
-      dim_expr = symbol::SubstituteDimExpr(dim_expr,
-                                           interpreter->substitute_dimexpr_map);
+      symbol::DimExpr origin_dim_expr = dim_expr;
+      while (true) {
+        dim_expr = symbol::SubstituteDimExpr(
+            dim_expr, interpreter->substitute_dimexpr_map);
+        if (dim_expr == origin_dim_expr || dim_expr.isa<std::int64_t>()) break;
+        origin_dim_expr = dim_expr;
+      }
     }
   };
   auto substitute_dimexpr_for_transform =
@@ -229,23 +234,21 @@ void RunPaddingInstr(const std::shared_ptr<PaddingInstr>& instr,
 void RunReturnInstr(const std::shared_ptr<ReturnInstr>& instr,
                     FusionInterpreter* interpreter) {
   using namespace cinn::hlir::framework::pir::trivial_fusion_detail;  // NOLINT
+  std::vector<ir::Expr> result;
+  // Insert if for append loop
   for (auto fusion_op : interpreter->scope[instr->target_]->fusion_ops) {
     auto exprs = std::visit(FusibleOp2Expr(), fusion_op);
-    // Insert if for append loops
-    for (const auto& expr : exprs) {
-      // interpreter->ret_expr.push_back(expr);
-      std::vector<std::string> load_tensor_names;
-      for (const auto& tensor : GetOutputTensors(expr)) {
-        load_tensor_names.push_back(tensor->name);
+    for (auto expr : exprs) {
+      std::string output_var_name = GetOutputTensor(expr)->name;
+      if (interpreter->global_var_names.count(output_var_name)) {
+        expr = ExprTransformerUtils::InsertIfForAppendVarsTransformer()(expr);
       }
-      if (AnyFirstInSecond(load_tensor_names, interpreter->global_var_names)) {
-        interpreter->ret_expr.push_back(
-            ExprTransformerUtils::InsertIfForAppendVarsTransformer()(expr));
-      } else {
-        interpreter->ret_expr.push_back(expr);
-      }
+      result.push_back(expr);
     }
   }
+  // Inline global vars
+  InlineGlobalVarCompute(result, interpreter->global_var_names);
+  interpreter->ret_expr = result;
 }
 
 std::vector<ir::Expr> FusionInterpreter::Run() {

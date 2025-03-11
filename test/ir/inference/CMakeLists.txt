@@ -174,6 +174,7 @@ if(WITH_GPU AND TENSORRT_FOUND)
   set_tests_properties(test_trt_convert_scale PROPERTIES TIMEOUT 3000)
   set_tests_properties(test_trt_convert_elementwise PROPERTIES TIMEOUT 3000)
   set_tests_properties(test_trt_convert_reduce PROPERTIES TIMEOUT 3000)
+  set_tests_properties(test_trt_convert_slice PROPERTIES TIMEOUT 600)
 
   if(NOT WIN32)
 

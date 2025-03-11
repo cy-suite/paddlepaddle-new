@@ -59,6 +59,7 @@
 #include "paddle/phi/api/include/context_pool.h"
 #include "paddle/phi/api/include/tensor.h"
 #include "paddle/phi/backends/context_pool.h"
+#include "paddle/phi/backends/device_manager.h"
 #include "paddle/phi/common/backend.h"
 #include "paddle/phi/common/data_type.h"
 #include "paddle/phi/common/place.h"
@@ -106,6 +107,10 @@
 #include "paddle/pir/include/dialect/shape/ir/shape_dialect.h"
 #include "paddle/pir/include/dialect/shape/transforms/shape_optimization_pass.h"
 #include "paddle/pir/include/dialect/shape/utils/shape_analysis.h"
+#endif
+
+#ifdef PADDLE_WITH_DNNL
+#include "paddle/fluid/pir/dialect/operator/ir/op_onednn_dialect.h"
 #endif
 
 #include "paddle/common/flags.h"
@@ -988,9 +993,27 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
       }
 #endif
 
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+    } else if (config_.use_custom_device()) {
+      // custom device
+      if (!config_.custom_pass_only_) {
+        auto kPirCustomDevicePasses =
+            phi::CustomDevicePassManager::Instance()->GetCustomDevicePass();
+        for (const auto &custom_device_pass : kPirCustomDevicePasses) {
+          if (std::find(config_.deleted_passes_.begin(),
+                        config_.deleted_passes_.end(),
+                        custom_device_pass) == config_.deleted_passes_.end()) {
+            pass_pm.AddPass(
+                pir::PassRegistry::Instance().Get(custom_device_pass));
+          }
+        }
+      }
+#endif
 #ifdef PADDLE_WITH_DNNL
     } else if (config_.mkldnn_enabled()) {
       // mkldnn
+      pir::IrContext *ctx = pir::IrContext::Instance();
+      ctx->GetOrRegisterDialect<paddle::dialect::OneDNNOperatorDialect>();
       if (!config_.custom_pass_only_) {
         for (const auto &mkldnn_pass : kPirMkldnnPasses) {
           if (std::find(config_.deleted_passes_.begin(),
