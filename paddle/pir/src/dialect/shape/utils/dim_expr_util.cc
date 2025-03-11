@@ -1007,7 +1007,6 @@ struct FoldRepetitiveSymbol {
 DimExprCompareResult EasyCompareAddWithZero(const Add<DimExpr>& add) {
   // Only return GT, GE, UNKNOWN.
   List<DimExpr> operands = add.operands;
-  int64_t const_result = 0;
   for (const auto& operand : *operands) {
     if (!(operand.isa<int64_t>() && operand.dyn_cast<int64_t>() > 0) &&
         !operand.isa<std::string>()) {
