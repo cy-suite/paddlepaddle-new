@@ -24,7 +24,7 @@ from paddle.inference import Config, create_predictor
 
 class TestNet(paddle.nn.Layer):
     def __init__(self, in_planes, out_planes):
-        super()
+        super().__init__()
         self.sp_conv = paddle.sparse.nn.Conv2D(
             in_planes,
             out_planes,

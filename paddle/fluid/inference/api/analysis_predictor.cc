@@ -430,7 +430,7 @@ bool AnalysisPredictor::Init(
     const std::shared_ptr<framework::ProgramDesc> &program) {
   VLOG(3) << "Predictor::init()";
 
-#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
+#if defined(PADDLE_WITH_CUDA) && !defined(PADDLE_WITH_HIP)
   phi::sparse::ConvHostBuffer &conv_buffer_instance =
       phi::sparse::ConvHostBuffer::getInstance();
   if (conv_buffer_instance.using_buffer()) {
