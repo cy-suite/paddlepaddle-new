@@ -2461,8 +2461,8 @@ set +x
                 single_card_tests="$single_card_tests|^$testcase$"
             fi
         done <<< "$test_cases";
-        card_test "$single_card_tests" 2 4
-        card_test "$single_card_tests_1" 2 4
+        card_test "$single_card_tests" 1 4
+        card_test "$single_card_tests_1" 1 4
         failed_test_lists=''
         collect_failed_tests
         xputest_error=0
