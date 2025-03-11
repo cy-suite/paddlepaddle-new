@@ -645,16 +645,12 @@ def create_zip(*var: VariableBase):
 
 
 # map
-Dispatcher.register(
-    map,
-    (
-        "CallableVariable",
-        "VariableBase",
-    ),
-    lambda fn, var: MapVariable.from_iterator(
-        fn, var, graph=var.graph, tracker=DummyTracker([var])
-    ),
-)
+@Dispatcher.register_decorator(map)
+def create_map(fn: CallableVariable, *vars: VariableBase):
+    tracked_vars = [fn, *vars]
+    return MapVariable.from_iterator(
+        fn, vars, graph=Dispatcher.graph, tracker=DummyTracker(tracked_vars)
+    )
 
 
 # reversed

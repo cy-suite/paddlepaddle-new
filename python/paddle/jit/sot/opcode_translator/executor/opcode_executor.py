@@ -115,7 +115,7 @@ from .variables import (
 if TYPE_CHECKING:
     from .function_graph import CompileGraphResult, FunctionGraph
 
-SUPPORT_COMPARE_OP = {
+COMPARE_OP_NAME_TO_FN = {
     ">": operator.gt,
     "<": operator.lt,
     ">=": operator.ge,
@@ -289,7 +289,9 @@ def call_break_graph_decorator(push_n: int | Callable[[int | None], int]):
                         f"{self._code.co_name} should not break graph, but got '{e}'"
                     )
                 if isinstance(self, OpcodeExecutor):
-                    log(3, f"[BreakGraph] call function Break graph: {e}\n")
+                    log(
+                        3, f"[BreakGraph] call function Break graph:\n    {e}\n"
+                    )
                     self._break_graph_when_call(origin_stack, instr, push_n)
                     return Stop(state="BreakGraph")
                 else:
@@ -1306,9 +1308,17 @@ class OpcodeExecutorBase:
             kwargs = {}
 
         args_variable = self.stack.pop()
-        assert isinstance(args_variable, (TupleVariable, ListVariable))
-        args = args_variable.get_wrapped_items()
-
+        args_iter = args_variable.get_iter()
+        assert isinstance(
+            args_iter, IterVariable
+        ), f"args_iter should be IterVariable, but got {args_iter}"
+        if not isinstance(args_iter, SequenceIterVariable):
+            raise BreakGraphError(
+                UnsupportedOperationBreak(
+                    reason_str="CALL_FUNCTION_EX only supports SequenceIterVariable for varargs"
+                )
+            )
+        args = args_iter.to_list()
         if sys.version_info >= (3, 11) and CALL_METHOD_LAYOUT_NULL_AFTER_VALUE:
             null = self.stack.pop()
             assert isinstance(null, NullVariable)
@@ -1352,7 +1362,7 @@ class OpcodeExecutorBase:
         right, left = self.stack.pop(), self.stack.pop()
         self.stack.push(
             BuiltinVariable(
-                SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
+                COMPARE_OP_NAME_TO_FN[op], self._graph, DanglingTracker()
             )(left, right)
         )
 
@@ -1371,7 +1381,7 @@ class OpcodeExecutorBase:
         op = "is" if instr.arg == 0 else "is not"
         self.stack.push(
             BuiltinVariable(
-                SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
+                COMPARE_OP_NAME_TO_FN[op], self._graph, DanglingTracker()
             )(left, right)
         )
 
@@ -1588,7 +1598,7 @@ class OpcodeExecutorBase:
         op = "in" if instr.arg == 0 else "not in"
         self.stack.push(
             BuiltinVariable(
-                SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
+                COMPARE_OP_NAME_TO_FN[op], self._graph, DanglingTracker()
             )(left, right)
         )
 
@@ -1667,7 +1677,7 @@ class OpcodeExecutorBase:
 
         if instr.argval >= 256:
             # NOTE: If the number of unpacked variables exceeds 256, python will report an error like:
-            # SyntaxError: too many expressions in star-unpacking assignmen,
+            # SyntaxError: too many expressions in star-unpacking assignment,
             # so if the number of unpacked variables exceeds 256, it will be treated as the following case.
             # a, b, *c, d = e
             front_nums = instr.arg & 0xFF

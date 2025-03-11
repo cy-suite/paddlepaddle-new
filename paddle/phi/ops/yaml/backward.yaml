@@ -1160,6 +1160,7 @@
   infer_meta :
     func : FlashAttnGradInferMeta
     param : [q, k, v]
+    spmd_rule : FlashMaskGradInferSpmd
   kernel :
     func : flashmask_attention_grad
     data_type: q
@@ -1672,6 +1673,12 @@
   data_transform :
     skip_transform : index
 
+- backward_op : index_select_double_grad
+  forward : index_select_grad (Tensor x, Tensor index, Tensor grad_out, int axis) -> Tensor(grad_x)
+  args : (Tensor index, Tensor grad_x_grad, int axis)
+  output : Tensor(grad_out_grad)
+  invoke : index_select(grad_x_grad, index, axis)
+
 - backward_op : index_select_grad
   forward : index_select(Tensor x, Tensor index, int axis) -> Tensor(out)
   args : (Tensor x, Tensor index, Tensor out_grad, int axis)
@@ -1685,6 +1692,7 @@
   no_need_buffer : x
   data_transform :
     skip_transform : index
+  backward: index_select_double_grad
 
 - backward_op : index_select_strided_grad
   forward : index_select_strided(Tensor x, int64_t index, int axis) -> Tensor(out)
@@ -2016,6 +2024,18 @@
   kernel :
     func : lu_grad
   inplace : (out_grad -> x_grad)
+
+- backward_op : lu_solve_grad
+  forward : lu_solve (Tensor b, Tensor lu, Tensor pivots, str trans) -> Tensor(out)
+  args : (Tensor b, Tensor lu, Tensor pivots, Tensor out, Tensor out_grad, str trans)
+  output : Tensor(b_grad), Tensor(lu_grad)
+  infer_meta :
+    func : GeneralBinaryGradInferMeta
+    param : [b, lu]
+  kernel :
+    func : lu_solve_grad
+    data_type : b
+  no_need_buffer : b
 
 - backward_op : lu_unpack_grad
   forward : lu_unpack (Tensor x, Tensor y, bool unpack_ludata = true, bool unpack_pivots = true) -> Tensor(pmat), Tensor(l), Tensor(u)
