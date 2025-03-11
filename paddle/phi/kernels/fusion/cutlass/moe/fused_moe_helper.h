@@ -246,7 +246,7 @@ class MoeHelper {
 
     DenseTensor mixgemm_workspace;
     auto gate_compute = GEMMHelper<float>(
-        ctx, num_rows, num_experts, hidden_size, "None", false);
+        ctx, num_rows, num_experts, hidden_size, "None", nullptr, false);
 
     CastKernel<T>(ctx, *X, DataType::FLOAT32, &X_tensor);
 

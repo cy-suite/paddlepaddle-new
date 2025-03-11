@@ -1545,6 +1545,10 @@ class FusedMultiTransformerDybatch(Layer):
         ffn1_bias_attrs=None,
         ffn2_weight_attrs=None,
         ffn2_bias_attrs=None,
+        qkv_weight_scale_attrs=None,
+        linear_weight_scale_attrs=None,
+        ffn1_weight_scale_attrs=None,
+        ffn2_weight_scale_attrs=None,
         epsilon=1e-5,
         residual_alpha=1.0,
         num_layers=-1,
@@ -1558,6 +1562,8 @@ class FusedMultiTransformerDybatch(Layer):
         block_size=64,
         inv_compression_ratio=1.0,
         rope_theta=10000.0,
+        gemm_method="None",
+        group_size=-1,
         name=None,
     ):
         super().__init__()
@@ -1575,6 +1581,13 @@ class FusedMultiTransformerDybatch(Layer):
 
         self.normalize_before = normalize_before
         self._dtype = self._helper.get_default_dtype()
+        if gemm_method == "weight_only":
+            self._wdtype = "int8"
+            self._initializer = paddle.nn.initializer.Constant(0)
+        else:
+            self._wdtype = self._dtype
+            self._initializer = None
+
         self._epsilon = epsilon
         self._residual_alpha = residual_alpha
         self._trans_qkvw = trans_qkvw
@@ -1589,6 +1602,8 @@ class FusedMultiTransformerDybatch(Layer):
         self._block_size = block_size
         self._inv_compression_ratio = inv_compression_ratio
         self._rope_theta = rope_theta
+        self._gemm_method = gemm_method
+        self._group_size = group_size
 
         self.embed_dim = embed_dim
         self.num_heads = num_heads
@@ -1648,6 +1663,11 @@ class FusedMultiTransformerDybatch(Layer):
             ffn2_weight_attr = get_attr(ffn2_weight_attrs, i)
             ffn2_bias_attr = get_attr(ffn2_bias_attrs, i)
 
+            qkv_weight_scale_attr = get_attr(qkv_weight_scale_attrs, i)
+            linear_weight_scale_attr = get_attr(linear_weight_scale_attrs, i)
+            ffn1_weight_scale_attr = get_attr(ffn1_weight_scale_attrs, i)
+            ffn2_weight_scale_attr = get_attr(ffn2_weight_scale_attrs, i)
+
             ln_scale = self.create_parameter(
                 attr=ln_scale_attr,
                 shape=[embed_dim],
@@ -1672,8 +1692,9 @@ class FusedMultiTransformerDybatch(Layer):
                 if trans_qkvw
                 else [embed_dim] + qkv_head_shape + [self.head_dim],
                 attr=qkv_weight_attr,
-                dtype=self._dtype,
+                dtype=self._wdtype,
                 is_bias=False,
+                default_initializer=self._initializer,
             )
             qkv_bias = None
             if qkv_bias_attr:
@@ -1683,11 +1704,17 @@ class FusedMultiTransformerDybatch(Layer):
                     dtype=self._dtype,
                     is_bias=True,
                 )
+            linear_weight_shape = (
+                [embed_dim, num_heads * self.head_dim]
+                if self._gemm_method == "weight_only"
+                else [num_heads * self.head_dim, embed_dim]
+            )
             linear_weight = self.create_parameter(
-                shape=[num_heads * self.head_dim, embed_dim],
+                shape=linear_weight_shape,
                 attr=linear_weight_attr,
-                dtype=self._dtype,
+                dtype=self._wdtype,
                 is_bias=False,
+                default_initializer=self._initializer,
             )
             linear_bias = None
             if linear_bias_attr:
@@ -1713,29 +1740,44 @@ class FusedMultiTransformerDybatch(Layer):
                     is_bias=True,
                     dtype=self._norm_weight_dtype,
                 )
-            ffn1_weight = self.create_parameter(
-                shape=[embed_dim, dim_feedforward * 2]
+
+            dim_feedforward_final = (
+                dim_feedforward * 2
                 if activation.endswith("glu")
-                else [embed_dim, dim_feedforward],
+                else dim_feedforward
+            )
+            ffn1_weight_shape = (
+                [dim_feedforward_final, embed_dim]
+                if self._gemm_method == "weight_only"
+                else [embed_dim, dim_feedforward_final]
+            )
+            ffn1_weight = self.create_parameter(
+                shape=ffn1_weight_shape,
                 attr=ffn1_weight_attr,
-                dtype=self._dtype,
+                dtype=self._wdtype,
                 is_bias=False,
+                default_initializer=self._initializer,
             )
             ffn1_bias = None
             if ffn1_bias_attr:
                 ffn1_bias = self.create_parameter(
-                    shape=[dim_feedforward * 2]
-                    if activation.endswith("glu")
-                    else [dim_feedforward],
+                    shape=[dim_feedforward_final],
                     attr=ffn1_bias_attr,
                     dtype=self._dtype,
                     is_bias=True,
                 )
+
+            ffn2_weight_shape = (
+                [embed_dim, dim_feedforward]
+                if self._gemm_method == "weight_only"
+                else [dim_feedforward, embed_dim]
+            )
             ffn2_weight = self.create_parameter(
-                shape=[dim_feedforward, embed_dim],
+                shape=ffn2_weight_shape,
                 attr=ffn2_weight_attr,
-                dtype=self._dtype,
+                dtype=self._wdtype,
                 is_bias=False,
+                default_initializer=self._initializer,
             )
             ffn2_bias = None
             if ffn2_bias_attr:
@@ -1745,6 +1787,31 @@ class FusedMultiTransformerDybatch(Layer):
                     dtype=self._dtype,
                     is_bias=True,
                 )
+
+            qkv_weight_scale = self.create_parameter(
+                [3, num_heads, self.head_dim],
+                attr=qkv_weight_scale_attr,
+                dtype=self._dtype,
+                is_bias=False,
+            )
+            linear_weight_scale = self.create_parameter(
+                shape=[embed_dim],
+                attr=linear_weight_scale_attr,
+                dtype=self._dtype,
+                is_bias=False,
+            )
+            ffn1_weight_scale = self.create_parameter(
+                shape=[dim_feedforward_final],
+                attr=ffn1_weight_scale_attr,
+                dtype=self._dtype,
+                is_bias=False,
+            )
+            ffn2_weight_scale = self.create_parameter(
+                shape=[embed_dim],
+                attr=ffn2_weight_scale_attr,
+                dtype=self._dtype,
+                is_bias=False,
+            )
 
             # tensor model parallel
             if nranks > 1:
@@ -1756,6 +1823,11 @@ class FusedMultiTransformerDybatch(Layer):
                 # row parallel
                 _set_var_distributed(linear_weight)
                 _set_var_distributed(ffn2_weight)
+
+                _set_var_distributed(qkv_weight_scale)
+                _set_var_distributed(linear_weight_scale)
+                _set_var_distributed(ffn1_weight_scale)
+                _set_var_distributed(ffn2_weight_scale)
 
             self.ln_scales.append(ln_scale)
             self.ln_biases.append(ln_bias)
@@ -1770,6 +1842,12 @@ class FusedMultiTransformerDybatch(Layer):
             self.ffn1_biases.append(ffn1_bias)
             self.ffn2_weights.append(ffn2_weight)
             self.ffn2_biases.append(ffn2_bias)
+
+            self.qkv_weights_scales.append(qkv_weight_scale)
+            self.linear_weights_scales.append(linear_weight_scale)
+            self.ffn1_weights_scales.append(ffn1_weight_scale)
+            self.ffn2_weights_scales.append(ffn2_weight_scale)
+
             _add_parameter(ln_scale)
             _add_parameter(ln_bias)
             _add_parameter(qkv_weight)
@@ -1783,6 +1861,11 @@ class FusedMultiTransformerDybatch(Layer):
             _add_parameter(ffn1_bias)
             _add_parameter(ffn2_weight)
             _add_parameter(ffn2_bias)
+
+            _add_parameter(qkv_weight_scale)
+            _add_parameter(linear_weight_scale)
+            _add_parameter(ffn1_weight_scale)
+            _add_parameter(ffn2_weight_scale)
 
         if self.ln_biases[0] is None:
             self.ln_biases = None
@@ -1876,6 +1959,10 @@ class FusedMultiTransformerDybatch(Layer):
             self.ffn1_biases,
             self.ffn2_weights,
             self.ffn2_biases,
+            self.qkv_weights_scales,
+            self.linear_weights_scales,
+            self.ffn1_weights_scales,
+            self.ffn2_weights_scales,
             pre_layer_norm=self.normalize_before,
             rotary_emb_dims=rotary_emb_dims,
             max_input_length=self._max_input_length,
@@ -1892,6 +1979,8 @@ class FusedMultiTransformerDybatch(Layer):
             inv_compression_ratio=self._inv_compression_ratio,
             gqa_group_size=self._gqa_group_size,
             rope_theta=self._rope_theta,
+            gemm_method=self._gemm_method,
+            group_size=self._group_size,
             name=self.name,
         )
         return out

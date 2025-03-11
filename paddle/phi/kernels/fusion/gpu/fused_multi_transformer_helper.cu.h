@@ -16,12 +16,16 @@ limitations under the License. */
 #include "paddle/phi/kernels/funcs/cublaslt.h"
 #include "paddle/phi/kernels/funcs/load_store_util.h"
 #include "paddle/phi/kernels/funcs/quant_dequant.h"
+#include "paddle/phi/kernels/funcs/weight_only_gemv.h"
 #include "paddle/phi/kernels/fusion/gpu/attention_layer.norm.h"
 #include "paddle/phi/kernels/fusion/gpu/attn_gemm.h"
 #include "paddle/phi/kernels/fusion/gpu/attn_gemm_int8.h"
 #include "paddle/phi/kernels/fusion/gpu/fused_dropout_helper.h"
 #include "paddle/phi/kernels/fusion/gpu/fused_multi_transformer_op.cu.h"
 #include "paddle/phi/kernels/rms_norm_kernel.h"
+#if defined(PADDLE_WITH_CUTLASS)
+#include "paddle/phi/kernels/fusion/cutlass/cutlass_kernels/fpA_intB_gemm/fpA_intB_gemm_template.h"
+#endif
 
 /*
 Note(Zhengzekang):
@@ -107,13 +111,18 @@ class GEMMHelper {
              int dim_ffn,
              int dim_embed,
              const std::string gemm_method,
-             bool transpose_weight = false)
+             phi::CutlassFpAIntBGemmRunner<nvT, uint8_t>
+                 *int8_mixed_gemm_runner = nullptr,
+             bool transpose_weight = false,
+             int group_size = -1)
       : dev_ctx_(dev_ctx),
         token_num_(token_num),
         dim_ffn_(dim_ffn),
         dim_embed_(dim_embed),
         gemm_method_(gemm_method),
-        transpose_weight_(transpose_weight) {}
+        int8_mixed_gemm_runner_(int8_mixed_gemm_runner),
+        transpose_weight_(transpose_weight),
+        group_size_(group_size) {}
 
   // dst = act(fc(src[0]) + bias) * src[1]
   void Compute(const phi::DenseTensor *input,
@@ -140,6 +149,58 @@ class GEMMHelper {
                                                            dim_embed_,
                                                            compute_bias);
       ffn_linear_compute.ComputeForward(weight, input, bias, output, output);
+    } else if (gemm_method_ == "weight_only") {
+      if (bias) {
+        VLOG(5) << "do weight_only int8 gemm with bias";
+        int8_mixed_gemm_runner_->gemm_bias_act(
+            reinterpret_cast<const NvType *>(input->data<T>()),
+            reinterpret_cast<const uint8_t *>(weight->data<int8_t>()),
+            reinterpret_cast<const NvType *>(scale->data<T>()),
+            reinterpret_cast<const NvType *>(bias->data<T>()),
+            reinterpret_cast<NvType *>(output->data<T>()),
+            token_num_,
+            dim_ffn_,
+            dim_embed_,
+            group_size_,
+            "none",
+            reinterpret_cast<char *>(workspace->data<uint8_t>()),
+            workspace->numel(),
+            dev_ctx_.stream());
+      } else {
+        VLOG(5) << "do weight_only int8 gemm without bias";
+        int8_mixed_gemm_runner_->gemm(
+            reinterpret_cast<const NvType *>(input->data<T>()),
+            reinterpret_cast<const uint8_t *>(weight->data<int8_t>()),
+            reinterpret_cast<const NvType *>(scale->data<T>()),
+            reinterpret_cast<NvType *>(output->data<T>()),
+            token_num_,
+            dim_ffn_,
+            dim_embed_,
+            group_size_,
+            reinterpret_cast<char *>(workspace->data<uint8_t>()),
+            workspace->numel(),
+            dev_ctx_.stream());
+      }
+      // VLOG(5) << "weight_only int8 gemm input:" << *input;
+      // VLOG(5) << "weight_only int8 gemm output:" << *output;
+    } else if (gemm_method_ == "weight_only_gemv") {
+      const T *bias_data = bias ? bias->data<T>() : nullptr;
+      phi::WeightOnlyGemvWrapper<T, phi::GPUContext>(
+          dev_ctx_,
+          input->data<T>(),
+          weight->data<int8_t>(),
+          bias_data,
+          scale->data<T>(),
+          token_num_,
+          dim_embed_,
+          dim_ffn_,
+          group_size_,
+          "int8",
+          group_size_ > 1 ? "group_wise" : "per_channel",
+          "None",
+          output->data<T>());
+      // VLOG(5) << "weight_only int8 gemv input:" << *input;
+      // VLOG(5) << "weight_only int8 gemv output:" << *output;
     } else {
       PADDLE_THROW(phi::errors::Unimplemented(
           "Currently GemmHelper only support `None`. "));
@@ -152,7 +213,9 @@ class GEMMHelper {
   int dim_ffn_;
   int dim_embed_;
   std::string gemm_method_;
+  phi::CutlassFpAIntBGemmRunner<nvT, uint8_t> *int8_mixed_gemm_runner_;
   bool transpose_weight_;  // Just For AttnMatmul.
+  int group_size_;         // Just For AttnMatmul.
 };
 
 template <typename T>
@@ -294,13 +357,18 @@ class FFNHelper {
             int token_num,
             int dim_ffn,
             int dim_embed,
-            const std::string gemm_method)
+            const std::string gemm_method,
+            phi::CutlassFpAIntBGemmRunner<nvT, uint8_t>
+                *int8_mixed_gemm_runner = nullptr,
+            int group_size = -1)
       : dev_ctx_(dev_ctx),
         act_method_(act_method),
         token_num_(token_num),
         dim_ffn_(dim_ffn),
         dim_embed_(dim_embed),
-        gemm_method_(gemm_method) {}
+        gemm_method_(gemm_method),
+        int8_mixed_gemm_runner_(int8_mixed_gemm_runner),
+        group_size_(group_size) {}
 
   // dst = act(fc(src[0]) + bias) * src[1]
   void Compute(const phi::DenseTensor *input,
@@ -316,8 +384,14 @@ class FFNHelper {
     bias' shape [dim_ffn]
     output's shape [token_num, dim_ffn].
     */
-    GEMMHelper<T, nvT> gemm_helper(
-        dev_ctx_, token_num_, dim_ffn_, dim_embed_, gemm_method_);
+    GEMMHelper<T, nvT> gemm_helper(dev_ctx_,
+                                   token_num_,
+                                   dim_ffn_,
+                                   dim_embed_,
+                                   gemm_method_,
+                                   int8_mixed_gemm_runner_,
+                                   false,
+                                   group_size_);
     BiasActHelper<T> bias_act_helper(
         dev_ctx_, act_method_, token_num_, dim_ffn_);
 
@@ -332,6 +406,8 @@ class FFNHelper {
   int dim_ffn_;
   int dim_embed_;
   std::string gemm_method_;
+  phi::CutlassFpAIntBGemmRunner<nvT, uint8_t> *int8_mixed_gemm_runner_;
+  int group_size_;
 };
 
 }  // namespace fusion
