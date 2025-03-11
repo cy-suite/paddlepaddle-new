@@ -1,2 +1,2 @@
 echo "a=aaa" >> ${GITHUB_ENV}
-echo "b=bbb" >> ${{ github.env }}
+echo "b=bbb" >> $1
