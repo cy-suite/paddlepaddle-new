@@ -429,25 +429,24 @@ __global__ void group_wise_quant_gpu(const T* weight_data,
                                      int total_vec_n,
                                      int group_size) {
   int n = blockIdx.x * blockDim.x + threadIdx.x;
+  // This can be optimize with group-wize parallel
   if (n < total_vec_n) {
     const int4* vec_weight_data_ptr =
         reinterpret_cast<const int4*>(weight_data);
     int2* vec_quanted_weight_data =
         reinterpret_cast<int2*>(quanted_weight_data);
 
-    int group_id = n / group_size;             // 计算当前通道所属的组索引
-    int group_offset = group_id * group_size;  // 组起始通道
-
     phi::AlignedVector<float, VectorSize> abs_max;
-#pragma unroll
-    for (int i = 0; i < VectorSize; ++i) {
-      abs_max[i] = static_cast<float>(0.0f);
-    }
 
-    // 计算每个 group 的最大绝对值
-    for (int k = 0; k < total_k; ++k) {
-      for (int g = 0; g < group_size && (group_offset + g) < total_vec_n; ++g) {
-        int linear_index = k * total_vec_n + (group_offset + g);
+    // Compute per group row
+    for (int k = 0; k < total_k; k += group_size) {
+      // Init per group abs_max
+#pragma unroll
+      for (int i = 0; i < VectorSize; ++i) {
+        abs_max[i] = static_cast<float>(0.0f);
+      }
+      for (int g = 0; g < group_size && k + g < total_k; g++) {
+        int linear_index = (k + g) * total_vec_n + n;
         phi::AlignedVector<T, VectorSize> weight;
         *reinterpret_cast<int4*>(&weight) = vec_weight_data_ptr[linear_index];
 #pragma unroll
@@ -455,22 +454,20 @@ __global__ void group_wise_quant_gpu(const T* weight_data,
           abs_max[i] = fmaxf(abs_max[i], fabsf(weight[i]));
         }
       }
-    }
-
-    // 计算当前组的 scale
-    phi::AlignedVector<ScaleT, VectorSize> scale;
+      // Compute Scale
+      phi::AlignedVector<ScaleT, VectorSize> scale;
 #pragma unroll
-    for (int i = 0; i < VectorSize; ++i) {
-      scale[i] = static_cast<ScaleT>(abs_max[i] / static_cast<float>(127.0f));
-    }
-    *reinterpret_cast<float4*>(scale_data + group_id * VectorSize) =
-        *reinterpret_cast<float4*>(&scale);
+      for (int i = 0; i < VectorSize; ++i) {
+        scale[i] = static_cast<ScaleT>(abs_max[i] / static_cast<float>(127.0f));
+      }
+      *reinterpret_cast<float4*>(scale_data + k / group_size * VectorSize +
+                                 n * VectorSize) =
+          *reinterpret_cast<float4*>(&scale);
 
-    // 使用 group-wise scale 进行量化
-    for (int k = 0; k < total_k; ++k) {
-      for (int g = 0; g < group_size && (group_offset + g) < total_vec_n; ++g) {
+      // group-wise weight quent
+      for (int g = 0; g < group_size && k + g < total_k; g++) {
         phi::AlignedVector<int8_t, VectorSize> quanted_weight;
-        int linear_index = k * total_vec_n + (group_offset + g);
+        int linear_index = (k + g) * total_vec_n + n;
         phi::AlignedVector<T, VectorSize> weight;
         *reinterpret_cast<int4*>(&weight) =
             *reinterpret_cast<const int4*>(vec_weight_data_ptr + linear_index);
@@ -478,7 +475,7 @@ __global__ void group_wise_quant_gpu(const T* weight_data,
         for (int i = 0; i < VectorSize; ++i) {
           float scaled_weight =
               (static_cast<float>(weight[i]) / static_cast<float>(abs_max[i])) *
-              static_cast<float>(127.0);
+              static_cast<float>(127.0f);
           int8_t clipped_weight = static_cast<int8_t>(
               lroundf(fmaxf(-127.0f, fminf(127.0f, scaled_weight))));
           quanted_weight[i] = clipped_weight;
@@ -534,13 +531,10 @@ void weight_quant_gpu(const GPUContext& dev_ctx,
                                         vec_total_n);
       }
     } else {
-      group_wise_quant_gpu_int4<T, kVectorSize>
-          <<<kGridSize, kBlockSize>>>(weight_data,
-                                      quanted_weight_data,
-                                      scale_data,
-                                      toltal_k,
-                                      total_vec_n,
-                                      group_size);
+      PADDLE_FATAL(
+          "The algo = %s does not support group-wise weight quantize in GPU. "
+          "Please try to use CPU API.",
+          algo);
     }
   } else {
     if (group_size == -1) {  // per channel
@@ -551,8 +545,8 @@ void weight_quant_gpu(const GPUContext& dev_ctx,
           <<<kGridSize, kBlockSize>>>(weight_data,
                                       quanted_weight_data,
                                       scale_data,
-                                      toltal_k,
-                                      total_vec_n,
+                                      total_k,
+                                      vec_total_n,
                                       group_size);
     }
   }
