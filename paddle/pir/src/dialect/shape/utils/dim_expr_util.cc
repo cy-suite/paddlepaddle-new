@@ -1384,9 +1384,13 @@ DimExpr Simplify(const DimExpr& expr) {
     DoPass<SimplifyOperands<Mul>>(&keep_rewrite, &ret);
     DoPass<SimplifyOperands<Div>>(&keep_rewrite, &ret);
     DoPass<SimplifyOperands<Broadcast>>(&keep_rewrite, &ret);
+    DoPass<SimplifyOperands<Min>>(&keep_rewrite, &ret);
+    DoPass<SimplifyOperands<Max>>(&keep_rewrite, &ret);
     DoPass<SortOperands<Add>>(&keep_rewrite, &ret);
     DoPass<SortOperands<Mul>>(&keep_rewrite, &ret);
     DoPass<SortOperands<Broadcast>>(&keep_rewrite, &ret);
+    DoPass<SortOperands<Min>>(&keep_rewrite, &ret);
+    DoPass<SortOperands<Max>>(&keep_rewrite, &ret);
     DoPass<FlattenOperands<Add>>(&keep_rewrite, &ret);
     DoPass<FlattenOperands<Mul>>(&keep_rewrite, &ret);
     DoPass<FlattenOperands<Broadcast>>(&keep_rewrite, &ret);
@@ -1394,6 +1398,8 @@ DimExpr Simplify(const DimExpr& expr) {
     DoPass<FoldUnitConstant<Mul>>(&keep_rewrite, &ret);
     DoPass<FoldUnitConstant<Div>>(&keep_rewrite, &ret);
     DoPass<FoldUnitConstant<Broadcast>>(&keep_rewrite, &ret);
+    DoPass<FoldUnitConstant<Min>>(&keep_rewrite, &ret);
+    DoPass<FoldUnitConstant<Max>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Add>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Mul>>(&keep_rewrite, &ret);
     DoPass<FoldConstants<Div>>(&keep_rewrite, &ret);

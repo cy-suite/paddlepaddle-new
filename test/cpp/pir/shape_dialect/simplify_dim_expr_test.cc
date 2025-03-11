@@ -253,6 +253,7 @@ TEST(Simplify, SimplifyMaxAndMinWithGE) {
 
   // Min(Mul(S0, S1), 0) => Min(Mul(S0, S1), 0)
   // Now simplify ability is limited.
+  DimExpr mul2{Mul<DimExpr>{{S0, S1}}};
   ASSERT_TRUE((SimplifyDimExpr(Min<DimExpr>{{mul2, DimExpr(0)}}) ==
                Min<DimExpr>{{mul2, DimExpr(0)}}));
 }
