@@ -15,7 +15,6 @@
 #include "paddle/fluid/framework/new_executor/instruction/tensorrt_engine_instruction.h"
 #include "paddle/fluid/framework/new_executor/instruction/instruction_util.h"
 #include "paddle/fluid/inference/analysis/helper.h"
-#include "paddle/fluid/pir/serialize_deserialize/include/interface.h"
 #include "paddle/fluid/platform/profiler/supplement_tracing.h"
 #include "paddle/fluid/platform/tensorrt/engine_params.h"
 #include "paddle/phi/common/data_type.h"
@@ -36,16 +35,10 @@ TensorRTEngineInstruction::TensorRTEngineInstruction(
     : InstructionBase(id, place), value_exec_info_(value_exec_info) {
   auto op_attributes = op->attributes();
 
-  VLOG(0) << "Start Build engine";
+  VLOG(6) << "Start Build engine";
   auto engine_serialized_path = op_attributes.at("engine_serialized_data")
                                     .dyn_cast<pir::StrAttribute>()
                                     .AsString();
-
-  refit_params_path_ = op_attributes.at("refit_params_path")
-                           .dyn_cast<pir::StrAttribute>()
-                           .AsString();
-
-  LOG(INFO) << "refit_params_path:" << refit_params_path_;
   workspace_size_ =
       op_attributes.at("workspace_size").dyn_cast<pir::Int64Attribute>().data();
   allow_build_at_runtime_ = op_attributes.at("allow_build_at_runtime")
@@ -96,16 +89,6 @@ TensorRTEngineInstruction::TensorRTEngineInstruction(
   std::vector<int> min_input_shape_vector;
   std::vector<int> max_input_shape_vector;
   std::vector<int> opt_input_shape_vector;
-
-  if (op_attributes.find("refit_param_name") != op_attributes.end()) {
-    auto refit_param_name_attr = op_attributes.at("refit_param_name")
-                                     .dyn_cast<pir::ArrayAttribute>()
-                                     .AsVector();
-    for (const auto &attr : refit_param_name_attr) {
-      refit_param_names_.push_back(
-          attr.dyn_cast<pir::StrAttribute>().AsString());
-    }
-  }
 
   auto dynamic_shape_names_attrs = op_attributes.at("dynamic_shape_names")
                                        .dyn_cast<pir::ArrayAttribute>()
@@ -185,33 +168,6 @@ TensorRTEngineInstruction::TensorRTEngineInstruction(
   auto engine_data = ReadBinaryFileToString(engine_serialized_path);
   trt_engine_->Deserialize(engine_data);
 
-  if (!refit_params_path_.empty()) {
-    trt_engine_->SetScope(value_exec_info_->GetScope());
-    std::vector<phi::DenseTensor *> tensor_out;
-    for (const auto &param_name : refit_param_names_) {
-      LOG(INFO) << "param_name " << param_name;
-      auto *var = value_exec_info_->GetScope()->FindVar(param_name);
-      if (var == nullptr) {
-        var = value_exec_info_->GetScope()->Var(param_name);
-      }
-      auto *tensor_temp = var->GetMutable<phi::DenseTensor>();
-      tensor_out.push_back(tensor_temp);
-    }
-    pir::LoadCombineFunction(
-        refit_params_path_, refit_param_names_, &tensor_out, false, place);
-    for (size_t i = 0; i < refit_param_names_.size(); ++i) {
-      if (!trt_engine_->setRefitWeights(refit_param_names_[i],
-                                        *tensor_out[i])) {
-        LOG(ERROR) << "Failed to set refit weights for "
-                   << refit_param_names_[i];
-      }
-    }
-    if (!trt_engine_->FinalizeRefit()) {
-      LOG(ERROR) << "Failed to finalize refit process";
-    } else {
-      VLOG(6) << "Successfully completed refit process";
-    }
-  }
   VLOG(6) << "Finish build engine for: " << op_name_;
 
   SetKernelType(AnalyseOpFuncType(op, place));

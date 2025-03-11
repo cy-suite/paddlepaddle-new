@@ -151,7 +151,6 @@ class PaddleToTensorRTConverter:
         max_value_map = {}
         input_names = []
         new_input_values = []
-        refit_param_name = []
         precision_mode = PrecisionMode.FP32
         if self.trt_config is not None:
             precision_mode = self.trt_config.precision_mode
@@ -174,7 +173,6 @@ class PaddleToTensorRTConverter:
             defining_op = value.get_defining_op()
             if defining_op.name() == "builtin.parameter":
                 param_name = defining_op.attrs()["parameter_name"]
-                refit_param_name.append(param_name)
                 _logger.info(f"param_name:{param_name}")
                 weight = trt.Weights(
                     self.constant_manager.get_constant_value(param_name)
@@ -518,15 +516,6 @@ class PaddleToTensorRTConverter:
         trt_params.min_shape_tensor = min_value_map
         trt_params.max_shape_tensor = max_value_map
         trt_params.optim_shape_tensor = opt_value_map
-        if self.trt_config.refit_params_path:
-            trt_params.refit_params_path = self.trt_config.refit_params_path
-            trt_params.refit_param_name = refit_param_name
-            _logger.info(
-                f"trt_params.refit_params_path:{trt_params.refit_params_path}"
-            )
-            _logger.info(
-                f"trt_params.refit_param_name:{trt_params.refit_param_name}"
-            )
         group_str = str(group_op)
         engine_name = (
             int(hashlib.sha256(group_str.encode('utf-8')).hexdigest(), 16)
@@ -545,7 +534,6 @@ class PaddleToTensorRTConverter:
 
         with paddle.pir_utils.IrGuard(), paddle.pir.core.program_guard(program):
             pir.set_insertion_point(group_op)
-            _logger.info("c_ops.tensorrt_engine执行了吧")
             out = paddle._C_ops.tensorrt_engine(
                 new_input_values,
                 trt_params,
@@ -555,8 +543,6 @@ class PaddleToTensorRTConverter:
                 out_types,
                 "",
             )
-
-            _logger.info("c_ops.tensorrt_engine执行完毕")
 
             for out_index in range(len(out)):
                 if group_op.result(out_index).use_empty():
@@ -579,47 +565,47 @@ class PaddleToTensorRTConverter:
                     "max_value": orin_max_value,
                 }
 
-        # serialized_engine = builder.build_serialized_network(network, config)
-        # assert serialized_engine is not None, 'Failed to build engine.'
-        # engine_runtime = trt.Runtime(trt.Logger(trt.Logger.ERROR))
-        # engine = engine_runtime.deserialize_cuda_engine(serialized_engine)
-        # if self.trt_config and self.trt_config.refit_params_path:
-        #     _logger.info(
-        #         "Refit mode detected. Starting TensorRT refit process."
-        #     )
+        serialized_engine = builder.build_serialized_network(network, config)
+        assert serialized_engine is not None, 'Failed to build engine.'
+        engine_runtime = trt.Runtime(trt.Logger(trt.Logger.ERROR))
+        engine = engine_runtime.deserialize_cuda_engine(serialized_engine)
+        if self.trt_config and self.trt_config.refit_params_path:
+            _logger.info(
+                "Refit mode detected. Starting TensorRT refit process."
+            )
 
-        #     refitter = trt.Refitter(engine, trt.Logger(trt.Logger.ERROR))
+            refitter = trt.Refitter(engine, trt.Logger(trt.Logger.ERROR))
 
-        #     refit_param_names = ["linear_0.w_0", "linear_0.b_0"]
+            refit_param_names = ["linear_0.w_0", "linear_0.b_0"]
 
-        #     for param_name in refit_param_names:
-        #         param_tensor = self.constant_manager.get_constant_value(
-        #             param_name
-        #         )
-        #         np_weight = np.array(param_tensor)
+            for param_name in refit_param_names:
+                param_tensor = self.constant_manager.get_constant_value(
+                    param_name
+                )
+                np_weight = np.array(param_tensor)
 
-        #         if param_name.endswith(".w_0"):
-        #             weight_role = trt.WeightsRole.KERNEL
-        #         elif param_name.endswith(".b_0"):
-        #             weight_role = trt.WeightsRole.BIAS
-        #         else:
-        #             raise ValueError(f"Unsupported param_name: {param_name}")
-        #         refitter = trt.Refitter(engine, trt.Logger(trt.Logger.ERROR))
+                if param_name.endswith(".w_0"):
+                    weight_role = trt.WeightsRole.KERNEL
+                elif param_name.endswith(".b_0"):
+                    weight_role = trt.WeightsRole.BIAS
+                else:
+                    raise ValueError(f"Unsupported param_name: {param_name}")
+                refitter = trt.Refitter(engine, trt.Logger(trt.Logger.ERROR))
 
-        #         all_refittable = refitter.get_all()
-        #         for weight_name in all_refittable:
-        #             print("weight_name", weight_name)
+                all_refittable = refitter.get_all()
+                for weight_name in all_refittable:
+                    print("weight_name", weight_name)
 
-        #         layer_name = param_name
-        #         weight_role = trt.WeightsRole.CONSTANT
+                layer_name = param_name
+                weight_role = trt.WeightsRole.CONSTANT
 
-        #         success = refitter.set_weights(
-        #             layer_name, weight_role, np.ascontiguousarray(np_weight)
-        #         )
-        #         if not success:
-        #             _logger.error(f"Refit failed for weight: {layer_name}")
-        #             raise RuntimeError(f"Refit failed for weight: {layer_name}")
-        #         _logger.info(f"Successfully set weight: {layer_name}")
+                success = refitter.set_weights(
+                    layer_name, weight_role, np.ascontiguousarray(np_weight)
+                )
+                if not success:
+                    _logger.error(f"Refit failed for weight: {layer_name}")
+                    raise RuntimeError(f"Refit failed for weight: {layer_name}")
+                _logger.info(f"Successfully set weight: {layer_name}")
 
         return out
 
