@@ -20,6 +20,7 @@
 #include "paddle/phi/backends/dynload/cusolver.h"
 #include "paddle/phi/common/memory_utils.h"
 #include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/kernels/complex_kernel.h"
 #include "paddle/phi/kernels/empty_kernel.h"
 #include "paddle/phi/kernels/funcs/complex_functors.h"
 #include "paddle/phi/kernels/transpose_kernel.h"
@@ -419,7 +420,7 @@ void SvdKernel(const Context& dev_ctx,
   auto UT_dim = U->dims();
   std::swap(UT_dim[rank - 1], UT_dim[rank - 2]);  // Get the dim of UT_dim
   U->Resize(UT_dim);                              // U is entirely UT
-  auto tmp_U = TransposeLast2Dim<T>(dev_ctx, *U);
+  auto tmp_U = TransposeLast2Dim<T>(dev_ctx, Conj<T, Context>(dev_ctx, *U));
   U->ShareDataWith(tmp_U);  // U becomse UT, aka VT;
 }
 }  // namespace phi

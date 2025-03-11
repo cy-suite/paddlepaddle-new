@@ -16,6 +16,7 @@
 #include "paddle/phi/backends/cpu/cpu_context.h"
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/kernels/complex_kernel.h"
 #include "paddle/phi/kernels/funcs/complex_functors.h"
 #include "paddle/phi/kernels/funcs/lapack/lapack_function.h"
 #include "paddle/phi/kernels/transpose_kernel.h"
@@ -114,7 +115,8 @@ void SvdKernel(const Context& dev_ctx,
     dev_ctx.template Alloc<T>(VH);
     return;
   }
-  DenseTensor trans_x = ::phi::TransposeLast2Dim<T>(dev_ctx, X);
+  DenseTensor trans_x =
+      ::phi::TransposeLast2Dim<T>(dev_ctx, Conj<T, Context>(dev_ctx, X));
   auto x_dims = X.dims();
   int rows = static_cast<int>(x_dims[x_dims.size() - 2]);
   int cols = static_cast<int>(x_dims[x_dims.size() - 1]);
@@ -138,7 +140,8 @@ void SvdKernel(const Context& dev_ctx,
     int64_t& y = origin_dim[origin_dim.size() - 2];
     std::swap(x, y);
     out->Resize(origin_dim);
-    return ::phi::TransposeLast2Dim<T>(dev_ctx, *out);
+    return ::phi::TransposeLast2Dim<T>(dev_ctx,
+                                       phi::Conj<T, Context>(dev_ctx, *out));
   };
   *U = col_major_to_row_major(U);
   *VH = col_major_to_row_major(VH);
