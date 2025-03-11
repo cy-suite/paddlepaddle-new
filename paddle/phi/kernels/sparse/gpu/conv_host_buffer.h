@@ -15,7 +15,6 @@ limitations under the License. */
 #pragma once
 #include <numeric>
 #include <vector>
-#include "glog/logging.h"
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/kernels/empty_kernel.h"
 
