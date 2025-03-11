@@ -82,7 +82,7 @@ from .random import determinate_rng, rng_state
 from .sharding import ShardingOptimizerStage1, get_placement_with_sharding
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, List, Sequence
 
     from typing_extensions import TypeAlias
 
@@ -3278,27 +3278,29 @@ class ShardDataloader:
             Users can specify the shard_dim of each mesh or specify a single shard_dim for all meshes.
             Default: None, which means the data loader will not be split, i.e. mp.
         is_dataset_splitted (bool): Whether the dataset has been splitted.
-        dense_tensor_idx (list): A 2D list specifies the index of the dense_tensor in the output of dataloader.
+        dense_tensor_idx (list): A paired 2D list specifies the index of the dense_tensor in the output of dataloader.
             It allows users to identify which elements within each output batch are dense_tensor.
-            Default: None, which means all the outputs are dist_tensors.
+            Default: None, meaning all outputs are dist_tensors.
+            Note: For dense_tensor_idx settings, the idx must be paired: the second dense_tensor defines the shape of the first.
+            The last dim of the second dense_tensor is used for paddle.prod, guiding the split of the first dense_tensor.
             e.g.
             1. If the collator function returns:
                 return {
                     "input_ids": [
                         features["input_ids"],
-                        features["attention_mask"],
-                        features["position_ids"],
+                        features["pixel_values"], # will be treated as a dense tensor
+                        features["pixel_values_shape"], # defines the shape of `pixel_values`
                     ],
                     "image": features["image"],
                     "labels": features["labels"],
                 }
-            2. If `dense_tensor_idx = [[1, 2], [0], []]`:
+            2. If `dense_tensor_idx = [[1, 2], [], []]`:
                 - For "input_ids":
                     input_ids["input_ids"] is a dist_tensor
-                    input_ids["attention_mask"] is a dense_tensor
-                    input_ids["position_ids"] is a dense_tensor
+                    input_ids["pixel_values"] is a dense_tensor
+                    input_ids["pixel_values_shape"] is a dense_tensor
                 - For "image":
-                    image is a dense_tensor
+                    image is a dist_tensor
                 - For "labels":
                     labels is a dist_tensor
     """
@@ -3310,7 +3312,7 @@ class ShardDataloader:
         input_keys: list[str] | tuple[str] | None = None,
         shard_dims: list | tuple | str | int | None = None,
         is_dataset_splitted: bool = False,
-        dense_tensor_idx: list | None = None,
+        dense_tensor_idx: List[List[int]] | None = None,
     ):
         # do some check
         if is_dataset_splitted is True and shard_dims is None:
@@ -3593,7 +3595,7 @@ def shard_dataloader(
     input_keys: Sequence[str] | None = None,
     shard_dims: Sequence[str] | Sequence[int] | str | int | None = None,
     is_dataset_splitted: bool = False,
-    dense_tensor_idx: list | None = None,
+    dense_tensor_idx: List[List[int]] | None = None,
 ) -> ShardDataloader:
     """
     Convert the dataloader to a ShardDataloader which provided two capabilities:
@@ -3618,27 +3620,29 @@ def shard_dataloader(
             Users can specify the shard_dim of each mesh or specify a single shard_dim for all meshes.
             Default: None, which means the data loader will not be split, i.e. mp.
         is_dataset_splitted (bool): Whether the dataset has been splitted, Default: False.
-        dense_tensor_idx (list): A 2D list specifies the index of the dense_tensor in the output of dataloader.
+        dense_tensor_idx (list): A paired 2D list specifies the index of the dense_tensor in the output of dataloader.
             It allows users to identify which elements within each output batch are dense_tensor.
-            Default: None, which means all the outputs are dist_tensors.
+            Default: None, meaning all outputs are dist_tensors.
+            Note: For dense_tensor_idx settings, the idx must be paired: the second dense_tensor defines the shape of the first.
+            The last dim of the second dense_tensor is used for paddle.prod, guiding the split of the first dense_tensor.
             e.g.
             1. If the collator function returns:
                 return {
                     "input_ids": [
                         features["input_ids"],
-                        features["attention_mask"],
-                        features["position_ids"],
+                        features["pixel_values"], # will be treated as a dense tensor
+                        features["pixel_values_shape"], # defines the shape of `pixel_values`
                     ],
                     "image": features["image"],
                     "labels": features["labels"],
                 }
-            2. If `dense_tensor_idx = [[1, 2], [0], []]`:
+            2. If `dense_tensor_idx = [[1, 2], [], []]`:
                 - For "input_ids":
                     input_ids["input_ids"] is a dist_tensor
-                    input_ids["attention_mask"] is a dense_tensor
-                    input_ids["position_ids"] is a dense_tensor
+                    input_ids["pixel_values"] is a dense_tensor
+                    input_ids["pixel_values_shape"] is a dense_tensor
                 - For "image":
-                    image is a dense_tensor
+                    image is a dist_tensor
                 - For "labels":
                     labels is a dist_tensor
     Returns:
