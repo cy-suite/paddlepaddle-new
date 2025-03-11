@@ -59,8 +59,8 @@ void XpuAsyncLoad::Task::CpuSynchronize() {
 void XpuAsyncLoad::Task::UpdateWaitChain(const phi::DeviceContext& ctx) {
   auto* xpu_ctx = dynamic_cast<const phi::XPUContext*>(&ctx);
   if (xpu_ctx) {
-    VLOG(6) << "UpdateWaitChain: Recording event on XPU "
-               "context"； event_manager_->Record(*xpu_ctx);
+    VLOG(6) << "UpdateWaitChain: Recording event on XPU context";
+    event_manager_->Record(*xpu_ctx);
   }
 }
 
