@@ -494,6 +494,7 @@
     func : conv2d_grad
     data_type : input
   backward : conv2d_grad_grad
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - backward_op : conv2d_grad_grad
   forward : conv2d_grad (Tensor input, Tensor filter, Tensor grad_out,  int[] strides, int[] paddings, str padding_algorithm, int[] dilations, int groups, str data_format) -> Tensor(grad_input), Tensor(grad_filter)
@@ -769,6 +770,7 @@
     func : depthwise_conv2d_grad
     data_type : input
   backward : depthwise_conv2d_double_grad
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - backward_op : depthwise_conv2d_transpose_grad
   forward : depthwise_conv2d_transpose(Tensor x, Tensor filter, int[] strides={1, 1}, int[] paddings={0, 0}, int[] output_padding={}, IntArray output_size={}, str padding_algorithm="EXPLICIT", int groups=1, int[] dilations={1, 1}, str data_format="NCHW") -> Tensor(out)
