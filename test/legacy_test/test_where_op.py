@@ -919,6 +919,11 @@ class TestWhereDygraphAPIDtypePromotion(unittest.TestCase):
                 out.numpy(), np.where(cond_i, x_i, y_i)
             )
 
+    @unittest.skipIf(
+        not core.is_compiled_with_cuda()
+        or not core.is_float16_supported(core.CUDAPlace(0)),
+        "core is not compiled with CUDA and not support the bfloat16",
+    )
     def test_dtype_auto_promotion_float_scalar_tensor_fp16(self):
         with base.dygraph.guard():
             x_i = np.random.randn(4, 5, 6).astype('float16')
