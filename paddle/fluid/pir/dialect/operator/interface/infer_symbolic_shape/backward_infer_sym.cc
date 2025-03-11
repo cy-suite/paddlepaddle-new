@@ -14,7 +14,6 @@
 
 #include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/backward_infer_sym.h"
 #include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/infer_sym_utils.h"
-#include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
 
 namespace paddle::dialect {
 
