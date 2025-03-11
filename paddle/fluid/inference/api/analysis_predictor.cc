@@ -430,6 +430,7 @@ bool AnalysisPredictor::Init(
     const std::shared_ptr<framework::ProgramDesc> &program) {
   VLOG(3) << "Predictor::init()";
 
+#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
   phi::sparse::ConvHostBuffer &conv_buffer_instance =
       phi::sparse::ConvHostBuffer::getInstance();
   if (conv_buffer_instance.using_buffer()) {
@@ -440,6 +441,7 @@ bool AnalysisPredictor::Init(
                       cudaHostAllocDefault));
     conv_buffer_instance.set_host_buffer(h_buffer);
   }
+#endif
 
   if (config_.with_profile_) {
     LOG(WARNING) << "Profiler is activated, which might affect the performance";
