@@ -33,7 +33,6 @@ if TYPE_CHECKING:
 
     from .exceptions import BreakGraphReasonBase
 
-
 PREFIX = "<sot>"
 SUFFIX = "</sot>"
 ENCODING = "utf-8"
@@ -129,6 +128,22 @@ class InfoBase(ABC):
     @classmethod
     @abstractmethod
     def summary(cls, history: list[Self]) -> str: ...
+
+    @classmethod
+    def serialize(cls, obj: dict) -> str:
+
+        json_data = json.dumps(obj)
+        b64_bytes = base64.b64encode(json_data.encode(ENCODING))
+
+        return b64_bytes.decode(ENCODING)
+
+    @classmethod
+    def deserialize(cls, data: bytes | str) -> dict:
+        if isinstance(data, str):
+            data = data.encode(ENCODING)
+        json_str = base64.b64decode(data).decode(ENCODING)
+
+        return json.loads(json_str)
 
 
 class NewSymbolHitRateInfo(InfoBase):
@@ -281,24 +296,31 @@ class CompileCountInfo(InfoBase):
 
 class BreakGraphReasonInfo(InfoBase):
     SHORT_NAME = "breakgraph_reason"
-    TYPE = InfoType.E2E_INFO
+    TYPE = InfoType.STEP_INFO
 
     def __init__(self, reason: BreakGraphReasonBase):
         super().__init__()
         self.reason = reason
 
     @classmethod
-    def summary(cls, history: list[Self]) -> str:
-        reason_dict = {}
+    def classify(cls, history: list[Self]) -> str:
+        reasons_dict = {}
 
         for info in history:
             name = info.reason.__class__.__name__
-            if name not in reason_dict:
-                reason_dict[name] = []
-            reason_dict[name].append(str(info.reason))
+            if name not in reasons_dict:
+                reasons_dict[name] = []
+            reasons_dict[name].append(str(info.reason))
 
-        reason_list = list(reason_dict.items())
-        reason_list.sort(key=lambda x: len(x[1]), reverse=True)
+        sorted_reasons = list(reasons_dict.items())
+        sorted_reasons.sort(key=lambda x: len(x[1]), reverse=True)
+
+        return reasons_dict, sorted_reasons
+
+    @classmethod
+    def summary(cls, history: list[Self]) -> str:
+
+        reason_dict, reason_list = cls.classify(history)
 
         return "\n".join(
             [
@@ -307,6 +329,33 @@ class BreakGraphReasonInfo(InfoBase):
             ]
         )
 
+    @classmethod
+    def json_report(cls, history: list[Self]) -> str:
+
+        reason_dict, sorted_reasons = cls.classify(history)
+        reason_dict["count"] = {k: len(v) for k, v in sorted_reasons}
+        serialized = cls.serialize({cls.SHORT_NAME: reason_dict})
+
+        return f"{PREFIX}{serialized}{SUFFIX}"
+
+    @classmethod
+    def convert_from_string(cls, serialized: str) -> list[Self]:
+        # This method is the inverse of json_report
+
+        from paddle.jit.sot.utils import exceptions
+
+        history = []
+        obj = cls.deserialize(serialized)[cls.SHORT_NAME]
+        obj.pop("count")
+
+        for classname in obj:
+
+            ReasonClass = getattr(exceptions, classname, None)
+            for reason in obj[classname]:
+                history.append(cls(ReasonClass(reason_str=reason)))
+
+        return history
+
     @staticmethod
     def collect_break_graph_reason(reason: BreakGraphReasonBase):
         if not InfoCollector().need_collect(BreakGraphReasonInfo):
@@ -314,32 +363,13 @@ class BreakGraphReasonInfo(InfoBase):
 
         InfoCollector().attach(BreakGraphReasonInfo, reason)
 
-    @classmethod
-    def json_report(cls, history: list[Self]) -> str:
-        reason_groups = {}
-
-        for entry in history:
-            reason_cls_name = entry.reason.__class__.__name__
-            if reason_cls_name not in reason_groups:
-                reason_groups[reason_cls_name] = []
-            reason_groups[reason_cls_name].append(str(entry.reason))
-
-        sorted_reasons = sorted(
-            reason_groups.items(), key=lambda group: len(group[1]), reverse=True
-        )
-
-        json_data = json.dumps({cls.SHORT_NAME: sorted_reasons})
-        b64_bytes = base64.b64encode(json_data.encode(ENCODING))
-        b64_str = f"\n{PREFIX}{b64_bytes.decode(ENCODING)}{SUFFIX}"
-
-        return b64_str
-
 
 class SubGraphInfo(InfoBase):
     SHORT_NAME = "subgraph_info"
     TYPE = InfoType.STEP_INFO
 
-    def __init__(self, graph, op_num, sir_name):
+    def __init__(self, graph: str, op_num: int, sir_name: str):
+        # NOTE: All data should be serializable
         super().__init__()
         self.graph = graph
         self.op_num = op_num
@@ -350,11 +380,12 @@ class SubGraphInfo(InfoBase):
 
     @classmethod
     def summary(cls, history: list[Self]) -> str:
-
         num_of_subgraph = len(history)
         sum_of_op_num = sum(item.op_num for item in history)
 
-        need_details = "details" in ENV_SOT_COLLECT_INFO.get()[cls.SHORT_NAME]
+        need_details = "details" in ENV_SOT_COLLECT_INFO.get().get(
+            cls.SHORT_NAME, []
+        )
 
         details = ""
         if need_details:
@@ -371,8 +402,9 @@ class SubGraphInfo(InfoBase):
 
     @classmethod
     def json_report(cls, history: list[Self]) -> str:
-
-        need_details = "details" in ENV_SOT_COLLECT_INFO.get()[cls.SHORT_NAME]
+        need_details = "details" in ENV_SOT_COLLECT_INFO.get().get(
+            cls.SHORT_NAME, []
+        )
 
         aggregated_info_list = []
         for idx, record in enumerate(history):
@@ -385,10 +417,41 @@ class SubGraphInfo(InfoBase):
                 entry_data["Graph"] = str(record.graph)
             aggregated_info_list.append(entry_data)
 
-        _json_str = json.dumps({cls.SHORT_NAME: aggregated_info_list})
-        base64_encoded = base64.b64encode(_json_str.encode(ENCODING))
-        formatted_encoded_data = (
-            f"{PREFIX}{base64_encoded.decode(ENCODING)}{SUFFIX}"
+        serialized = cls.serialize({cls.SHORT_NAME: aggregated_info_list})
+
+        return f"{PREFIX}{serialized}{SUFFIX}"
+
+    @classmethod
+    def convert_from_string(cls, serialized: str) -> list[Self]:
+        # This method is the inverse of json_report
+
+        history = []
+        obj = cls.deserialize(serialized)[cls.SHORT_NAME]
+
+        for entry in obj:
+
+            history.append(
+                SubGraphInfo(
+                    graph=entry["Graph"],
+                    op_num=entry["OpNum"],
+                    sir_name=entry["SIR_name"],
+                )
+            )
+
+        return history
+
+    def __eq__(self, other):
+
+        need_graph_equal = "details" in ENV_SOT_COLLECT_INFO.get().get(
+            self.SHORT_NAME, []
         )
 
-        return formatted_encoded_data
+        graph_equal_or_not = True
+        if need_graph_equal:
+            graph_equal_or_not = self.graph == other.graph
+
+        return (
+            graph_equal_or_not
+            and self.op_num == other.op_num
+            and self.sir_name == other.sir_name
+        )
