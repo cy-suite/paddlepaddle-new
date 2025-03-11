@@ -184,7 +184,7 @@ TEST(Simplify, ConstantMaxMin) {
 TEST(Simplify, SimplifyBc) {
   // Broadcast(S0, Add(S0, -1)) => S0
   DimExpr S0{"S0"};
-  DimExpr add{Add<DimExpr>{{S0, Negative<DimExpr>{S0}}}};
+  DimExpr add{Add<DimExpr>{{S0, Negative<DimExpr>{1}}}};
   DimExpr bc{Broadcast<DimExpr>{{S0, add}}};
   ASSERT_TRUE((SimplifyDimExpr(bc) != Add<DimExpr>{{S0, -1}}));
   // TODO(ooooo): improve the simplify ability
