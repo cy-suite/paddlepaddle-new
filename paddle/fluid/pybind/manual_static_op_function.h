@@ -1155,36 +1155,17 @@ static PyObject *static_api_tensorrt_engine(PyObject *self,
     std::string converter_debug_info =
         CastPyArg2String(converter_debug_info_obj, "converter_debug_info", 6);
 
-    VLOG(0) << "refit了";
-    std::string refit_params_path = "";
-    std::vector<std::string> refit_param_names;
-
-    Py_ssize_t args_size = PyTuple_Size(args);
-    LOG(INFO) << "args_size: " << args_size;
-    if (args_size > 7) {
-      PyObject *refit_params_path_obj = PyTuple_GET_ITEM(args, 7);
-      refit_params_path =
-          CastPyArg2String(refit_params_path_obj, "refit_params_path", 7);
-      LOG(INFO) << "refit_params_path: " << refit_params_path;
-    }
-    if (args_size > 8) {
-      PyObject *refit_param_names_obj = PyTuple_GET_ITEM(args, 8);
-      refit_param_names = CastPyArg2VectorOfString(refit_param_names_obj, 8);
-      LOG(INFO) << "refit_param_names size: " << refit_param_names.size();
-    }
-
     // Call ir static api
     CallStackRecorder callstack_recoder("tensorrt_engine");
     callstack_recoder.Record();
-    auto static_api_out = paddle::dialect::tensorrt_engine(x,
-                                                           trt_param,
-                                                           input_names,
-                                                           output_names,
-                                                           outputs_shape,
-                                                           outputs_dtype,
-                                                           converter_debug_info,
-                                                           refit_params_path,
-                                                           refit_param_names);
+    auto static_api_out =
+        paddle::dialect::tensorrt_engine(x,
+                                         trt_param,
+                                         input_names,
+                                         output_names,
+                                         outputs_shape,
+                                         outputs_dtype,
+                                         converter_debug_info);
     callstack_recoder.AttachToOps();
     return ToPyObject(static_api_out);
   } catch (...) {

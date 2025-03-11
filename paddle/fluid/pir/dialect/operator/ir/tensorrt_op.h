@@ -35,8 +35,8 @@ class TensorRTEngineOp
  public:
   using Op::Op;
   static const char *name() { return "pd_op.tensorrt_engine"; }
-  static const char *attributes_name[15];
-  static constexpr uint32_t attributes_num = 15;
+  static const char *attributes_name[13];
+  static constexpr uint32_t attributes_num = 13;
   static OpInfoTuple GetOpInfo();
 
   static void Build(pir::Builder &builder,             // NOLINT
@@ -47,9 +47,7 @@ class TensorRTEngineOp
                     std::vector<std::string> output_names,
                     std::vector<std::vector<int64_t>> outputs_shape,
                     std::vector<phi::DataType> outputs_dtype,
-                    const std::string &converter_debug_info,
-                    const std::string refit_params_path,
-                    const std::vector<std::string> &refit_param_names);
+                    const std::string &converter_debug_info);
 
   void VerifySig();
 
