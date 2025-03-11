@@ -1004,72 +1004,91 @@ struct FoldRepetitiveSymbol {
   }
 };
 
-DimExprCompareResult EasyCompareGTOrGE(const DimExpr& lhs, const DimExpr& rhs) {
+DimExprCompareResult EasyCompareAddWithZero(const Add<DimExpr>& add) {
+  // Only return GT, GE, UNKNOWN.
+  List<DimExpr> operands = add.operands;
+  int64_t const_result = 0;
+  for (const auto& operand : *operands) {
+    if (!(operand.isa<int64_t>() && operand.dyn_cast<int64_t>() > 0) &&
+        !operand.isa<std::string>()) {
+      return DimExprCompareResult::UNKNOWN;
+    }
+  }
+  return DimExprCompareResult::GT;
+}
+
+DimExprCompareResult EasyCompareMulWithOne(const Mul<DimExpr>& mul) {
+  // Only return GT, GE, UNKNOWN.
+  List<DimExpr> operands = mul.operands;
+  int64_t const_result = 1;
+  for (const auto& operand : *operands) {
+    if (!(operand.isa<int64_t>() && operand.dyn_cast<int64_t>() > 1) &&
+        !operand.isa<std::string>()) {
+      return DimExprCompareResult::UNKNOWN;
+    } else if (operand.isa<int64_t>()) {
+      const_result = operand.dyn_cast<int64_t>();
+    }
+  }
+  if (const_result == 1) {
+    return DimExprCompareResult::GE;
+  } else {
+    return DimExprCompareResult::GT;
+  }
+}
+
+bool EasyIsGeOrGtWithZero(const DimExpr& expr) {
+  auto ExprVisit = common::Overloaded{
+      [](const std::int64_t& expr) { return expr >= 0; },
+      [](const std::string& expr) { return true; },
+      [](const Mul<DimExpr>& expr) {
+        return EasyCompareMulWithOne(expr) != DimExprCompareResult::UNKNOWN;
+      },
+      [](const Add<DimExpr>& expr) {
+        return EasyCompareAddWithZero(expr) != DimExprCompareResult::UNKNOWN;
+      },
+      [](const Broadcast<DimExpr>& expr) { return true; },
+      [](const auto& expr) { return false; }};
+  return std::visit(ExprVisit, expr.variant());
+}
+
+DimExprCompareResult EasyCompareGtOrGe(const DimExpr& lhs, const DimExpr& rhs) {
   // TODO(ooooo): not perfect but ensures accuracy now.Such as:
   // S0 < Add(S0, Mul(S1, S2)), S2 also can be Add(S4, S5, -1)
   // range info may be used.
-  auto DealAddWithZero = [](const Add<DimExpr>& add) -> DimExprCompareResult {
-    List<DimExpr> operands = add.operands;
-    int64_t const_result = 0;
-    for (const auto& operand : *operands) {
-      if (!(operand.isa<int64_t>() && operand.dyn_cast<int64_t>() > 0) &&
-          !operand.isa<std::string>()) {
-        return DimExprCompareResult::UNKNOWN;
-      }
-    }
-    return DimExprCompareResult::GT;
-  };
-  auto DealMulWithOne = [](const Mul<DimExpr>& mul) -> DimExprCompareResult {
-    List<DimExpr> operands = mul.operands;
-    int64_t const_result = 0;
-    for (const auto& operand : *operands) {
-      if (!(operand.isa<int64_t>() && operand.dyn_cast<int64_t>() > 1) &&
-          !operand.isa<std::string>()) {
-        return DimExprCompareResult::UNKNOWN;
-      } else if (operand.isa<int64_t>()) {
-        const_result = operand.dyn_cast<int64_t>();
-      }
-    }
-    if (const_result == 1) {
-      return DimExprCompareResult::GE;
-    } else {
-      return DimExprCompareResult::GT;
-    }
-  };
-  // check with Div
   auto CompareDivResult = common::Overloaded{
       [](const std::int64_t& expr) {
         return expr > 1 ? DimExprCompareResult::GT
                         : DimExprCompareResult::UNKNOWN;
       },
       [](const std::string& expr) { return DimExprCompareResult::GE; },
-      [](const Mul<DimExpr>& expr) { return DealMulWithOne(expr); },
+      [&](const Mul<DimExpr>& expr) { return EasyCompareMulWithOne(expr); },
       [](const auto& expr) { return DimExprCompareResult::UNKNOWN; }};
-  DimExprCompareResult div_compare;
-  if (rhs != symbol::DimExpr{0}) {
-    DimExpr simplified_result_div =
-        SimplifyDimExpr(DimExpr{lhs} / DimExpr{rhs});
-    div_compare = std::visit(CompareDivResult, simplified_result_div.variant());
-  } else {
-    div_compare = DimExprCompareResult::UNKNOWN;
-  }
 
-  if (div_compare != DimExprCompareResult::UNKNOWN) {
-    return div_compare;
-  }
-  // check with sub
-  DimExpr simplified_result_sub = SimplifyDimExpr(DimExpr{lhs} - DimExpr{rhs});
   auto CompareSubResult = common::Overloaded{
       [](const std::int64_t& expr) {
         return expr > 0 ? DimExprCompareResult::GT
                         : DimExprCompareResult::UNKNOWN;
       },
       [](const std::string& expr) { return DimExprCompareResult::GT; },
-      [](const Add<DimExpr>& expr) { return DealAddWithZero(expr); },
+      [&](const Add<DimExpr>& expr) { return EasyCompareAddWithZero(expr); },
       [](const auto& expr) { return DimExprCompareResult::UNKNOWN; }};
+
+  // check with Sub
+  DimExpr simplified_result_sub = SimplifyDimExpr(DimExpr{lhs} - DimExpr{rhs});
   auto sub_compare =
       std::visit(CompareSubResult, simplified_result_sub.variant());
-  return sub_compare;
+  if (sub_compare != DimExprCompareResult::UNKNOWN) {
+    return sub_compare;
+  }
+  if ((rhs != symbol::DimExpr{0}) && (EasyIsGeOrGtWithZero(rhs))) {
+    DimExpr simplified_result_div =
+        SimplifyDimExpr(DimExpr{lhs} / DimExpr{rhs});
+    auto div_compare =
+        std::visit(CompareDivResult, simplified_result_div.variant());
+    return div_compare;
+  } else {
+    return DimExprCompareResult::UNKNOWN;
+  }
 }
 
 struct SimplifyMaxWithGE {
@@ -1079,9 +1098,9 @@ struct SimplifyMaxWithGE {
     for (std::size_t i = 0; i < operands->size(); ++i) {
       bool is_redundant = false;
       for (std::size_t j = 0; j < operands->size(); ++j) {
-        if (i != j && (EasyCompareGTOrGE(operands->at(j), operands->at(i)) ==
+        if (i != j && (EasyCompareGtOrGe(operands->at(j), operands->at(i)) ==
                            DimExprCompareResult::GT ||
-                       EasyCompareGTOrGE(operands->at(j), operands->at(i)) ==
+                       EasyCompareGtOrGe(operands->at(j), operands->at(i)) ==
                            DimExprCompareResult::GE)) {
           is_redundant = true;
           break;
@@ -1117,9 +1136,9 @@ struct SimplifyMinWithGE {
     for (std::size_t i = 0; i < operands->size(); ++i) {
       bool is_redundant = false;
       for (std::size_t j = 0; j < operands->size(); ++j) {
-        if (i != j && (EasyCompareGTOrGE(operands->at(i), operands->at(j)) ==
+        if (i != j && (EasyCompareGtOrGe(operands->at(i), operands->at(j)) ==
                            DimExprCompareResult::GT ||
-                       EasyCompareGTOrGE(operands->at(i), operands->at(j)) ==
+                       EasyCompareGtOrGe(operands->at(i), operands->at(j)) ==
                            DimExprCompareResult::GE)) {
           is_redundant = true;
           break;
