@@ -1177,10 +1177,10 @@ struct SimplifyBroadcast {
         if (i == j) {
           continue;
         }
-        if (EasyCompareGTOrGE(operands->at(j), operands->at(i)) ==
+        if (EasyCompareGtOrGe(operands->at(j), operands->at(i)) ==
             DimExprCompareResult::GT) {
           return List<DimExpr>{operands->at(j)};
-        } else if (EasyCompareGTOrGE(operands->at(j), operands->at(i)) ==
+        } else if (EasyCompareGtOrGe(operands->at(j), operands->at(i)) ==
                    DimExprCompareResult::GE) {
           is_redundant = true;
           break;
