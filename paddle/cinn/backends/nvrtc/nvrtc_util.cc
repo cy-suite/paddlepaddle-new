@@ -20,6 +20,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <queue>
+#include <regex>
 
 #include <fstream>
 #include <iostream>
@@ -124,8 +126,39 @@ std::vector<std::string> Compiler::FindCINNRuntimeIncludePaths() {
   return {Context::Global().runtime_include_dir()};
 }
 
+thread_local float total_ms = 0.0f;
+
+class SysTimer {
+  using sys_time_t = std::chrono::time_point<std::chrono::system_clock>;
+  std::string name;
+  sys_time_t start;
+
+ public:
+  explicit SysTimer(const std::string& name)
+      : name(name), start(std::chrono::system_clock::now()) {}
+  ~SysTimer() {
+    sys_time_t end = std::chrono::system_clock::now();
+    print(end);
+  }
+  void reset(const std::string& name) {
+    sys_time_t end = std::chrono::system_clock::now();
+    print(end);
+    this->name = name;
+    start = end;
+  }
+
+ private:
+  void print(const sys_time_t& end) {
+    std::chrono::duration<float> elapsed = end - start;
+    float elapsed_ms = elapsed.count() * 1e3;
+    total_ms += elapsed_ms;
+    VLOG(0) << name << " : " << elapsed_ms << " = " << total_ms << std::endl;
+  }
+};
+
 std::string Compiler::CompileCudaSource(const std::string& code,
                                         bool include_headers) {
+  SysTimer timer("CompileCudaSource");
   const auto& header_gen = JitSafeHeaderGenerator::GetInstance();
   std::vector<std::string> compile_options;
   std::vector<const char*> param_cstrings{};
@@ -173,8 +206,70 @@ std::string Compiler::CompileCudaSource(const std::string& code,
     param_cstrings.push_back(option.c_str());
   }
   VLOG(3) << "compile options: " << utils::Join(compile_options, " ");
+
+  std::vector<std::string> header_keys;
+  std::unordered_map<std::string, std::string> header_map;
+  {
+    auto cinn_headers = FindCINNRuntimeIncludePaths();
+    std::ifstream infile(cinn_headers[0] + "/cinn_cuda_runtime_source.cuh");
+    std::string line;
+    std::regex pattern(
+        "^__device__ [\\w\\s]+ (\\w+)\\(|^struct (\\w+) \\{|^#define (\\w+)");
+    while (std::getline(infile, line)) {
+      std::smatch match;
+      if (std::regex_search(line, match, pattern)) {
+        std::string name = match[1].matched   ? match[1].str()
+                           : match[2].matched ? match[2].str()
+                                              : match[3].str();
+        header_map[name] = line;
+        header_keys.push_back(name);
+      }
+    }
+  }
+
+  std::unordered_set<std::string> included;
+  {
+    std::regex header_pattern(utils::Join(header_keys, "|"));
+    std::queue<std::string> source_to_analyze;
+    source_to_analyze.push(code);
+    while (!source_to_analyze.empty()) {
+      std::string source = source_to_analyze.front();
+      source_to_analyze.pop();
+      std::sregex_iterator begin(source.begin(), source.end(), header_pattern);
+      std::sregex_iterator end;
+      for (auto iter = begin; iter != end; ++iter) {
+        std::string name = iter->str();
+        if (included.insert(name).second) {
+          source_to_analyze.push(header_map.at(name));
+        }
+      }
+    }
+  }
+
+  std::string new_header = "#include <cstdint>\n";
+  std::string new_code = code;
+  {
+    std::regex float16_pattern("float16");
+    bool has_float16 = std::regex_search(code, float16_pattern);
+    if (has_float16) {
+      new_header +=
+          "#include <cuda_fp16.h>\n"
+          "__device__ inline half max(half a, half b) {"
+          " return __hmax(a, b); }\n"
+          "__device__ inline half min(half a, half b) {"
+          " return __hmin(a, b); }\n";
+      new_code = std::regex_replace(code, float16_pattern, "half");
+    }
+    for (auto& name : header_keys) {
+      if (included.count(name) > 0) {
+        new_header += header_map.at(name) + "\n";
+      }
+    }
+  }
+  new_code = new_header + new_code;
+
   NVRTC_CALL(nvrtcCreateProgram(&prog,
-                                code.c_str(),
+                                new_code.c_str(),
                                 nullptr,
                                 header_gen.size(),
                                 header_gen.headers().data(),
@@ -182,17 +277,6 @@ std::string Compiler::CompileCudaSource(const std::string& code,
   nvrtcResult compile_res =
       nvrtcCompileProgram(prog, param_cstrings.size(), param_cstrings.data());
 
-  if (compile_res != NVRTC_SUCCESS) {
-    std::string new_code = CodeGenCudaDev::GetGeneralSourceHeader() + code;
-    NVRTC_CALL(nvrtcCreateProgram(&prog,
-                                  new_code.c_str(),
-                                  nullptr,
-                                  header_gen.size(),
-                                  header_gen.headers().data(),
-                                  header_gen.include_names().data()));
-    compile_res =
-        nvrtcCompileProgram(prog, param_cstrings.size(), param_cstrings.data());
-  }
   {  // get log
     size_t log_size;
     NVRTC_CALL(nvrtcGetProgramLogSize(prog, &log_size));
