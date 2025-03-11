@@ -840,12 +840,8 @@ class ClipGradByGlobalNorm(ClipGradBase):
                         clip_input = paddle.distributed.reshard(
                             clip_input, g.process_mesh, clip_input.placements
                         )
-                if g.is_dist() or g.is_dense():
-                    g.multiply_(clip_input)
-                    params_and_grads.append((p, g))
-                else:
-                    new_grad = paddle.multiply(g, clip_input)
-                    params_and_grads.append((p, new_grad))
+                new_grad = paddle.multiply(g, clip_input)
+                params_and_grads.append((p, new_grad))
             else:
                 params_and_grads.append((p, g))
 
