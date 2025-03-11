@@ -352,7 +352,7 @@ struct FastInterleavedAndBiasedNumericArrayConverter<bfloat16_t, uint4b_t, 8> {
 
     // First, we extract the i4s and construct an intermediate fp16 number.
     static constexpr uint32_t immLut = (0xf0 & 0xcc) | 0xaa;
-    static constexpr uint32_t MASK = 0x000f000f;
+    static constexpr uint32_t mask = 0x000f000f;
     static constexpr uint32_t I4s_TO_BF16s_MAGIC_NUM = 0x43004300;
 
     // We don't have enough mantissa to remove as much shift overhead as FP16,
@@ -361,7 +361,7 @@ struct FastInterleavedAndBiasedNumericArrayConverter<bfloat16_t, uint4b_t, 8> {
     asm volatile(
         "lop3.b32 %0, %1, %2, %3, %4;\n"
         : "=r"(h[0])
-        : "r"(i4s), "n"(MASK), "n"(I4s_TO_BF16s_MAGIC_NUM), "n"(immLut));
+        : "r"(i4s), "n"(mask), "n"(I4s_TO_BF16s_MAGIC_NUM), "n"(immLut));
     CUTLASS_PRAGMA_UNROLL
     for (int ii = 1; ii < result_type::kElements / 2; ++ii) {
       i4s >>= sizeof_bits<typename source_type::Element>::value;
@@ -369,7 +369,7 @@ struct FastInterleavedAndBiasedNumericArrayConverter<bfloat16_t, uint4b_t, 8> {
       asm volatile(
           "lop3.b32 %0, %1, %2, %3, %4;\n"
           : "=r"(h[ii])
-          : "r"(i4s), "n"(MASK), "n"(I4s_TO_BF16s_MAGIC_NUM), "n"(immLut));
+          : "r"(i4s), "n"(mask), "n"(I4s_TO_BF16s_MAGIC_NUM), "n"(immLut));
     }
 
     // This is the BF16 {-136, -136} represented as an integer.

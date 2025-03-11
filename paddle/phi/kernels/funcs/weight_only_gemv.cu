@@ -778,7 +778,7 @@ struct WeightOnlyConverter<__nv_bfloat16, WeightOnlyQuantType::Int4b> {
     uint32_t const source_i4s = *reinterpret_cast<uint32_t*>(signed_chars);
 
     static constexpr uint32_t immLut = (0xf0 & 0xcc) | 0xaa;
-    static constexpr uint32_t MASK = 0x000f000f;
+    static constexpr uint32_t mask = 0x000f000f;
     static constexpr uint32_t I4s_TO_BF16s_MAGIC_NUM = 0x43004300;
 
     // We don't have enough mantissa to remove as much shift overhead as FP16,
@@ -787,7 +787,7 @@ struct WeightOnlyConverter<__nv_bfloat16, WeightOnlyQuantType::Int4b> {
     asm volatile(
         "lop3.b32 %0, %1, %2, %3, %4;\n"
         : "=r"(h[0])
-        : "r"(i4s), "n"(MASK), "n"(I4s_TO_BF16s_MAGIC_NUM), "n"(immLut));
+        : "r"(i4s), "n"(mask), "n"(I4s_TO_BF16s_MAGIC_NUM), "n"(immLut));
 #pragma unroll
     for (int ii = 1; ii < 4; ++ii) {
       i4s >>= 4;
@@ -795,7 +795,7 @@ struct WeightOnlyConverter<__nv_bfloat16, WeightOnlyQuantType::Int4b> {
       asm volatile(
           "lop3.b32 %0, %1, %2, %3, %4;\n"
           : "=r"(h[ii])
-          : "r"(i4s), "n"(MASK), "n"(I4s_TO_BF16s_MAGIC_NUM), "n"(immLut));
+          : "r"(i4s), "n"(mask), "n"(I4s_TO_BF16s_MAGIC_NUM), "n"(immLut));
     }
 
     // This is the BF16 {-136, -136} represented as an integer.
