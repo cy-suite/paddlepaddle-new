@@ -21,6 +21,8 @@ import unittest
 from os import listdir
 from os.path import isfile, join
 
+import paddle
+
 pyname = 'train.py'
 colpyfile = '''# train.py for unittest
 import os
@@ -89,13 +91,20 @@ class Collective_Test(unittest.TestCase):
 
     def test_collective_2(self):
         log_dir = tempfile.TemporaryDirectory()
-        args = f"--job_id test2 --devices 0,1,2 --log_dir {log_dir.name}"
+        if paddle.core.is_compiled_with_xpu():
+            # only 2 cards available in xpu ci
+            args = f"--job_id test2 --devices 0,1 --log_dir {log_dir.name}"
+        else:
+            args = f"--job_id test2 --devices 0,1,2 --log_dir {log_dir.name}"
         p = self.pdrun(args)
         p.wait()
         self.assertTrue(p.poll() == 0)
 
         c = get_files(log_dir.name, 'test2')
-        self.assertTrue(len(c) == 4)
+        if paddle.core.is_compiled_with_xpu():
+            self.assertTrue(len(c) == 3)
+        else:
+            self.assertTrue(len(c) == 4)
         log_dir.cleanup()
 
     def test_collective_3(self):
