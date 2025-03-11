@@ -51,7 +51,6 @@ from .util import (
     get_cache_path,
     get_trt_version,
     get_trt_version_list,
-    is_shape_tensor,
     map_dtype,
     remove_duplicate_value,
     set_dynamic_range,
