@@ -1010,7 +1010,34 @@ DimExprCompareResult EasyCompareGTOrGE(const DimExpr& lhs, const DimExpr& rhs) {
   // TODO(ooooo): not perfect but ensures accuracy now.Such as:
   // S0 < Add(S0, Mul(S1, S2)), S2 also can be Add(S4, S5, -1)
   // range info may be used.
-
+  auto DealAddWithZero = [](const Add<DimExpr>& add) -> DimExprCompareResult {
+    List<DimExpr> operands = add.operands;
+    int64_t const_result = 0;
+    for (const auto& operand : *operands) {
+      if (!(operand.isa<int64_t>() && operand.dyn_cast<int64_t>() > 0) &&
+          !operand.isa<std::string>()) {
+        return DimExprCompareResult::UNKNOWN;
+      }
+    }
+    return DimExprCompareResult::GT;
+  };
+  auto DealMulWithOne = [](const Mul<DimExpr>& mul) -> DimExprCompareResult {
+    List<DimExpr> operands = mul.operands;
+    int64_t const_result = 0;
+    for (const auto& operand : *operands) {
+      if (!(operand.isa<int64_t>() && operand.dyn_cast<int64_t>() > 1) &&
+          !operand.isa<std::string>()) {
+        return DimExprCompareResult::UNKNOWN;
+      } else if (operand.isa<int64_t>()) {
+        const_result = operand.dyn_cast<int64_t>();
+      }
+    }
+    if (const_result == 1) {
+      return DimExprCompareResult::GE;
+    } else {
+      return DimExprCompareResult::GT;
+    }
+  };
   // check with Div
   auto CompareDivResult = common::Overloaded{
       [](const std::int64_t& expr) {
@@ -1018,25 +1045,7 @@ DimExprCompareResult EasyCompareGTOrGE(const DimExpr& lhs, const DimExpr& rhs) {
                         : DimExprCompareResult::UNKNOWN;
       },
       [](const std::string& expr) { return DimExprCompareResult::GE; },
-      [](const Mul<DimExpr>& expr) {
-        List<DimExpr> operands = expr.operands;
-        int64_t const_result = 0;
-        for (const auto& operand : *operands) {
-          if (operand.isa<int64_t>()) {
-            const_result = operand.dyn_cast<int64_t>();
-          }
-          if (!operand.isa<int64_t>() && !operand.isa<std::string>()) {
-            return DimExprCompareResult::UNKNOWN;
-          }
-        }
-        if (const_result == 0) {
-          return DimExprCompareResult::GE;
-        } else if (const_result < 0) {
-          return DimExprCompareResult::UNKNOWN;
-        } else {
-          return DimExprCompareResult::GT;
-        }
-      },
+      [](const Mul<DimExpr>& expr) { return DealMulWithOne(expr); },
       [](const auto& expr) { return DimExprCompareResult::UNKNOWN; }};
   DimExprCompareResult div_compare;
   if (rhs != symbol::DimExpr{0}) {
@@ -1058,67 +1067,12 @@ DimExprCompareResult EasyCompareGTOrGE(const DimExpr& lhs, const DimExpr& rhs) {
                         : DimExprCompareResult::UNKNOWN;
       },
       [](const std::string& expr) { return DimExprCompareResult::GT; },
-      [](const Add<DimExpr>& expr) {
-        List<DimExpr> operands = expr.operands;
-        int64_t const_result = 0;
-        for (const auto& operand : *operands) {
-          if (operand.isa<int64_t>()) {
-            const_result = operand.dyn_cast<int64_t>();
-          }
-          if (!operand.isa<int64_t>() && !operand.isa<std::string>()) {
-            return DimExprCompareResult::UNKNOWN;
-          }
-        }
-        if (const_result >= 0) {
-          return DimExprCompareResult::GT;
-        } else {
-          return DimExprCompareResult::UNKNOWN;
-        }
-      },
+      [](const Add<DimExpr>& expr) { return DealAddWithZero(expr); },
       [](const auto& expr) { return DimExprCompareResult::UNKNOWN; }};
   auto sub_compare =
       std::visit(CompareSubResult, simplified_result_sub.variant());
   return sub_compare;
 }
-
-struct SimplifyBroadcastWithGE {
-  using dim_expr_type = Broadcast<DimExpr>;
-  static List<DimExpr> SearchErasable(const List<DimExpr>& operands) {
-    List<DimExpr> simplified_operands{};
-    for (std::size_t i = 0; i < operands->size(); ++i) {
-      bool is_redundant = false;
-      std::size_t j = 0;
-      for (j = 0; j < operands->size(); ++j) {
-        if (i == j) {
-          continue;
-        }
-        if (EasyCompareGTOrGE(operands->at(j), operands->at(i)) ==
-            DimExprCompareResult::GT) {
-          return List<DimExpr>{operands->at(j)};
-        } else if (EasyCompareGTOrGE(operands->at(j), operands->at(i)) ==
-                   DimExprCompareResult::GE) {
-          is_redundant = true;
-          break;
-        }
-      }
-      if (!is_redundant) {
-        simplified_operands->push_back(operands->at(i));
-      }
-    }
-    return simplified_operands;
-  }
-
-  DimExpr Rewrite(const DimExpr& expr) {
-    const auto [operands] = expr.Get<Broadcast<DimExpr>>();
-    List<DimExpr> simplified_operands = SearchErasable(operands);
-
-    if (simplified_operands->size() == 1) {
-      return simplified_operands->at(0);
-    } else {
-      return Broadcast<DimExpr>{simplified_operands};
-    }
-  }
-};
 
 struct SimplifyMaxWithGE {
   using dim_expr_type = Max<DimExpr>;
@@ -1189,6 +1143,67 @@ struct SimplifyMinWithGE {
     } else {
       return Min<DimExpr>{simplified_operands};
     }
+  }
+};
+
+/*
+ * Simplify Example:
+ * Broadcast(S0, Mul(S0, S1)) => Mul(S0, S1)
+ */
+struct SimplifyBroadcast {
+  using dim_expr_type = Broadcast<DimExpr>;
+
+  DimExpr Rewrite(const DimExpr& expr) {
+    auto [operands] = expr.Get<Broadcast<DimExpr>>();
+    while (operands->size() > 1) {
+      int pos_erasable = SearchErasable(operands);
+      if (pos_erasable < 0) break;
+      operands->erase(operands->begin() + pos_erasable);
+    }
+    if (operands->size() == 1) {
+      return operands->at(0);
+    } else {
+      return Broadcast<DimExpr>{operands};
+    }
+  }
+
+  bool IsLhsGreatThanRhs(const DimExpr& lhs, const DimExpr& rhs) {
+    auto LhsOperandsVisitor = common::Overloaded{
+        [&](const Mul<DimExpr>& mul) {
+          bool lhs_great_than_rhs = false;
+          for (const auto& expr : *mul.operands) {
+            if (expr == rhs)
+              lhs_great_than_rhs = true;
+            else if (!expr.isa<std::int64_t>() && !expr.isa<std::string>())
+              return false;
+          }
+          return lhs_great_than_rhs;
+        },
+        [&](const Add<DimExpr>& add) {
+          bool lhs_great_than_rhs = false;
+          for (const auto& expr : *add.operands) {
+            if (expr == rhs)
+              lhs_great_than_rhs = true;
+            else if (!expr.isa<std::int64_t>() && !expr.isa<std::string>())
+              return false;
+          }
+          return lhs_great_than_rhs;
+        },
+        [&](const auto& lhs) { return false; }};
+    return std::visit(LhsOperandsVisitor, lhs.variant());
+  }
+
+  int SearchErasable(const List<DimExpr>& operands) {
+    for (std::size_t i = 0; i < operands->size() - 1; ++i) {
+      for (std::size_t j = i + 1; j < operands->size(); ++j) {
+        if (IsLhsGreatThanRhs(operands->at(i), operands->at(j))) {
+          return j;
+        } else if (IsLhsGreatThanRhs(operands->at(j), operands->at(i))) {
+          return i;
+        }
+      }
+    }
+    return -1;
   }
 };
 
@@ -1374,7 +1389,7 @@ DimExpr Simplify(const DimExpr& expr) {
     DoPass<FoldRepetitiveSymbol<Min>>(&keep_rewrite, &ret);
     DoPass<FoldRepetitiveSymbol<Max>>(&keep_rewrite, &ret);
     DoPass<FoldRedundantSymbolicBroadcast>(&keep_rewrite, &ret);
-    DoPass<SimplifyBroadcastWithGE>(&keep_rewrite, &ret);
+    DoPass<SimplifyBroadcast>(&keep_rewrite, &ret);
     DoPass<SimplifyMinWithGE>(&keep_rewrite, &ret);
     DoPass<SimplifyMaxWithGE>(&keep_rewrite, &ret);
     DoPass<SimplifyDiv>(&keep_rewrite, &ret);
