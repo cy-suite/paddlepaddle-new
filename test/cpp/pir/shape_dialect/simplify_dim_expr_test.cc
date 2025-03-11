@@ -188,8 +188,10 @@ TEST(Simplify, SimplifyBc) {
   DimExpr bc{Broadcast<DimExpr>{{S0, add}}};
   ASSERT_TRUE((SimplifyDimExpr(bc) != Add<DimExpr>{{S0, -1}}));
   // TODO(ooooo): improve the simplify ability
-  ASSERT_TRUE((SimplifyDimExpr(bc) == bc));
+  DimExpr now_accept{Broadcast<DimExpr>{{S0, Add<DimExpr>{{S0, -1}}}}};
+  ASSERT_TRUE((SimplifyDimExpr(bc) == now_accept));
 }
+
 TEST(Simplify, FoldBroadcast) {
   DimExpr sym0{"S0"};
   DimExpr sym1{"S1"};
