@@ -21,11 +21,11 @@ import sys
 from abc import ABC, abstractmethod
 from enum import Enum
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar, NamedTuple
+from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple
 
 from typing_extensions import Self
 
-from .envs import ENV_SOT_COLLECT_INFO
+from .envs import ENV_SOT_COLLECT_INFO, ENV_SOT_SERIALIZE_INFO
 from .utils import Singleton
 
 if TYPE_CHECKING:
@@ -108,10 +108,10 @@ class InfoCollector(metaclass=Singleton):
         for info_class_name, info_list in info_dict.items():
             cls = info_list[0].__class__
             report += f"{info_class_name} ({cls.SHORT_NAME}):\n"
-            report += cls.summary(info_list)
-            need_json = "json" in ENV_SOT_COLLECT_INFO.get()[cls.SHORT_NAME]
-            if need_json:
+            if ENV_SOT_SERIALIZE_INFO.get():
                 report += cls.json_report(info_list)
+            else:
+                report += cls.summary(info_list)
             report += "\n"
         return report
 
@@ -130,7 +130,7 @@ class InfoBase(ABC):
     def summary(cls, history: list[Self]) -> str: ...
 
     @classmethod
-    def serialize(cls, obj: dict) -> str:
+    def serialize(cls, obj: dict[str:Any]) -> str:
 
         json_data = json.dumps(obj)
         b64_bytes = base64.b64encode(json_data.encode(ENCODING))
@@ -178,6 +178,11 @@ class NewSymbolHitRateInfo(InfoBase):
         summary = f"All tensor count: {all_count}, hit count: {hit_count}\n"
         summary += f"Hit rate: {hit_count / all_count:.2f}"
         return summary
+
+    @classmethod
+    def json_report(cls, history: list[Self]) -> str:
+        # TODO: need to support serialize the output
+        return cls.summary(history)
 
 
 class SubGraphRelationInfo(InfoBase):
@@ -266,6 +271,11 @@ class SubGraphRelationInfo(InfoBase):
         dot.render(directory / filename, format="svg", cleanup=True)
         return f"Please check {directory / filename}.svg for subgraph relation"
 
+    @classmethod
+    def json_report(cls, history: list[Self]) -> str:
+        # TODO: need to support serialize the output
+        return cls.summary(history)
+
 
 class CompileCountInfo(InfoBase):
     SHORT_NAME = "compile_count"
@@ -293,10 +303,15 @@ class CompileCountInfo(InfoBase):
         summary = "\n".join(summary_lines)
         return summary
 
+    @classmethod
+    def json_report(cls, history: list[Self]) -> str:
+        # TODO: need to support serialize the output
+        return cls.summary(history)
+
 
 class BreakGraphReasonInfo(InfoBase):
     SHORT_NAME = "breakgraph_reason"
-    TYPE = InfoType.STEP_INFO
+    TYPE = InfoType.E2E_INFO
 
     def __init__(self, reason: BreakGraphReasonBase):
         super().__init__()
@@ -339,7 +354,7 @@ class BreakGraphReasonInfo(InfoBase):
         return f"{PREFIX}{serialized}{SUFFIX}"
 
     @classmethod
-    def convert_from_string(cls, serialized: str) -> list[Self]:
+    def restore_from_string(cls, serialized: str) -> list[Self]:
         # This method is the inverse of json_report
 
         from paddle.jit.sot.utils import exceptions
@@ -422,7 +437,7 @@ class SubGraphInfo(InfoBase):
         return f"{PREFIX}{serialized}{SUFFIX}"
 
     @classmethod
-    def convert_from_string(cls, serialized: str) -> list[Self]:
+    def restore_from_string(cls, serialized: str) -> list[Self]:
         # This method is the inverse of json_report
 
         history = []
