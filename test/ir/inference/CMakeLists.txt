@@ -173,6 +173,7 @@ if(WITH_GPU AND TENSORRT_FOUND)
   set_tests_properties(test_trt_convert_temporal_shift_deprecated
                        PROPERTIES TIMEOUT 1000)
   set_tests_properties(test_trt_convert_pool2d PROPERTIES TIMEOUT 600)
+  set_tests_properties(test_trt_convert_slice PROPERTIES TIMEOUT 600)
 
   if(NOT WIN32)
 

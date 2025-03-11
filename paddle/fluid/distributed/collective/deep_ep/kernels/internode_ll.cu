@@ -1,24 +1,29 @@
-// MIT License
+// Copyright (c) 2025 PaddlePaddle Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
+// The file has been adapted from DeepSeek DeepEP project
 // Copyright (c) 2025 DeepSeek
+// Licensed under the MIT License -
+// https://github.com/deepseek-ai/DeepEP/blob/main/LICENSE
 
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
+// clang-format off
+#include <nvshmem.h>
+#include <nvshmemx.h>
+#include <infiniband/mlx5dv.h>
+#include <non_abi/device/threadgroup/nvshmemi_common_device_defines.cuh>
+#include <device_host_transport/nvshmem_common_ibgda.h>
+// clang-format on
 
 #include "paddle/fluid/distributed/collective/deep_ep/kernels/configs.cuh"
 #include "paddle/fluid/distributed/collective/deep_ep/kernels/exception.cuh"
@@ -69,6 +74,7 @@ __global__ __launch_bounds__(
                      float* packed_recv_x_scales,
                      int* packed_recv_src_info,
                      int64_t* packed_recv_layout_range,
+                     int* packed_recv_count,
                      void* rdma_recv_x,
                      int* rdma_recv_count,
                      void* rdma_x,
@@ -76,7 +82,6 @@ __global__ __launch_bounds__(
                      const int64_t* topk_idx,
                      int* atomic_counter_per_expert,
                      int* atomic_finish_counter_per_expert,
-                     int* atomic_counter_per_local_expert,
                      int* next_clean,
                      int num_next_clean_int,
                      int num_tokens,
@@ -301,12 +306,19 @@ __global__ __launch_bounds__(
     // Clean workspace for next use
     atomic_counter_per_expert[responsible_expert_idx] = 0;
     atomic_finish_counter_per_expert[responsible_expert_idx] = 0;
+
+    // Clean `packed_recv_count`
+    if (dst_rank == 0) packed_recv_count[dst_expert_local_idx] = 0;
   }
   __syncwarp();
 
 // Receiving phase
 LOW_LATENCY_DISPATCH_RECV:
   if ((phases & LOW_LATENCY_RECV_PHASE) == 0) return;
+
+  // For send-and-recv kernels, we need a grid sync for making
+  // `packed_recv_count` visible
+  if (phases & LOW_LATENCY_SEND_PHASE) cg::this_grid().sync();
 
   // Receiving and packing
   if (responsible_expert_idx < num_experts) {
@@ -342,7 +354,7 @@ LOW_LATENCY_DISPATCH_RECV:
     if (sub_warp_id == 1 && lane_id == 0) {
       if (src_rank != rank) {
         nvshmemi_ibgda_poll_recv(src_rank, local_expert_idx);
-        num_recv_tokens = ld_acquire_global(
+        num_recv_tokens = ld_acquire_sys_global(
             rdma_recv_count + local_expert_idx * num_ranks + src_rank);
         EP_DEVICE_ASSERT(num_recv_tokens != 0);
       } else {
@@ -352,8 +364,8 @@ LOW_LATENCY_DISPATCH_RECV:
         }
       }
       num_recv_tokens = -num_recv_tokens - 1;
-      recv_token_begin_idx = atomicAdd(
-          atomic_counter_per_local_expert + local_expert_idx, num_recv_tokens);
+      recv_token_begin_idx =
+          atomicAdd(packed_recv_count + local_expert_idx, num_recv_tokens);
       shared_num_recv_tokens[warp_group_id] = num_recv_tokens;
       shared_recv_token_begin_idx[warp_group_id] = recv_token_begin_idx;
       recv_range[src_rank] =
@@ -405,6 +417,7 @@ void dispatch(void* packed_recv_x,
               float* packed_recv_x_scales,
               int* packed_recv_src_info,
               int64_t* packed_recv_layout_range,
+              int* packed_recv_count,
               void* rdma_recv_x,
               int* rdma_recv_count,
               void* rdma_x,
@@ -440,11 +453,6 @@ void dispatch(void* packed_recv_x,
       atomic_counter_per_expert + num_experts;
   EP_HOST_ASSERT(num_experts * sizeof(int) * 2 <= NUM_WORKSPACE_BYTES);
 
-  // Use the last part `rdma_recv_count` as `atomic_counter_per_local_expert`
-  // NOTES: this part will be cleaned in `combine`
-  auto atomic_counter_per_local_expert =
-      rdma_recv_count + num_ranks * (num_experts / num_ranks);
-
 #define DISPATCH_LAUNCH_CASE(hidden)                                 \
   LAUNCH_KERNEL(&cfg,                                                \
                 dispatch<kNumWarpGroups, kNumWarpsPerGroup, hidden>, \
@@ -452,6 +460,7 @@ void dispatch(void* packed_recv_x,
                 packed_recv_x_scales,                                \
                 packed_recv_src_info,                                \
                 packed_recv_layout_range,                            \
+                packed_recv_count,                                   \
                 rdma_recv_x,                                         \
                 rdma_recv_count,                                     \
                 rdma_x,                                              \
@@ -459,7 +468,6 @@ void dispatch(void* packed_recv_x,
                 topk_idx,                                            \
                 atomic_counter_per_expert,                           \
                 atomic_finish_counter_per_expert,                    \
-                atomic_counter_per_local_expert,                     \
                 next_clean,                                          \
                 num_next_clean_int,                                  \
                 num_tokens,                                          \
@@ -536,7 +544,7 @@ __global__ __launch_bounds__(
     if (lane_id == 0) atomic_add_release_global(atomic_clean_flag, num_experts);
   }
 
-  // FP8 cast and issue IBGDA sends
+  // Issue IBGDA sends
   if (responsible_expert_idx < num_experts) {
     const auto dst_rank = responsible_expert_idx / num_local_experts;
     const auto local_expert_idx = responsible_expert_idx % num_local_experts;
@@ -635,7 +643,7 @@ LOW_LATENCY_COMBINE_RECV:
     EP_STATIC_ASSERT(kNumWarpsPerGroup > 1,
                      "Invalid number of warps per group");
     if (sub_warp_id == 0 && lane_id == 0) {
-      // refactor QP indices later
+      // TODO(Xreki): refactor QP indices
       auto src_rank = responsible_expert_idx / num_local_experts;
       auto src_expert_idx = responsible_expert_idx % num_local_experts;
       if (src_rank != rank) {

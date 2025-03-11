@@ -1,24 +1,21 @@
-// MIT License
+// Copyright (c) 2025 PaddlePaddle Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
+// The file has been adapted from DeepSeek DeepEP project
 // Copyright (c) 2025 DeepSeek
-
-// Permission is hereby granted, free of charge, to any person obtaining a copy
-// of this software and associated documentation files (the "Software"), to deal
-// in the Software without restriction, including without limitation the rights
-// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-// copies of the Software, and to permit persons to whom the Software is
-// furnished to do so, subject to the following conditions:
-
-// The above copyright notice and this permission notice shall be included in
-// all copies or substantial portions of the Software.
-
-// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-// SOFTWARE.
+// Licensed under the MIT License -
+// https://github.com/deepseek-ai/DeepEP/blob/main/LICENSE
 
 #pragma once
 
@@ -124,6 +121,8 @@ struct Buffer {
 
   pybind11::bytearray get_local_ipc_handle() const;
 
+  pybind11::bytearray get_local_nvshmem_unique_id() const;
+
   void sync(const std::vector<int>& device_ids,
             const std::vector<std::optional<pybind11::bytearray>>&
                 all_gathered_handles,
@@ -183,6 +182,7 @@ struct Buffer {
                     bool async,
                     bool allocate_on_comm_stream);
 
+#ifdef PADDLE_WITH_NVSHMEM
   std::tuple<deep_ep::detail::Tensor,
              std::optional<deep_ep::detail::Tensor>,
              std::optional<deep_ep::detail::Tensor>,
@@ -239,11 +239,13 @@ struct Buffer {
                     std::optional<EventHandle>& previous_event,  // NOLINT
                     bool async,
                     bool allocate_on_comm_stream);
+#endif  // PADDLE_WITH_NVSHMEM
 
   void clean_low_latency_buffer(int num_max_dispatch_tokens_per_rank,
                                 int hidden,
                                 int num_experts);
 
+#ifdef PADDLE_WITH_NVSHMEM
   std::tuple<deep_ep::detail::Tensor,
              deep_ep::detail::Tensor,
              deep_ep::detail::Tensor,
@@ -270,48 +272,87 @@ struct Buffer {
                       int num_experts,
                       bool async,
                       bool return_recv_hook);
+#endif  // PADDLE_WITH_NVSHMEM
 
-  // std::tuple<paddle::Tensor, std::optional<paddle::Tensor>,
-  // std::optional<paddle::Tensor>, std::optional<paddle::Tensor>,
-  // std::vector<int>, paddle::Tensor, paddle::Tensor,
-  // std::optional<paddle::Tensor>, paddle::Tensor,
-  // std::optional<paddle::Tensor>, paddle::Tensor,
-  // std::optional<paddle::Tensor>, std::optional<paddle::Tensor>,
-  // std::optional<paddle::Tensor>, std::optional<EventHandle>>
-  // internode_dispatch(const paddle::Tensor& x, const
-  // std::optional<paddle::Tensor>& x_scales,
-  //                    const std::optional<paddle::Tensor>& topk_idx, const
-  //                    std::optional<paddle::Tensor>& topk_weights, const
-  //                    std::optional<paddle::Tensor>& num_tokens_per_rank,
-  //                    const std::optional<paddle::Tensor>&
-  //                    num_tokens_per_rdma_rank, const paddle::Tensor&
-  //                    is_token_in_rank, const std::optional<paddle::Tensor>&
-  //                    num_tokens_per_expert, int cached_num_recv_tokens, int
-  //                    cached_num_rdma_recv_tokens, const
-  //                    std::optional<paddle::Tensor>&
-  //                    cached_rdma_channel_prefix_matrix, const
-  //                    std::optional<paddle::Tensor>&
-  //                    cached_recv_rdma_rank_prefix_sum, const
-  //                    std::optional<paddle::Tensor>&
-  //                    cached_gbl_channel_prefix_matrix, const
-  //                    std::optional<paddle::Tensor>&
-  //                    cached_recv_gbl_rank_prefix_sum, int expert_alignment,
-  //                    const Config& config, std::optional<EventHandle>&
-  //                    previous_event, bool async, bool
-  //                    allocate_on_comm_stream);
+  std::tuple<paddle::Tensor,
+             std::optional<paddle::Tensor>,
+             std::optional<paddle::Tensor>,
+             std::optional<paddle::Tensor>,
+             std::vector<int>,
+             paddle::Tensor,
+             paddle::Tensor,
+             std::optional<paddle::Tensor>,
+             paddle::Tensor,
+             std::optional<paddle::Tensor>,
+             paddle::Tensor,
+             std::optional<paddle::Tensor>,
+             std::optional<paddle::Tensor>,
+             std::optional<paddle::Tensor>,
+             std::optional<EventHandle>>
+  internode_dispatch_api(
+      const paddle::Tensor& x,
+      const std::optional<paddle::Tensor>& x_scales,
+      const std::optional<paddle::Tensor>& topk_idx,
+      const std::optional<paddle::Tensor>& topk_weights,
+      const std::optional<paddle::Tensor>& num_tokens_per_rank,
+      const std::optional<paddle::Tensor>& num_tokens_per_rdma_rank,
+      const paddle::Tensor& is_token_in_rank,
+      const std::optional<paddle::Tensor>& num_tokens_per_expert,
+      int cached_num_recv_tokens,
+      int cached_num_rdma_recv_tokens,
+      const std::optional<paddle::Tensor>& cached_rdma_channel_prefix_matrix,
+      const std::optional<paddle::Tensor>& cached_recv_rdma_rank_prefix_sum,
+      const std::optional<paddle::Tensor>& cached_gbl_channel_prefix_matrix,
+      const std::optional<paddle::Tensor>& cached_recv_gbl_rank_prefix_sum,
+      int expert_alignment,
+      const Config& config,
+      std::optional<EventHandle>& previous_event,  // NOLINT
+      bool async,
+      bool allocate_on_comm_stream);
 
-  // std::tuple<paddle::Tensor, std::optional<paddle::Tensor>,
-  // std::optional<EventHandle>> internode_combine(const paddle::Tensor& x,
-  // const std::optional<paddle::Tensor>& topk_weights,
-  //                   const paddle::Tensor& src_meta, const paddle::Tensor&
-  //                   is_combined_token_in_rank, const paddle::Tensor&
-  //                   rdma_channel_prefix_matrix, const paddle::Tensor&
-  //                   rdma_rank_prefix_sum, const paddle::Tensor&
-  //                   gbl_channel_prefix_matrix, const paddle::Tensor&
-  //                   combined_rdma_head, const paddle::Tensor&
-  //                   combined_nvl_head, const Config& config,
-  //                   std::optional<EventHandle>& previous_event, bool async,
-  //                   bool allocate_on_comm_stream);
+  std::tuple<paddle::Tensor,
+             std::optional<paddle::Tensor>,
+             std::optional<EventHandle>>
+  internode_combine_api(const paddle::Tensor& x,
+                        const std::optional<paddle::Tensor>& topk_weights,
+                        const paddle::Tensor& src_meta,
+                        const paddle::Tensor& is_combined_token_in_rank,
+                        const paddle::Tensor& rdma_channel_prefix_matrix,
+                        const paddle::Tensor& rdma_rank_prefix_sum,
+                        const paddle::Tensor& gbl_channel_prefix_matrix,
+                        const paddle::Tensor& combined_rdma_head,
+                        const paddle::Tensor& combined_nvl_head,
+                        const Config& config,
+                        std::optional<EventHandle>& previous_event,  // NOLINT
+                        bool async,
+                        bool allocate_on_comm_stream);
+
+  std::tuple<paddle::Tensor,
+             paddle::Tensor,
+             paddle::Tensor,
+             paddle::Tensor,
+             paddle::Tensor,
+             std::optional<EventHandle>,
+             std::optional<std::function<void()>>>
+  low_latency_dispatch_api(const paddle::Tensor& x,
+                           const paddle::Tensor& topk_idx,
+                           int num_max_dispatch_tokens_per_rank,
+                           int num_experts,
+                           bool async,
+                           bool return_recv_hook);
+
+  std::tuple<paddle::Tensor,
+             std::optional<EventHandle>,
+             std::optional<std::function<void()>>>
+  low_latency_combine_api(const paddle::Tensor& x,
+                          const paddle::Tensor& topk_idx,
+                          const paddle::Tensor& topk_weights,
+                          const paddle::Tensor& src_info,
+                          const paddle::Tensor& layout_range,
+                          int num_max_dispatch_tokens_per_rank,
+                          int num_experts,
+                          bool async,
+                          bool return_recv_hook);
 
   std::tuple<paddle::Tensor,
              std::optional<paddle::Tensor>,
@@ -371,5 +412,11 @@ deep_ep::detail::Tensor ConvertPaddleTensorToDetailTensor(
     const paddle::Tensor& tensor);
 paddle::Tensor ConvertDetailTensorToPaddleTensor(
     const deep_ep::detail::Tensor& tensor);
+
+std::optional<deep_ep::detail::Tensor>
+ConvertOptionalPaddleTensorToDetailTensor(
+    const std::optional<paddle::Tensor>& tensor);
+std::optional<paddle::Tensor> ConvertOptionalDetailTensorToPaddleTensor(
+    const std::optional<deep_ep::detail::Tensor>& tensor);
 
 }  // namespace deep_ep
