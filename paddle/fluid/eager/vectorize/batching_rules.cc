@@ -14,6 +14,7 @@
 
 #include "paddle/fluid/eager/vectorize/batching_rules.h"
 #include "paddle/fluid/eager/api/generated/eager_generated/forwards/dygraph_functions.h"
+#include "paddle/fluid/eager/api/generated/eager_generated/forwards/dygraph_grad_functions.h"
 #include "paddle/fluid/eager/vectorize/vmap_transforms.h"
 #include "paddle/phi/api/include/api.h"
 #include "paddle/phi/core/batched_tensor.h"
@@ -28,6 +29,9 @@ paddle::Tensor unsqueeze_ad_func(const paddle::Tensor& x,
                                  paddle::experimental::IntArray axis);
 paddle::Tensor squeeze_ad_func(const paddle::Tensor& x,
                                paddle::experimental::IntArray axis);
+
+paddle::Tensor tanh_grad_ad_func(const paddle::Tensor& out,
+                                 const paddle::Tensor& grad_out);
 
 namespace paddle {
 namespace vmap {
@@ -74,6 +78,25 @@ Tensor dot_batching_rule(const Tensor& x, const Tensor& y) {
   } else {
     PD_CHECK(false, "either x or y must be a BatchedTensor");
   }
+}
+
+Tensor tanh_batching_rule(const Tensor& x) {
+  auto* x_batched = phi::unsafeGetBatchedImpl(x);
+  auto output_physical = ::tanh_ad_func(x_batched->value());
+  auto old_bdims = x_batched->bdims();
+  return phi::makeBatched(output_physical,
+                          phi::BatchDims(old_bdims.begin(), old_bdims.end()));
+}
+
+Tensor tanh_grad_batching_rule(const Tensor& out, const Tensor& grad_out) {
+  auto physical_args =
+      BroadcastingVmapTransform::logicalToPhysical({out, grad_out});
+  const auto& out_physical = physical_args[0].tensor();
+  const auto& grad_out_physical = physical_args[1].tensor();
+  // auto result = ::tanh_grad_ad_func(physical_args[0].tensor(),
+  // physical_args[1].tensor());
+  auto result = (1 - out_physical * out_physical) * grad_out_physical;
+  return physical_args[0].getPhysicalToLogicalMap().apply(result);
 }
 
 }  // namespace vmap

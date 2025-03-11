@@ -23,6 +23,8 @@ namespace vmap {
 
 paddle::Tensor dot_batching_rule(const paddle::Tensor& x,
                                  const paddle::Tensor& y);
+Tensor tanh_batching_rule(const Tensor& x);
+Tensor tanh_grad_batching_rule(const Tensor& out, const Tensor& grad_out);
 
 }  // namespace vmap
 }  // namespace paddle

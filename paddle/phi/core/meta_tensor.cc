@@ -348,6 +348,10 @@ const LegacyLoD& MetaTensor::lod() const {
     return static_cast<SparseCooTensor*>(tensor_)->non_zero_elements().lod();
   } else if (phi::SparseCsrTensor::classof(tensor_)) {
     return static_cast<SparseCsrTensor*>(tensor_)->non_zero_elements().lod();
+  } else if (phi::BatchedTensor::classof(tensor_)) {
+    return static_cast<DenseTensor*>(
+               static_cast<BatchedTensor*>(tensor_)->value().impl().get())
+        ->lod();
   } else {
     PADDLE_THROW(common::errors::Unimplemented(
         "Unsupported getting lod of `%s`.", tensor_->type_info().name()));

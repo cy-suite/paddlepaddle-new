@@ -194,6 +194,7 @@ void Tensor::copy_(const Tensor &src,
     return;
   }
 #endif
+    VLOG(0) << "call Copy";
     SetKernelOutput(this);
     phi::MetaTensor meta_out(impl_.get());
     phi::UnchangedInferMeta(
