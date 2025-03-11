@@ -95,9 +95,9 @@ void GroupNormGradKernel(const Context& dev_ctx,
 
   const float* scale_data = nullptr;
   if (scale_ptr) {
-    float* scale_data_tmp =
-        RAII_GUARD.alloc_l3_or_gm<float>(scale_ptr->numel());
     if (!std::is_same_v<XPUType, float>) {
+      float* scale_data_tmp =
+          RAII_GUARD.alloc_l3_or_gm<float>(scale_ptr->numel());
       ret = xpu::cast<XPUType, float>(
           dev_ctx.x_context(),
           reinterpret_cast<const XPUType*>(scale_ptr->data<T>()),
@@ -111,8 +111,9 @@ void GroupNormGradKernel(const Context& dev_ctx,
   }
   const float* bias_data = nullptr;
   if (bias_ptr) {
-    float* bias_data_tmp = RAII_GUARD.alloc_l3_or_gm<float>(bias_ptr->numel());
     if (!std::is_same_v<XPUType, float>) {
+      float* bias_data_tmp =
+          RAII_GUARD.alloc_l3_or_gm<float>(bias_ptr->numel());
       ret = xpu::cast<XPUType, float>(
           dev_ctx.x_context(),
           reinterpret_cast<const XPUType*>(bias_ptr->data<T>()),
