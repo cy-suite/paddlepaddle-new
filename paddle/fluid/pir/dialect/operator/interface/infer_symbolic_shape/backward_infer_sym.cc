@@ -14,6 +14,7 @@
 
 #include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/backward_infer_sym.h"
 #include "paddle/fluid/pir/dialect/operator/interface/infer_symbolic_shape/infer_sym_utils.h"
+#include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
 
 namespace paddle::dialect {
 
@@ -140,4 +141,20 @@ bool DepthwiseConv2dGradOpInferSymbolicShape(
   return GeneralBinaryGradOpInferSymbolicShape(op, infer_context);
 }
 
+bool Pool2dGradOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  SameShapeInfer(infer_context, op->result(0), op->operand_source(0));
+  return true;
+}
+
+bool BceLossGradOpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  SameShapeInfer(infer_context, op->result(0), op->operand_source(0));
+  return true;
+}
+
+bool BceLossGrad_OpInferSymbolicShape(
+    pir::Operation *op, pir::InferSymbolicShapeContext *infer_context) {
+  return BceLossGradOpInferSymbolicShape(op, infer_context);
+}
 }  // namespace paddle::dialect

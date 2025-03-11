@@ -267,6 +267,7 @@
   kernel :
     func : bce_loss_grad
   inplace : (out_grad -> input_grad)
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - backward_op : bicubic_interp_grad
   forward : bicubic_interp (Tensor x, Tensor out_size, Tensor[] size_tensor, Tensor scale_tensor, str data_format="NCHW", int out_d=0, int out_h=0, int out_w=0, float[] scale={}, str interp_method="bilinear", bool align_corners=true, int align_mode=1) -> Tensor(output)
@@ -2435,6 +2436,7 @@
     func : pool2d_grad
     param : [x, out, out_grad, kernel_size, strides, paddings, ceil_mode, exclusive, data_format, pooling_type, global_pooling, adaptive, padding_algorithm]
   backward : pool2d_double_grad
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - backward_op : pool3d_grad
   forward : pool3d(Tensor x, int[] kernel_size, int[] strides, int[] paddings, bool ceil_mode, bool exclusive, str data_format, str pooling_type, bool global_pooling, bool adaptive, str padding_algorithm) -> Tensor(out)
