@@ -132,7 +132,7 @@ __global__ void compact_kernel(const T* input,
 
 template <typename T, typename Pred>
 void cuda_remove(const GPUContext& dev_ctx,
-                 const DenseTensor& input,
+                 DenseTensor& input,  // NOLINT
                  int n,
                  Pred pred,
                  int* out_num_ptr) {
