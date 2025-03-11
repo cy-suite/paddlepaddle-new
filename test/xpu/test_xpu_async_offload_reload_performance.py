@@ -32,16 +32,17 @@ from paddle.incubate.tensor.manipulation import (
 
 def print_debug_info(tensor, name):
     """Prints debug information for a tensor."""
-    print(f"{name} is on device: {tensor.place}")
-    print(f"{name} shape: {tensor.shape}, dtype: {tensor.dtype}")
+    # print(f"{name} is on device: {tensor.place}")
+    # print(f"{name} shape: {tensor.shape}, dtype: {tensor.dtype}")
     try:
         arr = tensor.numpy()
         flat = arr.flatten()
-        print(f"{name} first 5 elements: {flat[:5]}")
+        # print(f"{name} first 5 elements: {flat[:5]}")
         # Uncomment the next line if you need to print the full array.
         # print(f"{name} full array:\n{arr}")
     except Exception as e:
-        print(f"{name} cannot be converted to numpy array: {e}")
+        # print(f"{name} cannot be converted to numpy array: {e}")
+        pass
 
 
 class TestSaveLoadLargeParameters(unittest.TestCase):
@@ -81,8 +82,8 @@ class TestSaveLoadLargeParameters(unittest.TestCase):
         a = data0.numpy()
         b = cpu_data.numpy()
         c = xpu_data.numpy()
-        print("Max diff (data0 - cpu_data):", np.max(np.abs(a - b)))
-        print("Max diff (data0 - xpu_data):", np.max(np.abs(a - c)))
+        # print("Max diff (data0 - cpu_data):", np.max(np.abs(a - b)))
+        # print("Max diff (data0 - xpu_data):", np.max(np.abs(a - c)))
         np.testing.assert_array_equal(a, b)
         np.testing.assert_array_equal(a, c)
 
@@ -140,14 +141,14 @@ class TestSaveLoadLargeParameters(unittest.TestCase):
         print_debug_info(data1, "data1 after offload_with_offset")
         print_debug_info(data2, "data2 after offload_with_offset")
         diff = np.max(np.abs(data1.numpy() - data2.numpy()))
-        print("Max diff (data1 - data2):", diff)
+        # print("Max diff (data1 - data2):", diff)
         np.testing.assert_array_equal(data1.numpy(), data2.numpy())
 
     def test_large_data_performance(self):
         # Create a large tensor (~100MB) on XPU.
         # For float32 (4 bytes), 100MB = 104857600 bytes => 104857600 / 4 = 26214400 elements.
         # We use shape [512, 512, 100] since 512*512*100 = 26214400.
-        print("Starting large data performance test...")
+        # print("Starting large data performance test...")
         large_arr = np.random.rand(512, 512, 1000).astype("float32")
         large_tensor = paddle.to_tensor(large_arr, place=paddle.XPUPlace(0))
         print_debug_info(large_tensor, "large_tensor (original)")
@@ -159,7 +160,7 @@ class TestSaveLoadLargeParameters(unittest.TestCase):
         task_offload.cpu_wait()  # Wait for offload completion.
         t1 = time.time()
         offload_time = t1 - t0
-        print(f"Offload time for 100MB tensor: {offload_time:.4f} seconds")
+        # print(f"Offload time for 100MB tensor: {offload_time:.4f} seconds")
 
         # Measure reload time.
         t2 = time.time()
@@ -167,16 +168,16 @@ class TestSaveLoadLargeParameters(unittest.TestCase):
         task_reload.cpu_wait()  # Wait for reload completion.
         t3 = time.time()
         reload_time = t3 - t2
-        print(f"Reload time for 100MB tensor: {reload_time:.4f} seconds")
+        # print(f"Reload time for 100MB tensor: {reload_time:.4f} seconds")
 
         # Verify that the reloaded tensor matches the original.
         a = large_tensor.numpy()
         c = xpu_large.numpy()
         max_diff = np.max(np.abs(a - c))
-        print("Max diff (large_tensor - xpu_large):", max_diff)
+        # print("Max diff (large_tensor - xpu_large):", max_diff)
         np.testing.assert_array_equal(a, c)
 
 
 if __name__ == '__main__':
-    print("Default Paddle device:", paddle.get_device())
+    # print("Default Paddle device:", paddle.get_device())
     unittest.main()

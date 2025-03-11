@@ -1,4 +1,4 @@
-# Copyright (c) 2023-2025 PaddlePaddle Authors. All Rights Reserved.
+# Copyright (c) 2025 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,15 +31,16 @@ from paddle.incubate.tensor.manipulation import (
 
 def print_debug_info(tensor, name):
     """Prints debug information for a tensor."""
-    print(f"{name} is on device: {tensor.place}")
-    print(f"{name} shape: {tensor.shape}, dtype: {tensor.dtype}")
+    # print(f"{name} is on device: {tensor.place}")
+    # print(f"{name} shape: {tensor.shape}, dtype: {tensor.dtype}")
     try:
         arr = tensor.numpy()
         flat = arr.flatten()
-        print(f"{name} first 5 elements: {flat[:5]}")
-        print(f"{name} full array:\n{arr}")
+        # print(f"{name} first 5 elements: {flat[:5]}")
+        # print(f"{name} full array:\n{arr}")
     except Exception as e:
-        print(f"{name} cannot be converted to numpy array: {e}")
+        # print(f"{name} cannot be converted to numpy array: {e}")
+        pass
 
 
 class TestSaveLoadLargeParameters(unittest.TestCase):
@@ -79,8 +80,8 @@ class TestSaveLoadLargeParameters(unittest.TestCase):
         a = data0.numpy()
         b = cpu_data.numpy()
         c = xpu_data.numpy()
-        print("Max diff (data0 - cpu_data):", np.max(np.abs(a - b)))
-        print("Max diff (data0 - xpu_data):", np.max(np.abs(a - c)))
+        # print("Max diff (data0 - cpu_data):", np.max(np.abs(a - b)))
+        # print("Max diff (data0 - xpu_data):", np.max(np.abs(a - c)))
         np.testing.assert_array_equal(a, b)
         np.testing.assert_array_equal(a, c)
 
@@ -140,10 +141,10 @@ class TestSaveLoadLargeParameters(unittest.TestCase):
         print_debug_info(data1, "data1 after offload_with_offset")
         print_debug_info(data2, "data2 after offload_with_offset")
         diff = np.max(np.abs(data1.numpy() - data2.numpy()))
-        print("Max diff (data1 - data2):", diff)
+        # print("Max diff (data1 - data2):", diff)
         np.testing.assert_array_equal(data1.numpy(), data2.numpy())
 
 
 if __name__ == '__main__':
-    print("Default Paddle device:", paddle.get_device())
+    # print("Default Paddle device:", paddle.get_device())
     unittest.main()

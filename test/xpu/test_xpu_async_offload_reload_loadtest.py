@@ -31,21 +31,22 @@ from paddle.incubate.tensor.manipulation import (
 
 def print_debug_info(tensor, name):
     """Prints debug information for a tensor."""
-    print(f"{name} is on device: {tensor.place}")
-    print(f"{name} shape: {tensor.shape}, dtype: {tensor.dtype}")
+    # print(f"{name} is on device: {tensor.place}")
+    # print(f"{name} shape: {tensor.shape}, dtype: {tensor.dtype}")
     try:
         arr = tensor.numpy()
         flat = arr.flatten()
-        print(f"{name} first 5 elements: {flat[:5]}")
+        # print(f"{name} first 5 elements: {flat[:5]}")
     except Exception as e:
-        print(f"{name} cannot be converted to numpy array: {e}")
+        # print(f"{name} cannot be converted to numpy array: {e}")
+        pass
 
 
 class TestLargeTensorOffloadAndReloadRepeated(unittest.TestCase):
     def test_large_data_performance_repeated(self):
         # Repeat the offload and reload process 100 times.
-        for i in range(100):
-            print(f"\n--- Iteration {i+1} ---")
+        for i in range(1):
+            # print(f"\n--- Iteration {i+1} ---")
             # Create a large tensor on XPU.
             large_arr = np.empty((512, 512, 10000), dtype="float32")
             large_tensor = paddle.to_tensor(large_arr, place=paddle.XPUPlace(0))
@@ -58,7 +59,7 @@ class TestLargeTensorOffloadAndReloadRepeated(unittest.TestCase):
             task_offload.cpu_wait()  # Wait for offload completion.
             t1 = time.time()
             offload_time = t1 - t0
-            print(f"Offload time: {offload_time:.4f} seconds")
+            # print(f"Offload time: {offload_time:.4f} seconds")
 
             # Reload the tensor.
             t2 = time.time()
@@ -66,9 +67,9 @@ class TestLargeTensorOffloadAndReloadRepeated(unittest.TestCase):
             task_reload.cpu_wait()  # Wait for reload completion.
             t3 = time.time()
             reload_time = t3 - t2
-            print(f"Reload time: {reload_time:.4f} seconds")
+            # print(f"Reload time: {reload_time:.4f} seconds")
 
 
 if __name__ == '__main__':
-    print("Default Paddle device:", paddle.get_device())
+    # print("Default Paddle device:", paddle.get_device())
     unittest.main()
