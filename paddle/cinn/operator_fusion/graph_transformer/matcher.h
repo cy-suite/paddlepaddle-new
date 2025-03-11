@@ -32,10 +32,10 @@ struct NonSinkNodeMatcher {
 
 struct IsOutputNodeMatcher {
   bool operator()(const PatternGraph& graph, const PatternNodePtr& node) {
-    return std::any_of(
-        node->ops().begin(), node->ops().end(), [&](pir::Operation* op) {
-          return graph.output_ops().count(op);
-        });
+    for (auto op : node->ops()) {
+      if (graph.output_ops().count(op)) return true;
+    }
+    return false;
   }
 };
 

@@ -148,6 +148,7 @@ void PatternGraph::SinkTrivialPattern() {
   GraphTransformer<NodePattern,
                    And<StmtPatternGraphMatcher<TrivialPattern>,
                        TransposeOpMatcher,
+                       OnlyOneDownstreamMatcher,
                        Not<IsOutputNodeMatcher>>,
                    MergeTrivialPatternOperation>(this);
 }
