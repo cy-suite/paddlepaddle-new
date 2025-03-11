@@ -77,7 +77,7 @@ struct TransposeTransform {
 };
 
 struct AppendAxisTransform {
-  AppendAxisTransform(const std::vector<int64_t>&,
+  AppendAxisTransform(const std::vector<int64_t>& axis,
                       const std::vector<symbol::DimExpr>& shape)
       : axis(axis), shape(shape) {
     PADDLE_ENFORCE_EQ(axis.size(),
