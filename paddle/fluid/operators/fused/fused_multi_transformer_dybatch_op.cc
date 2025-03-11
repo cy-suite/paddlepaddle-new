@@ -94,6 +94,14 @@ class FusedMultiTransformerDybatchOp : public framework::OperatorWithKernel {
     //         "input qkv_weight = [%s]",
     //         x_dim,
     //         y_dim));
+    std::string gemm_method = ctx->Attrs().Get<std::string>("gemm_method");
+
+    int group_size = ctx->Attrs().Get<int>("group_size");
+
+    PADDLE_ENFORCE(
+        group_size == -1 || group_size == 64 || group_size == 128,
+        paddle::platform::errors::InvalidArgument(
+            "group_size only support -1, 64 or 128, but got %d", group_size));
 
     ctx->SetOutputDim("Out", {cum_offsets_dim[0], x_dim[1]});
   }
@@ -194,6 +202,16 @@ class FusedMultiTransformerDybatchOpOpMaker
     AddInput("FFN2Bias", "The linear2 bias input of FusedFeedForward op")
         .AsDispensable()
         .AsDuplicable();
+    AddInput("QKVWScale", "QKVWScale").AsDispensable().AsDuplicable();
+    AddInput("OutLinearWScale", "OutLinearWScale")
+        .AsDispensable()
+        .AsDuplicable();
+    AddInput("FFN1WeightScale", "FFN1WeightScale")
+        .AsDispensable()
+        .AsDuplicable();
+    AddInput("FFN2WeightScale", "FFN2WeightScale")
+        .AsDispensable()
+        .AsDuplicable();
     AddOutput("CacheKVOut", "The updated cache KV. Inplace with CacheKV")
         .AsDispensable()
         .AsDuplicable();
@@ -289,6 +307,22 @@ class FusedMultiTransformerDybatchOpOpMaker
         .SetDefault(-1);
     AddAttr<float>("rope_theta", "(float, default 10000.0f) the theta in RoPE")
         .SetDefault(10000.0f);
+    AddAttr<std::string>("gemm_method", "gemm_method")
+        .SetDefault("None")
+        .AddCustomChecker([](const std::string &gemm_type) {
+          PADDLE_ENFORCE_EQ(
+              gemm_type == "None" || gemm_type == "weight_only",
+              true,
+              platform::errors::InvalidArgument(
+                  "Only support `None`, `weight_only`, method for gemm "
+                  "in "
+                  "FusedMultiTransformerDyquant. "));
+        });
+    AddAttr<int>("group_size",
+                 "(int, default -1) the group_size of quantization."
+                 "-1: per-channel quantization, "
+                 "Supported options: 64 or 128")
+        .SetDefault(-1);
 
     AddComment(R"DOC(fused multi transformer dybatch layers op)DOC");
   }

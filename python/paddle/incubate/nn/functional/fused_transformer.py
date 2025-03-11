@@ -1345,6 +1345,10 @@ def fused_multi_transformer_dybatch(
     ffn1_biases,
     ffn2_weights,
     ffn2_biases,
+    qkv_weights_scales=None,
+    linear_weights_scales=None,
+    ffn1_weights_scales=None,
+    ffn2_weights_scales=None,
     pre_layer_norm=True,
     rotary_emb_dims=0,
     max_input_length=8192,
@@ -1361,6 +1365,8 @@ def fused_multi_transformer_dybatch(
     inv_compression_ratio=1.0,
     gqa_group_size=-1,
     rope_theta=10000.0,
+    gemm_method="None",
+    group_size=-1,
     name=None,
 ):
     r""" """
@@ -1411,6 +1417,10 @@ def fused_multi_transformer_dybatch(
             ffn1_biases,
             ffn2_weights,
             ffn2_biases,
+            qkv_weights_scales,
+            linear_weights_scales,
+            ffn1_weights_scales,
+            ffn2_weights_scales,
             cache_kvs,
             'pre_layer_norm',
             pre_layer_norm,
@@ -1442,6 +1452,10 @@ def fused_multi_transformer_dybatch(
             gqa_group_size,
             'rope_theta',
             rope_theta,
+            'gemm_method',
+            gemm_method,
+            'group_size',
+            group_size,
         )
         if cache_kvs is not None:
             return final_out, cache_kv_out
@@ -1536,6 +1550,10 @@ def fused_multi_transformer_dybatch(
         inputs['FFN1Bias'] = ffn1_biases if ffn1_biases is not None else []
         inputs['FFN2Weight'] = ffn2_weights
         inputs['FFN2Bias'] = ffn2_biases if ffn2_biases is not None else []
+        inputs['QKVWScale'] = qkv_weights_scales
+        inputs['OutLinearWScale'] = linear_weights_scales
+        inputs['FFN1WeightScale'] = ffn1_weights_scales
+        inputs['FFN2WeightScale'] = ffn2_weights_scales
 
         # set attrs
         attrs = {
@@ -1554,6 +1572,8 @@ def fused_multi_transformer_dybatch(
             'inv_compression_ratio': inv_compression_ratio,
             'gqa_group_size': gqa_group_size,
             'rope_theta': rope_theta,
+            'gemm_method': gemm_method,
+            'group_size': group_size,
         }
 
         outputs = {}

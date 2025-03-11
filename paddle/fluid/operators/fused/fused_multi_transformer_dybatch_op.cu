@@ -19,6 +19,7 @@ limitations under the License. */
 #include "paddle/phi/common/memory_utils.h"
 #include "paddle/phi/kernels/flash_attn_kernel.h"
 #include "paddle/phi/kernels/fusion/cacade_append_attn.h"
+#include "paddle/phi/kernels/fusion/cutlass/utils/cuda_utils.h"
 #include "paddle/phi/kernels/fusion/gpu/fmha_ref.h"
 #include "paddle/phi/kernels/fusion/gpu/fused_dropout_helper.h"
 #include "paddle/phi/kernels/fusion/gpu/fused_multi_transformer_helper.cu.h"
@@ -153,6 +154,17 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
 
     auto *padding_offset_data = padding_offset->data<int>();
 
+    int sm_arch = phi::getSMVersion();
+
+    std::string gemm_method = ctx.Attr<std::string>("gemm_method");
+    // When M = 1 and gemm_method is weight-only, we use Weightonly GEMV.
+    // But volta always dequantize after LDG, so volta weight's layout is
+    // RowMajor, Out GEMV only support ColMajor Layout (Author: Zhengzekang).
+    // if (token_num == 1 && (gemm_method == "weight_only") && sm_arch != 70) {
+    //   gemm_method = "weight_only_gemv";
+    // }
+    int group_size = ctx.Attr<int>("group_size");
+
     // 1. layer norm
     const auto pre_layer_norm = ctx.Attr<bool>("pre_layer_norm");
     const float epsilon = ctx.Attr<float>("epsilon");
@@ -174,6 +186,13 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
     // [num_head + 2 * gqa_group_size, dim_head, dim_embed]
     auto qkv_weights = ctx.MultiInput<phi::DenseTensor>("QKVW");
     auto qkv_biases = ctx.MultiInput<phi::DenseTensor>("QKVBias");
+    auto qkv_weights_scales = ctx.MultiInput<phi::DenseTensor>("QKVWScale");
+    PADDLE_ENFORCE_EQ(qkv_weights_scales[0]->dtype(),
+                      input_x->dtype(),
+                      platform::errors::PreconditionNotMet(
+                          "The weight scale of dyquant should be the same type "
+                          "as input_x(half or bfloat16), please check and "
+                          "re-export your models"));
     const bool trans_qkvw = ctx.Attr<bool>("trans_qkvw");
     const auto qkv_w_dims = qkv_weights[0]->dims();
 
@@ -359,8 +378,18 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
     // Since we fused QKVBias into QKVBiasAddTransposeSplit kernel, here we
     // set compute_bias as false.
 
-    auto qkv_compute = phi::fusion::GEMMHelper<T>(
-        dev_ctx, token_num, output_size, input_size, "None", trans_qkvw);
+    auto int8_mixed_gemm_runner = phi::CutlassFpAIntBGemmRunner<
+        typename phi::PDDataTypeTraits<T>::DataType,
+        uint8_t>();
+
+    auto qkv_compute = phi::fusion::GEMMHelper<T>(dev_ctx,
+                                                  token_num,
+                                                  output_size,
+                                                  input_size,
+                                                  gemm_method,
+                                                  &int8_mixed_gemm_runner,
+                                                  trans_qkvw,
+                                                  group_size);
 
     phi::DenseTensor qkv_out;
     if (gqa_group_size > 0) {
@@ -384,11 +413,20 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
     // 4. out_linear
     auto out_linear_weights = ctx.MultiInput<phi::DenseTensor>("OutLinearW");
     auto out_linear_biases = ctx.MultiInput<phi::DenseTensor>("OutLinearBias");
+    auto out_linear_weights_scales =
+        ctx.MultiInput<phi::DenseTensor>("OutLinearWScale");
     int ring_id = ctx.Attr<int>("ring_id");
     // (transA, transB, compute_bias) = (false, false, false)
 
-    auto out_linear_compute = phi::fusion::GEMMHelper<T>(
-        dev_ctx, token_num, dim_embed, hidden_size, "None", false);
+    auto out_linear_compute =
+        phi::fusion::GEMMHelper<T>(dev_ctx,
+                                   token_num,
+                                   dim_embed,
+                                   hidden_size,
+                                   gemm_method,
+                                   &int8_mixed_gemm_runner,
+                                   false,
+                                   group_size);
 
     // 5. ln(residual + bias)
     auto ffn_ln_scales = ctx.MultiInput<phi::DenseTensor>("FFNLnScale");
@@ -405,22 +443,37 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
 
     // 6. ffn matmul1
     auto ffn1_weights = ctx.MultiInput<phi::DenseTensor>("FFN1Weight");
+    auto ffn1_weights_scales =
+        ctx.MultiInput<phi::DenseTensor>("FFN1WeightScale");
     auto ffn1_biases = ctx.MultiInput<phi::DenseTensor>("FFN1Bias");
     auto ffn1_weight_dim = ffn1_weights[0]->dims();
     // if quant weight,
     // matmul weight is transposed
-    int dim_ffn = ffn1_weight_dim[1];
-    phi::fusion::FFNHelper<T> ffn1_helper(
-        dev_ctx, act_method, token_num, dim_ffn, dim_embed, "None");
+    int dim_ffn =
+        gemm_method == "weight_only" ? ffn1_weight_dim[0] : ffn1_weight_dim[1];
+    phi::fusion::FFNHelper<T> ffn1_helper(dev_ctx,
+                                          act_method,
+                                          token_num,
+                                          dim_ffn,
+                                          dim_embed,
+                                          gemm_method,
+                                          &int8_mixed_gemm_runner,
+                                          group_size);
 
     phi::DenseTensor ffn1_out;
     ffn1_out.Resize({{token_num, dim_ffn}});
     auto *ffn1_out_data =
         dev_ctx.Alloc<T>(&ffn1_out, ffn1_out.numel() * sizeof(T));
 
-    // Note(Zhengzekang): It is no need when using FP16 matmul.
+    // Note(lizhenyun): we need some workspace for cutlass gemm in weight only.
+    constexpr size_t mixgemm_workspace_size_bytes = 100 * 1024 * 1024;
     phi::DenseTensor mixgemm_workspace;
     char *mixgemm_workspace_data = nullptr;
+    if (gemm_method == "weight_only") {
+      mixgemm_workspace.Resize({mixgemm_workspace_size_bytes});
+      mixgemm_workspace_data = reinterpret_cast<char *>(dev_ctx.Alloc<uint8_t>(
+          &mixgemm_workspace, mixgemm_workspace_size_bytes));
+    }
 
     // 7. ffn act + bias
     phi::DenseTensor ffn1_dropout_out;
@@ -432,9 +485,18 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
 
     // 8. ffn2 matmul
     auto ffn2_weights = ctx.MultiInput<phi::DenseTensor>("FFN2Weight");
+    auto ffn2_weights_scales =
+        ctx.MultiInput<phi::DenseTensor>("FFN2WeightScale");
     auto ffn2_biases = ctx.MultiInput<phi::DenseTensor>("FFN2Bias");
-    auto ffn2_linear_compute = phi::fusion::GEMMHelper<T>(
-        dev_ctx, token_num, dim_embed, tmp_dim_ffn, "None", false);
+    auto ffn2_linear_compute =
+        phi::fusion::GEMMHelper<T>(dev_ctx,
+                                   token_num,
+                                   dim_embed,
+                                   tmp_dim_ffn,
+                                   gemm_method,
+                                   &int8_mixed_gemm_runner,
+                                   false,
+                                   group_size);
 
     // 9. ffn2 residual bias
     phi::fusion::DropoutParam ffn2_dropout_param(
@@ -499,7 +561,7 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
                 << ", " << output_size << ", " << input_size;
         qkv_compute.Compute(tmp_input_x,
                             qkv_weights[i],
-                            /*weight_scale*/ nullptr,
+                            qkv_weights_scales[i],
                             qkv_bias,
                             &mixgemm_workspace,
                             &qkv_out);
@@ -513,7 +575,7 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
                 << ", " << input_size;
         qkv_compute.Compute(buf1,
                             qkv_weights[i],
-                            /*weight_scale*/ nullptr,
+                            qkv_weights_scales[i],
                             /*qkv_bias*/ nullptr,
                             &mixgemm_workspace,
                             &qkv_out);
@@ -693,7 +755,7 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
       if (pre_layer_norm) {
         out_linear_compute.Compute(&fmha_out,
                                    out_linear_weights[i],
-                                   /*weight_scale*/ nullptr,
+                                   out_linear_weights_scales[i],
                                    /*bias*/ nullptr,
                                    &mixgemm_workspace,
                                    buf1);
@@ -702,7 +764,7 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
       } else {
         out_linear_compute.Compute(&fmha_out,
                                    out_linear_weights[i],
-                                   /*weight_scale*/ nullptr,
+                                   out_linear_weights_scales[i],
                                    /*bias*/ nullptr,
                                    &mixgemm_workspace,
                                    buf0);
@@ -712,6 +774,9 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
       VLOG(1) << "step4";
 #ifdef _DEBUG_FUSED_MULTI_TRANSFORMER_PRINT_TENSOR
       VLOG(2) << "out_linear_out:" << *buf1;
+      VLOG(3) << "out_linear_weights:" << (out_linear_weights[i]);
+      VLOG(3) << "out_linear_weights_scales:" << (out_linear_weights_scales[i]);
+      VLOG(3) << "out_linear_biases:" << (out_linear_biases[i]);
 #endif
 #endif
       // step5. ln(residual + dropout(input + bias))
@@ -742,12 +807,13 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
 #ifdef _DEBUG_FUSED_MULTI_TRANSFORMER
       VLOG(1) << "step5";
 #ifdef _DEBUG_FUSED_MULTI_TRANSFORMER_PRINT_TENSOR
+      VLOG(1) << "pre_layer_norm:" << pre_layer_norm;
       VLOG(2) << "ffn1_input:" << *buf1;
 #endif
 #endif
       ffn1_helper.Compute(buf1,
                           ffn1_weights[i],
-                          /*weight_scale*/ nullptr,
+                          ffn1_weights_scales[i],
                           compute_bias ? ffn1_biases[i] : nullptr,
                           &mixgemm_workspace,
                           &ffn1_out,
@@ -756,20 +822,24 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
       VLOG(1) << "step6";
 #ifdef _DEBUG_FUSED_MULTI_TRANSFORMER_PRINT_TENSOR
       VLOG(2) << "ffn1_output:" << ffn1_out;
+      VLOG(2) << "ffn1_dropout_out:" << ffn1_dropout_out;
+      VLOG(3) << "ffn1_weights:" << *(ffn1_weights[i]);
+      VLOG(3) << "ffn1_weights_scales:" << *(ffn1_weights_scales[i]);
+      VLOG(3) << "ffn1_biases:" << *(ffn1_biases[i]);
 #endif
 #endif
       // step7. ffn2 matmul
       if (pre_layer_norm) {
         ffn2_linear_compute.Compute(&ffn1_dropout_out,
                                     ffn2_weights[i],
-                                    nullptr,
+                                    ffn2_weights_scales[i],
                                     /*bias*/ nullptr,
                                     &mixgemm_workspace,
                                     buf1);
       } else {
         ffn2_linear_compute.Compute(&ffn1_dropout_out,
                                     ffn2_weights[i],
-                                    nullptr,
+                                    ffn2_weights_scales[i],
                                     /*bias*/ nullptr,
                                     &mixgemm_workspace,
                                     buf0);
@@ -782,6 +852,9 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
       } else {
         VLOG(2) << "ffn2_out, buf0:" << *buf0;
       }
+      VLOG(2) << "ffn2_weights:" << *(ffn2_weights[i]);
+      VLOG(2) << "ffn2_weights_scales:" << *(ffn2_weights_scales[i]);
+      VLOG(2) << "ffn2_biases:" << *(ffn2_biases[i]);
 #endif
 #endif
       if (pre_layer_norm) {
@@ -800,6 +873,7 @@ class FusedMultiTransformerDybatchOpKernel : public framework::OpKernel<T> {
       } else {
         VLOG(2) << "ffn2_out_rd:" << *buf0;
       }
+
 #endif
 #endif
 
