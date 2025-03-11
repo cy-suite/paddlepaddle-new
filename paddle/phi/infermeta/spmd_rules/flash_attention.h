@@ -89,6 +89,5 @@ SpmdInfo FlashMaskGradInferSpmd(const DistMetaTensor& q,
                                 const DistMetaTensor& out_grad,
                                 float dropout,
                                 bool causal);
-
 }  // namespace distributed
 }  // namespace phi
