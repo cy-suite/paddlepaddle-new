@@ -24,7 +24,7 @@ jobs:
     steps:
       - name: Merge PR to test branch
         run: |
-          bash aaa.sh
+          bash ${{ github.workspace }}/.github/workflows/aaa.sh
           echo ${a}
           echo ${b}
           echo ${{ env.a }}
