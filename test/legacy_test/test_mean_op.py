@@ -138,6 +138,69 @@ class TestMeanOp_ZeroDim_Prim(TestMeanOp_ZeroDim):
         self.prim_op_type = "prim"
 
 
+class TestMeanOp_ZeroSize(OpTest):
+    def setUp(self):
+        self.op_type = "mean"
+        self.python_api = paddle.mean
+        self.public_python_api = paddle.mean
+        self.init_prim_type()
+        self.set_attrs()
+        if len(self.shape) == 0:
+            self.inputs = {'X': np.array([], dtype=self.dtype)}
+        else:
+            self.inputs = {'X': np.array([], dtype=self.dtype).reshape(self.shape)}
+        self.outputs = {'Out': np.array([np.nan], dtype=self.dtype)}
+
+    def set_attrs(self):
+        self.shape = [2, 3]
+        self.dtype = np.float64
+
+    def init_prim_type(self):
+        self.prim_op_type = "comp"
+
+    def test_check_output(self):
+        self.check_output(check_pir=True)
+
+    def test_checkout_grad(self):
+        pass
+
+class TestMeanOp_EmptyTensor(TestMeanOp_ZeroSize):
+    def set_attrs(self):
+        self.shape = []
+        self.dtype = np.float64
+
+class TestMeanOp_ZeroSize1D(TestMeanOp_ZeroSize):
+    def set_attrs(self):
+        self.shape = [0]
+        self.dtype = np.float64
+
+class TestMeanOp_ZeroSize2D(TestMeanOp_ZeroSize):
+    def set_attrs(self):
+        self.shape = [0, 3]
+        self.dtype = np.float64
+
+class TestMeanOp_ZeroSize3D(TestMeanOp_ZeroSize):
+    def set_attrs(self):
+        self.shape = [2, 0, 4]
+        self.dtype = np.float64
+
+class TestMeanOp_EmptyTensor_Prim(TestMeanOp_EmptyTensor):
+    def init_prim_type(self):
+        self.prim_op_type = "prim"
+
+class TestMeanOp_ZeroSize1D_Prim(TestMeanOp_ZeroSize1D):
+    def init_prim_type(self):
+        self.prim_op_type = "prim"
+
+class TestMeanOp_ZeroSize2D_Prim(TestMeanOp_ZeroSize2D):
+    def init_prim_type(self):
+        self.prim_op_type = "prim"
+
+class TestMeanOp_ZeroSize3D_Prim(TestMeanOp_ZeroSize3D):
+    def init_prim_type(self):
+        self.prim_op_type = "prim"
+
+
 class TestMeanOpError(unittest.TestCase):
     def setUp(self):
         self.x_shape = [2, 3, 4, 5]
