@@ -258,7 +258,7 @@ class VirtualFrame:
     def handle_comps(self, fn_value):
         is_comp = any(
             x in fn_value.__name__
-            for x in ['<listcomp>', '<dictcomp>', '<genexpr>']
+            for x in ['<listcomp>', '<dictcomp>', '<genexpr>', '<setcomp>']
         )
         if not is_comp:
             return
