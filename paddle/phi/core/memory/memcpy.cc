@@ -431,35 +431,6 @@ void Copy<phi::XPUPinnedPlace, phi::XPUPlace>(phi::XPUPinnedPlace dst_place,
   VLOG(4) << "cudaMemcpy time: " << elapsed.count() << " ms";
 }
 
-// template <>
-// void Copy<phi::XPUPlace, phi::XPUPinnedPlace>(phi::XPUPlace dst_place,
-//                                               void* dst,
-//                                               phi::XPUPinnedPlace src_place,
-//                                               const void* src,
-//                                               size_t num,
-//                                               void* stream) {
-//   if (UNLIKELY(num == 0)) return;
-
-//   platform::SetXPUDeviceId(dst_place.device);
-//   VLOG(4) << "memory::Copy " << num << " Bytes from " << src_place << " to "
-//           << dst_place << " by stream(" << stream << ")";
-//   if (stream) {
-//     phi::RecordEvent record_event(
-//         "cudaMemcpyAsync:XPUPinned->XPU", phi::TracerEventType::UserDefined,
-//         1);
-//     cudaMemcpyAsync(dst,
-//                              src,
-//                              num,
-//                              cudaMemcpyHostToDevice,
-//                              reinterpret_cast<cudaStream_t>(stream));
-
-//   } else {
-//     phi::RecordEvent record_event(
-//         "cudaMemcpy:XPUPinned->XPU", phi::TracerEventType::UserDefined, 1);
-//     cudaMemcpy(dst, src, num, cudaMemcpyHostToDevice);
-//   }
-// }
-
 template <>
 void Copy<phi::XPUPlace, phi::XPUPinnedPlace>(phi::XPUPlace dst_place,
                                               void* dst,

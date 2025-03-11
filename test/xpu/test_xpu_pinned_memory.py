@@ -56,6 +56,26 @@ class TestXPUPinnedToCpuCopy(unittest.TestCase):
         # Check correctness: ensure the data remains unchanged after the copy.
         np.testing.assert_array_equal(tensor_cpu.numpy(), arr)
 
+    def test_copy_from_xpu_to_xpu_pinned(self):
+        # Create a sample numpy array.
+        arr = np.random.rand(10, 10).astype('float32')
+
+        # Create a tensor on an XPU device.
+        tensor_xpu = paddle.to_tensor(arr, place=paddle.XPUPlace(0))
+        # print_debug_info(tensor_xpu, "tensor_xpu (XPU)")
+
+        # Copy the tensor from XPU to XPU pinned memory by converting to NumPy and back.
+        tensor_xpu_pinned = paddle.to_tensor(
+            tensor_xpu.numpy(), place=paddle.XPUPinnedPlace()
+        )
+        # print_debug_info(tensor_xpu_pinned, "tensor_xpu_pinned (after copy to XPU pinned)")
+
+        # Verify that the destination tensor is on XPU pinned memory.
+        self.assertIn("pinned", str(tensor_xpu_pinned.place).lower())
+
+        # Check correctness: ensure the data remains unchanged after the copy.
+        np.testing.assert_array_equal(tensor_xpu_pinned.numpy(), arr)
+
 
 if __name__ == '__main__':
     # print("Default Paddle device:", paddle.get_device())
