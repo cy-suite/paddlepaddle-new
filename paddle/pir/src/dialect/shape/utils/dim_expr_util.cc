@@ -1083,8 +1083,15 @@ DimExprCompareResult EasyCompareGtOrGe(const DimExpr& lhs,
     return DimExprCompareResult::UNKNOWN;
   }
 
-  if (!(lhs.isa<Add<DimExpr>>() || lhs.isa<Mul<DimExpr>>() ||
-        rhs.isa<Add<DimExpr>>() || rhs.isa<Mul<DimExpr>>())) {
+  auto IsAddOrMul = [](const DimExpr& expr) {
+    return expr.isa<Add<DimExpr>>() || expr.isa<Mul<DimExpr>>();
+  };
+  auto IsOneOrZero = [](const DimExpr& expr) {
+    return expr == DimExpr{1} || expr == DimExpr{0};
+  };
+
+  if (!IsAddOrMul(lhs) && !IsAddOrMul(rhs) && !IsOneOrZero(lhs) &&
+      !IsOneOrZero(rhs)) {
     return DimExprCompareResult::UNKNOWN;
   }
 
