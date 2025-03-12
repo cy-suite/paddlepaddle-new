@@ -28,14 +28,17 @@ const phi::DeviceContext* GetDeviceContext(
   auto x_place = x.place();
   if (x_place.GetType() != phi::AllocationType::UNDEFINED) {
     dev_ctx = pool.Get(x_place);
+    LOG(INFO) << "x_place 不等于unfined";
     return dev_ctx;
   } else if (place.GetType() != phi::AllocationType::UNDEFINED) {
     dev_ctx = pool.Get(place);
+    LOG(INFO) << "place 不等于unfined";
     return dev_ctx;
   } else {
     phi::Place compile_place;
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
     compile_place = phi::GPUPlace();
+    LOG(INFO) << "compile_place = phi::GPUPlace();  ";
 #elif defined(PADDLE_WITH_XPU)
     compile_place = phi::XPUPlace();
 #else

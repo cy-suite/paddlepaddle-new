@@ -431,64 +431,63 @@ void TensorRTEngine::FreezeNetwork() {
 }
 
 void TensorRTEngine::InitRefitter() {
-  PADDLE_ENFORCE_NOT_NULL(
-      infer_builder_,
-      common::errors::Fatal("Failed to recreate TensorRT builder"));
-  PADDLE_ENFORCE_NOT_NULL(
-      infer_builder_config_,
-      common::errors::Fatal("Failed to recreate builder config"));
-  infer_refitter_.reset(createInferRefitter(infer_engine_.get(), &logger_));
-  PADDLE_ENFORCE_NOT_NULL(infer_refitter_,
-                          common::errors::InvalidArgument(
-                              "Failed to create refitter for the TRT engine."));
+  if (!infer_refitter_ && infer_engine_) {
+    infer_refitter_.reset(createInferRefitter(infer_engine_.get(), &logger_));
+    PADDLE_ENFORCE_NOT_NULL(
+        infer_refitter_,
+        common::errors::InvalidArgument(
+            "Failed to create refitter for the TRT engine."));
+  }
 }
 
 bool TensorRTEngine::setRefitWeights(
     const std::string &weight_name, const phi::DenseTensor &new_weight_tensor) {
   LOG(INFO) << "Checking infer_refitter_ status...";
   InitRefitter();
+
   if (!infer_engine_->isRefittable()) {
     LOG(ERROR) << "引擎未启用重拟合能力，请检查："
                << "1. 是否设置kREFIT和kREFIT_ALL_WEIGHTS标志\n"
                << "2. 是否使用相同TRT版本序列化/反序列化";
     return false;
   }
+
+  // 检查所有可重拟合的权重名称
+  int32_t total_refit_weights = infer_refitter_->getAllWeights(0, nullptr);
+  std::vector<const char *> weight_names(total_refit_weights, nullptr);
+  infer_refitter_->getAllWeights(total_refit_weights, weight_names.data());
+  for (int i = 0; i < total_refit_weights; ++i) {
+    LOG(INFO) << "Refittable weight: " << weight_names[i];
+  }
+
   PADDLE_ENFORCE_NOT_NULL(
       infer_refitter_,
       common::errors::InvalidArgument(
           "Refitter is not initialized. Make sure you enabled refit at build "
           "time by calling use_refittable()."));
-  LOG(INFO) << "weight_name " << weight_name;
-  LOG(INFO) << "new_weight_tensor.numel() " << new_weight_tensor.dims();
-  // auto new_weights = this->GetTrtWeight(weight_name, new_weight_tensor);
-  // const nvinfer1::Weights &final_weights = new_weights.get();
-  int32_t total_refit_weights = infer_refitter_->getAllWeights(0, nullptr);
-  LOG(INFO) << "Total refittable weights: " << total_refit_weights;
 
-  if (total_refit_weights > 0) {
-    std::vector<const char *> weight_names(total_refit_weights, nullptr);
-    int32_t actual_count = infer_refitter_->getAllWeights(total_refit_weights,
-                                                          weight_names.data());
-    LOG(INFO) << "Actual refitable weights returned:" << actual_count;
+  // 构造层名和权重角色
+  std::string layer_name = weight_name;  // 假设 weight_name 是层名
+  LOG(INFO) << "Attempting to set weights for layer: " << layer_name;
 
-    for (int i = 0; i < actual_count; ++i) {
-      if (weight_names[i]) {
-        auto layer_weights =
-            this->GetTrtWeight(weight_names[i], new_weight_tensor);
-        const nvinfer1::Weights &final_weights = layer_weights.get();
-        bool set_result =
-            infer_refitter_->setNamedWeights(weight_names[i], final_weights);
-        if (!set_result) {
-          PADDLE_ENFORCE_EQ(
-              set_result,
-              true,
-              common::errors::InvalidArgument("Failed to set named weights for "
-                                              "weight '%s' during refitting.",
-                                              weight_name.c_str()));
-          return false;
-        }
-      }
-    }
+  nvinfer1::WeightsRole role = nvinfer1::WeightsRole::kCONSTANT;
+
+  auto layer_weights =
+      this->GetTrtWeight(weight_name.c_str(), new_weight_tensor);
+  const nvinfer1::Weights &final_weights = layer_weights.get();
+
+  // 使用 setWeights 更新权重
+  bool set_result =
+      infer_refitter_->setWeights(layer_name.c_str(), role, final_weights);
+  if (!set_result) {
+    PADDLE_ENFORCE_EQ(
+        set_result,
+        true,
+        common::errors::InvalidArgument("Failed to set weights for layer '%s' "
+                                        "with role %d during refitting.",
+                                        layer_name.c_str(),
+                                        static_cast<int>(role)));
+    return false;
   }
 
   return true;

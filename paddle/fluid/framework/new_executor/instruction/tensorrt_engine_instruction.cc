@@ -185,24 +185,34 @@ TensorRTEngineInstruction::TensorRTEngineInstruction(
   auto engine_data = ReadBinaryFileToString(engine_serialized_path);
   trt_engine_->Deserialize(engine_data);
 
+  size_t len = refit_param_names_.size();
   if (!refit_params_path_.empty()) {
     trt_engine_->SetScope(value_exec_info_->GetScope());
+    std::vector<std::string> param_names = refit_param_names_;
+    std::sort(param_names.begin(), param_names.end());
+
     std::vector<phi::DenseTensor *> tensor_out;
-    for (const auto &param_name : refit_param_names_) {
-      LOG(INFO) << "param_name " << param_name;
-      auto *var = value_exec_info_->GetScope()->FindVar(param_name);
-      if (var == nullptr) {
-        var = value_exec_info_->GetScope()->Var(param_name);
-      }
-      auto *tensor_temp = var->GetMutable<phi::DenseTensor>();
+    for (size_t i = 0; i < len; ++i) {
+      auto *tensor_temp = new phi::DenseTensor();
+      tensor_temp->Resize({1});
+      phi::DataType type_data = phi::DataType::FLOAT32;
+      phi::DeviceContextPool &pool = phi::DeviceContextPool::Instance();
+      const phi::DeviceContext *dev_ctx = nullptr;
+      dev_ctx = pool.Get(phi::CPUPlace());
+      dev_ctx->Alloc(tensor_temp, type_data);
       tensor_out.push_back(tensor_temp);
     }
-    LOG(INFO) << "tensor_out拿完了";
+    LOG(INFO) << "tensor_out那完了";
     pir::LoadCombineFunction(
-        refit_params_path_, refit_param_names_, &tensor_out, false, place);
+        refit_params_path_, param_names, &tensor_out, false, place);
+    for (size_t i = 0; i < tensor_out.size(); ++i) {
+      LOG(INFO) << "tensor_out[" << i << "] 的维度: " << tensor_out[i]->dims();
+    }
+
     for (size_t i = 0; i < refit_param_names_.size(); ++i) {
-      if (!trt_engine_->setRefitWeights(refit_param_names_[i],
-                                        *tensor_out[i])) {
+      LOG(INFO) << "refit_param_names_[" << i << "] = " << param_names[i];
+      LOG(INFO) << "tensor_out[" << i << "] 的维度: " << tensor_out[i]->dims();
+      if (!trt_engine_->setRefitWeights(param_names[i], *tensor_out[i])) {
         LOG(ERROR) << "Failed to set refit weights for "
                    << refit_param_names_[i];
       }
