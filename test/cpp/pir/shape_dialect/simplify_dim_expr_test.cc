@@ -188,7 +188,7 @@ TEST(Simplify, SimplifyBc) {
   DimExpr bc{Broadcast<DimExpr>{{S0, add}}};
   ASSERT_TRUE((SimplifyDimExpr(bc) != Add<DimExpr>{{S0, -1}}));
   // TODO(ooooo): improve the simplify ability
-  DimExpr now_accept{Broadcast<DimExpr>{{S0, Add<DimExpr>{{S0, -1}}}}};
+  DimExpr now_accept{Broadcast<DimExpr>{{Add<DimExpr>{{S0, -1}}, S0}}};
   ASSERT_TRUE((SimplifyDimExpr(bc) == now_accept));
 }
 
