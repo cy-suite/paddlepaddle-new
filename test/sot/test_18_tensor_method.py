@@ -57,6 +57,7 @@ def tensor_method_property_without_breakgraph(
         + a.ndim
         + a.dim()
         + a.rank(),
+        a.element_size(),
     )
 
 
