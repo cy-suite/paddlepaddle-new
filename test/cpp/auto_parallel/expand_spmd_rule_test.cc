@@ -41,7 +41,7 @@ TEST(ExpandInferSpmd, Ctor) {
             std::vector<int64_t>({0, -1, -1, 1, -1}));
   EXPECT_EQ(get_dims_mapping(spmdinfo.second[0]),
             std::vector<int64_t>({0, -1, -1, 1, -1}));
-  VLOG(0) << "Test ExpandAsInferSpmd" << std::endl << std::endl << std::endl;
+  VLOG(4) << "Test ExpandInferSpmd" << std::endl << std::endl << std::endl;
 
   std::vector<int64_t> x_shape1 = {8};
   phi::IntArray shape1 = {2, -1};
@@ -66,20 +66,14 @@ TEST(ExpandInferSpmd, Ctor) {
             std::vector<int64_t>({-1, 1}));
 
   // test info grad
-  //   spmdinfo = ExpandGradInferSpmd(x, shape, );
-  //   EXPECT_EQ(spmdinfo.first.size(), 2UL);
-  //   EXPECT_EQ(spmdinfo.second.size(), 1UL);
-
-  //   EXPECT_EQ(get_dims_mapping(spmdinfo.first[0]),
-  //             std::vector<int64_t>({-1, -1}));
-  //   EXPECT_EQ(get_dims_mapping(spmdinfo.first[1]),
-  //             std::vector<int64_t>({0, 1, -1}));
-  //   EXPECT_EQ(get_dims_mapping(spmdinfo.second[0]),
-  //             std::vector<int64_t>({-1, -1}));
-  //   check_partial_dims(spmdinfo.second[0], {0, 1});
-  //   VLOG(4) << "Test ExpandAsGradInferSpmd" << std::endl
-  //           << std::endl
-  //           << std::endl;
+  phi::distributed::DistMetaTensor out =
+      phi::distributed::DistMetaTensor(phi::make_ddim(x_shape), x_dist_attr);
+  auto spmdinfo_out = ExpandGradInferSpmd(x, out, shape);
+  EXPECT_EQ(get_dims_mapping(spmdinfo_out.first[0]),
+            std::vector<int64_t>({0, -1, -1, 1, -1}));
+  EXPECT_EQ(get_dims_mapping(spmdinfo_out.second[0]),
+            std::vector<int64_t>({0, -1, -1, 1, -1}));
+  VLOG(4) << "Test ExpandGradInferSpmd" << std::endl << std::endl << std::endl;
 }
 
 }  // namespace auto_parallel

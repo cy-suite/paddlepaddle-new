@@ -39,10 +39,8 @@ SpmdInfo ExpandInferSpmd(const DistMetaTensor& x, const IntArray& shape) {
   for (int i = 0; i < diff; i++) {
     out_dims_mapping[i] = -1;
   }
-
   TensorDistAttr out_dist_attr = CopyTensorDistAttrForOutput(x_dist_attr_src);
   out_dist_attr.set_dims_mapping(out_dims_mapping);
-
   return {{x_dist_attr_src}, {out_dist_attr}};
 }
 
@@ -52,6 +50,10 @@ SpmdInfo ExpandGradInferSpmd(const DistMetaTensor& x,
   // std::vector<int> reduce_dims = funcs::GetReduceDim(x.dims(),
   // out_grad.dims(), -1); EXTRACT_SHAPE_AND_DIST_ATTR(x);
   EXTRACT_SHAPE_AND_DIST_ATTR(out_grad);
+  // auto expand_shape = shape.GetData();
+  // int diff = out_grad_shape.size() -  expand_shape.size();
+  // std::vector<int64_t> x_dims_mapping(shape.size());
+  // for (int i = expand_shape.size() - 1; i >= diff; --i) {
 
   // std::vector<int64_t> x_dims_mapping;
   // for (size_t i = 0; i < out_grad_dims_mapping_src.size(); ++i) {
