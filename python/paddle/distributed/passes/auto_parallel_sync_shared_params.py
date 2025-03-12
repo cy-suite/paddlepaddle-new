@@ -205,11 +205,12 @@ class AutoParallelSyncSharedParamsPass(PassBase):
             logger.info("No parameter need to share, skip pass.")
             return []
 
-        # # Must initialize the communication group for the allreduce op here.
-        # # Otherwise, it will hang during gradient synchronization.
+        # Must initialize the redundant communication group for the allreduce op here.
+        # Otherwise, it will hang during gradient synchronization.
         for idx in range(len(self.src_ranks)):
             rank_1 = self.src_ranks[idx]
             rank_2 = self.dst_ranks[idx]
+            new_process_group(sorted([rank_1, rank_2]))
             self._get_comm_group([rank_1, rank_2])
 
         return new_shared_params
