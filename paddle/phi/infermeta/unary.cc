@@ -3625,6 +3625,8 @@ DDim ReduceInferDim(const MetaTensor& x,
   int x_rank = x.dims().size();
 
   std::vector<int64_t> formatted_axis = axis;
+  std::set<int64_t> unique_axis_set;
+
   for (size_t i = 0; i < axis.size(); ++i) {
     if (x_rank == 0) {
       PADDLE_ENFORCE_EQ(
@@ -3655,9 +3657,16 @@ DDim ReduceInferDim(const MetaTensor& x,
               axis[i]));
     }
 
-    if (axis[i] < 0) {
-      formatted_axis[i] = axis[i] + x_rank;
-    }
+    int64_t formatted_idx = axis[i] < 0 ? axis[i] + x_rank : axis[i];
+    formatted_axis[i] = formatted_idx;
+
+    PADDLE_ENFORCE_EQ(unique_axis_set.count(formatted_idx),
+                      0,
+                      common::errors::InvalidArgument(
+                          "Axis contains duplicate dimensions. Dimension %d "
+                          "appears more than once in axis.",
+                          formatted_idx));
+    unique_axis_set.insert(formatted_idx);
   }
 
   bool full_dim = true;
