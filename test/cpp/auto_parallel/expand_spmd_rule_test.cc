@@ -20,8 +20,8 @@ namespace auto_parallel {
 
 TEST(ExpandInferSpmd, Ctor) {
   // Sharding along axes besides softmax axis.
-  std::vector<int64_t> x_shape = {8};
-  phi::IntArray shape = {2, 8};
+  std::vector<int64_t> x_shape = {8, 2, 1, 1024, 128};
+  phi::IntArray shape = {8, 2, 6, 1024, -1};
 
   std::vector<int64_t> mesh_shape = {2, 3};
   std::vector<int64_t> process_ids = {0, 1, 2, 3, 4, 5};
@@ -30,23 +30,40 @@ TEST(ExpandInferSpmd, Ctor) {
 
   TensorDistAttr x_dist_attr = TensorDistAttr();
   x_dist_attr.set_process_mesh(process_mesh);
-  x_dist_attr.set_dims_mapping(std::vector<int64_t>({1}));
-  x_dist_attr.set_dynamic_dims(std::vector<bool>({false}));
-
+  x_dist_attr.set_dims_mapping(std::vector<int64_t>({0, -1, -1, 1, -1}));
   phi::distributed::DistMetaTensor x(phi::make_ddim(x_shape), x_dist_attr);
 
   // test info forward
   auto spmdinfo = ExpandInferSpmd(x, shape);
-  EXPECT_EQ(spmdinfo.first.size(), 1UL);
-  EXPECT_EQ(spmdinfo.second.size(), 1UL);
-  //   VLOG(0) << "spmdinfo:" << spmdinfo.second[0];
-  EXPECT_EQ(get_dims_mapping(spmdinfo.first[0]), std::vector<int64_t>({1}));
+  //   EXPECT_EQ(spmdinfo.first.size(), 1UL);
+  //   EXPECT_EQ(spmdinfo.second.size(), 1UL);
+  EXPECT_EQ(get_dims_mapping(spmdinfo.first[0]),
+            std::vector<int64_t>({0, -1, -1, 1, -1}));
   EXPECT_EQ(get_dims_mapping(spmdinfo.second[0]),
-            std::vector<int64_t>({-1, 1}));
-  //   EXPECT_DOUBLE_EQ(
-  //       PADDLE_GET_CONST(TensorDistAttr, spmdinfo.second[0]).is_partial(),
-  //       false);
+            std::vector<int64_t>({0, -1, -1, 1, -1}));
   VLOG(0) << "Test ExpandAsInferSpmd" << std::endl << std::endl << std::endl;
+
+  std::vector<int64_t> x_shape1 = {8};
+  phi::IntArray shape1 = {2, -1};
+  TensorDistAttr x_dist_attr1 = TensorDistAttr();
+  x_dist_attr1.set_process_mesh(process_mesh);
+  x_dist_attr1.set_dims_mapping(std::vector<int64_t>({1}));
+  phi::distributed::DistMetaTensor x1(phi::make_ddim(x_shape1), x_dist_attr1);
+  auto spmdinfo1 = ExpandInferSpmd(x1, shape1);
+  EXPECT_EQ(get_dims_mapping(spmdinfo1.first[0]), std::vector<int64_t>({1}));
+  EXPECT_EQ(get_dims_mapping(spmdinfo1.second[0]),
+            std::vector<int64_t>({-1, 1}));
+
+  std::vector<int64_t> x_shape2 = {8};
+  phi::IntArray shape2 = {0, -1};
+  TensorDistAttr x_dist_attr2 = TensorDistAttr();
+  x_dist_attr2.set_process_mesh(process_mesh);
+  x_dist_attr2.set_dims_mapping(std::vector<int64_t>({1}));
+  phi::distributed::DistMetaTensor x2(phi::make_ddim(x_shape2), x_dist_attr2);
+  auto spmdinfo2 = ExpandInferSpmd(x2, shape2);
+  EXPECT_EQ(get_dims_mapping(spmdinfo2.first[0]), std::vector<int64_t>({1}));
+  EXPECT_EQ(get_dims_mapping(spmdinfo2.second[0]),
+            std::vector<int64_t>({-1, 1}));
 
   // test info grad
   //   spmdinfo = ExpandGradInferSpmd(x, shape, );

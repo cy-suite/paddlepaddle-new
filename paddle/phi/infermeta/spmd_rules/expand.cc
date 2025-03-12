@@ -29,11 +29,11 @@ SpmdInfo ExpandInferSpmd(const DistMetaTensor& x, const IntArray& shape) {
   std::vector<int64_t> out_dims_mapping(shape.size());
   int diff = expand_shape.size() - x_shape.size();
   for (int i = expand_shape.size() - 1; i >= diff; --i) {
-    if (expand_shape[i] != x_shape[i - 1]) {
+    if (expand_shape[i] != -1 && expand_shape[i] != x_shape[i - diff]) {
       out_dims_mapping[i] = -1;
 
     } else {
-      out_dims_mapping[i] = x_dims_mapping_src[i - 1];
+      out_dims_mapping[i] = x_dims_mapping_src[i - diff];
     }
   }
   for (int i = 0; i < diff; i++) {
