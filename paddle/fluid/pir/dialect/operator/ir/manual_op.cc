@@ -3582,13 +3582,13 @@ std::vector<pir::Type> ExpandOp::InferMeta(
                             .dyn_cast<paddle::dialect::ScalarAttribute>()
                             .data()
                             .to<double>();
-      auto items = shape.defining_op()
-                       ->dyn_cast<paddle::dialect::FullOp>()
-                       .attribute("shape")
-                       .dyn_cast<paddle::dialect::IntArrayAttribute>()
-                       .data()
-                       .GetData()
-                       .at(0);
+      auto shape_vec = shape.defining_op()
+                           ->dyn_cast<paddle::dialect::FullOp>()
+                           .attribute("shape")
+                           .dyn_cast<paddle::dialect::IntArrayAttribute>()
+                           .data()
+                           .GetData();
+      auto items = shape_vec.size() == 0 : 1 ? items[0];
       vec_shape = std::vector<int64_t>(items, shape_item);
     } else if (shape.isa<pir::OpResult>() &&
                shape.defining_op()->isa<paddle::dialect::StackOp>()) {
