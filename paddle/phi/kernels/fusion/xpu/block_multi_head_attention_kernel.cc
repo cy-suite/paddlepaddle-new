@@ -69,8 +69,6 @@ void qkv_split_rope_kernel(
   auto k_data = reinterpret_cast<XPUType*>(k_out->data<T>());
   auto v_data = reinterpret_cast<XPUType*>(v_out->data<T>());
   auto qkv_input_data = reinterpret_cast<const XPUType*>(qkv_input.data<T>());
-  int local_hidden_dim = q_num_head * dim_head;
-  int local_kv_dim = kv_num_head * dim_head;
   int qkv_head = q_num_head + 2 * kv_num_head;
   int32_t ret;
   ret = baidu::xpu::api::split<XPUType>(xpu_ctx.x_context(),
