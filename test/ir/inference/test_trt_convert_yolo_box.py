@@ -132,8 +132,8 @@ class TrtConvertYoloBoxTest(TrtLayerAutoScanTest):
                 "imgsize": [1, 2],
             }
             self.dynamic_shape.max_input_shape = {
-                "yolo_box_input": [4, channel, 24, 24],
-                "imgsize": [4, 2],
+                "yolo_box_input": [1, channel, 24, 24],
+                "imgsize": [1, 2],
             }
             self.dynamic_shape.opt_input_shape = {
                 "yolo_box_input": [1, channel, 24, 24],
@@ -146,8 +146,8 @@ class TrtConvertYoloBoxTest(TrtLayerAutoScanTest):
                 "imgsize": [1, 2],
             }
             self.dynamic_shape.max_input_shape = {
-                "yolo_box_input": [4, channel, 24, 24],
-                "imgsize": [4, 2],
+                "yolo_box_input": [1, channel, 24, 24],
+                "imgsize": [1, 2],
             }
             self.dynamic_shape.opt_input_shape = {
                 "yolo_box_input": [1, channel, 24, 24],

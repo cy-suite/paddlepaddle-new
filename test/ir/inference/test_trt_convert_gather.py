@@ -101,7 +101,7 @@ class TrtConvertGatherTest(TrtLayerAutoScanTest):
     def generate_dynamic_shape(self):
         if len(self.shape) == 1:
             self.dynamic_shape.min_input_shape = {
-                "input_data": [4],
+                "input_data": [1],
                 "index_data": [1],
             }
             self.dynamic_shape.max_input_shape = {
