@@ -27,20 +27,19 @@ SpmdInfo ExpandInferSpmd(const DistMetaTensor& x, const IntArray& shape) {
   EXTRACT_SHAPE_AND_DIST_ATTR(x);
   auto expand_shape = shape.GetData();
   std::vector<int64_t> out_dims_mapping(shape.size());
-  bool in_first_dim = true;
-  for (int i = expand_shape.size() - 1; i >= 1; --i) {
+  int diff = expand_shape.size() - x_shape.size();
+  for (int i = expand_shape.size() - 1; i >= diff; --i) {
     if (expand_shape[i] != x_shape[i - 1]) {
       out_dims_mapping[i] = -1;
-      in_first_dim = false;
+
     } else {
-      out_dims_mapping[i] = x_dims_mapping_src[i];
+      out_dims_mapping[i] = x_dims_mapping_src[i - 1];
     }
   }
-  if (in_first_dim) {
-    out_dims_mapping[0] = -1;
-  } else {
-    out_dims_mapping[0] = x_dims_mapping_src[0];
+  for (int i = 0; i < diff; i++) {
+    out_dims_mapping[i] = -1;
   }
+
   TensorDistAttr out_dist_attr = CopyTensorDistAttrForOutput(x_dist_attr_src);
   out_dist_attr.set_dims_mapping(out_dims_mapping);
 

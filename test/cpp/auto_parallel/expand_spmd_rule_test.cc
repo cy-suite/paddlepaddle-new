@@ -30,7 +30,7 @@ TEST(ExpandInferSpmd, Ctor) {
 
   TensorDistAttr x_dist_attr = TensorDistAttr();
   x_dist_attr.set_process_mesh(process_mesh);
-  x_dist_attr.set_dims_mapping(std::vector<int64_t>({-1}));
+  x_dist_attr.set_dims_mapping(std::vector<int64_t>({1}));
   x_dist_attr.set_dynamic_dims(std::vector<bool>({false}));
 
   phi::distributed::DistMetaTensor x(phi::make_ddim(x_shape), x_dist_attr);
@@ -39,10 +39,10 @@ TEST(ExpandInferSpmd, Ctor) {
   auto spmdinfo = ExpandInferSpmd(x, shape);
   EXPECT_EQ(spmdinfo.first.size(), 1UL);
   EXPECT_EQ(spmdinfo.second.size(), 1UL);
-  VLOG(0) << "spmdinfo:" << spmdinfo.second[0];
-  EXPECT_EQ(get_dims_mapping(spmdinfo.first[0]), std::vector<int64_t>({-1}));
+  //   VLOG(0) << "spmdinfo:" << spmdinfo.second[0];
+  EXPECT_EQ(get_dims_mapping(spmdinfo.first[0]), std::vector<int64_t>({1}));
   EXPECT_EQ(get_dims_mapping(spmdinfo.second[0]),
-            std::vector<int64_t>({-1, -1}));
+            std::vector<int64_t>({-1, 1}));
   //   EXPECT_DOUBLE_EQ(
   //       PADDLE_GET_CONST(TensorDistAttr, spmdinfo.second[0]).is_partial(),
   //       false);
