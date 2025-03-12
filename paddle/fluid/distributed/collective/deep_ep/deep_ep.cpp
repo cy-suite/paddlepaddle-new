@@ -18,7 +18,6 @@
 // https://github.com/deepseek-ai/DeepEP/blob/main/LICENSE
 
 #include <cuda_runtime.h>
-#include <pybind11/functional.h>
 #include <atomic>
 #include <chrono>
 #include <memory>
