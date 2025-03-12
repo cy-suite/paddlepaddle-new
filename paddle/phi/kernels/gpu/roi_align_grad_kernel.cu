@@ -176,7 +176,13 @@ void RoiAlignGradKernel(const Context& dev_ctx,
                         int sampling_ratio,
                         bool aligned,
                         DenseTensor* dx) {
+  if (x.numel() == 0 || boxes.numel() == 0) {
+    dev_ctx.template Alloc<T>(dx);
+    return;
+  }
+
   int rois_num = boxes.dims()[0];
+
   int channels = x.dims()[1];
   int height = x.dims()[2];
   int width = x.dims()[3];
@@ -185,6 +191,10 @@ void RoiAlignGradKernel(const Context& dev_ctx,
     return;
   }
 
+  if (dx->numel() == 9) {
+    dev_ctx.template Alloc<T>(dx);
+    return;
+  }
   DenseTensor box_batch_id_list;
   box_batch_id_list.Resize({rois_num});
   int* box_batch_size = dev_ctx.template HostAlloc<int>(&box_batch_id_list);
