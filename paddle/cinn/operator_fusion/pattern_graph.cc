@@ -181,14 +181,15 @@ void PatternGraph::HorizontalFusion() {
 
 void PatternGraph::ReduceTreeGrown() {
   GraphTransformer<NodePattern,
-                   CanFuseReduceTreeMatcher,
+                   And<CanFuseReduceTreeMatcher, Not<IsOutputNodeMatcher>>,
                    MergeReduceTreeOperation>(this);
 }
 
 void PatternGraph::ReduceTree_Trivial_Fusion() {
-  GraphTransformer<NodePattern,
-                   CanFuseReduceTreeAndTrivialMatcher,
-                   MergeReduceTreeAndTrivialOperation>(this);
+  GraphTransformer<
+      NodePattern,
+      And<CanFuseReduceTreeAndTrivialMatcher, Not<IsOutputNodeMatcher>>,
+      MergeReduceTreeAndTrivialOperation>(this);
 }
 
 void PatternGraph::LiftToAnchorPattern() {
