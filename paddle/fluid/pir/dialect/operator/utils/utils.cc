@@ -432,7 +432,7 @@ std::vector<int64_t> ParseValueShape(const pir::Value& shape,
                          .dyn_cast<paddle::dialect::IntArrayAttribute>()
                          .data()
                          .GetData();
-    auto items = shape_vec.size() == 0 : 1 ? items[0];
+    auto items = shape_vec.empty() ? 1 : shape_vec[0];
     vec_shape = std::vector<int64_t>(items, shape_item);
   } else if (shape.isa<pir::OpResult>() &&
              shape.defining_op()->isa<paddle::dialect::StackOp>()) {
