@@ -4,7 +4,7 @@ on:
   workflow_call:
 
 env:
-  dockerfile: Dockerfile.cuda9_cudnn7_gcc48_py35_centos6
+  Dockerfile: Dockerfile.cuda9_cudnn7_gcc48_py35_centos6
   docker_image: 077ca344c322
   PR_ID: ${{ github.event.pull_request.number }}
   COMMIT_ID: ${{ github.event.pull_request.head.sha }}
