@@ -18,7 +18,6 @@
 #include "paddle/fluid/framework/new_executor/garbage_collector/fast_garbage_collector.h"
 #include "paddle/fluid/framework/new_executor/garbage_collector/no_event_garbage_collector.h"
 
-COMMON_DECLARE_bool(fast_eager_deletion_mode);
 namespace paddle::framework {
 
 InterpreterCoreGarbageCollector::InterpreterCoreGarbageCollector()
@@ -52,7 +51,7 @@ CreateInterpreterCoreGarbageCollector(
     return std::unique_ptr<InterpreterCoreGarbageCollector>(
         new InterpreterCoreNoEventGarbageCollector());
   } else if (phi::is_custom_place(place)) {
-    if (FLAGS_fast_eager_deletion_mode) {
+    if (IsInterpretercoreFastGCEnabled()) {
       return std::unique_ptr<InterpreterCoreGarbageCollector>(
           new InterpreterCoreFastGarbageCollector());
     } else {
