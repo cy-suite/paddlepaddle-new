@@ -2306,7 +2306,6 @@ bool GenerateProposalsOpInferSymbolicShape(
       op->result(2)
               .type()
               .dyn_cast<paddle::dialect::DenseTensorType>()
-
               .dims()
               .size() == 0) {
     infer_context->SetSymbolForValueByStaticShape(op->result(2));
