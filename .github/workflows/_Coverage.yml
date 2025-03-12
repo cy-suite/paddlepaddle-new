@@ -5,7 +5,7 @@ on:
 
 env:
   Dockerfile: Dockerfile.cuda117_cudnn8_gcc82_ubuntu18_coverage
-  docker_image:
+  docker_image: c0a57218f232
   PR_ID: ${{ github.event.pull_request.number }}
   COMMIT_ID: ${{ github.event.pull_request.head.sha }}
   TASK: paddle-CI-${{ github.event.pull_request.number }}-coverage
@@ -299,7 +299,7 @@ jobs:
     - name: Upload coverage report
       uses: codecov/codecov-action@v5
       with:
-        file: ./build/coverage-diff.info,./build/python-coverage-diff.info
+        files: ./build/coverage-diff.info,./build/python-coverage-diff.info
 
     - name: Terminate and delete the container
       if: always()
