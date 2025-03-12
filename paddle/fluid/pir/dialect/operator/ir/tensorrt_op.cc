@@ -117,18 +117,15 @@ OpInfoTuple TensorRTEngineOp::GetOpInfo() {
                     common::errors::InvalidArgument(              \
                         "Type of attribute: " #name " is not " #type))
 
-void TensorRTEngineOp::Build(
-    pir::Builder &builder,             // NOLINT
-    pir::OperationArgument &argument,  // NOLINT
-    pir::Value x,
-    paddle::platform::EngineParams trt_params,
-    std::vector<std::string> input_names,
-    std::vector<std::string> output_names,
-    std::vector<std::vector<int64_t>> outputs_shape,
-    std::vector<phi::DataType> outputs_dtype,
-    const std::string &converter_debug_info,
-    const std::string refit_params_path,
-    const std::vector<std::string> &refit_param_names) {
+void TensorRTEngineOp::Build(pir::Builder &builder,             // NOLINT
+                             pir::OperationArgument &argument,  // NOLINT
+                             pir::Value x,
+                             paddle::platform::EngineParams trt_params,
+                             std::vector<std::string> input_names,
+                             std::vector<std::string> output_names,
+                             std::vector<std::vector<int64_t>> outputs_shape,
+                             std::vector<phi::DataType> outputs_dtype,
+                             const std::string &converter_debug_info) {
   VLOG(4) << "Start build TensorRTEngineOp";
 
   VLOG(4) << "Builder construction inputs";
@@ -139,9 +136,11 @@ void TensorRTEngineOp::Build(
   pir::Attribute attr_engine_serialized_data = pir::StrAttribute::get(
       pir::IrContext::Instance(), trt_params.engine_serialized_data);
   argument.AddAttribute("engine_serialized_data", attr_engine_serialized_data);
+
   pir::Attribute attr_refit_params_path = pir::StrAttribute::get(
       pir::IrContext::Instance(), trt_params.refit_params_path);
   argument.AddAttribute("refit_params_path", attr_refit_params_path);
+  LOG(INFO) << "拿到了refit_params_path了";
   pir::Attribute attr_workspace_size = pir::Int64Attribute::get(
       pir::IrContext::Instance(), trt_params.max_workspace_size);
   argument.AddAttribute("workspace_size", attr_workspace_size);
@@ -150,24 +149,14 @@ void TensorRTEngineOp::Build(
   argument.AddAttribute("allow_build_at_runtime", attr_allow_build_at_runtime);
 
   std::vector<pir::Attribute> refit_param_names_attrs;
-  for (const auto &name : refit_param_names) {
+  for (const auto &name : trt_params.refit_param_names) {
     refit_param_names_attrs.push_back(
         pir::StrAttribute::get(pir::IrContext::Instance(), name));
   }
-
-  // 添加 LOG(INFO) 打印 refit_param_names
-  std::string refit_names_str;
-  for (size_t i = 0; i < refit_param_names.size(); ++i) {
-    refit_names_str += refit_param_names[i];
-    if (i < refit_param_names.size() - 1) {
-      refit_names_str += ", ";
-    }
-  }
-  LOG(INFO) << "refit_param_names in Build: " << refit_names_str;
-
-  pir::Attribute attr_refit_param_names = pir::ArrayAttribute::get(
-      pir::IrContext::Instance(), refit_param_names_attrs);
-  argument.AddAttribute("refit_param_names", attr_refit_param_names);
+  argument.AddAttribute("refit_param_names",
+                        pir::ArrayAttribute::get(pir::IrContext::Instance(),
+                                                 refit_param_names_attrs));
+  LOG(INFO) << "拿到了refit_param_names了";
 
   std::vector<pir::Attribute> outputs_rank_tmp;
   outputs_rank_tmp.reserve(outputs_shape.size());

@@ -50,12 +50,15 @@ struct EngineParams {
   bool use_inspector{false};
   std::string engine_info_path{""};
   std::string engine_serialized_data{""};
+  // For refit
+  std::string refit_params_path{""};
+  std::vector<std::string> refit_param_names;
 
   //
   // From tensorrt_subgraph_pass, only used for OpConverter.
   //
   bool use_varseqlen{false};
-  std::string refit_params_path;
+
   bool with_interleaved{false};
   std::string tensorrt_transformer_posid;
   std::string tensorrt_transformer_maskid;

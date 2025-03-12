@@ -440,9 +440,7 @@ std::vector<pir::Value> tensorrt_engine(
     std::vector<std::string> output_names,
     std::vector<std::vector<int64_t>> outputs_shape,
     std::vector<phi::DataType> outputs_dtype,
-    const std::string& converter_debug_info,
-    const std::string refit_params_path,
-    const std::vector<std::string>& refit_param_names) {
+    const std::string& converter_debug_info) {
   auto x =
       ApiBuilder::Instance().GetBuilder()->Build<pir::CombineOp>(inputs).out();
   paddle::dialect::TensorRTEngineOp tensorrt_engine_op =
@@ -454,9 +452,7 @@ std::vector<pir::Value> tensorrt_engine(
                                                      output_names,
                                                      outputs_shape,
                                                      outputs_dtype,
-                                                     converter_debug_info,
-                                                     refit_params_path,
-                                                     refit_param_names);
+                                                     converter_debug_info);
   auto out_split_op = ApiBuilder::Instance().GetBuilder()->Build<pir::SplitOp>(
       tensorrt_engine_op.result(0));
   return out_split_op.outputs();
