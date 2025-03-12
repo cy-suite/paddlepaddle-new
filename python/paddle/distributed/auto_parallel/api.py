@@ -3280,29 +3280,30 @@ class ShardDataloader:
         is_dataset_splitted (bool): Whether the dataset has been splitted.
         dense_tensor_idx (list): A paired 2D list specifies the index of the dense_tensor in the output of dataloader.
             It allows users to identify which elements within each output batch are dense_tensor.
+            first dense_tensor: the dense_tensor return by dataloader.
+            second dense_tensor: num_or_sections specifies how to split first tensor: evenly (if a number) or unevenly (if a list).
             Default: None, meaning all outputs are dist_tensors.
-            Note: For dense_tensor_idx settings, the idx must be paired: the second dense_tensor defines the shape of the first.
-            The last dim of the second dense_tensor is used for paddle.prod, guiding the split of the first dense_tensor.
+            Note: For dense_tensor_idx settings, the idx must be paired.
             e.g.
             1. If the collator function returns:
                 return {
                     "input_ids": [
                         features["input_ids"],
                         features["pixel_values"], # will be treated as a dense tensor
-                        features["pixel_values_shape"], # defines the shape of `pixel_values`
+                        features["pixel_values_sections"], # defines the sections of `pixel_values`
                     ],
                     "image": features["image"],
-                    "labels": features["labels"],
+                    "image_split_num": (int)4,
                 }
-            2. If `dense_tensor_idx = [[1, 2], [], []]`:
+            2. If `dense_tensor_idx = [[1, 2], [0], [0]]`:
                 - For "input_ids":
                     input_ids["input_ids"] is a dist_tensor
-                    input_ids["pixel_values"] is a dense_tensor
+                    input_ids["pixel_values"] is a dense_tensor shaped as 'pixel_values_sections'
                     input_ids["pixel_values_shape"] is a dense_tensor
                 - For "image":
-                    image is a dist_tensor
+                    image is a dense_tensor shaped by (int)4
                 - For "labels":
-                    labels is a dist_tensor
+                    image_split_num is a int
     """
 
     def __init__(
@@ -3622,29 +3623,30 @@ def shard_dataloader(
         is_dataset_splitted (bool): Whether the dataset has been splitted, Default: False.
         dense_tensor_idx (list): A paired 2D list specifies the index of the dense_tensor in the output of dataloader.
             It allows users to identify which elements within each output batch are dense_tensor.
+            first dense_tensor: the dense_tensor return by dataloader.
+            second dense_tensor: num_or_sections specifies how to split first tensor: evenly (if a number) or unevenly (if a list).
             Default: None, meaning all outputs are dist_tensors.
-            Note: For dense_tensor_idx settings, the idx must be paired: the second dense_tensor defines the shape of the first.
-            The last dim of the second dense_tensor is used for paddle.prod, guiding the split of the first dense_tensor.
+            Note: For dense_tensor_idx settings, the idx must be paired.
             e.g.
             1. If the collator function returns:
                 return {
                     "input_ids": [
                         features["input_ids"],
                         features["pixel_values"], # will be treated as a dense tensor
-                        features["pixel_values_shape"], # defines the shape of `pixel_values`
+                        features["pixel_values_sections"], # defines the sections of `pixel_values`
                     ],
                     "image": features["image"],
-                    "labels": features["labels"],
+                    "image_split_num": (int)4,
                 }
-            2. If `dense_tensor_idx = [[1, 2], [], []]`:
+            2. If `dense_tensor_idx = [[1, 2], [0], [0]]`:
                 - For "input_ids":
                     input_ids["input_ids"] is a dist_tensor
-                    input_ids["pixel_values"] is a dense_tensor
+                    input_ids["pixel_values"] is a dense_tensor shaped as 'pixel_values_sections'
                     input_ids["pixel_values_shape"] is a dense_tensor
                 - For "image":
-                    image is a dist_tensor
+                    image is a dense_tensor shaped by (int)4
                 - For "labels":
-                    labels is a dist_tensor
+                    image_split_num is a int
     Returns:
         ShardDataloader: The sharded dataloader.
 
