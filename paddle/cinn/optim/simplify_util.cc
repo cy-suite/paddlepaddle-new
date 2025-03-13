@@ -233,10 +233,11 @@ ir::IndexExpr::IndexType VerifyIndex(const ir::Expr &expr) {
                                          : ir::IndexExpr::IndexType::kInvalid;
     }
     case ir::IrNodeTy::Cast: {
-      IndexType result = VerifyIndex(expr->operand(0));
-      return result != IndexType::kInvalid && expr.type().is_index_type()
-                 ? IndexType::kCast
-                 : IndexType::kInvalid;
+      ir::IndexExpr::IndexType result = VerifyIndex(expr->operand(0));
+      return result != ir::IndexExpr::IndexType::kInvalid &&
+                     expr.type().is_index_type()
+                 ? ir::IndexExpr::IndexType::kCast
+                 : ir::IndexExpr::IndexType::kInvalid;
     }
     case ir::IrNodeTy::Add:
     case ir::IrNodeTy::Sub:
