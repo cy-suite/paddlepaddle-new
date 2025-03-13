@@ -95,15 +95,9 @@ PHI_DEFINE_EXPORTED_bool(use_virtual_memory_auto_growth,
 // NOTE(Ruibiao): This FLAGS is just to be compatible with
 // the old single-stream CUDA allocator. It will be removed
 // after StreamSafeCudaAllocator has been fully tested.
-#ifdef PADDLE_WITH_CUSTOM_DEVICE
-PHI_DEFINE_EXPORTED_bool(use_stream_safe_cuda_allocator,
-                         false,
-                         "Enable StreamSafeCUDAAllocator");
-#else
 PHI_DEFINE_EXPORTED_bool(use_stream_safe_cuda_allocator,
                          true,
                          "Enable StreamSafeCUDAAllocator");
-#endif
 PHI_DEFINE_EXPORTED_bool(use_cuda_managed_memory,
                          false,
                          "Whether to use CUDAManagedAllocator to allocate "

@@ -59,8 +59,8 @@ CreateInterpreterCoreGarbageCollector(
           new InterpreterCoreEventGarbageCollector(vec_instruction));
     }
   } else {
-    PADDLE_THROW(common::errors::Fatal(
-        "unsupported place for InterpreterCoreGarbageCollector."));
+    return std::unique_ptr<InterpreterCoreGarbageCollector>(
+        new InterpreterCoreEventGarbageCollector(vec_instruction));
   }
 }
 
@@ -98,8 +98,8 @@ CreateInterpreterCoreGarbageCollector(
           new InterpreterCoreEventGarbageCollector(vec_instruction));
     }
   } else {
-    PADDLE_THROW(common::errors::Fatal(
-        "unsupported place for InterpreterCoreGarbageCollector."));
+    return std::unique_ptr<InterpreterCoreGarbageCollector>(
+        new InterpreterCoreEventGarbageCollector(vec_instruction));
   }
 }
 
