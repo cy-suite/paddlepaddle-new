@@ -3289,8 +3289,8 @@ class ShardDataloader:
                 return {
                     "input_ids": [
                         features["input_ids"],
-                        features["pixel_values"], # will be treated as a dense tensor
-                        features["pixel_values_sections"], # defines the sections of `pixel_values`
+                        features["pixel_values"],  # will be treated as a dense tensor
+                        features["pixel_values_sections"],  # defines the sections of pixel_values
                     ],
                     "image": features["image"],
                     "image_split_num": (int)4,
@@ -3632,8 +3632,8 @@ def shard_dataloader(
                 return {
                     "input_ids": [
                         features["input_ids"],
-                        features["pixel_values"], # will be treated as a dense tensor
-                        features["pixel_values_sections"], # defines the sections of `pixel_values`
+                        features["pixel_values"],  # will be treated as a dense tensor
+                        features["pixel_values_sections"],  # defines the sections of pixel_values
                     ],
                     "image": features["image"],
                     "image_split_num": (int)4,
