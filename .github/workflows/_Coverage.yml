@@ -47,7 +47,7 @@ jobs:
         github-token: ${{ secrets.GITHUB_TOKEN }}
         workflow-name: coverage
 
-    - name: Check docker image and run container
+    - name: Check docker image  and run container
       if: steps.check-bypass.outputs.can_skip != 'true'
       env:
         CCACHE_DIR: "/root/.ccache/coverage"
