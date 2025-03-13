@@ -82,7 +82,7 @@ from .random import determinate_rng, rng_state
 from .sharding import ShardingOptimizerStage1, get_placement_with_sharding
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, List, Sequence
+    from collections.abc import Callable, Sequence
 
     from typing_extensions import TypeAlias
 
@@ -3313,7 +3313,7 @@ class ShardDataloader:
         input_keys: list[str] | tuple[str] | None = None,
         shard_dims: list | tuple | str | int | None = None,
         is_dataset_splitted: bool = False,
-        dense_tensor_idx: List[List[int]] | None = None,
+        dense_tensor_idx: list[list[int]] | None = None,
     ):
         # do some check
         if is_dataset_splitted is True and shard_dims is None:
@@ -3596,7 +3596,7 @@ def shard_dataloader(
     input_keys: Sequence[str] | None = None,
     shard_dims: Sequence[str] | Sequence[int] | str | int | None = None,
     is_dataset_splitted: bool = False,
-    dense_tensor_idx: List[List[int]] | None = None,
+    dense_tensor_idx: list[list[int]] | None = None,
 ) -> ShardDataloader:
     """
     Convert the dataloader to a ShardDataloader which provided two capabilities:
