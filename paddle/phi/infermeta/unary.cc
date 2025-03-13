@@ -3624,18 +3624,14 @@ DDim ReduceInferDim(const MetaTensor& x,
   const int x_rank = x.dims().size();
   uint32_t axis_bitmap = 0;
 
-  if (x_rank == 0 && !axis.empty()) {
-    for (size_t i = 0; i < axis.size(); ++i) {
+  for (size_t i = 0; i < axis.size(); ++i) {
+    if (x_rank == 0) {
       PADDLE_ENFORCE_EQ(
           axis[i] == 0 || axis[i] == -1,
           true,
           common::errors::InvalidArgument(
               "When input 0D Tensor, the axis can only be -1, 0, None or []"));
-    }
-  }
-
-  for (size_t i = 0; i < axis.size(); ++i) {
-    if (x_rank != 0) {
+    } else {
       PADDLE_ENFORCE_LT(
           axis[i],
           x_rank,
