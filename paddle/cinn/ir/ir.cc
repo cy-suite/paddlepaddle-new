@@ -345,6 +345,10 @@ Expr Let::Make(Expr symbol, Expr body) {
                           "The type of the body is not valid. "
                           "If a body is defined, it must have a valid type."));
   }
+  auto promote_args = std::move(ir::TryElevateInt32ToInt64({symbol, body}));
+  symbol = promote_args.at(0);
+  body = promote_args.at(1);
+
   n->symbol = symbol;
   n->body = body;
   n->set_type(n->symbol->type());

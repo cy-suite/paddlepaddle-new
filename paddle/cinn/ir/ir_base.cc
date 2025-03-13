@@ -703,6 +703,9 @@ std::vector<Expr> TryElevateInt32ToInt64(const std::vector<Expr> &expr_vec) {
 
 void ElevateInt64ToInt32_(Expr &expr) {  // NOLINT
   if (!expr.is_index()) return;
+  // TODO(liujinnan): Delete dynamic shape judgment after opening dynamic shape
+  // longlong2int pass.
+  if (expr.as_index().IsDynamic()) return;
   if (expr->type() != Int(64))
     if (expr->type() != Int(32))
       PADDLE_ENFORCE_EQ(expr->type().is_unk(),
