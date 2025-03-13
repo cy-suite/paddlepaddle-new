@@ -76,11 +76,7 @@ class WeightOnlyLinearTestCase(unittest.TestCase):
     def weightQuantizeCPUGPUConsistenceCheck(self, weight_float):
         for arch in [70, 75, 80, 86]:
             weight_gpu, weight_scale_gpu = Q.weight_quantize(
-                (
-                    weight_float.cuda()
-                    if self.weight_dtype == "int8"
-                    else self.weight.cpu()
-                ),
+                weight_float.cuda(),
                 algo=(
                     "weight_only_int8"
                     if self.weight_dtype == "int8"
@@ -141,11 +137,7 @@ class WeightOnlyLinearTestCase(unittest.TestCase):
         self.weightQuantizeCPUGPUConsistenceCheck(self.float_weight)
 
         self.weight, self.weight_scale = Q.weight_quantize(
-            (
-                self.float_weight.cuda()
-                if self.weight_dtype == "int8"
-                else self.weight.cpu()
-            ),
+            (self.float_weight.cuda()),
             algo=(
                 "weight_only_int8"
                 if self.weight_dtype == "int8"

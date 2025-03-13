@@ -432,8 +432,6 @@ __global__ void per_group_quant_gpu_int4_col_pack(const T* weight_data,
   if (n < total_vec_n) {
     const int4* vec_weight_data_ptr =
         reinterpret_cast<const int4*>(weight_data);
-    int2* vec_quanted_weight_data =
-        reinterpret_cast<int2*>(quanted_weight_data);
 
     phi::AlignedVector<float, VectorSize> abs_max;
 
@@ -464,30 +462,32 @@ __global__ void per_group_quant_gpu_int4_col_pack(const T* weight_data,
           n * VectorSize) = *reinterpret_cast<float4*>(&scale);
 
       // group-wise weight quant
-      for (int g = 0; g < group_size / 2 && k + g * 2 < total_k; g++) {
+      for (int g = 0; g < group_size / 2; g++) {
         phi::AlignedVector<int8_t, VectorSize> quanted_weight;
         // write 2 elements to an int8
-        for (int packed_idx = 0; packed_idx < 2; packed_idx++) {
+        for (int packed_idx = 0;
+             packed_idx < 2 && k + g * 2 + packed_idx < total_k;
+             packed_idx++) {
           int linear_index = (k + g * 2 + packed_idx) * total_vec_n + n;
           phi::AlignedVector<T, VectorSize> weight;
           *reinterpret_cast<int4*>(&weight) = *reinterpret_cast<const int4*>(
               vec_weight_data_ptr + linear_index);
 #pragma unroll
           for (int i = 0; i < VectorSize; ++i) {
-            float weight_elt = (static_cast<float>(weight[i]) /
-                                static_cast<float>(abs_max[i])) *
-                               static_cast<float>(7.0f);
+            float weight_elt =
+                (static_cast<float>(weight[i]) / static_cast<float>(scale[i]));
             const float scaled_weight = lroundf(weight_elt);
             int int_weight = static_cast<int>(scaled_weight);
             const int8_t clipped_weight = fmaxf(-7, fminf(7, int_weight));
-            // Reset the first 4 bit or last 4 bit
+            // Reset the last 4 bit or first 4 bit
             quanted_weight[i] &= ~(0x0F << (4 * packed_idx));
             quanted_weight[i] |= ((clipped_weight & 0x0F) << (4 * packed_idx));
           }
         }
-        int linear_index = (k / 2 + g) * total_vec_n + n;
+        int linear_index =
+            (k / 2 + g) * total_vec_n * VectorSize + n * VectorSize;
 
-        *reinterpret_cast<int2*>(vec_quanted_weight_data + linear_index) =
+        *reinterpret_cast<int2*>(quanted_weight_data + linear_index) =
             *reinterpret_cast<int2*>(&quanted_weight);
       }
     }
@@ -505,7 +505,6 @@ __global__ void per_group_quant_gpu_int4_row_pack(const T* weight_data,
   if (n < total_vec_n) {
     const int4* vec_weight_data_ptr =
         reinterpret_cast<const int4*>(weight_data);
-    int* vec_quanted_weight_data = reinterpret_cast<int*>(quanted_weight_data);
 
     phi::AlignedVector<float, VectorSize> abs_max;
 
@@ -547,9 +546,8 @@ __global__ void per_group_quant_gpu_int4_row_pack(const T* weight_data,
           int8_t packed_int4s = 0;
           for (int pack = 0; pack < 2; pack++) {
             int vector_index = i * 2 + pack;
-            const float r_scale = 1 / static_cast<float>(scale[vector_index]);
-            const float weight_elt =
-                static_cast<float>(weight[vector_index]) * r_scale;
+            const float weight_elt = static_cast<float>(weight[vector_index]) /
+                                     static_cast<float>(scale[vector_index]);
             float scaled_weight = roundf(weight_elt);
             int int_weight = static_cast<int>(scaled_weight);
             int8_t clipped_weight = max(-7, min(7, int_weight));
@@ -557,7 +555,9 @@ __global__ void per_group_quant_gpu_int4_row_pack(const T* weight_data,
           }
           quanted_weight[i] = packed_int4s;
         }
-        *reinterpret_cast<int*>(vec_quanted_weight_data + linear_index) =
+        int quant_weight_idx =
+            (k + g) * total_vec_n * VectorSize / 2 + n * VectorSize / 2;
+        *reinterpret_cast<int*>(quanted_weight_data + quant_weight_idx) =
             *reinterpret_cast<int*>(&quanted_weight);
       }
     }
