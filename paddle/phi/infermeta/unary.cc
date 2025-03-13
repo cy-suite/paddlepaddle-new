@@ -3658,7 +3658,8 @@ DDim ReduceInferDim(const MetaTensor& x,
               axis[i]));
     }
 
-    int64_t formatted_idx = axis[i] < 0 ? axis[i] + x_rank : axis[i];
+    int64_t formatted_idx =
+        (x_rank == 0) ? 0 : (axis[i] < 0 ? axis[i] + x_rank : axis[i]);
     uint32_t bit = 1U << formatted_idx;
     PADDLE_ENFORCE_EQ(axis_bitmap & bit,
                       0,
