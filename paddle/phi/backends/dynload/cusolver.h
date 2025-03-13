@@ -94,6 +94,8 @@ CUSOLVER_ROUTINE_EACH(DECLARE_DYNAMIC_LOAD_CUSOLVER_WRAP);
   __macro(cusolverDnCgesvdj);             \
   __macro(cusolverDnZgesvdj);             \
   __macro(cusolverDnSgetrf);              \
+  __macro(cusolverDnSgetrs);              \
+  __macro(cusolverDnDgetrs);              \
   __macro(cusolverDnDgetrf);              \
   __macro(cusolverDnCgetrf);              \
   __macro(cusolverDnZgetrf);              \

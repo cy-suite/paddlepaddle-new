@@ -79,7 +79,12 @@ struct TransposeTransform {
 struct AppendAxisTransform {
   AppendAxisTransform(const std::vector<int64_t>& axis,
                       const std::vector<symbol::DimExpr>& shape)
-      : axis(axis), shape(shape) {}
+      : axis(axis), shape(shape) {
+    PADDLE_ENFORCE_EQ(axis.size(),
+                      shape.size(),
+                      ::common::errors::InvalidArgument(
+                          "Axis size and shape size must be equal."));
+  }
   explicit AppendAxisTransform(const std::vector<int64_t>& axis) : axis(axis) {
     shape = std::vector<symbol::DimExpr>(axis.size(), symbol::DimExpr(1));
   }
@@ -95,7 +100,12 @@ struct AppendAxisTransform {
 struct DeleteAxisTransform {
   explicit DeleteAxisTransform(const std::vector<int64_t>& axis,
                                const std::vector<symbol::DimExpr>& shape)
-      : axis(axis), shape(shape) {}
+      : axis(axis), shape(shape) {
+    PADDLE_ENFORCE_EQ(axis.size(),
+                      shape.size(),
+                      ::common::errors::InvalidArgument(
+                          "Axis size and shape size must be equal."));
+  }
   std::vector<int64_t> axis;
   std::vector<symbol::DimExpr> shape;
   std::string DebugStr() const {
@@ -156,6 +166,7 @@ class AxisTransformSimulator {
   std::set<std::string> GetRelatedAxisIds(const std::vector<std::string>& ids);
 
   const AxisTransformRoute& route_;
+  std::vector<symbol::DimExpr> out_shape_;
   std::vector<std::string> source_ids_;
   std::vector<std::string> target_ids_;
   std::unordered_map<std::string, symbol::DimExpr> axis_symbols_;
