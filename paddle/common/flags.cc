@@ -710,6 +710,10 @@ PHI_DEFINE_EXPORTED_int32(
     "If FLAGS_call_stack_level == 2, the python stack, c++ stack, and "
     "error message summary will be shown.");
 
+PHI_DEFINE_EXPORTED_bool(share_tensor_for_grad_tensor_holder,
+                         false,
+                         "CopyValueFromTensor do not deep copy, if true.");
+
 /**
  * Debug related FLAG
  * Name: sort_sum_gradient
@@ -1053,7 +1057,7 @@ PHI_DEFINE_EXPORTED_bool(
  * Name: FLAGS_deny_cinn_ops
  * Since Version: 3.0 Beta
  * Value Range: bool, default=-1
- * Example: FLAGS_cinn_compile_thread_nume=8
+ * Example: FLAGS_cinn_compile_thread_num=8
  */
 PHI_DEFINE_EXPORTED_int64(
     cinn_compile_thread_num,
@@ -1647,6 +1651,11 @@ PHI_DEFINE_EXPORTED_int32(
 PHI_DEFINE_EXPORTED_bool(print_ir, false, "Whether print ir debug str.");
 
 PHI_DEFINE_EXPORTED_bool(
+    comp_skip_default_ops,
+    true,
+    "Whether to skip decomposing comp op in default list (decomp_trans.cc).");
+
+PHI_DEFINE_EXPORTED_bool(
     prim_skip_dynamic,
     true,
     "Whether to skip decomposing vjp op with dynamic shape.");
@@ -1725,19 +1734,6 @@ PHI_DEFINE_EXPORTED_int64(alloc_fill_value,
                           -1,
                           "Whether to fill fixed value after allocation. "
                           "This is useful for debugging.");
-
-/**
- * Apply shape optimization pass to PIR FLAG
- * Name: pir_apply_shape_optimization_pass
- * Since Version: 3.0.0
- * Value Range: bool, default=false
- * Example:
- * Note: If True, will apply shape_optimization pass to PIR.
- */
-PHI_DEFINE_EXPORTED_bool(pir_apply_shape_optimization_pass,
-                         false,
-                         "Whether to apply shape_optimization pass "
-                         "to infer symbolic shape");
 
 PHI_DEFINE_EXPORTED_int64(
     pir_broadcast_tree_limit,

@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import functools
 import inspect
 import itertools
 import operator
@@ -47,9 +48,17 @@ from ....utils import (
 )
 from ....utils.exceptions import (
     BreakGraphError,
+    BreakGraphInlineCallBreak,
+    BuiltinFunctionBreak,
+    DataDependencyOperationBreak,
     FallbackError,
+    FallbackInlineCallBreak,
     InnerError,
+    OtherInlineCallBreak,
+    PsdbBreakReason,
     SotErrorBase,
+    UnsupportedOperationBreak,
+    UnsupportedPaddleAPIBreak,
 )
 from ..dispatcher import Dispatcher
 from ..guard import (
@@ -69,6 +78,7 @@ from ..tracker import (
     GetIterTracker,
     Tracker,
 )
+from ..virtual_frame import VirtualFrame
 from .base import VariableFactory
 from .basic import (
     ConstantVariable,
@@ -83,6 +93,12 @@ if TYPE_CHECKING:
 
 PD_ALL_CONTAINERS = (paddle.nn.Sequential, paddle.nn.LayerList)
 PD_SEQ_CONTAINERS = (paddle.nn.Sequential, paddle.nn.LayerList)
+PD_PURE_CLASSES = (
+    paddle.distributed.ProcessMesh,
+    paddle.distributed.Shard,
+    paddle.distributed.Replicate,
+    paddle.distributed.Partial,
+)
 
 
 class CallableVariable(VariableBase):
@@ -186,10 +202,12 @@ class UserDefinedFunctionVariable(FunctionVariable):
             from ...breakpoint import BM
 
             BM.locate(BM.executors[-1])
-            BM.add(BM.cur_exe._code.co_filename, BM.cur_exe._current_line)
+            BM.add(BM.cur_exe.vframe.code.co_filename, BM.cur_exe._current_line)
             return ConstantVariable.wrap_literal(None, self.graph)
         elif self.value is psdb.breakgraph:
-            raise BreakGraphError("breakgraph by psdb.breakgraph")
+            raise BreakGraphError(
+                PsdbBreakReason("breakgraph by psdb.breakgraph")
+            )
         elif self.value is psdb.fallback:
             raise FallbackError("fallback by psdb.fallback")
         elif self.value is psdb.in_sot:
@@ -212,20 +230,36 @@ class UserDefinedFunctionVariable(FunctionVariable):
                 return output
 
         try:
-            inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
+            code_var = self.get_code()
+            vframe = VirtualFrame.from_inline_call(
+                code_var.value,
+                self,
+                self.value,
+                self.graph,
+                (args, kwargs),
+            )
+            inline_executor = OpcodeInlineExecutor(vframe, code_var, self.graph)
             with EventGuard(
-                f"Inline Call: {inline_executor._code.co_name.replace('<', '(').replace('>', ')')}, file {inline_executor._code.co_filename}, line {int(inline_executor._code.co_firstlineno)}"
+                f"Inline Call: {inline_executor.vframe.code.co_name.replace('<', '(').replace('>', ')')}, file {inline_executor.vframe.code.co_filename}, line {int(inline_executor.vframe.code.co_firstlineno)}"
             ):
                 output = inline_executor.inline_call()
-        except SotErrorBase as e:
+        except SotErrorBase as error:
             self.graph.restore_memo(checkpoint)
-            indent = " " * 4
             filename = self.value.__code__.co_filename
             lineno = self.value.__code__.co_firstlineno
             code_name = self.value.__code__.co_name
             location_info = f'File "{filename}", line {lineno}, in {code_name}'
+
+            exception_class = OtherInlineCallBreak
+            if isinstance(error, BreakGraphError):
+                exception_class = BreakGraphInlineCallBreak
+            elif isinstance(error, FallbackError):
+                exception_class = FallbackInlineCallBreak
+
             raise BreakGraphError(
-                f"{location_info} encountered breakgraph error caused by\n{indent}{e}"
+                exception_class(
+                    f"{location_info} encountered breakgraph error caused by\n    {error}"
+                )
             )
         return output
 
@@ -282,7 +316,7 @@ class PaddleApiVariable(FunctionVariable):
     def call_function(self, /, *args, **kwargs):
         if is_break_graph_api(self.value):
             raise BreakGraphError(
-                f"breakgraph by unsupported function: {self.value.__name__}"
+                UnsupportedPaddleAPIBreak(fn_name=self.value.__name__)
             )
         return self.graph.call_paddle_api(self.value, *args, **kwargs)
 
@@ -329,7 +363,9 @@ class TensorFunctionVariable(FunctionVariable):
 
     def call_function(self, /, *args, **kwargs):
         if is_break_graph_tensor_methods(self.method_name):
-            raise BreakGraphError("call break_graph_tensor_method.")
+            raise BreakGraphError(
+                DataDependencyOperationBreak("call break_graph_tensor_method.")
+            )
         return self.graph.call_tensor_method(self.method_name, *args, **kwargs)
 
     def bind(self, instance: VariableBase, name: str):
@@ -483,7 +519,7 @@ class LayerVariable(CallableVariable):
         return [
             FasterStringifiedExpression(
                 f"id({{0}}) == {id(self.get_py_value())} and {{0}}.training == {self.get_py_value().training}",
-                paddle.framework.core.ValueMatchGuard(self.get_py_value()),
+                paddle.framework.core.LayerMatchGuard(self.get_py_value()),
                 [frame_value_tracer],
                 union_free_vars(frame_value_tracer.free_vars),
             ),
@@ -517,7 +553,9 @@ class ContainerLayerVariable(LayerVariable):
                 )
             except Exception as e:
                 raise BreakGraphError(
-                    f"call {self.value.__class__.__name__}.__getitem__ with slice as key, and slice with py value failed: {e}."
+                    UnsupportedOperationBreak(
+                        reason_str=f"call {self.value.__class__.__name__}.__getitem__ with slice as key, and slice with py value failed: {e}."
+                    )
                 )
 
         else:
@@ -772,7 +810,7 @@ class BuiltinVariable(FunctionVariable):
             else self.value
         )
         raise BreakGraphError(
-            f"Not support builtin function: {fn_name} with args: Args({arg_types})"
+            BuiltinFunctionBreak(fn_name=fn_name, arg_types=arg_types)
         )
 
     @VariableFactory.register_from_value(successor="ClassVariable")
@@ -786,6 +824,27 @@ class BuiltinVariable(FunctionVariable):
         return {
             "name": self.value.__name__,
         }
+
+
+class FunctoolsLruCacheWrapperVariable(FunctionVariable):
+    def __init__(
+        self, fn: Callable[..., Any], graph: FunctionGraph, tracker: Tracker
+    ):
+        super().__init__(fn, graph, tracker)
+        self.value = fn
+
+    def call_function(self, /, *args, **kwargs):
+        wrapped_fn = self.value.__wrapped__
+        wrapped_fn = VariableFactory.from_value(
+            wrapped_fn, self.graph, GetAttrTracker(self, "__wrapped__")
+        )
+        return wrapped_fn(*args, **kwargs)
+
+    @VariableFactory.register_from_value()
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
+        if isinstance(value, functools._lru_cache_wrapper):
+            return FunctoolsLruCacheWrapperVariable(value, graph, tracker)
+        return None
 
 
 class UserDefinedGeneratorFunctionVariable(FunctionVariable):
@@ -904,4 +963,26 @@ class PaddleLayerClassVariable(ClassVariable):
             and value.__module__.startswith("paddle.nn.")
         ):
             return PaddleLayerClassVariable(value, graph, tracker)
+        return None
+
+
+class PureClassVariable(ClassVariable):
+    def __init__(self, class_: type, graph: FunctionGraph, tracker: Tracker):
+        super().__init__(class_, graph, tracker)
+
+    def call_function(self, /, *args, **kwargs):
+        from ..function_graph import convert_to_py_value
+
+        obj = self.value(
+            *convert_to_py_value(args),
+            **convert_to_py_value(kwargs),
+        )
+        return VariableFactory.from_value(
+            obj, self.graph, CreateLayerTracker(self, args, kwargs)
+        )
+
+    @VariableFactory.register_from_value(successor="ClassVariable")
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
+        if inspect.isclass(value) and value in PD_PURE_CLASSES:
+            return PureClassVariable(value, graph, tracker)
         return None

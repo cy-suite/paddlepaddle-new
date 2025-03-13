@@ -1021,10 +1021,10 @@ function run_sot_test() {
     PY_VERSION_NO_DOT=$(echo $PY_VERSION | sed 's/\.//g')
 
     export STRICT_MODE=1
-    export COST_MODEL=False
     export MIN_GRAPH_SIZE=0
     export SOT_LOG_LEVEL=0
     export FLAGS_cudnn_deterministic=True
+    export SOT_ENABLE_STRICT_GUARD_CHECK=True
 
     # Install PaddlePaddle
     $PYTHON_WITH_SPECIFY_VERSION -m pip install ${PADDLE_ROOT}/dist/paddlepaddle-0.0.0-cp${PY_VERSION_NO_DOT}-cp${PY_VERSION_NO_DOT}-linux_x86_64.whl
@@ -1055,7 +1055,7 @@ function run_sot_test() {
                 echo "skip ${PY_VERSION_NO_DOT} ${file}"
                 continue
             fi
-            echo Running:" STRICT_MODE=1 COST_MODEL=False MIN_GRAPH_SIZE=0 SOT_LOG_LEVEL=0 FLAGS_cudnn_deterministic=True python " $file
+            echo Running:" STRICT_MODE=1 MIN_GRAPH_SIZE=0 SOT_LOG_LEVEL=0 FLAGS_cudnn_deterministic=True SOT_ENABLE_STRICT_GUARD_CHECK=True python " $file
             # run unittests
             python_output=$($PYTHON_WITH_SPECIFY_VERSION $file 2>&1)
 
@@ -2531,7 +2531,7 @@ set +x
 
             #train Reset50
             echo "Starting to train ResNet50 model..."
-            python main.py -c paddlex/configs/image_classification/ResNet50.yaml \
+            python main.py -c paddlex/configs/modules/image_classification/ResNet50.yaml \
                 -o Global.mode=train \
                 -o Global.dataset_dir=./dataset/cls_flowers_examples \
                 -o Global.output=resnet50_output \
@@ -2543,7 +2543,7 @@ set +x
             echo ${DEVICES[0]}
 
             echo "Starting to predict ResNet50 model..."
-            python main.py -c paddlex/configs/image_classification/ResNet50.yaml \
+            python main.py -c paddlex/configs/modules/image_classification/ResNet50.yaml \
                 -o Global.mode=predict \
                 -o Predict.model_dir="./resnet50_output/best_model/inference" \
                 -o Predict.input="https://paddle-model-ecology.bj.bcebos.com/paddlex/imgs/demo_image/general_image_classification_001.jpg" \
@@ -2761,34 +2761,34 @@ function hybrid_paddlex() {
 
     # train Reset50
     echo "Start Reset50"
-    python main.py -c paddlex/configs/image_classification/ResNet50.yaml \
+    python main.py -c paddlex/configs/modules/image_classification/ResNet50.yaml \
     -o Global.mode=train \
     -o Global.dataset_dir=./dataset/cls_flowers_examples \
     -o Global.output=resnet50_output \
-    -o Global.device="gpu:${DCU_DEVICES}" \
+    -o Global.device="dcu:${DCU_DEVICES}" \
     -o Train.epochs_iters=2
 
     # inference Reset50
-    python main.py -c paddlex/configs/image_classification/ResNet50.yaml \
+    python main.py -c paddlex/configs/modules/image_classification/ResNet50.yaml \
     -o Global.mode=predict \
     -o Predict.model_dir="./resnet50_output/best_model/inference" \
-    -o Global.device="gpu:${DEVICE[0]}"
+    -o Global.device="dcu:${DEVICE[0]}"
     echo "End Reset50"
 
     echo "Start DeepLabv3+"
     # train DeepLabv3+
-    python main.py -c paddlex/configs/semantic_segmentation/Deeplabv3_Plus-R50.yaml \
+    python main.py -c paddlex/configs/modules/semantic_segmentation/Deeplabv3_Plus-R50.yaml \
     -o Global.mode=train \
     -o Global.dataset_dir=./dataset/seg_optic_examples \
     -o Global.output=deeplabv3p_output \
-    -o Global.device="gpu:${DCU_DEVICES}" \
+    -o Global.device="dcu:${DCU_DEVICES}" \
     -o Train.epochs_iters=2
 
     # inference DeepLabv3+
-    python main.py -c paddlex/configs/semantic_segmentation/Deeplabv3_Plus-R50.yaml \
+    python main.py -c paddlex/configs/modules/semantic_segmentation/Deeplabv3_Plus-R50.yaml \
     -o Global.mode=predict \
     -o Predict.model_dir="./deeplabv3p_output/best_model/inference" \
-    -o Global.device="gpu:${DEVICE[0]}"
+    -o Global.device="dcu:${DEVICE[0]}"
     echo "End DeepLabv3+"
 
 }
@@ -4796,7 +4796,7 @@ function main() {
         ;;
       hyg_dcu_test)
         parallel_test
-	hybrid_paddlex
+        hybrid_paddlex
         ;;
       nv_cicheck_coverage)
         parallel_test

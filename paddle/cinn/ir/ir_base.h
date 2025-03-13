@@ -177,8 +177,12 @@ enum class StmtNodeTy { kUnk = -1, NODETY_FORALL_STMT(__m) };
 //! String representations for IrNodeTy.
 // @{
 #define __m(x__) #x__,
-const std::vector<std::string> kIrNodeTyReprs(
-    {NODETY_FORALL(__m) "IterSplit", "IterSum", "IterMark", "None"});
+const std::vector<std::string> kIrNodeTyReprs({"Module",
+                                               "LoweredFunc",
+                                               "IterSplit",
+                                               "IterSum",
+                                               "IterMark",
+                                               NODETY_FORALL(__m)});
 #undef __m
 // @}
 
@@ -534,6 +538,13 @@ struct IndexExpr : public IrNodeRef {
     Level0 = 0,  // TODO(liujinnan): Only constant folding is performed
     Level1 = 1,  // Constant folding and sequential simplification are performed
     Level2 = 2   // Top level, simplify
+  };
+
+  enum class IndexType {
+    kInvalid = 0,  // invalid expr
+    kValid = 1,    // valid expr
+    kLoad = 2,     // exist Load
+    kCast = 3      // exist cast
   };
 
   IndexExpr Normalize(OptLevel level = OptLevel::Level1) const;
