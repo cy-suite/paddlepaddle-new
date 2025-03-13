@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include <glog/logging.h>
-#include <cstdint>
 #include <sstream>
 #include <unordered_set>
 
