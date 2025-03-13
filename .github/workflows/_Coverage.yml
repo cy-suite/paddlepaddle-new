@@ -31,13 +31,16 @@ jobs:
     - name: Download paddle.tar.gz and update test branch
       run: |
         rm -rf * .[^.]*
-        set -e
+        set -ex
         wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/Paddle/${PR_ID}/${COMMIT_ID}/Paddle.tar.gz --no-check-certificate
         tar xf Paddle.tar.gz --strip-components=1
         rm Paddle.tar.gz
+        git config --list
         git config --global user.name "PaddleCI"
         git config --global user.email "paddle_ci@example.com"
+        git config --list
         git remote add upstream https://github.com/PaddlePaddle/Paddle.git
+        git config --list
         # . ../../../proxy
         git checkout test
         git pull upstream develop --no-edit
