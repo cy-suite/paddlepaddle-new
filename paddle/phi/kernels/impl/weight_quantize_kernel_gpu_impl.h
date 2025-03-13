@@ -476,9 +476,8 @@ __global__ void per_group_quant_gpu_int4_col_pack(const T* weight_data,
           for (int i = 0; i < VectorSize; ++i) {
             float weight_elt =
                 (static_cast<float>(weight[i]) / static_cast<float>(scale[i]));
-            const float scaled_weight = lroundf(weight_elt);
-            int int_weight = static_cast<int>(scaled_weight);
-            const int8_t clipped_weight = fmaxf(-7, fminf(7, int_weight));
+            int8_t clipped_weight = static_cast<int8_t>(
+                lroundf(fmaxf(-7.0f, fminf(7.0f, weight_elt))));
             // Reset the last 4 bit or first 4 bit
             quanted_weight[i] &= ~(0x0F << (4 * packed_idx));
             quanted_weight[i] |= ((clipped_weight & 0x0F) << (4 * packed_idx));
@@ -548,9 +547,8 @@ __global__ void per_group_quant_gpu_int4_row_pack(const T* weight_data,
             int vector_index = i * 2 + pack;
             const float weight_elt = static_cast<float>(weight[vector_index]) /
                                      static_cast<float>(scale[vector_index]);
-            float scaled_weight = roundf(weight_elt);
-            int int_weight = static_cast<int>(scaled_weight);
-            int8_t clipped_weight = max(-7, min(7, int_weight));
+            int8_t clipped_weight = static_cast<int8_t>(
+                lroundf(fmaxf(-7.0f, fminf(7.0f, weight_elt))));
             packed_int4s |= ((clipped_weight & 0x0F) << (4 * pack));
           }
           quanted_weight[i] = packed_int4s;
