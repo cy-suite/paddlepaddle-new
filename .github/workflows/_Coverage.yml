@@ -39,8 +39,6 @@ jobs:
         . ../../../proxy
         git checkout test
         git pull upstream develop --no-edit
-        mkdir -p /home/data/cfs/.cache/coverage
-        mkdir -p /home/data/cfs/.ccache/coverage
 
     - name: Check if can skip
       id: check-bypass
@@ -125,6 +123,8 @@ jobs:
       if: steps.check-bypass.outputs.can_skip != 'true'
       run: |
         docker exec -t ${{ env.container_name }} /bin/bash -c '
+        mkdir -p /home/data/cfs/.cache/coverage
+        mkdir -p /home/data/cfs/.ccache/coverage
         bash $ci_scripts/coverage_build.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} coverage "" ${{ github.env }}
         '
 
