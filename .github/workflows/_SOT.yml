@@ -35,7 +35,7 @@ jobs:
     # sudo usermod -aG docker $USER
     - name: Check docker image and run container
       env:
-        BRANCH: release/3.0
+        BRANCH: ${{ github.base_ref }}
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
         WITH_SHARED_PHI: "ON"
