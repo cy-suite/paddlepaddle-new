@@ -593,37 +593,39 @@ void matmul_double_grad(const Tensor& x,
   }
 
   // recover the original dim of output (delete 1)
-  std::vector<int64_t> dx_dims = dx.initialized() ? common::vectorize(dx.dims())
-                                                  : std::vector<int64_t>({});
-  std::vector<int64_t> dy_dims = dy.initialized() ? common::vectorize(dy.dims())
-                                                  : std::vector<int64_t>({});
-  std::vector<int64_t> ddout_dims = ddout.initialized()
+  std::vector<int64_t> dx_dims = dx.has_allocation()
+                                     ? common::vectorize(dx.dims())
+                                     : std::vector<int64_t>({});
+  std::vector<int64_t> dy_dims = dy.has_allocation()
+                                     ? common::vectorize(dy.dims())
+                                     : std::vector<int64_t>({});
+  std::vector<int64_t> ddout_dims = ddout.has_allocation()
                                         ? common::vectorize(ddout.dims())
                                         : std::vector<int64_t>({});
   if (x_ndim == 1 && y_ndim == 1) {
-    if (dx.initialized() && dx_dims[0] == 1) {
+    if (dx.has_allocation() && dx_dims[0] == 1) {
       dx = reshape<T>(dx, IntArray(x_dims));
     }
-    if (dy.initialized() && dy_dims.back() == 1) {
+    if (dy.has_allocation() && dy_dims.back() == 1) {
       dy = reshape<T>(dy, IntArray(y_dims));
     }
-    if (ddout.initialized() && ddout_dims == std::vector<int64_t>({1, 1})) {
+    if (ddout.has_allocation() && ddout_dims == std::vector<int64_t>({1, 1})) {
       ddout = reshape<T>(ddout, IntArray(std::vector<int64_t>({1})));
     }
   } else if (x_ndim == 1) {
-    if (dx.initialized() && dx_dims[0] == 1) {
+    if (dx.has_allocation() && dx_dims[0] == 1) {
       dx = reshape<T>(dx, IntArray(x_dims));
     }
-    if (ddout.initialized() && ddout_dims[0] == 1) {
+    if (ddout.has_allocation() && ddout_dims[0] == 1) {
       ddout = reshape<T>(ddout,
                          IntArray(std::vector<int64_t>(
                              {ddout_dims.cbegin() + 1, ddout_dims.cend()})));
     }
   } else if (y_ndim == 1) {
-    if (dy.initialized() && dy_dims.back() == 1) {
+    if (dy.has_allocation() && dy_dims.back() == 1) {
       dy = reshape<T>(dy, IntArray(y_dims));
     }
-    if (ddout.initialized() && ddout_dims.back() == 1) {
+    if (ddout.has_allocation() && ddout_dims.back() == 1) {
       ddout = reshape<T>(ddout,
                          IntArray(std::vector<int64_t>(
                              {ddout_dims.cbegin(),

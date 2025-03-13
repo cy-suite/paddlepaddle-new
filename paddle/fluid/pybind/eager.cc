@@ -257,7 +257,7 @@ void InitDistTensorWithTensor(TensorObject* self,
     VLOG(4) << "Same place, do ShareDataWith for DistTensor.";
   } else {
     std::shared_ptr<phi::DenseTensor> tensor;
-    if (src.initialized()) {
+    if (src.has_allocation()) {
       tensor = std::static_pointer_cast<phi::DenseTensor>(
           src.copy_to(place, true).impl());
     } else {

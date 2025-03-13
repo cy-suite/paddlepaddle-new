@@ -89,7 +89,7 @@ Py_ssize_t GetSliceIndexFromPyObject(PyObject* obj) {
     VLOG(6) << "Call GetSliceIndexFromTensor in Eager";
     paddle::Tensor tensor = CastPyArg2Tensor(obj, 0);
     PADDLE_ENFORCE_EQ(
-        tensor.initialized(),
+        tensor.has_allocation(),
         true,
         common::errors::InvalidArgument(
             "We can only support initialized tensor in slice, however we got "
@@ -691,7 +691,7 @@ static PyObject* tensor_method_copy_(TensorObject* self,
   bool blocking = CastPyArg2AttrBoolean(PyTuple_GET_ITEM(args, 1), 1);
   VLOG(6) << "Start Copy Tensor " << src_tensor.name() << " to "
           << self->tensor.name();
-  if (!self->tensor.initialized()) {
+  if (!self->tensor.has_allocation()) {
     eager_gil_scoped_release guard;
 
     EagerSetDeviceId();
@@ -1402,12 +1402,12 @@ static PyObject* tensor_method__get_tensor_from_selected_rows(
   auto* selected_rows =
       static_cast<phi::SelectedRows*>(self->tensor.impl().get());
 
-  PADDLE_ENFORCE(selected_rows->initialized(),
-                 common::errors::Fatal("SelectedRows must be initialized."));
+  PADDLE_ENFORCE(selected_rows->has_allocation(),
+                 common::errors::Fatal("SelectedRows must be has_allocation."));
 
   auto* dense_tensor =
       static_cast<phi::DenseTensor*>(selected_rows->mutable_value());
-  VLOG(4) << "dense_tensor: " << dense_tensor->IsInitialized();
+  VLOG(4) << "dense_tensor: " << dense_tensor->has_allocation();
 
   auto t = paddle::Tensor(egr::Controller::Instance().GenerateUniqueName());
   t.set_impl(std::make_shared<phi::DenseTensor>(*dense_tensor));
@@ -1757,7 +1757,7 @@ static PyObject* tensor__setitem_dygraph(TensorObject* self,
     // Release gil and do tracing
     py::gil_scoped_release release;
     // use inplace set_value_ operator
-    if (value_tensor.initialized()) {
+    if (value_tensor.has_allocation()) {
       if (self->tensor.dtype() != value_tensor.dtype()) {
         if (egr::Controller::Instance().GetAMPLevel() !=
             paddle::imperative::AmpLevel::O0) {
@@ -1852,7 +1852,7 @@ static PyObject* tensor__setitem_dygraph(TensorObject* self,
 
     // Release gil and do tracing
     py::gil_scoped_release release;
-    if (value_tensor.initialized()) {
+    if (value_tensor.has_allocation()) {
       if (self->tensor.dtype() != value_tensor.dtype()) {
         if (egr::Controller::Instance().GetAMPLevel() !=
             paddle::imperative::AmpLevel::O0) {
@@ -2180,7 +2180,7 @@ static PyObject* tensor__copy_gradient_from(TensorObject* self,
                                             PyObject* kwargs) {
   EAGER_TRY
   auto src = CastPyArg2Tensor(PyTuple_GET_ITEM(args, 0), 0);
-  if (self->tensor.initialized()) {
+  if (self->tensor.has_allocation()) {
     PADDLE_ENFORCE_EQ(self->tensor.dtype(),
                       src.dtype(),
                       common::errors::PreconditionNotMet(
@@ -2198,7 +2198,7 @@ static PyObject* tensor__copy_gradient_from(TensorObject* self,
   VLOG(6) << "Tensor copy gradient from: " << src.name();
   auto* p_grad = egr::EagerUtils::mutable_grad(self->tensor);
   if (p_grad) {
-    PADDLE_ENFORCE_EQ(src.initialized(),
+    PADDLE_ENFORCE_EQ(src.has_allocation(),
                       true,
                       common::errors::InvalidArgument(
                           "Tensor %s has not been initialized", src.name()));
@@ -3177,11 +3177,11 @@ static PyObject* tensor__grad_ivar(TensorObject* self,
   EAGER_TRY
   VLOG(6) << "Get grad for tensor: " << self->tensor.name();
   auto meta = egr::EagerUtils::nullable_autograd_meta(self->tensor);
-  VLOG(6) << meta << " initialized: " << meta->Grad().initialized();
-  if (meta && meta->Grad().initialized()) {
+  VLOG(6) << meta << " has_allocation: " << meta->Grad().has_allocation();
+  if (meta && meta->Grad().has_allocation()) {
     return ToPyObject(meta->Grad());
   } else {
-    if (meta && !meta->Grad().initialized() && meta->Grad().impl() &&
+    if (meta && !meta->Grad().has_allocation() && meta->Grad().impl() &&
         meta->Grad().is_dist_tensor()) {
       return ToPyObject(meta->Grad(), false);
     }

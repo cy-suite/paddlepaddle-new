@@ -983,7 +983,7 @@ void EagerReducer::MarkGroupReady(size_t group_index) {
 
 bool EagerReducer::HasGrad(size_t var_index) {
   auto grad = egr::EagerUtils::mutable_grad(tensors_[var_index]);
-  if (grad && grad->initialized()) {
+  if (grad && grad->has_allocation()) {
     return true;
   } else {
     return false;
