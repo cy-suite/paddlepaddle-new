@@ -10,7 +10,7 @@ env:
   COMMIT_ID: ${{ github.event.pull_request.head.sha }}
   TASK: paddle-CI-${{ github.event.pull_request.number }}-coverage
   ci_scripts: ${{ github.workspace }}/ci
-  BRANCH: develop
+  BRANCH: ${{ github.base_ref }}
   work_dir: ${{ github.workspace }}
   PADDLE_ROOT: ${{ github.workspace }}
   GIT_PR_ID: ${{ github.event.pull_request.number }}
