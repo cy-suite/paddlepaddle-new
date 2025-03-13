@@ -85,10 +85,8 @@ from .tracker import (
     DanglingTracker,
     DummyTracker,
 )
-from .variable_stack import VariableStack
 from .variables import (
     BuiltinVariable,
-    CellVariable,
     ConstantVariable,
     ContainerVariable,
     DictVariable,
@@ -111,7 +109,9 @@ from .variables import (
 
 if TYPE_CHECKING:
     from .function_graph import CompileGraphResult, FunctionGraph
+    from .variable_stack import VariableStack
     from .virtual_frame import VirtualFrame
+
 
 COMPARE_OP_NAME_TO_FN = {
     ">": operator.gt,
@@ -387,19 +387,8 @@ class OpcodeExecutorBase:
     call_stack: list[OpcodeExecutorBase] = []
     empty_code = EmptyCode()
 
-    @staticmethod
-    def validate_value(value):
-        assert isinstance(
-            value, VariableBase
-        ), f"value: {value}, type should be VariableBase(or derived), but get {type(value)}"
-        assert not isinstance(value.tracker, DanglingTracker) or isinstance(
-            value, (NullVariable, CellVariable)
-        ), f"dangling variable {value} should not be pushed into stack."
-
     def __init__(self, vframe: VirtualFrame, graph: FunctionGraph):
         OpcodeExecutorBase.call_stack.append(self)
-        # fake env for run, new env should be gened by PyCodeGen
-        self.stack = VariableStack(validate_value_func=self.validate_value)
         self.vframe = vframe
         self._current_line: int = -1
         self._instructions = get_instructions(vframe.code)
@@ -412,6 +401,14 @@ class OpcodeExecutorBase:
         )
         # self._prepare_virtual_env()
         self.stop_state = None
+
+    @property
+    def stack(self):
+        return self.vframe.stack
+
+    @stack.setter
+    def stack(self, value: VariableStack):
+        self.vframe.stack = value
 
     def check_code_simulatable(self):
         for instr in self._instructions:
@@ -579,7 +576,7 @@ class OpcodeExecutorBase:
 
         """
         log(3, f"[EXECUTOR RUN] Start execute opcode: {self.vframe.code}\n")
-        self.vframe.lasti = 0
+
         while True:
             if self.vframe.lasti >= len(self._instructions):
                 raise InnerError("lasti out of range, InnerError.")
