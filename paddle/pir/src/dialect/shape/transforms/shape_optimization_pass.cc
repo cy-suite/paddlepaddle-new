@@ -372,11 +372,12 @@ void CacheForwardOpSymbolicShape(
                   continue;
                 }
               }
+              LOG(WARNING) << "cached shape is not consistent with real shape";
+              VLOG(3) << "InferSymbolicShapeCacheKey is: "
+                      << op_infer_cache_key;
+              VLOG(3) << "cached shape is: " << cache_result[i];
+              VLOG(3) << "real shape is: " << infer_result[i];
             }
-            LOG(WARNING) << "cached shape is not consistent with real shape";
-            VLOG(3) << "InferSymbolicShapeCacheKey is: " << op_infer_cache_key;
-            VLOG(3) << "cached shape is: " << cache_result[i];
-            VLOG(3) << "real shape is: " << infer_result[i];
           }
         }
       };
