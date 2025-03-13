@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include <glog/logging.h>
+#include <cstdint>
 #include <sstream>
 #include <unordered_set>
 
@@ -432,13 +433,12 @@ std::vector<int64_t> ParseValueShape(const pir::Value& shape,
                          .dyn_cast<paddle::dialect::IntArrayAttribute>()
                          .data()
                          .GetData();
-    PADDLE_ENFORCE_LE(shape_vec.size(),
-                      1,
-                      common::errors::InvalidArgument(
-                          "The size of shape for Full op should be less than "
-                          "or equal to 1, but receive %d.",
-                          shape_vec.size()));
-    auto items = shape_vec.empty() ? 1 : shape_vec[0];
+    // TODO(ooooo): If can make sure shape_value's size is less than or equal
+    // to 1, can add a check here rather than product.
+    int64_t items = 1;
+    for (const auto& item : shape_vec) {
+      items *= item;
+    }
     vec_shape = std::vector<int64_t>(items, shape_item);
   } else if (shape.isa<pir::OpResult>() &&
              shape.defining_op()->isa<paddle::dialect::StackOp>()) {
