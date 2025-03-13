@@ -15,15 +15,6 @@
 # limitations under the License.
 
 
-function make_ubuntu_trt7_dockerfile_temp_ues(){
-  dockerfile_name="Dockerfile.cuda102_cudnn8_gcc82_ubuntu16"
-  sed "s#<baseimg>#nvidia/cuda:12.0.1-cudnn8-devel-ubuntu20.04#g" ./Dockerfile.ubuntu20 >${dockerfile_name}
-  echo "FROM registry.baidubce.com/paddlepaddle/paddleqa:coverage-ci-temp-use" >> ${dockerfile_name}
-  echo "RUN wget https://www.openssl.org/source/openssl-1.1.1v.tar.gz && tar -xvf openssl-1.1.1v.tar.gz && cd openssl-1.1.1v && ./config -fPIC --prefix=/usr/local/ssl > /dev/null && make > /dev/null && make install > /dev/null && cd ../ && rm -rf openssl-1.1.1v*" >> ${dockerfile_name}
-  echo "ENV OPENSSL_ROOT_DIR=/usr/local/ssl" >> ${dockerfile_name}
-  echo "ENV LD_LIBRARY_PATH=/usr/local/ssl/lib:\g$LD_LIBRARY_PATH" >> ${dockerfile_name}
-}
-
 function make_cpu_dockerfile(){
   dockerfile_name="Dockerfile.cuda9_cudnn7_gcc48_py35_centos6"
   sed "s#<baseimg>#ubuntu:20.04#g" ./Dockerfile.ubuntu20 >${dockerfile_name}
@@ -44,10 +35,10 @@ function make_cpu_dockerfile(){
     ./configure --with-openssl --with-curl --prefix=/usr/local \&\& \
     make -j8 \&\& make install " ${dockerfile_name}
   sed -i 's#<install_cpu_package>#RUN apt-get install -y gcc g++ make#g' ${dockerfile_name}
-  sed -i 's#RUN bash /build_scripts/install_gcc.sh gcc121#RUN add-apt-repository ppa:ubuntu-toolchain-r/test \&\& apt-get update \&\& apt-get install -y gcc-13 g++-13#g' ${dockerfile_name}
-  sed -i 's#/usr/local/gcc-12.1/bin/gcc#/usr/bin/gcc-13#g' ${dockerfile_name}
-  sed -i 's#/usr/local/gcc-12.1/bin/g++#/usr/bin/g++-13#g' ${dockerfile_name}
-  sed -i 's#ENV PATH=/usr/local/gcc-12.1/bin:$PATH##g' ${dockerfile_name}
+  sed -i 's#RUN bash /build_scripts/install_gcc.sh gcc82#RUN add-apt-repository ppa:ubuntu-toolchain-r/test \&\& apt-get update \&\& apt-get install -y gcc-13 g++-13#g' ${dockerfile_name}
+  sed -i 's#/usr/local/gcc-8.2/bin/gcc#/usr/bin/gcc-13#g' ${dockerfile_name}
+  sed -i 's#/usr/local/gcc-8.2/bin/g++#/usr/bin/g++-13#g' ${dockerfile_name}
+  sed -i 's#ENV PATH=/usr/local/gcc-8.2/bin:$PATH##g' ${dockerfile_name}
 }
 
 
@@ -64,7 +55,6 @@ function make_ce_framework_dockerfile(){
   sed -i "${dockerfile_line}i RUN pip3.10 install wheel distro jinja2" ${dockerfile_name}
   sed -i "${dockerfile_line}i RUN pip3.10 install nvidia-cuda-cupti-cu11==11.8.87 nvidia-cuda-runtime-cu11==11.8.89 nvidia-cudnn-cu11==8.7.0.84 nvidia-cublas-cu11==11.11.3.6 nvidia-cufft-cu11==10.9.0.58 nvidia-curand-cu11==10.3.0.86 nvidia-cusolver-cu11==11.4.1.48 nvidia-cusparse-cu11==11.7.5.86 nvidia-nccl-cu11==2.19.3" ${dockerfile_name}
   sed -i 's#RUN bash /build_scripts/install_trt.sh#RUN bash /build_scripts/install_trt.sh trt8531#g' ${dockerfile_name}
-
 }
 
 
@@ -89,12 +79,6 @@ function make_ubuntu20_cu12_dockerfile(){
   sed -i 's# && rm /etc/apt/sources.list.d/nvidia-ml.list##g' ${dockerfile_name}
   sed -i 's#RUN bash /build_scripts/install_trt.sh#RUN bash /build_scripts/install_trt.sh trt8616#g' ${dockerfile_name}
   sed -i 's#RUN bash /build_scripts/install_cudnn.sh cudnn841#RUN bash /build_scripts/install_cudnn.sh cudnn896 #g' ${dockerfile_name}
-  sed -i 's#RUN apt-get install -y gcc-8 g++-8#RUN bash /build_scripts/install_gcc.sh gcc121#g' ${dockerfile_name}
-  sed -i 's#/usr/bin/gcc-8#/usr/local/gcc-12.1/bin/gcc#g' ${dockerfile_name}
-  sed -i 's#/usr/bin/gcc-8#/usr/local/gcc-12.1/bin/gcc#g' ${dockerfile_name}
-  sed -i 's#/usr/bin/g++-8#/usr/local/gcc-12.1/bin/g++#g' ${dockerfile_name}
-  sed -i 's#/usr/bin/g++-8#/usr/local/gcc-12.1/bin/g++#g' ${dockerfile_name}
-
   sed -i "${dockerfile_line}i WORKDIR /home \n \
     RUN git clone --depth=1 https://github.com/PaddlePaddle/PaddleNLP.git -b stable/paddle-ci \&\& cd PaddleNLP \&\& \
     pip3.10 install -r requirements.txt \&\& \
@@ -127,10 +111,11 @@ function make_ubuntu20_cu123_dockerfile(){
   sed -i 's#RUN bash /build_scripts/install_cudnn.sh cudnn841#RUN bash /build_scripts/install_cudnn.sh cudnn900 #g' ${dockerfile_name}
   sed -i 's#CUDNN_VERSION=8.4.1#CUDNN_VERSION=9.0.0#g' ${dockerfile_name}
   sed -i 's#RUN apt-get install -y gcc-8 g++-8#RUN bash /build_scripts/install_gcc.sh gcc121#g' ${dockerfile_name}
-  sed -i 's#/usr/bin/gcc-8#/usr/local/gcc-12.1/bin/gcc#g' ${dockerfile_name}
-  sed -i 's#/usr/bin/gcc-8#/usr/local/gcc-12.1/bin/gcc#g' ${dockerfile_name}
-  sed -i 's#/usr/bin/g++-8#/usr/local/gcc-12.1/bin/g++#g' ${dockerfile_name}
-  sed -i 's#/usr/bin/g++-8#/usr/local/gcc-12.1/bin/g++#g' ${dockerfile_name}
+  sed -i 's#/usr/local/gcc-8.2/bin/gcc#/usr/local/gcc-12.1/bin/gcc#g' ${dockerfile_name}
+  sed -i 's#/usr/local/gcc-8.2/bin/gcc#/usr/local/gcc-12.1/bin/gcc#g' ${dockerfile_name}
+  sed -i 's#/usr/local/gcc-8.2/bin/g++#/usr/local/gcc-12.1/bin/g++#g' ${dockerfile_name}
+  sed -i 's#/usr/local/gcc-8.2/bin/g++#/usr/local/gcc-12.1/bin/g++#g' ${dockerfile_name}
+  sed -i 's#PATH=/usr/local/gcc-8.2/bin:$PATH#PATH=/usr/local/gcc-12.1/bin:$PATH#g' ${dockerfile_name}
 
   sed -i "${dockerfile_line}i WORKDIR /home \n \
     RUN git clone --depth=1 https://github.com/PaddlePaddle/PaddleNLP.git -b stable/paddle-ci \&\& cd PaddleNLP \&\& \
