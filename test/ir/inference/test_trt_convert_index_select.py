@@ -140,7 +140,7 @@ class TrtConvertIndexSelectTest(TrtLayerAutoScanTest):
         elif len(self.shape) == 4:
             self.dynamic_shape.min_input_shape = {
                 "input_data": [2, 4, 4, 2],
-                "index_data": [1],
+                "index_data": [2],
             }
             self.dynamic_shape.max_input_shape = {
                 "input_data": [128, 256, 64, 128],
