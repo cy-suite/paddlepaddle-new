@@ -92,7 +92,6 @@ OpLowererImpl::OpLowererImpl(const Target& target) : target_(target) {
 
 BucketLoweredFuncsWrapper OpLowererImpl::BucketLower(
     const OpLoweringGroupPtr& group) {
-  auto& constraint = cinn::common::ShapeConstraintManager::Instance();
   VLOG(4) << "BucketLower Group : \n" << *group;
   // 1.Do compute, lower and schedule for each op.
   const auto& ops = group->ops();

@@ -24,7 +24,7 @@ namespace common {
 
 struct IndexExprDirectCompare {
   bool operator()(const ir::IndexExpr& a, const ir::IndexExpr& b) const {
-    return ir::ir_utils::IRCompare(a, b, false, false, false);
+    return a.get() == b.get();
   }
 };
 

@@ -580,8 +580,16 @@ ir::Expr Parser::GetOrCreateVar(const std::string &var_name) {
 }
 
 ir::Expr ParseExpressionFromString(const std::string &expr_str) {
+  thread_local static std::unordered_map<std::string, ir::Expr> cache;
+  auto it = cache.find(expr_str);
+  if (it != cache.end()) {
+    return it->second;
+  }
   Parser parser(expr_str);
-  return parser.Parse();
+  auto result = parser.Parse();
+  cache[expr_str] = result;
+
+  return result;
 }
 
 std::optional<std::unordered_map<std::string, ir::IndexExpr>> MatchPattern(
