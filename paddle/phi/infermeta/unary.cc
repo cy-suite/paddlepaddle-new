@@ -3625,12 +3625,14 @@ DDim ReduceInferDim(const MetaTensor& x,
   uint32_t axis_bitmap = 0;
 
   for (size_t i = 0; i < axis.size(); ++i) {
+    int64_t formatted_idx = axis[i];
     if (x_rank == 0) {
       PADDLE_ENFORCE_EQ(
           axis[i] == 0 || axis[i] == -1,
           true,
           common::errors::InvalidArgument(
               "When input 0D Tensor, the axis can only be -1, 0, None or []"));
+      formatted_idx = 0;
     } else {
       PADDLE_ENFORCE_LT(
           axis[i],
@@ -3652,10 +3654,11 @@ DDim ReduceInferDim(const MetaTensor& x,
               i,
               x_rank,
               axis[i]));
+      if (axis[i] < 0) {
+        formatted_idx += x_rank;
+      }
     }
 
-    int64_t formatted_idx =
-        (x_rank == 0) ? 0 : (axis[i] < 0 ? axis[i] + x_rank : axis[i]);
     uint32_t bit = 1U << formatted_idx;
     PADDLE_ENFORCE_EQ(axis_bitmap & bit,
                       0,
