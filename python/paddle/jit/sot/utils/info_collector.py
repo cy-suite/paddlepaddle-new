@@ -25,10 +25,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple
 
 from typing_extensions import Self
 
-from .envs import (
-    ENV_SOT_COLLECT_INFO,
-    ENV_SOT_SERIALIZE_INFO,
-)
+from .envs import ENV_SOT_COLLECT_INFO, ENV_SOT_SERIALIZE_INFO
 from .utils import Singleton
 
 if TYPE_CHECKING:
