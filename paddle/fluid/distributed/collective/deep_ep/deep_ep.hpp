@@ -28,6 +28,7 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/pytypes.h>
 #endif
+#include <optional>
 #include <tuple>
 #include <vector>
 #include "paddle/fluid/distributed/collective/deep_ep/include/types.h"
