@@ -96,17 +96,20 @@ class WeightOnlyLinearTestCase(unittest.TestCase):
                 group_size=self.group_size,
             )
             np.testing.assert_allclose(
-                weight_gpu.numpy(),
-                weight_cpu.numpy(),
-                atol=1.5,
-                rtol=2,
-            )
-            np.testing.assert_allclose(
                 weight_scale_gpu.numpy(),
                 weight_scale_cpu.numpy(),
                 atol=1e-5,
                 rtol=1e-3,
+                err_msg=f"sm : {arch} | scale_shape : {weight_scale_cpu.shape} | group_size : {self.group_size}  | weight_dtype : {self.weight_dtype} | dtype: {self.dtype}",
             )
+            np.testing.assert_allclose(
+                weight_gpu.numpy(),
+                weight_cpu.numpy(),
+                atol=1.5,
+                rtol=2,
+                err_msg=f"sm : {arch} | out_shape : {weight_cpu.shape} | group_size : {self.group_size}  | weight_dtype : {self.weight_dtype} | dtype: {self.dtype}",
+            )
+
             pass
         pass
 
