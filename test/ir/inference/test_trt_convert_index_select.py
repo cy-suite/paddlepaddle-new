@@ -37,7 +37,7 @@ class TrtConvertIndexSelectTest(TrtLayerAutoScanTest):
 
     def sample_program_configs(self):
         def generate_input1(shape):
-            return np.random.random(shape).astype(np.int32)
+            return np.random.random(shape).astype(np.float32)
 
         def generate_input2(index):
             return np.array(index).astype(np.int32)
