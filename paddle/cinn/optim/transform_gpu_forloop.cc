@@ -758,8 +758,7 @@ void OptimizeExprGPU(ir::stmt::BlockRef block) {
   ir::Expr expr = ir::ConvertStmtBlockToExprBlock(block);
 
   ResizeBufferToMaxVarRange(&expr);
-
-  VLOG(4) << "After Optimize Expr: \n" << block;
+  VLOG(4) << "After Optimize Expr: \n" << expr;
 }
 
 }  // namespace optim

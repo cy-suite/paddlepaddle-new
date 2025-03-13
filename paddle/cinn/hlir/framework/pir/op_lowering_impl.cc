@@ -118,7 +118,10 @@ BucketLoweredFuncsWrapper OpLowererImpl::BucketLower(
   // =========== OpFusion ============
 
   // VLOG(4) << "Bucket Lower output values is : " << group->output_values();
-  func_bodies = OperationFusion(ops, func_bodies, group->fusion_tracker_ptr);
+  func_bodies = OperationFusion(ops,
+                                func_bodies,
+                                group->fusion_tracker_ptr,
+                                group->substitute_dimexpr_map());
 
   std::unordered_set<std::string> fusion_group_args;
   for (auto value : group->GetInputOpValues()) {
@@ -446,6 +449,11 @@ std::vector<CondFuncPriorWrapper> OpLowererImpl::PostProcess(
     } else {
       func = optim::Optimize(func, common::DefaultHostTarget(), false);
     }
+    auto pre_load_temp_buffers =
+        lang::GetPreLoadTempBufferAfterVectorize(func->body);
+    func->temp_bufs.insert(func->temp_bufs.end(),
+                           pre_load_temp_buffers.begin(),
+                           pre_load_temp_buffers.end());
     func->num_output_tensors = infer_shape_arg_tensor->size();
 
     // 5. Apply longlong2int pass
