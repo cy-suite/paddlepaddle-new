@@ -3622,7 +3622,6 @@ DDim ReduceInferDim(const MetaTensor& x,
                     bool keep_dim,
                     bool reduce_all) {
   const int x_rank = x.dims().size();
-  std::vector<int64_t> formatted_axis = axis;
   uint32_t axis_bitmap = 0;
 
   if (x_rank == 0 && !axis.empty()) {
