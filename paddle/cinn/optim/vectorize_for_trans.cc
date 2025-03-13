@@ -147,6 +147,11 @@ class ForOpWithMultiScheduleBlockSupportVectorize
   void operator()(ir::Expr *expr) { ir::IRMutator<>::Visit(expr, expr); }
 
  private:
+  void Visit(const ir::IfThenElse *op, Expr *expr) override {
+    have_if_then_else_op_ = true;
+    ir::IRMutator<>::Visit(op, expr);
+  }
+
   void Visit(const ir::ScheduleBlockRealize *op, Expr *expr) override {
     auto *node = expr->As<ir::ScheduleBlockRealize>();
     PADDLE_ENFORCE_NOT_NULL(
@@ -154,18 +159,18 @@ class ForOpWithMultiScheduleBlockSupportVectorize
         ::common::errors::InvalidArgument("The input expr should be a Block"));
 
     IRMutator<>::Visit(op, expr);
-    if (in_vectorize_scope) {
+    if (!have_if_then_else_op_ && in_vectorize_scope_) {
       for_op_blocks_.push_back(expr);
     }
   }
 
   void Visit(const ir::For *op, ir::Expr *expr) override {
     auto *forloop = expr->As<ir::For>();
-    if (forloop->is_vectorized()) in_vectorize_scope = true;
+    if (forloop->is_vectorized()) in_vectorize_scope_ = true;
 
     IRMutator<>::Visit(op, expr);
 
-    if (for_op_blocks_.size() > 1 && in_vectorize_scope) {
+    if (for_op_blocks_.size() > 1 && in_vectorize_scope_) {
       std::vector<Expr> stmts;
       for (auto block : for_op_blocks_) {
         Var new_iterator(
@@ -187,11 +192,12 @@ class ForOpWithMultiScheduleBlockSupportVectorize
       Expr block_expr = ir::Block::Make(stmts);
       *expr = block_expr;
     }
-    in_vectorize_scope = false;
+    in_vectorize_scope_ = false;
     for_op_blocks_.clear();
   }
 
-  bool in_vectorize_scope{false};
+  bool in_vectorize_scope_{false};
+  bool have_if_then_else_op_{false};
   std::vector<ir::Expr *> for_op_blocks_;
 };
 
@@ -659,8 +665,10 @@ class VectorizeForTransMutator : public ir::IRMutator<ir::Expr *> {
                                                {ir::Expr(vectorize_factor_)},
                                                node->operation);
     Type scalar_type = local_tensor->type().ElementOf();
-    Type local_buffer_type(
-        scalar_type.type(), scalar_type.bits(), vectorize_factor_);
+    Type local_buffer_type(scalar_type.type(),
+                           scalar_type.bits(),
+                           vectorize_factor_,
+                           scalar_type.specific_type());
     std::string pre_load_buffer_name =
         "pre_load_" + common::UniqName(node->name + "_buffer");
     local_tensor.as_tensor_ref()->WithBuffer("local", pre_load_buffer_name);

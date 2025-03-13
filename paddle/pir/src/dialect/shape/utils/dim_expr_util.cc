@@ -253,11 +253,9 @@ template <>
 struct IsLhsBeforeRhsStruct<Div<DimExpr>, Div<DimExpr>> {
   static bool Call(const Div<DimExpr>& lhs, const Div<DimExpr>& rhs) {
     const auto& lhs_lhs = lhs->lhs;
-    const auto& lhs_rhs = lhs->rhs;
     const auto& rhs_lhs = rhs->lhs;
-    const auto& rhs_rhs = rhs->rhs;
 
-    return IsLhsBeforeRhs(lhs_lhs, rhs_lhs) && IsLhsBeforeRhs(lhs_rhs, rhs_rhs);
+    return IsLhsBeforeRhs(lhs_lhs, rhs_lhs);
   }
 };
 
@@ -1027,28 +1025,32 @@ struct SimplifyBroadcast {
   }
 
   bool IsLhsGreatThanRhs(const DimExpr& lhs, const DimExpr& rhs) {
-    auto LhsOperandsVisitor = common::Overloaded{
-        [&](const Mul<DimExpr>& mul) {
-          bool lhs_great_than_rhs = false;
-          for (const auto& expr : *mul.operands) {
-            if (expr == rhs)
-              lhs_great_than_rhs = true;
-            else if (!expr.isa<std::int64_t>() && !expr.isa<std::string>())
-              return false;
-          }
-          return lhs_great_than_rhs;
-        },
-        [&](const Add<DimExpr>& add) {
-          bool lhs_great_than_rhs = false;
-          for (const auto& expr : *add.operands) {
-            if (expr == rhs)
-              lhs_great_than_rhs = true;
-            else if (!expr.isa<std::int64_t>() && !expr.isa<std::string>())
-              return false;
-          }
-          return lhs_great_than_rhs;
-        },
-        [&](const auto& lhs) { return false; }};
+    auto LhsOperandsVisitor =
+        common::Overloaded{[&](const Mul<DimExpr>& mul) {
+                             bool lhs_great_than_rhs = false;
+                             for (const auto& expr : *mul.operands) {
+                               if (expr == rhs)
+                                 lhs_great_than_rhs = true;
+                               else if (!(expr.isa<std::int64_t>() &&
+                                          expr.dyn_cast<std::int64_t>() > 0) &&
+                                        !expr.isa<std::string>())
+                                 return false;
+                             }
+                             return lhs_great_than_rhs;
+                           },
+                           [&](const Add<DimExpr>& add) {
+                             bool lhs_great_than_rhs = false;
+                             for (const auto& expr : *add.operands) {
+                               if (expr == rhs)
+                                 lhs_great_than_rhs = true;
+                               else if (!(expr.isa<std::int64_t>() &&
+                                          expr.dyn_cast<std::int64_t>() > 0) &&
+                                        !expr.isa<std::string>())
+                                 return false;
+                             }
+                             return lhs_great_than_rhs;
+                           },
+                           [&](const auto& lhs) { return false; }};
     return std::visit(LhsOperandsVisitor, lhs.variant());
   }
 
