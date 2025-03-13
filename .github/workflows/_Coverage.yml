@@ -28,15 +28,7 @@ jobs:
       can-skip: ${{ steps.check-bypass.outputs.can_skip }}
 
     steps:
-    - name: Check if can skip
-      id: check-bypass
-      uses: ./.github/actions/check-bypass
-      with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        workflow_name: coverage
-
     - name: Download paddle.tar.gz and update test branch
-      if: steps.check-bypass.outputs.can_skip != 'true'
       run: |
         rm -rf * .[^.]*
         set -e
@@ -49,6 +41,13 @@ jobs:
         git pull upstream develop --no-edit
         mkdir -p /home/data/cfs/.cache/coverage
         mkdir -p /home/data/cfs/.ccache/coverage
+
+    - name: Check if can skip
+      id: check-bypass
+      uses: ./.github/actions/check-bypass
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        workflow_name: coverage
 
     - name: Check docker image and run container
       if: steps.check-bypass.outputs.can_skip != 'true'
@@ -190,7 +189,7 @@ jobs:
         '
 
     - name: Terminate and delete the container
-      if: always()
+      if: ${{ steps.check-bypass.outputs.can_skip != 'true' && always() }}
       run: |
         set +e
         docker exec -t ${{ env.container_name }} /bin/bash -c 'rm -rf * .[^.]*'
