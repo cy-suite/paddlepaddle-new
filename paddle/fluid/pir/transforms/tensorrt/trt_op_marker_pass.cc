@@ -48,6 +48,7 @@ inline auto kCanRunTrtAttr = paddle::dialect::kCanRunTrtAttr;
   };
 
 DEFINE_GENERAL_PATTERN(Matmul, paddle::dialect::MatmulOp)
+DEFINE_GENERAL_PATTERN(Conv2d, paddle::dialect::Conv2dOp)
 DEFINE_GENERAL_PATTERN(BatchNorm, paddle::dialect::BatchNormOp)
 DEFINE_GENERAL_PATTERN(BatchNorm_, paddle::dialect::BatchNorm_Op)
 DEFINE_GENERAL_PATTERN(Softmax, paddle::dialect::SoftmaxOp)
@@ -453,22 +454,6 @@ class Pool2dOpPattern
                    "issues in TRT. Skip TRT conversion.";
         return false;
       }
-    }
-    op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
-    return true;
-  }
-};
-
-class Conv2dOpPattern
-    : public pir::OpRewritePattern<paddle::dialect::Conv2dOp> {
- public:
-  using pir::OpRewritePattern<paddle::dialect::Conv2dOp>::OpRewritePattern;
-  bool MatchAndRewrite(paddle::dialect::Conv2dOp op,
-                       pir::PatternRewriter &rewriter) const override {
-    auto filter_define_op = pir::GetDefiningOpForInput(op, 1);
-    if (filter_define_op->name() != "builtin.parameter" &&
-        filter_define_op->name() != "builtin.constant") {
-      return false;
     }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
@@ -3030,7 +3015,6 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
 #endif
 #undef ADD_PATTERN
     ps.Add(std::make_unique<Pool2dOpPattern>(context));
-    ps.Add(std::make_unique<Conv2dOpPattern>(context));
     ps.Add(std::make_unique<Conv2dTransposeOpPattern>(context));
     ps.Add(std::make_unique<DepthwiseConv2dTransposeOpPattern>(context));
     ps.Add(std::make_unique<DeformableConvOpPattern>(context));
