@@ -153,15 +153,16 @@ ENV_SOT_FORCE_FALLBACK_SIR_IDS = StringEnvironmentVariable(
 
 
 def update_ce_flags():
-    if ENV_SOT_CE_DEBUG_MODE.get():
-        # Enable information collection flags to facilitate debugging and analysis
+    if not ENV_SOT_CE_DEBUG_MODE.get():
+        return
+    # Enable information collection flags to facilitate debugging and analysis
 
-        collected_info_item: dict[str, list[str]] = ENV_SOT_COLLECT_INFO.get()
-        collected_info_item.setdefault("breakgraph_reason", [])
-        collected_info_item.setdefault("subgraph_info", [])
+    collected_info_item: dict[str, list[str]] = ENV_SOT_COLLECT_INFO.get()
+    collected_info_item.setdefault("breakgraph_reason", [])
+    collected_info_item.setdefault("subgraph_info", [])
 
-        ENV_SOT_COLLECT_INFO.set(collected_info_item)
-        ENV_SOT_SERIALIZE_INFO.set(True)
+    ENV_SOT_COLLECT_INFO.set(collected_info_item)
+    ENV_SOT_SERIALIZE_INFO.set(True)
 
 
 update_ce_flags()
