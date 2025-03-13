@@ -48,11 +48,13 @@ from ....utils import (
 )
 from ....utils.exceptions import (
     BreakGraphError,
+    BreakGraphInlineCallBreak,
     BuiltinFunctionBreak,
     DataDependencyOperationBreak,
     FallbackError,
-    InlineCallBreak,
+    FallbackInlineCallBreak,
     InnerError,
+    OtherInlineCallBreak,
     PsdbBreakReason,
     SotErrorBase,
     UnsupportedOperationBreak,
@@ -76,6 +78,7 @@ from ..tracker import (
     GetIterTracker,
     Tracker,
 )
+from ..virtual_frame import VirtualFrame
 from .base import VariableFactory
 from .basic import (
     ConstantVariable,
@@ -199,7 +202,7 @@ class UserDefinedFunctionVariable(FunctionVariable):
             from ...breakpoint import BM
 
             BM.locate(BM.executors[-1])
-            BM.add(BM.cur_exe._code.co_filename, BM.cur_exe._current_line)
+            BM.add(BM.cur_exe.vframe.code.co_filename, BM.cur_exe._current_line)
             return ConstantVariable.wrap_literal(None, self.graph)
         elif self.value is psdb.breakgraph:
             raise BreakGraphError(
@@ -227,21 +230,35 @@ class UserDefinedFunctionVariable(FunctionVariable):
                 return output
 
         try:
-            inline_executor = OpcodeInlineExecutor(self, *args, **kwargs)
+            code_var = self.get_code()
+            vframe = VirtualFrame.from_inline_call(
+                code_var.value,
+                self,
+                self.value,
+                self.graph,
+                (args, kwargs),
+            )
+            inline_executor = OpcodeInlineExecutor(vframe, code_var, self.graph)
             with EventGuard(
-                f"Inline Call: {inline_executor._code.co_name.replace('<', '(').replace('>', ')')}, file {inline_executor._code.co_filename}, line {int(inline_executor._code.co_firstlineno)}"
+                f"Inline Call: {inline_executor.vframe.code.co_name.replace('<', '(').replace('>', ')')}, file {inline_executor.vframe.code.co_filename}, line {int(inline_executor.vframe.code.co_firstlineno)}"
             ):
                 output = inline_executor.inline_call()
-        except SotErrorBase as e:
+        except SotErrorBase as error:
             self.graph.restore_memo(checkpoint)
-            indent = " " * 4
             filename = self.value.__code__.co_filename
             lineno = self.value.__code__.co_firstlineno
             code_name = self.value.__code__.co_name
             location_info = f'File "{filename}", line {lineno}, in {code_name}'
+
+            exception_class = OtherInlineCallBreak
+            if isinstance(error, BreakGraphError):
+                exception_class = BreakGraphInlineCallBreak
+            elif isinstance(error, FallbackError):
+                exception_class = FallbackInlineCallBreak
+
             raise BreakGraphError(
-                InlineCallBreak(
-                    f"{location_info} encountered breakgraph error caused by\n{indent}{e}"
+                exception_class(
+                    f"{location_info} encountered breakgraph error caused by\n    {error}"
                 )
             )
         return output
@@ -502,7 +519,7 @@ class LayerVariable(CallableVariable):
         return [
             FasterStringifiedExpression(
                 f"id({{0}}) == {id(self.get_py_value())} and {{0}}.training == {self.get_py_value().training}",
-                paddle.framework.core.ValueMatchGuard(self.get_py_value()),
+                paddle.framework.core.LayerMatchGuard(self.get_py_value()),
                 [frame_value_tracer],
                 union_free_vars(frame_value_tracer.free_vars),
             ),
