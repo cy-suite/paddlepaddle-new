@@ -98,6 +98,7 @@ PHI_DEFINE_EXPORTED_bool(use_virtual_memory_auto_growth,
 PHI_DEFINE_EXPORTED_bool(use_stream_safe_cuda_allocator,
                          true,
                          "Enable StreamSafeCUDAAllocator");
+
 PHI_DEFINE_EXPORTED_bool(use_cuda_managed_memory,
                          false,
                          "Whether to use CUDAManagedAllocator to allocate "
