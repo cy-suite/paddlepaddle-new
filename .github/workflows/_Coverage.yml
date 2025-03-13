@@ -185,6 +185,7 @@ jobs:
           mkdir ${{ env.home_path }}/bos
           tar xf ${{ env.home_path }}/bos_new.tar.gz -C ${{ env.home_path }}/bos
         fi
+        . ../../../unproxy
         python ${{ env.bos_file }} coverage_build_size paddle-github-action/PR/coverage_build_size/${{ env.PR_ID }}/${{ env.COMMIT_ID }}
         python ${{ env.bos_file }} ${{ env.paddle_whl }} paddle-github-action/PR/coverage_whl/${{ env.PR_ID }}/${{ env.COMMIT_ID }}
         cd ${{ github.workspace }}/..
