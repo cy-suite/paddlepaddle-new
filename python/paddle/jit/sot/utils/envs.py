@@ -152,56 +152,19 @@ ENV_SOT_FORCE_FALLBACK_SIR_IDS = StringEnvironmentVariable(
 )
 
 
-class Recorder:
-    def __init__(self, before_value, after_value):
-        self._before_value = before_value
-        self._after_value = after_value
-
-    def get(self, condition):
-        if condition == "before":
-            return self._before_value
-        return self._after_value
-
-
-collected_info_item_copy: dict[str, list[str]] = (
-    ENV_SOT_COLLECT_INFO.get().copy()
-)
-collected_info_item_copy.setdefault("breakgraph_reason", [])
-collected_info_item_copy.setdefault("subgraph_info", [])
-
-ENV_SOT_COLLECT_INFO_recorder = Recorder(
-    ENV_SOT_COLLECT_INFO.get(),
-    collected_info_item_copy,
-)
-ENV_SOT_SERIALIZE_INFO_recorder = Recorder(
-    ENV_SOT_SERIALIZE_INFO.get(),
-    True,
-)
-
-
 def update_ce_flags():
-    if not ENV_SOT_CE_DEBUG_MODE.get():
-        ENV_SOT_COLLECT_INFO.set(ENV_SOT_COLLECT_INFO_recorder.get("before"))
-        ENV_SOT_SERIALIZE_INFO.set(
-            ENV_SOT_SERIALIZE_INFO_recorder.get("before")
-        )
-        return
-    ENV_SOT_COLLECT_INFO.set(ENV_SOT_COLLECT_INFO_recorder.get("after"))
-    ENV_SOT_SERIALIZE_INFO.set(ENV_SOT_SERIALIZE_INFO_recorder.get("after"))
+    if ENV_SOT_CE_DEBUG_MODE.get():
+        # Enable information collection flags to facilitate debugging and analysis
+
+        collected_info_item: dict[str, list[str]] = ENV_SOT_COLLECT_INFO.get()
+        collected_info_item.setdefault("breakgraph_reason", [])
+        collected_info_item.setdefault("subgraph_info", [])
+
+        ENV_SOT_COLLECT_INFO.set(collected_info_item)
+        ENV_SOT_SERIALIZE_INFO.set(True)
 
 
 update_ce_flags()
-
-
-def new_set(func):
-    def wrapper(*args, **kwargs):
-        func(*args, **kwargs)
-        update_ce_flags()
-
-    return wrapper
-
-
-ENV_SOT_CE_DEBUG_MODE.set = new_set(ENV_SOT_CE_DEBUG_MODE.set)
 
 
 @contextmanager

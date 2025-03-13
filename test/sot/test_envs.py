@@ -18,9 +18,6 @@ import os
 import unittest
 
 from paddle.jit.sot.utils import (
-    ENV_SOT_CE_DEBUG_MODE,
-    ENV_SOT_COLLECT_INFO,
-    ENV_SOT_SERIALIZE_INFO,
     PEP508LikeEnvironmentVariable,
 )
 from paddle.utils.environments import (
@@ -257,18 +254,6 @@ class TestPEP508LikeEnvironmentVariable(unittest.TestCase):
             os.environ[env_name],
             "",
         )
-
-
-class TestENV_SOT_CE_DEBUG_MODE(unittest.TestCase):
-    def test_debug_mode_on(self):
-        with EnvironmentVariableGuard(ENV_SOT_COLLECT_INFO, {}):
-            with EnvironmentVariableGuard(ENV_SOT_CE_DEBUG_MODE, True):
-                self.assertIn("breakgraph_reason", ENV_SOT_COLLECT_INFO.get())
-                self.assertIn("subgraph_info", ENV_SOT_COLLECT_INFO.get())
-
-        with EnvironmentVariableGuard(ENV_SOT_SERIALIZE_INFO, False):
-            with EnvironmentVariableGuard(ENV_SOT_CE_DEBUG_MODE, True):
-                self.assertTrue(ENV_SOT_SERIALIZE_INFO.get())
 
 
 if __name__ == "__main__":
