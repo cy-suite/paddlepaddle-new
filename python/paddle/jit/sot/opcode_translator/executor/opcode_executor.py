@@ -29,15 +29,18 @@ from typing import TYPE_CHECKING, Any, Callable
 import paddle
 from paddle.jit.utils import OrderedSet
 
-from ...profiler import EventGuard, event_register
+from ...profiler import EventGuard
 from ...psdb import NO_BREAKGRAPH_CODES
 from ...utils import (
     ENV_MIN_GRAPH_SIZE,
     ENV_SOT_FORCE_FALLBACK_SIR_IDS,
     BreakGraphError,
+    BuiltinFunctionBreak,
     FallbackError,
     InnerError,
     SotUndefinedVar,
+    UnsupportedIteratorBreak,
+    UnsupportedOperationBreak,
     get_static_function,
     is_comprehensive_name,
     log,
@@ -66,7 +69,6 @@ from .dispatch_functions import (
     operator_not_in,
 )
 from .dispatcher import Dispatcher
-from .function_graph import FunctionGraph
 from .instr_flag import (
     CALL_FUNCTION_EX_FLAG as CFE,
     CONVERT_VALUE_FLAG as CV,
@@ -79,11 +81,9 @@ from .pycode_generator import (
     ResumeFunctionType,
 )
 from .tracker import (
-    CellTracker,
     ConstTracker,
     DanglingTracker,
     DummyTracker,
-    LocalTracker,
 )
 from .variable_stack import VariableStack
 from .variables import (
@@ -92,7 +92,6 @@ from .variables import (
     ConstantVariable,
     ContainerVariable,
     DictVariable,
-    GlobalVariable,
     IterVariable,
     ListVariable,
     MethodVariable,
@@ -111,9 +110,10 @@ from .variables import (
 )
 
 if TYPE_CHECKING:
-    from .function_graph import CompileGraphResult
+    from .function_graph import CompileGraphResult, FunctionGraph
+    from .virtual_frame import VirtualFrame
 
-SUPPORT_COMPARE_OP = {
+COMPARE_OP_NAME_TO_FN = {
     ">": operator.gt,
     "<": operator.lt,
     ">=": operator.ge,
@@ -186,7 +186,6 @@ def tos_inplace_op_wrapper(fn: Callable):
         res = BuiltinVariable(fn, graph=self._graph, tracker=DanglingTracker())(
             *args
         )
-        res.debug_name = args[0].debug_name
         self.stack.push(res)
 
     return inner
@@ -283,12 +282,14 @@ def call_break_graph_decorator(push_n: int | Callable[[int | None], int]):
             try:
                 return call_fn(self, instr)
             except BreakGraphError as e:
-                if self._code in NO_BREAKGRAPH_CODES:
+                if self.vframe.code in NO_BREAKGRAPH_CODES:
                     raise InnerError(
-                        f"{self._code.co_name} should not break graph, but got '{e}'"
+                        f"{self.vframe.code.co_name} should not break graph, but got '{e}'"
                     )
                 if isinstance(self, OpcodeExecutor):
-                    log(3, f"[BreakGraph] call function Break graph: {e}\n")
+                    log(
+                        3, f"[BreakGraph] call function Break graph:\n    {e}\n"
+                    )
                     self._break_graph_when_call(origin_stack, instr, push_n)
                     return Stop(state="BreakGraph")
                 else:
@@ -395,27 +396,21 @@ class OpcodeExecutorBase:
             value, (NullVariable, CellVariable)
         ), f"dangling variable {value} should not be pushed into stack."
 
-    def __init__(self, code: types.CodeType, graph: FunctionGraph):
+    def __init__(self, vframe: VirtualFrame, graph: FunctionGraph):
         OpcodeExecutorBase.call_stack.append(self)
         # fake env for run, new env should be gened by PyCodeGen
         self.stack = VariableStack(validate_value_func=self.validate_value)
-        self._co_consts = []
-        self._locals = {}
-        self._globals: GlobalVariable = None  # type: ignore
-        self._builtins = {}
-        self._cells = {}  # position to put cells
-        self._lasti = 0  # idx of instruction list
-        self._code = code
+        self.vframe = vframe
         self._current_line: int = -1
-        self._instructions = get_instructions(self._code)
+        self._instructions = get_instructions(vframe.code)
         self._graph = graph
-        self.new_code: types.CodeType | None = self.empty_code
+        self.new_code: types.CodeType | None = self.empty_code  # type: ignore
         self.guard_fn = None
         self._name = "Executor"
         self._call_shape: tuple[str, ...] | None = (
             None  # store kwnames for Python 3.11 and 3.12
         )
-        self._prepare_virtual_env()
+        # self._prepare_virtual_env()
         self.stop_state = None
 
     def check_code_simulatable(self):
@@ -456,16 +451,6 @@ class OpcodeExecutorBase:
         """
         raise NotImplementedError
 
-    def transform(self):
-        """
-        Abstract method need to be implemented to symbolic translate each instruction.
-
-        Raises:
-            NotImplementedError: If the method is not implemented.
-
-        """
-        raise NotImplementedError
-
     def find_space_of_var_name(self, name):
         code = self._graph.pycode_gen._origin_code
         if name in (code.co_freevars + code.co_cellvars):
@@ -481,14 +466,14 @@ class OpcodeExecutorBase:
         space = self.find_space_of_var_name(name)
 
         if space == Space.locals:
-            return name in self._locals
+            return name in self.vframe.locals
         elif space == Space.cells:
-            return name in self._cells
+            return name in self.vframe.cells
         elif space == Space.globals:
             return name in set(
                 chain(
-                    self._globals.keys(),
-                    self._builtins.keys(),
+                    self.vframe.globals.keys(),
+                    self.vframe.builtins.keys(),
                 )
             )
         return False
@@ -507,14 +492,14 @@ class OpcodeExecutorBase:
             InnerError: If the variable cannot be found.
 
         """
-        if name in self._locals.keys():
-            return self._locals[name]
-        elif name in self._cells.keys():  # in closure
-            return self._cells[name].cell_content()
-        elif name in self._globals.keys():
-            return self._globals.get(name)
-        elif name in self._builtins.keys():
-            return self._builtins[name]
+        if name in self.vframe.locals.keys():
+            return self.vframe.locals[name]
+        elif name in self.vframe.cells.keys():  # in closure
+            return self.vframe.cells[name].cell_content()
+        elif name in self.vframe.globals.keys():
+            return self.vframe.globals.get(name)
+        elif name in self.vframe.builtins.keys():
+            return self.vframe.builtins[name]
         elif allow_undefined:
             return SotUndefinedVar()
         else:
@@ -525,11 +510,11 @@ class OpcodeExecutorBase:
 
         # if name is new created, we always place it to locals
         if space in (Space.locals, Space.not_found):
-            self._locals[name] = value
+            self.vframe.locals[name] = value
         elif space == Space.cells:
-            self._cells[name].set_value(value)
+            self.vframe.cells[name].set_value(value)
         elif space == Space.globals:
-            self._globals[name] = value
+            self.vframe.globals[name] = value
 
     def _find_names_in_space(self, names, space):
         target_names = [
@@ -563,7 +548,7 @@ class OpcodeExecutorBase:
         indent = 2 * " "
         message_lines = ["In simulate execution:", ""]
         for current_simulator in OpcodeExecutorBase.call_stack:
-            code = current_simulator._code
+            code = current_simulator.vframe.code
             current_line = current_simulator._current_line
             file = inspect.getfile(code)
             if file.startswith("<") and file.endswith(">"):
@@ -593,19 +578,19 @@ class OpcodeExecutorBase:
         Executes the opcode.
 
         """
-        log(3, f"[EXECUTOR RUN] Start execute opcode: {self._code}\n")
-        self._lasti = 0
+        log(3, f"[EXECUTOR RUN] Start execute opcode: {self.vframe.code}\n")
+        self.vframe.lasti = 0
         while True:
-            if self._lasti >= len(self._instructions):
+            if self.vframe.lasti >= len(self._instructions):
                 raise InnerError("lasti out of range, InnerError.")
-            cur_instr = self._instructions[self._lasti]
-            self._lasti += 1
+            cur_instr = self._instructions[self.vframe.lasti]
+            self.vframe.lasti += 1
             is_stop = self.step(cur_instr)
             if is_stop:
                 self.stop_state = is_stop.state
                 self.pop_call_stack_until_self()
                 break
-        log(3, f"[EXECUTOR RUN] End execute opcode: {self._code}\n")
+        log(3, f"[EXECUTOR RUN] End execute opcode: {self.vframe.code}\n")
 
     def step(self, instr: Instruction):
         """
@@ -627,9 +612,9 @@ class OpcodeExecutorBase:
             raise FallbackError(f"opcode: {instr.opname} is not supported.")
         log_message = f"[Translate {self._name}]: (line {self._current_line:>3}) {instr.opname:<12} {instr.argval}, stack is {self.stack}\n"
         log(3, log_message)
-        code_file = self._code.co_filename
+        code_file = self.vframe.code.co_filename
         code_line = self._current_line
-        code_name = self._code.co_name
+        code_name = self.vframe.code.co_name
         code_offset = instr.offset
         from ..breakpoint import BreakpointManager
 
@@ -668,7 +653,7 @@ class OpcodeExecutorBase:
             instr: The instruction to jump to.
 
         """
-        self._lasti = self.indexof(instr)
+        self.vframe.lasti = self.indexof(instr)
 
     def COPY(self, instr: Instruction):
         assert isinstance(instr.arg, int)
@@ -799,12 +784,12 @@ class OpcodeExecutorBase:
     def LOAD_ATTR(self, instr: Instruction):
         if sys.version_info >= (3, 12):
             assert isinstance(instr.arg, int)
-            attr_name = self._code.co_names[instr.arg >> 1]
+            attr_name = self.vframe.code.co_names[instr.arg >> 1]
             if instr.arg & 1:
                 self.load_method(attr_name)
                 return
         else:
-            attr_name = self._code.co_names[instr.arg]
+            attr_name = self.vframe.code.co_names[instr.arg]
         attr_name_var = ConstantVariable.wrap_literal(attr_name, self._graph)
         obj = self.stack.pop()
         self.stack.push(
@@ -817,46 +802,48 @@ class OpcodeExecutorBase:
     def LOAD_SUPER_ATTR(self, instr: Instruction):
         # This bytecode is for Python 3.12+, and it will break graph in Python 3.11-.
         # We align it's behavior with Python 3.11-.
-        raise BreakGraphError("call super is not supported")
+        raise BreakGraphError(
+            BuiltinFunctionBreak(reason_str="call super is not supported")
+        )
 
     def LOAD_CONST(self, instr: Instruction):
-        var = self._co_consts[instr.arg]
+        var = self.vframe.consts[instr.arg]
         self.stack.push(var)
 
     def MAKE_CELL(self, instr: Instruction):
-        self._locals[instr.argval] = self._cells[instr.argval]
+        self.vframe.locals[instr.argval] = self.vframe.cells[instr.argval]
 
     def LOAD_CLOSURE(self, instr: Instruction):
         if sys.version_info >= (3, 11):
             self.LOAD_FAST(instr)
             return
-        namemap = self._code.co_cellvars + self._code.co_freevars
+        namemap = self.vframe.code.co_cellvars + self.vframe.code.co_freevars
         name = namemap[instr.arg]
-        self.stack.push(self._cells[name])
+        self.stack.push(self.vframe.cells[name])
 
     def LOAD_DEREF(self, instr: Instruction):
         if sys.version_info >= (3, 11):
-            self.stack.push(self._locals[instr.argval].cell_content())
+            self.stack.push(self.vframe.locals[instr.argval].cell_content())
             return
-        namemap = self._code.co_cellvars + self._code.co_freevars
+        namemap = self.vframe.code.co_cellvars + self.vframe.code.co_freevars
         name = namemap[instr.arg]
-        self.stack.push(self._cells[name].cell_content())
+        self.stack.push(self.vframe.cells[name].cell_content())
 
     def COPY_FREE_VARS(self, instr: Instruction):
         for i in range(instr.arg):
-            freevar_name = self._code.co_freevars[i]
-            self._locals[freevar_name] = self._cells[freevar_name]
+            freevar_name = self.vframe.code.co_freevars[i]
+            self.vframe.locals[freevar_name] = self.vframe.cells[freevar_name]
 
     def LOAD_FAST(self, instr: Instruction):
-        var = self._locals[instr.argval]
+        var = self.vframe.locals[instr.argval]
         self.stack.push(var)
 
     def LOAD_FAST_CHECK(self, instr: Instruction):
         self.LOAD_FAST(instr)
 
     def DELETE_FAST(self, instr: Instruction):
-        varname = self._code.co_varnames[instr.arg]
-        del self._locals[varname]
+        varname = self.vframe.code.co_varnames[instr.arg]
+        del self.vframe.locals[varname]
 
     def LOAD_GLOBAL(self, instr: Instruction):
         namei: int = instr.arg
@@ -866,11 +853,11 @@ class OpcodeExecutorBase:
             namei >>= 1
         if push_null and not CALL_METHOD_LAYOUT_NULL_AFTER_VALUE:
             self.stack.push(NullVariable())
-        name = self._code.co_names[namei]
-        if name in self._globals.keys():
-            value = self._globals.get(name)
-        elif name in self._builtins.keys():
-            value = self._builtins[name]
+        name = self.vframe.code.co_names[namei]
+        if name in self.vframe.globals.keys():
+            value = self.vframe.globals.get(name)
+        elif name in self.vframe.builtins.keys():
+            value = self.vframe.builtins[name]
         else:
             raise InnerError(f"{name} not in globals and builtins")
         self.stack.push(value)
@@ -904,15 +891,16 @@ class OpcodeExecutorBase:
             if CALL_METHOD_LAYOUT_NULL_AFTER_VALUE:
                 self.stack.push(NullVariable())
 
+    @call_break_graph_decorator(push_n=2)
     def LOAD_METHOD(self, instr: Instruction):
-        method_name = self._code.co_names[instr.arg]
+        method_name = self.vframe.code.co_names[instr.arg]
         self.load_method(method_name)
 
     @call_break_graph_decorator(push_n=0)
     def STORE_ATTR(self, instr: Instruction):
         obj = self.stack.pop()
         val = self.stack.pop()
-        key = self._code.co_names[instr.arg]
+        key = self.vframe.code.co_names[instr.arg]
         key_var = ConstantVariable.wrap_literal(key, self._graph)
         BuiltinVariable(
             setattr, self._graph, DummyTracker([obj, key_var, val])
@@ -928,30 +916,28 @@ class OpcodeExecutorBase:
 
     def STORE_DEREF(self, instr: Instruction):
         if sys.version_info >= (3, 11):
-            self._cells[instr.argval].set_value(self.stack.pop())
-            self._locals[instr.argval] = self._cells[instr.argval]
+            self.vframe.cells[instr.argval].set_value(self.stack.pop())
+            self.vframe.locals[instr.argval] = self.vframe.cells[instr.argval]
             return
-        namemap = self._code.co_cellvars + self._code.co_freevars
+        namemap = self.vframe.code.co_cellvars + self.vframe.code.co_freevars
         name = namemap[instr.arg]
-        self._cells[name].set_value(self.stack.pop())
+        self.vframe.cells[name].set_value(self.stack.pop())
 
     def STORE_FAST(self, instr: Instruction):
         """
         TODO: side effect may happen
         """
         var = self.stack.pop()
-        name = self._code.co_varnames[instr.arg]
-        var.debug_name = name
-        self._locals[name] = var
+        name = self.vframe.code.co_varnames[instr.arg]
+        self.vframe.locals[name] = var
 
     def STORE_GLOBAL(self, instr: Instruction):
         var = self.stack.pop()
-        name = self._code.co_names[instr.arg]
-        var.debug_name = name
-        self._globals.set(name, var)
+        name = self.vframe.code.co_names[instr.arg]
+        self.vframe.globals.set(name, var)
 
     def DELETE_GLOBAL(self, instr: Instruction):
-        self._globals.delete(self._code.co_names[instr.arg])
+        self.vframe.globals.delete(self.vframe.code.co_names[instr.arg])
 
     @call_break_graph_decorator(push_n=0)
     def STORE_SUBSCR(self, instr: Instruction):
@@ -979,7 +965,6 @@ class OpcodeExecutorBase:
         BuiltinVariable(operator.setitem, self._graph, DanglingTracker())(
             container, key, value
         )
-        value.debug_name = f"{container.debug_name}[{key.debug_name}]"
 
     def DELETE_SUBSCR(self, instr: Instruction):
         key = self.stack.pop()
@@ -1093,7 +1078,11 @@ class OpcodeExecutorBase:
             if not isinstance(
                 item, (TupleVariable, ListVariable, RangeVariable)
             ):
-                raise BreakGraphError(f"{type(item)} not support unpack")
+                raise BreakGraphError(
+                    UnsupportedOperationBreak(
+                        reason_str=f"{type(item)} not support unpack"
+                    )
+                )
             retval.extend(item.get_iter().to_list())
 
         if instr.opname in {
@@ -1165,8 +1154,8 @@ class OpcodeExecutorBase:
         assert isinstance(instr.arg, int)
         assert instr.opname == "PRECALL"
         self.PRECALL(instr)
-        next_instr = self._instructions[self._lasti]
-        self._lasti += 1
+        next_instr = self._instructions[self.vframe.lasti]
+        self.vframe.lasti += 1
         assert next_instr.opname == "CALL"
         self.CALL(next_instr)
 
@@ -1186,7 +1175,7 @@ class OpcodeExecutorBase:
     def KW_NAMES(self, instr: Instruction):
         assert self._call_shape is None
         assert isinstance(instr.arg, int)
-        self._call_shape = self._co_consts[instr.arg].get_py_value()
+        self._call_shape = self.vframe.consts[instr.arg].get_py_value()
 
     def call_impl_py312_minus(
         self,
@@ -1312,9 +1301,17 @@ class OpcodeExecutorBase:
             kwargs = {}
 
         args_variable = self.stack.pop()
-        assert isinstance(args_variable, (TupleVariable, ListVariable))
-        args = args_variable.get_wrapped_items()
-
+        args_iter = args_variable.get_iter()
+        assert isinstance(
+            args_iter, IterVariable
+        ), f"args_iter should be IterVariable, but got {args_iter}"
+        if not isinstance(args_iter, SequenceIterVariable):
+            raise BreakGraphError(
+                UnsupportedOperationBreak(
+                    reason_str="CALL_FUNCTION_EX only supports SequenceIterVariable for varargs"
+                )
+            )
+        args = args_iter.to_list()
         if sys.version_info >= (3, 11) and CALL_METHOD_LAYOUT_NULL_AFTER_VALUE:
             null = self.stack.pop()
             assert isinstance(null, NullVariable)
@@ -1358,13 +1355,13 @@ class OpcodeExecutorBase:
         right, left = self.stack.pop(), self.stack.pop()
         self.stack.push(
             BuiltinVariable(
-                SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
+                COMPARE_OP_NAME_TO_FN[op], self._graph, DanglingTracker()
             )(left, right)
         )
 
     def TO_BOOL(self, instr: Instruction):
         # we don't do anything in TO_BOOL, we simply check if the bytecode is legal
-        next_instr = self._instructions[self._lasti]
+        next_instr = self._instructions[self.vframe.lasti]
         assert (
             next_instr.opname in NEED_TO_BOOL
         ), f"The bytecode is illegal! The opcode following TO_BOOL must be in ['POP_JUMP_IF_TRUE', 'POP_JUMP_IF_FALSE', 'UNARY_NOT'], the next instruction now is {next_instr.opname}"
@@ -1377,7 +1374,7 @@ class OpcodeExecutorBase:
         op = "is" if instr.arg == 0 else "is not"
         self.stack.push(
             BuiltinVariable(
-                SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
+                COMPARE_OP_NAME_TO_FN[op], self._graph, DanglingTracker()
             )(left, right)
         )
 
@@ -1394,7 +1391,7 @@ class OpcodeExecutorBase:
                 codeobj.value.co_qualname, self._graph, DummyTracker([codeobj])
             )
 
-        global_dict = self._globals.get_value()
+        global_dict = self.vframe.globals.get_value()
 
         related_list = [fn_name, codeobj]
 
@@ -1449,7 +1446,7 @@ class OpcodeExecutorBase:
             )
             self.push_new_fn_on_stack(
                 origin_codeobj.get_py_value(),
-                self._globals.get_value(),
+                self.vframe.globals.get_value(),
                 fn_name.get_py_value(),
                 default_args,
                 closure,
@@ -1594,7 +1591,7 @@ class OpcodeExecutorBase:
         op = "in" if instr.arg == 0 else "not in"
         self.stack.push(
             BuiltinVariable(
-                SUPPORT_COMPARE_OP[op], self._graph, DanglingTracker()
+                COMPARE_OP_NAME_TO_FN[op], self._graph, DanglingTracker()
             )(left, right)
         )
 
@@ -1673,7 +1670,7 @@ class OpcodeExecutorBase:
 
         if instr.argval >= 256:
             # NOTE: If the number of unpacked variables exceeds 256, python will report an error like:
-            # SyntaxError: too many expressions in star-unpacking assignmen,
+            # SyntaxError: too many expressions in star-unpacking assignment,
             # so if the number of unpacked variables exceeds 256, it will be treated as the following case.
             # a, b, *c, d = e
             front_nums = instr.arg & 0xFF
@@ -1886,22 +1883,20 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
     """
 
-    def __init__(self, frame: types.FrameType, **kwargs):
-        graph = FunctionGraph(frame, **kwargs)
-        self._frame = frame
+    def __init__(self, vframe: VirtualFrame, graph: FunctionGraph):
         self._name = "Executor"
         self.call_stack[:] = []
-        super().__init__(frame.f_code, graph)
+        super().__init__(vframe, graph)
         Dispatcher.graph = graph
 
-    def transform(self):
-        static_function = get_static_function(self._frame, "eval_frame")
+    def transform(self, frame: types.FrameType):
+        static_function = get_static_function(frame, "eval_frame")
         if static_function is not None:
-            code = self._frame.f_code
+            code = frame.f_code
             inputs = []
             for i in range(code.co_argcount):
                 arg_name = code.co_varnames[i]
-                value = self._locals[arg_name]
+                value = self.vframe.locals[arg_name]
                 inputs.append(value)
             output = self._graph.call_ast(static_function, *inputs)
             if output is not None:
@@ -1924,50 +1919,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
         Dispatcher.graph = None
         self.call_stack[:] = []
 
-    @event_register("OpcodeExecutor: _prepare_virtual_env", event_level=2)
-    def _prepare_virtual_env(self):
-        """
-        Prepare the virtual environment for execution by adding variables from locals, globals, builtins, and constants.
-
-        """
-        log(
-            3,
-            f"[Executor] code options: co_cellvars={self._frame.f_code.co_cellvars}\n",
-        )
-        free_or_cell_vars = (
-            self._frame.f_code.co_cellvars + self._frame.f_code.co_freevars
-        )
-        for name, value in self._frame.f_locals.items():
-            tracker = (
-                CellTracker(name)
-                if name in free_or_cell_vars
-                else LocalTracker(name)
-            )
-            self._locals[name] = VariableFactory.from_value(
-                value, self._graph, tracker, debug_name=name
-            )
-
-        for name in free_or_cell_vars:
-            # create a cell for each variable.
-            self._cells[name] = CellVariable()  # put in cells.
-            if name in self._locals:
-                self._cells[name].set_value(self._locals[name])
-
-        self._globals = GlobalVariable(
-            self._frame.f_globals,
-            self._graph,
-            DanglingTracker(),
-        )
-
-        self._builtins = self._graph._builtins
-
-        for value in self._code.co_consts:
-            self._co_consts.append(
-                VariableFactory.from_value(
-                    value, self._graph, ConstTracker(value)
-                )
-            )
-
     def FOR_ITER(self, instr):
         iterator = self.stack.pop()
         backup_iter_idx = None
@@ -1985,28 +1936,30 @@ class OpcodeExecutor(OpcodeExecutorBase):
         try:
             if not isinstance(iterator, SequenceIterVariable):
                 raise BreakGraphError(
-                    f"Can not simulate iterator of {type(iterator)}."
+                    UnsupportedIteratorBreak(
+                        f"Can not simulate iterator of {type(iterator)}."
+                    )
                 )
 
             backup_iter_idx = iterator.idx
 
             self._inline_call_for_loop(iterator, instr)
-            self._lasti = self.indexof(instr.jump_to)
+            self.vframe.lasti = self.indexof(instr.jump_to)
             if sys.version_info >= (3, 12):
-                assert self._instructions[self._lasti].opname == "END_FOR"
+                assert self._instructions[self.vframe.lasti].opname == "END_FOR"
                 # NOTE(SigureMo): From Python 3.12, END_FOR indicates the end of the for loop.
                 # But it's never executed, so we need to skip it.
                 # In Python 3.12, it equivalent to POP_TOP + POP_TOP (in one instruction)
                 # In Python 3.13, it equivalent to POP_TOP, and it common with other POP_TOP
                 skip_n_instrs = 2 if sys.version_info >= (3, 13) else 1
-                self._lasti += skip_n_instrs
+                self.vframe.lasti += skip_n_instrs
         except BreakGraphError as e:
             log(3, f"[BreakGraph] FOR_ITER sim for loop failed for: {e}\n")
             if backup_iter_idx:
                 iterator.idx = backup_iter_idx
             self._graph.remove_global_guarded_variable(iterator)
             self.stack.push(iterator)
-            if is_comprehensive_name(self._code.co_name):
+            if is_comprehensive_name(self.vframe.code.co_name):
                 # NOTE(SigureMo): The loop body of comprehensive will access the
                 # value out of the loop, so we simply fallback it now.
                 raise FallbackError(
@@ -2023,7 +1976,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         return self.compile_return(ret_val)
 
     def RETURN_CONST(self, instr: Instruction):
-        ret_const = self._co_consts[instr.arg]
+        ret_const = self.vframe.consts[instr.arg]
         return self.compile_return(ret_const)
 
     def compile_return(self, ret_val):
@@ -2108,8 +2061,15 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 and not is_pop_jump_branch
             ):
                 return None
-            cache_key = (ResumeFunctionType.IF_RESUME, self._code, start_idx)
-            resume_fn_creator = ResumeFunctionCreator(self._frame)
+            cache_key = (
+                ResumeFunctionType.IF_RESUME,
+                self.vframe.code,
+                start_idx,
+            )
+            resume_fn_creator = ResumeFunctionCreator(
+                self._graph.pycode_gen._origin_code,
+                self._graph.pycode_gen._real_globals,
+            )
             if (
                 maybe_resume_fn := resume_fn_creator.lookup(cache_key)
             ) is not None:
@@ -2159,11 +2119,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
         for name in true_fn_input_var_names[:-1]:
             if not self.has_var(name):
                 self._graph.pycode_gen.gen_load_const(SotUndefinedVar())
-                self._graph.pycode_gen.gen_store(name, self._code)
+                self._graph.pycode_gen.gen_store(name, self.vframe.code)
         for name in false_fn_input_var_names:
             if not self.has_var(name):
                 self._graph.pycode_gen.gen_load_const(SotUndefinedVar())
-                self._graph.pycode_gen.gen_store(name, self._code)
+                self._graph.pycode_gen.gen_store(name, self.vframe.code)
 
         # 4. compile codes before if
         update_var_names = list(true_fn_read_names | false_fn_read_names)
@@ -2264,8 +2224,15 @@ class OpcodeExecutor(OpcodeExecutorBase):
         def create_resume_fn(null_indices):
             if self._instructions[next_index].opname == "RETURN_VALUE":
                 return None
-            cache_key = (ResumeFunctionType.CALL_RESUME, self._code, next_index)
-            resume_fn_creator = ResumeFunctionCreator(self._frame)
+            cache_key = (
+                ResumeFunctionType.CALL_RESUME,
+                self.vframe.code,
+                next_index,
+            )
+            resume_fn_creator = ResumeFunctionCreator(
+                self._graph.pycode_gen._origin_code,
+                self._graph.pycode_gen._real_globals,
+            )
             if (
                 maybe_resume_fn := resume_fn_creator.lookup(cache_key)
             ) is not None:
@@ -2366,11 +2333,14 @@ class OpcodeExecutor(OpcodeExecutorBase):
         def create_loop_body():
             cache_key = (
                 ResumeFunctionType.LOOP_BODY_RESUME,
-                self._code,
+                self.vframe.code,
                 loop_body_start_idx,
                 loop_body_end_idx,
             )
-            resume_fn_creator = ResumeFunctionCreator(self._frame)
+            resume_fn_creator = ResumeFunctionCreator(
+                self._graph.pycode_gen._origin_code,
+                self._graph.pycode_gen._real_globals,
+            )
             if (
                 maybe_resume_fn := resume_fn_creator.lookup(cache_key)
             ) is not None:
@@ -2438,10 +2408,13 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 return None
             cache_key = (
                 ResumeFunctionType.AFTER_LOOP_RESUME,
-                self._code,
+                self.vframe.code,
                 loop_body_end_idx,
             )
-            resume_fn_creator = ResumeFunctionCreator(self._frame)
+            resume_fn_creator = ResumeFunctionCreator(
+                self._graph.pycode_gen._origin_code,
+                self._graph.pycode_gen._real_globals,
+            )
             if (
                 maybe_resume_fn := resume_fn_creator.lookup(cache_key)
             ) is not None:
@@ -2471,11 +2444,11 @@ class OpcodeExecutor(OpcodeExecutorBase):
         for name in loop_body_inputs[:-1]:
             if not self.has_var(name):
                 self._graph.pycode_gen.gen_load_const(SotUndefinedVar())
-                self._graph.pycode_gen.gen_store(name, self._code)
+                self._graph.pycode_gen.gen_store(name, self.vframe.code)
         for name in after_loop_fn_inputs:
             if not self.has_var(name):
                 self._graph.pycode_gen.gen_load_const(SotUndefinedVar())
-                self._graph.pycode_gen.gen_store(name, self._code)
+                self._graph.pycode_gen.gen_store(name, self.vframe.code)
 
         # 5. compile sub graph before for-loop
         update_names = list(
@@ -2526,7 +2499,7 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self._graph.pycode_gen.gen_unpack_sequence(len(loop_body_outputs))
 
         for name in loop_body_outputs[:-1]:
-            self._graph.pycode_gen.gen_store(name, self._code)
+            self._graph.pycode_gen.gen_store(name, self.vframe.code)
 
         # 8. create the tail of a for loop, jump back to FOR_ITER
         #    and process case if break
@@ -2597,11 +2570,14 @@ class OpcodeExecutor(OpcodeExecutorBase):
         def create_inline_call_fn():
             cache_key = (
                 ResumeFunctionType.LOOP_BODY_INLINE_CALL,
-                self._code,
+                self.vframe.code,
                 start_idx,
                 end_idx,
             )
-            resume_fn_creator = ResumeFunctionCreator(self._frame)
+            resume_fn_creator = ResumeFunctionCreator(
+                self._graph.pycode_gen._origin_code,
+                self._graph.pycode_gen._real_globals,
+            )
             if (
                 maybe_resume_fn := resume_fn_creator.lookup(cache_key)
             ) is not None:

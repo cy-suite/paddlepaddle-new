@@ -710,6 +710,10 @@ PHI_DEFINE_EXPORTED_int32(
     "If FLAGS_call_stack_level == 2, the python stack, c++ stack, and "
     "error message summary will be shown.");
 
+PHI_DEFINE_EXPORTED_bool(share_tensor_for_grad_tensor_holder,
+                         false,
+                         "CopyValueFromTensor do not deep copy, if true.");
+
 /**
  * Debug related FLAG
  * Name: sort_sum_gradient
@@ -1053,7 +1057,7 @@ PHI_DEFINE_EXPORTED_bool(
  * Name: FLAGS_deny_cinn_ops
  * Since Version: 3.0 Beta
  * Value Range: bool, default=-1
- * Example: FLAGS_cinn_compile_thread_nume=8
+ * Example: FLAGS_cinn_compile_thread_num=8
  */
 PHI_DEFINE_EXPORTED_int64(
     cinn_compile_thread_num,
@@ -1645,6 +1649,11 @@ PHI_DEFINE_EXPORTED_int32(
     "been dropped when you are profiling, try increasing this value.");
 
 PHI_DEFINE_EXPORTED_bool(print_ir, false, "Whether print ir debug str.");
+
+PHI_DEFINE_EXPORTED_bool(
+    comp_skip_default_ops,
+    true,
+    "Whether to skip decomposing comp op in default list (decomp_trans.cc).");
 
 PHI_DEFINE_EXPORTED_bool(
     prim_skip_dynamic,

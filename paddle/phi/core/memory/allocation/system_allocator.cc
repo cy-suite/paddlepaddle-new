@@ -11,7 +11,6 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License. */
-#define GLOG_NO_ABBREVIATED_SEVERITIES
 
 #include "paddle/phi/core/memory/allocation/system_allocator.h"
 
@@ -193,7 +192,7 @@ void GPUAllocator::Free(void* p, size_t size, size_t index) {
 bool GPUAllocator::UseGpu() const { return true; }
 
 // PINNED memory allows direct DMA transfers by the GPU to and from system
-// memory. It’s locked to a physical address.
+// memory. It's locked to a physical address.
 void* CUDAPinnedAllocator::Alloc(size_t* index, size_t size) {
   if (size <= 0) return nullptr;
 

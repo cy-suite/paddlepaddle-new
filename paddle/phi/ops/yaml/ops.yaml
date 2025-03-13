@@ -1944,7 +1944,7 @@
   interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : flash_attn_unpadded
-  args : (Tensor q, Tensor k, Tensor v, Tensor cu_seqlens_q,  Tensor cu_seqlens_k, Tensor fixed_seed_offset, Tensor attn_mask, int64_t max_seqlen_q, int64_t max_seqlen_k, float scale, float dropout = 0.0, bool causal = false, bool return_softmax = false, bool is_test = false, str rng_name = "")
+  args : (Tensor q, Tensor k, Tensor v, Tensor cu_seqlens_q,  Tensor cu_seqlens_k, Tensor fixed_seed_offset, Tensor attn_mask, Scalar max_seqlen_q, Scalar max_seqlen_k, float scale, float dropout = 0.0, bool causal = false, bool return_softmax = false, bool is_test = false, str rng_name = "")
   output : Tensor(out), Tensor(softmax), Tensor(softmax_lse), Tensor(seed_offset)
   optional :  fixed_seed_offset , attn_mask
   infer_meta :
@@ -1957,7 +1957,7 @@
   backward : flash_attn_unpadded_grad
 
 - op : flash_attn_varlen_qkvpacked
-  args : (Tensor qkv, Tensor cu_seqlens_q,  Tensor cu_seqlens_k, Tensor fixed_seed_offset, Tensor attn_mask, int64_t max_seqlen_q, int64_t max_seqlen_k, float scale, float dropout = 0.0, bool causal = false, bool return_softmax = false, bool is_test = false, str rng_name = "", bool varlen_padded = true)
+  args : (Tensor qkv, Tensor cu_seqlens_q,  Tensor cu_seqlens_k, Tensor fixed_seed_offset, Tensor attn_mask, Scalar max_seqlen_q, Scalar max_seqlen_k, float scale, float dropout = 0.0, bool causal = false, bool return_softmax = false, bool is_test = false, str rng_name = "", bool varlen_padded = true)
   output : Tensor(out), Tensor(softmax), Tensor(softmax_lse), Tensor(seed_offset)
   optional :  fixed_seed_offset , attn_mask
   infer_meta :
@@ -1977,6 +1977,7 @@
   infer_meta :
     func : FlashAttnInferMeta
     param : [q, k, v]
+    spmd_rule : FlashMaskInferSpmd
   kernel :
     func : flashmask_attention
     data_type : q
@@ -3171,6 +3172,18 @@
     data_type : x
   inplace : (x -> out)
   backward : lu_grad
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
+
+- op : lu_solve
+  args : (Tensor b, Tensor lu, Tensor pivots, str trans)
+  output : Tensor(out)
+  infer_meta :
+    func : UnchangedInferMeta
+    param : [b]
+  kernel :
+    func : lu_solve
+    data_type : b
+  backward : lu_solve_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : lu_unpack
@@ -4832,7 +4845,7 @@
   kernel :
     func : strided_slice
   backward : strided_slice_grad
-  # interfaces : paddle::dialect::InferSymbolicShapeInterface
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : sum
   args : (Tensor x, IntArray axis={}, DataType dtype=DataType::UNDEFINED, bool keepdim=false)

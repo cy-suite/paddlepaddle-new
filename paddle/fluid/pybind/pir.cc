@@ -50,6 +50,7 @@
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
 #include "paddle/fluid/pir/dialect/operator/trait/inplace.h"
 #include "paddle/fluid/pir/dialect/operator/utils/op_yaml_info_parser.h"
+#include "paddle/fluid/pir/dialect/operator/utils/shape_analysis_utils.h"
 #include "paddle/fluid/pir/dialect/operator/utils/utils.h"
 #include "paddle/fluid/pir/drr/include/drr_pattern_base.h"
 #include "paddle/fluid/pir/transforms/general/common_subexpression_elimination_pass.h"
@@ -80,6 +81,7 @@
 #include "paddle/pir/include/dialect/shape/ir/shape_attribute.h"
 #include "paddle/pir/include/dialect/shape/ir/shape_dialect.h"
 #include "paddle/pir/include/dialect/shape/transforms/shape_optimization_pass.h"
+#include "paddle/pir/include/dialect/shape/utils/original_attributes_filter.h"
 #include "paddle/pir/include/pass/pass.h"
 #include "paddle/pir/include/pass/pass_manager.h"
 #include "paddle/pir/include/pass/pass_registry.h"
@@ -982,6 +984,11 @@ void BindOperation(py::module *m) {
                  attrs_dict[pair.first.c_str()] =
                      pair.second.dyn_cast<OperationDistAttribute>();
                } else {
+                 if (pair.second.isa<pir::FloatAttribute>()) {
+                   VLOG(2) << "The value is stored with float32 precision, "
+                              "which may cause precision issues for higher "
+                              "precision requirements.";
+                 }
                  attrs_dict[pair.first.c_str()] =
                      paddle::dialect::GetAttributeData(pair.second);
                }
@@ -1554,6 +1561,8 @@ void BindValue(py::module *m) {
       .def("apply", &apply)
       .def("is_same", &Value::operator==)
       .def("hash", [](Value self) { return std::hash<pir::Value>{}(self); })
+      .def("element_size",
+           [](Value self) { return phi::SizeOf(pir::GetValueDtype(self)); })
       .def("_rename", &name_analysis::RenameValue)
       .def("_has_only_one_name",
            [](Value self) -> bool {
@@ -2546,7 +2555,7 @@ void ApplyCinnPass(Program &program) {  // NOLINT
     ctx->GetOrRegisterDialect<cinn::dialect::OperatorDialect>();
     ctx->GetOrRegisterDialect<pir::shape::ShapeDialect>();
     auto pass_manager = std::make_shared<pir::PassManager>(ctx);
-    if (FLAGS_print_ir) {
+    if (FLAGS_print_ir && VLOG_IS_ON(4)) {
       pass_manager->EnableIRPrinting();
     }
     auto &shape_analysis = pir::ShapeAnalysisManager::Instance().Get(&program);
@@ -2589,6 +2598,8 @@ void InferSymbolicShapePass(
     pir::Program &program) {                          // NOLINT
   pir::IrContext *ctx = pir::IrContext::Instance();
   ctx->GetOrRegisterDialect<pir::shape::ShapeDialect>();
+  pir::OriginalAttributesFilter::Instance().SetOriginalAttributesMap(
+      paddle::dialect::GetAllOpOriginalAttributes());
   pass_manager->AddPass(pir::CreateShapeOptimizationPass());
 }
 
