@@ -47,27 +47,9 @@ SpmdInfo ExpandInferSpmd(const DistMetaTensor& x, const IntArray& shape) {
 SpmdInfo ExpandGradInferSpmd(const DistMetaTensor& x,
                              const DistMetaTensor& out_grad,
                              const IntArray& shape) {
-  // std::vector<int> reduce_dims = funcs::GetReduceDim(x.dims(),
-  // out_grad.dims(), -1); EXTRACT_SHAPE_AND_DIST_ATTR(x);
-  EXTRACT_SHAPE_AND_DIST_ATTR(out_grad);
-  // auto expand_shape = shape.GetData();
-  // int diff = out_grad_shape.size() -  expand_shape.size();
-  // std::vector<int64_t> x_dims_mapping(shape.size());
-  // for (int i = expand_shape.size() - 1; i >= diff; --i) {
-
-  // std::vector<int64_t> x_dims_mapping;
-  // for (size_t i = 0; i < out_grad_dims_mapping_src.size(); ++i) {
-  //   if (std::find(reduce_dims.begin(), reduce_dims.end(), i) ==
-  //   reduce_dims.end()) {
-  //     x_dims_mapping.push_back(out_grad_dims_mapping_src[i]);
-  //   }
-  // }
-  // TensorDistAttr x_grad_dist_attr =
-  // CopyTensorDistAttrForOutput(out_grad.dist_attr());
-  // x_grad_dist_attr.set_dims_mapping(x_dims_mapping);
-
-  // return {{x_grad_dist_attr}, {out_grad_dist_attr_src}};
-  return {{out_grad_dist_attr_src}, {out_grad_dist_attr_src}};
+  // TODO(lizhenxing): Support remove redundant dim
+  EXTRACT_SHAPE_AND_DIST_ATTR(x);
+  return {{x_dist_attr_src, x_dist_attr_src}, {x_dist_attr_src}};
 }
 
 }  // namespace phi::distributed
