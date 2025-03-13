@@ -872,10 +872,9 @@ ExprTransformer RemoveAllAppendIfTransformer() {
   const auto is_appeend_var_in_cond = [](const ir::Expr& if_expr) {
     auto cond = if_expr.As<ir::IfThenElse>()->condition.As<ir::EQ>();
     if (!cond) return false;
-    auto all_vars = ExprSetFinderUtils::ChildVars(cond->a());
-    return std::any_of(all_vars.begin(), all_vars.end(), [](const ir::Expr& v) {
-      return v.as_var()->name.find("append") != std::string::npos;
-    });
+    for (const auto& var : ExprSetFinderUtils::ChildVars(cond->a())) {
+      if (var.as_var()->name.find("append") != std::string::npos) return true;
+    }
     return false;
   };
   return RemoveTargetIfTransformer(is_appeend_var_in_cond);
@@ -885,10 +884,10 @@ ExprTransformer EliminateUselessIfTransformer() {
   const auto has_useless_cond = [](const ir::Expr& if_expr) {
     auto cond = if_expr.As<ir::IfThenElse>()->condition.As<ir::EQ>();
     if (!cond) return false;
-    auto all_vars = ExprSetFinderUtils::ChildVars(cond->a());
-    return std::all_of(all_vars.begin(), all_vars.end(), [](const ir::Expr& v) {
-      return v.as_var()->is_symbolic_constant;
-    });
+    for (const auto& var : ExprSetFinderUtils::ChildVars(cond->a())) {
+      if (!var.as_var()->is_symbolic_constant) return false;
+    }
+    return true;
   };
   return RemoveTargetIfTransformer(has_useless_cond);
 }
