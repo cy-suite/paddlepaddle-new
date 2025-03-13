@@ -18,6 +18,7 @@
 #include "paddle/phi/backends/device_guard.h"
 #include "paddle/phi/backends/device_manager.h"
 #include "paddle/phi/core/device_context.h"
+#include "paddle/phi/core/enforce.h"
 #include "paddle/phi/kernels/funcs/concat_and_split_functor.h"
 
 namespace paddle {
@@ -47,6 +48,49 @@ struct SplitDenseTensor {
     }
     phi::funcs::SplitFunctor<DeviceContext, T> split_functor;
     split_functor(context, in, shape_refer, axis, out);
+  }
+};
+
+template <typename DeviceContext, typename T>
+struct SplitDenseTensorByNumel {
+  void operator()(const DeviceContext &context,
+                  const phi::DenseTensor &in,
+                  std::vector<phi::DenseTensor *> *out,
+                  int axis = 0) {
+    auto in_dims = common::vectorize(in.dims());
+    auto flattened_in_dims = {in.numel()};
+    std::vector<std::vector<int64_t>> origin_out_dims;
+    std::vector<const phi::DenseTensor *> shape_refer;
+
+    phi::DenseTensor in_flatten(in.Holder(), in.meta());
+    in_flatten.Resize(flattened_in_dims);
+    int64_t out_numel_sum = 0;
+
+    for (auto *tensor : *out) {
+      auto tensor_dims = common::vectorize(tensor->dims());
+      origin_out_dims.push_back(tensor_dims);
+      std::vector<int64_t> new_dims = {tensor->numel()};
+      if (tensor_dims.size() != new_dims.size()) {
+        // flatten
+        tensor->Resize(common::make_ddim(new_dims));
+      }
+      shape_refer.emplace_back(tensor);
+      out_numel_sum += tensor->numel();
+    }
+    PADDLE_ENFORCE_EQ(
+        in.numel(),
+        out_numel_sum,
+        common::errors::Unimplemented("Numel of in of out must be equal"));
+
+    phi::funcs::SplitFunctor<DeviceContext, T> split_functor;
+    split_functor(context, in_flatten, shape_refer, axis, out);
+    for (size_t i = 0; i < out->size(); ++i) {
+      auto tensor = (*out)[i];
+      auto tensor_dims = common::vectorize(tensor->dims());
+      if (tensor_dims.size() != origin_out_dims[i].size()) {
+        tensor->Resize(common::make_ddim(origin_out_dims[i]));
+      }
+    }
   }
 };
 
@@ -85,6 +129,46 @@ struct SplitDenseTensor<phi::CustomContext, T> {
     VLOG(10) << "SplitDenseTensor: " << out->size();
     auto kernel_result =
         phi::KernelFactory::Instance().SelectKernelOrThrowError(
+            "split_with_num",
+            phi::KernelKey(phi::TransToPhiBackend(context.GetPlace()),
+                           phi::DataLayout::ALL_LAYOUT,
+                           phi::CppTypeToDataType<T>::Type()));
+    const auto &kernel = kernel_result.kernel;
+    using kernel_signature = void (*)(const phi::DeviceContext &,
+                                      const phi::DenseTensor &,
+                                      int,
+                                      const phi::Scalar &,
+                                      std::vector<phi::DenseTensor *>);
+    auto *kernel_fn = kernel.GetVariadicKernelFn<kernel_signature>();
+    auto in_dims = common::vectorize(in.dims());
+    auto origin_out_dims = common::vectorize(out->at(0)->dims());
+    for (auto *tensor : *out) {
+      if (origin_out_dims.size() != in_dims.size()) {
+        std::vector<int> new_dims({1});
+        new_dims.insert(
+            new_dims.end(), origin_out_dims.begin(), origin_out_dims.end());
+        tensor->Resize(common::make_ddim(new_dims));
+      }
+    }
+    (*kernel_fn)(context, in, out->size(), phi::Scalar(0), *out);
+    for (auto *tensor : *out) {
+      auto tensor_dims = common::vectorize(tensor->dims());
+      if (tensor_dims.size() != origin_out_dims.size()) {
+        tensor->Resize(common::make_ddim(origin_out_dims));
+      }
+    }
+  }
+};
+
+template <typename T>
+struct SplitDenseTensorByNumel<phi::CustomContext, T> {
+  void operator()(const phi::CustomContext &context,
+                  const phi::DenseTensor &in,
+                  std::vector<phi::DenseTensor *> *out,
+                  int axis UNUSED = 0) {
+    VLOG(10) << "SplitDenseTensorByNumel: " << out->size();
+    auto kernel_result =
+        phi::KernelFactory::Instance().SelectKernelOrThrowError(
             "split",
             phi::KernelKey(phi::TransToPhiBackend(context.GetPlace()),
                            phi::DataLayout::ALL_LAYOUT,
@@ -104,6 +188,7 @@ struct SplitDenseTensor<phi::CustomContext, T> {
 
     phi::DenseTensor in_flatten(in.Holder(), in.meta());
     in_flatten.Resize(flattened_in_dims);
+    int64_t out_numel_sum = 0;
 
     for (auto *tensor : *out) {
       auto tensor_dims = common::vectorize(tensor->dims());
@@ -115,7 +200,13 @@ struct SplitDenseTensor<phi::CustomContext, T> {
         // flatten
         tensor->Resize(common::make_ddim(new_dims));
       }
+      out_numel_sum += tensor->numel();
     }
+    PADDLE_ENFORCE_EQ(
+        in.numel(),
+        out_numel_sum,
+        common::errors::Unimplemented("Numel of in of out must be equal"));
+
     (*kernel_fn)(
         context, in_flatten, phi::IntArray(sections), phi::Scalar(0), *out);
     for (size_t i = 0; i < out->size(); ++i) {
@@ -245,6 +336,47 @@ void SplitDenseTensorWithType(const DeviceContext &dev_ctx,
   }
 }
 
+template <typename DeviceContext>
+void SplitDenseTensorByNumelWithType(const DeviceContext &dev_ctx,
+                                     const phi::DenseTensor &t_in,
+                                     std::vector<phi::DenseTensor *> *p_list,
+                                     phi::DataType type) {
+  switch (type) {
+    case phi::DataType::BOOL:
+      SplitDenseTensorByNumel<DeviceContext, bool>()(dev_ctx, t_in, p_list);
+      break;
+    case phi::DataType::UINT8:
+      SplitDenseTensorByNumel<DeviceContext, uint8_t>()(dev_ctx, t_in, p_list);
+      break;
+    case phi::DataType::INT8:
+      SplitDenseTensorByNumel<DeviceContext, int8_t>()(dev_ctx, t_in, p_list);
+      break;
+    case phi::DataType::INT32:
+      SplitDenseTensorByNumel<DeviceContext, int32_t>()(dev_ctx, t_in, p_list);
+      break;
+    case phi::DataType::INT64:
+      SplitDenseTensorByNumel<DeviceContext, int64_t>()(dev_ctx, t_in, p_list);
+      break;
+    case phi::DataType::FLOAT16:
+      SplitDenseTensorByNumel<DeviceContext, phi::dtype::float16>()(
+          dev_ctx, t_in, p_list);
+      break;
+    case phi::DataType::BFLOAT16:
+      SplitDenseTensorByNumel<DeviceContext, phi::dtype::bfloat16>()(
+          dev_ctx, t_in, p_list);
+      break;
+    case phi::DataType::FLOAT32:
+      SplitDenseTensorByNumel<DeviceContext, float>()(dev_ctx, t_in, p_list);
+      break;
+    case phi::DataType::FLOAT64:
+      SplitDenseTensorByNumel<DeviceContext, double>()(dev_ctx, t_in, p_list);
+      break;
+    default:
+      PADDLE_THROW(common::errors::Unimplemented(
+          "Data type (%s) is not supported when it splits tensors.", type));
+  }
+}
+
 #ifdef PADDLE_WITH_XPU
 template <>
 void SplitDenseTensorWithType(const phi::XPUContext &dev_ctx,
@@ -271,6 +403,40 @@ void SplitDenseTensorWithType(const phi::XPUContext &dev_ctx,
       break;
     case phi::DataType::UINT8:
       SplitDenseTensor<phi::XPUContext, uint8_t>()(dev_ctx, t_in, p_list);
+      break;
+    default:
+      PADDLE_THROW(common::errors::Unimplemented(
+          "Data type (%s) is not supported when it splits tensors.", type));
+  }
+}
+template <>
+void SplitDenseTensorByNumelWithType(const phi::XPUContext &dev_ctx,
+                                     const phi::DenseTensor &t_in,
+                                     std::vector<phi::DenseTensor *> *p_list,
+                                     phi::DataType type) {
+  switch (type) {
+    case phi::DataType::FLOAT16:
+      SplitDenseTensorByNumel<phi::XPUContext, phi::dtype::float16>()(
+          dev_ctx, t_in, p_list);
+      break;
+    case phi::DataType::BFLOAT16:
+      SplitDenseTensorByNumel<phi::XPUContext, phi::dtype::bfloat16>()(
+          dev_ctx, t_in, p_list);
+      break;
+    case phi::DataType::FLOAT32:
+      SplitDenseTensorByNumel<phi::XPUContext, float>()(dev_ctx, t_in, p_list);
+      break;
+    case phi::DataType::INT32:
+      SplitDenseTensorByNumel<phi::XPUContext, int32_t>()(
+          dev_ctx, t_in, p_list);
+      break;
+    case phi::DataType::INT64:
+      SplitDenseTensorByNumel<phi::XPUContext, int64_t>()(
+          dev_ctx, t_in, p_list);
+      break;
+    case phi::DataType::UINT8:
+      SplitDenseTensorByNumel<phi::XPUContext, uint8_t>()(
+          dev_ctx, t_in, p_list);
       break;
     default:
       PADDLE_THROW(common::errors::Unimplemented(
@@ -380,6 +546,65 @@ void SplitTensor(const phi::DeviceContext &dev_ctx,
                              tensor,
                              &dense_list,
                              tensor.dtype());
+  } else {
+    PADDLE_THROW(common::errors::Unimplemented(
+        "Split tensor not supported on place (%s)", place));
+  }
+}
+
+void SplitTensorByNumel(const phi::DeviceContext &dev_ctx,
+                        const phi::DenseTensor &tensor,
+                        const std::vector<Tensor> *tensor_list) {
+  std::vector<phi::DenseTensor *> dense_list;
+  for (auto &tensor : *tensor_list) {
+    auto *p_tensor =
+        std::dynamic_pointer_cast<phi::DenseTensor>(tensor.impl()).get();
+    dense_list.emplace_back(p_tensor);
+  }
+
+  const auto &place = dev_ctx.GetPlace();
+  if (phi::is_gpu_place(place)) {
+#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
+    SplitDenseTensorByNumelWithType(
+        static_cast<const phi::GPUContext &>(dev_ctx),
+        tensor,
+        &dense_list,
+        tensor.dtype());
+#else
+    PADDLE_THROW(common::errors::PermissionDenied(
+        "Paddle can't split tensor since it's not support GPU, please "
+        "recompile or reinstall Paddle with GPU support."));
+#endif
+  } else if (phi::is_xpu_place(place)) {
+#ifdef PADDLE_WITH_XPU
+    SplitDenseTensorByNumelWithType(
+        static_cast<const phi::XPUContext &>(dev_ctx),
+        tensor,
+        &dense_list,
+        tensor.dtype());
+#else
+    PADDLE_THROW(common::errors::PermissionDenied(
+        "Paddle can't split tensor since it's not compiled with XPU, "
+        "please recompile or reinstall Paddle with XPU support."));
+#endif
+  } else if (phi::is_custom_place(place)) {
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+    SplitDenseTensorByNumelWithType(
+        static_cast<const phi::CustomContext &>(dev_ctx),
+        tensor,
+        &dense_list,
+        tensor.dtype());
+#else
+    PADDLE_THROW(common::errors::PermissionDenied(
+        "Paddle can't split tensor since it's not compiled with CUSTOM_DEVICE, "
+        "please recompile or reinstall Paddle with CUSTOM_DEVICE support."));
+#endif
+  } else if (phi::is_cpu_place(place)) {
+    SplitDenseTensorByNumelWithType(
+        static_cast<const phi::CPUContext &>(dev_ctx),
+        tensor,
+        &dense_list,
+        tensor.dtype());
   } else {
     PADDLE_THROW(common::errors::Unimplemented(
         "Split tensor not supported on place (%s)", place));

@@ -542,6 +542,31 @@ class TestDistBase(unittest.TestCase):
             np.testing.assert_allclose(
                 tr1_out, need_result2, rtol=1e-05, atol=1e-05
             )
+        elif col_type == "alltoall_unequal_split":
+            half_dim0 = input1.shape[0] // 2
+            half_dim1 = input1.shape[1] // 2
+            need_result1 = np.concatenate(
+                [
+                    input1[: half_dim0 - 1, : half_dim1 - 1].flatten(),
+                    input2[half_dim0 - 1 :, : half_dim1 - 2].flatten(),
+                ],
+                axis=0,
+            )
+            need_result2 = np.concatenate(
+                [
+                    input1[: half_dim0 - 1, half_dim1 - 1 :].flatten(),
+                    input2[half_dim0 - 1 :, half_dim1 - 2 :].flatten(),
+                ],
+                axis=0,
+            )
+            tr0_out = np.concatenate([out.flatten() for out in tr0_out])
+            tr1_out = np.concatenate([out.flatten() for out in tr1_out])
+            np.testing.assert_allclose(
+                tr0_out, need_result1, rtol=1e-05, atol=1e-05
+            )
+            np.testing.assert_allclose(
+                tr1_out, need_result2, rtol=1e-05, atol=1e-05
+            )
         elif col_type == "sendrecv":
             result_data = tr1_out[0]
             np.testing.assert_allclose(

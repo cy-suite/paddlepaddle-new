@@ -52,8 +52,8 @@ def _all_to_all_tensor_in_dygraph(
 
 
 def _all_to_all_in_dygraph(
-    out_tensor_list: Tensor,
-    in_tensor_list: Tensor,
+    out_tensor_list: Sequence[Tensor],
+    in_tensor_list: Sequence[Tensor],
     group: Group,
     sync_op: bool,
     use_calc_stream: bool,

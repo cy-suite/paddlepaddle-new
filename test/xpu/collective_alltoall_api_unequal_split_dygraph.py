@@ -12,14 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import legacy_test.test_collective_api_base as test_base
+import test_collective_api_base as test_base
 
 import paddle
 import paddle.distributed as dist
 from paddle import base
 
 
-class TestCollectiveAllToAllAPI(test_base.TestCollectiveAPIRunnerBase):
+class TestCollectiveAllToAllAPIUnequalSplit(
+    test_base.TestCollectiveAPIRunnerBase
+):
     def __init__(self):
         self.global_ring_id = 0
 
@@ -74,4 +76,6 @@ class TestCollectiveAllToAllAPI(test_base.TestCollectiveAPIRunnerBase):
 
 
 if __name__ == "__main__":
-    test_base.runtime_main(TestCollectiveAllToAllAPI, "alltoall")
+    test_base.runtime_main(
+        TestCollectiveAllToAllAPIUnequalSplit, "alltoall_unequal_split"
+    )

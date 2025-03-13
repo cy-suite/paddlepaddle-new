@@ -361,7 +361,7 @@ void BindDistributed(py::module *m) {
                                           sync_op);
                 auto *dev_ctx =
                     self.GetDeviceContext(in_tensor_list.back().place());
-                SplitTensor(*dev_ctx, *out_dense, &out_tensor_list);
+                SplitTensorByNumel(*dev_ctx, *out_dense, &out_tensor_list);
                 task->UpdateWaitChain(*dev_ctx);
                 return task;
               },
@@ -953,7 +953,7 @@ void BindDistributed(py::module *m) {
                                           /*use_calc_stream*/ true);
                 auto *dev_ctx = self.GetDeviceContext(
                     in_tensor_list.back().place(), /*use_calc_stream*/ true);
-                SplitTensor(*dev_ctx, *out_dense, &out_tensor_list);
+                SplitTensorByNumel(*dev_ctx, *out_dense, &out_tensor_list);
                 return task;
               },
               py::arg("out"),
