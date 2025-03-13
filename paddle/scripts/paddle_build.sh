@@ -991,7 +991,7 @@ function check_run_sot_ci() {
     )
 
     run_sot_ut="OFF"
-    for change_file in $(git diff --name-only upstream/develop);
+    for change_file in $(git diff --name-only upstream/$BRANCH);
     do
         for sot_file in ${SOT_FILE_LIST[@]};
         do
