@@ -113,6 +113,36 @@ class TestMeanOp_ZeroDim(OpTest):
         self.check_grad(['X'], 'Out', check_pir=True, check_prim_pir=True)
 
 
+class TestMeanOp_ZeroSize(OpTest):
+    def setUp(self):
+        self.op_type = "mean"
+        self.python_api = paddle.mean
+        self.dtype = np.float64
+        self.public_python_api = paddle.mean
+        self.inputs = {'X': np.array([]).astype(self.dtype)}
+        self.outputs = {'Out': np.nan}
+
+    def test_check_output(self):
+        self.check_output(check_pir=True)
+
+    def test_checkout_grad(self):
+        self.check_grad(['X'], 'Out', check_pir=True, check_prim_pir=True)
+
+
+class TestMeanOp_ZeroSize3D(TestMeanOp_ZeroSize):
+    def setUp(self):
+        self.op_type = 'mean'
+        self.python_api = paddle.mean
+        self.dtype = np.float64
+        self.public_python_api = paddle.mean
+        self.shape = [2, 0, 4]
+
+        x_np = np.random.uniform(-1, 1, self.shape).astype(self.dtype)
+        out_np = np.nan
+        self.inputs = {'X': x_np}
+        self.outputs = {'Out': out_np}
+
+
 class TestMeanAllOp_ZeroDim(OpTest):
     def setUp(self):
         self.op_type = "mean_all"
