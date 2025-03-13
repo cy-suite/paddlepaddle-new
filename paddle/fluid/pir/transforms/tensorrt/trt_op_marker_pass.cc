@@ -2374,13 +2374,7 @@ bool CheckSetValue(const pir::Operation *op, int starts_input_loc = 1) {
                "enter into trt.";
     return false;
   }
-  auto decrease_axes = op->attribute<pir::ArrayAttribute>("decrease_axes");
-  if (decrease_axes.size() != 0) {
-    VLOG(3) << "the set_value op doesn't support decrease_axes attribute "
-               "currently, it can not "
-               "enter into trt.";
-    return false;
-  }
+
   return true;
 }
 
