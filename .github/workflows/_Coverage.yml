@@ -31,20 +31,18 @@ jobs:
     - name: Download paddle.tar.gz and update test branch
       run: |
         rm -rf * .[^.]*
-        set -ex
+        set -e
+        echo "Downloading Paddle.tar.gz"
         wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/Paddle/${PR_ID}/${COMMIT_ID}/Paddle.tar.gz --no-check-certificate
+        echo "Extracting Paddle.tar.gz"
         tar xf Paddle.tar.gz --strip-components=1
         rm Paddle.tar.gz
-        git config --list
         git config --global user.name "PaddleCI"
         git config --global user.email "paddle_ci@example.com"
-        git config --list
-        git config --global --list
         git remote add upstream https://github.com/PaddlePaddle/Paddle.git
-        git config --list
-        git config --global --list
         # . ../../../proxy
         git checkout test
+        echo "Pull upstream develop"
         git pull upstream develop --no-edit
 
     - name: Check bypass
@@ -132,7 +130,7 @@ jobs:
         docker exec -t ${{ env.container_name }} /bin/bash -c '
         mkdir -p /home/data/cfs/.cache/coverage
         mkdir -p /home/data/cfs/.ccache/coverage
-        # . ../../../proxy
+        . ../../../unproxy
         bash $ci_scripts/coverage_build.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} coverage "" ${{ github.env }}
         '
 
