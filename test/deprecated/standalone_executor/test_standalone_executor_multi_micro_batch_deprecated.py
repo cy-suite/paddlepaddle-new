@@ -16,6 +16,7 @@
 import platform
 import unittest
 
+import base
 import numpy as np
 
 import paddle
@@ -30,6 +31,7 @@ paddle.enable_static()
 
 class TestEncoderMultiMicroBatchRun(unittest.TestCase):
     def setUp(self):
+        base.set_flags({'FLAGS_enable_pir_api': 1})
         self.place_desc = (
             paddle.CUDAPlace(0)
             if core.is_compiled_with_cuda()
