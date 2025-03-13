@@ -129,6 +129,10 @@ ENV_SOT_ENABLE_FASTER_GUARD = BooleanEnvironmentVariable(
     "SOT_ENABLE_FASTER_GUARD",
     False,
 )
+ENV_SOT_ENABLE_STRICT_GUARD_CHECK = BooleanEnvironmentVariable(
+    "SOT_ENABLE_STRICT_GUARD_CHECK",
+    False,
+)
 ENV_SOT_ENABLE_GUARD_TREE = BooleanEnvironmentVariable(
     "SOT_ENABLE_GUARD_TREE",
     False,
@@ -141,6 +145,7 @@ ENV_SOT_BREAK_GRAPH_ON_GET_SYMBOLIC_VALUE = BooleanEnvironmentVariable(
     "SOT_BREAK_GRAPH_ON_GET_SYMBOLIC_VALUE", False
 )
 ENV_SOT_COLLECT_INFO = PEP508LikeEnvironmentVariable("SOT_COLLECT_INFO", {})
+ENV_SOT_SERIALIZE_INFO = BooleanEnvironmentVariable("SOT_SERIALIZE_INFO", False)
 ENV_SOT_FORCE_FALLBACK_SIR_IDS = StringEnvironmentVariable(
     "SOT_FORCE_FALLBACK_SIR_IDS", ""
 )

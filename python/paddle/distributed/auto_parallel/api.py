@@ -1167,6 +1167,8 @@ class _ShardOptimizer(Optimizer):
                 self._inner_opt._master_weights[param.name] = (
                     self._shard_fn.shard_master_weight(param, master_weight)
                 )
+                self._inner_opt._master_weights[param.name].name = target_name
+
         # shard the accumulators
         for key in self._inner_opt._accumulators.keys():
             accumulator = self._inner_opt._accumulators[key][target_name]
@@ -1414,14 +1416,12 @@ class _ShardingStageBase:
         self, param: Tensor, master_weight: Tensor
     ) -> Tensor:
         if param.is_dist():
+            placements = get_placement_with_sharding(param, self._sharding_axis)
             if isinstance(master_weight, pir.Value):
                 data_op = master_weight.get_defining_op()
                 assert (
                     data_op.name() == "pd_op.data"
                 ), "The master weight must be a result of data op."
-                placements = get_placement_with_sharding(
-                    param, self._sharding_axis
-                )
                 dim_map, partial_status = to_dim_map(
                     placements, len(master_weight.shape)
                 )
@@ -1438,6 +1438,13 @@ class _ShardingStageBase:
                     paddle.base.libpaddle.pir.create_op_dist_attribute(
                         param.process_mesh, [], [dist_attr]
                     )
+                )
+
+            if paddle.in_dynamic_mode() and master_weight.is_dist():
+                master_weight = reshard(
+                    master_weight,
+                    mesh=param.process_mesh,
+                    placements=placements,
                 )
         return master_weight
 
@@ -3231,24 +3238,9 @@ def unshard_dtensor(dist_tensor: Tensor) -> Tensor:
         return dist_tensor
 
     else:
-        assert isinstance(
-            dist_tensor, Variable
-        ), f"the input type of 'unshard_dtensor' should be Variable, but got [{dist_tensor}]"
-        # in static mode, 'distributed tensor' and 'dense tensor' are all
-        # Variable type, the distributed attribute is a property of the Variable.
-        # So, it's no need to convert the distributed tensor to a dense tensor.
-        # We only need to modify its distributed attribute.
-        empty_dist_attr = (
-            dist.auto_parallel.static.dist_attribute.TensorDistAttr()
+        raise NotImplementedError(
+            "`unshard_dtensor()` only supported in dynamic and pir mode."
         )
-        dist_tensor.dist_attr = empty_dist_attr
-
-        # remove the distributed tensor from dist_context
-        default_dist_ctx = get_default_distributed_context()
-        serial_tensor_id = dist_tensor.desc.original_id()
-        default_dist_ctx._dist_tensors_for_program.pop(serial_tensor_id, None)
-
-        return dist_tensor
 
 
 class ShardDataloader:
@@ -3374,6 +3366,7 @@ class ShardDataloader:
             )
         # Note(lizhiyu): In dygraph mode, the flag "pin_memory" is default "True", but it decrease the speed of `AutoParallel`
         self._dataloader.pin_memory = False
+        self.iter = None
         self.dense_tensor_idx = dense_tensor_idx
 
     def _process_shard_dims(self, shard_dims):
@@ -3568,10 +3561,15 @@ class ShardDataloader:
                         f"Unsupported input_data type {type(input_data)}"
                     )
             return dist_batch_data
+        elif isinstance(batch_data, paddle.Tensor):
+            mesh, placements = self._get_mesh_and_placement(0)
+            return dtensor_from_local(batch_data, mesh, placements)
         else:
             raise ValueError(f"Unsupported batch_data type {type(batch_data)}")
 
     def __next__(self):
+        if self.iter is None:
+            self.iter = self._dataloader.__iter__()
         batch_data = next(self.iter)
         return self._get_batch(batch_data)
 
