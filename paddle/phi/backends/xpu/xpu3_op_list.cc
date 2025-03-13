@@ -332,6 +332,8 @@ XPUOpMap& get_kl3_ops() {
        XPUKernelSet({phi::DataType::FLOAT32,
                      phi::DataType::FLOAT16,
                      phi::DataType::BFLOAT16})},
+      {"conv3d_transpose",
+       XPUKernelSet({phi::DataType::FLOAT32, phi::DataType::FLOAT16})},
       {"conv2d_transpose_grad", XPUKernelSet({phi::DataType::FLOAT32})},
       {"conv2d_transpose",
        XPUKernelSet({phi::DataType::FLOAT32, phi::DataType::FLOAT16})},
@@ -1738,6 +1740,17 @@ XPUOpMap& get_kl3_ops() {
       {"blha_get_max_len",
        XPUKernelSet({phi::DataType::INT32, phi::DataType::INT64})},
       {"block_multihead_attention_xpu", XPUKernelSet({phi::DataType::FLOAT16})},
+      {"full_with_tensor",
+       XPUKernelSet({phi::DataType::FLOAT32,
+                     phi::DataType::FLOAT16,
+                     phi::DataType::BFLOAT16,
+                     phi::DataType::FLOAT64,
+                     phi::DataType::BOOL,
+                     phi::DataType::INT8,
+                     phi::DataType::UINT8,
+                     phi::DataType::INT16,
+                     phi::DataType::INT64,
+                     phi::DataType::INT32})},
   };
 
   return s_xpu3_kernels;
