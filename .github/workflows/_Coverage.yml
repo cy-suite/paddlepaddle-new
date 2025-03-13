@@ -125,6 +125,7 @@ jobs:
         docker exec -t ${{ env.container_name }} /bin/bash -c '
         mkdir -p /home/data/cfs/.cache/coverage
         mkdir -p /home/data/cfs/.ccache/coverage
+        . ../../../proxy
         bash $ci_scripts/coverage_build.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} coverage "" ${{ github.env }}
         '
 
@@ -132,6 +133,7 @@ jobs:
       if: steps.check-bypass.outputs.can_skip != 'true'
       run: |
         docker exec -t ${{ env.container_name }} /bin/bash -c '
+        . ../../../proxy
         bash $ci_scripts/coverage_check_added_ut.sh
         '
 
@@ -139,6 +141,7 @@ jobs:
       if: steps.check-bypass.outputs.can_skip != 'true'
       run: |
         docker exec -t ${{ env.container_name }} /bin/bash -c '
+        . ../../../proxy
         bash $ci_scripts/coverage_check_build_size_approval.sh
         '
 
@@ -291,6 +294,7 @@ jobs:
     - name: Check coverage data
       run: |
         docker exec -t ${{ env.container_name }} /bin/bash -c '
+        . ../../../proxy
         source ${ci_scripts}/utils.sh; check_coverage
         EXIT_CODE=$?
         '
