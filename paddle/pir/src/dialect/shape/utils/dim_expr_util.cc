@@ -14,6 +14,7 @@
 
 #include "paddle/pir/include/dialect/shape/utils/dim_expr_util.h"
 #include <numeric>
+#include "paddle/pir/include/dialect/shape/utils/dim_expr.h"
 
 namespace symbol {
 
@@ -88,6 +89,27 @@ struct SimplifyDoubleNeg {
       return ret_expr;
     } else if (inner_expr.Has<std::int64_t>()) {
       return -inner_expr.Get<std::int64_t>();
+    } else if (inner_expr.Has<Mul<DimExpr>>()) {
+      std::vector<DimExpr> mut_operands =
+          *inner_expr.Get<Mul<DimExpr>>().operands;
+      mut_operands.erase(std::remove_if(mut_operands.begin(),
+                                        mut_operands.end(),
+                                        [](DimExpr x) {
+                                          return x.Has<std::int64_t>() &&
+                                                 x.Get<std::int64_t>() == -1;
+                                        }),
+                         mut_operands.end());
+      if (mut_operands.size() == 1) {
+        return mut_operands.at(0);
+      } else {
+        return Mul<DimExpr>{List<DimExpr>{mut_operands}};
+      }
+    } else if (inner_expr.Has<Div<DimExpr>>()) {
+      const auto& rhs = inner_expr.Get<Div<DimExpr>>()->rhs;
+      if (rhs.Has<std::int64_t>() && rhs.Get<std::int64_t>() == -1) {
+        return inner_expr.Get<Div<DimExpr>>()->lhs;
+      }
+      return expr;
     } else {
       return expr;
     }
