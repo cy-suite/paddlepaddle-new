@@ -341,6 +341,7 @@ void InferSymExprForOp(Operation* op,
     }
   }
 }
+static const std::set<std::string> new_symbol_op_set = {"pd_op.data"};
 
 void CacheForwardOpSymbolicShape(
     Operation* op,
@@ -350,22 +351,32 @@ void CacheForwardOpSymbolicShape(
   const auto& CheckInferSymbolicShapeCacheConsistency =
       [&](const InferSymbolicShapeCacheValue& infer_result,
           const InferSymbolicShapeCacheValue& cache_result) {
-        std::set<std::string> skip_op_set = {"pd_op.data"};
         if (infer_result.size() != cache_result.size()) {
           LOG(WARNING) << "cached shape is not consistent with real shape";
         } else {
           for (uint32_t i = 0; i < cache_result.size(); ++i) {
             if (infer_result[i] != cache_result[i]) {
-              if (IsGradOp(op) && (!op->result(i) || !op->result(i).type()) ||
-                  skip_op_set.count(op->name())) {
+              if (IsGradOp(op) && (!op->result(i) || !op->result(i).type())) {
                 continue;
               }
-              LOG(WARNING) << "cached shape is not consistent with real shape";
-              VLOG(3) << "InferSymbolicShapeCacheKey is: "
-                      << op_infer_cache_key;
-              VLOG(3) << "cached shape is: " << cache_result[i];
-              VLOG(3) << "real shape is: " << infer_result[i];
+              if (new_symbol_op_set.find(op->name()) !=
+                  new_symbol_op_set.end()) {
+                continue;
+              }
+              if (op->name() == "cinn_op.generate_shape" &&
+                  (infer_result[i].shape().size() +
+                       cache_result[i].shape().size() ==
+                   1)) {
+                // case for 1D and 0D
+                if (infer_result[i].data() == cache_result[i].data()) {
+                  continue;
+                }
+              }
             }
+            LOG(WARNING) << "cached shape is not consistent with real shape";
+            VLOG(3) << "InferSymbolicShapeCacheKey is: " << op_infer_cache_key;
+            VLOG(3) << "cached shape is: " << cache_result[i];
+            VLOG(3) << "real shape is: " << infer_result[i];
           }
         }
       };
