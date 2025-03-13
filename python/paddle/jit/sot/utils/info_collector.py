@@ -25,7 +25,11 @@ from typing import TYPE_CHECKING, Any, ClassVar, NamedTuple
 
 from typing_extensions import Self
 
-from .envs import ENV_SOT_COLLECT_INFO, ENV_SOT_SERIALIZE_INFO
+from .envs import (
+    ENV_SOT_CE_DEBUG_MODE,
+    ENV_SOT_COLLECT_INFO,
+    ENV_SOT_SERIALIZE_INFO,
+)
 from .utils import Singleton
 
 if TYPE_CHECKING:
@@ -56,6 +60,18 @@ class InfoCollector(metaclass=Singleton):
     def __init__(self):
         self._step_info: dict[str, list[InfoBase]] = {}
         self._e2e_info: dict[str, list[InfoBase]] = {}
+
+        if ENV_SOT_CE_DEBUG_MODE.get():
+            # Enable information collection flags to facilitate debugging and analysis
+
+            collected_info_item: dict[str, list[str]] = (
+                ENV_SOT_COLLECT_INFO.get()
+            )
+            collected_info_item.setdefault("breakgraph_reason", [])
+            collected_info_item.setdefault("subgraph_info", [])
+
+            ENV_SOT_COLLECT_INFO.set(collected_info_item)
+            ENV_SOT_SERIALIZE_INFO.set(True)
 
     def get_info_dict(self, info_type: InfoType) -> dict[str, list[InfoBase]]:
         if info_type == InfoType.STEP_INFO:

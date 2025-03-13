@@ -146,6 +146,7 @@ ENV_SOT_BREAK_GRAPH_ON_GET_SYMBOLIC_VALUE = BooleanEnvironmentVariable(
 )
 ENV_SOT_COLLECT_INFO = PEP508LikeEnvironmentVariable("SOT_COLLECT_INFO", {})
 ENV_SOT_SERIALIZE_INFO = BooleanEnvironmentVariable("SOT_SERIALIZE_INFO", False)
+ENV_SOT_CE_DEBUG_MODE = BooleanEnvironmentVariable("SOT_CE_DEBUG_MODE", False)
 ENV_SOT_FORCE_FALLBACK_SIR_IDS = StringEnvironmentVariable(
     "SOT_FORCE_FALLBACK_SIR_IDS", ""
 )
