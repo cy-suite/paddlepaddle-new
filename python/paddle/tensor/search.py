@@ -778,8 +778,10 @@ def where(
                 if paddle.get_default_dtype() != "float64"
                 else "complex128"
             )
-        else:
+        elif isinstance(x, float) or isinstance(y, float):
             dtype = paddle.get_default_dtype()
+        else:
+            dtype = np.array([x]).dtype.name
 
     if isscalar_x:
         x = paddle.full([1], x, dtype or np.array([x]).dtype.name)

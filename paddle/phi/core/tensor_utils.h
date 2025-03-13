@@ -39,6 +39,10 @@ class DenseTensorUtils {
     return &(tensor->meta_);
   }
 
+  static BatchedTensorMeta* GetMutableMeta(BatchedTensor* tensor) {
+    return &(tensor->meta_);
+  }
+
   static const std::shared_ptr<phi::Allocation>& GetHolder(
       const DenseTensor& tensor) {
     return tensor.holder_;
@@ -90,6 +94,13 @@ void Copy(const Context& dev_ctx,
           Place dst_place,
           bool blocking,
           DenseTensor* dst);
+
+template <typename Context>
+void Copy(const Context& dev_ctx,
+          const BatchedTensor& src,
+          Place dst_place,
+          bool blocking,
+          BatchedTensor* dst);
 
 template <typename Context>
 void Copy(const Context& dev_ctx,

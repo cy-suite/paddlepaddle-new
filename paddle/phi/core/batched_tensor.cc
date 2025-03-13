@@ -29,7 +29,6 @@ BatchedTensor::BatchedTensor(paddle::Tensor value, BatchDims bdims) {
   const common::DDim value_dims = value_.dims();
   const common::DDim value_strides = value_.strides();
 
-  std::cout << "public_rank: " << public_rank << std::endl;
   this->meta_.dims =
       common::DDim(std::vector<int64_t>(public_rank, 0).data(), public_rank);
   this->meta_.strides =
@@ -40,8 +39,6 @@ BatchedTensor::BatchedTensor(paddle::Tensor value, BatchDims bdims) {
     this->meta_.dims.at(dim) = value_dims.at(actual_dim);
     this->meta_.strides.at(dim) = value_strides.at(actual_dim);
   }
-  std::cout << "meta_.dims: " << this->meta_.dims << std::endl;
-  std::cout << "meta_.strides: " << this->meta_.strides << std::endl;
 }
 
 // BatchedTensor::BatchedTensor(const paddle::Tensor& value, const BatchDims&
@@ -137,6 +134,35 @@ void BatchedTensor::checkInvariants() const {
   for (const auto& bdim : bdims_) {
     PD_CHECK(bdim.level() > prev_level, "BatchDims must be sorted by level");
     prev_level = bdim.level();
+  }
+}
+
+void BatchedTensor::set_meta(BatchedTensorMeta&& meta) {
+  PADDLE_ENFORCE_EQ(meta_.valid(),
+                    false,
+                    common::errors::InvalidArgument(
+                        "Only when the original attribute of Tensor is "
+                        "incomplete, can it be reset."));
+  meta_ = std::move(meta);
+}
+
+void BatchedTensor::set_meta(const BatchedTensorMeta& meta) {
+  PADDLE_ENFORCE_EQ(
+      meta.valid(),
+      true,
+      common::errors::InvalidArgument(
+          "Input meta is invalid, please check the meta attribute."));
+  meta_.dims = meta.dims;
+  meta_.dtype = meta.dtype;
+  meta_.is_scalar = meta.is_scalar;
+  meta_.layout = meta.layout;
+  meta_.legacy_lod = meta.legacy_lod;
+  meta_.offset = meta.offset;
+  meta_.use_gpudnn = meta.use_gpudnn;
+  if (meta.strides.size() == -1) {
+    meta_.strides = meta_.calc_strides(meta_.dims);
+  } else {
+    meta_.strides = meta.strides;
   }
 }
 

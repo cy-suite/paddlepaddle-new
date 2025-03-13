@@ -32,6 +32,9 @@ void Copy(const Context& dev_ctx,
           Place dst_place,
           bool blocking,
           DenseTensor* dst) {
+  VLOG(0) << "call void Copy";
+  VLOG(0) << "src.meta().is_contiguous() = " << src.meta().is_contiguous();
+
   if (!src.meta().is_contiguous()) {
     DenseTensor src_copy = paddle::experimental::Trans2Contiguous(src);
     Copy(dev_ctx, src_copy, dst_place, blocking, dst);
@@ -329,6 +332,44 @@ void Copy(const Context& dev_ctx,
 }
 
 template <typename Context>
+void Copy(const Context& dev_ctx,
+          const BatchedTensor& src,
+          Place dst_place,
+          bool blocking,
+          BatchedTensor* dst) {
+  VLOG(0) << "dst == nullptr :" << (dst == nullptr);
+  VLOG(0) << 1;
+  const phi::DenseTensor& src_tensor =
+      *std::static_pointer_cast<phi::DenseTensor>(src.value().impl());
+  VLOG(0) << 2;
+  VLOG(0) << "src.dims() = " << src.dims();
+  VLOG(0) << "dst.dims() = " << dst->dims();
+  // VLOG(0) << "dst->value().impl() == nullptr: " << (dst->value().impl() ==
+  // nullptr); VLOG(0) << (dst->value().is_dense_tensor());
+  auto tmp_holder = dst->value();
+  VLOG(0) << 2.2;
+  // VLOG(0) << tmp_holder.impl().get();
+  VLOG(0) << 2.21;
+  // VLOG(0) << dynamic_cast<phi::DenseTensor*>(tmp_holder.impl().get());
+  VLOG(0) << 2.22;
+  VLOG(0) << tmp_holder.impl().get();
+  VLOG(0) << 2.23;
+  auto dst_ptr = std::dynamic_pointer_cast<phi::DenseTensor>(tmp_holder.impl());
+  VLOG(0) << 2.24;
+  if (!dst_ptr) {
+    // 类型错误处理
+    std::cerr << "Type mismatch: impl() is not a phi::DenseTensor!"
+              << std::endl;
+  }
+  VLOG(0) << 3;
+  dst->set_dims(src.dims());
+  VLOG(0) << 4;
+  dst->set_strides(src.strides());
+  VLOG(0) << 5;
+  Copy<Context>(dev_ctx, src_tensor, dst_place, blocking, dst_ptr.get());
+}
+
+template <typename Context>
 void Copy(const Context& dev_ctx UNUSED,
           const TensorArray& src UNUSED,
           Place dst_place UNUSED,
@@ -397,6 +438,18 @@ template void Copy(const DeviceContext& dev_ctx,
                    bool blocking,
                    TensorArray* dst);
 
+template void Copy(const CPUContext& dev_ctx,
+                   const BatchedTensor& src,
+                   Place dst_place,
+                   bool blocking,
+                   BatchedTensor* dst);
+
+template void Copy(const DeviceContext& dev_ctx,
+                   const BatchedTensor& src,
+                   Place dst_place,
+                   bool blocking,
+                   BatchedTensor* dst);
+
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
 template void Copy(const GPUContext& dev_ctx,
                    const DenseTensor& src,
@@ -423,6 +476,11 @@ template void Copy(const GPUContext& dev_ctx,
                    Place dst_place,
                    bool blocking,
                    TensorArray* dst);
+template void Copy(const GPUContext& dev_ctx,
+                   const BatchedTensor& src,
+                   Place dst_place,
+                   bool blocking,
+                   BatchedTensor* dst);
 #endif
 
 #ifdef PADDLE_WITH_XPU

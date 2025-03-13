@@ -93,8 +93,6 @@ Tensor tanh_grad_batching_rule(const Tensor& out, const Tensor& grad_out) {
       BroadcastingVmapTransform::logicalToPhysical({out, grad_out});
   const auto& out_physical = physical_args[0].tensor();
   const auto& grad_out_physical = physical_args[1].tensor();
-  // auto result = ::tanh_grad_ad_func(physical_args[0].tensor(),
-  // physical_args[1].tensor());
   auto result = (1 - out_physical * out_physical) * grad_out_physical;
   return physical_args[0].getPhysicalToLogicalMap().apply(result);
 }

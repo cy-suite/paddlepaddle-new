@@ -203,6 +203,18 @@ phi::DenseTensor* SetKernelOutput(Tensor* out) {
   return nullptr;
 }
 
+phi::BatchedTensor* SetBatchedKernelOutput(Tensor* out,
+                                           const phi::BatchedTensor& src) {
+  if (out) {
+    if (out->impl() == nullptr) {
+      out->set_impl(
+          std::make_shared<phi::BatchedTensor>(src.value(), src.bdims()));
+    }
+    return static_cast<phi::BatchedTensor*>(out->impl().get());
+  }
+  return nullptr;
+}
+
 std::vector<phi::DenseTensor*> SetKernelOutput(size_t out_size,
                                                std::vector<Tensor>* out) {
   out->reserve(out_size);

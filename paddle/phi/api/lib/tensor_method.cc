@@ -143,6 +143,7 @@ void Tensor::copy_(const Tensor &src,
 
   if (kernel_type == KernelType::DENSE_TENSOR_KERNEL) {
 #ifdef PADDLE_WITH_DISTRIBUTE
+  VLOG(0) << "PADDLE_WITH_DISTRIBUTE";
   bool run_auto_parallel = AllInputsAreDistTensor(src);
   bool rank_is_in_current_mesh = false;
   if (run_auto_parallel) {
@@ -194,18 +195,31 @@ void Tensor::copy_(const Tensor &src,
     return;
   }
 #endif
-    VLOG(0) << "call Copy";
-    SetKernelOutput(this);
+    if (src.is_dense_tensor()) {
+      SetKernelOutput(this);
+    } else {
+      SetBatchedKernelOutput(
+        this, *std::static_pointer_cast<phi::BatchedTensor>(src.impl())
+      );
+    }
     phi::MetaTensor meta_out(impl_.get());
     phi::UnchangedInferMeta(
         MakeMetaTensor(
             *(std::static_pointer_cast<phi::DenseTensor>(src.impl_))),
         &meta_out);
-    phi::Copy(*dev_ctx,
-              (*(std::static_pointer_cast<phi::DenseTensor>(src.impl_))),
-              target_place,
-              blocking,
-              static_cast<phi::DenseTensor *>(impl_.get()));
+    if (src.is_batched_tensor()) {
+      phi::Copy(*dev_ctx,
+                (*(std::static_pointer_cast<phi::BatchedTensor>(src.impl_))),
+                target_place,
+                blocking,
+                dynamic_cast<phi::BatchedTensor *>(impl_.get()));
+    } else {
+      phi::Copy(*dev_ctx,
+                (*(std::static_pointer_cast<phi::DenseTensor>(src.impl_))),
+                target_place,
+                blocking,
+                static_cast<phi::DenseTensor *>(impl_.get()));
+    }
   } else if (kernel_type == KernelType::SELECTED_ROWS_KERNEL) {
     SetSelectedRowsKernelOutput(this);
     phi::MetaTensor meta_out(impl_.get());

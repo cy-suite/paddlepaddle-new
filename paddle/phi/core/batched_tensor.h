@@ -141,9 +141,23 @@ class BatchedTensor : public TensorBase,
   /// \param meta The stride of the tensor.
   void set_strides(const DDim& strides) { meta_.strides = strides; }
 
+  /// \brief Sets the dims of the tensor.
+  /// \param meta The dims of the tensor.
+  void set_dims(const DDim& dims) { meta_.dims = dims; }
+
+  /// \brief Sets the meta information of the tensor. Only when the original
+  /// attribute of Tensor is incomplete, can it be reset.
+  /// \param meta The meta information of the tensor.
+  void set_meta(BatchedTensorMeta&& meta);
+
+  void set_meta(const BatchedTensorMeta& meta);
+
  private:
+  friend class DenseTensorUtils;
+
   void checkInvariants() const;
-  paddle::Tensor value_;
+
+  paddle::Tensor value_ = paddle::Tensor();
 
   BatchedTensorMeta meta_;
   // Note: [BatchedTensor levels invariant]

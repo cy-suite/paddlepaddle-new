@@ -119,6 +119,8 @@ std::vector<int64_t> Tensor::shape() const {
 const phi::DDim &Tensor::strides() const {
   if (is_dense_tensor()) {
     return static_cast<phi::DenseTensor *>(impl_.get())->strides();
+  } else if (is_batched_tensor()) {
+    return static_cast<phi::BatchedTensor *>(impl_.get())->strides();
   } else if (is_dist_tensor()) {
     return static_cast<phi::distributed::DistTensor *>(impl_.get())
         ->value()

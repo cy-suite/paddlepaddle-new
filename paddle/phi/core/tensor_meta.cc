@@ -13,6 +13,7 @@ See the License for the specific language governing permissions and
 limitations under the License. */
 
 #include "paddle/phi/core/tensor_meta.h"
+#include "glog/logging.h"
 #include "paddle/common/flags.h"
 #include "paddle/phi/core/enforce.h"
 

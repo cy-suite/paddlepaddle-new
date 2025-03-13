@@ -16,6 +16,7 @@ limitations under the License. */
 
 #include "paddle/phi/api/include/tensor.h"
 #include "paddle/phi/backends/all_context.h"
+#include "paddle/phi/core/batched_tensor.h"
 #include "paddle/phi/core/compat/convert_utils.h"
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/distributed/auto_parallel/dist_attr.h"
@@ -93,6 +94,9 @@ std::vector<phi::MetaTensor> MakeMetaTensor(
 /* ------------------ for output ----------------------- */
 
 phi::DenseTensor* SetKernelOutput(Tensor* out);
+
+phi::BatchedTensor* SetBatchedKernelOutput(Tensor* out,
+                                           const phi::BatchedTensor& src);
 
 std::vector<phi::DenseTensor*> SetKernelOutput(size_t out_size,
                                                std::vector<Tensor>* out);
