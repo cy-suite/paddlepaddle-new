@@ -34,12 +34,9 @@ static bool CompareExpressions(const ir::IndexExpr& a, const ir::IndexExpr& b) {
 
   if (aPart.size() != bPart.size()) return false;
 
-  auto SameTypeAndLength = [](const ir::IndexExpr& a, const ir::IndexExpr& b) {
-    return a.length() == b.length() && a.node_type() == b.node_type();
-  };
   size_t i = 0;
   while (i < aPart.size()) {
-    if (!SameTypeAndLength(aPart[i], bPart[i])) return false;
+    if (!optim::ComparePriority(aPart[i], bPart[i])) return false;
     std::vector<std::pair<ir::IndexExpr, int>> aGroup, bGroup;
 
     do {
@@ -47,8 +44,8 @@ static bool CompareExpressions(const ir::IndexExpr& a, const ir::IndexExpr& b) {
       bGroup.emplace_back(bPart[i], 0);
       ++i;
     } while (i < aPart.size() &&
-             SameTypeAndLength(aPart[i - 1], aPart[i]) == 1 &&
-             SameTypeAndLength(bPart[i - 1], bPart[i]) == 1);
+             optim::ComparePriority(aPart[i - 1], aPart[i]) == 1 &&
+             optim::ComparePriority(bPart[i - 1], bPart[i]) == 1);
 
     // compare expressions with same priority.
     for (size_t k = 0; k < aGroup.size(); ++k) {
