@@ -250,7 +250,7 @@ std::vector<phi::DenseTensor*> SetKernelOutput(std::vector<Tensor*>* out) {
 }
 
 phi::SelectedRows* SetSelectedRowsKernelOutput(Tensor* out) {
-  if (!out->defined()) {
+  if (!out->initialized()) {
     auto select_rows = std::make_shared<phi::SelectedRows>();
     out->set_impl(select_rows);
     return select_rows.get();
@@ -262,7 +262,7 @@ phi::TensorBase* SetSparseKernelOutput(Tensor* out, TensorType type) {
   if (!out) {
     return nullptr;
   }
-  if (!out->defined()) {
+  if (!out->initialized()) {
     if (type == TensorType::SPARSE_COO) {
       auto sparse_tensor = std::make_shared<phi::SparseCooTensor>(
           phi::DenseTensor(), phi::DenseTensor(), phi::DDim{-1});
@@ -286,7 +286,7 @@ phi::TensorBase* SetSparseKernelOutput(Tensor* out, TensorType type) {
 }
 
 phi::TensorBase* SetStringsKernelOutput(Tensor* out, TensorType type) {
-  if (!out->defined()) {
+  if (!out->initialized()) {
     if (type == TensorType::STRING_TENSOR) {
       if (out->impl() == nullptr) {
         auto strings_tensor = std::make_shared<phi::StringTensor>();
