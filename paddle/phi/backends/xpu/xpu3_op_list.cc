@@ -1071,7 +1071,6 @@ XPUOpMap& get_kl3_ops() {
       {"put_along_axis",
        XPUKernelSet({phi::DataType::FLOAT32,
                      phi::DataType::INT32,
-                     phi::DataType::INT16,
                      phi::DataType::INT64,
                      phi::DataType::BFLOAT16,
                      phi::DataType::FLOAT16})},
