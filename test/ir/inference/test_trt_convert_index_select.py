@@ -55,7 +55,7 @@ class TrtConvertIndexSelectTest(TrtLayerAutoScanTest):
                         for input in [
                             {"X": ["input_data"], "Index": ["index_data"]}
                         ]:
-                            for index_type_int32 in [True]:
+                            for index_type_int32 in [True, False]:
                                 self.shape = shape
                                 self.axis = axis
                                 self.input_num = len(input)
@@ -139,8 +139,8 @@ class TrtConvertIndexSelectTest(TrtLayerAutoScanTest):
             }
         elif len(self.shape) == 4:
             self.dynamic_shape.min_input_shape = {
-                "input_data": [2, 4, 4, 2],
-                "index_data": [2],
+                "input_data": [2, 2, 2, 2],
+                "index_data": [1],
             }
             self.dynamic_shape.max_input_shape = {
                 "input_data": [128, 256, 64, 128],
