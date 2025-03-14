@@ -344,12 +344,10 @@ __global__ void per_channel_quant_gpu_int4_row_pack(const T* weight_data,
         int8_t packed_int4s = 0;
         for (int pack = 0; pack < 2; ++pack) {
           int vector_index = i * 2 + pack;
-          const float r_scale = 1 / static_cast<float>(scale[vector_index]);
-          const float weight_elt =
-              static_cast<float>(weight[vector_index]) * r_scale;
-          float scaled_weight = roundf(weight_elt);
-          int int_weight = static_cast<int>(scaled_weight);
-          int8_t clipped_weight = max(-7, min(7, int_weight));
+          const float weight_elt = static_cast<float>(weight[vector_index]) /
+                                   static_cast<float>(scale[vector_index]);
+          int8_t clipped_weight = static_cast<int8_t>(
+              lroundf(fmaxf(-7.0f, fminf(7.0f, weight_elt))));
           packed_int4s |= ((clipped_weight & 0x0F) << (4 * pack));
         }
         quanted_weight[i] = packed_int4s;
@@ -405,11 +403,9 @@ __global__ void per_channel_quant_gpu_int4_col_pack(const T* weight_data,
 #pragma unroll
         for (int i = 0; i < VectorSize; ++i) {
           const float weight_elt =
-              (static_cast<float>(weight[i]) / static_cast<float>(abs_max[i])) *
-              static_cast<float>(7.0);
-          const float scaled_weight = lroundf(weight_elt);
-          int int_weight = static_cast<int>(scaled_weight);
-          const int8_t clipped_weight = fmaxf(-7, fminf(7, int_weight));
+              (static_cast<float>(weight[i]) / static_cast<float>(scale[i]));
+          int8_t clipped_weight = static_cast<int8_t>(
+              lroundf(fmaxf(-7.0f, fminf(7.0f, weight_elt))));
           quanted_weight[i] &= ~(0x0F << (4 * packed_idx));
           quanted_weight[i] |= ((clipped_weight & 0x0F) << (4 * packed_idx));
         }

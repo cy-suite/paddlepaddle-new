@@ -172,7 +172,11 @@ class WeightOnlyLinearTestCase(unittest.TestCase):
             out_real = convert_uint16_to_float(out_real)
             out_expect = convert_uint16_to_float(out_expect)
         np.testing.assert_allclose(
-            out_real, out_expect, rtol=self.rtol, atol=self.atol
+            out_real,
+            out_expect,
+            rtol=self.rtol,
+            atol=self.atol,
+            err_msg=f"group_size : {self.group_size}  | weight_dtype : {self.weight_dtype} | dtype: {self.dtype}",
         )
 
 
