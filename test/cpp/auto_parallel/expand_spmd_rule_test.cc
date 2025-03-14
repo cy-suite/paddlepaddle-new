@@ -78,8 +78,7 @@ TEST(ExpandInferSpmd, Ctor) {
   phi::distributed::DistMetaTensor out = phi::distributed::DistMetaTensor(
       phi::make_ddim(out_shape3), out_dist_attr);
   auto spmdinfo_out = ExpandGradInferSpmd(x3, out, shape3);
-  EXPECT_EQ(get_dims_mapping(spmdinfo_out.first[0]),
-            std::vector<int64_t>({-1, 1}));
+  EXPECT_EQ(get_dims_mapping(spmdinfo_out.first[0]), std::vector<int64_t>({1}));
   EXPECT_EQ(get_dims_mapping(spmdinfo_out.first[1]),
             std::vector<int64_t>({-1, 1}));
   EXPECT_EQ(get_dims_mapping(spmdinfo_out.second[0]),
