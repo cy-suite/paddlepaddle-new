@@ -91,13 +91,21 @@ struct SimplifyDoubleNeg {
     } else if (inner_expr.Has<Mul<DimExpr>>()) {
       std::vector<DimExpr> mut_operands =
           *inner_expr.Get<Mul<DimExpr>>().operands;
-      mut_operands.erase(std::remove_if(mut_operands.begin(),
-                                        mut_operands.end(),
-                                        [](DimExpr x) {
-                                          return x.Has<std::int64_t>() &&
-                                                 x.Get<std::int64_t>() == -1;
-                                        }),
-                         mut_operands.end());
+      bool has_minus_one = false;
+      auto it = std::remove_if(
+          mut_operands.begin(),
+          mut_operands.end(),
+          [&has_minus_one](DimExpr x) {
+            if (x.Has<std::int64_t>() && x.Get<std::int64_t>() == -1) {
+              has_minus_one = true;
+              return true;
+            }
+            return false;
+          });
+      mut_operands.erase(it, mut_operands.end());
+      if (!has_minus_one) {
+        return expr;
+      }
       if (mut_operands.size() == 1) {
         return mut_operands.at(0);
       } else {
