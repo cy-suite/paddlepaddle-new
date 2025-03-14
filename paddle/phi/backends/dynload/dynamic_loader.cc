@@ -783,7 +783,11 @@ void* GetNCCLDsoHandle() {
 }
 
 void* GetFLAGCXDsoHandle() {
+#ifdef PADDLE_WITH_FLAGCX
   return GetDsoHandleFromSearchPath(FLAGS_flagcx_dir, "libflagcx.so");
+#else
+  return nullptr;
+#endif
 }
 
 void* GetTensorRtDsoHandle() {
