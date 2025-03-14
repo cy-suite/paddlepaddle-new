@@ -18,6 +18,7 @@ import functools
 import inspect
 import itertools
 import operator
+import sys
 import types
 from functools import reduce
 from typing import (
@@ -863,6 +864,8 @@ class UserDefinedGeneratorFunctionVariable(FunctionVariable):
         super().__init__(fn, graph, tracker)
 
     def call_function(self, /, *args, **kwargs):
+        from ..opcode_inline_executor import OpcodeInlineGeneratorExecutor
+
         code_var = self.get_code()
         vframe = VirtualFrame.from_inline_call(
             code_var.value,
@@ -871,6 +874,11 @@ class UserDefinedGeneratorFunctionVariable(FunctionVariable):
             self.graph,
             (args, kwargs),
         )
+        if sys.version_info >= (3, 11):
+            inline_gen_executor = OpcodeInlineGeneratorExecutor(
+                vframe, code_var, self.graph
+            )
+            return inline_gen_executor.inline_call()
         return GeneratorVariable(
             code_var,
             vframe,
@@ -910,14 +918,11 @@ class GeneratorVariable(VariableBase):
         inline_gen_executor = OpcodeInlineGeneratorExecutor(
             self.vframe, self.code_var, self.graph
         )
-        # inline_gen_executor.stack._data[:] = self.shared_stack
         inline_gen_executor.stack.push(value)
         with EventGuard(
             f"Inline Gen Call: {inline_gen_executor.vframe.code.co_name.replace('<', '(').replace('>', ')')}, file {inline_gen_executor.vframe.code.co_filename}, line {int(inline_gen_executor.vframe.code.co_firstlineno)}"
         ):
             output = inline_gen_executor.inline_call()
-        # self.shared_stack[:] = inline_gen_executor.stack._data
-        # assert len(inline_gen_executor.stack) == 0, "stack is not empty."
 
         return output
 

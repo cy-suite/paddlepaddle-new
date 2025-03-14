@@ -28,7 +28,7 @@ from ..instruction_utils import Instruction
 from .dispatch_functions import generator_send
 from .guard import StringifiedExpression, union_free_vars
 from .opcode_executor import OpcodeExecutorBase, Stop
-from .tracker import DanglingTracker, Tracker
+from .tracker import DanglingTracker, DummyTracker, Tracker
 from .variables import (
     BuiltinVariable,
     ConstantVariable,
@@ -244,6 +244,37 @@ class OpcodeInlineGeneratorExecutor(OpcodeExecutorBase):
         self.run()
         assert self.return_value is not None
         return self.return_value
+
+    def RETURN_GENERATOR(self, instr: Instruction):
+        vframe = self.vframe
+        code_var = self._code_var
+        self.return_value = GeneratorVariable(
+            code_var, vframe, self._graph, DummyTracker([])  # TODO: Add tracker
+        )
+        return Stop(state="Return")
+
+    def SEND(self, instr: Instruction):
+        assert len(self.stack) >= 2
+        recv = self.stack.pop()
+        source_obj = self.stack.top
+        if not isinstance(source_obj, (GeneratorVariable, IterVariable)):
+            raise FallbackError(
+                "Yield from for non-generator object is not supported."
+            )
+        if isinstance(source_obj, GeneratorVariable):
+            res = BuiltinVariable(
+                generator_send, self._graph, DanglingTracker()
+            )(source_obj, recv)
+        else:
+            res = BuiltinVariable(next, self._graph, DanglingTracker())(
+                source_obj
+            )
+        self.stack.push(res)
+
+    def END_SEND(self, instr: Instruction):
+        value = self.stack.pop()
+        receiver = self.stack.pop()  # pop the receiver
+        self.stack.push(value)
 
     def GEN_START(self, instr: Instruction):
         tos = self.stack.pop()
