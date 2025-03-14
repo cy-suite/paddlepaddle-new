@@ -47,9 +47,9 @@ SpmdInfo ExpandInferSpmd(const DistMetaTensor& x, const IntArray& shape) {
 SpmdInfo ExpandGradInferSpmd(const DistMetaTensor& x,
                              const DistMetaTensor& out_grad,
                              const IntArray& shape) {
-  // TODO(lizhenxing): Support remove redundant dim
   EXTRACT_SHAPE_AND_DIST_ATTR(x);
-  return {{x_dist_attr_src, x_dist_attr_src}, {x_dist_attr_src}};
+  EXTRACT_SHAPE_AND_DIST_ATTR(out_grad);
+  return {{x_dist_attr_src, out_grad_dist_attr_src}, {x_dist_attr_src}};
 }
 
 }  // namespace phi::distributed
