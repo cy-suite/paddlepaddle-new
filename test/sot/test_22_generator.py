@@ -101,6 +101,13 @@ def generator_yield_from_iterable_user():
     return x, y
 
 
+def for_iterate_generator():
+    out = 0
+    for i in create_simple_generator(1, 2):
+        out += i
+    return out
+
+
 class TestGenerator(TestCaseBase):
     def test_generator_simple(self):
         self.assert_results(simple_generator_user)
@@ -116,6 +123,9 @@ class TestGenerator(TestCaseBase):
 
     def test_generator_yield_from_iterable(self):
         self.assert_results(generator_yield_from_iterable_user)
+
+    def test_for_iterate_generator(self):
+        self.assert_results(for_iterate_generator)
 
 
 if __name__ == "__main__":

@@ -42,7 +42,6 @@ from .callable import (  # noqa: F401
     ClassVariable,
     ContainerLayerVariable,
     FunctionVariable,
-    GeneratorVariable,
     LayerVariable,
     MethodVariable,
     PaddleApiVariable,
@@ -61,6 +60,7 @@ from .container import (  # noqa: F401
 )
 from .iter import (  # noqa: F401
     EnumerateVariable,
+    GeneratorVariable,
     IterVariable,
     MapVariable,
     SequenceIterVariable,

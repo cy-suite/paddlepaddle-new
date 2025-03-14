@@ -35,7 +35,7 @@ from .variables import (
     GeneratorVariable,
     IterVariable,
     ObjectVariable,
-    SequenceIterVariable,
+    UserDefinedIterVariable,
     VariableBase,
 )
 
@@ -148,10 +148,7 @@ def inline_for_iter_impl(exe: OpcodeExecutorBase, instr: Instruction):
     exe._graph.add_global_guarded_variable(iterator)
 
     # simply get next
-    if isinstance(
-        iterator,
-        SequenceIterVariable,
-    ):
+    if not isinstance(iterator, UserDefinedIterVariable):
         try:
             exe.stack.push(iterator.next())
         except StopIteration:
@@ -257,19 +254,15 @@ class OpcodeInlineGeneratorExecutor(OpcodeExecutorBase):
         assert len(self.stack) >= 2
         recv = self.stack.pop()
         source_obj = self.stack.top
-        if not isinstance(source_obj, (GeneratorVariable, IterVariable)):
+        if not isinstance(source_obj, IterVariable):
             raise FallbackError(
                 "Yield from for non-generator object is not supported."
             )
-        if isinstance(source_obj, GeneratorVariable):
-            res = BuiltinVariable(
-                generator_send, self._graph, DanglingTracker()
-            )(source_obj, recv)
-        else:
-            res = BuiltinVariable(next, self._graph, DanglingTracker())(
-                source_obj
+        self.stack.push(
+            BuiltinVariable(generator_send, self._graph, DanglingTracker())(
+                source_obj, recv
             )
-        self.stack.push(res)
+        )
 
     def END_SEND(self, instr: Instruction):
         value = self.stack.pop()
@@ -305,18 +298,13 @@ class OpcodeInlineGeneratorExecutor(OpcodeExecutorBase):
     def YIELD_FROM(self, instr: Instruction):
         recv = self.stack.pop()
         source_obj = self.stack.top
-        if not isinstance(source_obj, (GeneratorVariable, IterVariable)):
+        if not isinstance(source_obj, IterVariable):
             raise FallbackError(
                 "Yield from for non-generator object is not supported."
             )
-        if isinstance(source_obj, GeneratorVariable):
-            self.return_value = BuiltinVariable(
-                generator_send, self._graph, DanglingTracker()
-            )(source_obj, recv)
-        else:
-            self.return_value = BuiltinVariable(
-                next, self._graph, DanglingTracker()
-            )(source_obj)
+        self.return_value = BuiltinVariable(
+            generator_send, self._graph, DanglingTracker()
+        )(source_obj, recv)
         assert self.vframe.lasti > 0
         self.vframe.lasti -= 1
         return Stop(state="Yield")

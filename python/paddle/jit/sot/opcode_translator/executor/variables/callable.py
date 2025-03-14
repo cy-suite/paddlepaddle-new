@@ -28,7 +28,6 @@ from typing import (
 )
 
 import paddle
-from paddle._typing import unreached
 from paddle.jit.sot.opcode_translator.executor.variables.base import (
     VariableBase,
 )
@@ -242,7 +241,7 @@ class UserDefinedFunctionVariable(FunctionVariable):
             )
             inline_executor = OpcodeInlineExecutor(vframe, code_var, self.graph)
             with EventGuard(
-                f"Inline Call: {inline_executor.vframe.code.co_name.replace('<', '(').replace('>', ')')}, file {inline_executor.vframe.code.co_filename}, line {int(inline_executor.vframe.code.co_firstlineno)}"
+                f"Inline Call: {inline_executor.vframe.code.co_name}, file {inline_executor.vframe.code.co_filename}, line {int(inline_executor.vframe.code.co_firstlineno)}"
             ):
                 output = inline_executor.inline_call()
         except SotErrorBase as error:
@@ -865,6 +864,7 @@ class UserDefinedGeneratorFunctionVariable(FunctionVariable):
 
     def call_function(self, /, *args, **kwargs):
         from ..opcode_inline_executor import OpcodeInlineGeneratorExecutor
+        from .iter import GeneratorVariable
 
         code_var = self.get_code()
         vframe = VirtualFrame.from_inline_call(
@@ -897,72 +897,6 @@ class UserDefinedGeneratorFunctionVariable(FunctionVariable):
         if inspect.isgeneratorfunction(value):
             return UserDefinedGeneratorFunctionVariable(value, graph, tracker)
         return None
-
-
-class GeneratorVariable(VariableBase):
-    def __init__(
-        self,
-        code_var: VariableBase,
-        vframe: VirtualFrame,
-        graph: FunctionGraph,
-        tracker: Tracker,
-    ):
-        self.code_var = code_var
-        self.vframe = vframe
-        self.shared_stack = []
-        super().__init__(graph, tracker)
-
-    def send(self, /, value: VariableBase):
-        from ..opcode_inline_executor import OpcodeInlineGeneratorExecutor
-
-        inline_gen_executor = OpcodeInlineGeneratorExecutor(
-            self.vframe, self.code_var, self.graph
-        )
-        inline_gen_executor.stack.push(value)
-        with EventGuard(
-            f"Inline Gen Call: {inline_gen_executor.vframe.code.co_name.replace('<', '(').replace('>', ')')}, file {inline_gen_executor.vframe.code.co_filename}, line {int(inline_gen_executor.vframe.code.co_firstlineno)}"
-        ):
-            output = inline_gen_executor.inline_call()
-
-        return output
-
-    def getattr(self, name: str, default=None):
-        from ..dispatch_functions import generator_send
-
-        known_generator_attrs = {"send"}
-        if name not in known_generator_attrs:
-            raise BreakGraphError(
-                UnsupportedOperationBreak(
-                    reason_str=f"Get attribute {name} from generator is not supported."
-                )
-            )
-        if name == "send":
-            return BuiltinVariable(
-                generator_send, self.graph, GetAttrTracker(self, "send")
-            ).bind(self, "send")
-        unreached()
-
-    def get_py_value(self, allow_tensor=False):
-        raise BreakGraphError(
-            UnsupportedOperationBreak(
-                reason_str="Get real value from generator is not supported."
-            )
-        )
-
-    def get_py_type(self):
-        return types.GeneratorType
-
-    @property
-    def main_info(self) -> dict[str, Any]:
-        return {
-            "co_name": self.code_var.value.co_name,
-        }
-
-    # @VariableFactory.register_from_value()
-    # def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-    #     if inspect.isgenerator(value):
-    #         return GeneratorVariable()
-    #     return None
 
 
 class ClassVariable(CallableVariable):

@@ -126,6 +126,17 @@ Dispatcher.register(
     lambda variable: variable.get_iter(),
 )
 
+Dispatcher.register(
+    next,
+    ("IterVariable",),
+    lambda var: var.next(),
+)
+
+Dispatcher.register(
+    generator_send,
+    ("IterVariable", "VariableBase"),
+    lambda var, value: var.send(value),
+)
 
 # in
 Dispatcher.register(
@@ -1306,12 +1317,6 @@ def dispatch_reduce(
 
 
 Dispatcher.register(
-    next,
-    ("IterVariable",),
-    lambda var: var.next(),
-)
-
-Dispatcher.register(
     max,
     ("ListVariable",),
     lambda var: var.max(),
@@ -1521,16 +1526,3 @@ for ufunc in binary_ufuncs:
             ufunc,
         ),
     )
-
-# Generator
-Dispatcher.register(
-    next,
-    ("GeneratorVariable",),
-    lambda var: var.send(ConstantVariable.wrap_literal(None, var.graph)),
-)
-
-Dispatcher.register(
-    generator_send,
-    ("GeneratorVariable", "VariableBase"),
-    lambda var, value: var.send(value),
-)
