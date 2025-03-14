@@ -545,6 +545,20 @@ bool BipartiteMatchOpInferSymbolicShape(
 
 bool CastOpInferSymbolicShape(pir::Operation *op,
                               pir::InferSymbolicShapeContext *infer_context) {
+  const auto &x_shape_or_data =
+      infer_context->GetShapeOrDataForValue(op->operand_source(0));
+  phi::DataType dtype =
+      op->attribute<paddle::dialect::DataTypeAttribute>("dtype").data();
+
+  if (x_shape_or_data.data().has_value()) {
+    if (dtype != phi::DataType::INT32 && dtype != phi::DataType::INT64) {
+      infer_context->SetShapeOrDataForValue(
+          op->result(0),
+          symbol::ShapeOrDataDimExprs{
+              symbol::TensorShapeOrDataDimExprs(x_shape_or_data.shape())});
+      return true;
+    }
+  }
   infer_context->SetShapeOrDataForValue(
       op->result(0),
       infer_context->GetShapeOrDataForValue(op->operand_source(0)));
@@ -2591,7 +2605,8 @@ bool PixelUnshuffleOpInferSymbolicShape(
 
   // the number of height and width should be able to be divided by the
   // upscale_factor ^ 2.
-  // TODO(Lans1ot, Buaa): add constrain for the height, width and upscale_factor
+  // TODO(Lans1ot, Buaa): add constrain for the height, width and
+  // upscale_factor
 
   const bool channel_last = (data_format == "NHWC");
 
@@ -2839,7 +2854,8 @@ bool Pool3dOpInferSymbolicShape(pir::Operation *op,
 }
 
 // bool PoolOpInferSymbolicShape(pir::Operation *op,
-//                               pir::InferSymbolicShapeContext *infer_context)
+//                               pir::InferSymbolicShapeContext
+//                               *infer_context)
 //                               {
 //   // pass
 //   return true;
@@ -3653,7 +3669,8 @@ bool SetValueWithTensor_OpInferSymbolicShape(
 // }
 
 // bool TraceOpInferSymbolicShape(pir::Operation *op,
-//                                pir::InferSymbolicShapeContext *infer_context)
+//                                pir::InferSymbolicShapeContext
+//                                *infer_context)
 //                                {
 //   // pass
 //   return true;
@@ -3805,9 +3822,9 @@ bool TraceOpInferSymbolicShape(pir::Operation *op,
   PADDLE_ENFORCE_GE(
       rank,
       2,
-      common::errors::OutOfRange(
-          "Input(x)'s dim is out of range (expected at least 2, but got %ld).",
-          rank));
+      common::errors::OutOfRange("Input(x)'s dim is out of range (expected "
+                                 "at least 2, but got %ld).",
+                                 rank));
   PADDLE_ENFORCE_LT(
       dim1_,
       rank,
@@ -3963,8 +3980,8 @@ bool SqueezeOpInferSymbolicShape(
   // Mark dimensions need to be squeezed.
   if (num_squeeze_dims == 0) {
     for (size_t i = 0; i < in_dims_sym.size(); ++i) {
-      // TODO(lanxianghit): if symbol here, maybe we need the result of dim expr
-      // simplification
+      // TODO(lanxianghit): if symbol here, maybe we need the result of dim
+      // expr simplification
       if (in_dims_sym.at(i) == 1) {
         should_squeeze.at(i) = true;
       }
@@ -4498,9 +4515,9 @@ bool WeightQuantizeOpInferSymbolicShape(
     PADDLE_ENFORCE_EQ(
         x_shape_0 % 64,
         0,
-        common::errors::InvalidArgument(
-            "The first dimension of input must be divisible by 64, but got[%d]",
-            x_shape_0));
+        common::errors::InvalidArgument("The first dimension of input must "
+                                        "be divisible by 64, but got[%d]",
+                                        x_shape_0));
   }
   if (x_shape[1].isa<int64_t>()) {
     int64_t x_shape_1 = x_shape[1].dyn_cast<int64_t>();
