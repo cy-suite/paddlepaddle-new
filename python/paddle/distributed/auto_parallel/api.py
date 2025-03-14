@@ -3278,7 +3278,7 @@ class ShardDataloader:
                         features["pixel_values_sections"],
                     ],
                     "image": features["image"],
-                    "image_split_num": (int)4,
+                    "image_split_num": 4,
                 }
             2. If `dense_tensor_idx = [[1, 2], [0], [0]]`:
                 - For "input_ids":
@@ -3627,7 +3627,7 @@ def shard_dataloader(
                         features["pixel_values_sections"],
                     ],
                     "image": features["image"],
-                    "image_split_num": (int)4,
+                    "image_split_num": 4,
                 }
             2. If `dense_tensor_idx = [[1, 2], [0], [0]]`:
                 - For "input_ids":
