@@ -342,9 +342,13 @@ bool IfOp::InferSymbolicShape(pir::InferSymbolicShapeContext *infer_context) {
 
   auto GetSymExprForBlockResult =
       [infer_context](const pir::Operation &op,
-                      uint32_t idx) -> const std::vector<symbol::DimExpr> & {
-    return infer_context->GetShapeOrDataForValue(op.operand_source(idx))
-        .shape();
+                      uint32_t idx) -> const std::vector<symbol::DimExpr> {
+    const auto &operand_shape_data =
+        infer_context->GetShapeOrDataForValue(op.operand_source(idx));
+    if (operand_shape_data.isa<symbol::NullShapeOrDataDimExpr>()) {
+      return {};
+    }
+    return operand_shape_data.shape();
   };
 
   // TODO(lanxianghit): for llama, `if` op's result num always > 0, but
