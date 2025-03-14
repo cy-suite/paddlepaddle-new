@@ -50,6 +50,11 @@ ctest -N | awk -F ':' '{print $2}' | sed '/^$/d' | sed '$d' | sed 's/ //g' | sed
 cd $PADDLE_ROOT
 grep -F -x -v -f br-ut pr-ut > $PADDLE_ROOT/added_ut
 
+echo "=======br-ut:"
+cat $PADDLE_ROOT/br-ut
+echo "=======pr-ut:"
+cat $PADDLE_ROOT/pr-ut
+
 sort pr-ut |uniq -d > $PADDLE_ROOT/duplicate_ut
 
 echo "::group::New-UT:"

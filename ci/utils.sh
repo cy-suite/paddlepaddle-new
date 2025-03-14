@@ -20,7 +20,6 @@ function init() {
     BOLD='\033[1m'
     NONE='\033[0m'
 
-    export PADDLE_ROOT
     if [ -z "${SCRIPT_NAME}" ]; then
         SCRIPT_NAME=$0
     fi
