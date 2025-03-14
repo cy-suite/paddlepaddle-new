@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import sys
 import types
 from typing import TYPE_CHECKING, Any
 
@@ -319,7 +320,11 @@ class GeneratorVariable(IterVariable):
         inline_gen_executor = OpcodeInlineGeneratorExecutor(
             self.vframe, self.code_var, self.graph
         )
-        inline_gen_executor.stack.push(value)
+        if sys.version_info < (3, 10) and self.vframe.lasti == 0:
+            assert isinstance(value, ConstantVariable)
+            assert value.value is None
+        else:
+            inline_gen_executor.stack.push(value)
         with EventGuard(
             f"Inline Gen Call: {inline_gen_executor.vframe.code.co_name}, file {inline_gen_executor.vframe.code.co_filename}, line {int(inline_gen_executor.vframe.code.co_firstlineno)}"
         ):

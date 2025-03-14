@@ -187,7 +187,7 @@ class OpcodeInlineExecutor(OpcodeExecutorBase):
         super().__init__(vframe, graph)
         self.return_value: VariableBase | None = None
         self._code_var = code_var
-        self._name = "Inline"
+        self._name = "InlineFn"
 
     def inline_call(self) -> VariableBase:
         """

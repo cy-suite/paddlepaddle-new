@@ -1919,7 +1919,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
 
     def FOR_ITER(self, instr):
         iterator = self.stack.pop()
-        assert isinstance(iterator, IterVariable)
 
         start = self.indexof(instr)
         end = self.indexof(instr.jump_to)
@@ -1932,14 +1931,14 @@ class OpcodeExecutor(OpcodeExecutorBase):
         self._graph.add_global_guarded_variable(iterator)
 
         try:
-            if isinstance(iterator, UserDefinedIterVariable):
+            if not isinstance(iterator, IterVariable) or isinstance(
+                iterator, UserDefinedIterVariable
+            ):
                 raise BreakGraphError(
                     UnsupportedIteratorBreak(
                         f"Can not simulate iterator of {type(iterator)}."
                     )
                 )
-
-            # backup_iter_idx = iterator.idx
 
             self._inline_call_for_loop(iterator, instr)
             self.vframe.lasti = self.indexof(instr.jump_to)
@@ -1953,8 +1952,6 @@ class OpcodeExecutor(OpcodeExecutorBase):
                 self.vframe.lasti += skip_n_instrs
         except BreakGraphError as e:
             log(3, f"[BreakGraph] FOR_ITER sim for loop failed for: {e}\n")
-            # if backup_iter_idx:
-            #     iterator.idx = backup_iter_idx
             self._graph.remove_global_guarded_variable(iterator)
             self.stack.push(iterator)
             if is_comprehensive_name(self.vframe.code.co_name):

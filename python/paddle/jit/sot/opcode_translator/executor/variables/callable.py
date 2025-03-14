@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import dis
 import functools
 import inspect
 import itertools
@@ -44,6 +45,8 @@ from ....utils import (
     is_directly_run_api,
     is_not_supported_paddle_layer,
     is_paddle_api,
+    log,
+    log_do,
     magic_method_builtin_dispatch,
     map_if,
 )
@@ -874,6 +877,11 @@ class UserDefinedGeneratorFunctionVariable(FunctionVariable):
             self.graph,
             (args, kwargs),
         )
+        log(
+            3,
+            "[Generator] Create generator variable from generator function\n",
+        )
+        log_do(3, lambda: dis.dis(code_var.value))
         if sys.version_info >= (3, 11):
             inline_gen_executor = OpcodeInlineGeneratorExecutor(
                 vframe, code_var, self.graph
