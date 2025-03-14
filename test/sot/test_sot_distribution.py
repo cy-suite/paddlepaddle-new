@@ -24,17 +24,13 @@ import paddle.distributed as dist
 from paddle.jit.sot.psdb import check_no_breakgraph
 
 
-def apply_fn(fn, x, y):
-    return fn(x, y)
-
-
 @check_no_breakgraph
-def fn1(x, y):
+def fn(x, y):
     return x + y
 
 
-class TestApplyDifferentFunctions(TestCaseBase):
-    def test_apply_fn(self):
+class TestGuardForDistInfo(TestCaseBase):
+    def test_fn(self):
         x = paddle.ones([2, 2])
         y = paddle.zeros([2, 2])
         mesh1 = dist.ProcessMesh([0, 1], dim_names=['x'])
@@ -48,11 +44,11 @@ class TestApplyDifferentFunctions(TestCaseBase):
         dist_y3 = dist.shard_tensor(y, mesh3, [dist.Replicate()])
         with test_instruction_translator_cache_context() as ctx:
             self.assertEqual(ctx.translate_count, 0)
-            self.assert_results(apply_fn, fn1, dist_x1, dist_y1)
+            self.assert_results(fn, dist_x1, dist_y1)
             self.assertEqual(ctx.translate_count, 1)
-            self.assert_results(apply_fn, fn1, dist_x2, dist_y2)
+            self.assert_results(fn, dist_x2, dist_y2)
             self.assertEqual(ctx.translate_count, 1)
-            self.assert_results(apply_fn, fn1, dist_x3, dist_y3)
+            self.assert_results(fn, dist_x3, dist_y3)
             self.assertEqual(ctx.translate_count, 2)
 
 
