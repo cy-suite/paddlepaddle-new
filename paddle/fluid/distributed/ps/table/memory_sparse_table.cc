@@ -878,7 +878,6 @@ int64_t MemorySparseTable::CacheShuffle(
          i,
          save_param,
          cache_threshold,
-         shuffle_node_num,
          &feasign_size,
          &writers,
          &tmp_channels,
