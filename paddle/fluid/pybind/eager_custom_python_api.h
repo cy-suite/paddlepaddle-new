@@ -77,9 +77,9 @@ static PyObject *eager_api_linear(PyObject *self,
   }
 }
 
-static PyObject *pir_eager_api_run_program(PyObject *self,
-                                           PyObject *args,
-                                           PyObject *kwargs) {
+static PyObject *eager_api_run_program(PyObject *self,
+                                       PyObject *args,
+                                       PyObject *kwargs) {
   PyThreadState *tstate = nullptr;
   try {
     auto X = GetTensorListFromArgs("run_program", "X", args, 0, true);
@@ -130,7 +130,7 @@ static PyMethodDef CustomEagerFinalStateMethods[] = {
      METH_VARARGS | METH_KEYWORDS,
      "C++ interface function for linear."},
     {"run_program",
-     (PyCFunction)(void (*)(void))pir_eager_api_run_program,
+     (PyCFunction)(void (*)(void))eager_api_run_program,
      METH_VARARGS | METH_KEYWORDS,
      "C++ interface function for run_program in dygraph."},
     {nullptr, nullptr, 0, nullptr}};
