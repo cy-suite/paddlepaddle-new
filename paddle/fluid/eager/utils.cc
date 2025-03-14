@@ -556,7 +556,7 @@ void EagerUtils::FillZeroForEmptyOptionalGradInput(
     const std::vector<GradSlotMeta>& grad_in_metas) {
   for (size_t i = 0; i < in_grads->size(); i++) {
     paddle::Tensor& grad = (*in_grads)[i];
-    if (!grad.has_allocation() && grad_in_metas[i].HasTensorMeta()) {
+    if (!grad.initialized() && grad_in_metas[i].HasTensorMeta()) {
       if (grad_in_metas[i].IsDistMeta()) {
         grad.set_impl(std::make_shared<phi::distributed::DistTensor>(
             grad_in_metas[i].DistTensorGlobalDims(),
@@ -591,7 +591,7 @@ void EagerUtils::FillZeroForEmptyOptionalGradOutput(
       continue;
     }
     paddle::Tensor& grad = (*output_grads)[i];
-    if (!grad.has_allocation() && grad_output_metas[i].HasTensorMeta()) {
+    if (!grad.initialized() && grad_output_metas[i].HasTensorMeta()) {
       if (grad.defined() && grad.is_selected_rows()) {
         continue;
       }
@@ -624,7 +624,7 @@ void EagerUtils::FillZeroForEmptyOptionalGradOutput(
 
 void EagerUtils::FillZeroForEmptyGradInput(paddle::Tensor* in_grad,
                                            const GradSlotMeta& grad_in_meta) {
-  if (!in_grad->has_allocation()) {
+  if (!in_grad->initialized()) {
     PADDLE_ENFORCE(
         grad_in_meta.HasTensorMeta(),
         common::errors::Fatal(
@@ -663,7 +663,7 @@ void EagerUtils::FillZeroForEmptyGradInput(paddle::Tensor* in_grad,
 
 void EagerUtils::FillZeroForEmptyOptionalGradInput(
     paddle::Tensor* in_grad, const GradSlotMeta& grad_in_meta) {
-  if (!in_grad->has_allocation() && grad_in_meta.HasTensorMeta()) {
+  if (!in_grad->initialized() && grad_in_meta.HasTensorMeta()) {
     const auto& tensor_meta = grad_in_meta.GetTensorMeta();
     if (grad_in_meta.IsDistMeta()) {
       in_grad->set_impl(std::make_shared<phi::distributed::DistTensor>(
