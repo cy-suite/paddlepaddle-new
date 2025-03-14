@@ -55,12 +55,7 @@ class FakeClone(paddle.autograd.PyLayer):
     # need to be retained. Therefore, we need a clone here. To avoid the DtoD copy, we need a FakeClone
     @staticmethod
     def forward(ctx, input):
-        if input.is_contiguous():
-            fake_output = paddle.empty_like(input)
-            input._share_buffer_to(fake_output)
-        else:
-            fake_output = input.clone()
-        return fake_output
+        return paddle.empty_like(input)
 
     @staticmethod
     def backward(ctx, grad_output):
@@ -94,7 +89,11 @@ class ScheduleNode:
         if not isinstance(outputs, (tuple, list)):
             outputs = (outputs,)
         self.outputs = [FakeClone.apply(o) for o in outputs if o is not None]
-        return self.outputs
+        if self.labels is None:
+            # Do not release the loss tensor.
+            for o in self.outputs:
+                o._clear_dataptr()
+        return outputs
 
     def backward(self, output_grad=None, scaler=None):
         if output_grad is None:
