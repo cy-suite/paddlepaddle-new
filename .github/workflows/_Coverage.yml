@@ -30,6 +30,7 @@ jobs:
     steps:
     - name: Download paddle.tar.gz and update test branch
       run: |
+        echo $http_proxy
         rm -rf * .[^.]*
         set -e
         echo "Downloading Paddle.tar.gz"
@@ -130,7 +131,9 @@ jobs:
         docker exec -t ${{ env.container_name }} /bin/bash -c '
         mkdir -p /home/data/cfs/.cache/coverage
         mkdir -p /home/data/cfs/.ccache/coverage
+        echo $http_proxy
         . ../../../unproxy
+        echo $http_proxy
         bash $ci_scripts/coverage_build.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} coverage "" ${{ github.env }}
         '
 
