@@ -17,11 +17,18 @@ import unittest
 import paddle
 
 
+def wrap_place(place):
+    p = paddle.base.libpaddle.Place()
+    p.set_place(place)
+    return p
+
+
 class TestPlace(unittest.TestCase):
     def test_eq(self):
         x = paddle.to_tensor([1, 2, 3], place=paddle.CPUPlace())
         y = paddle.to_tensor([1, 2, 3], place=paddle.CPUPlace())
         self.assertEqual(x.place, y.place)
+        self.assertEqual(x.place, wrap_place(paddle.CPUPlace()))
 
     def test_ne(self):
         if not paddle.is_compiled_with_cuda():
@@ -29,6 +36,8 @@ class TestPlace(unittest.TestCase):
         x = paddle.to_tensor([1, 2, 3], place=paddle.CPUPlace())
         y = paddle.to_tensor([1, 2, 3], place=paddle.CUDAPlace(0))
         self.assertNotEqual(x.place, y.place)
+        self.assertNotEqual(x.place, wrap_place(paddle.CUDAPlace(0)))
+        self.assertNotEqual(y.place, wrap_place(paddle.CPUPlace()))
 
 
 if __name__ == "__main__":
