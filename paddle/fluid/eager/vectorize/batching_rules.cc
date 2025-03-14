@@ -80,6 +80,43 @@ Tensor dot_batching_rule(const Tensor& x, const Tensor& y) {
   }
 }
 
+Tensor matmul_batching_rule(const Tensor& x,
+                            const Tensor& y,
+                            bool transpose_x,
+                            bool transpose_y) {
+  auto x_batched = phi::isBatchedTensor(x);
+  auto y_batched = phi::isBatchedTensor(y);
+
+  PD_CHECK(/*logical*/ x.dims().size() == 2 && /*logical*/ y.dims().size() == 2,
+           "mm(x, y): Shape mismatch: expected matrix "
+           "(got `x` of size [%s]) ",
+           "and matrix (got `y` of size [%s])",
+           x.dims(),
+           y.dims());
+
+  // See Note [Batching rules for matmul-like operators] for why we have cases
+  if (x_batched && !y_batched) {
+    auto x_physical = MultiBatchVmapTransform::logicalToPhysical(x);
+    auto result =
+        ::matmul_ad_func(x_physical.tensor(), y, transpose_x, transpose_y);
+    return x_physical.getPhysicalToLogicalMap().apply(result);
+  } else if (!x_batched && y_batched) {
+    auto y_physical = MultiBatchVmapTransform::logicalToPhysical(y);
+    auto result =
+        ::matmul_ad_func(x, y_physical.tensor(), transpose_x, transpose_y);
+    return y_physical.getPhysicalToLogicalMap().apply(result);
+  } else if (x_batched && y_batched) {
+    auto physical_args = MultiBatchVmapTransform::logicalToPhysical({x, y});
+    auto result = ::matmul_ad_func(physical_args[0].tensor(),
+                                   physical_args[1].tensor(),
+                                   transpose_x,
+                                   transpose_y);
+    return physical_args[0].getPhysicalToLogicalMap().apply(
+        ::squeeze_ad_func(::squeeze_ad_func(result, {-1}), {-1}));
+  }
+  PD_CHECK(false, "either x or y must be a BatchedTensor");
+}
+
 Tensor tanh_batching_rule(const Tensor& x) {
   auto* x_batched = phi::unsafeGetBatchedImpl(x);
   auto output_physical = ::tanh_ad_func(x_batched->value());

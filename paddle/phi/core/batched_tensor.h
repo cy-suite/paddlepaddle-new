@@ -152,6 +152,10 @@ class BatchedTensor : public TensorBase,
 
   void set_meta(const BatchedTensorMeta& meta);
 
+  /// \brief Returns the meta information of the tensor.
+  /// \return The meta information of the tensor.
+  const BatchedTensorMeta& meta() const noexcept { return meta_; }
+
  private:
   friend class DenseTensorUtils;
 
