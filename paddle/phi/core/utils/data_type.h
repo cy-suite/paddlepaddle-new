@@ -18,7 +18,9 @@ limitations under the License. */
 #include <string>
 #include <typeindex>
 
+#if defined(PADDLE_WITH_FLAGCX)
 #include <flagcx.h>
+#endif
 #include "paddle/phi/common/data_type.h"
 #include "paddle/phi/core/enforce.h"
 namespace phi {
@@ -299,11 +301,11 @@ inline flagcxDataType_t ToFlagcxDataType(DataType type) {
     return flagcxUint8;
   } else if (type == DataType::BFLOAT16) {
     return flagcxBfloat16;
-#endif
   } else {
     PADDLE_THROW(
         errors::Unimplemented("This datatype in flagcx is not supported."));
   }
 }
+#endif
 
 }  // namespace phi
