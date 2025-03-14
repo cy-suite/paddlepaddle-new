@@ -18,7 +18,7 @@ import builtins
 import inspect
 import re
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 from ...utils import log
 from .guard import StringifiedExpression, union_free_vars
@@ -119,6 +119,14 @@ def validate_value(value):
     assert not isinstance(value.tracker, DanglingTracker) or isinstance(
         value, (NullVariable, CellVariable)
     ), f"dangling variable {value} should not be pushed into stack."
+
+
+class VirtualFrameState(NamedTuple):
+    locals: dict[str, VariableBase]
+    builtins: dict[str, VariableBase]
+    cells: dict[str, VariableBase]
+    lasti: int
+    stack_data: list[VariableBase]
 
 
 class VirtualFrame:
@@ -279,3 +287,19 @@ class VirtualFrame:
         for name in list(self.locals.keys()):
             if re.match(pattern, name):
                 self.locals[name.replace('implicit', '.')] = self.locals[name]
+
+    def get_state(self):
+        return VirtualFrameState(
+            locals=self.locals.copy(),
+            builtins=self.builtins.copy(),
+            cells=self.cells.copy(),
+            lasti=self.lasti,
+            stack_data=list(self.stack._data),
+        )
+
+    def restore_state(self, state: VirtualFrameState):
+        self.locals = state.locals
+        self.builtins = state.builtins
+        self.cells = state.cells
+        self.lasti = state.lasti
+        self.stack._data = state.stack_data

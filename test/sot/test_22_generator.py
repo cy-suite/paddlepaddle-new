@@ -17,6 +17,8 @@ import unittest
 from test_case_base import TestCaseBase
 
 from paddle.jit import sot
+from paddle.jit.sot.psdb import check_no_breakgraph
+from paddle.jit.sot.utils.envs import strict_mode_guard
 
 
 def create_simple_generator(a, b):
@@ -24,6 +26,7 @@ def create_simple_generator(a, b):
     yield b
 
 
+@check_no_breakgraph
 def simple_generator_user():
     gen = create_simple_generator(1, 2)
     x = next(gen)
@@ -31,32 +34,7 @@ def simple_generator_user():
     return x, y
 
 
-def create_simple_generator_with_breakgraph():
-    yield 1
-    sot.psdb.breakgraph()
-    yield 2
-
-
-def simple_generator_user_with_breakgraph():
-    gen = create_simple_generator_with_breakgraph()
-    x = next(gen)
-    y = next(gen)
-    return x + y
-
-
-def create_simple_generator_with_outer_breakgraph():
-    yield 1
-    yield 2
-
-
-def simple_generator_user_with_outer_breakgraph():
-    gen = create_simple_generator_with_outer_breakgraph()
-    x = next(gen)
-    sot.psdb.breakgraph()  # ~~codegen 时候（reconstruct）~~需要准确生成一次 next(gen)，否则无法恢复这里的 side effect，应该对其专门实现 side effect，reconstruct 应该是无副作用的才对
-    y = next(gen)
-    return x + y
-
-
+@check_no_breakgraph
 def genexpr_user():
     gen = (i for i in range(2))
     x = next(gen)
@@ -71,6 +49,7 @@ def echo():
     recv = yield recv
 
 
+@check_no_breakgraph
 def generator_send():
     s = echo()
     init = next(s)
@@ -83,6 +62,7 @@ def yield_from_generator():
     yield from create_simple_generator(1, 2)
 
 
+@check_no_breakgraph
 def generator_yield_from_generator_user():
     s = yield_from_generator()
     x = next(s)
@@ -108,6 +88,32 @@ def for_iterate_generator():
     return out
 
 
+def create_simple_generator_with_breakgraph():
+    yield 1
+    sot.psdb.breakgraph()
+    yield 2
+
+
+def simple_generator_user_with_breakgraph():
+    gen = create_simple_generator_with_breakgraph()
+    x = next(gen)
+    y = next(gen)
+    return x + y
+
+
+def create_simple_generator_with_outer_breakgraph():
+    yield 1
+    yield 2
+
+
+def simple_generator_user_with_outer_breakgraph():
+    gen = create_simple_generator_with_outer_breakgraph()
+    x = next(gen)
+    sot.psdb.breakgraph()
+    y = next(gen)
+    return x + y
+
+
 class TestGenerator(TestCaseBase):
     def test_generator_simple(self):
         self.assert_results(simple_generator_user)
@@ -126,6 +132,14 @@ class TestGenerator(TestCaseBase):
 
     def test_for_iterate_generator(self):
         self.assert_results(for_iterate_generator)
+
+    @strict_mode_guard(False)
+    def test_generator_simple_with_breakgraph(self):
+        self.assert_results(simple_generator_user_with_breakgraph)
+
+    @strict_mode_guard(False)
+    def test_generator_simple_with_outer_breakgraph(self):
+        self.assert_results(simple_generator_user_with_outer_breakgraph)
 
 
 if __name__ == "__main__":

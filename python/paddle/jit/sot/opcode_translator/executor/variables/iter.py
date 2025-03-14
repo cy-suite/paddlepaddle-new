@@ -25,6 +25,12 @@ from paddle.jit.sot.opcode_translator.executor.variables.base import (
 
 from ....profiler import EventGuard
 from ....utils import BreakGraphError, FallbackError, UnsupportedOperationBreak
+from ....utils.exceptions import (
+    BreakGraphInlineCallBreak,
+    FallbackInlineCallBreak,
+    OtherInlineCallBreak,
+    SotErrorBase,
+)
 from ..tracker import ConstTracker, DummyTracker, GetAttrTracker
 from .base import VariableFactory
 from .basic import ConstantVariable
@@ -317,20 +323,42 @@ class GeneratorVariable(IterVariable):
     def send(self, /, value: VariableBase):
         from ..opcode_inline_executor import OpcodeInlineGeneratorExecutor
 
-        inline_gen_executor = OpcodeInlineGeneratorExecutor(
-            self.vframe, self.code_var, self.graph
-        )
-        if sys.version_info < (3, 10) and self.vframe.lasti == 0:
-            assert isinstance(value, ConstantVariable)
-            assert value.value is None
-        else:
-            inline_gen_executor.stack.push(value)
-        with EventGuard(
-            f"Inline Gen Call: {inline_gen_executor.vframe.code.co_name}, file {inline_gen_executor.vframe.code.co_filename}, line {int(inline_gen_executor.vframe.code.co_firstlineno)}"
-        ):
-            output = inline_gen_executor.inline_call()
-            if inline_gen_executor.stop_state == "Return":
-                raise StopIteration
+        checkpoint = self.graph.save_memo()
+        frame_state = self.vframe.get_state()
+        try:
+            inline_gen_executor = OpcodeInlineGeneratorExecutor(
+                self.vframe, self.code_var, self.graph
+            )
+            if sys.version_info < (3, 10) and self.vframe.lasti == 0:
+                assert isinstance(value, ConstantVariable)
+                assert value.value is None
+            else:
+                self.vframe.stack.push(value)
+            with EventGuard(
+                f"Inline Gen Call: {inline_gen_executor.vframe.code.co_name}, file {inline_gen_executor.vframe.code.co_filename}, line {int(inline_gen_executor.vframe.code.co_firstlineno)}"
+            ):
+                output: VariableBase = inline_gen_executor.inline_call()
+                if inline_gen_executor.stop_state == "Return":
+                    raise StopIteration
+        except SotErrorBase as error:
+            self.graph.restore_memo(checkpoint)
+            self.vframe.restore_state(frame_state)
+            filename = self.code_var.value.co_filename
+            lineno = self.code_var.value.co_firstlineno
+            code_name = self.code_var.value.co_name
+            location_info = f'File "{filename}", line {lineno}, in {code_name}'
+
+            exception_class = OtherInlineCallBreak
+            if isinstance(error, BreakGraphError):
+                exception_class = BreakGraphInlineCallBreak
+            elif isinstance(error, FallbackError):
+                exception_class = FallbackInlineCallBreak
+
+            raise BreakGraphError(
+                exception_class(
+                    f"{location_info} encountered breakgraph error caused by\n    {error}"
+                )
+            )
 
         return output
 
