@@ -95,7 +95,7 @@ struct SimplifyDoubleNeg {
       auto it = std::remove_if(
           mut_operands.begin(),
           mut_operands.end(),
-          [&has_minus_one](DimExpr x) {
+          [&minus_one_nums](DimExpr x) {
             if (x.Has<std::int64_t>() && x.Get<std::int64_t>() == -1) {
               minus_one_nums++;
               return true;
