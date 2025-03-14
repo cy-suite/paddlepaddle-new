@@ -568,37 +568,16 @@ def slice_converter(network, paddle_op, inputs):
                 )
     else:
         ends = inputs[2]
-        for idx in range(len(axes)):
-            axis = axes[idx]
-            input_dim = get_shape_tensor_element(
-                network,
-                input_shape_tensor,
-                axis,
-                name=[paddle_op.name(), f'input_dim_{idx}'],
-            )
-            end_element = get_shape_tensor_element(
-                network,
-                ends,
-                idx,
-                name=[paddle_op.name(), f'end_element_{idx}'],
-            )
-
-            ends_tensor[axes[idx]] = trt_min(
-                network,
-                trt_max(
-                    network,
-                    end_element,
-                    add_1D_constant_layer(
-                        network, 0, name=[paddle_op.name(), 'zero_tensor_{idx}']
-                    ),
-                    name=[paddle_op.name(), 'trt_max_{idx}'],
-                ),
-                input_dim,
-                name=[paddle_op.name(), 'trt_min_{idx}'],
-            )
+        ends_tensor[axes[idx]] = get_shape_tensor_element(
+            network,
+            ends,
+            idx,
+            name=[paddle_op.name(), f'ends_tensor_{idx}'],
+        )
     end_tensor = trt_concat(
         network, ends_tensor, name=[paddle_op.name(), 'end_tensor']
     )
+
     size_tensor = trt_sub(
         network,
         end_tensor,
