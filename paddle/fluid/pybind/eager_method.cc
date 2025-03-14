@@ -691,7 +691,7 @@ static PyObject* tensor_method_copy_(TensorObject* self,
   bool blocking = CastPyArg2AttrBoolean(PyTuple_GET_ITEM(args, 1), 1);
   VLOG(6) << "Start Copy Tensor " << src_tensor.name() << " to "
           << self->tensor.name();
-  if (!self->tensor.has_allocation()) {
+  if (!self->tensor.initialized()) {
     eager_gil_scoped_release guard;
 
     EagerSetDeviceId();
@@ -1757,7 +1757,7 @@ static PyObject* tensor__setitem_dygraph(TensorObject* self,
     // Release gil and do tracing
     py::gil_scoped_release release;
     // use inplace set_value_ operator
-    if (value_tensor.has_allocation()) {
+    if (value_tensor.initialized()) {
       if (self->tensor.dtype() != value_tensor.dtype()) {
         if (egr::Controller::Instance().GetAMPLevel() !=
             paddle::imperative::AmpLevel::O0) {
@@ -1852,7 +1852,7 @@ static PyObject* tensor__setitem_dygraph(TensorObject* self,
 
     // Release gil and do tracing
     py::gil_scoped_release release;
-    if (value_tensor.has_allocation()) {
+    if (value_tensor.initialized()) {
       if (self->tensor.dtype() != value_tensor.dtype()) {
         if (egr::Controller::Instance().GetAMPLevel() !=
             paddle::imperative::AmpLevel::O0) {
