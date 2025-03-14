@@ -300,7 +300,6 @@ class DualPipeVParallel(PipelineParallel):
             None, chunk_id=forward_phase, overlap_schedule_mode=True
         )
         backward_chunk = self.schedule_chunks[backward_phase][backward_acc_id]
-        # NOTE(zhangyuqin1998): in custom overlapped_forward_backward, user need to call reset_states of the ScheduleNode after backward is called to release the tensor buffers.
         forward_outputs, forward_loss, backward_input_grads = (
             self._layers.overlapped_forward_backward(
                 forward_chunk,
