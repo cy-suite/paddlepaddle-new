@@ -38,6 +38,7 @@ class TestPlace(unittest.TestCase):
         self.assertNotEqual(x.place, y.place)
         self.assertNotEqual(x.place, wrap_place(paddle.CUDAPlace(0)))
         self.assertNotEqual(y.place, wrap_place(paddle.CPUPlace()))
+        self.assertEqual(y.place, wrap_place(paddle.CUDAPlace(0)))
 
 
 if __name__ == "__main__":
