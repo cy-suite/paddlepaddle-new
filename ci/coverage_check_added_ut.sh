@@ -36,7 +36,7 @@ cd prec_build
 
 source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/utils.sh
 init
-bash cmake_base ${PYTHON_ABI:-""} >prebuild.log 2>&1
+cmake_base ${PYTHON_ABI:-""} >prebuild.log 2>&1
 
 # remove line ended with .exe to get correct deleted_ut list
 ctest -N | awk -F ':' '{print $2}' | sed '/^$/d' | sed '$d' | sed 's/ //g' | sed '/\.exe$/d' | grep 'test' > $PADDLE_ROOT/br-ut
@@ -52,8 +52,9 @@ grep -F -x -v -f br-ut pr-ut > $PADDLE_ROOT/added_ut
 
 sort pr-ut |uniq -d > $PADDLE_ROOT/duplicate_ut
 
-echo "New-UT:"
+echo "::group::New-UT:"
 cat $PADDLE_ROOT/added_ut
+echo "::endgroup::"
 rm -rf prec_build
 
 rm $PADDLE_ROOT/br-ut $PADDLE_ROOT/pr-ut

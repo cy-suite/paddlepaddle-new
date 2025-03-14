@@ -332,7 +332,7 @@ EOF
         exit 7;
     fi
 
-    build_size $6
+    build_size "" $6
 
     endTime_s=`date +%s`
     [ -n "$startTime_firstBuild" ] && startTime_s=$startTime_firstBuild

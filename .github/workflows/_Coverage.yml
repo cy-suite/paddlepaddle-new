@@ -136,7 +136,7 @@ jobs:
       if: steps.check-bypass.outputs.can_skip != 'true'
       run: |
         docker exec -t ${{ env.container_name }} /bin/bash -c '
-        # . ../../../proxy
+        . ../../../proxy
         bash $ci_scripts/coverage_check_added_ut.sh
         '
 
@@ -144,8 +144,8 @@ jobs:
       if: steps.check-bypass.outputs.can_skip != 'true'
       run: |
         docker exec -t ${{ env.container_name }} /bin/bash -c '
-        # . ../../../proxy
-        bash $ci_scripts/coverage_check_build_size_approval.sh
+        . ../../../proxy
+        bash $ci_scripts/coverage_build_size_approval.sh
         '
 
     - name: Clean up env

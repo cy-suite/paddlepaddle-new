@@ -21,6 +21,10 @@ curl --noproxy '*' -O https://paddle-docker-tar.bj.bcebos.com/paddle_ci_index/bu
 dev_coverage_build_size=`cat build_size|sed 's#G##g'`
 pr_coverage_build_size=`echo $buildSize|sed 's#G##g'`
 
+echo "=============="
+echo $buildSize
+echo "=============="
+
 diff_coverage_build_size=`echo $(($pr_coverage_build_size - $dev_coverage_build_size))`
 set +x
 if [ ${diff_coverage_build_size} -gt 3 ]; then
