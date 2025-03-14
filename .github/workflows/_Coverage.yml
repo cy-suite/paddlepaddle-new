@@ -30,7 +30,6 @@ jobs:
     steps:
     - name: Download paddle.tar.gz and update test branch
       run: |
-        echo $http_proxy
         rm -rf * .[^.]*
         set -e
         echo "Downloading Paddle.tar.gz"
@@ -41,7 +40,6 @@ jobs:
         git config --global user.name "PaddleCI"
         git config --global user.email "paddle_ci@example.com"
         git remote add upstream https://github.com/PaddlePaddle/Paddle.git
-        # . ../../../proxy
         git checkout test
         echo "Pull upstream develop"
         git pull upstream develop --no-edit
@@ -131,9 +129,7 @@ jobs:
         docker exec -t ${{ env.container_name }} /bin/bash -c '
         mkdir -p /home/data/cfs/.cache/coverage
         mkdir -p /home/data/cfs/.ccache/coverage
-        echo $http_proxy
         . ../../../unproxy
-        echo $http_proxy
         bash $ci_scripts/coverage_build.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} coverage "" ${{ github.env }}
         '
 

@@ -39,7 +39,7 @@ if [ "$4" == "coverage" ]; then
     apt install zstd -y
     pip config set global.cache-dir "/root/.cache/pip"
     pip install --upgrade pip
-    echo "::group::Install dependencies"
+    echo "::group::Install python dependencies"
     pip install -r "${work_dir}/python/requirements.txt"
     pip install -r "${work_dir}/python/unittest_py/requirements.txt"
     echo "::endgroup::"
