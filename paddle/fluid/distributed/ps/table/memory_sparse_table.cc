@@ -874,8 +874,7 @@ int64_t MemorySparseTable::CacheShuffle(
   std::vector<std::future<int>> tasks(_real_local_shard_num);
   for (int i = 0; i < _real_local_shard_num; ++i) {
     tasks[i] = _shards_task_pool[i % _shards_task_pool.size()]->enqueue(
-        [this,
-         i,
+        [i,
          save_param,
          cache_threshold,
          &feasign_size,
