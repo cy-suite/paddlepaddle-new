@@ -91,19 +91,27 @@ struct SimplifyDoubleNeg {
     } else if (inner_expr.Has<Mul<DimExpr>>()) {
       std::vector<DimExpr> mut_operands =
           *inner_expr.Get<Mul<DimExpr>>().operands;
-      bool has_minus_one = false;
+      int minus_one_nums = 0;
       auto it = std::remove_if(
           mut_operands.begin(),
           mut_operands.end(),
           [&has_minus_one](DimExpr x) {
             if (x.Has<std::int64_t>() && x.Get<std::int64_t>() == -1) {
-              has_minus_one = true;
+              minus_one_nums++;
               return true;
             }
             return false;
           });
       mut_operands.erase(it, mut_operands.end());
-      if (!has_minus_one) {
+      if (minus_one_nums > 0) {
+        PADDLE_ENFORCE_EQ(minus_one_nums,
+                          1,
+                          common::errors::InvalidArgument(
+                              "The number of -1 in the operands "
+                              "of Mul should be 1, but got %d , "
+                              "please check the simplify logic for Mul.",
+                              minus_one_nums));
+      } else {
         return expr;
       }
       if (mut_operands.size() == 1) {
