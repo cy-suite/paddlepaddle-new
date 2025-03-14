@@ -37,9 +37,8 @@ jobs:
         echo "Extracting Paddle.tar.gz"
         tar xf Paddle.tar.gz --strip-components=1
         rm Paddle.tar.gz
-        git config --global user.name "PaddleCI"
-        git config --global user.email "paddle_ci@example.com"
         git remote add upstream https://github.com/PaddlePaddle/Paddle.git
+        git config pull.rebase false
         git checkout test
         echo "Pull upstream develop"
         git pull upstream develop --no-edit
@@ -129,7 +128,7 @@ jobs:
         docker exec -t ${{ env.container_name }} /bin/bash -c '
         mkdir -p /home/data/cfs/.cache/coverage
         mkdir -p /home/data/cfs/.ccache/coverage
-        . ../../../unproxy
+        . ../../../proxy
         bash $ci_scripts/coverage_build.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} coverage "" ${{ github.env }}
         '
 

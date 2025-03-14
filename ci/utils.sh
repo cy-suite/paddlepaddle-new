@@ -597,7 +597,7 @@ function check_cinn_file_diff() {
     )
 
     run_cinn_ut="OFF"
-    for change_fie in $(git diff --name-only upstream/develop);
+    for change_fie in $(git diff --name-only upstream/${BRANCH});
     do
       for cinn_file in ${CINN_FILE_LIST[@]};
       do
