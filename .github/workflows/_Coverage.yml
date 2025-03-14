@@ -137,7 +137,7 @@ jobs:
       run: |
         docker exec -t ${{ env.container_name }} /bin/bash -c '
         . ../../../proxy
-        bash $ci_scripts/coverage_check_added_ut.sh
+        bash -x $ci_scripts/coverage_check_added_ut.sh
         '
 
     - name: Check coverage build size requires approval
@@ -145,7 +145,7 @@ jobs:
       run: |
         docker exec -t ${{ env.container_name }} /bin/bash -c '
         . ../../../proxy
-        bash $ci_scripts/coverage_build_size_approval.sh
+        bash -x $ci_scripts/coverage_build_size_approval.sh
         '
 
     - name: Clean up env
@@ -166,7 +166,7 @@ jobs:
         rm -rf ./python/build/lib.linux-x86_64-3.9/
         cd ${work_dir}/build/third_party && find `ls | grep -v 'dlpack'| grep -v 'install'|grep -v 'eigen3'|grep -v 'gflags' ` -type f ! -name "*.so" -a ! -name "libdnnl.so*" -delete
         cd ${{ github.workspace }}/..
-        tar --use-compress-program='pzstd -1' -cpPf Paddle.tar.gz ${work_dir}
+        tar --use-compress-program="pzstd -1" -cpPf Paddle.tar.gz ${work_dir}
         '
 
     - name: Upload coverage product
