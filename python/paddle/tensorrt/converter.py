@@ -51,6 +51,7 @@ from .util import (
     get_cache_path,
     get_trt_version,
     get_trt_version_list,
+    is_shape_tensor,
     map_dtype,
     remove_duplicate_value,
     set_dynamic_range,
@@ -401,7 +402,7 @@ class PaddleToTensorRTConverter:
             min_value = []
             opt_value = []
             max_value = []
-            if value_to_trt_tensor[result_value.id].is_shape_tensor:
+            if is_shape_tensor(result_value):
                 min_value = get_value_shape_range_info(
                     result_value, True, paddle.base.core.ShapeMode.kMIN
                 )
