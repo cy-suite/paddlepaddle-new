@@ -215,7 +215,7 @@ jobs:
     runs-on:
       group: BD_BJ-V100
     steps:
-    - name: Download  paddle.tar.gz and update test branch
+    - name: Download paddle.tar.gz and update test branch
       if: steps.check-bypass.outputs.can_skip != 'true'
       run: |
         rm -rf * .[^.]*
