@@ -612,6 +612,8 @@ void BindPlace(pybind11::module &m) {  // NOLINT
              }
              return false;
            })
+      .def("__hash__",
+           [](const phi::Place &self) { return phi::Place::Hash()(self); })
       .def("is_gpu_place",
            [](phi::Place &self) { return phi::is_gpu_place(self); })
       .def("is_cpu_place",
