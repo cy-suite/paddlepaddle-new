@@ -616,12 +616,6 @@ def convert_conv2d(network, paddle_op, inputs):
     n_input = filter_shape[1]
     filter_h = filter_shape[2]
     filter_w = filter_shape[3]
-    filter_name = (
-        paddle_op.operands()[1]
-        .source()
-        .get_defining_op()
-        .attrs()['parameter_name']
-    )
 
     paddings = paddle_op.attrs().get("paddings", [0, 0])
     stride = paddle_op.attrs().get("strides", [1, 1])
@@ -708,7 +702,6 @@ def convert_conv2d(network, paddle_op, inputs):
 
     layer.dilation_nd = nv_dilations
     set_layer_name(layer, paddle_op)
-
     support_fp32_mix_precision(paddle_op.name(), layer)
 
     return layer.get_output(0)
@@ -742,7 +735,7 @@ def convert_conv3d(network, paddle_op, inputs):
             input=input_tensor,
             num_output_maps=n_output,
             kernel_shape=nv_ksize,
-            kernel=trt.Weights(),
+            kernel=filter,
             bias=None,
         )
     elif paddle_op.name() == "pd_op.conv3d_transpose":
@@ -750,10 +743,9 @@ def convert_conv3d(network, paddle_op, inputs):
             input=input_tensor,
             num_output_maps=n_input * groups,
             kernel_shape=nv_ksize,
-            kernel=trt.Weights(),
+            kernel=filter,
             bias=None,
         )
-    layer.set_input(1, filter)
     layer.stride_nd = nv_strides
     layer.pre_padding = nv_pre_paddings
 

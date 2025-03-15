@@ -543,7 +543,6 @@ class PaddleToTensorRTConverter:
 
         with paddle.pir_utils.IrGuard(), paddle.pir.core.program_guard(program):
             pir.set_insertion_point(group_op)
-            _logger.info("c_ops.tensorrt_engine执行了吧")
             out = paddle._C_ops.tensorrt_engine(
                 new_input_values,
                 trt_params,
@@ -553,8 +552,6 @@ class PaddleToTensorRTConverter:
                 out_types,
                 "",
             )
-
-            _logger.info("c_ops.tensorrt_engine执行完毕")
 
             for out_index in range(len(out)):
                 if group_op.result(out_index).use_empty():
