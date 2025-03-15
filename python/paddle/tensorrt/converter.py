@@ -516,15 +516,6 @@ class PaddleToTensorRTConverter:
             trt_params.refit_params_path = self.trt_config.refit_params_path
             trt_params.refit_param_name = refit_param_name
             trt_params.refit_mapping = self.constant_manager.get_all_mappings()
-            _logger.info(
-                f"trt_params.refit_mapping:{self.constant_manager.get_all_mappings()}"
-            )
-            _logger.info(
-                f"trt_params.refit_params_path:{trt_params.refit_params_path}"
-            )
-            _logger.info(
-                f"trt_params.refit_param_name:{trt_params.refit_param_name}"
-            )
         group_str = str(group_op)
         engine_name = (
             int(hashlib.sha256(group_str.encode('utf-8')).hexdigest(), 16)
