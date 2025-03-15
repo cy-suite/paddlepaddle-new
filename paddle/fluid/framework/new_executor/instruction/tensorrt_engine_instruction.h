@@ -42,7 +42,7 @@ class TensorRTEngineInstruction : public InstructionBase {
 
  private:
   std::string ReadBinaryFileToString(const std::string& filePath);
-  void PrepareDynamicShape();
+  void InputsCheck();
   void RunTrt();
   bool endsWith(const std::string& str, const std::string& suffix);
   void BindInputTensor(const std::string& input_name,
