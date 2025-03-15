@@ -4158,6 +4158,16 @@
   backward: reshape_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
 
+- op : restrict_nonzero
+  args : (Tensor condition, int64_t total_true_num)
+  output : Tensor (out)
+  infer_meta :
+    func : RestrictNonZeroInferMeta
+  kernel :
+    func : restrict_nonzero
+    data_type : condition
+  traits : paddle::dialect::ForwardOnlyTrait
+
 - op : reverse
   args : (Tensor x, IntArray axis)
   output : Tensor

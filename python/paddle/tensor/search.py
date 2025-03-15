@@ -568,6 +568,10 @@ def nonzero(x: Tensor, as_tuple=False):
         return tuple(list_out)
 
 
+def _restrict_nonzero(condition: Tensor, total_true_num: int) -> Tensor:
+    return _C_ops.restrict_nonzero(condition, total_true_num)
+
+
 def sort(
     x: Tensor,
     axis: int = -1,
