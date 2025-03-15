@@ -253,7 +253,6 @@ void CommContextManager::CreateFlagcxCommContext(const std::shared_ptr<Store>& s
     return;
   }
   flagcxHandlerGroup_t flagcx_handler;
-  VLOG(3) << "flagcx debug: flagcxHendleInit";
   phi::dynload::flagcxHandleInit(&flagcx_handler);
   if (rank == 0) {
     phi::dynload::flagcxGetUniqueId(&flagcx_handler->uniqueId);

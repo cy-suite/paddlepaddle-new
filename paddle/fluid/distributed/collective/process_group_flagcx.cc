@@ -187,13 +187,12 @@ phi::DeviceContext* ProcessGroupFlagcx::GetDeviceContext(
 }
 
 flagcxComm_t ProcessGroupFlagcx::FlagcxComm(const Place& place) const {
-  PADDLE_ENFORCE_NOT_NULL(flagcx_comm_);
+  PADDLE_ENFORCE_NOT_NULL(flagcx_comm_, ::common::errors::InvalidArgument("flagcx_comm_ is nullptr"));
   return flagcx_comm_;
 }
 
 phi::distributed::FlagcxCommContext* ProcessGroupFlagcx::GetOrCreateCommContext(
     const Place& place, CommType comm_type) {
-  VLOG(3) << "flagcx debug: entered ProcessGroupFlagcx::GetOrCreateCommContext";
   const auto& key = GetKeyFromPlace(place);
   std::string store_key;
   GetStoreKey(key, comm_type, &store_key);
@@ -245,11 +244,8 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::AllReduce(
     const AllreduceOptions& opts,
     bool sync_op,
     bool use_calc_stream) {
-  VLOG(3) << "flagcx debug: entered ProcessGroupFlagcx::AllReduce" << 
-          " sync_op: " << sync_op << "use_calc_stream: " << use_calc_stream;
   CheckTensorContiguous(in_tensor);
   CheckTensorContiguous(*out_tensor);
-  VLOG(3) << "flagcx debug: finished checking input and output tensor";
 
   return Collective(
       [&](phi::distributed::FlagcxCommContext* comm_context, flagcxStream_t stream) {
@@ -693,7 +689,6 @@ void ProcessGroupFlagcx::CreateFlagcxEnvCache(const Place& place,
                                               const std::string& store_key,
                                               CommType comm_type,
                                               int p2p_rank) {
-  VLOG(3) << "flagcx debug: entered ProcessGroupFlagcx::CreateFlagcxEnvCache";
   //TODO(changtao): we only support one flagcx comm ctx
   if (flagcx_comm_ != nullptr) {
     return;
@@ -703,14 +698,12 @@ void ProcessGroupFlagcx::CreateFlagcxEnvCache(const Place& place,
           << ", store_key: " << store_key;
   store_key_ = store_key;
 
-  VLOG(3) << "flagcx debug: before CreateFlagcxCommContext";
   phi::distributed::CommContextManager::CreateFlagcxCommContext(
       store_, store_key, rank_, size_, "");
 
 
   auto flagcx_comm_ctx = this->GetCommContext(&store_key);
   VLOG(3) << "Get flagcx comm: " << flagcx_comm_ctx->GetFlagcxComm();
-  VLOG(3) << "flagcx debug: get flagcx comm";
   flagcx_comm_ = flagcx_comm_ctx->GetFlagcxComm();
   auto comm_ctx = std::make_unique<phi::GPUContext>(place);
   
@@ -718,7 +711,6 @@ void ProcessGroupFlagcx::CreateFlagcxEnvCache(const Place& place,
   auto* calc_ctx = static_cast<phi::GPUContext*>(
       phi::DeviceContextPool::Instance().Get(place));
 
-  VLOG(3) << "flagcx debug: adding key to maps";
   place_to_calc_event_.emplace(
       place_key,
       platform::DeviceEvent(place, platform::GenerateDeviceEventFlag()));
@@ -795,66 +787,51 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Collective(
     CommType comm_type,
     bool sync_op,
     bool use_calc_stream) {
-  VLOG(3) << "flagcx debug: Entered ProcessGroupFlagcx::Collective";
   CheckTensorContiguous(tensor);
-  VLOG(3) << "flagcx debug: finished checking tensor in Collective API";
 
   comm_seq_++;
   const auto& place = tensor.place();
-  VLOG(3) << "flagcx debug: getting key from place";
   const auto& key = GetKeyFromPlace(place);
 
-  VLOG(3) << "flagcx debug: adding cuda guard to device";
   platform::CUDADeviceGuard cuda_guard(place);
 
   std::string store_key;
-  VLOG(3) << "flagcx debug: getting store key";
   GetStoreKey(key, comm_type, &store_key);
 
   if (place_to_comm_ctx_.find(key) == place_to_comm_ctx_.end()) {
-    VLOG(3) << "flagcx debug: creating flagcx env cache";
     CreateFlagcxEnvCache(place, key, store_key, comm_type);
   }
 
   if (!use_calc_stream) {
-    VLOG(3) << "flagcx debug: syncing calc stream";
     SyncCalcStream(place, key);
   }
 
   auto task =
       CreateTask(place, rank_, comm_type, sync_op, use_calc_stream, gid_);
 
-  VLOG(3) << "flagcx debug: getting comm context";
   const auto& comm_ctx = place_to_comm_ctx_.at(key);
-  VLOG(3) << "flagcx debug: getting calc context";
   const auto* calc_ctx = place_to_calc_ctx_.at(key);
   
-  VLOG(3) << "flagcx debug: getting comm context";
   auto flagcx_comm_ctx = this->GetCommContext(&store_key);
 
   flagcxStream_t flagcx_stream;
   if (use_calc_stream) {
-      VLOG(3) << "flagcx debug: getting calc stream";
       auto calc_stream = calc_ctx->stream();
       flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(&flagcx_stream, (void *)&calc_stream);
   } else {
-      VLOG(3) << "flagcx debug: getting comm stream";
       auto comm_stream = comm_ctx->stream();
       flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(&flagcx_stream, (void *)&comm_stream);
   }
 
   if (!FLAGS_enable_async_trace) {
-    VLOG(3) << "flagcx debug: calling function";
     fn(flagcx_comm_ctx, flagcx_stream);
   } 
 
   if (!use_calc_stream) {
     if (!is_coalescing_) {
-      VLOG(3) << "flagcx debug: not coalescing, updating wait chain";
       task->UpdateWaitChain(*comm_ctx);
       allocation_stream_pairs_.emplace_back(tensor.Holder(), *(gpuStream_t*)flagcx_stream);
     } else {
-      VLOG(3) << "flagcx debug: coalescing tensors";
       coalescing_tensors_.emplace_back(
           std::make_shared<phi::DenseTensor>(tensor));
       coalescing_place_keys_.push_back(key);
@@ -862,11 +839,9 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Collective(
   }
 
   if (sync_op) {
-    VLOG(3) << "flagcx debug: task wait";
     task->Wait();
   }
   
-  VLOG(3) << "flagcx debug: free flagcx tmp stream";
   flagcx_comm_ctx->flagcx_handler_->devHandle->streamFree(flagcx_stream);
 
   return task;
@@ -927,11 +902,9 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Point2Point(
 
   flagcxStream_t flagcx_stream;
   if (use_calc_stream) {
-      VLOG(3) << "flagcx debug: getting calc stream";
       auto calc_stream = calc_ctx->stream();
       flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(&flagcx_stream, (void *)&calc_stream);
   } else {
-      VLOG(3) << "flagcx debug: getting comm stream";
       auto comm_stream = comm_ctx->stream();
       flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(&flagcx_stream, (void *)&comm_stream);
   }
