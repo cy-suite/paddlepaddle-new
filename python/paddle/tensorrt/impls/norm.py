@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import logging
+
 import numpy as np
 import tensorrt as trt
 
+from paddle.base.log_helper import get_logger
 from paddle.tensorrt.converter_utils import (
     WithFp16,
     add_1D_constant_layer,
@@ -33,6 +36,10 @@ from paddle.tensorrt.converter_utils import (
 from paddle.tensorrt.register import converter_registry
 from paddle.tensorrt.util import (
     TensorRTConstantManager,
+)
+
+_logger = get_logger(
+    __name__, logging.INFO, fmt='%(asctime)s-%(levelname)s: %(message)s'
 )
 
 
@@ -180,6 +187,8 @@ def batch_norm_converter(network, paddle_op, inputs):
         input_tensor, trt.ScaleMode.CHANNEL, bias, scale, power
     )
     set_layer_name(batch_norm_layer, paddle_op)
+    constant_manager.set_mapping(bias_name, batch_norm_layer.name, 'SHIFT')
+    constant_manager.set_mapping(scale_name, batch_norm_layer.name, 'SCALE')
 
     if not network.has_implicit_batch_dimension and len(output_shape) < 4:
         reshape_output_layer = network.add_shuffle(

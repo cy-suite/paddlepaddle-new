@@ -36,7 +36,7 @@ TensorRTEngineInstruction::TensorRTEngineInstruction(
     : InstructionBase(id, place), value_exec_info_(value_exec_info) {
   auto op_attributes = op->attributes();
 
-  VLOG(0) << "Start Build engine";
+  VLOG(6) << "Start Build engine";
   auto engine_serialized_path = op_attributes.at("engine_serialized_data")
                                     .dyn_cast<pir::StrAttribute>()
                                     .AsString();
@@ -45,7 +45,6 @@ TensorRTEngineInstruction::TensorRTEngineInstruction(
                            .dyn_cast<pir::StrAttribute>()
                            .AsString();
 
-  LOG(INFO) << "refit_params_path:" << refit_params_path_;
   workspace_size_ =
       op_attributes.at("workspace_size").dyn_cast<pir::Int64Attribute>().data();
   allow_build_at_runtime_ = op_attributes.at("allow_build_at_runtime")
@@ -104,6 +103,23 @@ TensorRTEngineInstruction::TensorRTEngineInstruction(
     for (const auto &attr : refit_param_name_attr) {
       refit_param_names_.push_back(
           attr.dyn_cast<pir::StrAttribute>().AsString());
+    }
+  }
+
+  if (op_attributes.find("refit_mapping") != op_attributes.end()) {
+    auto refit_mapping_attrs = op_attributes.at("refit_mapping")
+                                   .dyn_cast<pir::ArrayAttribute>()
+                                   .AsVector();
+    for (const auto &attr : refit_mapping_attrs) {
+      std::string mapping_str = attr.dyn_cast<pir::StrAttribute>().AsString();
+      size_t pos1 = mapping_str.find(':');
+      size_t pos2 = mapping_str.find(':', pos1 + 1);
+      if (pos1 != std::string::npos && pos2 != std::string::npos) {
+        std::string param_name = mapping_str.substr(0, pos1);
+        std::string layer_name = mapping_str.substr(pos1 + 1, pos2 - pos1 - 1);
+        std::string role = mapping_str.substr(pos2 + 1);
+        refit_mapping_[param_name] = {layer_name, role};
+      }
     }
   }
 
@@ -202,26 +218,41 @@ TensorRTEngineInstruction::TensorRTEngineInstruction(
       dev_ctx->Alloc(tensor_temp, type_data);
       tensor_out.push_back(tensor_temp);
     }
-    LOG(INFO) << "tensor_out那完了";
+
     pir::LoadCombineFunction(
         refit_params_path_, param_names, &tensor_out, false, place);
-    for (size_t i = 0; i < tensor_out.size(); ++i) {
-      LOG(INFO) << "tensor_out[" << i << "] 的维度: " << tensor_out[i]->dims();
-    }
 
-    for (size_t i = 0; i < refit_param_names_.size(); ++i) {
-      LOG(INFO) << "refit_param_names_[" << i << "] = " << param_names[i];
-      LOG(INFO) << "tensor_out[" << i << "] 的维度: " << tensor_out[i]->dims();
-      if (!trt_engine_->setRefitWeights(param_names[i], *tensor_out[i])) {
-        LOG(ERROR) << "Failed to set refit weights for "
-                   << refit_param_names_[i];
+    // Filter out the weights and corresponding tensors with suffixes 'w_1' and
+    // 'w_2' as they do not need to be refitted, but are required when loading
+    // the weight file.
+    std::vector<std::string> filtered_param_names;
+    std::vector<phi::DenseTensor *> filtered_tensor_out;
+    for (size_t i = 0; i < param_names.size(); ++i) {
+      const std::string &param_name = param_names[i];
+      if (!endsWith(param_name, "w_1") && !endsWith(param_name, "w_2")) {
+        filtered_param_names.push_back(param_name);
+        filtered_tensor_out.push_back(tensor_out[i]);
+      } else {
+        VLOG(6) << "Skipping parameter with suffix w1 or w2: " << param_name;
+        delete tensor_out[i];
       }
     }
-    if (!trt_engine_->FinalizeRefit()) {
-      LOG(ERROR) << "Failed to finalize refit process";
-    } else {
-      VLOG(6) << "Successfully completed refit process";
+
+    // Perform refitting using the filtered parameters.
+    for (size_t i = 0; i < filtered_param_names.size(); ++i) {
+      auto param_name = filtered_param_names[i];
+      PADDLE_ENFORCE_EQ(
+          trt_engine_->setRefitWeights(
+              refit_mapping_, param_name, *filtered_tensor_out[i]),
+          true,
+          common::errors::InvalidArgument(
+              std::string("Failed to set refit weights for ") + param_name));
     }
+    PADDLE_ENFORCE_EQ(
+        trt_engine_->FinalizeRefit(),
+        true,
+        common::errors::InvalidArgument("Failed to finalize refit process,some "
+                                        "weights have not been updated."));
   }
   VLOG(6) << "Finish build engine for: " << op_name_;
 
@@ -301,6 +332,12 @@ static phi::DataType TRT2PaddleDataType(nvinfer1::DataType type) {
           "unknown fluid datatype in Fluid op converter"));
       return phi::DataType::FLOAT32;
   }
+}
+
+bool TensorRTEngineInstruction::endsWith(const std::string &str,
+                                         const std::string &suffix) {
+  if (suffix.size() > str.size()) return false;
+  return std::equal(suffix.rbegin(), suffix.rend(), str.rbegin());
 }
 
 void TensorRTEngineInstruction::PrepareDynamicShape() {

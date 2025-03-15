@@ -254,6 +254,7 @@ class TensorRTConstantManager:
             cls._instance = super().__new__(cls)
             cls._instance.constant_dict = {}
             cls._instance.trt_weights_dict = {}
+            cls._instance.refit_mapping = {}
         return cls._instance
 
     def set_constant_value(self, name, tensor_data, value):
@@ -273,6 +274,15 @@ class TensorRTConstantManager:
 
     def get_trt_weight_tensor(self, name):
         return self.trt_weights_dict[name]
+
+    def set_mapping(self, param_name, layer_name, role):
+        self.refit_mapping[param_name] = (layer_name, role)
+
+    def get_mapping(self, param_name):
+        return self.refit_mapping.get(param_name, None)
+
+    def get_all_mappings(self):
+        return self.refit_mapping
 
 
 # In TensorRT FP16 inference, this function sets the precision of specific

@@ -44,6 +44,7 @@ class TensorRTEngineInstruction : public InstructionBase {
   std::string ReadBinaryFileToString(const std::string& filePath);
   void PrepareDynamicShape();
   void RunTrt();
+  bool endsWith(const std::string& str, const std::string& suffix);
   void BindInputTensor(const std::string& input_name,
                        const phi::DenseTensor& input_tensor,
                        const Scope& scope,
@@ -70,6 +71,7 @@ class TensorRTEngineInstruction : public InstructionBase {
   ::pir::Operation* op_{nullptr};  // not owned
   std::string refit_params_path_;
   std::vector<std::string> refit_param_names_;
+  std::map<std::string, std::pair<std::string, std::string>> refit_mapping_;
 
   const ValueExecutionInfo* value_exec_info_;  // not owned
 };

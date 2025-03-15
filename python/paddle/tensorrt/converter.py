@@ -175,7 +175,6 @@ class PaddleToTensorRTConverter:
             if defining_op.name() == "builtin.parameter":
                 param_name = defining_op.attrs()["parameter_name"]
                 refit_param_name.append(param_name)
-                _logger.info(f"param_name:{param_name}")
                 weight = trt.Weights(
                     self.constant_manager.get_constant_value(param_name)
                 )
@@ -521,6 +520,10 @@ class PaddleToTensorRTConverter:
         if self.trt_config.refit_params_path:
             trt_params.refit_params_path = self.trt_config.refit_params_path
             trt_params.refit_param_name = refit_param_name
+            trt_params.refit_mapping = self.constant_manager.get_all_mappings()
+            _logger.info(
+                f"trt_params.refit_mapping:{self.constant_manager.get_all_mappings()}"
+            )
             _logger.info(
                 f"trt_params.refit_params_path:{trt_params.refit_params_path}"
             )
@@ -578,48 +581,6 @@ class PaddleToTensorRTConverter:
                     "opt_value": orin_opt_value,
                     "max_value": orin_max_value,
                 }
-
-        # serialized_engine = builder.build_serialized_network(network, config)
-        # assert serialized_engine is not None, 'Failed to build engine.'
-        # engine_runtime = trt.Runtime(trt.Logger(trt.Logger.ERROR))
-        # engine = engine_runtime.deserialize_cuda_engine(serialized_engine)
-        # if self.trt_config and self.trt_config.refit_params_path:
-        #     _logger.info(
-        #         "Refit mode detected. Starting TensorRT refit process."
-        #     )
-
-        #     refitter = trt.Refitter(engine, trt.Logger(trt.Logger.ERROR))
-
-        #     refit_param_names = ["linear_0.w_0", "linear_0.b_0"]
-
-        #     for param_name in refit_param_names:
-        #         param_tensor = self.constant_manager.get_constant_value(
-        #             param_name
-        #         )
-        #         np_weight = np.array(param_tensor)
-
-        #         if param_name.endswith(".w_0"):
-        #             weight_role = trt.WeightsRole.KERNEL
-        #         elif param_name.endswith(".b_0"):
-        #             weight_role = trt.WeightsRole.BIAS
-        #         else:
-        #             raise ValueError(f"Unsupported param_name: {param_name}")
-        #         refitter = trt.Refitter(engine, trt.Logger(trt.Logger.ERROR))
-
-        #         all_refittable = refitter.get_all()
-        #         for weight_name in all_refittable:
-        #             print("weight_name", weight_name)
-
-        #         layer_name = param_name
-        #         weight_role = trt.WeightsRole.CONSTANT
-
-        #         success = refitter.set_weights(
-        #             layer_name, weight_role, np.ascontiguousarray(np_weight)
-        #         )
-        #         if not success:
-        #             _logger.error(f"Refit failed for weight: {layer_name}")
-        #             raise RuntimeError(f"Refit failed for weight: {layer_name}")
-        #         _logger.info(f"Successfully set weight: {layer_name}")
 
         return out
 
