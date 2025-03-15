@@ -1114,7 +1114,6 @@ class PartialProgramLayer:
         for key, val in self.program.program_attr.items():
             attrs.append(key)
             attrs.append(val)
-
         return attrs
 
     def _prepare_inputs(self, inputs):
