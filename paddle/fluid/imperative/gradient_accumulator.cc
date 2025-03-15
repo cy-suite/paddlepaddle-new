@@ -77,70 +77,6 @@ static void MoveOrCopyVar(framework::Variable* dst,
   }
 }
 
-#ifdef PADDLE_WITH_XPU
-template <typename T>
-void XPUTensorAddFunctor(const phi::Place& place,
-                         const phi::DenseTensor& src,
-                         phi::DenseTensor* dst) {
-  using XPUType = typename XPUTypeTrait<T>::Type;
-  phi::XPUContext* ctx = dynamic_cast<phi::XPUContext*>(
-      phi::DeviceContextPool::Instance().Get(place));
-  const XPUType* x = reinterpret_cast<const XPUType*>(src.data<T>());
-  XPUType* y = reinterpret_cast<XPUType*>(dst->mutable_data<T>(place));
-  int r = -1;
-  int numel = static_cast<int>(src.numel());
-  if (std::is_same<T, double>::value) {
-    xpu::ctx_guard RAII_GUARD(ctx->x_context());
-    float* x_cast_to_fp32 = RAII_GUARD.alloc<float>(numel);
-    PADDLE_ENFORCE_XDNN_NOT_NULL(x_cast_to_fp32);
-    float* y_cast_to_fp32 = RAII_GUARD.alloc<float>(numel);
-    PADDLE_ENFORCE_XDNN_NOT_NULL(y_cast_to_fp32);
-    r = xpu::cast<XPUType, float>(ctx->x_context(), x, x_cast_to_fp32, numel);
-    PADDLE_ENFORCE_XDNN_SUCCESS(r, "cast");
-    r = xpu::cast<XPUType, float>(ctx->x_context(), y, y_cast_to_fp32, numel);
-    PADDLE_ENFORCE_XDNN_SUCCESS(r, "cast");
-    r = xpu::add<float>(ctx->x_context(),
-                        x_cast_to_fp32,
-                        y_cast_to_fp32,
-                        y_cast_to_fp32,
-                        numel);
-    PADDLE_ENFORCE_XDNN_SUCCESS(r, "add");
-    r = xpu::cast<float, XPUType>(ctx->x_context(), y_cast_to_fp32, y, numel);
-    PADDLE_ENFORCE_XDNN_SUCCESS(r, "cast");
-  } else if (std::is_same<T, phi::dtype::bfloat16>::value) {
-    VLOG(3) << "debug come here !";
-    xpu::ctx_guard RAII_GUARD(ctx->x_context());
-    float* x_cast_to_fp32 = RAII_GUARD.alloc<float>(numel);
-    PADDLE_ENFORCE_XDNN_NOT_NULL(x_cast_to_fp32);
-    float* y_cast_to_fp32 = RAII_GUARD.alloc<float>(numel);
-    PADDLE_ENFORCE_XDNN_NOT_NULL(y_cast_to_fp32);
-
-    const float* y_float = dst->data<float>();  // 直接获取 float dst 数据
-    float* y_mutable_float = dst->mutable_data<float>(place);
-
-    r = xpu::cast<XPUType, float>(ctx->x_context(), x, x_cast_to_fp32, numel);
-    PADDLE_ENFORCE_XDNN_SUCCESS(r, "cast");
-    memcpy(y_cast_to_fp32,
-           y_float,
-           numel * sizeof(float));  // 将 float dst 数据拷贝到临时 buffer
-
-    r = xpu::add<float>(ctx->x_context(),
-                        x_cast_to_fp32,
-                        y_cast_to_fp32,
-                        y_cast_to_fp32,
-                        numel);
-    PADDLE_ENFORCE_XDNN_SUCCESS(r, "add");
-
-    memcpy(y_mutable_float,
-           y_cast_to_fp32,
-           numel * sizeof(float));  // 将结果拷贝回 float dst
-  } else {
-    r = xpu::add<XPUType>(ctx->x_context(), x, y, y, numel);
-    PADDLE_ENFORCE_XDNN_SUCCESS(r, "add");
-  }
-}
-#endif
-
 template <typename TType>
 TType* GetInnerMutableTensor(framework::Variable* dst) {
   auto* dst_tensor = dst->GetMutable<TType>();
@@ -467,7 +403,6 @@ std::shared_ptr<ReturnVarType> SelectedRowsMerge(const VarType& src1,
 #if defined(PADDLE_WITH_XPU)
     if (phi::is_xpu_place(place)) {
       PADDLE_SELECTED_ROWS_ADD(phi::XPUContext, float);
-      PADDLE_SELECTED_ROWS_ADD(phi::XPUContext, double);
     } else {
 #endif
       PADDLE_SELECTED_ROWS_ADD(phi::CPUContext, float);
