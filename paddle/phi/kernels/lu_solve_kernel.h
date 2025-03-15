@@ -1,4 +1,4 @@
-// Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
+// Copyright (c) 2025 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,15 +14,16 @@
 
 #pragma once
 
-#include <memory>
-#include "paddle/pir/include/pass/pass.h"
+#include "paddle/phi/core/dense_tensor.h"
 
-namespace cinn {
-namespace dialect {
-namespace ir {
+namespace phi {
 
-std::unique_ptr<pir::Pass> CreateAddStoreInGroupOpPass();
+template <typename T, typename Context>
+void LuSolveKernel(const Context& dev_ctx,
+                   const DenseTensor& b,
+                   const DenseTensor& lu,
+                   const DenseTensor& pivots,
+                   const std::string& trans,
+                   DenseTensor* out);
 
-}  // namespace ir
-}  // namespace dialect
-}  // namespace cinn
+}  // namespace phi
