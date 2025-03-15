@@ -344,10 +344,16 @@ __global__ void per_channel_quant_gpu_int4_row_pack(const T* weight_data,
         int8_t packed_int4s = 0;
         for (int pack = 0; pack < 2; ++pack) {
           int vector_index = i * 2 + pack;
-          const float weight_elt = static_cast<float>(weight[vector_index]) /
-                                   static_cast<float>(scale[vector_index]);
-          int8_t clipped_weight = static_cast<int8_t>(
-              lroundf(fmaxf(-7.0f, fminf(7.0f, weight_elt))));
+          const float r_scale = 1 / static_cast<float>(scale[vector_index]);
+          const float weight_elt =
+              static_cast<float>(weight[vector_index]) * r_scale;
+          float scaled_weight = roundf(weight_elt);
+          int int_weight = static_cast<int>(scaled_weight);
+#ifdef PADDLE_WITH_HIP
+          int8_t clipped_weight = max(-7, min(7, int_weight)) + 8;
+#else
+          int8_t clipped_weight = max(-7, min(7, int_weight));
+#endif
           packed_int4s |= ((clipped_weight & 0x0F) << (4 * pack));
         }
         quanted_weight[i] = packed_int4s;
@@ -403,9 +409,11 @@ __global__ void per_channel_quant_gpu_int4_col_pack(const T* weight_data,
 #pragma unroll
         for (int i = 0; i < VectorSize; ++i) {
           const float weight_elt =
-              (static_cast<float>(weight[i]) / static_cast<float>(scale[i]));
-          int8_t clipped_weight = static_cast<int8_t>(
-              lroundf(fmaxf(-7.0f, fminf(7.0f, weight_elt))));
+              (static_cast<float>(weight[i]) / static_cast<float>(abs_max[i])) *
+              static_cast<float>(7.0);
+          const float scaled_weight = lroundf(weight_elt);
+          int int_weight = static_cast<int>(scaled_weight);
+          const int8_t clipped_weight = fmaxf(-7, fminf(7, int_weight));
           quanted_weight[i] &= ~(0x0F << (4 * packed_idx));
           quanted_weight[i] |= ((clipped_weight & 0x0F) << (4 * packed_idx));
         }
@@ -650,6 +658,11 @@ void weight_quant_gpu(const GPUContext& dev_ctx,
   int kGridSize =
       max((vec_total_n + kBlockSize - 1) / kBlockSize, static_cast<int>(1));
   if (algo == "weight_only_int4") {
+#ifdef PADDLE_WITH_HIP
+    per_channel_quant_gpu_int4_row_pack<T, kVectorSize>
+        <<<kGridSize, kBlockSize>>>(
+            weight_data, quanted_weight_data, scale_data, total_k, vec_total_n);
+#else
     if ((arch == 90) || (arch == 89) || (arch == 86) || (arch == 80) ||
         (arch == 75)) {
       if (group_size == -1) {  // per channel
@@ -686,7 +699,7 @@ void weight_quant_gpu(const GPUContext& dev_ctx,
                                         group_size);
       }
     }
-
+#endif
   } else {
     if (group_size == -1) {  // per channel
       per_channel_quant_gpu<T, kVectorSize><<<kGridSize, kBlockSize>>>(

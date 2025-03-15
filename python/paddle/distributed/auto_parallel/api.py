@@ -1167,6 +1167,8 @@ class _ShardOptimizer(Optimizer):
                 self._inner_opt._master_weights[param.name] = (
                     self._shard_fn.shard_master_weight(param, master_weight)
                 )
+                self._inner_opt._master_weights[param.name].name = target_name
+
         # shard the accumulators
         for key in self._inner_opt._accumulators.keys():
             accumulator = self._inner_opt._accumulators[key][target_name]
@@ -1414,14 +1416,12 @@ class _ShardingStageBase:
         self, param: Tensor, master_weight: Tensor
     ) -> Tensor:
         if param.is_dist():
+            placements = get_placement_with_sharding(param, self._sharding_axis)
             if isinstance(master_weight, pir.Value):
                 data_op = master_weight.get_defining_op()
                 assert (
                     data_op.name() == "pd_op.data"
                 ), "The master weight must be a result of data op."
-                placements = get_placement_with_sharding(
-                    param, self._sharding_axis
-                )
                 dim_map, partial_status = to_dim_map(
                     placements, len(master_weight.shape)
                 )
@@ -1438,6 +1438,13 @@ class _ShardingStageBase:
                     paddle.base.libpaddle.pir.create_op_dist_attribute(
                         param.process_mesh, [], [dist_attr]
                     )
+                )
+
+            if paddle.in_dynamic_mode() and master_weight.is_dist():
+                master_weight = reshard(
+                    master_weight,
+                    mesh=param.process_mesh,
+                    placements=placements,
                 )
         return master_weight
 
@@ -3231,24 +3238,9 @@ def unshard_dtensor(dist_tensor: Tensor) -> Tensor:
         return dist_tensor
 
     else:
-        assert isinstance(
-            dist_tensor, Variable
-        ), f"the input type of 'unshard_dtensor' should be Variable, but got [{dist_tensor}]"
-        # in static mode, 'distributed tensor' and 'dense tensor' are all
-        # Variable type, the distributed attribute is a property of the Variable.
-        # So, it's no need to convert the distributed tensor to a dense tensor.
-        # We only need to modify its distributed attribute.
-        empty_dist_attr = (
-            dist.auto_parallel.static.dist_attribute.TensorDistAttr()
+        raise NotImplementedError(
+            "`unshard_dtensor()` only supported in dynamic and pir mode."
         )
-        dist_tensor.dist_attr = empty_dist_attr
-
-        # remove the distributed tensor from dist_context
-        default_dist_ctx = get_default_distributed_context()
-        serial_tensor_id = dist_tensor.desc.original_id()
-        default_dist_ctx._dist_tensors_for_program.pop(serial_tensor_id, None)
-
-        return dist_tensor
 
 
 class ShardDataloader:
@@ -3271,6 +3263,29 @@ class ShardDataloader:
             Users can specify the shard_dim of each mesh or specify a single shard_dim for all meshes.
             Default: None, which means the data loader will not be split, i.e. mp.
         is_dataset_splitted (bool): Whether the dataset has been splitted.
+        dense_tensor_idx (list): A 2D list specifies the index of the dense_tensor in the output of dataloader.
+            It allows users to identify which elements within each output batch are dense_tensor.
+            Default: None, which means all the outputs are dist_tensors.
+            e.g.
+            1. If the collator function returns:
+                return {
+                    "input_ids": [
+                        features["input_ids"],
+                        features["attention_mask"],
+                        features["position_ids"],
+                    ],
+                    "image": features["image"],
+                    "labels": features["labels"],
+                }
+            2. If `dense_tensor_idx = [[1, 2], [0], []]`:
+                - For "input_ids":
+                    input_ids["input_ids"] is a dist_tensor
+                    input_ids["attention_mask"] is a dense_tensor
+                    input_ids["position_ids"] is a dense_tensor
+                - For "image":
+                    image is a dense_tensor
+                - For "labels":
+                    labels is a dist_tensor
     """
 
     def __init__(
@@ -3280,6 +3295,7 @@ class ShardDataloader:
         input_keys: list[str] | tuple[str] | None = None,
         shard_dims: list | tuple | str | int | None = None,
         is_dataset_splitted: bool = False,
+        dense_tensor_idx: list | None = None,
     ):
         # do some check
         if is_dataset_splitted is True and shard_dims is None:
@@ -3350,6 +3366,8 @@ class ShardDataloader:
             )
         # Note(lizhiyu): In dygraph mode, the flag "pin_memory" is default "True", but it decrease the speed of `AutoParallel`
         self._dataloader.pin_memory = False
+        self.iter = None
+        self.dense_tensor_idx = dense_tensor_idx
 
     def _process_shard_dims(self, shard_dims):
         if isinstance(shard_dims, (int, str)) or shard_dims is None:
@@ -3446,12 +3464,19 @@ class ShardDataloader:
             placements.append(placement)
         return meshes, placements
 
-    def _dtensors_from_list_input(self, list_tensors, meshes, placements):
+    def _dtensors_from_list_input(
+        self, list_tensors, meshes, placements, dense_tensor_idx=None
+    ):
         dist_data = []
         for j in range(len(list_tensors)):
-            dist_data.append(
-                dtensor_from_local(list_tensors[j], meshes[j], placements[j])
-            )
+            if dense_tensor_idx is not None and j in dense_tensor_idx:
+                dist_data.append(list_tensors[j])
+            else:
+                dist_data.append(
+                    dtensor_from_local(
+                        list_tensors[j], meshes[j], placements[j]
+                    )
+                )
         return dist_data
 
     def _get_batch(self, batch_data):
@@ -3468,16 +3493,27 @@ class ShardDataloader:
                     ) = self._get_meshes_and_placements_for_list_input(
                         i, len(input_data)
                     )
+                    _dense_tensor_idx = (
+                        None
+                        if self.dense_tensor_idx is None
+                        else self.dense_tensor_idx[i]
+                    )
                     dist_batch_data.append(
                         self._dtensors_from_list_input(
-                            input_data, meshes, placements
+                            input_data, meshes, placements, _dense_tensor_idx
                         )
                     )
                 elif isinstance(input_data, paddle.Tensor):
-                    mesh, placements = self._get_mesh_and_placement(i)
-                    dist_batch_data.append(
-                        dtensor_from_local(input_data, mesh, placements)
-                    )
+                    if (
+                        self.dense_tensor_idx is not None
+                        and self.dense_tensor_idx[i] != []
+                    ):
+                        dist_batch_data.append(input_data)
+                    else:
+                        mesh, placements = self._get_mesh_and_placement(i)
+                        dist_batch_data.append(
+                            dtensor_from_local(input_data, mesh, placements)
+                        )
                 else:
                     raise ValueError(
                         f"Unsupported input_data type {type(input_data)}"
@@ -3501,23 +3537,39 @@ class ShardDataloader:
                     ) = self._get_meshes_and_placements_for_list_input(
                         i, len(input_data)
                     )
+                    _dense_tensor_idx = (
+                        None
+                        if self.dense_tensor_idx is None
+                        else self.dense_tensor_idx[i]
+                    )
                     dist_batch_data[key] = self._dtensors_from_list_input(
-                        input_data, meshes, placements
+                        input_data, meshes, placements, _dense_tensor_idx
                     )
                 elif isinstance(input_data, paddle.Tensor):
-                    mesh, placements = self._get_mesh_and_placement(i)
-                    dist_batch_data[key] = dtensor_from_local(
-                        batch_data[key], mesh, placements
-                    )
+                    if (
+                        self.dense_tensor_idx is not None
+                        and self.dense_tensor_idx[i] != []
+                    ):
+                        dist_batch_data.append(input_data)
+                    else:
+                        mesh, placements = self._get_mesh_and_placement(i)
+                        dist_batch_data[key] = dtensor_from_local(
+                            batch_data[key], mesh, placements
+                        )
                 else:
                     raise ValueError(
                         f"Unsupported input_data type {type(input_data)}"
                     )
             return dist_batch_data
+        elif isinstance(batch_data, paddle.Tensor):
+            mesh, placements = self._get_mesh_and_placement(0)
+            return dtensor_from_local(batch_data, mesh, placements)
         else:
             raise ValueError(f"Unsupported batch_data type {type(batch_data)}")
 
     def __next__(self):
+        if self.iter is None:
+            self.iter = self._dataloader.__iter__()
         batch_data = next(self.iter)
         return self._get_batch(batch_data)
 
@@ -3532,6 +3584,7 @@ def shard_dataloader(
     input_keys: Sequence[str] | None = None,
     shard_dims: Sequence[str] | Sequence[int] | str | int | None = None,
     is_dataset_splitted: bool = False,
+    dense_tensor_idx: list | None = None,
 ) -> ShardDataloader:
     """
     Convert the dataloader to a ShardDataloader which provided two capabilities:
@@ -3556,6 +3609,29 @@ def shard_dataloader(
             Users can specify the shard_dim of each mesh or specify a single shard_dim for all meshes.
             Default: None, which means the data loader will not be split, i.e. mp.
         is_dataset_splitted (bool): Whether the dataset has been splitted, Default: False.
+        dense_tensor_idx (list): A 2D list specifies the index of the dense_tensor in the output of dataloader.
+            It allows users to identify which elements within each output batch are dense_tensor.
+            Default: None, which means all the outputs are dist_tensors.
+            e.g.
+            1. If the collator function returns:
+                return {
+                    "input_ids": [
+                        features["input_ids"],
+                        features["attention_mask"],
+                        features["position_ids"],
+                    ],
+                    "image": features["image"],
+                    "labels": features["labels"],
+                }
+            2. If `dense_tensor_idx = [[1, 2], [0], []]`:
+                - For "input_ids":
+                    input_ids["input_ids"] is a dist_tensor
+                    input_ids["attention_mask"] is a dense_tensor
+                    input_ids["position_ids"] is a dense_tensor
+                - For "image":
+                    image is a dense_tensor
+                - For "labels":
+                    labels is a dist_tensor
     Returns:
         ShardDataloader: The sharded dataloader.
 
@@ -3715,7 +3791,12 @@ def shard_dataloader(
     """
 
     return ShardDataloader(
-        dataloader, meshes, input_keys, shard_dims, is_dataset_splitted
+        dataloader,
+        meshes,
+        input_keys,
+        shard_dims,
+        is_dataset_splitted,
+        dense_tensor_idx,
     )
 
 
