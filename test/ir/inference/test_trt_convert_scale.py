@@ -147,7 +147,7 @@ class TrtConvertScaleTest(TrtLayerAutoScanTest):
             self.dynamic_shape.opt_input_shape = {"scale_input": [1, 24]}
         elif self.dims == 1:
             self.dynamic_shape.min_input_shape = {"scale_input": [24]}
-            self.dynamic_shape.max_input_shape = {"scale_input": [48]}
+            self.dynamic_shape.max_input_shape = {"scale_input": [24]}
             self.dynamic_shape.opt_input_shape = {"scale_input": [24]}
         elif self.dims == 0:
             self.dynamic_shape.min_input_shape = {"scale_input": []}

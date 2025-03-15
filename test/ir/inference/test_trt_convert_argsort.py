@@ -105,7 +105,7 @@ class TrtConvertArgsort(TrtLayerAutoScanTest):
                 "input_data": [24],
             }
             self.dynamic_shape.max_input_shape = {
-                "input_data": [25],
+                "input_data": [24],
             }
             self.dynamic_shape.opt_input_shape = {
                 "input_data": [24],
