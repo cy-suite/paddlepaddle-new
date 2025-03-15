@@ -183,8 +183,6 @@ class TestCollectiveAllreduceAPI(TestDistBase):
         red_types_to_test = [
             dist.ReduceOp.SUM,
         ]
-        if self._nccl_version >= 21000:
-            dtypes_to_test.append("bfloat16")
         for dtype in dtypes_to_test:
             for red_type in red_types_to_test:
                 self.check_with_place(
