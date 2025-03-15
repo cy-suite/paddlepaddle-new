@@ -278,26 +278,6 @@ void CommContextManager::CreateFlagcxCommContext(const std::shared_ptr<Store>& s
       rank, size, flagcx_handler);
   //TODO(changtao): find a way to manage different device context,
   // now we use cuda device context as default
-  // if (CommContextManager::device_id != -1) {
-    // std::unique_ptr<phi::GPUContext> dev_ctx(
-    //     new phi::GPUContext(phi::GPUPlace(CommContextManager::device_id)));
-    // dev_ctx->SetAllocator(phi::memory_utils::GetAllocator(
-    //     CommContextManager::device_id, dev_ctx->stream()));
-    // dev_ctx->SetHostAllocator(phi::memory_utils::GetHostAllocator());
-    // dev_ctx->SetZeroAllocator(
-    //     phi::memory_utils::GetZeroAllocator(CommContextManager::device_id));
-    // dev_ctx->SetHostZeroAllocator(phi::memory_utils::GetHostZeroAllocator());
-    // dev_ctx->SetPinnedAllocator(phi::memory_utils::GetPinnedAllocator());
-    // dev_ctx->PartialInitWithAllocator();
-    // auto compute_event =
-    //     phi::memory_utils::GetCudaEvent(CommContextManager::device_id);
-    // auto comm_event =
-    //     phi::memory_utils::GetCudaEvent(CommContextManager::device_id);
-
-    // flagcx_comm_context->SetDevContext(std::move(dev_ctx));
-    // flagcx_comm_context->SetComputeEvent(std::move(compute_event));
-    // flagcx_comm_context->SetCommEvent(std::move(comm_event));
-  // }
   comm_context_manager.SetStore(store);
   comm_context_manager.Emplace(unique_comm_key, std::move(flagcx_comm_context));
 }
