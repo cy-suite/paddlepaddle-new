@@ -653,7 +653,6 @@ if __is_metainfo_generated and is_compiled_with_cuda():
         set_flags({"FLAGS_nccl_dir": nccl_lib_path})
 
         flagcx_lib_path = os.getenv('FLAGCX_ROOT', '') + "/build/lib"
-        print(f"flagcx debug: flagcx_lib_path: {flagcx_lib_path}")
         set_flags({"FLAGS_flagcx_dir": flagcx_lib_path})
 
         cupti_dir_lib_path = package_dir + "/.." + "/nvidia/cuda_cupti/lib"
