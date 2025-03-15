@@ -960,7 +960,7 @@ class TrtLayerAutoScanTest(AutoScanTest):
                                 )
                                 input_range = (
                                     (0.0, input_data.flat[0])
-                                    if input_dtype == 'int32'
+                                    if input_dtype in ['int32', 'int64']
                                     else None
                                 )
 
