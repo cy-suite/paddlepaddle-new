@@ -50,9 +50,6 @@ void FlagcxCommContext::Broadcast(phi::DenseTensor* out_tensor,
                              /*dst_rank*/ rank_,
                              /*cur_rank*/ rank_,
                              size_);
-  // if (FLAGS_enable_flagcx_dynamic_check) {
-  //   NCCLDynamicCheck::CheckShape(*out_tensor, root, rank_, flagcx_handler_->comm);
-  // }
   FLAGCX_CHECK(phi::dynload::flagcxBroadcast(in_tensor.data(),
                                              out_tensor->data(),
                                              in_tensor.numel(),
@@ -70,12 +67,6 @@ void FlagcxCommContext::AllGather(phi::DenseTensor* out_tensor,
                                                      /*dst_rank*/ rank_,
                                                      /*cur_rank*/ rank_,
                                                      size_);
-  // if (FLAGS_enable_nccl_dynamic_check) {
-  //   phi::distributed::NCCLDynamicCheck::CheckShape(*out_tensor,
-  //                                                  /*root_rank*/ 0,
-  //                                                  rank_,
-  //                                                  flagcx_handler_->comm);
-  // }
   FLAGCX_CHECK(phi::dynload::flagcxAllGather(in_tensor.data(),
                                              out_tensor->data(),
                                              in_tensor.numel(),
@@ -92,12 +83,6 @@ void FlagcxCommContext::ReduceScatter(phi::DenseTensor* out_tensor,
                                                       /*dst_rank*/ rank_,
                                                       /*cur_rank*/ rank_,
                                                       size_);
-  // if (FLAGS_enable_nccl_dynamic_check) {
-  //   phi::distributed::NCCLDynamicCheck::CheckShape(*out_tensor,
-  //                                                  /*root_rank*/ 0,
-  //                                                  rank_,
-  //                                                  flagcx_handler_->comm);
-  // }
   FLAGCX_CHECK(phi::dynload::flagcxReduceScatter(in_tensor.data(),
                                                  out_tensor->data(),
                                                  out_tensor->numel(),
@@ -113,9 +98,6 @@ void FlagcxCommContext::Send(const phi::DenseTensor& in_tensor,
                            flagcxStream_t stream) {
   phi::distributed::CommStaticCheck::CheckShape(in_tensor, rank_, size_);
 
-  // if (FLAGS_enable_nccl_dynamic_check) {
-  //   NCCLDynamicCheck::CheckShape(in_tensor, rank_, rank_, flagcx_handler_->comm);
-  // }
 
   FLAGCX_CHECK(phi::dynload::flagcxSend(in_tensor.data(),
                                         count,
@@ -132,9 +114,6 @@ void FlagcxCommContext::Recv(phi::DenseTensor* out_tensor,
                            const int& peer,
                            flagcxStream_t stream) {
   phi::distributed::CommStaticCheck::CheckShape(*out_tensor, rank_, size_);
-  // if (FLAGS_enable_nccl_dynamic_check) {
-  //   NCCLDynamicCheck::CheckShape(*out_tensor, peer, rank_, flagcx_handler_->comm);
-  // }
 
   FLAGCX_CHECK(phi::dynload::flagcxRecv(out_tensor->data(),
                                         count,
@@ -155,12 +134,6 @@ void FlagcxCommContext::AllReduce(phi::DenseTensor* out_tensor,
                                                /*dst_rank*/ rank_,
                                                /*cur_rank*/ rank_,
                                                size_);
-  // if (FLAGS_enable_nccl_dynamic_check) {
-  //   phi::distributed::NCCLDynamicCheck::CheckShape(*out_tensor,
-  //                                                  /*root_rank*/ 0,
-  //                                                  rank_,
-  //                                                  flagcx_handler_->comm);
-  // }
   FLAGCX_CHECK(phi::dynload::flagcxAllReduce(in_tensor.data(),
                                              out_tensor->data(),
                                              in_tensor.numel(),
@@ -180,12 +153,6 @@ void FlagcxCommContext::Reduce(phi::DenseTensor* out_tensor,
                                                /*dst_rank*/ root,
                                                /*cur_rank*/ rank_,
                                                size_);
-  // if (FLAGS_enable_nccl_dynamic_check) {
-  //   phi::distributed::NCCLDynamicCheck::CheckShape(*out_tensor,
-  //                                                  /*root_rank*/ root,
-  //                                                  rank_,
-  //                                                  flagcx_handler_->comm);
-  // }
   FLAGCX_CHECK(phi::dynload::flagcxReduce(in_tensor.data(),
                                           out_tensor->data(),
                                           in_tensor.numel(),

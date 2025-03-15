@@ -39,6 +39,22 @@ class TestCollectiveReduceScatterAPI(test_base.TestDistBase):
                 dtype=dtype,
             )
 
+    def test_reduce_scatter_flagcx_with_new_comm(self):
+        dtypes_to_test = [
+            "float16",
+            "float32",
+            "float64",
+            "int32",
+            "int64",
+        ]
+        for dtype in dtypes_to_test:
+            self.check_with_place(
+                "collective_reduce_scatter_api.py",
+                "reduce_scatter",
+                "flagcx",
+                dtype=dtype,
+            )
+
     def test_reduce_scatter_nccl_dygraph(self):
         dtypes_to_test = [
             "float16",
@@ -57,6 +73,26 @@ class TestCollectiveReduceScatterAPI(test_base.TestDistBase):
                 "collective_reduce_scatter_api_dygraph.py",
                 "reduce_scatter",
                 "nccl",
+                static_mode="0",
+                dtype=dtype,
+            )
+
+    def test_reduce_scatter_flagcx_dygraph(self):
+        dtypes_to_test = [
+            "float16",
+            "float32",
+            "float64",
+            "int32",
+            "int64",
+            "int8",
+            "uint8",
+            "bool",
+        ]
+        for dtype in dtypes_to_test:
+            self.check_with_place(
+                "collective_reduce_scatter_api_dygraph.py",
+                "reduce_scatter",
+                "flagcx",
                 static_mode="0",
                 dtype=dtype,
             )
