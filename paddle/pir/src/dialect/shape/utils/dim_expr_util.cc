@@ -1008,12 +1008,13 @@ DimExprCompareResult EasyCompareAddWithZero(const Add<DimExpr>& add) {
   // Only return GT, GE, UNKNOWN.
   List<DimExpr> operands = add.operands;
   for (const auto& operand : *operands) {
-    if (!operand.isa<std::string>()) {
-      if (operand.isa<std::int64_t>() && operand.dyn_cast<int64_t>() > 0) {
-        continue;
-      }
-      return DimExprCompareResult::UNKNOWN;
+    if (operand.isa<std::string>()) {
+      continue;
     }
+    if (operand.isa<std::int64_t>() && operand.dyn_cast<int64_t>() > 0) {
+      continue;
+    }
+    return DimExprCompareResult::UNKNOWN;
   }
   return DimExprCompareResult::GT;
 }
@@ -1023,14 +1024,15 @@ DimExprCompareResult EasyCompareMulWithOne(const Mul<DimExpr>& mul) {
   List<DimExpr> operands = mul.operands;
   int64_t const_result = 1;
   for (const auto& operand : *operands) {
-    if (!operand.isa<std::string>()) {
-      if (operand.isa<std::int64_t>() && operand.dyn_cast<int64_t>() > 1) {
-        continue;
-      }
-      return DimExprCompareResult::UNKNOWN;
-    } else if (operand.isa<int64_t>()) {
-      const_result = operand.dyn_cast<int64_t>();
+    if (operand.isa<std::string>()) {
+      continue;
     }
+    if (operand.isa<std::int64_t>() && operand.dyn_cast<int64_t>() > 1) {
+      const_result = operand.dyn_cast<int64_t>();
+      continue;
+    }
+
+    return DimExprCompareResult::UNKNOWN;
   }
   if (const_result == 1) {
     return DimExprCompareResult::GE;
