@@ -107,6 +107,9 @@ void MetaTensor::set_dims(const DDim& dims) {
   } else if (phi::SparseCsrTensor::classof(tensor_)) {
     DenseTensorUtils::GetMutableMeta(static_cast<SparseCsrTensor*>(tensor_))
         ->dims = dims;
+  } else if (phi::BatchedTensor::classof(tensor_)) {
+    DenseTensorUtils::GetMutableMeta(static_cast<BatchedTensor*>(tensor_))
+        ->dims = dims;
   } else if (phi::distributed::DistTensor::classof(tensor_)) {
     static_cast<distributed::DistTensor*>(tensor_)->unsafe_set_dims(dims);
   } else {
@@ -141,6 +144,9 @@ void MetaTensor::set_dtype(DataType dtype) {
         ->dtype = dtype;
   } else if (phi::SparseCsrTensor::classof(tensor_)) {
     DenseTensorUtils::GetMutableMeta(static_cast<SparseCsrTensor*>(tensor_))
+        ->dtype = dtype;
+  } else if (phi::BatchedTensor::classof(tensor_)) {
+    DenseTensorUtils::GetMutableMeta(static_cast<BatchedTensor*>(tensor_))
         ->dtype = dtype;
   } else if (phi::distributed::DistTensor::classof(tensor_)) {
     // For pipeline parallelism, DistTensor holds an uninitialized DenseTensor,
@@ -182,6 +188,9 @@ void MetaTensor::set_layout(DataLayout layout) {
   } else if (phi::SparseCsrTensor::classof(tensor_)) {
     DenseTensorUtils::GetMutableMeta(static_cast<SparseCsrTensor*>(tensor_))
         ->layout = layout;
+  } else if (phi::BatchedTensor::classof(tensor_)) {
+    DenseTensorUtils::GetMutableMeta(static_cast<BatchedTensor*>(tensor_))
+        ->layout = layout;
   } else if (phi::distributed::DistTensor::classof(tensor_)) {
     VLOG(3) << "DistTensor set layout: " << layout;
     DenseTensorUtils::GetMutableMeta(
@@ -199,6 +208,7 @@ void MetaTensor::share_lod(const MetaTensor& meta_tensor) {
   ValidCheck(meta_tensor);
   if (phi::SparseCooTensor::classof(tensor_) ||
       phi::SparseCsrTensor::classof(tensor_) ||
+      phi::BatchedTensor::classof(tensor_) ||
       phi::distributed::DistTensor::classof(tensor_)) {
     return;
   }
@@ -224,6 +234,7 @@ void MetaTensor::share_lod(const LegacyLoD& legacy_lod) {
   ValidCheck(*this);
   if (phi::SparseCooTensor::classof(tensor_) ||
       phi::SparseCsrTensor::classof(tensor_) ||
+      phi::BatchedTensor::classof(tensor_) ||
       phi::distributed::DistTensor::classof(tensor_)) {
     return;
   }
@@ -265,6 +276,7 @@ void MetaTensor::share_meta(const MetaTensor& meta_tensor) {
       phi::SelectedRows::classof(tensor_) ||
       phi::SparseCooTensor::classof(tensor_) ||
       phi::SparseCsrTensor::classof(tensor_) ||
+      phi::BatchedTensor::classof(tensor_) ||
       phi::distributed::DistTensor::classof(tensor_)) {
     share_dims(meta_tensor);
     set_dtype(meta_tensor.dtype());
@@ -300,8 +312,9 @@ void MetaTensor::share_dims(const MetaTensor& meta_tensor) {
   bool is_sparse_coo = phi::SparseCooTensor::classof(tensor_);
   bool is_sparse_csr = phi::SparseCsrTensor::classof(tensor_);
   bool is_dist_tensor = phi::distributed::DistTensor::classof(tensor_);
+  bool is_batched_tensor = phi::BatchedTensor::classof(tensor_);
   if (is_dense_tensor || is_selected_rows || is_sparse_coo || is_sparse_csr ||
-      is_dist_tensor) {
+      is_dist_tensor || is_batched_tensor) {
     if (is_selected_rows) {
       const auto in_tensor_base = meta_tensor.tensor();
       PADDLE_ENFORCE_EQ(
@@ -348,6 +361,10 @@ const LegacyLoD& MetaTensor::lod() const {
     return static_cast<SparseCooTensor*>(tensor_)->non_zero_elements().lod();
   } else if (phi::SparseCsrTensor::classof(tensor_)) {
     return static_cast<SparseCsrTensor*>(tensor_)->non_zero_elements().lod();
+  } else if (phi::BatchedTensor::classof(tensor_)) {
+    return static_cast<DenseTensor*>(
+               static_cast<BatchedTensor*>(tensor_)->value().impl().get())
+        ->lod();
   } else {
     PADDLE_THROW(common::errors::Unimplemented(
         "Unsupported getting lod of `%s`.", tensor_->type_info().name()));

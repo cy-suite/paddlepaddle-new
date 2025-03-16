@@ -667,7 +667,8 @@ PyObject* tensor_properties_get_strides(TensorObject* self, void* closure) {
   EAGER_TRY
   std::vector<int64_t> value;
   if (!self->tensor.defined() ||
-      (!self->tensor.is_dense_tensor() && !self->tensor.is_dist_tensor())) {
+      (!self->tensor.is_dense_tensor() && !self->tensor.is_dist_tensor() &&
+       !self->tensor.is_batched_tensor())) {
     return ToPyObject(value);
   }
 

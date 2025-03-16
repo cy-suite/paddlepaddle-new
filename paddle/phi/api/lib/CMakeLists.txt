@@ -6,7 +6,7 @@ set(api_yaml_file ${CMAKE_SOURCE_DIR}/paddle/phi/ops/yaml/ops.yaml)
 set(legacy_api_yaml_file
     ${CMAKE_SOURCE_DIR}/paddle/phi/ops/yaml/inconsistent/dygraph_ops.yaml)
 set(api_header_file ${CMAKE_SOURCE_DIR}/paddle/phi/api/include/api.h)
-set(api_source_file ${CMAKE_SOURCE_DIR}/paddle/phi/api/lib/api.cc)
+set(api_source_file ${CMAKE_SOURCE_DIR}/paddle/phi/api/lib/api_dummy.cc)
 set(api_header_file_tmp ${api_header_file}.tmp)
 set(api_source_file_tmp ${api_source_file}.tmp)
 # dist forward api file
@@ -348,7 +348,8 @@ collect_srcs(
 collect_generated_srcs(
   api_srcs
   SRCS
-  ${api_source_file}
+  # ${api_source_file}
+  ${CMAKE_SOURCE_DIR}/paddle/phi/api/lib/api.cc
   ${bw_api_source_file}
   ${backward_api_source_file}
   ${fused_api_source_file}

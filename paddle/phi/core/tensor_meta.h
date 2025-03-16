@@ -131,4 +131,43 @@ inline bool operator==(const SparseTensorMeta& lhs,
   return (lhs.dims == rhs.dims) && (lhs.layout == rhs.layout);
 }
 
+struct TEST_API BatchedTensorMeta {
+  BatchedTensorMeta();
+  BatchedTensorMeta(DataType dtype, const DDim& dims);
+  BatchedTensorMeta(DataType dtype, const DDim& dims, const DDim& stride);
+  BatchedTensorMeta(DataType dtype,
+                    const DDim& dims,
+                    DataLayout layout,
+                    size_t offset = 0);
+  BatchedTensorMeta(DataType dtype,
+                    const DDim& dims,
+                    DataLayout layout,
+                    const LegacyLoD& legacy_lod,
+                    size_t offset = 0);
+
+  BatchedTensorMeta(const BatchedTensorMeta& other);
+
+  BatchedTensorMeta& operator=(const BatchedTensorMeta& other);
+  BatchedTensorMeta& operator=(BatchedTensorMeta&& other);
+
+  static DDim calc_strides(const DDim& dims);
+
+  /// \brief Test whether the metadata is valid. Does not throw exceptions.
+  /// \return Whether the metadata is valid.
+  bool valid() const noexcept;
+
+  bool is_contiguous() const;
+
+  bool is_scalar{false};
+  /// \brief Determine whether using gpudnn speed-up library in the new dygraph.
+  /// It maybe also support OneDNN library in the near future.
+  bool use_gpudnn{true};
+  DDim dims;
+  DataType dtype{DataType::UNDEFINED};
+  DataLayout layout{DataLayout::NCHW};
+  LegacyLoD legacy_lod;
+  size_t offset{0};
+  DDim strides;
+};
+
 }  // namespace phi

@@ -2597,6 +2597,142 @@ static PyObject* tensor_method_is_dist(TensorObject* self,
   EAGER_CATCH_AND_THROW_RETURN_NULL
 }
 
+PyDoc_STRVAR(tensor_method_is_batched__doc__, R"DOC(is_batched($self, /)
+--
+
+Whether the Tensor is a Batched Tensor.
+
+Returns:
+    Whether the Tensor is a Batched Tensor.
+
+Examples:
+
+    .. code-block:: python
+
+        >>> import paddle
+
+        >>> x = paddle.to_tensor([1.0], stop_gradient=False)
+        >>> print(x.is_batched())
+        False
+)DOC");  // NOLINT
+
+static PyObject* tensor_method_is_batched(TensorObject* self,
+                                          PyObject* args,
+                                          PyObject* kwargs) {
+  EAGER_TRY
+  if (!self->tensor.defined()) {
+    return ToPyObject(false);
+  }
+  return ToPyObject(self->tensor.is_batched_tensor());
+  EAGER_CATCH_AND_THROW_RETURN_NULL
+}
+
+PyDoc_STRVAR(tensor_method_bdims__doc__, R"DOC(bdims($self, /)
+--
+
+Return batch dims of Batched Tensor.
+
+Returns:
+    Return batch dims of Batched Tensor.
+
+Examples:
+
+    .. code-block:: python
+
+        >>> import paddle
+
+        >>> x = paddle.to_tensor([1.0], stop_gradient=False)
+        >>> print(x.bdims())
+        ()
+)DOC");  // NOLINT
+
+static PyObject* tensor_method_bdims(TensorObject* self,
+                                     PyObject* args,
+                                     PyObject* kwargs) {
+  EAGER_TRY
+  if (!self->tensor.is_batched_tensor()) {
+    return ToPyObject(false);
+  }
+  std::vector<int64_t> dim_vec;
+  auto batch_tensor_impl =
+      std::dynamic_pointer_cast<phi::BatchedTensor>(self->tensor.impl());
+  for (const auto& bdim : batch_tensor_impl->bdims()) {
+    dim_vec.emplace_back(bdim.dim());
+  }
+  return ToPyObject(dim_vec);
+  EAGER_CATCH_AND_THROW_RETURN_NULL
+}
+
+PyDoc_STRVAR(tensor_method_levels__doc__, R"DOC(levels($self, /)
+--
+
+Return batch dims of Batched Tensor.
+
+Returns:
+    Return batch dims of Batched Tensor.
+
+Examples:
+
+    .. code-block:: python
+
+        >>> import paddle
+
+        >>> x = paddle.to_tensor([1.0], stop_gradient=False)
+        >>> print(x.levels())
+        ()
+)DOC");  // NOLINT
+
+static PyObject* tensor_method_levels(TensorObject* self,
+                                      PyObject* args,
+                                      PyObject* kwargs) {
+  EAGER_TRY
+  if (!self->tensor.is_batched_tensor()) {
+    return ToPyObject(false);
+  }
+  std::vector<int64_t> level_vec;
+  auto batch_tensor_impl =
+      std::dynamic_pointer_cast<phi::BatchedTensor>(self->tensor.impl());
+  for (const auto& bdim : batch_tensor_impl->bdims()) {
+    level_vec.emplace_back(bdim.level());
+  }
+  return ToPyObject(level_vec);
+  EAGER_CATCH_AND_THROW_RETURN_NULL
+}
+
+PyDoc_STRVAR(tensor_method__value__doc__, R"DOC(_value($self, /)
+--
+
+Return batch dims of Batched Tensor.
+
+Returns:
+    Return batch dims of Batched Tensor.
+
+Examples:
+
+    .. code-block:: python
+
+        >>> import paddle
+
+        >>> x = paddle.to_tensor([1.0], stop_gradient=False)
+        >>> print(x._value())
+        ()
+)DOC");  // NOLINT
+
+static PyObject* tensor_method__value(TensorObject* self,
+                                      PyObject* args,
+                                      PyObject* kwargs) {
+  EAGER_TRY
+  PADDLE_ENFORCE(
+      self->tensor.is_batched_tensor(),
+      common::errors::Fatal("this method is only effective for BatchedTensor"));
+  auto batched_tensor =
+      std::dynamic_pointer_cast<phi::BatchedTensor>(self->tensor.impl());
+
+  const Tensor& value = batched_tensor->value();
+  return ToPyObject(value, false);
+  EAGER_CATCH_AND_THROW_RETURN_NULL
+}
+
 PyDoc_STRVAR(tensor_is_sparse__doc__,  // NOLINT
              R"DOC(is_sparse($self, /)
 --
@@ -2614,12 +2750,9 @@ Examples:
 
         >>> import paddle
 
-        >>> indices = [[0, 1, 2], [1, 2, 0]]
-        >>> values = [1.0, 2.0, 3.0]
-        >>> dense_shape = [3, 3]
-        >>> coo = paddle.sparse.sparse_coo_tensor(indices, values, dense_shape)
-        >>> coo.is_sparse()
-        True
+        >>> x = paddle.to_tensor([1.0], stop_gradient=False)
+        >>> print(x.levels())
+        ()
 
 )DOC");                                // NOLINT
 
@@ -3690,6 +3823,22 @@ PyMethodDef variable_methods[] = {  // NOLINT
      (PyCFunction)(void (*)())tensor_method_is_sparse_csr,
      METH_VARARGS | METH_KEYWORDS,
      tensor_is_sparse_csr__doc__},
+    {"is_batched",
+     (PyCFunction)(void (*)())tensor_method_is_batched,
+     METH_VARARGS | METH_KEYWORDS,
+     tensor_method_is_batched__doc__},
+    {"bdims",
+     (PyCFunction)(void (*)())tensor_method_bdims,
+     METH_VARARGS | METH_KEYWORDS,
+     tensor_method_bdims__doc__},
+    {"levels",
+     (PyCFunction)(void (*)())tensor_method_levels,
+     METH_VARARGS | METH_KEYWORDS,
+     tensor_method_levels__doc__},
+    {"_value",
+     (PyCFunction)(void (*)())tensor_method__value,
+     METH_VARARGS | METH_KEYWORDS,
+     tensor_method__value__doc__},
     {"is_same_shape",
      (PyCFunction)(void (*)())tensor_method_is_same_shape,
      METH_VARARGS | METH_KEYWORDS,

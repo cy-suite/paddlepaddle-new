@@ -273,6 +273,13 @@ class PADDLE_API Tensor final {
    */
   bool is_string_tensor() const;
 
+  /**
+   * @brief Determine whether tensor is BatchedTensor
+   *
+   * @return bool
+   */
+  bool is_batched_tensor() const;
+
   /* Part 3: Device and Backend methods */
 
   /**

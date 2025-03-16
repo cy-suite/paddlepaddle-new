@@ -14,6 +14,7 @@ limitations under the License. */
 
 #pragma once
 
+#include "paddle/phi/core/batched_tensor.h"
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/device_context.h"
 #include "paddle/phi/core/selected_rows.h"
@@ -35,6 +36,10 @@ class DenseTensorUtils {
   }
 
   static SparseTensorMeta* GetMutableMeta(SparseCsrTensor* tensor) {
+    return &(tensor->meta_);
+  }
+
+  static BatchedTensorMeta* GetMutableMeta(BatchedTensor* tensor) {
     return &(tensor->meta_);
   }
 
@@ -89,6 +94,13 @@ void Copy(const Context& dev_ctx,
           Place dst_place,
           bool blocking,
           DenseTensor* dst);
+
+template <typename Context>
+void Copy(const Context& dev_ctx,
+          const BatchedTensor& src,
+          Place dst_place,
+          bool blocking,
+          BatchedTensor* dst);
 
 template <typename Context>
 void Copy(const Context& dev_ctx,

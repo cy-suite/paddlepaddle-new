@@ -758,17 +758,35 @@ def where(
             [[2],
              [3]]),)
     """
-    if np.isscalar(x):
-        x = paddle.full([1], x, np.array([x]).dtype.name)
-
-    if np.isscalar(y):
-        y = paddle.full([1], y, np.array([y]).dtype.name)
-
     if x is None and y is None:
         return nonzero(condition, as_tuple=True)
 
     if x is None or y is None:
         raise ValueError("either both or neither of x and y should be given")
+
+    isscalar_x = np.isscalar(x)
+    isscalar_y = np.isscalar(y)
+    dtype: str | None = None
+    if isscalar_x ^ isscalar_y:
+        # one scalar with the other Tensor, use the dtype of the other
+        dtype = y.dtype if isscalar_x else x.dtype
+    elif isscalar_x and isscalar_y:
+        # both scalar, use paddle's default dtype(be careful with complex)
+        if np.iscomplex(x) or np.iscomplex(y):
+            dtype = (
+                "complex64"
+                if paddle.get_default_dtype() != "float64"
+                else "complex128"
+            )
+        elif isinstance(x, float) or isinstance(y, float):
+            dtype = paddle.get_default_dtype()
+        else:
+            dtype = np.array([x]).dtype.name
+
+    if isscalar_x:
+        x = paddle.full([1], x, dtype or np.array([x]).dtype.name)
+    if isscalar_y:
+        y = paddle.full([1], y, dtype or np.array([y]).dtype.name)
 
     # NOTE: We might need to adapt the broadcast_shape and broadcast_to for dynamic shape
     # so dynamic and pir branch can be merged into one code block

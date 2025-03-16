@@ -329,6 +329,21 @@ void Copy(const Context& dev_ctx,
 }
 
 template <typename Context>
+void Copy(const Context& dev_ctx,
+          const BatchedTensor& src,
+          Place dst_place,
+          bool blocking,
+          BatchedTensor* dst) {
+  const phi::DenseTensor& src_ =
+      *std::static_pointer_cast<phi::DenseTensor>(src.value().impl());
+  auto dst_ptr =
+      std::static_pointer_cast<phi::DenseTensor>(dst->value().impl());
+  dst->set_dims(src.dims());
+  dst->set_strides(src.strides());
+  Copy<Context>(dev_ctx, src_, dst_place, blocking, dst_ptr.get());
+}
+
+template <typename Context>
 void Copy(const Context& dev_ctx UNUSED,
           const TensorArray& src UNUSED,
           Place dst_place UNUSED,
@@ -397,6 +412,18 @@ template void Copy(const DeviceContext& dev_ctx,
                    bool blocking,
                    TensorArray* dst);
 
+template void Copy(const CPUContext& dev_ctx,
+                   const BatchedTensor& src,
+                   Place dst_place,
+                   bool blocking,
+                   BatchedTensor* dst);
+
+template void Copy(const DeviceContext& dev_ctx,
+                   const BatchedTensor& src,
+                   Place dst_place,
+                   bool blocking,
+                   BatchedTensor* dst);
+
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
 template void Copy(const GPUContext& dev_ctx,
                    const DenseTensor& src,
@@ -423,6 +450,11 @@ template void Copy(const GPUContext& dev_ctx,
                    Place dst_place,
                    bool blocking,
                    TensorArray* dst);
+template void Copy(const GPUContext& dev_ctx,
+                   const BatchedTensor& src,
+                   Place dst_place,
+                   bool blocking,
+                   BatchedTensor* dst);
 #endif
 
 #ifdef PADDLE_WITH_XPU

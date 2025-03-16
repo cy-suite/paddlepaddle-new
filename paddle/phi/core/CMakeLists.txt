@@ -29,6 +29,7 @@ collect_srcs(
   sparse_coo_tensor.cc
   sparse_csr_tensor.cc
   string_tensor.cc
+  batched_tensor.cc
   tensor_array.cc
   extended_tensor.cc
   meta_tensor.cc
