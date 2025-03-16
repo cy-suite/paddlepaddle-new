@@ -17,8 +17,12 @@ import unittest
 import numpy as np
 
 import paddle
+from paddle.base import core
 
 
+@unittest.skipIf(
+    not core.is_compiled_with_cuda(), "core is not compiled with CUDA"
+)
 class TestRestrictNonzero(unittest.TestCase):
     def test_restrict_nonzero(self):
         # test dynamic
