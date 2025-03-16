@@ -55,7 +55,3 @@ def operator_is_not_none(val):
 
 def tensor_numel(x):
     pass
-
-
-def generator_send(x):
-    pass
