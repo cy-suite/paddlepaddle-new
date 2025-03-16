@@ -127,7 +127,7 @@ class TrtConvertGatherTest(TrtLayerAutoScanTest):
             }
         elif len(self.shape) == 3:
             self.dynamic_shape.min_input_shape = {
-                "input_data": [2, 4, 2],
+                "input_data": [2, 4, 4],
                 "index_data": [2],
             }
             self.dynamic_shape.max_input_shape = {
@@ -140,7 +140,7 @@ class TrtConvertGatherTest(TrtLayerAutoScanTest):
             }
         elif len(self.shape) == 4:
             self.dynamic_shape.min_input_shape = {
-                "input_data": [2, 4, 4, 2],
+                "input_data": [2, 4, 4, 4],
                 "index_data": [2],
             }
             self.dynamic_shape.max_input_shape = {
