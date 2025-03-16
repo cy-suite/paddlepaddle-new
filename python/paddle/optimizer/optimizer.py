@@ -1336,6 +1336,8 @@ class Optimizer:
 
             if framework.in_dygraph_mode():
                 found_inf = self._get_auxiliary_var('found_inf')
+                if "xpu" in paddle.device.get_device():
+                    found_inf = found_inf._local_value()
                 if found_inf:
                     if isinstance(found_inf, core.eager.Tensor):
                         self._set_auxiliary_var('found_inf', True)
