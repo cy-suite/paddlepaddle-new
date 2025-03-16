@@ -4178,7 +4178,6 @@
     func : RestrictNonZeroInferMeta
   kernel :
     func : restrict_nonzero
-    data_type : condition
   traits : paddle::dialect::ForwardOnlyTrait
 
 - op : reverse
