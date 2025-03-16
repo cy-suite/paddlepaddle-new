@@ -58,15 +58,15 @@ void SliceGradStridedKernel(const Context& dev_ctx,
                            *input_grad, 0, input_grad);
                      }));
   DenseTensor tmp;
-  VLOG(0) << "input.dims = " << input.dims();
-  VLOG(0) << "axes = " << vectorToString(axes);
+  // VLOG(0) << "input.dims = " << input.dims();
+  // VLOG(0) << "axes = " << vectorToString(axes);
   // VLOG(0) << "starts = " << vectorToString(starts);
   // VLOG(0) << "IntArray = " << vectorToString(ends);
-  VLOG(0) << "infer_flags = " << vectorToString(infer_flags);
-  VLOG(0) << "decrease_axis = " << vectorToString(decrease_axis);
-  VLOG(0) << "out_grad.dims = " << out_grad.dims();
+  // VLOG(0) << "infer_flags = " << vectorToString(infer_flags);
+  // VLOG(0) << "decrease_axis = " << vectorToString(decrease_axis);
+  // VLOG(0) << "out_grad.dims = " << out_grad.dims();
   tmp.set_meta(out_grad.meta());
-  VLOG(0) << "(before SliceStridedKernel) tmp.dims = " << tmp.dims();
+  // VLOG(0) << "(before SliceStridedKernel) tmp.dims = " << tmp.dims();
   SliceStridedKernel<Context>(dev_ctx,
                               *input_grad,
                               axes,
@@ -75,7 +75,7 @@ void SliceGradStridedKernel(const Context& dev_ctx,
                               infer_flags,
                               decrease_axis,
                               &tmp);
-  VLOG(0) << "(after SliceStridedKernel)tmp.dims = " << tmp.dims();
+  // VLOG(0) << "(after SliceStridedKernel)tmp.dims = " << tmp.dims();
   PD_VISIT_ALL_TYPES(input.dtype(), "SliceGradStridedKernel", ([&] {
                        phi::StridedTensorCopy<data_t>(
                            out_grad,

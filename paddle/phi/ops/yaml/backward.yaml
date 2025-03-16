@@ -165,12 +165,14 @@
   args : (Tensor out_grad)
   output : Tensor(x_grad)
   invoke : as_real(out_grad)
+  vmap: as_real_batching_rule(out_grad)
 
 - backward_op : as_real_grad
   forward : as_real (Tensor x) -> Tensor(out)
   args : (Tensor out_grad)
   output : Tensor(x_grad)
   invoke : as_complex(out_grad)
+  vmap: as_complex_batching_rule(out_grad)
 
 - backward_op : as_strided_grad
   forward : as_strided (Tensor input, int64_t[] dims = {}, int64_t[] stride = {}, int64_t offset = 0) -> Tensor(out)
@@ -351,12 +353,13 @@
     param: [softmax, label, loss_grad, ignore_index, rank, nranks]
 
 - backward_op : cast_grad
-  forward : cast (Tensor x, DataType dtype) -> Tensor(out)
+  forward : cast(Tensor x, DataType dtype) -> Tensor(out)
   args : (Tensor x, Tensor out_grad)
   output : Tensor(x_grad)
-  invoke : cast (out_grad, x.dtype())
+  invoke : cast(out_grad, x.dtype())
   composite: cast_grad(x, out_grad, x_grad)
   no_need_buffer : x
+  vmap: cast_batching_rule(out_grad, x.dtype())
 
 - backward_op : ceil_grad
   forward : ceil(Tensor x) -> Tensor(out)
@@ -481,6 +484,7 @@
   args : (Tensor out_grad)
   output : Tensor(x_grad)
   invoke : conj(out_grad)
+  vmap: conj_batching_rule(out_grad)
 
 - backward_op : conv2d_grad
   forward : conv2d (Tensor input, Tensor filter, int[] strides={1, 1}, int[] paddings={0, 0}, str padding_algorithm="EXPLICIT", int[] dilations={1, 1}, int groups=1, str data_format="NCHW") -> Tensor(out)
@@ -2805,6 +2809,7 @@
   args : (Tensor out_grad, Scalar scale=1.0)
   output : Tensor(x_grad)
   invoke : scale(out_grad, scale, 0.0f, true)
+  vmap: scale_batching_rule(out_grad, scale, 0.0f, true)
 
 - backward_op : scatter_grad
   forward : scatter (Tensor x, Tensor index, Tensor updates, bool overwrite=true) -> Tensor(out)
@@ -2991,6 +2996,7 @@
   args : (Tensor out_grad)
   output : Tensor(x_grad)
   invoke : scale(out_grad, 0.0f, 0.0f, true)
+  vmap: scale_batching_rule(out_grad, 0.0f, 0.0f, true)
 
 - backward_op : silu_grad
   forward : silu (Tensor x) -> Tensor(out)
@@ -3156,14 +3162,14 @@
   forward : split (Tensor x, IntArray num_or_sections, Scalar axis) -> Tensor[](out)
   args : (Tensor[] out_grad, Scalar axis = -1)
   output : Tensor(x_grad)
-  invoke : concat( out_grad, axis)
+  invoke : concat(out_grad, axis)
   composite : split_grad(out_grad, axis, x_grad)
 
 - backward_op : split_with_num_grad
   forward : split_with_num (Tensor x, int num, Scalar axis) -> Tensor[](out)
   args : (Tensor[] out_grad, Scalar axis = -1)
   output : Tensor(x_grad)
-  invoke : concat( out_grad, axis)
+  invoke : concat(out_grad, axis)
   composite : split_grad(out_grad, axis, x_grad)
 
 - backward_op : sqrt_double_grad
@@ -3419,6 +3425,7 @@
   kernel :
     func : tanh_grad
   composite : tanh_grad(out, out_grad, x_grad)
+  vmap : tanh_grad_batching_rule
   backward : tanh_double_grad
   inplace : (out_grad -> x_grad)
 

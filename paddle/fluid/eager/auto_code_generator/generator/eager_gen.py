@@ -377,6 +377,8 @@ paddle::small_vector<std::vector<paddle::Tensor>, egr::kSlotSmallVectorSize> {}:
 
 FORWARD_FUNCTION_TEMPLATE = """
 TEST_API {} {}({}) {{
+  // Batching rule logic
+{}
   FLAGS_tensor_operants_mode = "eager";
   VLOG(3) << \"Running AD API: \" << \"{}\";
 {}
@@ -569,6 +571,10 @@ NODE_CC_FILE_TEMPLATE = """
 #include "paddle/common/flags.h"
 #include "paddle/phi/core/memory/stats.h"
 #include "paddle/phi/api/lib/data_transform.h"
+
+/*vmap header*/
+#include "paddle/fluid/eager/vectorize/batching_rules.h"
+
 COMMON_DECLARE_bool(check_nan_inf);
 {}
 """
@@ -608,6 +614,10 @@ FORWARD_CC_FILE_TEMPLATE = """
 #include "paddle/fluid/eager/type_promotion_utils.h"
 #include "paddle/phi/common/type_promotion.h"
 #include "paddle/fluid/imperative/amp_utils.h"
+
+// Vmap related header
+#include "paddle/phi/core/batched_tensor.h"
+#include "paddle/fluid/eager/vectorize/batching_rules.h"
 
 COMMON_DECLARE_bool(check_nan_inf);
 COMMON_DECLARE_int32(call_stack_level);
@@ -1447,6 +1457,11 @@ class DygraphFunctionGeneratorBase(FunctionGeneratorBase):
                     set_output_tensor_wrappers_str,
                 )
             )
+            if "vmap" in self.grad_api_contents:
+                self.node_creation_str = self.node_creation_str.replace(
+                    "if (trace_backward)",
+                    "if (trace_backward && !has_batched_input)",
+                )
 
         self.grad_node_out_list = grad_node_out_list
 
@@ -1683,6 +1698,7 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
         inputs_args_definition_list = ["" for i in range(num_inputs)]
         inputs_args_declaration_list = ["" for i in range(num_inputs)]
         inputs_call_list = ["" for i in range(num_inputs)]
+        inputs_call_list_only_tensor = []
 
         amp_inputs_call_list = ["" for i in range(num_inputs)]
         type_promote_inputs_call_list = ["" for i in range(num_inputs)]
@@ -1697,6 +1713,8 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
         for name, (ttype, pos) in forward_inputs_position_map.items():
             inputs_call_list[pos] = f"{name}"
             amp_inputs_call_list[pos] = f"new_{name}"
+            if ttype == "Tensor" or ttype == "std::vector<Tensor>":
+                inputs_call_list_only_tensor.append(name)
             is_optional = name in optional_inputs
             if forward_api_name in type_promote_white_list:
                 if name in type_promote_white_list[forward_api_name]:
@@ -2218,10 +2236,17 @@ class DygraphForwardFunctionGenerator(DygraphFunctionGeneratorBase):
                 )
             )
         else:
+            batching_rule_logic_str = ""
+            if "vmap" in self.forward_api_contents and not is_inplaced:
+                batching_rule_logic_str = f"""  if ({' || '.join([f'phi::isBatchedTensor({arg})' for arg in inputs_call_list_only_tensor])}) {{
+    return paddle::vmap::{self.forward_api_contents['vmap']};
+  }}
+"""
             self.forward_definition_str += FORWARD_FUNCTION_TEMPLATE.format(
                 returns_type_str,
                 forward_ad_function_name,
                 inputs_args_definition_str,
+                batching_rule_logic_str,
                 forward_api_name,
                 strided_flags_check,
                 dygraph_event_str,
@@ -2769,6 +2794,7 @@ class DygraphNodeGenerator(DygraphFunctionGeneratorBase):
                 grad_api_args[grad_api_position] = transformed_tensor_name
 
             get_grad_in_args_list.append(get_tensor_str)
+            grad_api_args_tensors = [arg for arg in grad_api_args if arg != ""]
 
         # Grad Attrs
         for name, _, _, grad_api_position in backward_attrs_list:
@@ -2865,6 +2891,7 @@ class DygraphNodeGenerator(DygraphFunctionGeneratorBase):
         grad_api_args_str = ", ".join(grad_api_args)
         composite_grad_api_args_str = ", ".join(grad_api_args)
         composite_template_name = "<paddle::Tensor>"
+        has_vmap_impl = "vmap" in self.grad_api_contents
 
         # Set DistAttr Func Construct
         set_out_dist_attr_str = ""
@@ -2891,14 +2918,27 @@ class DygraphNodeGenerator(DygraphFunctionGeneratorBase):
                 GetDygraphForwardFunctionName(forward_api_name),
                 1,
             )
-            grad_function_call_str = f"""
+            if "vmap" in self.grad_api_contents:
+                grad_function_call_str = f"""
+  if (trace_backward) {{
+  {indent}{autograd_api_out} api_output = {autograd_api};
+  {out_assign_str}{indent}}} else {{
+    if (has_batched_input) {{
+      auto api_output = paddle::vmap::{self.namespace}{self.grad_api_contents['vmap']};
+    {out_assign_str}    }} else {{
+    {indent}{autograd_api_out} api_output = paddle::experimental::{self.namespace}{self.grad_api_contents['invoke']};
+    {out_assign_str}    }}
+  }}
+"""
+            else:
+                grad_function_call_str = f"""
   if (trace_backward) {{
   {indent}{autograd_api_out} api_output = {autograd_api};
   {out_assign_str}{indent}}} else {{
   {indent}{autograd_api_out} api_output = paddle::experimental::{self.namespace}{self.grad_api_contents['invoke']};
   {out_assign_str}{indent}}}
 """
-        elif is_composite_grad_api:
+        elif is_composite_grad_api:  # composite api
             has_kernel_impl = "kernel" in self.grad_api_contents
 
             def _gen_api_call_code_block(
@@ -2950,15 +2990,31 @@ if (paddle::prim::PrimCommonUtils::IsEagerPrimEnabled() && !need_skip) {{
 {indent}{indent}egr::Controller::Instance().SetHasGrad(original_global_grad);
 {indent}}}"""
                     if has_kernel_impl:
-                        code = (
-                            code
-                            + f"""
+                        if has_vmap_impl:
+                            code = (
+                                code
+                                + f"""
+}} else {{
+{indent}if (has_batched_input) {{
+  {indent}paddle::vmap::{backward_api_name+"_batching_rule"}({grad_api_args_str});
+  }}
+  else {{
+  {indent}{grad_api_namespace}{backward_api_name}({grad_api_args_str});
+  }}
+{indent}VLOG(4) << "Fused api {backward_api_name} is called";
+}}
+"""
+                            )
+                        else:
+                            code = (
+                                code
+                                + f"""
 }} else {{
 {indent}{grad_api_namespace}{backward_api_name}({grad_api_args_str});
 {indent}VLOG(4) << "Fused api {backward_api_name} is called";
 }}
 """
-                        )
+                            )
                     else:
                         code = (
                             code
@@ -2994,10 +3050,24 @@ if (paddle::prim::PrimCommonUtils::IsEagerPrimEnabled() && !need_skip) {{
                     has_kernel_impl,
                     2,
                 )
-        else:
-            grad_function_call_str = f"""
+        else:  # not composite api
+            if has_vmap_impl:
+                grad_function_call_str = f"""
+{indent}if (has_batched_input) {{
+{indent}{indent}paddle::vmap::{backward_api_name+'_batching_rule'}({grad_api_args_str});
+{indent}}} else {{
+{indent}{indent}{grad_api_namespace}{backward_api_name}({grad_api_args_str});
+{indent}}}
+"""
+            else:
+                grad_function_call_str = f"""
 {indent}{grad_api_namespace}{backward_api_name}({grad_api_args_str});"""
 
+        if has_vmap_impl:
+            grad_function_call_str = (
+                f"""  bool has_batched_input = ({" || ".join([f'phi::isBatchedTensor({arg})' for arg in grad_api_args_tensors])});\n"""
+                + grad_function_call_str
+            )
         # Check Nan and Inf
         check_nan_inf_str = CHECK_NAN_AND_INF_TEMPLATE_BACKWARD.format(
             backward_api_name, "returns", backward_api_name

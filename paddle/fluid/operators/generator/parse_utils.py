@@ -369,6 +369,7 @@ def check_op_config(op_entry, op_name):
         'support_tensor',
         'traits',
         'interfaces',
+        'vmap',
     )
     infer_meta_key_set = (
         'func',

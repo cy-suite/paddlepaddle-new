@@ -41,49 +41,6 @@ BatchedTensor::BatchedTensor(paddle::Tensor value, BatchDims bdims) {
   }
 }
 
-// BatchedTensor::BatchedTensor(const paddle::Tensor& value, const BatchDims&
-// bdims) {
-//   this->value_ = value;
-//   this->bdims_ = bdims;
-
-//   PD_CHECK(value.has_allocation(), "BatchedTensor value must have
-//   allocation");
-
-//   const int64_t public_rank = value_.dims().size() - bdims_.size();
-//   const common::DDim value_dims = value_.dims();
-//   const common::DDim value_strides = value_.strides();
-//   this->meta_.dims =
-//       common::DDim(std::vector<int64_t>(public_rank, 0).data(), public_rank);
-//   this->meta_.strides =
-//       common::DDim(std::vector<int64_t>(public_rank, 0).data(), public_rank);
-//   for (int64_t dim = 0; dim < public_rank; ++dim) {
-//     int64_t actual_dim = BatchedTensor::actualDim(dim, /*wrap_dim*/ false);
-//     this->meta_.dims.at(dim) = value_dims.at(actual_dim);
-//     this->meta_.strides.at(dim) = value_strides.at(actual_dim);
-//   }
-// }
-
-// BatchedTensor::BatchedTensor(const paddle::Tensor& value, BatchDims bdims) {
-//   this->value_ = value;
-//   this->bdims_ = std::move(bdims);
-
-//   PD_CHECK(value.has_allocation(), "BatchedTensor value must have
-//   allocation");
-
-//   const int64_t public_rank = value_.dims().size() - bdims_.size();
-//   const common::DDim value_dims = value_.dims();
-//   const common::DDim value_strides = value_.strides();
-//   this->meta_.dims =
-//       common::DDim(std::vector<int64_t>(public_rank, 0).data(), public_rank);
-//   this->meta_.strides =
-//       common::DDim(std::vector<int64_t>(public_rank, 0).data(), public_rank);
-//   for (int64_t dim = 0; dim < public_rank; ++dim) {
-//     int64_t actual_dim = BatchedTensor::actualDim(dim, /*wrap_dim*/ false);
-//     this->meta_.dims.at(dim) = value_dims.at(actual_dim);
-//     this->meta_.strides.at(dim) = value_strides.at(actual_dim);
-//   }
-// }
-
 int64_t BatchedTensor::actualDim(int64_t dim, bool wrap_dim) const {
   if (wrap_dim) {
     const auto ndim = this->meta_.dims.size();

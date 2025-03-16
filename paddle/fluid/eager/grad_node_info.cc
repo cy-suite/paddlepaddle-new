@@ -131,6 +131,14 @@ void GradNodeBase::SetGradInMeta(const paddle::Tensor& fwd_out,
     phi::SparseCsrTensor* csr_tensor =
         static_cast<phi::SparseCsrTensor*>(fwd_out.impl().get());
     dense_tensor = csr_tensor->mutable_non_zero_elements();
+  } else if (phi::BatchedTensor::classof(fwd_out.impl().get())) {
+    phi::BatchedTensor* batched_tensor =
+        static_cast<phi::BatchedTensor*>(fwd_out.impl().get());
+    dense_tensor =
+        static_cast<phi::DenseTensor*>(batched_tensor
+                                           ->value() /*Tensor*/
+                                           .impl()   /*TensorBase_shared_ptr*/
+                                           .get() /*TensorBase_raw_ptr*/);
   } else if (phi::distributed::DistTensor::classof(fwd_out.impl().get())) {
     dense_tensor =  // NOLINT
         &(static_cast<phi::distributed::DistTensor*>(fwd_out.impl().get())
@@ -412,6 +420,24 @@ void GradNodeBase::SetGradOutMeta(const paddle::Tensor& fwd_in,
                                 "which is illegal."));
       meta.SetTensorMeta(dense_tensor->meta());
       meta.SetPlace(fwd_in.place());
+    } else if (phi::BatchedTensor::classof(fwd_in.impl().get())) {
+      // Only Copy Meta
+      phi::BatchedTensor* batched_tensor =
+          static_cast<phi::BatchedTensor*>(fwd_in.impl().get());
+      phi::DenseTensor* dense_tensor =
+          static_cast<phi::DenseTensor*>(batched_tensor
+                                             ->value() /*Tensor*/
+                                             .impl()   /*TensorBase_shared_ptr*/
+                                             .get()    /*TensorBase_raw_ptr*/
+          );
+      PADDLE_ENFORCE_NE(
+          dense_tensor->meta().dtype,
+          phi::DataType::UNDEFINED,
+          common::errors::Fatal("Attempting to copy BatchedTensorMeta "
+                                "with phi::DataType::UNDEFINED,"
+                                "which is illegal."));
+      meta.SetTensorMeta(dense_tensor->meta());
+      meta.SetPlace(batched_tensor->value().place());
     } else if (phi::distributed::DistTensor::classof(fwd_in.impl().get())) {
       const phi::distributed::DistTensor* dist_tensor =
           static_cast<phi::distributed::DistTensor*>(fwd_in.impl().get());

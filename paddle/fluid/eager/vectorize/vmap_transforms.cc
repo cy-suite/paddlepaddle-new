@@ -38,19 +38,21 @@ static Tensor permuteBatchDimsToFront(phi::BatchedTensor* batched) {
   if (areBdimsAtFrontInOrder(bdims)) {
     return physical_tensor;
   }
+
   const auto sizes = common::vectorize(physical_tensor.dims());
   std::vector<int> permutation(sizes.size(), 0);
   permutation.reserve(sizes.size());
-  const auto is_bdim = phi::createBatchDimBitset(bdims);
   int64_t idx = 0;
+  // store batch dims into permutation by their level order,
+  // i.e. levelN, ..., levelM， s.t. N<M
   for (const auto& bdim : bdims) {
     permutation[idx++] = bdim.dim();
   }
+  const auto is_bdim = phi::createBatchDimBitset(bdims);
   for (size_t ptr = 0; ptr < sizes.size(); ++ptr) {
-    if (is_bdim[ptr]) {
-      continue;
+    if (!is_bdim[ptr]) {
+      permutation[idx++] = static_cast<int>(ptr);
     }
-    permutation[idx++] = static_cast<int64_t>(ptr);
   }
   return transpose_ad_func(physical_tensor, permutation);
 }
@@ -113,10 +115,9 @@ static phi::BatchDims computeFrontBatchDimsFromLevels(
   phi::BatchDims bdims;
   int64_t dim = 0;
   for (auto level = 0; level < phi::kVmapNumLevels; ++level) {
-    if (!levels_bitset[level]) {
-      continue;
+    if (levels_bitset[level]) {
+      bdims.emplace_back(level, dim++);
     }
-    bdims.emplace_back(level, dim++);
   }
   return bdims;
 }

@@ -191,6 +191,7 @@
   kernel :
     func : matmul_grad
   backward : matmul_double_grad
+  vmap: matmul_grad_batcing_rule
 
 - backward_op : maximum_grad
   forward : maximum(Tensor x, Tensor y) -> Tensor(out)

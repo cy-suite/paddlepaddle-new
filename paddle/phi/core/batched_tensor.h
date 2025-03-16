@@ -49,13 +49,13 @@ constexpr int64_t kBatchDimsStackSize = 5;
 // being vmapped over.
 
 struct BatchDim {
-  BatchDim(int64_t level, int64_t dim) : dim_(dim), level_(level) {}
-  int64_t dim() const { return dim_; }
+  BatchDim(int64_t level, int64_t dim) : level_(level), dim_(dim) {}
   int64_t level() const { return level_; }
+  int64_t dim() const { return dim_; }
 
  private:
-  int64_t dim_;
   int64_t level_;
+  int64_t dim_;
 };
 
 using BatchDims = paddle::small_vector<BatchDim, kBatchDimsStackSize>;
@@ -156,6 +156,12 @@ class BatchedTensor : public TensorBase,
   /// \return The meta information of the tensor.
   const BatchedTensorMeta& meta() const noexcept { return meta_; }
 
+  /// \brief Returns the mutable tensor value in batched tensor.
+  /// \return The mutable pointer of DenseTensor value
+  DenseTensor* unsafe_mutable_value() {
+    return std::static_pointer_cast<DenseTensor>(value_.impl()).get();
+  }
+
  private:
   friend class DenseTensorUtils;
 
@@ -177,6 +183,13 @@ inline bool isBatchedTensor(const paddle::Tensor& tensor) {
   return tensor.is_batched_tensor();
 }
 
+inline bool isBatchedTensor(const std::vector<paddle::Tensor>& tensors) {
+  return std::any_of(
+      tensors.begin(), tensors.end(), [](const paddle::Tensor& t) {
+        return t.is_batched_tensor();
+      });
+}
+
 // It is unsafe to call this on a paddle::Tensor that is not backed by a
 // BatchedTensor. Please use `maybeGetBatchedImpl` whenever possible.
 inline BatchedTensor* unsafeGetBatchedImpl(const paddle::Tensor& tensor) {
@@ -188,6 +201,15 @@ inline BatchedTensor* maybeGetBatchedImpl(const paddle::Tensor& tensor) {
     return nullptr;
   }
   return unsafeGetBatchedImpl(tensor);
+}
+
+inline std::vector<BatchedTensor*> maybeGetBatchedImpl(
+    const std::vector<paddle::Tensor>& tensors) {
+  std::vector<BatchedTensor*> results(tensors.size());
+  for (size_t i = 0; i < tensors.size(); ++i) {
+    results[i] = maybeGetBatchedImpl(tensors[i]);
+  }
+  return results;
 }
 
 // Creates a bitset for all of the levels present in `bdims`

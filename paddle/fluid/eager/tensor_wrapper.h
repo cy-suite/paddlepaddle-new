@@ -54,6 +54,12 @@ class TensorWrapper {
               ->unsafe_mutable_value();
       auto& inplace_version_counter = dense_tensor->InplaceVersionCounter();
       inplace_version_snapshot_ = inplace_version_counter.CurrentVersion();
+    } else if (tensor.has_allocation() && tensor.is_batched_tensor()) {
+      phi::DenseTensor* dense_tensor =
+          static_cast<phi::BatchedTensor*>(tensor.impl().get())
+              ->unsafe_mutable_value();
+      auto& inplace_version_counter = dense_tensor->InplaceVersionCounter();
+      inplace_version_snapshot_ = inplace_version_counter.CurrentVersion();
     }
 
     /**
