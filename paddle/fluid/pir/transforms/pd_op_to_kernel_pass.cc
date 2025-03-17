@@ -1180,8 +1180,7 @@ phi::KernelKey GetKernelKey(
     auto dtype =
         op->attributes().at("dtype").dyn_cast<DataTypeAttribute>().data();
 
-    phi::KernelKey res(
-        backend, phi::DataLayout::ANY, TransToPhiDataType(dtype));
+    phi::KernelKey res(backend, phi::DataLayout::ANY, dtype);
     if (NeedFallBackCpu(op, kernel_fn_str, res)) {
       res.set_backend(phi::Backend::CPU);
     }
