@@ -36,7 +36,8 @@ cd prec_build
 
 source ${PADDLE_ROOT}/ci/utils.sh
 init
-cmake_base ${PYTHON_ABI:-""} >prebuild.log 2>&1
+# cmake_base ${PYTHON_ABI:-""} >prebuild.log 2>&1
+cmake_base ${PYTHON_ABI:-""}
 
 # remove line ended with .exe to get correct deleted_ut list
 ctest -N | awk -F ':' '{print $2}' | sed '/^$/d' | sed '$d' | sed 's/ //g' | sed '/\.exe$/d' | grep 'test' > $PADDLE_ROOT/br-ut
