@@ -122,15 +122,15 @@ jobs:
           -e UT_RUN_TYPE_SETTING \
           -w ${{ github.workspace }} --network host ${docker_image}
 
-    # - name: Build
-    #   if: steps.check-bypass.outputs.can_skip != 'true'
-    #   run: |
-    #     docker exec -t ${{ env.container_name }} /bin/bash -c '
-    #     mkdir -p /home/data/cfs/.cache/coverage
-    #     mkdir -p /home/data/cfs/.ccache/coverage
-    #     . ../../../proxy
-    #     bash $ci_scripts/coverage_build.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} coverage "" ${{ github.env }}
-    #     '
+    - name: Build
+      if: steps.check-bypass.outputs.can_skip != 'true'
+      run: |
+        docker exec -t ${{ env.container_name }} /bin/bash -c '
+        mkdir -p /home/data/cfs/.cache/coverage
+        mkdir -p /home/data/cfs/.ccache/coverage
+        . ../../../proxy
+        bash $ci_scripts/coverage_build.sh ${PYTHON_ABI:-""} bdist_wheel ${parallel_number:-""} coverage "" ${{ github.env }}
+        '
 
     - name: Check added unittests
       if: steps.check-bypass.outputs.can_skip != 'true'

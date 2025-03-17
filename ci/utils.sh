@@ -508,9 +508,6 @@ EOF
         exit 7;
     fi
 }
-echo "cmake_base function loaded"
-
-declare -F
 
 function check_approvals_of_unittest() {
     set +x

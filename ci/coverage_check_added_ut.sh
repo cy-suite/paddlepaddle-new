@@ -20,6 +20,7 @@ if [ -z ${BRANCH} ]; then
 fi
 
 PADDLE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}")/../" && pwd )"
+cp ${PADDLE_ROOT}/ci/utils.sh ${PADDLE_ROOT}/ci/utils_copy.sh
 
 CURDIR=`pwd`
 cd $PADDLE_ROOT
@@ -34,8 +35,7 @@ git branch
 mkdir prec_build
 cd prec_build
 
-source ${PADDLE_ROOT}/ci/utils.sh
-cat ${PADDLE_ROOT}/ci/utils.sh
+source ${PADDLE_ROOT}/ci/utils_copy.sh
 init
 # cmake_base ${PYTHON_ABI:-""} >prebuild.log 2>&1
 cmake_base ${PYTHON_ABI:-""}
