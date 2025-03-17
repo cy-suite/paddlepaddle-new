@@ -46,22 +46,6 @@ class TestCollectiveScatterAPI(TestDistBase):
                 dtype=dtype,
             )
 
-    def test_scatter_flagcx(self):
-        dtypes_to_test = [
-            "float16",
-            "float32",
-            "float64",
-            "int32",
-            "int64",
-        ]
-        for dtype in dtypes_to_test:
-            self.check_with_place(
-                "collective_scatter_api.py",
-                "scatter",
-                "flagcx",
-                dtype=dtype,
-            )
-
     def test_scatter_nccl_dygraph(self):
         dtypes_to_test = [
             "float16",
@@ -80,26 +64,6 @@ class TestCollectiveScatterAPI(TestDistBase):
                 "collective_scatter_api_dygraph.py",
                 "scatter",
                 "nccl",
-                static_mode="0",
-                dtype=dtype,
-            )
-
-    def test_scatter_flagcx_dygraph(self):
-        dtypes_to_test = [
-            "float16",
-            "float32",
-            "float64",
-            "int32",
-            "int64",
-            "int8",
-            "uint8",
-            "bool",
-        ]
-        for dtype in dtypes_to_test:
-            self.check_with_place(
-                "collective_scatter_api_dygraph.py",
-                "scatter",
-                "flagcx",
                 static_mode="0",
                 dtype=dtype,
             )

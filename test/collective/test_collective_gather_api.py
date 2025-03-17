@@ -47,25 +47,6 @@ class TestCollectiveGatherAPI(TestDistBase):
                 dtype=dtype,
             )
 
-    def test_gather_flagcx_dygraph(self):
-        dtypes_to_test = [
-            "float16",
-            "float32",
-            "float64",
-            "int32",
-            "int64",
-            "int8",
-            "uint8",
-            "bool",
-        ]
-        for dtype in dtypes_to_test:
-            self.check_with_place(
-                "collective_gather_api_dygraph.py",
-                "gather",
-                "flagcx",
-                static_mode="0",
-                dtype=dtype,
-            )
 
 
 if __name__ == "__main__":

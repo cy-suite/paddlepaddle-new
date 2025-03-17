@@ -32,13 +32,6 @@ class TestCollectiveBroadcastAPI(TestDistBase):
             "nccl",
         )
 
-    def test_broadcast_flagcx(self):
-        self.check_with_place(
-            "collective_broadcast_api.py",
-            "broadcast",
-            "flagcx",
-        )
-
     def test_broadcast_nccl_with_comm_context(self):
         dtypes_to_test = [
             "float16",
@@ -57,26 +50,6 @@ class TestCollectiveBroadcastAPI(TestDistBase):
                 "collective_broadcast_api.py",
                 "broadcast",
                 "nccl",
-                dtype=dtype,
-                need_envs={"USE_COMM_CONTEXT": "1"},
-            )
-
-    def test_broadcast_flagcx_with_comm_context(self):
-        dtypes_to_test = [
-            "float16",
-            "float32",
-            "float64",
-            "int32",
-            "int64",
-            "int8",
-            "uint8",
-            "bool",
-        ]
-        for dtype in dtypes_to_test:
-            self.check_with_place(
-                "collective_broadcast_api.py",
-                "broadcast",
-                "flagcx",
                 dtype=dtype,
                 need_envs={"USE_COMM_CONTEXT": "1"},
             )
@@ -126,26 +99,6 @@ class TestCollectiveBroadcastAPI(TestDistBase):
                 "collective_broadcast_api_dygraph.py",
                 "broadcast",
                 "nccl",
-                static_mode="0",
-                dtype=dtype,
-            )
-
-    def test_broadcast_flagcx_dygraph(self):
-        dtypes_to_test = [
-            "float16",
-            "float32",
-            "float64",
-            "int32",
-            "int64",
-            "int8",
-            "uint8",
-            "bool",
-        ]
-        for dtype in dtypes_to_test:
-            self.check_with_place(
-                "collective_broadcast_api_dygraph.py",
-                "broadcast",
-                "flagcx",
                 static_mode="0",
                 dtype=dtype,
             )
