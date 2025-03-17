@@ -11,15 +11,8 @@ limitations under the License. */
 
 #include "paddle/phi/infermeta/spmd_rules/expand.h"
 
-#include "glog/logging.h"
-#include "paddle/phi/common/scalar.h"
-#include "paddle/phi/core/dense_tensor.h"
-#include "paddle/phi/core/distributed/auto_parallel/dist_attr.h"
-#include "paddle/phi/core/distributed/auto_parallel/inferspmd_utils.h"
-#include "paddle/phi/core/distributed/auto_parallel/utils.h"
 #include "paddle/phi/infermeta/spmd_rules/spmd_rule_macro_define.h"
 #include "paddle/phi/infermeta/spmd_rules/utils.h"
-#include "paddle/phi/kernels/funcs/reduce_function.h"
 
 namespace phi::distributed {
 
@@ -31,7 +24,6 @@ SpmdInfo ExpandInferSpmd(const DistMetaTensor& x, const IntArray& shape) {
   for (int i = expand_shape.size() - 1; i >= diff; --i) {
     if (expand_shape[i] != -1 && expand_shape[i] != x_shape[i - diff]) {
       out_dims_mapping[i] = -1;
-
     } else {
       out_dims_mapping[i] = x_dims_mapping_src[i - diff];
     }
@@ -49,7 +41,20 @@ SpmdInfo ExpandGradInferSpmd(const DistMetaTensor& x,
                              const IntArray& shape) {
   EXTRACT_SHAPE_AND_DIST_ATTR(x);
   EXTRACT_SHAPE_AND_DIST_ATTR(out_grad);
-  return {{x_dist_attr_src, out_grad_dist_attr_src}, {x_dist_attr_src}};
+  size_t axis =
+      std::abs(static_cast<int>(out_grad.dims().size() - x.dims().size()));
+  std::vector<int64_t> x_grad_dims_mapping;
+  for (size_t i = 0; i < out_grad_dims_mapping_src.size(); ++i) {
+    if (i < axis || i >= axis + x.dims().size() ||
+        out_grad.dims()[i] != x.dims()[i - axis]) {
+      continue;
+    }
+    x_grad_dims_mapping.push_back(out_grad_dims_mapping_src[i]);
+  }
+  TensorDistAttr x_grad_dist_attr =
+      CopyTensorDistAttrForOutput(x_dist_attr_src);
+  x_grad_dist_attr.set_dims_mapping(x_grad_dims_mapping);
+  return {{x_dist_attr_src, out_grad_dist_attr_src}, {x_grad_dist_attr}};
 }
 
 }  // namespace phi::distributed
