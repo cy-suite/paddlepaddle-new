@@ -34,8 +34,7 @@ git branch
 mkdir prec_build
 cd prec_build
 
-source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/utils.sh
-echo ${PADDLE_ROOT}/ci/utils.sh
+source ${PADDLE_ROOT}/ci/utils.sh
 init
 # cmake_base ${PYTHON_ABI:-""} >prebuild.log 2>&1
 cmake_base ${PYTHON_ABI:-""}

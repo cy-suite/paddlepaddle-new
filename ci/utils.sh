@@ -396,7 +396,7 @@ function cmake_base() {
       pscore_flag=${WITH_PSCORE:-OFF}
     fi
 
-    if [ "$CMD" != "assert_file_approvals" ];then
+    if [ "$2" != "approval" ];then
       which python
       python -V
       python -m pip install distro
@@ -508,6 +508,9 @@ EOF
         exit 7;
     fi
 }
+echo "cmake_base function loaded"
+
+declare -F
 
 function check_approvals_of_unittest() {
     set +x
