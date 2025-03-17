@@ -93,6 +93,9 @@ function make_ubuntu20_cu12_dockerfile(){
   sed -i 's# && rm /etc/apt/sources.list.d/nvidia-ml.list##g' ${dockerfile_name}
   sed -i 's#RUN bash /build_scripts/install_trt.sh#RUN bash /build_scripts/install_trt.sh trt8616#g' ${dockerfile_name}
   sed -i 's#RUN bash /build_scripts/install_cudnn.sh cudnn841#RUN bash /build_scripts/install_cudnn.sh cudnn896 #g' ${dockerfile_name}
+  sed -i "${dockerfile_line}i RUN git clone https://github.com/FlagOpen/FlagCX.git /FlagCX \&\& \
+    cd /FlagCX \&\& \
+    make USE_NVIDIA=1 CCL_HOME=/usr/local/cuda-12.0/targets/x86_64-linux/lib" ${dockerfile_name}
 
   sed -i "${dockerfile_line}i WORKDIR /home \n \
     RUN git clone --depth=1 https://github.com/PaddlePaddle/PaddleNLP.git -b stable/paddle-ci \&\& cd PaddleNLP \&\& \
