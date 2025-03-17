@@ -81,6 +81,17 @@ bool ValueMatchGuard::check(PyObject* value) {
 }
 
 bool LengthMatchGuard::check(PyObject* value) {
+  if (!PySequence_Check(value)) {
+    if (!PyMapping_Check(value)) {
+      return false;
+    }
+    return PyMapping_Length(value) == expected_;
+  }
+
+  if (value == nullptr) {
+    return false;
+  }
+
   return PySequence_Size(value) == expected_;
 }
 
