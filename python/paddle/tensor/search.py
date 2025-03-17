@@ -820,9 +820,9 @@ def where(
 
     # convert dtype to float if necessary
     if paddle.is_integer(x) and not paddle.is_integer(y):
-        x = x.to(y.dtype)
+        x = x.astype(y.dtype)
     elif paddle.is_integer(y) and not paddle.is_integer(x):
-        y = y.to(x.dtype)
+        y = y.astype(x.dtype)
 
     # NOTE: We might need to adapt the broadcast_shape and broadcast_to for dynamic shape
     # so dynamic and pir branch can be merged into one code block
