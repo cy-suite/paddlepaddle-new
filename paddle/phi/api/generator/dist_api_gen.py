@@ -1401,7 +1401,9 @@ class DistForwardAPI(ForwardAPI):
         return NCCL_COMMCONTEXT_INIT.format(self.kernel['func'][0])
 
     def generate_set_nccl_commcontext_code(self) -> str:
-        return SET_NCCL_COMMCONTEXT.format(self.kernel['func'][0], self.api, self.kernel['func'][0], self.api)
+        return SET_NCCL_COMMCONTEXT.format(
+            self.kernel['func'][0], self.api, self.kernel['func'][0], self.api
+        )
 
     def generate_reshard_input_code(self) -> str:
         input_reshard_code = ""
