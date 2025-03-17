@@ -496,11 +496,11 @@ struct MaxGradXYFunctor {
     phi::Array<OutT, 2> outs;
     // dx = dout * (x > y)
     outs[0] = static_cast<OutT>(dout * static_cast<InT>(x > y) +
-                                dout * static_cast<InT>(0.5) *
+                                (dout / static_cast<InT>(2)) *
                                     static_cast<InT>(x == y));
     // dy = dout * (x <= y)
     outs[1] = static_cast<OutT>(dout * static_cast<InT>(x < y) +
-                                dout * static_cast<InT>(0.5) *
+                                (dout / static_cast<InT>(2)) *
                                     static_cast<InT>(x == y));
     return outs;
   }
@@ -534,11 +534,11 @@ struct MinGradXYFunctor {
     phi::Array<OutT, 2> outs;
     // dx = dout * (x < y)
     outs[0] = static_cast<OutT>(dout * static_cast<InT>(x < y) +
-                                dout * static_cast<InT>(0.5) *
+                                (dout / static_cast<InT>(2)) *
                                     static_cast<InT>(x == y));
     // dy = dout * (x >= y)
     outs[1] = static_cast<OutT>(dout * static_cast<InT>(x > y) +
-                                dout * static_cast<InT>(0.5) *
+                                (dout / static_cast<InT>(2)) *
                                     static_cast<InT>(x == y));
     return outs;
   }

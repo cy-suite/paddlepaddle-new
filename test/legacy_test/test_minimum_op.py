@@ -121,14 +121,14 @@ class ApiMinimumTest(unittest.TestCase):
         np.testing.assert_allclose(res, self.np_expected4, rtol=1e-05)
 
     def test_equal_tensors(self):
-        numpy_tensor = np.ones([10000]).astype("float16")
+        numpy_tensor = np.ones([10000]).astype("float32")
         paddle_x = paddle.to_tensor(numpy_tensor)
         paddle_x.stop_gradient = False
-        numpy_tensor = np.ones([10000]).astype("float16")
+        numpy_tensor = np.ones([10000]).astype("float32")
         paddle_x2 = paddle.to_tensor(numpy_tensor)
         paddle_x2.stop_gradient = False
 
-        numpy_tensor = np.ones([10000]).astype("float16")
+        numpy_tensor = np.ones([10000]).astype("float32")
         paddle_outgrad = paddle.to_tensor(numpy_tensor)
 
         paddle_out = paddle.minimum(paddle_x, paddle_x2)
