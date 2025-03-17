@@ -147,7 +147,9 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
       } else {
 #if defined(PADDLE_WITH_CUSTOM_DEVICE)
         PADDLE_ENFORCE(
-            false, "Custom device does not support old communication context.");
+            false,
+            common::errors::InvalidArgument(
+                "Custom device does not support old communication context."));
 #else
         dev_ctx = platform::NCCLCommContext::Instance()
                       .Get(ring_id, place)
@@ -170,6 +172,8 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
         comm_context = comm_context_manager.Get(std::to_string(ring_id));
       } else if (op_name.compare(paddle::dialect::MpAllreduceSum_Op::name()) ==
                      0 ||
+                 op_name.compare(paddle::dialect::MpAllreduceSumOp::name()) ==
+                     0 ||
                  op_name.compare(paddle::dialect::AllReduce_Op::name()) == 0 ||
                  op_name.compare(paddle::dialect::CIdentity_Op::name()) == 0 ||
                  op_name.compare(paddle::dialect::CConcatOp::name()) == 0 ||
@@ -191,6 +195,7 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
             op_name.compare(paddle::dialect::Broadcast_Op::name()) == 0 ||
             op_name.compare(paddle::dialect::BroadcastOp::name()) == 0 ||
             op_name.compare(paddle::dialect::AllGatherOp::name()) == 0 ||
+            op_name.compare(paddle::dialect::MpAllreduceSumOp::name()) == 0 ||
             op_name.compare(paddle::dialect::MpAllreduceSum_Op::name()) == 0 ||
             op_name.compare(paddle::dialect::CIdentity_Op::name()) == 0 ||
             op_name.compare(paddle::dialect::CConcatOp::name()) == 0 ||
