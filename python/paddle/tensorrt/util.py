@@ -295,14 +295,8 @@ def support_fp32_mix_precision(op_type, layer, trt_config=None):
         layer.precision = trt.DataType.FLOAT
 
 
-def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name):
+def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name=None):
     # the following op needn't cast trt.Weight to ITensor, because the layer need weight as input
-    forbid_cast_op = [
-        "pd_op.fused_bias_dropout_residual_layer_norm",
-        "pd_op.deformable_conv",
-    ]
-    if use_op_name in forbid_cast_op:
-        return trt_tensor
     if isinstance(trt_tensor, trt.Weights):
         input_shape = paddle_value.shape
         constant_layer = network.add_constant(input_shape, trt_tensor)

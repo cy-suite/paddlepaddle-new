@@ -237,8 +237,9 @@ TensorRTEngineInstruction::TensorRTEngineInstruction(
         true,
         common::errors::InvalidArgument("Failed to finalize refit process,some "
                                         "weights have not been updated."));
+    VLOG(6) << "Finish tensorrt refit";
   }
-  VLOG(6) << "Finish tensorrt refit";
+
   VLOG(6) << "Finish build engine for: " << op_name_;
 
   SetKernelType(AnalyseOpFuncType(op, place));
