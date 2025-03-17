@@ -766,25 +766,34 @@ def where(
 
     isscalar_x = np.isscalar(x)
     isscalar_y = np.isscalar(y)
-    dtype: str | None = None
-    if isscalar_x ^ isscalar_y:
-        # one scalar with the other Tensor, use the dtype of the other
-        dtype = y.dtype if isscalar_x else x.dtype
-    elif isscalar_x and isscalar_y:
-        # both scalar, use paddle's default dtype(be careful with complex)
-        if np.iscomplex(x) or np.iscomplex(y):
-            dtype = (
-                "complex64"
-                if paddle.get_default_dtype() != "float64"
-                else "complex128"
-            )
-        else:
-            dtype = paddle.get_default_dtype()
-
-    if isscalar_x:
-        x = paddle.full([1], x, dtype or np.array([x]).dtype.name)
-    if isscalar_y:
-        y = paddle.full([1], y, dtype or np.array([y]).dtype.name)
+    default_dtype = paddle.get_default_dtype()
+    if isscalar_x and isscalar_y:
+        x = paddle.full(
+            [1], x, np.array([x]).dtype.name.replace("float64", default_dtype)
+        )
+        y = paddle.full(
+            [1], y, np.array([y]).dtype.name.replace("float64", default_dtype)
+        )
+    elif isscalar_x:
+        x = paddle.full(
+            [1],
+            x,
+            (
+                np.array([x]).dtype.name.replace("float64", default_dtype)
+                if isinstance(x, float) and paddle.is_integer(y)
+                else y.dtype
+            ),
+        )
+    elif isscalar_y:
+        y = paddle.full(
+            [1],
+            y,
+            (
+                np.array([y]).dtype.name.replace("float64", default_dtype)
+                if isinstance(y, float) and paddle.is_integer(x)
+                else x.dtype
+            ),
+        )
 
     # NOTE: We might need to adapt the broadcast_shape and broadcast_to for dynamic shape
     # so dynamic and pir branch can be merged into one code block
