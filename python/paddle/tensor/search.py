@@ -775,17 +775,19 @@ def where(
         assert not isinstance(
             y, complex
         ), "Complex input y is not supported yet"
+        x_ = x
+        y_ = y
         x: Tensor = paddle.full(
             [1],
-            x,
-            np.array([x if isinstance(x, float) else y]).dtype.name.replace(
+            x_,
+            np.array([x_ if isinstance(x_, float) else y_]).dtype.name.replace(
                 "float64", default_dtype
             ),
         )
         y: Tensor = paddle.full(
             [1],
-            y,
-            np.array([y if isinstance(y, float) else x]).dtype.name.replace(
+            y_,
+            np.array([y_ if isinstance(y_, float) else x_]).dtype.name.replace(
                 "float64", default_dtype
             ),
         )
