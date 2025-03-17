@@ -14,8 +14,6 @@
 
 #pragma once
 
-#include <vector>
-
 #include "paddle/phi/common/int_array.h"
 #include "paddle/phi/core/distributed/auto_parallel/dist_meta_tensor.h"
 #include "paddle/phi/core/distributed/type_defs.h"
