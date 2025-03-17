@@ -2775,7 +2775,7 @@
     func : isfinite {dense -> dense},
            isfinite_sr {selected_rows -> selected_rows}
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-  traits : paddle::dialect::ForwardOnlyTrait
+  traits : paddle::dialect::ForwardOnlyTrait, pir::UnaryElementWiseTrait
 
 - op : isinf
   args : (Tensor x)
@@ -2786,7 +2786,7 @@
     func : isinf {dense -> dense},
            isinf_sr {selected_rows -> selected_rows}
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-  traits : paddle::dialect::ForwardOnlyTrait
+  traits : paddle::dialect::ForwardOnlyTrait, pir::UnaryElementWiseTrait
 
 - op : isnan
   args : (Tensor x)
@@ -2797,7 +2797,7 @@
     func : isnan {dense -> dense},
            isnan_sr {selected_rows -> selected_rows}
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-  traits : paddle::dialect::ForwardOnlyTrait
+  traits : paddle::dialect::ForwardOnlyTrait, pir::UnaryElementWiseTrait
 
 - op : kldiv_loss
   args : (Tensor x, Tensor label, str reduction = "mean", bool log_target = false)
@@ -2916,6 +2916,7 @@
   inplace: (x -> out)
   backward : lgamma_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : limit_by_capacity
   args : (Tensor expert_count, Tensor capacity, int n_worker)
@@ -3072,7 +3073,7 @@
     backend : x
   inplace: (x -> out)
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-  traits : paddle::dialect::ForwardOnlyTrait
+  traits : paddle::dialect::ForwardOnlyTrait, pir::UnaryElementWiseTrait
 
 - op : logical_or
   args : (Tensor x, Tensor y)
@@ -4649,6 +4650,7 @@
     func : sign
   backward : sign_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : silu
   args : (Tensor x)
@@ -4962,6 +4964,7 @@
     func : swish
   backward : swish_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface, paddle::dialect::LayoutTransformationInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : sync_batch_norm_
   args : (Tensor x, Tensor mean, Tensor variance, Tensor scale, Tensor bias, bool is_test, float momentum, float epsilon, str data_format, bool use_global_stats, bool trainable_statistics)
