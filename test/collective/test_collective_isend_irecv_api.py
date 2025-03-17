@@ -44,6 +44,5 @@ class TestCollectiveIsendIrecvAPI(test_base.TestDistBase):
             )
 
 
-
 if __name__ == "__main__":
     unittest.main()
