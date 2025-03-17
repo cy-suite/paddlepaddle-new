@@ -126,6 +126,10 @@ function make_ubuntu20_cu123_dockerfile(){
   sed -i 's#RUN bash /build_scripts/install_cudnn.sh cudnn841#RUN bash /build_scripts/install_cudnn.sh cudnn900 #g' ${dockerfile_name}
   sed -i 's#CUDNN_VERSION=8.4.1#CUDNN_VERSION=9.0.0#g' ${dockerfile_name}
 
+  sed -i "${dockerfile_line}i RUN git clone https://github.com/FlagOpen/FlagCX.git /FlagCX \&\& \
+    cd /FlagCX \&\& \
+    make USE_NVIDIA=1 CCL_HOME=/usr/local/cuda-12.3/targets/x86_64-linux/lib" ${dockerfile_name}
+
   sed -i "${dockerfile_line}i WORKDIR /home \n \
     RUN git clone --depth=1 https://github.com/PaddlePaddle/PaddleNLP.git -b stable/paddle-ci \&\& cd PaddleNLP \&\& \
     pip3.10 install -r requirements.txt \&\& \
