@@ -333,7 +333,6 @@ EOF
     fi
 
     build_size "" $6
-    echo "Build Size: ${{ env.buildSize }}"
 
     endTime_s=`date +%s`
     [ -n "$startTime_firstBuild" ] && startTime_s=$startTime_firstBuild

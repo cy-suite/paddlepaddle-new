@@ -19,7 +19,7 @@ fi
 rm -f build_size
 curl --noproxy '*' -O https://paddle-docker-tar.bj.bcebos.com/paddle_ci_index/build_size
 dev_coverage_build_size=`cat build_size|sed 's#G##g'`
-pr_coverage_build_size=`echo "${{ env.buildSize }}" |sed 's#G##g'`
+pr_coverage_build_size=`echo "$1" |sed 's#G##g'`
 
 echo "========================================================"
 echo "The develop coverage build size is $(cat build_size | tr -d '\n')"

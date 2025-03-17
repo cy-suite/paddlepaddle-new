@@ -137,7 +137,7 @@ jobs:
       run: |
         docker exec -t ${{ env.container_name }} /bin/bash -c '
         . ../../../proxy
-        bash -x $ci_scripts/coverage_check_added_ut.sh
+        bash $ci_scripts/coverage_check_added_ut.sh
         '
 
     - name: Check coverage build size requires approval
@@ -145,7 +145,7 @@ jobs:
       run: |
         docker exec -t ${{ env.container_name }} /bin/bash -c '
         . ../../../proxy
-        bash -x $ci_scripts/coverage_build_size_approval.sh
+        bash $ci_scripts/coverage_build_size_approval.sh ${{ env.buildSize }}
         '
 
     - name: Clean up env
