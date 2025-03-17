@@ -35,6 +35,7 @@ mkdir prec_build
 cd prec_build
 
 source ${PADDLE_ROOT}/ci/utils.sh
+cat ${PADDLE_ROOT}/ci/utils.sh
 init
 # cmake_base ${PYTHON_ABI:-""} >prebuild.log 2>&1
 cmake_base ${PYTHON_ABI:-""}
