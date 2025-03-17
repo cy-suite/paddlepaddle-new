@@ -333,9 +333,9 @@ def is_shape_tensor(value):
     return total_elements <= 8 and total_elements >= 1 and is_int_dtype
 
 
-def get_cache_path(trt_config):
-    if trt_config.save_model_dir:
-        cache_path = trt_config.save_model_dir
+def get_cache_path(cache_path):
+    if cache_path is not None:
+        cache_path = cache_path
     else:
         home_path = os.path.expanduser("~")
         cache_path = os.path.join(home_path, ".pp_trt_cache")
