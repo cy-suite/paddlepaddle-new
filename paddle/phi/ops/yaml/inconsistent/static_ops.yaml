@@ -178,7 +178,7 @@
   data_transform :
     support_trans_dtype : x, y
   backward : divide_grad
-  interfaces : paddle::dialect::InferSymbolicShapeInterface
+  interfaces : paddle::dialect::InferSymbolicShapeInterface, paddle::dialect::LayoutTransformationInterface
   traits : pir::BinaryElementWiseTrait
 
 - op : einsum
@@ -203,7 +203,7 @@
   data_transform :
     support_trans_dtype : x, y
   backward : elementwise_pow_grad
-  interfaces : paddle::dialect::InferSymbolicShapeInterface
+  interfaces : paddle::dialect::InferSymbolicShapeInterface, paddle::dialect::LayoutTransformationInterface
   traits : pir::BinaryElementWiseTrait
 
 - op : embedding
@@ -252,7 +252,7 @@
     support_trans_dtype : x, y
   inplace: (x -> out)
   traits : paddle::dialect::ForwardOnlyTrait, pir::BinaryElementWiseTrait
-  interfaces : paddle::dialect::InferSymbolicShapeInterface
+  interfaces : paddle::dialect::InferSymbolicShapeInterface, paddle::dialect::LayoutTransformationInterface
 
 - op : fused_adam_
   args : (Tensor[] params, Tensor[] grads, Tensor learning_rate, Tensor[] moments1, Tensor[] moments2, Tensor[] moments2_max, Tensor[] beta1_pows, Tensor[] beta2_pows, Tensor[] master_params, Tensor skip_update, Scalar beta1, Scalar beta2, Scalar epsilon, int chunk_size, float weight_decay, bool use_adamw, bool multi_precision, bool use_global_beta_pow, bool amsgrad = false)
@@ -520,7 +520,7 @@
     support_trans_dtype : x, y
   backward : maximum_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-  traits : pir::BinaryElementWiseTrait
+  traits : pir::BinaryElementWiseTrait, paddle::dialect::LayoutTransformationInterface
 
 - op : memcpy
   args : (Tensor x, int dst_place_type)
@@ -570,7 +570,7 @@
     support_trans_dtype : x, y
   backward : multiply_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface, paddle::dialect::LayoutTransformationInterface
-  traits : pir::BinaryElementWiseTrait
+  traits : pir::BinaryElementWiseTrait, paddle::dialect::LayoutTransformationInterface
 
 - op : nop
   args : (Tensor x)
@@ -580,7 +580,7 @@
   kernel :
     func : nop
   inplace: (x -> out)
-  interfaces : paddle::dialect::ParseKernelKeyInterface
+  interfaces : paddle::dialect::ParseKernelKeyInterface, paddle::dialect::LayoutTransformationInterface
   traits : pir::SideEffectTrait, paddle::dialect::ForwardOnlyTrait, pir::BinaryElementWiseTrait
 
 - op : not_equal
@@ -722,7 +722,7 @@
   data_transform :
     support_trans_dtype : x, y
   inplace : (x -> out)
-  interfaces : paddle::dialect::InferSymbolicShapeInterface
+  interfaces : paddle::dialect::InferSymbolicShapeInterface, paddle::dialect::LayoutTransformationInterface
   backward: remainder_grad
   traits : pir::BinaryElementWiseTrait
 
