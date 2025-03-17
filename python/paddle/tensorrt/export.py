@@ -645,7 +645,8 @@ def convert(model_path, config):
             >>> input_config = Input(
             >>>     min_input_shape=[1, input_dim],
             >>>     optim_input_shape=[2, input_dim],
-            >>>     max_input_shape=[4, input_dim]
+            >>>     max_input_shape=[4, input_dim],
+            >>>     name='x',
             >>> )
 
             >>> trt_config = TensorRTConfig(inputs=[input_config])
@@ -698,7 +699,8 @@ def convert(model_path, config):
             >>>         np.random.rand(1,3).astype(np.float32),
             >>>         np.random.rand(2,3).astype(np.float32),
             >>>         np.random.rand(4,3).astype(np.float32),
-            >>>     )
+            >>>     ),
+            >>>     name='x',
             >>> )
 
             >>> trt_config = TensorRTConfig(inputs=[input_config])
