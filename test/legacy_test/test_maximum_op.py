@@ -131,7 +131,7 @@ class ApiMaximumTest(unittest.TestCase):
         numpy_tensor = np.ones([10000]).astype("float16")
         paddle_outgrad = paddle.to_tensor(numpy_tensor)
 
-        paddle_out = paddle.minimum(paddle_x, paddle_x2)
+        paddle_out = paddle.maximum(paddle_x, paddle_x2)
         paddle_x_grad, paddle_x2_grad = paddle.grad(
             [paddle_out],
             [paddle_x, paddle_x2],
