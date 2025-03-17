@@ -81,18 +81,13 @@ bool ValueMatchGuard::check(PyObject* value) {
 }
 
 bool LengthMatchGuard::check(PyObject* value) {
-  if (!PySequence_Check(value)) {
-    if (!PyMapping_Check(value)) {
-      return false;
-    }
+  if (PySequence_Check(value)) {
+    return PySequence_Size(value) == expected_;
+  }
+  if (PyMapping_Check(value)) {
     return PyMapping_Length(value) == expected_;
   }
-
-  if (value == nullptr) {
-    return false;
-  }
-
-  return PySequence_Size(value) == expected_;
+  return false;
 }
 
 bool DtypeMatchGuard::check(PyObject* value) {
