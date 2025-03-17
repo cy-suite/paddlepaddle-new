@@ -6,7 +6,7 @@ set(ABSL_PREFIX_DIR ${THIRD_PARTY_PATH}/absl)
 set(ABSL_CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS})
 
 set(ABSL_REPOSITORY "${GIT_URL}/abseil/abseil-cpp.git")
-set(ABSL_TAG "20210324.2")
+set(ABSL_TAG "20250127.0")
 
 set(OPTIONAL_ARGS
     "-DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}"
@@ -41,7 +41,8 @@ ExternalProject_Add(
     -DCMAKE_BUILD_TYPE:STRING=${THIRD_PARTY_BUILD_TYPE}
   BUILD_BYPRODUCTS ${ABSL_INSTALL_DIR}/lib/libabsl_base.a
   BUILD_BYPRODUCTS ${ABSL_INSTALL_DIR}/lib/libabsl_hash.a
-  BUILD_BYPRODUCTS ${ABSL_INSTALL_DIR}/lib/libabsl_wyhash.a
+  BUILD_BYPRODUCTS ${ABSL_INSTALL_DIR}/lib/libabsl_low_level_hash.a
+  BUILD_BYPRODUCTS ${ABSL_INSTALL_DIR}/lib/libabsl_raw_logging_internal.a
   BUILD_BYPRODUCTS ${ABSL_INSTALL_DIR}/lib/libabsl_city.a
   BUILD_BYPRODUCTS ${ABSL_INSTALL_DIR}/lib/libabsl_strings.a
   BUILD_BYPRODUCTS ${ABSL_INSTALL_DIR}/lib/libabsl_throw_delegate.a
@@ -53,7 +54,8 @@ ExternalProject_Add(
 # It may be more convenient if we just include all absl libs
 set(ABSL_LIB_NAMES
     hash
-    wyhash
+    low_level_hash
+    raw_logging_internal
     city
     strings
     throw_delegate
