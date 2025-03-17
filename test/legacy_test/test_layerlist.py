@@ -32,12 +32,19 @@ class TestLayerListEmptyInsert(unittest.TestCase):
 
         # Test failure case - insert at index 1
         layers = paddle.nn.LayerList()
-        with self.assertRaises(AssertionError) as context:
+        with self.assertRaises(AssertionError):
             layers.insert(1, paddle.nn.Linear(10, 10))
-        self.assertTrue(
-            'index should be index equal to 0 for empty list or [0, 0) for non-empty list'
-            in str(context.exception)
-        )
+
+        # Test successful case - insert at index 1 of non-empty list
+        linear1 = paddle.nn.Linear(15, 15)
+        linear2 = paddle.nn.Linear(20, 20)
+        layers = paddle.nn.LayerList([linear1])
+        try:
+            layers.insert(1, linear2)
+            self.assertEqual(len(layers), 2)
+            self.assertTrue(layers[1] is linear2)
+        except Exception as e:
+            self.fail(f"Insert at index 1 raised unexpected exception: {e}")
 
 
 if __name__ == "__main__":

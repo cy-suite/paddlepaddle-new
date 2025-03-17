@@ -545,11 +545,9 @@ class LayerList(Layer):
 
     def _get_abs_idx(self, idx: int) -> int:
         if isinstance(idx, int):
-            if not (len(self) == 0 and idx == 0) and not (
-                -len(self) <= idx < len(self)
-            ):
+            if not (-len(self) <= idx < len(self)):
                 raise IndexError(
-                    f'index {idx} is out of range, should be 0 for empty list or in range [{-len(self)}, {len(self)})'
+                    f'index {idx} is out of range, should be an integer in range [{-len(self)}, {len(self)})'
                 )
             if idx < 0:
                 idx += len(self)
@@ -628,13 +626,14 @@ class LayerList(Layer):
                 >>> print(linears[-2] is another)
                 True
         """
-        assert isinstance(index, int) and (
-            index == 0
-            if len(self._sub_layers) == 0
-            else -len(self._sub_layers) <= index < len(self._sub_layers)
-        ), f"index should be index equal to 0 for empty list or [{-len(self)}, {len(self)}) for non-empty list"
+        assert isinstance(index, int) and -len(
+            self._sub_layers
+        ) <= index <= len(
+            self._sub_layers
+        ), f"index should be an integer in range [{-len(self)}, {len(self)}]"
 
-        index = self._get_abs_idx(index)
+        if index < 0:
+            index += len(self)
         for i in range(len(self._sub_layers), index, -1):
             self._sub_layers[str(i)] = self._sub_layers[str(i - 1)]
         self._sub_layers[str(index)] = sublayer
