@@ -56,6 +56,39 @@ namespace paddle {
 namespace dialect {
 
 template <typename ConcreteOp>
+void RewriteByInfermeta(pir::Operation* op, common::DataLayout new_layout) {
+  std::vector<pir::Type> new_outputs = ConcreteOp::InferMeta(
+      op->operands_source(), const_cast<pir::AttributeMap*>(&op->attributes()));
+  for (size_t i = 0; i < new_outputs.size(); ++i) {
+    op->result(i).set_type(new_outputs[i]);
+  }
+
+  pir::TransLayoutCallbackFn callback = nullptr;
+#ifdef PADDLE_WITH_CINN
+  auto& shape_analysis =
+      pir::ShapeAnalysisManager::Instance().Get(op->GetParentProgram());
+  const pir::TransLayoutType trans_layout_type = [&] {
+    if (new_layout == common::DataLayout::NHWC) {
+      return pir::TransLayoutType::NCHW2NHWC;
+    }
+    if (new_layout == common::DataLayout::NHWC) {
+      return pir::TransLayoutType::NHWC2NCHW;
+    }
+    return pir::TransLayoutType::INVALID;
+  }();
+
+  if (trans_layout_type != pir::TransLayoutType::INVALID) {
+    callback = [&](pir::Value value, common::DataLayout new_layout) -> void {
+      shape_analysis.UpdateShapeOrDataByTransLayout(value, trans_layout_type);
+    };
+  }
+#endif
+  for (auto value : RelevantOutputsImpl<ConcreteOp>(op)) {
+    pir::SetNewLayoutForValue(value, new_layout, callback);
+  }
+}
+
+template <typename ConcreteOp>
 common::DataLayout PreferLayoutImpl(pir::Operation* op) {
   auto data_format_attr = op->attribute<pir::StrAttribute>("data_format");
   if (!data_format_attr) {
@@ -66,9 +99,19 @@ common::DataLayout PreferLayoutImpl(pir::Operation* op) {
 
 template <typename ConcreteOp>
 void RewriteByLayoutImpl(pir::Operation* op, common::DataLayout new_layout) {
-  PADDLE_THROW(common::errors::Unimplemented(
-      "Op %s should have a specialized RewriteByLayout function",
-      pir::get_type_name<ConcreteOp>()));
+  if (!op->HasInterface<paddle::dialect::InferMetaInterface>()) {
+    PADDLE_THROW(common::errors::Unimplemented(
+        "Op %s should have a specialized RewriteByLayout function",
+        pir::get_type_name<ConcreteOp>()));
+  }
+
+  if (op->HasAttribute("data_format")) {
+    op->set_attribute(
+        "data_format",
+        pir::StrAttribute::get(ctx_, common::DataLayoutToString(new_layout)));
+  }
+
+  RewriteByInfermeta<ConcreteOp>(op, new_layout);
 }
 
 template <typename ConcreteOp>
@@ -110,24 +153,20 @@ bool CanBeModifiedImpl(pir::Operation* op) {
 
 class FusedConv2dAddActOp;
 OVERLOAD_PREFER_LAYOUT(FusedConv2dAddActOp);
-OVERLOAD_REWRITE_BY_LAYOUT(FusedConv2dAddActOp);
 OVERLOAD_CAN_BE_MODIFIED(FusedConv2dAddActOp);
 
 class Conv2dOp;
 OVERLOAD_PREFER_LAYOUT(Conv2dOp);
 OVERLOAD_CAN_BE_MODIFIED(Conv2dOp);
-OVERLOAD_REWRITE_BY_LAYOUT(Conv2dOp);
 
 class Conv2dTransposeOp;
 OVERLOAD_PREFER_LAYOUT(Conv2dTransposeOp);
 
 class GroupNormOp;
-OVERLOAD_REWRITE_BY_LAYOUT(GroupNormOp);
 OVERLOAD_RELEVANT_INPUTS(GroupNormOp);
 OVERLOAD_RELEVANT_OUTPUTS(GroupNormOp);
 
 class AddGroupNormSiluOp;
-OVERLOAD_REWRITE_BY_LAYOUT(AddGroupNormSiluOp);
 OVERLOAD_PREFER_LAYOUT(AddGroupNormSiluOp);
 OVERLOAD_RELEVANT_INPUTS(AddGroupNormSiluOp);
 OVERLOAD_RELEVANT_OUTPUTS(AddGroupNormSiluOp);
@@ -143,15 +182,8 @@ OVERLOAD_RELEVANT_INPUTS(SqueezeOp);
 OVERLOAD_RELEVANT_OUTPUTS(SqueezeOp);
 OVERLOAD_CAN_BE_MODIFIED(SqueezeOp);
 
-class SiluOp;
-OVERLOAD_REWRITE_BY_LAYOUT(SiluOp);
-
 class AddOp;
-OVERLOAD_REWRITE_BY_LAYOUT(AddOp);
 OVERLOAD_CAN_BE_MODIFIED(AddOp);
-
-class CastOp;
-OVERLOAD_REWRITE_BY_LAYOUT(CastOp);
 
 class ConcatOp;
 OVERLOAD_REWRITE_BY_LAYOUT(ConcatOp);
@@ -162,16 +194,6 @@ OVERLOAD_REWRITE_BY_LAYOUT(ArgmaxOp);
 
 class Pool2dOp;
 OVERLOAD_RELEVANT_INPUTS(Pool2dOp);
-OVERLOAD_REWRITE_BY_LAYOUT(Pool2dOp);
-
-class MultiplyOp;
-OVERLOAD_REWRITE_BY_LAYOUT(MultiplyOp);
-
-class AssignOp;
-OVERLOAD_REWRITE_BY_LAYOUT(AssignOp);
-
-class SwishOp;
-OVERLOAD_REWRITE_BY_LAYOUT(SwishOp);
 
 }  // namespace dialect
 }  // namespace paddle
