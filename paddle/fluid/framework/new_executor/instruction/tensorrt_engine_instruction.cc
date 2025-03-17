@@ -223,31 +223,14 @@ TensorRTEngineInstruction::TensorRTEngineInstruction(
     pir::LoadCombineFunction(
         refit_params_path_, param_names, &tensor_out, false, place);
 
-    // Filter out the weights and corresponding tensors with suffixes 'w_1' and
-    // 'w_2' as they do not need to be refitted, but are required when loading
-    // the weight file.
-    std::vector<std::string> filtered_param_names;
-    std::vector<phi::DenseTensor *> filtered_tensor_out;
     for (size_t i = 0; i < param_names.size(); ++i) {
       const std::string &param_name = param_names[i];
-      if (!endsWith(param_name, "w_1") && !endsWith(param_name, "w_2")) {
-        filtered_param_names.push_back(param_name);
-        filtered_tensor_out.push_back(tensor_out[i]);
-      } else {
-        VLOG(6) << "Skipping parameter with suffix w1 or w2: " << param_name;
-        delete tensor_out[i];
-      }
-    }
-
-    // Perform refitting using the filtered parameters.
-    for (size_t i = 0; i < filtered_param_names.size(); ++i) {
-      auto param_name = filtered_param_names[i];
       PADDLE_ENFORCE_EQ(
           trt_engine_->setRefitWeights(
-              refit_mapping_, param_name, *filtered_tensor_out[i]),
+              refit_mapping_, param_name, *tensor_out[i]),
           true,
           common::errors::InvalidArgument(
-              std::string("Failed to set refit weights for ") + param_name));
+              std::string("Failed to set refit weights for") + param_name));
     }
     PADDLE_ENFORCE_EQ(
         trt_engine_->FinalizeRefit(),
@@ -333,12 +316,6 @@ static phi::DataType TRT2PaddleDataType(nvinfer1::DataType type) {
           "unknown fluid datatype in Fluid op converter"));
       return phi::DataType::FLOAT32;
   }
-}
-
-bool TensorRTEngineInstruction::endsWith(const std::string &str,
-                                         const std::string &suffix) {
-  if (suffix.size() > str.size()) return false;
-  return std::equal(suffix.rbegin(), suffix.rend(), str.rbegin());
 }
 
 void TensorRTEngineInstruction::InputsCheck() {

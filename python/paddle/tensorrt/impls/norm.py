@@ -68,16 +68,23 @@ def layernorm_converter(network, paddle_op, inputs):
         name=[paddle_op.name(), "trt_gather"],
     )
     newrank = len(indice_dim_vec)
-    one_rank_tensor = add_1D_constant_layer(
-        network,
-        np.array([1] * (rank - newrank), dtype=np.int32),
-        name=[paddle_op.name(), "one_rank_tensor"],
-    )
-    concat_shape_tensor = trt_concat(
-        network,
-        [one_rank_tensor, newDims],
-        name=[paddle_op.name(), "concat_shape_tensor"],
-    )
+
+    prepend_dims = []
+    for i in range(rank - newrank):
+        one_const = network.add_constant((1,), np.array([1], dtype=np.int32))
+        set_layer_name(one_const, [paddle_op.name(), f"one_const_{i}"])
+        prepend_dims.append(one_const.get_output(0))
+
+    if prepend_dims:
+        concat_dims = [*prepend_dims, newDims]
+        concat_shape_tensor = trt_concat(
+            network,
+            concat_dims,
+            name=[paddle_op.name(), "concat_shape_tensor"],
+        )
+    else:
+        concat_shape_tensor = newDims
+
     Bias_reshape = trt_reshape(
         network,
         bias,

@@ -510,6 +510,10 @@ bool TensorRTEngine::setRefitWeights(
       std::pair<nvinfer1::WeightsRole, bool> role_result = strToRole(role_str);
       role = role_result.first;
       VLOG(3) << "Using weight role " << role_str << " for layer" << layer_name;
+    } else {
+      VLOG(3) << "Weight" << param_name
+              << "not found in mappings,skipping update.";
+      return true;
     }
   }
   PADDLE_ENFORCE_NOT_NULL(

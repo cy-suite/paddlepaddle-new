@@ -44,7 +44,6 @@ class TensorRTEngineInstruction : public InstructionBase {
   std::string ReadBinaryFileToString(const std::string& filePath);
   void InputsCheck();
   void RunTrt();
-  bool endsWith(const std::string& str, const std::string& suffix);
   void BindInputTensor(const std::string& input_name,
                        const phi::DenseTensor& input_tensor,
                        const Scope& scope,
