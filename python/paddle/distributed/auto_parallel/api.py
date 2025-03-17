@@ -1934,6 +1934,7 @@ def shard_scaler(scaler: GradScaler) -> GradScaler:
                     temp_scale,
                 )
 
+                # AllReduce for "bool" is not supported on XPU
                 if "xpu" in paddle.device.get_device():
                     temp_param_grads_half = paddle.cast(
                         temp_param_grads_half, "int32"
@@ -1952,6 +1953,7 @@ def shard_scaler(scaler: GradScaler) -> GradScaler:
                     temp_scale,
                 )
 
+                # AllReduce for "bool" is not supported on XPU
                 if "xpu" in paddle.device.get_device():
                     temp_found_inf_fp32 = paddle.cast(
                         temp_found_inf_fp32, "int32"
