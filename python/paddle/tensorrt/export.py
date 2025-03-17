@@ -75,14 +75,16 @@ class Input:
                 The shape of the minimum input tensor.
             max_input_shape (tuple):
                 The shape of the maximum input tensor.
-            optim_input_shape (tuple, optional):
-                The shape of the optimal input tensor (default is None).
+            optim_input_shape (tuple):
+                The shape of the optimal input tensor.
             input_data_type (str, optional):
                 The data type for the input tensors, such as 'float32' or 'int64' or 'float32' or 'int32'  (default is float32).
                 This option only applies when min_input_shape, optim_input_shape, and max_input_shape are provided; it does not apply to warmup_data.
             input_range (tuple, optional):
                 The range of values used to generate input data. For floats, the default range is (0.0, 1.0). For integers, the default range is (1, 10).
                 This option only applies when min_input_shape, optim_input_shape, and max_input_shape are provided; it does not apply to warmup_data.
+            name:(str,optional):
+                The name of the input to the model.
         Returns:
             None
 
