@@ -179,6 +179,7 @@ jobs:
       run: |
         docker exec -t ${{ env.container_name }} /bin/bash -c '
         echo "::group::Install bce-python-sdk"
+        . ../../../proxy
         python -m pip install bce-python-sdk==0.8.74
         echo "::endgroup::"
         export AK=paddle

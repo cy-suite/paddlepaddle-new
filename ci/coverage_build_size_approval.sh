@@ -23,7 +23,7 @@ pr_coverage_build_size=`echo "${{ env.buildSize }}" |sed 's#G##g'`
 
 echo "========================================================"
 echo "The develop coverage build size is $(cat build_size | tr -d '\n')"
-echo "The pr coverage build size is ${{ env.buildSize }}"
+echo "The pr coverage build size is ${pr_coverage_build_size}"
 echo "========================================================"
 
 diff_coverage_build_size=`echo $(($pr_coverage_build_size - $dev_coverage_build_size))`

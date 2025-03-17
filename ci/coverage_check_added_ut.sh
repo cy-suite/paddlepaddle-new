@@ -52,11 +52,6 @@ ctest -N | awk -F ':' '{print $2}' | sed '/^$/d' | sed '$d' | sed 's/ //g' | sed
 cd $PADDLE_ROOT
 grep -F -x -v -f br-ut pr-ut > $PADDLE_ROOT/added_ut
 
-echo "=======br-ut:"
-cat $PADDLE_ROOT/br-ut
-echo "=======pr-ut:"
-cat $PADDLE_ROOT/pr-ut
-
 sort pr-ut |uniq -d > $PADDLE_ROOT/duplicate_ut
 
 echo "::group::New-UT:"
@@ -64,7 +59,7 @@ cat $PADDLE_ROOT/added_ut
 echo "::endgroup::"
 rm -rf prec_build
 
-rm $PADDLE_ROOT/br-ut $PADDLE_ROOT/pr-ut
+rm $PADDLE_ROOT/br-ut $PADDLE_ROOT/pr-ut ${PADDLE_ROOT}/ci/utils_copy.sh
 
 git checkout -f $CURBRANCH
 echo $CURBRANCH
