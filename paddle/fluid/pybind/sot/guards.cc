@@ -85,7 +85,7 @@ bool LengthMatchGuard::check(PyObject* value) {
     return PySequence_Size(value) == expected_;
   }
   if (PyMapping_Check(value)) {
-    return PyMapping_Length(value) == expected_;
+    return PyMapping_Size(value) == expected_;
   }
   return false;
 }
