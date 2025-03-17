@@ -274,7 +274,6 @@ void TensorRTEngine::FreezeNetwork() {
     }
   }
   if (!refit_params_path().empty()) {
-    LOG(INFO) << "设置krefit";
     infer_builder_config_->setFlag(nvinfer1::BuilderFlag::kREFIT);
   }
 
