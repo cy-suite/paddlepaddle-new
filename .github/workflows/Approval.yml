@@ -1,0 +1,32 @@
+name: Approval
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  display-approvers:
+    name: Display approvers
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Display Required Approvers
+        run: |
+          bash tools/check_file_diff_approvals.sh
+
+  approved-actions:
+    name: Check approval
+    if: ${{ github.event_name == 'pull_request_review' && github.event.review.state == 'approved' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Approved Actions
+        run: |
+          bash tools/check_file_diff_approvals.sh
