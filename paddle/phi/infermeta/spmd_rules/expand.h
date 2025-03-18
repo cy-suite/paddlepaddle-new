@@ -1,4 +1,4 @@
-// Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
+// Copyright (c) 2025 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,17 +14,17 @@
 
 #pragma once
 
-#include <memory>
-#include <set>
-#include <string>
-#include "paddle/pir/include/core/dll_decl.h"
+#include "paddle/phi/common/int_array.h"
+#include "paddle/phi/core/distributed/auto_parallel/dist_meta_tensor.h"
+#include "paddle/phi/core/distributed/type_defs.h"
 
-namespace pir {
+namespace phi {
+namespace distributed {
+SpmdInfo ExpandInferSpmd(const DistMetaTensor& x, const IntArray& shape);
 
-class Pass;
+SpmdInfo ExpandGradInferSpmd(const DistMetaTensor& x,
+                             const DistMetaTensor& out_grad,
+                             const IntArray& shape);
 
-// kOpsNhwc: the op that should be in NHWC layout.
-IR_API std::unique_ptr<Pass> CreateAutoLayoutInsertPass(
-    const std::set<std::string>& kOpsNhwc);
-
-}  // namespace pir
+}  // namespace distributed
+}  // namespace phi
