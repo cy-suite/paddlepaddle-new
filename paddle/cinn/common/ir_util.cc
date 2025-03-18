@@ -18,7 +18,6 @@
 #include <stack>
 #include <unordered_set>
 
-#include "paddle/cinn/common/cas.h"
 #include "paddle/cinn/common/const_fold.h"
 #include "paddle/cinn/common/simplify_special_pattern.h"
 #include "paddle/cinn/ir/ir_mutator.h"
@@ -26,6 +25,7 @@
 #include "paddle/cinn/ir/op/ir_operators.h"
 #include "paddle/cinn/ir/utils/ir_compare.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
+#include "paddle/cinn/optim/ir_simplify.h"
 #include "paddle/common/enforce.h"
 namespace cinn {
 namespace common {
@@ -259,10 +259,7 @@ void Substitute(Expr *expr, const std::map<const ir::_Var_ *, Expr> &var_map) {
 }
 
 bool is_zero(Expr v) {
-  // TODO(liujinnan): In the old simplification module, IR is converted to CAS
-  // format, so AutoSimplify is still used for CAS format, which will be
-  // completely deleted when CAS is retired.
-  v = v.is_index() ? optim::ArithSimplify(v) : AutoSimplify(v);
+  v = optim::ArithSimplify(v);
   auto *int_n = v.As<ir::IntImm>();
   auto *float_n = v.As<ir::FloatImm>();
 
@@ -277,11 +274,8 @@ Expr CastIfNeeded(Expr body, Type type) {
 }
 
 bool MathEqual(const Expr &a, const Expr &b) {
-  // TODO(liujinnan): In the old simplification module, IR is converted to CAS
-  // format, so AutoSimplify is still used for CAS format, which will be
-  // completely deleted when CAS is retired.
   auto c = a - b;
-  c = c.is_index() ? optim::ArithSimplify(c) : AutoSimplify(c);
+  c = optim::ArithSimplify(c);
   return is_zero(c);
 }
 
@@ -470,6 +464,85 @@ Expr min(Expr a, Expr b) {
                     ::common::errors::InvalidArgument(
                         "The type of a and b should be equal."));
   return ir::Min::Make(a, b);
+}
+
+void OpDataTypePromote(Expr *expr) {
+  struct TypePromote : public ir::IRMutator<> {
+    void operator()(Expr *expr) { ir::IRMutator<>::Visit(expr, expr); }
+    // type promote for operand of binary op
+#define __(op__)                                            \
+  void Visit(const ir::op__ *op, ir::Expr *expr) override { \
+    ir::TryElevateInt32ToInt64_((*expr)->operands);         \
+    IRMutator::Visit(op, expr);                             \
+  };
+    __(Sum)
+    __(Product)
+    NODETY_BINARY_OP_FOR_EACH(__)
+#undef __
+
+    void Visit(const ir::Select *op, ir::Expr *expr) override {
+      auto node = expr->As<ir::Select>();
+
+      auto promote_args = std::move(
+          ir::TryElevateInt32ToInt64({node->true_value, node->false_value}));
+      node->true_value = promote_args.at(0);
+      node->false_value = promote_args.at(1);
+
+      IRMutator::Visit(op, expr);
+    }
+
+    void Visit(const ir::Load *op, ir::Expr *expr) {
+      auto node = expr->As<ir::Load>();
+      ir::TryElevateInt32ToInt64_(node->indices);
+      IRMutator::Visit(op, expr);
+    }
+
+    void Visit(const ir::Store *op, ir::Expr *expr) {
+      auto node = expr->As<ir::Store>();
+      ir::TryElevateInt32ToInt64_(node->indices);
+      IRMutator::Visit(op, expr);
+    }
+
+    void Visit(const ir::Let *op, ir::Expr *expr) {
+      auto node = expr->As<ir::Let>();
+      auto promote_args =
+          std::move(ir::TryElevateInt32ToInt64({node->symbol, node->body}));
+      node->symbol = promote_args.at(0);
+      node->body = promote_args.at(1);
+      IRMutator::Visit(op, expr);
+    }
+
+    void Visit(const ir::For *op, ir::Expr *expr) {
+      auto node = expr->As<ir::For>();
+      auto promote_args = std::move(ir::TryElevateInt32ToInt64(
+          {node->loop_var, node->min, node->extent}));
+      node->loop_var = promote_args.at(0);
+      node->min = promote_args.at(1);
+      node->extent = promote_args.at(2);
+      IRMutator::Visit(op, expr);
+    }
+  };
+
+  TypePromote visitor;
+  visitor(expr);
+}
+
+void OpDataTypePromote(ir::Module *module) {
+  auto node = module->As<ir::_Module_>();
+  for (auto &func : node->functions) {
+    OpDataTypePromote(&func->body);
+  }
+  for (auto &buffer : node->buffers) {
+    OpDataTypePromote(&buffer);
+  }
+  for (auto &submodule : node->submodules) {
+    OpDataTypePromote(&submodule);
+  }
+}
+
+void OpDataTypePromote(ir::LoweredFunc *func) {
+  auto node = func->As<ir::_LoweredFunc_>();
+  OpDataTypePromote(&node->body);
 }
 }  // namespace common
 }  // namespace cinn
