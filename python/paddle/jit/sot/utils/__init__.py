@@ -16,13 +16,18 @@ from .call_ast_utils import get_static_function, try_ast_func  # noqa: F401
 from .envs import (  # noqa: F401
     ENV_MIN_GRAPH_SIZE,
     ENV_SOT_ALLOW_DYNAMIC_SHAPE,
+    ENV_SOT_CE_DEBUG_MODE,
+    ENV_SOT_COLLECT_INFO,
     ENV_SOT_ENABLE_FASTER_GUARD,
     ENV_SOT_ENABLE_GUARD_TREE,
+    ENV_SOT_ENABLE_STRICT_GUARD_CHECK,
     ENV_SOT_EXPORT,
     ENV_SOT_FORCE_FALLBACK_SIR_IDS,
     ENV_SOT_LOG_LEVEL,
+    ENV_SOT_SERIALIZE_INFO,
     ENV_SOT_WITH_CONTROL_FLOW,
     ENV_STRICT_MODE,
+    PEP508LikeEnvironmentVariable,
     allow_dynamic_shape_guard,
     export_guard,
     faster_guard_guard,
@@ -52,6 +57,7 @@ from .info_collector import (  # noqa: F401
     CompileCountInfo,
     InfoCollector,
     NewSymbolHitRateInfo,
+    SubGraphInfo,
     SubGraphRelationInfo,
 )
 from .magic_methods import magic_method_builtin_dispatch  # noqa: F401
@@ -65,7 +71,6 @@ from .paddle_api_config import (  # noqa: F401
 from .utils import (  # noqa: F401
     Cache,
     ConstTypes,
-    GraphLogger,
     NameGenerator,
     ResumeFnNameFactory,
     Singleton,
@@ -78,6 +83,7 @@ from .utils import (  # noqa: F401
     flatten_extend,
     get_api_fullname,
     get_numpy_ufuncs,
+    get_obj_stable_repr,
     get_unbound_method,
     hashable,
     in_paddle_module,

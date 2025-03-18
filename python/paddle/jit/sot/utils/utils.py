@@ -42,7 +42,6 @@ from .paddle_api_config import (
 
 if TYPE_CHECKING:
     from paddle._typing import NestedStructure
-    from paddle.framework import Program
 
 T = TypeVar("T")
 T1 = TypeVar("T1")
@@ -126,25 +125,25 @@ class ResumeFnNameFactory(metaclass=Singleton):
 
 
 def log(level, *args):
-    cur_level = ENV_SOT_LOG_LEVEL.get_with_cache()
+    cur_level = ENV_SOT_LOG_LEVEL.get()
     if level <= cur_level:
         print(*args, end="", flush=True)
 
 
 def log_do(level, fn):
-    cur_level = ENV_SOT_LOG_LEVEL.get_with_cache()
+    cur_level = ENV_SOT_LOG_LEVEL.get()
     if level <= cur_level:
         fn()
 
 
 def log_format(level, str, *args):
-    cur_level = ENV_SOT_LOG_LEVEL.get_with_cache()
+    cur_level = ENV_SOT_LOG_LEVEL.get()
     if level <= cur_level:
         print(str.format(*args), end="", flush=True)
 
 
 def log_enabled(level):
-    return level <= ENV_SOT_LOG_LEVEL.get_with_cache()
+    return level <= ENV_SOT_LOG_LEVEL.get()
 
 
 def no_eval_frame(func):
@@ -329,59 +328,6 @@ def get_unbound_method(obj, name):
     return getattr(obj.__class__, name)
 
 
-class GraphLogger(metaclass=Singleton):
-    graph_num: int
-    graphs: list[Program]
-    num_ops_per_graph: list[int]
-
-    def __init__(self):
-        self.clear()
-
-    def clear(self):
-        self.graph_num = 0
-        self.graphs = []
-        self.num_ops_per_graph = []
-
-    def get_graph_num(self):
-        return self.graph_num
-
-    def get_op_num(self):
-        return sum(self.num_ops_per_graph)
-
-    def add_subgraph(self, program: Program):
-        self.graph_num += 1
-        self.graphs.append(program)
-        sub_graph_op_num = len(program.global_block().ops)
-        self.num_ops_per_graph.append(sub_graph_op_num)
-
-    def add_subgraph_info(self, strs):
-        for i in range(len(self.graphs)):
-            strs.append(
-                "------------------------------------------------------"
-            )
-
-            strs.append(f"subgraph {i}, OpNum: {self.num_ops_per_graph[i]}")
-            strs.append(f"{self.graphs[i]}")
-
-    def __str__(self):
-        strs = []
-        strs.append("---------------- PaddleSOT graph info ----------------")
-        strs.append(f"SubgraphNum: {self.get_graph_num()}")
-        strs.append(f"OpNum: {self.get_op_num()}")
-
-        # We can display every subgraph info
-        log_do(5, lambda: self.add_subgraph_info(strs))
-
-        strs.append("---------------- PaddleSOT graph info ----------------")
-        return "\n".join(strs)
-
-    def __repr__(self):
-        return self.__str__()
-
-    def print_info(self):
-        print(self)
-
-
 class SotUndefinedVar(metaclass=Singleton):
     pass
 
@@ -470,3 +416,20 @@ def get_numpy_ufuncs():
     unary_ufuncs = filter(lambda ufunc: ufunc.nin == 1, ufuncs)
     binary_ufuncs = filter(lambda ufunc: ufunc.nin == 2, ufuncs)
     return list(unary_ufuncs), list(binary_ufuncs)
+
+
+def get_obj_stable_repr(obj) -> str:
+    if hasattr(obj, '__qualname__'):
+        return obj.__qualname__
+    if hasattr(obj, '__name__'):
+        return obj.__name__
+
+    class_name = obj.__class__.__name__
+
+    # If module is available and not __main__, include it
+    if hasattr(obj, "__class__") and hasattr(obj.__class__, "__module__"):
+        module = obj.__class__.__module__
+        if module not in ("__main__", "builtins"):
+            return f"{module}.{class_name}()"
+
+    return f"{class_name}()"
