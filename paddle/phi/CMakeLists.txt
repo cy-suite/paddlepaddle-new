@@ -171,6 +171,7 @@ elseif(WITH_ROCM)
     phi_gpu ${PHI_BUILD_TYPE}
     SRCS ${PHI_GPU_SRCS}
     DEPS ${PHI_DEPS} phi_core)
+  target_link_libraries(phi_gpu ${DCU_GEMM_LIBRARIES})
 elseif(WITH_XPU_KP)
   xpu_library(
     phi_core ${PHI_BUILD_TYPE}
