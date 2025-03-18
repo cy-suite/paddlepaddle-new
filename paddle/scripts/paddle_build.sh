@@ -1511,6 +1511,20 @@ function get_quickly_disable_ut() {
     fi
 }
 
+# getting multi card uts for xpu
+function get_multi_card_ut_list_for_xpu() {
+    input_file="${PADDLE_ROOT}/tools/xpu/multi_card_ut_xpu_kl3.local"
+    if [ ! -f "$input_file" ]; then
+        echo "input file not exist: $input_file"
+        exit 102
+    fi
+    multi_card_ut_list_for_xpu=$(sed 's/^/^/; s/$/$/' "$input_file" | paste -sd'|' -)
+    echo "========================================="
+    echo "The following unittests are for xpu multi card:"
+    echo ${multi_card_ut_list_for_xpu}
+    echo "========================================="
+}
+
 function card_test() {
     set -m
     case_count $1 $2
@@ -2432,7 +2446,8 @@ set +x
         export XPU_OP_LIST_DIR=$tmp_dir
         ut_startTime_s=`date +%s`
         get_quickly_disable_ut||disable_ut_quickly='disable_ut'   # indicate whether the case was in quickly disable list
-        test_cases=$(ctest -N -V -E "$disable_ut_quickly" -LE "(RUN_TYPE=DIST_KUNLUN)")        # cases list which would be run exclusively
+        get_multi_card_ut_list_for_xpu
+        test_cases=$(ctest -N -V -E "$disable_ut_quickly|$multi_card_ut_list_for_xpu")        # cases list which would be run exclusively
 
         single_card_test_num=0
         while read -r line; do
@@ -2463,6 +2478,7 @@ set +x
         done <<< "$test_cases";
         card_test "$single_card_tests" 1 4
         card_test "$single_card_tests_1" 1 4
+        card_test "$multi_card_ut_list_for_xpu" 2 1
         failed_test_lists=''
         collect_failed_tests
         xputest_error=0
