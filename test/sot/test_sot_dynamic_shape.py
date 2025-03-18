@@ -100,7 +100,7 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
                 self.assert_results(
                     dynamic_int_input_func1, paddle.randn([3, 4, 5]), i
                 )
-                self.assertEqual(ctx.translate_count, 2)
+                self.assertEqual(ctx.translate_count, 2 if i == 2 else 3)
 
     def test_dynamic_int_input_cache_hit_case2(self):
         with allow_dynamic_shape_guard(
@@ -114,7 +114,7 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
                 self.assert_results(
                     dynamic_int_input_func2, paddle.randn([3, 4, 5]), {1: i}
                 )
-                self.assertEqual(ctx.translate_count, 2)
+                self.assertEqual(ctx.translate_count, 2 if i == 2 else 3)
 
     def test_dynamic_int_input_cache_hit_case3(self):
         with allow_dynamic_shape_guard(
@@ -138,7 +138,7 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
                 self.assert_results(
                     dynamic_shape_input_func1, paddle.randn([i, 4, 5])
                 )
-                self.assertEqual(ctx.translate_count, 2)
+                self.assertEqual(ctx.translate_count, 2 if i == 2 else 3)
 
     def test_dynamic_shape_input_cache_hit_case2(self):
         with allow_dynamic_shape_guard(
@@ -153,7 +153,7 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
                     dynamic_shape_access_inner_var_shape,
                     paddle.randn([i, 4, 5]),
                 )
-                self.assertEqual(ctx.translate_count, 2)
+                self.assertEqual(ctx.translate_count, 2 if i == 2 else 3)
 
     def test_dynamic_shape_cast(self):
         with allow_dynamic_shape_guard(
@@ -182,7 +182,7 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
                     paddle.randn([i, 4, 5]),
                     [i * 4, 5],
                 )
-                self.assertEqual(ctx.translate_count, 2)
+                self.assertEqual(ctx.translate_count, 2 if i == 2 else 3)
 
     def test_conv_dynamic_shape_stride_fallback(self):
         with allow_dynamic_shape_guard(

@@ -837,7 +837,7 @@ class SymbolicVariable(VariableBase):
         self.need_guard_value = True
         log(
             3,
-            f"get_py_value from SymbolicVariable {self} caused value need guard",
+            f"get_py_value from SymbolicVariable {self} caused value need guard\n",
         )
         if isinstance(self.value, SymbolicValue):
             assert isinstance(
@@ -941,6 +941,8 @@ class SymbolicVariable(VariableBase):
         tracker: Tracker,
         symbolic_inputs: dict[str, dict[int, int] | None],
     ):
+        if value < 2:
+            return False
         tracker_expr = tracker.trace_value_from_frame().inlined_expr
         symbolic_inputs.setdefault(tracker_expr, {})
         if tracker_expr in symbolic_inputs:
