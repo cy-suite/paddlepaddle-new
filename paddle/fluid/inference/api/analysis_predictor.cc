@@ -59,6 +59,7 @@
 #include "paddle/phi/api/include/context_pool.h"
 #include "paddle/phi/api/include/tensor.h"
 #include "paddle/phi/backends/context_pool.h"
+#include "paddle/phi/backends/device_manager.h"
 #include "paddle/phi/common/backend.h"
 #include "paddle/phi/common/data_type.h"
 #include "paddle/phi/common/place.h"
@@ -108,6 +109,10 @@
 #include "paddle/pir/include/dialect/shape/utils/shape_analysis.h"
 #endif
 
+#ifdef PADDLE_WITH_DNNL
+#include "paddle/fluid/pir/dialect/operator/ir/op_onednn_dialect.h"
+#endif
+
 #include "paddle/common/flags.h"
 #include "paddle/fluid/ir_adaptor/translator/translate.h"
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
@@ -127,6 +132,7 @@
 #include "paddle/fluid/pir/transforms/passes.h"
 #include "paddle/fluid/pir/transforms/pd_op_to_kernel_pass.h"
 #include "paddle/fluid/pir/utils/general_functions.h"
+#include "paddle/phi/kernels/sparse/gpu/conv_host_buffer.h"
 #include "paddle/pir/include/core/attribute.h"
 #include "paddle/pir/include/core/block_argument.h"
 #include "paddle/pir/include/core/builtin_attribute.h"
@@ -423,6 +429,19 @@ bool AnalysisPredictor::Init(
     const std::shared_ptr<framework::Scope> &parent_scope,
     const std::shared_ptr<framework::ProgramDesc> &program) {
   VLOG(3) << "Predictor::init()";
+
+#if defined(PADDLE_WITH_CUDA) && !defined(PADDLE_WITH_HIP)
+  phi::sparse::ConvHostBuffer &conv_buffer_instance =
+      phi::sparse::ConvHostBuffer::getInstance();
+  if (conv_buffer_instance.using_buffer()) {
+    int *h_buffer;
+    PADDLE_ENFORCE_GPU_SUCCESS(
+        cudaHostAlloc((void **)&h_buffer,  // NOLINT
+                      conv_buffer_instance.get_buffer_size() * sizeof(int),
+                      cudaHostAllocDefault));
+    conv_buffer_instance.set_host_buffer(h_buffer);
+  }
+#endif
 
   if (config_.with_profile_) {
     LOG(WARNING) << "Profiler is activated, which might affect the performance";
@@ -992,6 +1011,8 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
     } else if (config_.use_custom_device()) {
       // custom device
       if (!config_.custom_pass_only_) {
+        auto kPirCustomDevicePasses =
+            phi::CustomDevicePassManager::Instance()->GetCustomDevicePass();
         for (const auto &custom_device_pass : kPirCustomDevicePasses) {
           if (std::find(config_.deleted_passes_.begin(),
                         config_.deleted_passes_.end(),
@@ -1005,6 +1026,8 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
 #ifdef PADDLE_WITH_DNNL
     } else if (config_.mkldnn_enabled()) {
       // mkldnn
+      pir::IrContext *ctx = pir::IrContext::Instance();
+      ctx->GetOrRegisterDialect<paddle::dialect::OneDNNOperatorDialect>();
       if (!config_.custom_pass_only_) {
         for (const auto &mkldnn_pass : kPirMkldnnPasses) {
           if (std::find(config_.deleted_passes_.begin(),
@@ -3226,7 +3249,7 @@ void AnalysisPredictor::RegisterOutputHook(
               auto *var = scope->FindVar(var_name);
               if (!var || !var->IsType<phi::DenseTensor>()) continue;
               auto dense_tensor = var->Get<phi::DenseTensor>();
-              if (!dense_tensor.initialized()) continue;
+              if (!dense_tensor.has_allocation()) continue;
               auto tensor = paddle::Tensor(
                   std::make_shared<phi::DenseTensor>(dense_tensor), var_name);
               for (auto &hookfunc : this->output_hookfuncs_) {
@@ -3247,7 +3270,7 @@ void AnalysisPredictor::RegisterOutputHook(
                 auto *var = scope->FindVar(var_name);
                 if (!var || !var->IsType<phi::DenseTensor>()) continue;
                 auto dense_tensor = var->Get<phi::DenseTensor>();
-                if (!dense_tensor.initialized()) continue;
+                if (!dense_tensor.has_allocation()) continue;
                 auto tensor = paddle::Tensor(
                     std::make_shared<phi::DenseTensor>(dense_tensor), var_name);
                 for (auto &hookfunc : this->output_hookfuncs_) {
@@ -3273,7 +3296,7 @@ void AnalysisPredictor::RegisterInputHook(const InputTensorHookFunc &hookfunc) {
               auto *var = scope->FindVar(var_name);
               if (!var || !var->IsType<phi::DenseTensor>()) continue;
               auto dense_tensor = var->Get<phi::DenseTensor>();
-              if (!dense_tensor.initialized()) continue;
+              if (!dense_tensor.has_allocation()) continue;
               auto tensor = paddle::Tensor(
                   std::make_shared<phi::DenseTensor>(dense_tensor), var_name);
               for (auto &hookfunc : this->input_hookfuncs_) {
@@ -3294,7 +3317,7 @@ void AnalysisPredictor::RegisterInputHook(const InputTensorHookFunc &hookfunc) {
                 auto *var = scope->FindVar(var_name);
                 if (!var || !var->IsType<phi::DenseTensor>()) continue;
                 auto dense_tensor = var->Get<phi::DenseTensor>();
-                if (!dense_tensor.initialized()) continue;
+                if (!dense_tensor.has_allocation()) continue;
                 auto tensor = paddle::Tensor(
                     std::make_shared<phi::DenseTensor>(dense_tensor), var_name);
                 for (auto &hookfunc : this->input_hookfuncs_) {

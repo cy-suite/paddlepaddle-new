@@ -36,14 +36,17 @@
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/pir/include/core/block_argument.h"
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || \
-    defined(PADDLE_WITH_CUSTOM_DEVICE)
+    defined(PADDLE_WITH_XPU_BKCL) || defined(PADDLE_WITH_CUSTOM_DEVICE)
 #include "paddle/common/flags.h"
 #include "paddle/fluid/distributed/collective/process_group.h"
 #include "paddle/phi/core/distributed/comm_context_manager.h"
-#ifdef PADDLE_WITH_CUSTOM_DEVICE
+#if defined(PADDLE_WITH_CUSTOM_DEVICE)
 #include "paddle/fluid/distributed/collective/process_group_custom.h"
 #include "paddle/phi/backends/custom/custom_context.h"
 #include "paddle/phi/core/distributed/xccl_comm_context.h"
+#elif defined(PADDLE_WITH_XPU_BKCL)
+#include "paddle/fluid/distributed/collective/process_group_bkcl.h"
+#include "paddle/phi/core/distributed/bkcl_comm_context.h"
 #else
 #include "paddle/fluid/distributed/collective/process_group_nccl.h"
 #include "paddle/phi/core/distributed/nccl_comm_context.h"
@@ -52,15 +55,28 @@
 COMMON_DECLARE_bool(dynamic_static_unified_comm);
 #endif
 
-namespace paddle::framework {
-
-#ifdef PADDLE_WITH_CUSTOM_DEVICE
-#define COMMCONTEXT phi::distributed::XCCLCommContext
-#define PROCESS_GROUP paddle::distributed::ProcessGroupCustom
-#else
-#define COMMCONTEXT phi::distributed::NCCLCommContext
+#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
+#define COMM_CONTEXT phi::distributed::NCCLCommContext
+#define DEVICE_CONTEXT phi::GPUContext
+#define CREATE_COMM_CONTEXT \
+  phi::distributed::CommContextManager::CreateNCCLCommContext
+#define PLATFORM_COMM_CONTEXT platform::NCCLCommContext
 #define PROCESS_GROUP paddle::distributed::ProcessGroupNCCL
+#elif (defined(PADDLE_WITH_XPU) && defined(PADDLE_WITH_XPU_BKCL))
+#define COMM_CONTEXT phi::distributed::BKCLCommContext
+#define DEVICE_CONTEXT phi::XPUContext
+#define CREATE_COMM_CONTEXT \
+  phi::distributed::CommContextManager::CreateBKCLCommContext
+#define PLATFORM_COMM_CONTEXT platform::BKCLCommContext
+#define PROCESS_GROUP paddle::distributed::ProcessGroupBKCL
+#elif defined(PADDLE_WITH_CUSTOM_DEVICE)
+#define COMM_CONTEXT phi::distributed::XCCLCommContext
+#define CREATE_COMM_CONTEXT \
+  phi::distributed::CommContextManager::CreateXCCLCommContext
+#define PROCESS_GROUP paddle::distributed::ProcessGroupCustom
 #endif
+
+namespace paddle::framework {
 std::vector<int> GetValueIds(pir::Value value,
                              const ValueExecutionInfo& value_exec_info) {
   std::vector<int> ids;
@@ -92,7 +108,8 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
 
   // only gpu need update. xpu not need, because xpu memcpy op kernel is
   // synchronous.
-  if (phi::is_gpu_place(place) || phi::is_custom_place(place)) {
+  if (phi::is_gpu_place(place) || phi::is_custom_place(place) ||
+      phi::is_xpu_place(place)) {
     VLOG(6) << "Parse DeviceContext for " << op_name
             << ", execution stream = " << execution_stream;
     if (execution_stream != kDefaultStream) {
@@ -121,7 +138,7 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
     }
 
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || \
-    defined(PADDLE_WITH_CUSTOM_DEVICE)
+    defined(PADDLE_WITH_XPU_BKCL) || defined(PADDLE_WITH_CUSTOM_DEVICE)
     // NOTE(Ruibiao): Here supports multi-stream overlap for c_allreduce_sum
     // with use_cal_stream==false by returning a device context getting from the
     // global NCCLCommContext instance. Because when use_calc_stream==false, in
@@ -141,7 +158,7 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
         const auto& comm_context_manager =
             phi::distributed::CommContextManager::GetInstance();
         dev_ctx = static_cast<phi::DeviceContext*>(
-            static_cast<COMMCONTEXT*>(
+            static_cast<COMM_CONTEXT*>(
                 comm_context_manager.Get(std::to_string(ring_id)))
                 ->GetDevContext());
       } else {
@@ -151,7 +168,7 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
             common::errors::InvalidArgument(
                 "Custom device does not support old communication context."));
 #else
-        dev_ctx = platform::NCCLCommContext::Instance()
+        dev_ctx = PLATFORM_COMM_CONTEXT::Instance()
                       .Get(ring_id, place)
                       ->dev_context();
 #endif
@@ -186,7 +203,7 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
 
       if (comm_context) {
         dev_ctx = static_cast<platform::DeviceContext*>(
-            static_cast<COMMCONTEXT*>(comm_context)->GetDevContext());
+            static_cast<COMM_CONTEXT*>(comm_context)->GetDevContext());
         dev_ctx->SetCommContext(comm_context);
 
         if (op_name.compare(paddle::dialect::ReduceScatterOp::name()) == 0 ||
@@ -224,11 +241,13 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
           if (phi::is_gpu_place(place) && execution_stream == kDefaultStream) {
             VLOG(3) << "set stream for " << op_name << "in GPU device";
             if (origin_dev_ctx != nullptr) {
+#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
               // set stream
               auto default_stream =
-                  static_cast<phi::GPUContext*>(origin_dev_ctx)->cuda_stream();
-              static_cast<phi::GPUContext*>(dev_ctx)->SetCUDAStream(
+                  static_cast<DEVICE_CONTEXT*>(origin_dev_ctx)->cuda_stream();
+              static_cast<DEVICE_CONTEXT*>(dev_ctx)->SetCUDAStream(
                   default_stream, false);
+#endif
               // set allocator
               auto& instance =
                   paddle::memory::allocation::AllocatorFacade::Instance();
@@ -236,7 +255,7 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
                   instance
                       .GetAllocator(
                           place,
-                          static_cast<phi::GPUContext*>(dev_ctx)->stream())
+                          static_cast<DEVICE_CONTEXT*>(dev_ctx)->stream())
                       .get());
             } else {
               VLOG(3) << "op " << op_name << " ring_id " << ring_id

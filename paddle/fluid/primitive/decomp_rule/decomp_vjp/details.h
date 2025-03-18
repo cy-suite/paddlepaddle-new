@@ -1081,10 +1081,17 @@ void squeeze_grad(const Tensor& x,
                   const IntArray& axis,
                   Tensor* x_grad) {
   if (x_grad) {
-    auto x_grad_out = out_grad.dims().size() == x.dims().size()
-                          ? out_grad
-                          : unsqueeze<T>(out_grad, axis);
-    set_output<T>(x_grad_out, x_grad);
+    if (out_grad.dims().size() == x.dims().size()) {
+      set_output<T>(out_grad, x_grad);
+    } else {
+      Tensor grad_x_tmp;
+      if (has_dynamic_shape(x.shape())) {
+        grad_x_tmp = backend::reshape<T>(out_grad, shape64<T>(x));
+      } else {
+        grad_x_tmp = reshape<T>(out_grad, common::vectorize(x.dims()));
+      }
+      set_output<T>(grad_x_tmp, x_grad);
+    }
   }
 }
 
@@ -1296,6 +1303,34 @@ void relu_grad(const Tensor& out, const Tensor& out_grad, Tensor* x_grad) {
     auto mask = greater_than<T>(out, zeros);
     auto res = cast<T>(mask, out.dtype()) * out_grad;
     set_output<T>(res, x_grad);
+  }
+}
+
+template <typename T>
+void elu_grad(const Tensor& x,
+              const Tensor& out,
+              const Tensor& out_grad,
+              float alpha,
+              Tensor* x_grad) {
+  if (x_grad) {
+    auto promoted_out_grad = ConvertToMT<T>(out_grad);
+    Tensor zeros = full_scalar<T>(0, promoted_out_grad.dtype());
+    Tensor alpha_ = full_scalar<T>(
+        alpha, promoted_out_grad.dtype(), promoted_out_grad.place());
+    if (alpha >= 0) {
+      auto promoted_out = ConvertToMT<T>(out);
+      auto mask = greater_than<T>(promoted_out, zeros);
+      auto res = where<T>(
+          mask, promoted_out_grad, promoted_out_grad * (promoted_out + alpha_));
+      set_output<T>(ConvertToOrig<T>(res, x.dtype()), x_grad);
+    } else {
+      auto promoted_x = ConvertToMT<T>(x);
+      auto mask = greater_than<T>(promoted_x, zeros);
+      auto res = where<T>(mask,
+                          promoted_out_grad,
+                          promoted_out_grad * alpha_ * exp<T>(promoted_x));
+      set_output<T>(ConvertToOrig<T>(res, x.dtype()), x_grad);
+    }
   }
 }
 
@@ -3442,7 +3477,7 @@ void p_norm_grad(const Tensor& x,
           Tensor expand_shape;
           if (asvector) {
             // reduce all dimensions in forward
-            expand_shape = full<T>(std::vector<int64_t>(x.dims().size(), 1),
+            expand_shape = full<T>(std::vector<int64_t>{x.dims().size()},
                                    1,
                                    DataType::INT64,
                                    out_grad.place());
