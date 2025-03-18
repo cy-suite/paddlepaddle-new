@@ -46,10 +46,10 @@ void CodeGenCX86::Visit(const ir::Load *op) {
       str_ += "cinn_avx512_load(";
       PrintAbsAddr(op);
       str_ += ")";
-    } else if (SupportsAVX256() && bits == 256) {
-      str_ += "cinn_avx256_load(";
-      PrintAbsAddr(op);
-      str_ += ")";
+      // } else if (SupportsAVX256() && bits == 256) {
+      //   str_ += "cinn_avx256_load(";
+      //   PrintAbsAddr(op);
+      //   str_ += ")";
     } else {
       CodeGenC::Visit(op);
     }
