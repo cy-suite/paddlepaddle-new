@@ -950,29 +950,19 @@ class TrtLayerAutoScanTest(AutoScanTest):
                             for (
                                 key
                             ) in self.dynamic_shape.min_input_shape.keys():
-                                if key not in prog_config.get_feed_data():
-                                    raise KeyError(
-                                        f"Input name '{key}' not found in feed_data!"
-                                    )
-
-                                try:
-                                    input_data = prog_config.get_feed_data()[
-                                        key
-                                    ]['data']
-                                    input_dtype = (
-                                        input_data.dtype
-                                        if hasattr(input_data, 'dtype')
-                                        else None
-                                    )
-                                    input_range = (
-                                        (0.0, input_data.flat[0])
-                                        if input_dtype in ['int32', 'int64']
-                                        else None
-                                    )
-                                except KeyError:
-                                    raise ValueError(
-                                        f"Missing 'data' field for input '{key}'"
-                                    )
+                                input_data = prog_config.get_feed_data()[key][
+                                    'data'
+                                ]
+                                input_dtype = (
+                                    input_data.dtype
+                                    if hasattr(input_data, 'dtype')
+                                    else input_data_type
+                                )
+                                input_range = (
+                                    (0.0, input_data.flat[0])
+                                    if input_dtype in ['int32', 'int64']
+                                    else None
+                                )
 
                                 input_config = Input(
                                     min_input_shape=tuple(

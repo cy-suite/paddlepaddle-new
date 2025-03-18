@@ -135,20 +135,14 @@ class TrtConvertSkipLayernormTest(TrtLayerAutoScanTest):
         self.dynamic_shape.min_input_shape = {
             "inputX_data": [4, 128, 768],
             "inputY_data": [4, 128, 768],
-            "Bias": [768],
-            "Scale": [768],
         }
         self.dynamic_shape.max_input_shape = {
             "inputX_data": [4, 128, 768],
             "inputY_data": [4, 128, 768],
-            "Bias": [768],
-            "Scale": [768],
         }
         self.dynamic_shape.opt_input_shape = {
             "inputX_data": [4, 128, 768],
             "inputY_data": [4, 128, 768],
-            "Bias": [768],
-            "Scale": [768],
         }
         return self.dynamic_shape
 
