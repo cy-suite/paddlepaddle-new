@@ -75,6 +75,7 @@ class OpLowererImpl : public OpLowererImplBase<OpLoweringGroupPtr> {
       const OpLoweringGroupPtr& group,
       const std::unordered_map<::pir::Value, ir::Tensor>& tensor_map,
       std::vector<ir::Expr> func_bodies,
+      std::unordered_set<std::string> output_tensor_names,
       std::vector<ir::Tensor>* group_func_arg_tensors,
       std::vector<ir::Argument>* group_func_args,
       std::vector<ir::Tensor>* infer_shape_arg_tensor);

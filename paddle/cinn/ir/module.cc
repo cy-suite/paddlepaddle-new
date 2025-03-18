@@ -85,6 +85,10 @@ void Module::Builder::AddPriority(int priority) {
   module_->priorities.push_back(priority);
 }
 
+void Module::Builder::SetFuncName(const std::string &func_name) {
+  module_->func_name = func_name;
+}
+
 void Module::Builder::SetInferShapeFunc(ir::LoweredFunc infer_shape_func) {
   module_->infer_shape_func = infer_shape_func;
 }

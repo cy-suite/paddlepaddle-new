@@ -545,8 +545,8 @@ std::pair<int64_t, int64_t> FindBestReduceBlockThreadNum(int64_t reduce_numel,
     int64_t limit_cond_1 = std::sqrt((remain_reduce_numel + 1) / 2.0);
     int64_t limit_cond_2 = CeilDiv(remain_reduce_numel, 32);
     int64_t limit = std::min(limit_cond_1, limit_cond_2);
-    if (limit > 0 && limit < rd_block_num) {
-      rd_block_num = limit;
+    if (limit < rd_block_num) {
+      rd_block_num = std::max(limit, int64_t(1));
     }
 
     // Find the best rd_block/thread_num with the highest SM occupacy.
@@ -777,7 +777,15 @@ BuildScheduleConfig(const std::shared_ptr<FusionGroupInfo>& group_info,
                     const common::Target& target) {
   std::shared_ptr<ScheduleConfig::BaseInfo> base_info =
       InitBasicInfo(group_info);
-  if (!base_info->has_dynamic_reduce && !base_info->has_dynamic_spatial) {
+  if (!base_info->has_dynamic_spatial && base_info->spatial_numel == 0) {
+    VLOG(4) << "Building 0-size spatial config.";
+    // When spatial_numel is 0, the output size is 0. Therefore, we don't even
+    // need to generate a kernel in such case. (However, a zero reduce_numel
+    // doesn't necessarily indicate an empty output, so we still need a kernel
+    // for that case.)
+    return {};
+  } else if (!base_info->has_dynamic_reduce &&
+             !base_info->has_dynamic_spatial) {
     VLOG(6) << "Building static spatial and static reduce config.";
     return CombineBaseInfoAndConfig(
         BuildPureStaticShapeConfig(

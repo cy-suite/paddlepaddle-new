@@ -364,6 +364,10 @@ std::vector<int> ValidateFactors(const std::vector<int>& factors,
   } else {
     int minus_one_candidate = static_cast<int>(
         ceil(static_cast<double>(total_extent) / static_cast<double>(product)));
+    // TODO(liangshuhao): many post-process passes don't support zero-extent
+    // loops, so here we give such loops at least 1 iteration. However, zero-
+    // extent loops should be completely eliminated in the future.
+    minus_one_candidate = std::max(minus_one_candidate, 1);
     for (int i = 0; i < validated_factors.size(); ++i) {
       if (validated_factors[i] == -1) {
         validated_factors[i] = minus_one_candidate;

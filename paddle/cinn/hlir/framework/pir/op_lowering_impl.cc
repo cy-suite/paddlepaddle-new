@@ -208,7 +208,8 @@ BucketLoweredFuncsWrapper OpLowererImpl::BucketLower(
   std::vector<ir::Tensor> infer_shape_tensor_args;
   std::vector<ir::LoweredFunc> funcs = PostProcess(group,
                                                    tensor_map,
-                                                   {scheduled_func_bodies},
+                                                   scheduled_func_bodies,
+                                                   output_tensor_names,
                                                    &group_func_arg_tensors_copy,
                                                    &group_func_args,
                                                    &infer_shape_tensor_args);
@@ -249,40 +250,25 @@ BucketLoweredFuncsWrapper OpLowererImpl::BucketLower(
   return funcs_wrapper;
 }
 
-std::unordered_set<std::string> CollectStoreBufferNames(
-    const std::vector<ir::Expr>& func_bodies) {
-  std::unordered_set<std::string> buffer_names;
-  std::vector<ir::Expr> blocks = ir::analyzer::GetAllBlocks(func_bodies);
-  for (const ir::Expr& block : blocks) {
-    ir::Tensor tensor = ir::analyzer::GetStoreTensorOfSBlock(block);
-    if (tensor->buffer.defined()) {
-      buffer_names.insert(tensor->buffer->name);
-    }
-  }
-  return buffer_names;
-}
-
 std::vector<ir::LoweredFunc> OpLowererImpl::PostProcess(
     const OpLoweringGroupPtr& group,
     const std::unordered_map<::pir::Value, ir::Tensor>& tensor_map,
     std::vector<ir::Expr> func_bodies,
+    std::unordered_set<std::string> output_tensor_names,
     std::vector<ir::Tensor>* group_func_arg_tensors,
     std::vector<ir::Argument>* group_func_args,
     std::vector<ir::Tensor>* infer_shape_arg_tensor) {
   // 1.Prepare function args
   group->mut_input_names().clear();
-  std::unordered_set<std::string> store_buffer_names =
-      CollectStoreBufferNames(func_bodies);
   std::unordered_set<std::string> arg_name_set;
   const int& input_tensor_size = group_func_arg_tensors->size();
   for (auto& arg_tensor : *group_func_arg_tensors) {
     // input data name.
     group->mut_input_names().push_back(arg_tensor->name);
     // args
-    ir::Argument::IO io_type =
-        store_buffer_names.count(arg_tensor->buffer->name) > 0
-            ? ir::Argument::IO::kOutput
-            : ir::Argument::IO::kInput;
+    ir::Argument::IO io_type = output_tensor_names.count(arg_tensor->name) > 0
+                                   ? ir::Argument::IO::kOutput
+                                   : ir::Argument::IO::kInput;
     (*group_func_args).emplace_back(arg_tensor->buffer, io_type);
     arg_name_set.insert(arg_tensor->buffer->name);
   }

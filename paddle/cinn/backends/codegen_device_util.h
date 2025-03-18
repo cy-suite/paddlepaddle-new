@@ -284,7 +284,7 @@ struct CollectBucketStrategyHostFunctionVisitor
     body_stmts.insert(body_stmts.end(), buckets_.begin(), buckets_.end());
     // Remove convert when ir update done.
     ir::LoweredFunc host_func = ir::_LoweredFunc_::Make(
-        op->functions[0]->name,
+        op->func_name,
         arguments,
         ir::ConvertStmtBlockToExprBlock(ir::stmt::BlockRef(body_stmts)),
         {});

@@ -82,6 +82,7 @@ void GroupCompilationContext::PrepareModuleBuilder() {
   for (int& priority : priorities_) {
     module_builder_.AddPriority(priority);
   }
+  module_builder_.SetFuncName(group_->FuncName());
   module_builder_.SetInferShapeFunc(infer_shape_lowered_func_);
 
   PADDLE_ENFORCE_EQ(CX86_predicates_.size(),

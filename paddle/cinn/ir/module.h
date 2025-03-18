@@ -40,6 +40,8 @@ struct _Module_ : public IrNode {
   std::vector<Module> submodules;
   std::vector<Expr> predicates;
   std::vector<int> priorities;
+  //! Func name of the original OpLoweringGroup.
+  std::string func_name;
   LoweredFunc infer_shape_func;
 
   static ir::Module Make(const std::string& name, Target target);
@@ -68,6 +70,7 @@ class Module : public ir::IrNodeRef {
     void AddBuffer(ir::Buffer buffer);
     void AddPredicate(ir::Expr predicate);
     void AddPriority(int priority);
+    void SetFuncName(const std::string& func_name);
     void SetInferShapeFunc(ir::LoweredFunc infer_shape_func);
     void Clear();
     common::Arch GetTargetArch();
