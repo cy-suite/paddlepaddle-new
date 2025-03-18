@@ -458,7 +458,7 @@ bool IfOp::InferSymbolicShape(pir::InferSymbolicShapeContext *infer_context) {
   } else {
     PADDLE_THROW(
         common::errors::Unimplemented("IfOp::InferSymbolicShape: now only "
-                                      "support num_results() == 1."));
+                                      "support num_results() >= 1."));
   }
 }
 
