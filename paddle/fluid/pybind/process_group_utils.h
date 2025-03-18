@@ -18,7 +18,6 @@
 #include "paddle/phi/backends/device_guard.h"
 #include "paddle/phi/backends/device_manager.h"
 #include "paddle/phi/core/device_context.h"
-#include "paddle/phi/core/enforce.h"
 #include "paddle/phi/kernels/funcs/concat_and_split_functor.h"
 
 namespace paddle {
@@ -97,6 +96,7 @@ struct SplitDenseTensor<phi::CustomContext, T> {
                                       const phi::Scalar &,
                                       std::vector<phi::DenseTensor *>);
     auto *kernel_fn = kernel.GetVariadicKernelFn<kernel_signature>();
+
     auto in_dims = common::vectorize(in.dims());
     auto origin_out_dims = common::vectorize(out->at(0)->dims());
     for (auto *tensor : *out) {
