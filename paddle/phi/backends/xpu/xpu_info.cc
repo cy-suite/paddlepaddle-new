@@ -225,23 +225,22 @@ XPUVersion get_xpu_version(int dev_id) {
   if (dev_id == -1) {
     dev_id = GetXPUCurrentDeviceId();
   }
-  static std::once_flag xpu_version_init_flag;
-  static XPUVersion xpu_version;
-  std::call_once(xpu_version_init_flag, [&] {
+  thread_local std::unordered_map<int, XPUVersion> xpu_version_map;
+  if (xpu_version_map.count(dev_id) == 0) {
     uint64_t v = 0;
     PADDLE_ENFORCE_XPU_SUCCESS(xpu_device_get_attr(&v, XPUATTR_MODEL, dev_id));
     if (v == K100 || v == K200) {
       VLOG(1) << "KUNLUN device " << dev_id << " is XPU1\n";
-      xpu_version = XPU1;
+      xpu_version_map[dev_id] = XPU1;
     } else if (v < KL3_BEGIN) {
       VLOG(1) << "KUNLUN device " << dev_id << " is XPU2\n";
-      xpu_version = XPU2;
+      xpu_version_map[dev_id] = XPU2;
     } else {
       VLOG(1) << "KUNLUN device " << dev_id << " is XPU3\n";
-      xpu_version = XPU3;
+      xpu_version_map[dev_id] = XPU3;
     }
-  });
-  return xpu_version;
+  }
+  return xpu_version_map[dev_id];
 }
 
 void set_xpu_debug_level(int level) {
