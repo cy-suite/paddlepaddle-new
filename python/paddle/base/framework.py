@@ -4013,7 +4013,7 @@ def _stride_in_no_check_dy2st_diff():
 
 def check_if_to_static_diff_with_dygraph(op_type, inplace_map, outputs):
     if op_type in {"while", "conditional_block"}:
-        # Dont' need check while and conditional_block, it is only a wrapper of inner ops
+        # Don't need check while and conditional_block, it is only a wrapper of inner ops
         # we will stuck in inner op.
         return
     if outputs is not None:
@@ -4034,7 +4034,7 @@ def check_if_to_static_diff_with_dygraph(op_type, inplace_map, outputs):
                             and inplace_map.get("Input", None) == "Out"
                         ):
                             raise ValueError(
-                                f"Sorry about what's happend. In to_static mode, {op_type}'s output variable {k} is a viewed Tensor in dygraph. This will result in inconsistent calculation behavior between dynamic and static graphs. If you are sure it is safe, you can call with paddle.base.framework._stride_in_no_check_dy2st_diff() in your safe code block."
+                                f"Sorry about what's happened. In to_static mode, {op_type}'s output variable {k} is a viewed Tensor in dygraph. This will result in inconsistent calculation behavior between dynamic and static graphs. If you are sure it is safe, you can call with paddle.base.framework._stride_in_no_check_dy2st_diff() in your safe code block."
                             )
 
 
@@ -8145,11 +8145,11 @@ def device_guard(device: str | None = None) -> Generator[None, None, None]:
         if device == "cpu":
             raise ValueError("Should not set device id for cpu.")
     if (
-        device not in ["cpu", "gpu", "xpu", "", None]
+        device not in ["cpu", "gpu", "dcu", "xpu", "", None]
         and device not in core.get_all_custom_device_type()
     ):
         raise ValueError(
-            "The Attr(device) should be 'cpu', 'xpu', 'gpu' or custom device, and it can also be empty string or None "
+            "The Attr(device) should be 'cpu', 'xpu', 'dcu', 'gpu' or custom device, and it can also be empty string or None "
             f"when there is no need to specify device. But received {device}"
         )
     if index:
@@ -8226,7 +8226,12 @@ def _get_paddle_place(place):
 
     # GPU
     available_gpu_place = re.match(r"gpu:\d+", place)
-    if place == "gpu_pinned" or place == "gpu" or available_gpu_place:
+    if (
+        place == "gpu_pinned"
+        or place == "gpu"
+        or place == "dcu"
+        or available_gpu_place
+    ):
         if not core.is_compiled_with_cuda():
             raise ValueError(
                 f"The device should not be {available_gpu_place.group()}, since PaddlePaddle is "
@@ -8234,7 +8239,7 @@ def _get_paddle_place(place):
             )
         if place == "gpu_pinned":
             return core.CUDAPinnedPlace()
-        elif place == "gpu":
+        elif place == "gpu" or place == "dcu":
             return core.CUDAPlace(0)
         else:
             place_info_list = place.split(":", 1)
@@ -8309,7 +8314,7 @@ def dtype_to_str(in_dtype):
     elif in_dtype == core.VarDesc.VarType.COMPLEX128:
         return "complex128"
     else:
-        raise TypeError(f"got unsupport data type for promotion: {in_dtype}.")
+        raise TypeError(f"got unsupported data type for promotion: {in_dtype}.")
 
 
 def add_cast_for_type_promotion(op, block, idx, var_name, out_dtype):
@@ -8501,3 +8506,16 @@ def pir_chunk_id_guard(chunk_id: int - 1) -> Generator[None, None, None]:
     finally:
         if paddle.framework.in_pir_mode():
             pir.set_chunk_id(original_chunk_id)
+
+
+@signature_safe_contextmanager
+def pir_op_name_guard(op_name: str) -> Generator[None, None, None]:
+
+    if paddle.framework.in_pir_mode() and core._is_bwd_prim_enabled():
+        original_comp_op_name = pir.get_comp_op_name()
+        pir.set_comp_op_name(op_name)
+    try:
+        yield
+    finally:
+        if paddle.framework.in_pir_mode() and core._is_bwd_prim_enabled():
+            pir.set_comp_op_name(original_comp_op_name)

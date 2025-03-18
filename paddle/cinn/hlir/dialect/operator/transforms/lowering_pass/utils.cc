@@ -117,7 +117,7 @@ OpLoweringGroupPtr BuildOpLoweringGroup(pir::Operation* fusion_op_ptr) {
   if (FLAGS_cinn_enable_map_expr) {
     cinn::adt::TryGenerateMapExprFromGroup(group);
   }
-  // Rebuild other informations
+  // Rebuild other information
   // TODO(zhangyuqin1998): Do we need group.master_ops?
   return group;
 }
@@ -125,6 +125,8 @@ OpLoweringGroupPtr BuildOpLoweringGroup(pir::Operation* fusion_op_ptr) {
 void UpdateGroupShapeOrDataExprs(OpLoweringGroupPtr group) {
   auto& shape_analysis =
       pir::ShapeAnalysisManager::Instance().Get(group->GetParentProgram());
+  group->set_substitute_dimexpr_map(
+      CollectSubstituteDimExprMap(group, shape_analysis));
   group->set_value_to_shape_or_data_exprs(
       CreateGroupShapeOrDataExprs(group, shape_analysis));
 }

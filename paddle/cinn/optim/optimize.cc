@@ -22,16 +22,20 @@
 #include "paddle/cinn/optim/cast_bool_to_int8.h"
 #include "paddle/cinn/optim/eliminate_broadcast_in_forloop.h"
 #include "paddle/cinn/optim/eliminate_invariant_loop.h"
-#include "paddle/cinn/optim/extern_call_process.h"
+#include "paddle/cinn/optim/entail_loop_condition_pass.h"
+#include "paddle/cinn/optim/extern_call_process_pass.h"
 #include "paddle/cinn/optim/fold_cinn_call_arguments.h"
+#include "paddle/cinn/optim/if_fold_pass.h"
 #include "paddle/cinn/optim/if_fusion_pass.h"
 #include "paddle/cinn/optim/insert_debug_log_callee.h"
 #include "paddle/cinn/optim/ir_simplify.h"
 #include "paddle/cinn/optim/lower_function_call_bind_vars.h"
 #include "paddle/cinn/optim/lower_intrin.h"
 #include "paddle/cinn/optim/map_extern_call.h"
-#include "paddle/cinn/optim/rearrange_load_instruction.h"
-#include "paddle/cinn/optim/remove_schedule_block.h"
+#include "paddle/cinn/optim/realize_welford_pass.h"
+#include "paddle/cinn/optim/rearrange_load_instruction_pass.h"
+#include "paddle/cinn/optim/reindex_transpose_buffer_pass.h"
+#include "paddle/cinn/optim/remove_schedule_block_pass.h"
 #include "paddle/cinn/optim/replace_const_param_to_integer.h"
 #include "paddle/cinn/optim/replace_cross_block_reduction.h"
 #include "paddle/cinn/optim/replace_cross_thread_reduction.h"
@@ -40,8 +44,9 @@
 #include "paddle/cinn/optim/transform_polyfor_to_for.h"
 #include "paddle/cinn/optim/unroll_loops.h"
 #include "paddle/cinn/optim/vectorize_for_trans.h"
-#include "paddle/cinn/optim/vectorize_loops.h"
 #include "paddle/cinn/pass/pass_manager.h"
+
+PD_DECLARE_bool(cinn_enable_vectorize);
 
 namespace cinn {
 namespace optim {
@@ -64,51 +69,95 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
   Simplify(&copied->body);
   EliminateInvariantLoop(&copied->body);
   VLOG(4) << "After Optimize EliminateInvariantLoop:" << copied;
+
+  {
+    FuncPassManager func_pass_manager;
+    func_pass_manager.AddPass(CreateRealizeWelfordPass());
+    func_pass_manager.AddPass(CreateReindexTransposeBufferPass());
+    func_pass_manager.Run(copied);
+    VLOG(4) << "After Optimize RealizeWelford and ReindexTransposeBuffer: "
+            << copied;
+  }
+
   ReplaceCrossThreadReduction(copied);
   VLOG(4) << "After Optimize ReplaceCrossThreadReduction:" << copied;
   ReplaceCrossBlockReduction(copied);
   VLOG(4) << "After Optimize ReplaceCrossBlockReduction:" << copied;
 
-  cinn::common::DefaultDeviceTarget().arch.Match(
-      [&](std::variant<common::UnknownArch, common::X86Arch, common::ARMArch>) {
-      },
+  target.arch.Match(
       [&](common::NVGPUArch) {
 #ifdef CINN_WITH_CUDA
         ir::SetCudaAxisInfo(copied);
         if (remove_gpu_for_loops) {
-          RemoveGpuForLoops(copied);
+          VLOG(4) << "Before removing GPU for loops:\n" << copied;
+          FuncPassManager func_pass_manager;
+          func_pass_manager.AddPass(CreateRemoveGpuForLoopsPass());
+          func_pass_manager.Run(copied);
+          VLOG(4) << "After removing GPU for loops:\n" << copied;
         }
-        CudaSyncThreadsDropIfThenElse(copied);
-    // CudaTransBufferWithDynamicShape(&copied);
+        VLOG(10) << "Before Optimize CudaSyncThreadsDropIfThenElse:" << copied;
+        BlockPassManager blk_pass_manager;
+        blk_pass_manager.AddPass(CreateCudaSyncThreadsDropIfThenElsePass());
+        blk_pass_manager.Run(copied->body_block);
+        VLOG(10) << "After Optimize CudaSyncThreadsDropIfThenElse:" << copied;
+        FuncPassManager func_pass_manager;
+        VLOG(10) << "Before Optimize TransBufferWithDynamicShape:" << copied;
+        func_pass_manager.AddPass(CreateTransBufferWithDynamicShapePass());
+        func_pass_manager.Run(copied);
+        VLOG(10) << "After Optimize TransBufferWithDynamicShape:" << copied;
 #endif
       },
-      [&](common::HygonDCUArchHIP) {
+      [&](std::variant<common::HygonDCUArchHIP, common::HygonDCUArchSYCL>) {
 #ifdef CINN_WITH_HIP
         ir::SetCudaAxisInfo(copied);
         if (remove_gpu_for_loops) {
-          RemoveGpuForLoops(copied);
+          VLOG(4) << "Before removing GPU for loops:\n" << copied;
+          FuncPassManager func_pass_manager;
+          func_pass_manager.AddPass(CreateRemoveGpuForLoopsPass());
+          func_pass_manager.Run(copied);
+          VLOG(4) << "After removing GPU for loops:\n" << copied;
         }
-        CudaSyncThreadsDropIfThenElse(copied);
-    // CudaTransBufferWithDynamicShape(&copied);
+        VLOG(10) << "Before Optimize CudaSyncThreadsDropIfThenElse:" << copied;
+        BlockPassManager blk_pass_manager;
+        blk_pass_manager.AddPass(CreateCudaSyncThreadsDropIfThenElsePass());
+        blk_pass_manager.Run(copied->body_block);
+        VLOG(10) << "After Optimize CudaSyncThreadsDropIfThenElse:" << copied;
 #endif
       },
-      [&](common::HygonDCUArchSYCL) { CINN_NOT_IMPLEMENTED });
+      [](auto) {});
 
-  SimplifyBlocks(&copied->body);
-  VLOG(4) << "After SimplifyBlocks:" << copied;
+  SimplifyUnitBlock(&copied->body);
+  VLOG(4) << "After SimplifyUnitBlock:" << copied;
 
   MapExternCall(&copied->body, target);
   VLOG(10) << "After Optimize MapExternCall:" << copied;
 
-  ExternCallMultiOutputShallowStore(&copied->body);
-  VLOG(10) << "After Optimize ExternCallMultiOutputShallowStore:" << copied;
+  // ExternCallMultiOutputShallowStore(&copied->body);
+  BlockPassManager pass_manager0;
+  pass_manager0.AddPass(CreateExternCallMultiOutputShallowStorePass());
+  pass_manager0.Run(copied);
+  VLOG(10) << "After Optimize ExternCallMultiOutputShallowStore and "
+              "ExternCallRemoveTupleGetStatements:"
+           << copied;
+
   // Simplify already contains CastSimplify
   Simplify(&copied->body);
-  VLOG(10) << "After Optimize Simplify:" << copied;
+  VLOG(4) << "After Optimize Simplify:" << copied;
 
   BlockPassManager pass_manager;
   pass_manager.AddPass(CreateIfFusionPass());
+  pass_manager.AddPass(CreateEntailLoopConditionPass());
   pass_manager.Run(copied);
+  VLOG(4) << "After Optimize IfFusion and EntailLoopCondition:" << copied;
+
+  target.arch.Match(
+      [&](common::NVGPUArch) {
+        FuncPassManager func_pass_manager;
+        func_pass_manager.AddPass(CreateRearrangeLoadInstructionPass());
+        func_pass_manager.Run(copied);
+        VLOG(4) << "After Optimize RearrangeLoadInstruction:" << copied;
+      },
+      [](auto) {});
 
   VectorizeForTrans(&copied->body);
   VLOG(10) << "After Optimize vectorize" << copied;
@@ -116,8 +165,14 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
   Simplify(&copied->body);
   VLOG(10) << "After Optimize Simplify" << copied;
 
-  RemoveScheduleBlock(&copied->body);
+  pass_manager.AddPass(CreateRemoveScheduleBlockPass());
+  pass_manager.Run(copied);
   VLOG(10) << "After RemoveScheduleBlock:" << copied;
+
+  StmtPassManager stmt_pass_manager;
+  stmt_pass_manager.AddPass(CreateIfFoldPass());
+  stmt_pass_manager.Run(copied);
+  VLOG(10) << "After IfFoldPass:" << copied;
 
   LowerIntrin(&copied->body, target);
   VLOG(10) << "After LowerIntrin:" << copied;

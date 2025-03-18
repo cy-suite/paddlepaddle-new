@@ -72,6 +72,7 @@ PRIM_VJP = [
     'add_grad',
     'amax_grad',
     'amin_grad',
+    'angle_grad',
     'argsort_grad',
     'assign_grad',
     'atan_grad',
@@ -156,6 +157,7 @@ CUSTOM_VJP = [
     'softsign_grad',
     'stack_grad',
     'swish_grad',
+    'elu_grad',
     'swiglu_grad',
     'p_norm_grad',
 ]  # custom vjp list of composite op

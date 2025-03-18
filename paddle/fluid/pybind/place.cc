@@ -75,7 +75,6 @@ limitations under the License. */
 #include "paddle/fluid/platform/profiler/event_python.h"
 #include "paddle/fluid/platform/profiler/profiler.h"
 #include "paddle/fluid/pybind/bind_cost_model.h"
-#include "paddle/fluid/pybind/bind_fleet_executor.h"
 #include "paddle/fluid/pybind/box_helper_py.h"
 #include "paddle/fluid/pybind/communication.h"
 #include "paddle/fluid/pybind/compatible.h"
@@ -606,6 +605,15 @@ void BindPlace(pybind11::module &m) {  // NOLINT
       .def("_equals", &IsSamePlace<phi::Place, phi::IPUPlace>)
       .def("_equals", &IsSamePlace<phi::Place, phi::GPUPinnedPlace>)
       .def("_equals", &IsSamePlace<phi::Place, phi::CustomPlace>)
+      .def("__eq__",
+           [](const py::object &self, const py::object &other) -> bool {
+             if (py::isinstance<phi::Place>(other)) {
+               return self.attr("_equals")(other).cast<bool>();
+             }
+             return false;
+           })
+      .def("__hash__",
+           [](const phi::Place &self) { return phi::Place::Hash()(self); })
       .def("is_gpu_place",
            [](phi::Place &self) { return phi::is_gpu_place(self); })
       .def("is_cpu_place",

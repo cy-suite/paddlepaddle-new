@@ -105,6 +105,9 @@ def _apply_collective_grads_eager(
             assert g_var not in grad_var_set
             grad_var_set.add(g_var)
 
+    if len(grad_vars) == 0:
+        return
+
     coalesced_grads_and_vars = build_groups(grad_vars, bucket_size)
 
     nranks = (
@@ -177,7 +180,7 @@ def _process_element(hcg, dev, place, element):
                 element_gpu._share_buffer_to(element)
             _broadcast_data_help(element, element.shape, element.dtype, hcg)
     elif isinstance(element, (dict, list, tuple)):
-        return _broadcast_nested_data(hcg, place, element)
+        return _broadcast_nested_data(hcg, dev, place, element)
     else:
         _broadcast_object_list_help([element], hcg)
 
@@ -280,6 +283,10 @@ def fused_allreduce_gradients(parameter_list, hcg):
             group = sep_group if group is None else dp_sep_group
 
     logger.debug("dp or sep start fuse allreduce gradients")
+    from paddle.distributed import in_auto_parallel_align_mode
+
+    if in_auto_parallel_align_mode():
+        scale = 1.0
     fused_allreduce_gradients_with_group(parameter_list, group, scale=scale)
 
 

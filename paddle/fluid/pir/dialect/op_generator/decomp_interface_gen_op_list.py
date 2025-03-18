@@ -32,6 +32,7 @@ GENERATE_IMPL_DECOMP = [
     "add_n",
     "addmm",
     "any",
+    "baddbmm",
     "bce_loss",
     "bmm",
     "diag",
@@ -93,6 +94,7 @@ decomp_ops_contain_unused_output = ["squeeze", "unsqueeze"]
 GENERATE_IMPL_VJP = [
     'abs_grad',
     'add_grad',
+    'angle_grad',
     'bce_loss_grad',
     'cos_grad',
     'divide_grad',
@@ -117,6 +119,7 @@ GENERATE_IMPL_VJP = [
     'reduce_as_grad',
     'relu_grad',
     'relu6_grad',
+    'elu_grad',
     'reshape_grad',
     'roll_grad',
     'rsqrt_grad',

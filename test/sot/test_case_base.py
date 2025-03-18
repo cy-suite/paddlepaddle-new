@@ -27,7 +27,6 @@ from paddle.jit.sot import symbolic_translate
 from paddle.jit.sot.opcode_translator.executor.executor_cache import (
     OpcodeExecutorCache,
 )
-from paddle.jit.sot.utils import faster_guard_guard
 
 
 @contextlib.contextmanager
@@ -48,17 +47,7 @@ FASTER_GUARD_CACHE_STATE = {
 def test_with_faster_guard(func):
     @wraps(func)
     def impl(*args, **kwargs):
-        with faster_guard_guard(False):
-            func(*args, **kwargs)
-        with faster_guard_guard(True):
-            cache = OpcodeExecutorCache()
-            original_cache_state = cache.dump_state()
-            cache.load_state(FASTER_GUARD_CACHE_STATE)
-            try:
-                func(*args, **kwargs)
-            finally:
-                FASTER_GUARD_CACHE_STATE.update(cache.dump_state())
-                cache.load_state(original_cache_state)
+        func(*args, **kwargs)
 
     return impl
 
@@ -94,21 +83,27 @@ class TestCaseBase(unittest.TestCase):
         else:
             self.assertEqual(x, y)
 
-    def assert_results(self, func, *inputs):
-        sym_output = symbolic_translate(func)(*inputs)
-        paddle_output = func(*inputs)
+    def assert_results(self, func, *args, **kwargs):
+        sym_output = symbolic_translate(func)(*args, **kwargs)
+        paddle_output = func(*args, **kwargs)
         self.assert_nest_match(sym_output, paddle_output)
 
-    def assert_results_with_side_effects(self, func, *inputs):
-        sym_inputs = copy.deepcopy(inputs)
-        sym_output = symbolic_translate(func)(*sym_inputs)
-        paddle_inputs = copy.deepcopy(inputs)
-        paddle_output = func(*paddle_inputs)
-        self.assert_nest_match(sym_inputs, paddle_inputs)
+    def assert_exceptions(self, exec, info, func, *args, **kwargs):
+        self.assertRaisesRegex(
+            exec, info, symbolic_translate(func), *args, **kwargs
+        )
+
+    def assert_results_with_side_effects(self, func, *args, **kwargs):
+        sym_args, sym_kwargs = copy.deepcopy((args, kwargs))
+        sym_output = symbolic_translate(func)(*sym_args, **sym_kwargs)
+        paddle_args, paddle_kwargs = copy.deepcopy((args, kwargs))
+        paddle_output = func(*paddle_args, **paddle_kwargs)
+        self.assert_nest_match(sym_args, paddle_args)
+        self.assert_nest_match(sym_kwargs, paddle_kwargs)
         self.assert_nest_match(sym_output, paddle_output)
 
     def assert_results_with_global_check(
-        self, func, global_keys: list[str], *inputs
+        self, func, global_keys: list[str], *args, **kwargs
     ):
         def copy_fn(fn):
             return types.FunctionType(
@@ -122,8 +117,8 @@ class TestCaseBase(unittest.TestCase):
         sym_copied_fn = copy_fn(func)
         sym_fn = symbolic_translate(sym_copied_fn)
         paddle_fn = copy_fn(func)
-        sym_output = sym_fn(*inputs)
-        paddle_output = paddle_fn(*inputs)
+        sym_output = sym_fn(*args, **kwargs)
+        paddle_output = paddle_fn(*args, **kwargs)
         for key in global_keys:
             self.assert_nest_match(
                 sym_copied_fn.__globals__[key], paddle_fn.__globals__[key]

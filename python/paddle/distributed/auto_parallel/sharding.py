@@ -31,6 +31,7 @@ from paddle.distributed.auto_parallel.static.process_group import (
 from paddle.distributed.auto_parallel.static.reshard_funcs.nd_mesh_reshard_func import (
     get_1D_sub_process_mesh,
 )
+from paddle.distributed.auto_parallel.static.utils import split_mesh
 from paddle.distributed.fleet.meta_optimizers.common import OpRole
 from paddle.distributed.fleet.utils.tensor_fusion_helper import (
     align,
@@ -139,12 +140,22 @@ class ShardingOptimizerStage1(Optimizer):
             self.pp_meshes.add(mesh)
 
         self._sharding_axis = mesh._dim_names.index("dp")
+
         self._sharding_degree = mesh._shape[self._sharding_axis]
         self._mp_mesh_axis = -1
         self._mp_degree = 1
         if "mp" in mesh._dim_names:
             self._mp_mesh_axis = mesh._dim_names.index("mp")
             self._mp_degree = mesh._shape[self._mp_mesh_axis]
+            pp_meshes = set()
+            for pp_mesh in self.pp_meshes:
+                pp_meshes.add(pp_mesh)
+                for sub_pp_mesh in split_mesh(
+                    global_mesh=pp_mesh, sub_mesh_dim=self._mp_mesh_axis
+                ):
+                    pp_meshes.add(sub_pp_mesh)
+            self.pp_meshes = pp_meshes
+
         paddle.disable_static()
 
     def apply_gradients(self, params_grads):
@@ -180,39 +191,6 @@ class ShardingOptimizerStage1(Optimizer):
                 param_dist_attr.process_mesh == grad_dist_attr.process_mesh
             ), f"Parameter and grad should have same process_mesh. but received name:{param.name}, parameter:{param}, grad: {grad}."
 
-            assert (
-                param_dist_attr.process_mesh in self.pp_meshes
-            ), f"parameter mesh mush be in pp_meshes. but received parameter name:{param.name}, mesh:{param_dist_attr.process_mesh}, pp_meshes: {self.pp_meshes}."
-
-            if dist.get_rank() in param_dist_attr.process_mesh.process_ids:
-                sub_mesh = get_1D_sub_process_mesh(
-                    param_dist_attr.process_mesh, self._sharding_axis
-                )
-                assert (
-                    sorted(sub_mesh.process_ids) == self._sharding_group.ranks
-                ), f" all parameter must have the same sharding group. but received {param.name} sharding group is : {sub_mesh.process_ids}, global sharding group is: {self._sharding_group.ranks}"
-
-                if self._mp_group is not None:
-                    sub_mesh = get_1D_sub_process_mesh(
-                        param_dist_attr.process_mesh, self._mp_mesh_axis
-                    )
-                    assert (
-                        sorted(sub_mesh.process_ids) == self._mp_group.ranks
-                    ), f" all parameter must have the same mp group. but received {param.name} mp group is : {sub_mesh.process_ids}, global mp group is: {self._mp_group.ranks}"
-
-            assert (
-                param_dist_attr.partial_dims == set()
-            ), f"Sharding fusion do not support parital parameter. but received {param.name} : {param}."
-            assert (
-                param_dist_attr.dims_mapping == grad_dist_attr.dims_mapping
-            ), f"Parameter and grad should have same dims_mapping. but received name:{param.name}, parameter:{param}, grad: {grad}."
-            assert (
-                param.shape == grad.shape
-            ), f"Parameter and grad should have same global shape. but received name:{param.name}, parameter:{param}, grad: {grad}."
-            assert (
-                param._local_shape == grad._local_shape
-            ), f"Parameter and grad should have same local shape. but received name:{param.name}, parameter:{param}, grad: {grad}."
-
             if self._sharding_axis not in grad_dist_attr.partial_dims:
                 new_params_grads.append((param, grad))
                 if param.optimize_attr is None:
@@ -225,6 +203,31 @@ class ShardingOptimizerStage1(Optimizer):
                     param.optimize_attr = {'no_fusion': False}
                 else:
                     param.optimize_attr["no_fusion"] = False
+
+            assert (
+                param_dist_attr.process_mesh in self.pp_meshes
+            ), f"parameter mesh mush be in pp_meshes. but received parameter name:{param.name}, mesh:{param_dist_attr.process_mesh}, pp_meshes: {self.pp_meshes}."
+
+            if dist.get_rank() in param_dist_attr.process_mesh.process_ids:
+                sub_mesh = get_1D_sub_process_mesh(
+                    param_dist_attr.process_mesh, self._sharding_axis
+                )
+                assert (
+                    sorted(sub_mesh.process_ids) == self._sharding_group.ranks
+                ), f" all parameter must have the same sharding group. but received {param.name} sharding group is : {sub_mesh.process_ids}, global sharding group is: {self._sharding_group.ranks}"
+
+            assert (
+                param_dist_attr.partial_dims == set()
+            ), f"Sharding fusion do not support partial parameter. but received {param.name} : {param}."
+            assert (
+                param_dist_attr.dims_mapping == grad_dist_attr.dims_mapping
+            ), f"Parameter and grad should have same dims_mapping. but received name:{param.name}, parameter:{param}, grad: {grad}."
+            assert (
+                param.shape == grad.shape
+            ), f"Parameter and grad should have same global shape. but received name:{param.name}, parameter:{param}, grad: {grad}."
+            assert (
+                param._local_shape == grad._local_shape
+            ), f"Parameter and grad should have same local shape. but received name:{param.name}, parameter:{param}, grad: {grad}."
 
             if (
                 self._mp_degree > 1
@@ -768,6 +771,7 @@ class ShardingOptimizerStage1(Optimizer):
         # when the model is saved, we no need to save the slice@ parameters
         for name in slice_param_names:
             del state_dict[name]
+        paddle.device.cuda.empty_cache()
 
         if self._dy_shard_group is None:
             self._create_dy_sharding_group()
@@ -784,6 +788,7 @@ class ShardingOptimizerStage1(Optimizer):
             self._broadcast_pow_acc_opt_params(
                 state_dict, group_info, pow_acc_opt_param_names
             )
+            paddle.device.cuda.empty_cache()
 
     def _create_dy_sharding_group(self):
         mesh = self._shard_fn._mesh
@@ -903,6 +908,7 @@ class ShardingOptimizerStage1(Optimizer):
                 if cur_rank in group_rank_mapping[idx]:
                     # param tensor may be sliced into multiple devices
                     # we need calculate the start index of the current rank
+                    opt_param = state_dict[param_name + param_suffix]
                     cur_rank_start_index = param_index
                     for i, rank_id in enumerate(group_rank_mapping[idx]):
                         if rank_id == cur_rank:
@@ -947,7 +953,9 @@ class ShardingOptimizerStage1(Optimizer):
                 continue
             if opt_param_name not in opt_param_names:
                 continue
-            opt_param_list.append(state_dict[opt_param_name]._local_value())
+            opt_param_list.append(
+                state_dict[opt_param_name]._local_value().clone()
+            )
 
         if len(opt_param_list) == 0:
             return
@@ -958,11 +966,20 @@ class ShardingOptimizerStage1(Optimizer):
         dist.all_gather(
             fused_opt_param_list, fused_opt_param, group=self._dy_shard_group
         )
-        del fused_opt_param
-        paddle.device.cuda.empty_cache()
 
+        fused_opt_param_list = [item.cpu() for item in fused_opt_param_list]
         fused_opt_param = paddle.concat(fused_opt_param_list, axis=0)
-        del fused_opt_param_list
+
+        for param_name, param_info in group_info.items():
+            opt_param_name = "slice@" + param_name + opt_suffix
+            if opt_param_name not in state_dict:
+                continue
+            if opt_param_name not in opt_param_names:
+                continue
+
+            local_tensor = state_dict[opt_param_name]._local_value()
+            del state_dict[opt_param_name]
+
         paddle.device.cuda.empty_cache()
 
         param_index = 0
@@ -1015,19 +1032,17 @@ class ShardingOptimizerStage1(Optimizer):
             shard_opt_param = shard_opt_param[tuple(shard_index)]
 
             shard_opt_param = _dtensor_from_local(
-                shard_opt_param,
+                shard_opt_param.cuda(),
                 opt_param_mesh,
                 opt_param_placements,
                 shard_opt_param.shape,
             )
 
             state_dict[param_name + opt_suffix] = shard_opt_param
-            # remove the slice@ parameter
-            if opt_param_name in state_dict:
-                del state_dict[opt_param_name]
-
             padded_size = param_info["padded_size"]
             param_index += padded_size
+
+        paddle.device.cuda.empty_cache()
 
     def _all_gather_moment_opt_params(
         self, state_dict, group_info, moment_opt_param_names
@@ -1145,3 +1160,28 @@ class ShardingOptimizerStage1(Optimizer):
                     current_size = 0
 
         return group_mapping, size_mapping
+
+    def convert_state_dict_with_rank_unique_name(self, state_dict):
+        cur_rank = dist.get_rank()
+        tensor_names = list(state_dict.keys())
+
+        for name in tensor_names:
+            tensor = state_dict[name]
+            if not tensor.is_dist():
+                continue
+            if "slice@" not in name:
+                continue
+
+            if "_moment" in name or "_pow_acc" in name or "_master" in name:
+                rank_name = f"{name}_rank{cur_rank}"
+                state_dict[rank_name] = state_dict[name]
+
+            del state_dict[name]
+
+    def convert_state_dict_with_origin_name(self, state_dict):
+        tensor_names = list(state_dict.keys())
+        for name in list(state_dict.keys()):
+            if "_rank" in name:
+                no_rank_name = name.split("_rank")[0]
+                state_dict[no_rank_name] = state_dict[name]
+                del state_dict[name]

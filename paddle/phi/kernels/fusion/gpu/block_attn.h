@@ -892,7 +892,9 @@ __global__ __launch_bounds__(THREADS_PER_BLOCK) void gqa_block_attention_kernel(
   float qk_maxs[GQA_SUB_PARTITION_SIZE];
 #pragma unroll
   for (int i = 0; i < GQA_SUB_PARTITION_SIZE; i++) {
-    qk_maxs[i] = -FLT_MAX;
+    // qk_maxs[i] = -FLT_MAX;
+    // initialize qk_maxs!!!
+    qk_maxs[i] = qk_smem[act_time_step * GQA_SUB_PARTITION_SIZE + i];
   }
 
   // threads in one block can process 'K_PER_ITER' keys
@@ -1493,7 +1495,7 @@ void dispatch_blha_gqa_kernel(const Block_AttN_params<T> &params,
                            store_func)
   } else {
     PADDLE_THROW(common::errors::Unimplemented(
-        "gqa_num_per_partitions = %d is unsupport!",
+        "gqa_num_per_partitions = %d is unsupported!",
         params.gqa_num_per_partitions));
   }
 }
@@ -1578,7 +1580,7 @@ void dispatch_blha_impl_blocksize(const Block_AttN_params<T> &params,
       break;
     default:
       PADDLE_THROW(common::errors::Unimplemented(
-          "block_size = %d is unsupport!", params.block_size));
+          "block_size = %d is unsupported!", params.block_size));
   }
 }
 
@@ -1598,13 +1600,17 @@ void dispatch_blha_impl_headsize(const phi::GPUContext &dev_ctx,
       dispatch_blha_impl_blocksize<T, 64, 64>(
           params, dev_ctx.stream(), load_func, store_func, use_cachekv_int8);
       break;
+    case 96:
+      dispatch_blha_impl_blocksize<T, 96, 128>(
+          params, dev_ctx.stream(), load_func, store_func, use_cachekv_int8);
+      break;
     case 128:
       dispatch_blha_impl_blocksize<T, 128, 128>(
           params, dev_ctx.stream(), load_func, store_func, use_cachekv_int8);
       break;
     default:
-      PADDLE_THROW(common::errors::Unimplemented("Dim_head = %d is unsupport!",
-                                                 dim_head));
+      PADDLE_THROW(common::errors::Unimplemented(
+          "Dim_head = %d is unsupported!", dim_head));
   }
 }
 
@@ -3977,7 +3983,7 @@ void qkv_transpose_split(const phi::GPUContext &dev_ctx,
 }
 
 template <typename T, int VecSize>
-__global__ void write_pre_cahe_to_kv_buffer(
+__global__ void write_pre_cache_to_kv_buffer(
     T *k_buf,  // [bsz, num_head, seq_len + pre_cache_length, head_dim]
     T *v_buf,
     const T *pre_key_cache,  // [bsz, num_head, pre_cache_length, head_dim]
@@ -4150,7 +4156,7 @@ void qkv_transpose_split(
     elem_cnt = batch_size * q_head_num * pre_cache_length * size_per_head * 2;
     pack_num = elem_cnt / PackSize;
     GetNumBlocks(pack_num, &grid_size);
-    write_pre_cahe_to_kv_buffer<T, PackSize>
+    write_pre_cache_to_kv_buffer<T, PackSize>
         <<<grid_size, blocksize, 0, dev_ctx.stream()>>>(k_buf,
                                                         v_buf,
                                                         pre_key_cache,

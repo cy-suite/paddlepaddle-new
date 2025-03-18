@@ -16,9 +16,12 @@
 import tensorrt as trt
 
 from paddle.tensorrt.converter_utils import (
+    get_input_constant_value,
     get_shape_tensor_element,
+    set_layer_name,
     squeeze_trt,
     trt_cast,
+    trt_gather,
     trt_reshape,
     trt_shape,
     trt_unsqueeze,
@@ -30,9 +33,17 @@ from paddle.tensorrt.register import converter_registry
 def non_zero_converter(network, paddle_op, inputs):
     input_tensor = inputs[0]
     cast_layer = network.add_cast(input_tensor, trt.float32)
-    non_zero_layer = network.add_non_zero(cast_layer.get_output(0))
+    set_layer_name(cast_layer, paddle_op)
 
-    return non_zero_layer.get_output(0)
+    non_zero_layer = network.add_non_zero(cast_layer.get_output(0))
+    nonzero_output = non_zero_layer.get_output(0)
+    set_layer_name(non_zero_layer, paddle_op)
+
+    shuffle_layer = network.add_shuffle(input=nonzero_output)
+    shuffle_layer.first_transpose = (1, 0)
+    transposed_output = shuffle_layer.get_output(0)
+    set_layer_name(shuffle_layer, paddle_op)
+    return transposed_output
 
 
 @converter_registry.register("pd_op.argmax", trt_version="trt_version_ge=8.0")
@@ -40,13 +51,7 @@ def argmax_converter(network, paddle_op, inputs):
     x = inputs[0]
     input_dims = x.shape
     rank = len(input_dims)
-    axis = int(
-        paddle_op.operands()[1]
-        .source()
-        .get_defining_op()
-        .attrs()
-        .get("value", -1)
-    )
+    axis = int(get_input_constant_value(paddle_op, inputs, 1)[0])
     keepdims = paddle_op.attrs()["keepdims"]
 
     if axis < 0:
@@ -55,18 +60,36 @@ def argmax_converter(network, paddle_op, inputs):
     topk_layer = network.add_topk(
         input=x, op=trt.TopKOperation.MAX, k=1, axes=(1 << axis)
     )
+    set_layer_name(topk_layer, paddle_op)
 
     if keepdims:
         return topk_layer.get_output(1)
     else:
-        squeeze_layer = network.add_shuffle(topk_layer.get_output(1))
-        output_dims = []
-        for i in range(len(input_dims)):
-            if i == axis:
-                continue
-            output_dims.append(input_dims[i])
-        squeeze_layer.reshape_dims = tuple(output_dims)
-        return squeeze_layer.get_output(0)
+        topk_out = topk_layer.get_output(1)
+        topk_out_shape_size = len(topk_out.shape)
+        # Mark which dimensions to squeeze
+        should_squeeze = [False] * topk_out_shape_size
+        should_squeeze[axis] = True
+
+        # Get dimensions to keep
+        gather_indices = [
+            i for i, squeeze in enumerate(should_squeeze) if not squeeze
+        ]
+
+        # Add Shuffle layer
+        layer = network.add_shuffle(topk_out)
+        shape_tensor = trt_shape(
+            network, topk_out, name=[paddle_op.name(), 'shape_tensor']
+        )
+        real_shape_tensor = trt_gather(
+            network,
+            shape_tensor,
+            gather_indices,
+            name=[paddle_op.name(), 'real_shape_tensor'],
+        )
+        layer.set_input(1, real_shape_tensor)
+        set_layer_name(layer, paddle_op)
+        return layer.get_output(0)
 
 
 @converter_registry.register("pd_op.argmin", trt_version="8.x")
@@ -74,13 +97,7 @@ def argmin_converter(network, paddle_op, inputs):
     x = inputs[0]
     input_dims = x.shape
     rank = len(input_dims)
-    axis = int(
-        paddle_op.operands()[1]
-        .source()
-        .get_defining_op()
-        .attrs()
-        .get("value", -1)
-    )
+    axis = int(get_input_constant_value(paddle_op, inputs, 1)[0])
     keepdims = paddle_op.attrs()["keepdims"]
 
     if axis < 0:
@@ -89,11 +106,13 @@ def argmin_converter(network, paddle_op, inputs):
     topk_layer = network.add_topk(
         input=x, op=trt.TopKOperation.MIN, k=1, axes=(1 << axis)
     )
+    set_layer_name(topk_layer, paddle_op)
 
     if keepdims:
         return topk_layer.get_output(1)
     else:
         squeeze_layer = network.add_shuffle(topk_layer.get_output(1))
+        set_layer_name(squeeze_layer, paddle_op)
         output_dims = []
         for i in range(len(input_dims)):
             if i == axis:
@@ -118,25 +137,54 @@ def argsort_converter(network, paddle_op, inputs):
     if in_rank == 1:
         unsqueeze_shape = trt.Dims([1, -1])
         input_tensor = trt_reshape(
-            network, input_tensor, unsqueeze_shape, is_shape_tensor=False
+            network,
+            input_tensor,
+            unsqueeze_shape,
+            is_shape_tensor=False,
+            name=[paddle_op.name(), 'input_tensor'],
         )
         axis = 1
     if need_cast:
-        input_tensor = trt_cast(network, input_tensor, trt.DataType.FLOAT)
+        input_tensor = trt_cast(
+            network,
+            input_tensor,
+            trt.DataType.FLOAT,
+            name=[paddle_op.name(), 'input_tensor'],
+        )
     topk_layer = network.add_topk(input_tensor, topk_op, 1, 1 << axis)
-    shape = trt_shape(network, input_tensor)
-    k_tensor = get_shape_tensor_element(network, shape, axis, True)
+    shape = trt_shape(network, input_tensor, name=[paddle_op.name(), 'shape'])
+    k_tensor = get_shape_tensor_element(
+        network, shape, axis, True, name=[paddle_op.name(), 'k_tensor']
+    )
     topk_layer.set_input(1, k_tensor)
+    set_layer_name(topk_layer, paddle_op)
     out = topk_layer.get_output(0)
     indices = topk_layer.get_output(1)
     if in_rank == 1:
         squeeze_shape = trt.Dims([-1])
-        out = trt_reshape(network, out, squeeze_shape, is_shape_tensor=False)
-        indices = trt_reshape(
-            network, indices, squeeze_shape, is_shape_tensor=False
+        out = trt_reshape(
+            network,
+            out,
+            squeeze_shape,
+            is_shape_tensor=False,
+            name=[paddle_op.name(), 'out'],
         )
-    out_tensor = trt_cast(network, out, in_type)
-    indices_tensor = trt_cast(network, indices, indices.dtype)
+        indices = trt_reshape(
+            network,
+            indices,
+            squeeze_shape,
+            is_shape_tensor=False,
+            name=[paddle_op.name(), 'indices'],
+        )
+    out_tensor = trt_cast(
+        network, out, in_type, name=[paddle_op.name(), 'out_tensor']
+    )
+    indices_tensor = trt_cast(
+        network,
+        indices,
+        indices.dtype,
+        name=[paddle_op.name(), 'indices_tensor'],
+    )
     return out_tensor, indices_tensor
 
 
@@ -147,6 +195,7 @@ def where_converter(network, paddle_op, inputs):
     y = inputs[2]
 
     select_layer = network.add_select(condition, x, y)
+    set_layer_name(select_layer, paddle_op)
 
     return select_layer.get_output(0)
 
@@ -161,33 +210,67 @@ def topk_converter(network, paddle_op, inputs):
     largest = paddle_op.attrs().get("largest", True)
     flag = trt.TopKOperation.MAX if largest else trt.TopKOperation.MIN
 
-    k_op = paddle_op.operands()[1].source().get_defining_op()
-    if k_op.name() == "pd_op.full":
-        k = k_op.attrs()["value"]
-    else:
+    k_list = get_input_constant_value(paddle_op, inputs, 1)
+    if k_list is None:
         raise NotImplementedError("Dynamic k is not supported in TensorRT.")
+    k = k_list[0]
     input_rank = len(input_shape)
 
     expand_to_2d = input_rank == 1
     if expand_to_2d:
-        input_tensor = trt_unsqueeze(network, input_tensor, [1])
+        input_tensor = trt_unsqueeze(
+            network, input_tensor, [1], name=[paddle_op.name(), 'input_tensor']
+        )
 
     input_type = input_tensor.dtype
     if input_type == trt.DataType.INT32:
-        input_tensor = trt_cast(network, input_tensor, trt.DataType.FLOAT)
+        input_tensor = trt_cast(
+            network,
+            input_tensor,
+            trt.DataType.FLOAT,
+            name=[paddle_op.name(), 'input_tensor'],
+        )
 
     if axis < 0:
         axis += input_rank
 
     layer = network.add_topk(input_tensor, flag, int(k), 1 << axis)
+    set_layer_name(layer, paddle_op)
     values = layer.get_output(0)
     indices = layer.get_output(1)
 
     if expand_to_2d:
-        values = squeeze_trt(network, values, [1])
-        indices = squeeze_trt(network, indices, [1])
+        values = squeeze_trt(
+            network, values, [1], name=[paddle_op.name(), 'values']
+        )
+        indices = squeeze_trt(
+            network, indices, [1], name=[paddle_op.name(), 'indices']
+        )
 
     if input_type == trt.DataType.INT32:
-        values = trt_cast(network, values, trt.DataType.INT32)
+        values = trt_cast(
+            network,
+            values,
+            trt.DataType.INT32,
+            name=[paddle_op.name(), 'values'],
+        )
 
     return values, indices
+
+
+@converter_registry.register("pd_op.index_select", trt_version="8.x")
+def index_select_converter(network, paddle_op, inputs):
+    input_tensor = inputs[0]
+    index_tensor = inputs[1]
+    axis = paddle_op.attrs().get("axis", 0)
+
+    reshape_layer = network.add_shuffle(index_tensor)
+    reshape_layer.reshape_dims = (-1,)
+    set_layer_name(reshape_layer, paddle_op)
+
+    gather_layer = network.add_gather(
+        input_tensor, reshape_layer.get_output(0), axis
+    )
+    set_layer_name(gather_layer, paddle_op)
+
+    return gather_layer.get_output(0)

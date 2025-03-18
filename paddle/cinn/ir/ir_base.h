@@ -137,6 +137,19 @@ class Dim;
   macro__(For)                      \
   macro__(Schedule)                 \
   macro__(Evaluate)
+
+#define NODETY_FORALL_INDEXEXPR(macro__) \
+  macro__(IntImm)                      \
+  macro__(_Var_)                      \
+  macro__(Add)                      \
+  macro__(Sub)                      \
+  macro__(Mul)                    \
+  macro__(Div)                    \
+  macro__(Mod)                     \
+  macro__(Load)               \
+  macro__(Cast)                      \
+  macro__(Min)                 \
+  macro__(Max)
 // clang-format on
 
 //! Define IrNodeTy
@@ -164,8 +177,12 @@ enum class StmtNodeTy { kUnk = -1, NODETY_FORALL_STMT(__m) };
 //! String representations for IrNodeTy.
 // @{
 #define __m(x__) #x__,
-const std::vector<std::string> kIrNodeTyReprs(
-    {NODETY_FORALL(__m) "IterSplit", "IterSum", "IterMark", "None"});
+const std::vector<std::string> kIrNodeTyReprs({"Module",
+                                               "LoweredFunc",
+                                               "IterSplit",
+                                               "IterSum",
+                                               "IterMark",
+                                               NODETY_FORALL(__m)});
 #undef __m
 // @}
 
@@ -174,6 +191,26 @@ std::ostream& operator<<(std::ostream& os, StmtNodeTy type);
 
 struct Expr;
 struct IndexExpr;
+
+// When expr of type int64 exists in `expr_vec`, all int32 in `expr_vec` will be
+// promoted to int64 by inplace modification.
+void TryElevateInt32ToInt64_(std::vector<Expr>& expr_vec);  // NOLINT
+
+// When expr of type int64 exists in `expr_vec`, all int32 in `expr_vec` will be
+// promoted to int64 by returning a vector of promoted exprs.
+std::vector<Expr> TryElevateInt32ToInt64(const std::vector<Expr>& expr_vec);
+
+// If `expr` is `IndexExpr` with int64 type, it will be downgraded to int32 by
+// inplace modification.
+void ElevateInt64ToInt32_(Expr& expr);  // NOLINT
+
+// All `IndexExpr` with int64 type in `expr_vec` will be downgraded to int32 by
+// inplace modification.
+void ElevateInt64ToInt32_(std::vector<Expr>& expr_vec);  // NOLINT
+
+// All `IndexExpr` with int64 type in `expr_vec` will be downgraded to int32 by
+// returning a vector of promoted exprs.
+std::vector<Expr> ElevateInt64ToInt32(const std::vector<Expr>& expr_vec);
 
 /**
  * The base of all the nodes in the IR.
@@ -461,13 +498,11 @@ struct Expr : public IrNodeRef {
 
   bool is_index() const;
 
-  //! `is_index_tmp` is used to judge whether the expr is a index temporary.
-  bool is_index_tmp() const;
-
   IndexExpr as_index();
   const IndexExpr as_index() const;
 
   Expr& set_index(bool flag);
+  const Expr& set_index(bool flag) const;
 
   operator Var();
 
@@ -478,11 +513,14 @@ struct IndexExpr : public IrNodeRef {
  public:
   IndexExpr() = default;
   IndexExpr(const IndexExpr& other) : IrNodeRef(other.ptr()) {}
-  IndexExpr(IrNode* p) : IrNodeRef(p) {}  // NOLINT
-  IndexExpr(const Expr& e);               // NOLINT
+  IndexExpr(IrNode* p) : IrNodeRef(p) { p->set_index(true); }  // NOLINT
+  IndexExpr(const Expr& e);                                    // NOLINT
 
   explicit IndexExpr(int32_t x) : IrNodeRef(new IntImm(Int(32), x)) {}
   explicit IndexExpr(int64_t x) : IrNodeRef(new IntImm(Int(64), x)) {}
+
+  explicit IndexExpr(Type t, int64_t x)
+      : IrNodeRef(new IntImm(x > INT32_MAX ? Int(64) : t, x)) {}
 
   bool is_var() const;
   _Var_* as_var();
@@ -499,9 +537,37 @@ struct IndexExpr : public IrNodeRef {
 
   Type type() const { return p_->type(); }
 
-  int64_t GetLargestMutiplyPart() const;
+  int64_t GetLargestMultiplyPart() const;
 
-  IndexExpr Normalize() const;
+  /*
+   * Enum class OptLevel defines optimization levels for the IndexExpr
+   * normalization.
+   *
+   * Level0: only constant folding
+   *   e.g. (x + 3) + 2  ==> x + 5
+   * Level1: constant folding and sequential simplification.
+   *   e.g. x / 2 * 2 + x % 2 ==> x
+   * Level2: Each factor in the expression is attempted to be simplified with
+   * the other factors
+   *   e.g. x / 2 * 2 + y / 2 + 5 + x % 2 ==> y / 2 + x + 5
+   *
+   * Note: Because IndexExpr is generated in order, Short operand is at the
+   * end of the expression, so Level1 is usually used.
+   */
+  enum class OptLevel {
+    Level0 = 0,  // TODO(liujinnan): Only constant folding is performed
+    Level1 = 1,  // Constant folding and sequential simplification are performed
+    Level2 = 2   // Top level, simplify
+  };
+
+  enum class IndexType {
+    kInvalid = 0,  // invalid expr
+    kValid = 1,    // valid expr
+    kLoad = 2,     // exist Load
+    kCast = 3      // exist cast
+  };
+
+  IndexExpr Normalize(OptLevel level = OptLevel::Level1) const;
 
   bool IsDynamic() const;
 
@@ -553,11 +619,7 @@ struct UnaryOpNode : public ExprNode<T> {
 template <typename T>
 struct BinaryOpNode : public ExprNode<T> {
   BinaryOpNode() { operands().resize(2); }
-  BinaryOpNode(Type type, Expr a, Expr b) : ExprNode<T>(type) {
-    PADDLE_ENFORCE_EQ(
-        type.valid(),
-        true,
-        ::common::errors::InvalidArgument("The type must be valid."));
+  BinaryOpNode(Expr a, Expr b) : ExprNode<T>() {
     PADDLE_ENFORCE_EQ(
         a.defined(),
         true,
@@ -567,8 +629,10 @@ struct BinaryOpNode : public ExprNode<T> {
         true,
         ::common::errors::InvalidArgument("The object 'b' must be defined."));
     operands().resize(2);
-    this->a() = a;
-    this->b() = b;
+    auto promote_args = std::move(TryElevateInt32ToInt64({a, b}));
+    this->a() = std::move(promote_args.at(0));
+    this->b() = std::move(promote_args.at(1));
+    this->set_type(this->a().type());
   }
 
   Expr& a() { return ExprNode<T>::operand(0); }
@@ -658,8 +722,5 @@ Expr ExprNode<T>::Copy() const {
   PADDLE_THROW(::common::errors::Unimplemented("Not Implemented"));
   return Expr();
 }
-
-void TryElevateInt32ToInt64(const std::vector<Expr>& expr_vec);
-
 }  // namespace ir
 }  // namespace cinn

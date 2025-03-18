@@ -589,6 +589,7 @@ void RealAndImagInferMeta(const MetaTensor& x, MetaTensor* out);
 void ReduceSumInferMeta(const MetaTensor& x,
                         const std::vector<int64_t>& axis,
                         bool keep_dim,
+                        DataType dtype,
                         MetaTensor* out);
 
 void ReduceInferMeta(const MetaTensor& x,
@@ -661,6 +662,10 @@ void RReluInferMeta(const MetaTensor& x,
 void RReluGradInferMeta(const MetaTensor& out_grad,
                         const MetaTensor& noise,
                         MetaTensor* x_grad);
+
+void RestrictNonZeroInferMeta(const MetaTensor& condition,
+                              int64_t total_true_num,
+                              MetaTensor* out);
 
 void SequenceMaskScalarInferMeta(const MetaTensor& x,
                                  const Scalar& max_len,
