@@ -11,9 +11,8 @@ env:
   GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
-  display-approvers:
-    name: Display approvers
-    if: ${{ github.event_name == 'pull_request' }}
+  check-approval:
+    name: Check approval
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -24,16 +23,3 @@ jobs:
           git remote add upstream https://github.com/PaddlePaddle/Paddle.git
           git fetch upstream $BRANCH
           bash -x tools/check_file_diff_approvals.sh
-
-  approved-actions:
-    name: Check approval
-    if: ${{ github.event_name == 'pull_request_review' && github.event.review.state == 'approved' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Approved Actions
-        run: |
-          git remote add upstream https://github.com/PaddlePaddle/Paddle.git
-          bash tools/check_file_diff_approvals.sh
