@@ -19,8 +19,21 @@ if [ -z ${BRANCH} ]; then
     BRANCH="develop"
 fi
 
-PADDLE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}")/../" && pwd )"
-cp ${PADDLE_ROOT}/ci/utils.sh ${PADDLE_ROOT}/ci/utils_copy.sh
+if [[ "$SYSTEM" == "Linux" ]] || [[ "$SYSTEM" == "Darwin" ]];then
+    PADDLE_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}")/../" && pwd )"
+elif [[ "$SYSTEM" == "Windows_NT" ]];then
+    PADDLE_ROOT="$(cd "$PWD/../" && pwd )"
+fi
+
+if [[ "$SYSTEM" == "Linux" ]] || [[ "$SYSTEM" == "Darwin" ]];then
+    cp ${PADDLE_ROOT}/ci/utils.sh ${PADDLE_ROOT}/ci/utils_copy.sh
+elif [[ "$SYSTEM" == "Windows_NT" ]];then
+    git remote | grep upstream
+    if [ $? != 0 ]; then
+        git remote add upstream https://github.com/PaddlePaddle/Paddle.git
+    fi
+    git fetch upstream ${BRANCH}
+fi
 
 CURDIR=`pwd`
 cd $PADDLE_ROOT
@@ -35,10 +48,13 @@ git branch
 mkdir prec_build
 cd prec_build
 
-source ${PADDLE_ROOT}/ci/utils_copy.sh
-init
-# cmake_base ${PYTHON_ABI:-""} >prebuild.log 2>&1
-cmake_base ${PYTHON_ABI:-""}
+if [[ "$SYSTEM" == "Linux" ]] || [[ "$SYSTEM" == "Darwin" ]];then
+    source ${PADDLE_ROOT}/ci/utils_copy.sh
+    init
+    cmake_base ${PYTHON_ABI:-""} >prebuild.log 2>&1
+elif [[ "$SYSTEM" == "Windows_NT" ]];then
+    bash $PADDLE_ROOT/win_cmake.sh >prec_build.log 2>&1
+fi
 
 # remove line ended with .exe to get correct deleted_ut list
 ctest -N | awk -F ':' '{print $2}' | sed '/^$/d' | sed '$d' | sed 's/ //g' | sed '/\.exe$/d' | grep 'test' > $PADDLE_ROOT/br-ut
@@ -52,14 +68,22 @@ ctest -N | awk -F ':' '{print $2}' | sed '/^$/d' | sed '$d' | sed 's/ //g' | sed
 cd $PADDLE_ROOT
 grep -F -x -v -f br-ut pr-ut > $PADDLE_ROOT/added_ut
 
-sort pr-ut |uniq -d > $PADDLE_ROOT/duplicate_ut
+if [[ "$SYSTEM" == 'Linux' ]];then
+    sort pr-ut |uniq -d > $PADDLE_ROOT/duplicate_ut
+fi
 
 echo "::group::New-UT:"
 cat $PADDLE_ROOT/added_ut
 echo "::endgroup::"
 rm -rf prec_build
 
-rm $PADDLE_ROOT/br-ut $PADDLE_ROOT/pr-ut ${PADDLE_ROOT}/ci/utils_copy.sh
+if [[ "$SYSTEM" == "Linux" ]] || [[ "$SYSTEM" == "Darwin" ]];then
+    rm $PADDLE_ROOT/br-ut $PADDLE_ROOT/pr-ut ${PADDLE_ROOT}/ci/utils_copy.sh
+elif [[ "$SYSTEM" == "Windows_NT" ]];then
+    # get the deleted ut list in windows, will be used in check_change_of_unittest.sh
+    grep -F -x -v -f pr-ut br-ut > $PADDLE_ROOT/deleted_ut
+    rm $PADDLE_ROOT/br-ut $PADDLE_ROOT/pr-ut $PADDLE_ROOT/win_cmake.sh
+fi
 
 git checkout -f $CURBRANCH
 echo $CURBRANCH
