@@ -25,6 +25,13 @@ import paddle
 from .prune import _PRUNE_FUNC
 
 __SUPPORTED_RECOMPUTE_GRANULARITY__ = ["full", "full_attn", "core_attn"]
+__REFINED_RECOMPUTE_OPS__ = [
+    'mlp_row_ln',
+    'flash_attn',
+    'attention_row_ln',
+    'attention_column_ln',
+    'mlp_column_ln',
+]
 
 logger = logging.getLogger('auto_tuner')
 
@@ -137,14 +144,14 @@ def dist_degree(mode, num_gpus, num_nodes, tuner_cfg=None):
         results = divisor(num_gpus, reverse=True)
 
     elif mode == "micro_batch_size":
+        results = set()
+        for gbs in tuner_cfg["model_cfg"]["global_batch_size"]:
+            results = results.union(divisor(gbs, reverse=False))
+        results = list(results)
         if tuner_cfg.get("schedule_mode", "memory") != "performance":
-            results = divisor(
-                tuner_cfg["model_cfg"]["global_batch_size"], reverse=False
-            )
+            sorted(results, reverse=False)
         else:
-            results = divisor(
-                tuner_cfg["model_cfg"]["global_batch_size"], reverse=True
-            )
+            sorted(results, reverse=True)
 
     elif mode == "vpp_degree":
         if tuner_cfg.get("schedule_mode", "memory") != "performance":
@@ -184,6 +191,7 @@ def default_candidates(tuner_cfg):
         strategy_customized_range = _param2range(
             tuner_cfg.get(strategy, None), num_gpus, strategy
         )
+
         candidates[strategy] = dist_degree_with_customized_range(
             strategy, num_gpus, num_nodes, strategy_customized_range, tuner_cfg
         )
@@ -193,6 +201,7 @@ def default_candidates(tuner_cfg):
         tuner_cfg["model_cfg"]["num_layers"],
         "vpp_degree",
     )
+
     candidates["vpp_degree"] = dist_degree_with_customized_range(
         "vpp_degree",
         num_gpus,
@@ -203,9 +212,10 @@ def default_candidates(tuner_cfg):
 
     mbs_customized_range = _param2range(
         tuner_cfg.get("micro_batch_size", None),
-        tuner_cfg["model_cfg"]["global_batch_size"],
+        max(tuner_cfg["model_cfg"]["global_batch_size"]),
         "micro_batch_size",
     )
+
     candidates["micro_batch_size"] = dist_degree_with_customized_range(
         "micro_batch_size", num_gpus, num_nodes, mbs_customized_range, tuner_cfg
     )
@@ -325,6 +335,7 @@ def search_all(tuner_cfg):
         or "estimated_num_gpus" not in tuner_cfg["search_algo"]
         else tuner_cfg["search_algo"]["estimated_num_gpus"]
     )
+
     valid_degrees = []
 
     for mp_degree in mp_degree_candidates:
@@ -379,6 +390,7 @@ def search_all(tuner_cfg):
 
     all_cfgs = []
     refined_recompute = tuner_cfg.get("refined_recompute", None)
+
     for valid_degree in valid_degrees:
         for other_dim_cfg in other_dim_cfgs:
             mp_degree, sharding_degree, pp_degree, dp_degree = valid_degree
@@ -389,11 +401,12 @@ def search_all(tuner_cfg):
                 use_recompute,
                 recompute_granularity,
             ) = list(other_dim_cfg[:5])
-            if (
-                tuner_cfg["model_cfg"]["global_batch_size"]
-                % (mbs * sharding_degree * dp_degree)
-                != 0
-            ):
+
+            split_valid_flag = False
+            for gbs in tuner_cfg["model_cfg"]["global_batch_size"]:
+                if gbs % (mbs * sharding_degree * dp_degree) == 0:
+                    split_valid_flag = True
+            if not split_valid_flag:
                 continue
             if tuner_cfg["model_cfg"]["num_layers"] % (pp_degree * vpp) != 0:
                 continue
@@ -413,9 +426,7 @@ def search_all(tuner_cfg):
                     if cfg not in all_cfgs:
                         all_cfgs.append(cfg)
                 else:
-                    max_value = (
-                        tuner_cfg["model_cfg"]["num_layers"] // pp_degree
-                    )
+                    max_value = vpp
                     rr_valid_values = list(range(0, max_value + 1))
                     # The previous operator has reached its maximum value, and the current operator can only be turned on
                     op_count = len(refined_recompute)
@@ -487,10 +498,30 @@ def search_all(tuner_cfg):
         for idx, val in enumerate(cfg):
             new_cfg[mapping[idx]] = val
         new_all_cfgs.append(new_cfg)
-    search_space_size_before_prune = len(new_all_cfgs)
+
+    all_cfgs_with_acc_steps = []
+    for cfg in new_all_cfgs:
+        sharding_degree = cfg["sharding_degree"]
+        dp_degree = cfg["dp_degree"]
+        micro_batch_size = cfg["micro_batch_size"]
+        for gbs in tuner_cfg["model_cfg"]["global_batch_size"]:
+            cfg_copied = copy.deepcopy(cfg)
+            if gbs % (sharding_degree * dp_degree) == 0:
+                local_batch_size = gbs // (sharding_degree * dp_degree)
+                if local_batch_size % micro_batch_size == 0:
+                    acc_steps = local_batch_size // micro_batch_size
+                    cfg_copied["acc_steps"] = acc_steps
+                    cfg_copied["global_batch_size"] = gbs
+                    all_cfgs_with_acc_steps.append(cfg_copied)
+
+    search_space_size_before_prune = len(all_cfgs_with_acc_steps)
     pruned_all_cfgs = []
     tuner_cfg["num_gpus"] = num_gpus
-    for cur_cfg in new_all_cfgs:
+
+    for cfg in all_cfgs_with_acc_steps:
+        print(cfg)
+
+    for cur_cfg in all_cfgs_with_acc_steps:
         pruned = False
         for func in _PRUNE_FUNC:
             result = func(tuner_cfg, cur_cfg, pruned_all_cfgs)
@@ -503,9 +534,55 @@ def search_all(tuner_cfg):
     logger.info(
         f"{search_space_size_before_prune - search_space_size_after_prune} tasks are pruned before launching."
     )
+
     if tuner_cfg.get("schedule_prior", False):
         pruned_all_cfgs = sort_by_special(pruned_all_cfgs, tuner_cfg)
+    if refined_recompute is not None:
+        pruned_all_cfgs = sort_by_refined_recompute(pruned_all_cfgs)
     return pruned_all_cfgs
+
+
+def sort_by_refined_recompute(all_cfgs):
+    def group_by_excluding_keys(dict_list, refined_recompute_ops):
+        grouped = {}
+        for d in dict_list:
+            key = tuple(d[k] for k in d if k not in refined_recompute_ops)
+            if key not in grouped:
+                grouped[key] = []
+            grouped[key].append(d)
+        return grouped
+
+    from collections import deque
+
+    def bst_level_order(cfg_list):
+        if cfg_list == []:
+            return []
+        queue = deque([(0, len(cfg_list) - 1)])
+        level_order = []
+        while queue:
+            start, end = queue.popleft()
+            mid = (start + end) // 2
+            level_order.append(cfg_list[mid])
+            if start <= mid - 1:
+                queue.append((start, mid - 1))
+            if mid + 1 <= end:
+                queue.append((mid + 1, end))
+        return level_order
+
+    grouped = group_by_excluding_keys(all_cfgs, __REFINED_RECOMPUTE_OPS__)
+    sorted_cfgs = []
+    for key, cfg_list in grouped.items():
+        sorted(
+            cfg_list,
+            key=lambda d: tuple(
+                d[k] for k in d if k in __REFINED_RECOMPUTE_OPS__
+            ),
+        )
+        if len(cfg_list) < 6:
+            sorted_cfgs.extend(cfg_list)
+            continue
+        sorted_cfgs.extend(bst_level_order(cfg_list))
+    return sorted_cfgs
 
 
 def sort_by_special(cfgs, tuner_cfg):
@@ -693,9 +770,9 @@ def search_by_dp_estimation(tuner_cfg):
                     break
         assert actual_cards % nnodes == 0
         task["nodes"] = nnodes
+        global_batch_size = task["global_batch_size"]
         task["global_batch_size"] = (
-            tuner_cfg["model_cfg"]["global_batch_size"]
-            // task["estimated_dp_degree"]
+            global_batch_size // task["estimated_dp_degree"]
         )
         if task not in new_all_cfgs and task["nodes"] <= tuner_cfg["nodes"]:
             new_all_cfgs.append(task)
@@ -984,49 +1061,26 @@ def gen_new_args(raw_args, cfg, tuner_cfg, run_best=False):
     cfg = copy.deepcopy(cfg)
 
     def _get_new_cfg(arg, cmg, cfg, tuner_cfg):
+        assert (
+            "global_batch_size" in cfg
+        ), "Missing required configuration key 'global_batch_size'!"
         if arg == "local_batch_size" and arg in cmd:
-            global_batch_size = (
-                cfg["global_batch_size"]
-                if "global_batch_size" in cfg
-                else tuner_cfg["model_cfg"]["global_batch_size"]
-            )
+            global_batch_size = cfg["global_batch_size"]
             local_batch_size = (
                 global_batch_size // cfg["sharding_degree"] // cfg["dp_degree"]
             )
             cfg["local_batch_size"] = local_batch_size
 
         if arg == "gradient_accumulation_steps" and arg in cmd:
-            try:
-                global_batch_size = (
-                    cfg["global_batch_size"]
-                    if "global_batch_size" in cfg
-                    else tuner_cfg["model_cfg"]["global_batch_size"]
-                )
-                gradient_accumulation_steps = (
-                    global_batch_size
-                    // cfg["sharding_degree"]
-                    // cfg["dp_degree"]
-                    // cfg["micro_batch_size"]
-                )
-                cfg["gradient_accumulation_steps"] = gradient_accumulation_steps
-            except:
-                return
+            assert (
+                "acc_steps" in cfg
+            ), "Missing required configuration key 'acc_steps'!"
+            cfg["gradient_accumulation_steps"] = cfg["acc_steps"]
 
         if arg == "sequence_parallel" and arg in cmd:
             try:
                 sequence_parallel = 1 if cfg["mp_degree"] > 1 else 0
                 cfg["sequence_parallel"] = sequence_parallel
-            except:
-                return
-
-        if arg == "global_batch_size" and arg in cmd:
-            try:
-                global_batch_size = (
-                    cfg["global_batch_size"]
-                    if "global_batch_size" in cfg
-                    else tuner_cfg["model_cfg"]["global_batch_size"]
-                )
-                cfg["global_batch_size"] = global_batch_size
             except:
                 return
 
@@ -1123,9 +1177,15 @@ def gen_new_args(raw_args, cfg, tuner_cfg, run_best=False):
 
         elif arg == "refined_recompute" and arg in cmd:
             if "--" in cmd["refined_recompute"][0]:
-                raise NotImplementedError(
-                    "refined recompute is not supported by command in autotuner."
-                )
+                refined_recompute_config = ""
+                for op in __REFINED_RECOMPUTE_OPS__:
+                    if op in cfg:
+                        refined_recompute_config += (
+                            op + ':' + str(cfg[op])
+                        ) + ','
+                refined_recompute_config = refined_recompute_config[:-1]
+                cmd["refined_recompute"][1] = refined_recompute_config
+                res_args.extend(cmd[arg])
             elif "-o" in cmd["refined_recompute"][0]:
                 raise NotImplementedError(
                     "refined recompute is not supported by '-o' in autotuner."
@@ -1792,6 +1852,7 @@ def load_configs_from_csv(configs_csv):
         "micro_batch_size",
         "sharding_degree",
         "sharding_stage",
+        "global_batch_size",
     ]
     extract_keys_string = ["use_recompute", "recompute_granularity"]
     with open(configs_csv, "r") as f:
@@ -1808,6 +1869,22 @@ def load_configs_from_csv(configs_csv):
                     f"{extract_key} must be integer, but got {val}"
                 )
 
+        global_batch_size = config["global_batch_size"]
+        dp_degree = config["dp_degree"]
+        sharding_degree = config["sharding_degree"]
+        assert global_batch_size % (dp_degree * sharding_degree) == 0, (
+            f"global_batch_size={global_batch_size} must be divisible by (dp_candidate={dp_degree} * sharding_degree={sharding_degree}) = {dp_degree * sharding_degree}. "
+            f"Actual remainder: {global_batch_size % (dp_degree * sharding_degree)}"
+        )
+
+        local_batch_size = global_batch_size // (dp_degree * sharding_degree)
+        micro_batch_size = config["micro_batch_size"]
+        assert local_batch_size % micro_batch_size == 0, (
+            f"local_batch_size={local_batch_size} must be divisible by micro_batch_size={micro_batch_size}. "
+            f"Actual remainder: {local_batch_size % micro_batch_size}"
+        )
+
+        config["acc_steps"] = local_batch_size // micro_batch_size
         use_recompute = raw_config.get("use_recompute", "")
         assert use_recompute.lower() in [
             "true",

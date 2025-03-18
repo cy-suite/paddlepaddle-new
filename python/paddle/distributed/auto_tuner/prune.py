@@ -114,7 +114,7 @@ def register_prune(func):
         return func(*args, **kwargs)
 
     _PRUNE_FUNC.append(wrapper)
-    return wrapper
+    return func
 
 
 def register_prune_history(func):
@@ -248,19 +248,10 @@ def prune_by_vpp(tuner_cfg, cur_cfg, history_cfgs=[]):
         return False
 
     if num_layers:
-        global_batch_size = (
-            cur_cfg["global_batch_size"]
-            if "global_batch_size" in cur_cfg
-            else tuner_cfg["model_cfg"].get("global_batch_size", None)
-        )
-        acc_steps = (
-            global_batch_size
-            // cur_cfg["dp_degree"]
-            // cur_cfg["sharding_degree"]
-            // cur_cfg["micro_batch_size"]
-        )
-        if vpp_degree > 1 and acc_steps % pp_degree != 0:
-            return True
+        acc_steps = cur_cfg.get("acc_steps", 1)
+        if tuner_cfg.get("check_pp_divide_acc_steps", False):
+            if vpp_degree > 1 and acc_steps % pp_degree != 0:
+                return True
         if num_layers % (pp_degree * vpp_degree) != 0:
             return True
         if pp_degree == 1 and vpp_degree != 1:
@@ -312,21 +303,16 @@ def prune_by_mbs(tuner_cfg, cur_cfg, history_cfgs=[]):
     3. Prune if a similar configuration with a larger micro batch size resulted in a valid run.
     """
     micro_batch_size = cur_cfg.get("micro_batch_size", None)
-    global_batch_size = (
-        cur_cfg["global_batch_size"]
-        if "global_batch_size" in cur_cfg
-        else tuner_cfg["model_cfg"].get("global_batch_size", None)
+
+    assert (
+        "global_batch_size" in cur_cfg
+    ), "The global_batch_size must be provided in cur_cfg！"
+    global_batch_size = cur_cfg["global_batch_size"]
+    local_batch_size = (
+        global_batch_size // cur_cfg["dp_degree"] // cur_cfg["sharding_degree"]
     )
-    if global_batch_size == "auto":
-        global_batch_size = cur_cfg["global_batch_size"]
-    if global_batch_size:
-        local_batch_size = (
-            global_batch_size
-            // cur_cfg["dp_degree"]
-            // cur_cfg["sharding_degree"]
-        )
-        if local_batch_size == 0:
-            return True
+    if local_batch_size == 0:
+        return True
 
     mbs_candidates = tuner_cfg.get("micro_batch_size", None)
 
@@ -344,11 +330,12 @@ def prune_by_mbs(tuner_cfg, cur_cfg, history_cfgs=[]):
         if pp_degree is not None:
             if acc_steps < pp_degree:
                 return True
-        vpp_degree = cur_cfg.get("vpp_degree", None)
-        if vpp_degree is not None and vpp_degree > 1:
-            if pp_degree is not None:
-                if acc_steps % pp_degree != 0:
-                    return True
+        if tuner_cfg.get("check_pp_divide_acc_steps", False):
+            vpp_degree = cur_cfg.get("vpp_degree", None)
+            if vpp_degree is not None and vpp_degree > 1:
+                if pp_degree is not None:
+                    if acc_steps % pp_degree != 0:
+                        return True
 
     if mbs_candidates:
         if micro_batch_size not in mbs_candidates:
@@ -835,7 +822,7 @@ def prune_by_refined_recompute(tuner_cfg, cur_cfg, history_cfgs=[]):
             return True
         if tuner_cfg["model_cfg"]["num_layers"] % pp_degree != 0:
             return True
-        max_value = tuner_cfg["model_cfg"]["num_layers"] / pp_degree
+        max_value = cur_cfg["vpp_degree"]
         if cur_cfg[rr[0]] > max_value:
             return True
         i = 1

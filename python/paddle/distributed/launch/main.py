@@ -588,6 +588,11 @@ def launch() -> None:
                 f"AutoTuner for GBS search ends in {end_time - start_time}s."
             )
 
+        if isinstance(tuner_cfg["model_cfg"]["global_batch_size"], int):
+            tuner_cfg["model_cfg"]["global_batch_size"] = [
+                tuner_cfg["model_cfg"]["global_batch_size"]
+            ]
+
         # build AutoTuner to get new config
         auto_tuner = AutoTuner(tuner_cfg)
         logger.info(
@@ -614,20 +619,11 @@ def launch() -> None:
             if is_first_task:
                 ctx.max_time_per_task = warmup_time
             is_first_task = False
-            # auto tuner supports dp, mp, pp, micro batch size, sharding, recompute by default and every task has own log dir
-            global_batch_size = (
-                cur_cfg["global_batch_size"]
-                if "global_batch_size" in cur_cfg
-                else tuner_cfg["model_cfg"]["global_batch_size"]
-            )
-            acc_steps = (
-                global_batch_size
-                // cur_cfg["dp_degree"]
-                // cur_cfg["sharding_degree"]
-                // cur_cfg["micro_batch_size"]
-            )
-            cur_cfg["acc_steps"] = acc_steps
-            cur_cfg["global_batch_size"] = global_batch_size
+
+            assert (
+                "global_batch_size" in cur_cfg
+            ), "global_batch_size is not in cur_cfg!"
+            assert "acc_steps" in cur_cfg, "acc_steps is not in cur_cfg!"
 
             # every task has own job id
             job_id += 1
@@ -635,7 +631,7 @@ def launch() -> None:
             ctx.args.job_id = task_job_id
             log_dir = "Job{}_GBS{}_DP{}_MP{}_PP{}_VPP{}_Sharding{}_Stage{}_MBS{}_Recompute_{}_Granularity_{}_AccStep{}".format(
                 job_id,
-                global_batch_size,
+                cur_cfg["global_batch_size"],
                 cur_cfg["dp_degree"],
                 cur_cfg["mp_degree"],
                 cur_cfg["pp_degree"],
