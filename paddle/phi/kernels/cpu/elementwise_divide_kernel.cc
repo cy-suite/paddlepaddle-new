@@ -70,6 +70,4 @@ PD_REGISTER_KERNEL(divide,
                    int64_t,
                    bool,
                    complex64,
-                   complex128,
-                   phi::dtype::bfloat16,
-                   phi::dtype::float16) {}
+                   complex128) {}
