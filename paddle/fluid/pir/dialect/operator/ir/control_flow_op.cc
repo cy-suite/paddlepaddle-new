@@ -438,7 +438,7 @@ bool IfOp::InferSymbolicShape(pir::InferSymbolicShapeContext *infer_context) {
                 true_list.size(),
                 false_list.size()));
         symbol::TensorListShapeOrDataDimExprs result_list(true_list.size());
-        for (int i = 0; i < true_list.size(); ++i) {
+        for (size_t i = 0; i < true_list.size(); ++i) {
           const auto &out_dims =
               MergeShape(true_list[i].shape(), false_list[i].shape());
           result_list[i] = symbol::TensorShapeOrDataDimExprs(out_dims);
