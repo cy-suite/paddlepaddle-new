@@ -612,6 +612,123 @@ function check_cinn_file_diff() {
     echo $run_cinn_ut
 }
 
+function case_count(){
+    cat <<EOF
+    ============================================
+    Generating TestCases Count ...
+    ============================================
+EOF
+    testcases=$1
+    num=$(echo $testcases|grep -o '\^'|wc -l)
+    if (( $2 == -1 )); then
+        echo "exclusive TestCases count is $num"
+        echo "ipipe_log_param_Exclusive_TestCases_Count: $num" >> ${PADDLE_ROOT}/build/build_summary.txt
+    else
+        echo "$2 card TestCases count is $num"
+        echo "ipipe_log_param_${2}_Cards_TestCases_Count: $num" >> ${PADDLE_ROOT}/build/build_summary.txt
+    fi
+}
+
+function card_test() {
+    set -m
+    case_count $1 $2
+    ut_startTime_s=`date +%s`
+
+    testcases=$1
+    cardnumber=$2
+    parallel_level_base=${CTEST_PARALLEL_LEVEL:-1}
+
+    # run ut based on the label
+    if [[ "${UT_RUN_TYPE_SETTING}" == "INFER" ]];then
+        run_label_mode="-L (RUN_TYPE=INFER)"
+    elif [[ "${UT_RUN_TYPE_SETTING}" == "DIST" ]];then
+        run_label_mode="-L (RUN_TYPE=DIST|RUN_TYPE=EXCLUSIVE)"
+    elif [[ "${UT_RUN_TYPE_SETTING}" == "WITHOUT_INFER" ]];then
+        run_label_mode="-LE (RUN_TYPE=INFER)"
+    elif [[ "${UT_RUN_TYPE_SETTING}" == "WITHOUT_HYBRID" ]];then
+        run_label_mode="-LE (RUN_TYPE=HYBRID)"
+    elif [[ "${UT_RUN_TYPE_SETTING}" == "OTHER" ]];then
+        run_label_mode="-LE (RUN_TYPE=INFER|RUN_TYPE=DIST|RUN_TYPE=EXCLUSIVE)"
+    fi
+
+    # get the CUDA device count, XPU device count is one
+    if [ "${WITH_XPU}" == "ON" ];then
+        CUDA_DEVICE_COUNT=1
+    elif [ "${WITH_ROCM}" == "ON" ];then
+        CUDA_DEVICE_COUNT=$(rocm-smi -i | grep DCU | wc -l)
+    elif [ "${WITH_IPU}" == "ON" ];then
+        CUDA_DEVICE_COUNT=1
+    else
+        CUDA_DEVICE_COUNT=$(nvidia-smi -L | wc -l)
+    fi
+
+    if (( $cardnumber == -1 ));then
+        cardnumber=$CUDA_DEVICE_COUNT
+    fi
+
+    if (( $# > 2 )); then
+        parallel_job=`expr $3 \* $parallel_level_base`
+    else
+        parallel_job=$parallel_level_base
+    fi
+
+    if [[ "$testcases" == "" ]]; then
+        return 0
+    fi
+
+    trap 'caught_error' CHLD
+    tmpfile_rand=`date +%s%N`
+    NUM_PROC=$[CUDA_DEVICE_COUNT/$cardnumber]
+    echo "****************************************************************"
+    echo "***These unittests run $parallel_job job each time with $cardnumber GPU***"
+    echo "****************************************************************"
+    for (( i = 0; i < $NUM_PROC; i++ )); do
+        # CUDA_VISIBLE_DEVICES http://acceleware.com/blog/cudavisibledevices-masking-gpus
+        # ctest -I https://cmake.org/cmake/help/v3.0/manual/ctest.1.html?highlight=ctest
+        cuda_list=()
+        for (( j = 0; j < cardnumber; j++ )); do
+            if [ $j -eq 0 ]; then
+                    cuda_list=("$[i*cardnumber]")
+                else
+                    cuda_list="$cuda_list,$[i*cardnumber+j]"
+            fi
+        done
+        tmpfile=$tmp_dir/$tmpfile_rand"_"$i
+        if [ ${TESTING_DEBUG_MODE:-OFF} == "ON" ] ; then
+            if [[ $cardnumber == $CUDA_DEVICE_COUNT ]]; then
+                (ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} -V --timeout 120 -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
+            else
+                if [ "$WITH_ROCM" == "ON" ];then
+                    (env HIP_VISIBLE_DEVICES=$cuda_list ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} --timeout 120 -V -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
+                else
+                    (env CUDA_VISIBLE_DEVICES=$cuda_list ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} --timeout 120 -V -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
+                fi
+            fi
+        else
+            if [[ $cardnumber == $CUDA_DEVICE_COUNT ]]; then
+                (ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} --timeout 120 --output-on-failure  -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
+            else
+                if [ "$WITH_ROCM" == "ON" ];then
+                    (env HIP_VISIBLE_DEVICES=$cuda_list ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} --timeout 120 --output-on-failure  -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
+                else
+                    (env CUDA_VISIBLE_DEVICES=$cuda_list ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} --timeout 120 --output-on-failure  -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
+                fi
+
+            fi
+        fi
+    done
+    wait; # wait for all subshells to finish
+    trap - CHLD
+    ut_endTime_s=`date +%s`
+    if (( $2 == -1 )); then
+        echo "exclusive TestCases Total Time: $[ $ut_endTime_s - $ut_startTime_s ]s"
+    else
+        echo "$2 card TestCases Total Time: $[ $ut_endTime_s - $ut_startTime_s ]s"
+    fi
+    echo "$2 card TestCases finished!!!! "
+    set +m
+}
+
 function parallel_test_base_gpu_test() {
     if [ ${WITH_TESTING:-ON} == "ON" ] ; then
     cat <<EOF
@@ -677,11 +794,13 @@ set +x
             popd
             ctest -N -L "RUN_TYPE=CINN" | awk -F ': ' '{print $2}' | sed '/^$/d' | sed '$d' > ${PADDLE_ROOT}/build/pr_ci_cinn_ut_list
             echo "========================================"
-            echo "pr_ci_cinn_ut_list: "
+            echo "::group::pr_ci_cinn_ut_list: "
             cat ${PADDLE_ROOT}/build/pr_ci_cinn_ut_list
+            echo "::endgroup::"
             echo "========================================"
-            echo "pr_ci_cinn_gpu_ut_list: "
+            echo "::group::pr_ci_cinn_gpu_ut_list: "
             cat ${PADDLE_ROOT}/build/pr_ci_cinn_gpu_ut_list
+            echo "::endgroup::"
             echo "========================================"
         fi
 
@@ -690,8 +809,8 @@ set +x
         if [ ${WITH_CINN=-OFF} == "ON" ]; then
             run_cinn_ut=`check_cinn_file_diff`
             if [[ "OFF" == ${run_cinn_ut} ]]; then
-              echo "No CINN-related changes were found"
-              echo "Skip PR-CI-CINN-GPU UT CI"
+              echo -e "${BLUE}No CINN-related changes were found${NONE}"
+              echo -e "${BLUE}Skip PR-CI-CINN-GPU UT CI${NONE}"
             else
                 # run pr-ci-cinn-gpu ut
                 cinn_gpu_ut_startTime_s=`date +%s`

@@ -25,17 +25,16 @@ else
 fi
 tar -xf /home/lcov-1.16.tar.gz -C /
 cd /lcov-1.16
+echo "::group::Install lcov"
 make install
-
-# run paddle coverage
+echo "::endgroup::"
 
 cd ${PADDLE_ROOT}/build
 
 python ${PADDLE_ROOT}/tools/coverage/gcda_clean.py ${GIT_PR_ID} || exit 101
+echo "::group::Run lcov"
 lcov --ignore-errors gcov --capture -d ./ -o coverage.info --rc lcov_branch_coverage=0
-
-
-# full html report
+echo "::endgroup::"
 
 function gen_full_html_report_cinn(){
     lcov --extract coverage.info \
@@ -137,11 +136,15 @@ function gen_full_html_report_npu() {
 if [ ${WITH_XPU:-OFF} == "ON" ]; then
     gen_full_html_report_xpu || true
 else
+    echo "::group::Gen full html report"
     gen_full_html_report || true
+    echo "::endgroup::"
 fi
 
 if [ ${WITH_CINN:-OFF} == "ON" ]; then
+    echo "::group::Gen full html report for cinn"
     gen_full_html_report_cinn || true
+    echo "::endgroup::"
 else
     gen_full_html_report || true
 fi

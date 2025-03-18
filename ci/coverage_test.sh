@@ -40,7 +40,7 @@ echo "::group::ldconfig"
 ldconfig
 echo "::endgroup::"
 echo "export PATH=/usr/local/bin:\${PATH}" >> ~/.bashrc
-echo "export LD_LIBRARY_PATH=/usr/local/cuda-12.0/compat:\$LD_LIBRARY_PATH" >> ~/.bashrc
+# echo "export LD_LIBRARY_PATH=/usr/local/cuda-12.0/compat:\$LD_LIBRARY_PATH" >> ~/.bashrc
 source ~/.bashrc
 ln -sf $(which python3.9) /usr/local/bin/python
 ln -sf $(which pip3.9) /usr/local/bin/pip
