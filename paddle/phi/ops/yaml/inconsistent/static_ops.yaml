@@ -519,8 +519,8 @@
   data_transform :
     support_trans_dtype : x, y
   backward : maximum_grad
-  interfaces : paddle::dialect::InferSymbolicShapeInterface
-  traits : pir::BinaryElementWiseTrait, paddle::dialect::LayoutTransformationInterface
+  interfaces : paddle::dialect::InferSymbolicShapeInterface, paddle::dialect::LayoutTransformationInterface
+  traits : pir::BinaryElementWiseTrait
 
 - op : memcpy
   args : (Tensor x, int dst_place_type)
@@ -570,7 +570,7 @@
     support_trans_dtype : x, y
   backward : multiply_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface, paddle::dialect::LayoutTransformationInterface
-  traits : pir::BinaryElementWiseTrait, paddle::dialect::LayoutTransformationInterface
+  traits : pir::BinaryElementWiseTrait
 
 - op : nop
   args : (Tensor x)

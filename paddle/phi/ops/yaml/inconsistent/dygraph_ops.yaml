@@ -11,7 +11,7 @@
     func : add
   inplace : (x -> out)
   backward : add_grad
-  traits :
+  traits : pir::BinaryElementWiseTrait
   interfaces: paddle::dialect::LayoutTransformationInterface
 
 - op : add_n
