@@ -22,6 +22,7 @@ jobs:
 
       - name: Display required approvers and check
         run: |
+          git switch -c test
           git remote add upstream https://github.com/PaddlePaddle/Paddle.git
           git fetch upstream $BRANCH
           ls ci/
