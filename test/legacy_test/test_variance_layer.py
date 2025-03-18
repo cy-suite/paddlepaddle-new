@@ -47,7 +47,7 @@ class TestVarAPI(unittest.TestCase):
             'empty': np.array([], dtype=self.dtype),
             'shape_0': np.array([], dtype=self.dtype).reshape([0]),
             'shape_0x3': np.array([], dtype=self.dtype).reshape([0, 3]),
-            'shape_2x0x4': np.array([], dtype=self.dtype).reshape([2, 0, 4])
+            'shape_2x0x4': np.array([], dtype=self.dtype).reshape([2, 0, 4]),
         }
 
     def set_attrs(self):
