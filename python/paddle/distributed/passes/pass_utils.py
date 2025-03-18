@@ -1099,6 +1099,10 @@ def _split_program_for_vpp(
                                 var_name,
                             )
 
+                _add_dependency_if_necessary(
+                    program_type, type, op_idx, idx, var_name
+                )
+
                 program_block = type_to_program[type].global_block()
                 new_result_var = program_block.add_kwarg(
                     var_name, op_result.type()
@@ -1107,10 +1111,6 @@ def _split_program_for_vpp(
                 new_result_var.persistable = op_result.persistable
                 type_to_ops[type][op_idx].result(idx).replace_all_uses_with(
                     new_result_var
-                )
-
-                _add_dependency_if_necessary(
-                    program_type, type, op_idx, idx, var_name
                 )
 
         for type in following_program_types:
