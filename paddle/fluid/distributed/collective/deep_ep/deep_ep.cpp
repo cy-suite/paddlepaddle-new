@@ -18,7 +18,6 @@
 // https://github.com/deepseek-ai/DeepEP/blob/main/LICENSE
 
 #include <cuda_runtime.h>
-#include <pybind11/functional.h>
 #include <atomic>
 #include <chrono>
 #include <memory>
@@ -209,6 +208,7 @@ int Buffer::get_root_rdma_rank(bool global) const {
 
 int Buffer::get_local_device_id() const { return device_id; }
 
+#ifndef PADDLE_NO_PYTHON
 pybind11::bytearray Buffer::get_local_ipc_handle() const {
   return {ipc_handles[nvl_rank].reserved, CUDA_IPC_HANDLE_SIZE};
 }
@@ -301,6 +301,7 @@ void Buffer::sync(
   // Ready to use
   available = true;
 }
+#endif
 
 std::tuple<deep_ep::detail::Tensor,
            std::optional<deep_ep::detail::Tensor>,
@@ -344,12 +345,12 @@ Buffer::get_dispatch_layout(const deep_ep::detail::Tensor& topk_idx,
       paddle::experimental::empty({num_tokens, num_ranks},
                                   phi::DataType::BOOL,
                                   phi::GPUPlace(device_id)));
-#ifdef PADDLE_WITH_NVSHMEM
   if (is_internode_available())
     num_tokens_per_rdma_rank =
         ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
             {num_rdma_ranks}, phi::DataType::INT32, phi::GPUPlace(device_id)));
 
+  // get_dispatch_layout is used for both intranode and internode.
   internode::get_dispatch_layout(
       topk_idx.data_ptr<int64_t>(),
       num_tokens_per_rank.data_ptr<int>(),
@@ -363,7 +364,6 @@ Buffer::get_dispatch_layout(const deep_ep::detail::Tensor& topk_idx,
       num_ranks,
       num_experts,
       comm_stream);
-#endif
 
   // Wait streams
   std::optional<EventHandle> event;
