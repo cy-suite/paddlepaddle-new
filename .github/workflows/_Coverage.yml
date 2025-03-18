@@ -137,7 +137,7 @@ jobs:
       run: |
         docker exec -t ${{ env.container_name }} /bin/bash -c '
         . ../../../proxy
-        bash $ci_scripts/coverage_check_added_ut.sh
+        bash $ci_scripts/check_added_ut.sh
         '
 
     - name: Check coverage build size requires approval
