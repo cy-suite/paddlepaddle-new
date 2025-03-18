@@ -27,26 +27,23 @@ limitations under the License. */
 #endif  // _WIN32
 
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
-#if defined(PADDLE_WITH_CUSTOM_DEVICE)
-#define COMM_CONTEXT phi::distributed::XCCLCommContext
-#else
 #define COMM_CONTEXT phi::distributed::NCCLCommContext
-#endif
 #elif (defined(PADDLE_WITH_XPU) && defined(PADDLE_WITH_XPU_BKCL))
 #define COMM_CONTEXT phi::distributed::BKCLCommContext
+#elif defined(PADDLE_WITH_CUSTOM_DEVICE)
+#define COMM_CONTEXT phi::distributed::XCCLCommContext
 #endif
 
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
-#if defined(PADDLE_WITH_CUSTOM_DEVICE)
+
 #define CREATE_COMM_CONTEXT \
   phi::distributed::CommContextManager::CreateXCCLCommContext
-#else
-#define CREATE_COMM_CONTEXT \
-  phi::distributed::CommContextManager::CreateNCCLCommContext
-#endif
 #elif defined(PADDLE_WITH_XPU_BKCL)
 #define CREATE_COMM_CONTEXT \
   phi::distributed::CommContextManager::CreateBKCLCommContext
+#elif defined(PADDLE_WITH_CUSTOM_DEVICE)
+#define CREATE_COMM_CONTEXT \
+  phi::distributed::CommContextManager::CreateNCCLCommContext
 #endif
 
 namespace common {
