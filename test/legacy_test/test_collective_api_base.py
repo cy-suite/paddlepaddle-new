@@ -757,6 +757,8 @@ class TestDistBase(unittest.TestCase):
                 np.testing.assert_allclose(
                     tr1_out[1], 2 * local_input_buf2, rtol=1e-05, atol=1e-05
                 )
+        elif col_type == 'barrier':
+            pass
         else:
             raise NotImplementedError(
                 f"col_type {col_type} check_with_place not implemented"

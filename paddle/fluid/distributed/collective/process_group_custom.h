@@ -232,6 +232,13 @@ class ProcessGroupCustom final : public ProcessGroupWithStream {
 
   std::shared_ptr<ProcessGroup::Task> RunFnInXCCLEnv(
       std::function<void(const phi::stream::Stream&)> fn,
+      const std::vector<phi::DenseTensor>& tensors,
+      CommType comm_type,
+      bool sync_op,
+      bool use_calc_stream);
+
+  std::shared_ptr<ProcessGroup::Task> RunFnInXCCLEnv(
+      std::function<void(const phi::stream::Stream&)> fn,
       const phi::DenseTensor& tensor,
       CommType comm_type,
       bool sync_op,

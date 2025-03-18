@@ -241,7 +241,7 @@ void ProcessGroupBKCL::SyncCalcStream(const Place& place) {
 
 std::shared_ptr<ProcessGroup::Task> ProcessGroupBKCL::Collective(
     std::function<void(phi::distributed::BKCLCommContext*, XPUStream)> fn,
-    const phi::DenseTensor& tensor,
+    const std::vector<phi::DenseTensor>& tensors,
     CommType op_type,
     bool sync_op,
     bool use_calc_stream) {
@@ -251,7 +251,7 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupBKCL::Collective(
                "we disable it currently.";
     use_calc_stream = true;
   }
-  const auto& place = tensor.place();
+  const auto& place = tensors[0].place();
   const auto& key = GetKeyFromPlace(place);
 
   phi::backends::xpu::XPUDeviceGuard xpu_guard(place);
@@ -290,6 +290,16 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupBKCL::Collective(
   }
 
   return task;
+}
+
+std::shared_ptr<ProcessGroup::Task> ProcessGroupBKCL::Collective(
+    std::function<void(phi::distributed::BKCLCommContext*, XPUStream)> fn,
+    const phi::DenseTensor& tensor,
+    CommType op_type,
+    bool sync_op,
+    bool use_calc_stream) {
+  const std::vector<phi::DenseTensor> tensors = {tensor};
+  return Collective(fn, tensors, op_type, sync_op, use_calc_stream);
 }
 
 std::shared_ptr<ProcessGroup::Task> ProcessGroupBKCL::Point2Point(
@@ -533,6 +543,8 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupBKCL::AllToAll(
     bool use_calc_stream) {
   CheckTensorContiguous(in_tensors);
   CheckTensorContiguous(*out_tensors);
+  CheckTensorSamePlace(in_tensors);
+  CheckTensorSamePlace(*out_tensors);
   phi::distributed::CommStaticCheck::CheckDataType(*out_tensors, in_tensors);
 
   PADDLE_ENFORCE_EQ(
@@ -687,7 +699,7 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupBKCL::AllToAll(
           }
         }
       },
-      in_tensors[0],
+      in_tensors,
       CommType::ALLTOALL,
       sync_op,
       use_calc_stream);

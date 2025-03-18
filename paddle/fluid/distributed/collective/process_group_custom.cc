@@ -639,11 +639,11 @@ void ProcessGroupCustom::SyncCalcStream(const Place& place) {
 
 std::shared_ptr<ProcessGroup::Task> ProcessGroupCustom::RunFnInXCCLEnv(
     std::function<void(const phi::stream::Stream&)> fn,
-    const phi::DenseTensor& tensor,
+    const std::vector<phi::DenseTensor>& tensors,
     CommType comm_type,
     bool sync_op,
     bool use_calc_stream) {
-  const auto& place = tensor.place();
+  const auto& place = tensors[0].place();
   const auto& key = GetKeyFromPlace(place);
 
   phi::DeviceGuard guard(place);
@@ -666,12 +666,24 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupCustom::RunFnInXCCLEnv(
 
   if (!use_calc_stream) {
     if (FLAGS_use_stream_safe_cuda_allocator) {
-      memory::RecordStream(tensor.Holder(), xccl_stream.raw_stream());
+      for (size_t i = 0; i < tensors.size(); ++i) {
+        memory::RecordStream(tensors[i].Holder(), xccl_stream.raw_stream());
+      }
     }
     task->UpdateWaitChain(*comm_ctx);
   }
 
   return task;
+}
+
+std::shared_ptr<ProcessGroup::Task> ProcessGroupCustom::RunFnInXCCLEnv(
+    std::function<void(const phi::stream::Stream&)> fn,
+    const phi::DenseTensor& tensor,
+    CommType comm_type,
+    bool sync_op,
+    bool use_calc_stream) {
+  const std::vector<phi::DenseTensor> tensors = {tensor};
+  return RunFnInXCCLEnv(fn, tensors, comm_type, sync_op, use_calc_stream);
 }
 
 // TODO(sunyilun): methods below will be removed later
@@ -1076,6 +1088,8 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupCustom::AllToAll(
     bool use_calc_stream) {
   CheckTensorContiguous(in_tensors);
   CheckTensorContiguous(*out_tensors);
+  CheckTensorSamePlace(in_tensors);
+  CheckTensorSamePlace(*out_tensors);
   phi::distributed::CommStaticCheck::CheckDataType(*out_tensors, in_tensors);
 
   PADDLE_ENFORCE_EQ(
@@ -1083,7 +1097,7 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupCustom::AllToAll(
       true,
       common::errors::InvalidArgument("All inputs should be in CustomPlace."));
   PADDLE_ENFORCE_EQ(
-      CheckTensorsInCustomPlace(out_tensors, device_type_),
+      CheckTensorsInCustomPlace(*out_tensors, device_type_),
       true,
       common::errors::InvalidArgument("All inputs should be in CustomPlace."));
 
@@ -1112,12 +1126,12 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupCustom::AllToAll(
 
         int64_t in_offset = 0, in_numel = 0, out_offset = 0, out_numel = 0;
 
-        std::vector<void*> send_buf, recv_buf;
+        std::vector<const void*> send_buf, recv_buf;
         std::vector<size_t> send_count, recv_count;
         std::vector<phi::DataType> send_dtype, recv_dtype;
         for (auto i = 0; i < size_; i++) {
           in_numel = in_tensors[i].numel();
-          out_numel = (*out_tensors)[i]->numel();
+          out_numel = (*out_tensors)[i].numel();
           in_offset += in_numel;
           out_offset += out_numel;
           send_buf.push_back(in_tensors[i].data());
@@ -1141,7 +1155,7 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupCustom::AllToAll(
             comm_context->GetXcclComm(),
             stream);
       },
-      in_tensor,
+      in_tensors,
       CommType::ALLTOALL,
       sync_op,
       use_calc_stream);

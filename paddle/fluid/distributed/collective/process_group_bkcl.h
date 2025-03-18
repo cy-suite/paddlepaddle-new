@@ -176,6 +176,13 @@ class ProcessGroupBKCL : public ProcessGroupWithStream {
 
   std::shared_ptr<ProcessGroup::Task> Collective(
       std::function<void(phi::distributed::BKCLCommContext*, XPUStream)> fn,
+      const std::vector<phi::DenseTensor>& tensors,
+      CommType comm_type,
+      bool sync_op,
+      bool use_calc_stream);
+
+  std::shared_ptr<ProcessGroup::Task> Collective(
+      std::function<void(phi::distributed::BKCLCommContext*, XPUStream)> fn,
       const phi::DenseTensor& tensor,
       CommType comm_type,
       bool sync_op,

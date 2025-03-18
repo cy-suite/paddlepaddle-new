@@ -389,6 +389,8 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::AllToAll(
     bool use_calc_stream) {
   CheckTensorContiguous(in_tensors);
   CheckTensorContiguous(*out_tensors);
+  CheckTensorSamePlace(in_tensors);
+  CheckTensorSamePlace(*out_tensors);
   phi::distributed::CommStaticCheck::CheckDataType(*out_tensors, in_tensors);
 
   PADDLE_ENFORCE_EQ(
@@ -450,7 +452,7 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::AllToAll(
         }
         GroupEnd();
       },
-      in_tensors[0],
+      in_tensors,
       CommType::ALLTOALL,
       sync_op,
       use_calc_stream);
@@ -983,14 +985,14 @@ void ProcessGroupNCCL::EagerConnectRingExchange() {
 
 std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::Collective(
     std::function<void(phi::distributed::NCCLCommContext*, gpuStream_t)> fn,
-    const phi::DenseTensor& tensor,
+    const std::vector<phi::DenseTensor>& tensors,
     CommType comm_type,
     bool sync_op,
     bool use_calc_stream) {
-  CheckTensorContiguous(tensor);
+  CheckTensorContiguous(tensors);
 
   comm_seq_++;
-  const auto& place = tensor.place();
+  const auto& place = tensors[0].place();
   const auto& key = GetKeyFromPlace(place);
 
   platform::CUDADeviceGuard cuda_guard(place);
@@ -1020,20 +1022,20 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::Collective(
     fn(nccl_comm_ctx, nccl_stream);
   } else {
     std::string group_key = place_to_group_key_.at(key);
-    auto comm_task =
-        std::make_shared<phi::distributed::NCCLCommTask>(place,
-                                                         group_key,
-                                                         rank_,
-                                                         size_,
-                                                         gid_,
-                                                         comm_seq_,
-                                                         tensor.numel(),
-                                                         sync_op,
-                                                         use_calc_stream,
-                                                         nccl_comm,
-                                                         nccl_stream,
-                                                         comm_type,
-                                                         pg_timeout_);
+    auto comm_task = std::make_shared<phi::distributed::NCCLCommTask>(
+        place,
+        group_key,
+        rank_,
+        size_,
+        gid_,
+        comm_seq_,
+        GetTensorNumel(tensors),
+        sync_op,
+        use_calc_stream,
+        nccl_comm,
+        nccl_stream,
+        comm_type,
+        pg_timeout_);
     comm_task->StartRecord();
     fn(nccl_comm_ctx, nccl_stream);
     comm_task->EndRecord();
@@ -1047,13 +1049,19 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::Collective(
     if (!is_coalescing_) {
       if (FLAGS_use_stream_safe_cuda_allocator ||
           FLAGS_use_cuda_malloc_async_allocator) {
-        memory::RecordStream(tensor.Holder(), nccl_stream);
+        for (size_t i = 0; i < tensors.size(); ++i) {
+          memory::RecordStream(tensors[i].Holder(), nccl_stream);
+        }
       }
       task->UpdateWaitChain(*comm_ctx);
-      allocation_stream_pairs_.emplace_back(tensor.Holder(), nccl_stream);
+      for (size_t i = 0; i < tensors.size(); ++i) {
+        allocation_stream_pairs_.emplace_back(tensors[i].Holder(), nccl_stream);
+      }
     } else {
-      coalescing_tensors_.emplace_back(
-          std::make_shared<phi::DenseTensor>(tensor));
+      for (size_t i = 0; i < tensors.size(); ++i) {
+        coalescing_tensors_.emplace_back(
+            std::make_shared<phi::DenseTensor>(tensors[i]));
+      }
       coalescing_place_keys_.push_back(key);
     }
   }
@@ -1076,6 +1084,16 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::Collective(
   }
 
   return task;
+}
+
+std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::Collective(
+    std::function<void(phi::distributed::NCCLCommContext*, gpuStream_t)> fn,
+    const phi::DenseTensor& tensor,
+    CommType comm_type,
+    bool sync_op,
+    bool use_calc_stream) {
+  const std::vector<phi::DenseTensor> tensors = {tensor};
+  return Collective(fn, tensors, comm_type, sync_op, use_calc_stream);
 }
 
 std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::Point2Point(
