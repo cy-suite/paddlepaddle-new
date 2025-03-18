@@ -29,6 +29,7 @@
 #include "paddle/cinn/runtime/backend_api.h"
 #include "paddle/cinn/runtime/cinn_runtime.h"
 #include "paddle/common/enforce.h"
+#include "paddle/common/flags.h"
 using cinn::runtime::BackendAPI;
 
 COMMON_DECLARE_bool(cinn_gen_sycl);
