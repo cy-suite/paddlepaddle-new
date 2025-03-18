@@ -817,11 +817,11 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Collective(
   if (use_calc_stream) {
     auto calc_stream = calc_ctx->stream();
     flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(
-        &flagcx_stream, (void*)&calc_stream);
+        &flagcx_stream, reinterpret_cast<void*>(&calc_stream));
   } else {
     auto comm_stream = comm_ctx->stream();
     flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(
-        &flagcx_stream, (void*)&comm_stream);
+        &flagcx_stream, reinterpret_cast<void*>(&comm_stream));
   }
 
   if (!FLAGS_enable_async_trace) {
@@ -831,8 +831,8 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Collective(
   if (!use_calc_stream) {
     if (!is_coalescing_) {
       task->UpdateWaitChain(*comm_ctx);
-      allocation_stream_pairs_.emplace_back(tensor.Holder(),
-                                            *(gpuStream_t*)flagcx_stream);
+      allocation_stream_pairs_.emplace_back(
+          tensor.Holder(), *reinterpret_cast<gpuStream_t*>(flagcx_stream));
     } else {
       coalescing_tensors_.emplace_back(
           std::make_shared<phi::DenseTensor>(tensor));
@@ -906,11 +906,11 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Point2Point(
   if (use_calc_stream) {
     auto calc_stream = calc_ctx->stream();
     flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(
-        &flagcx_stream, (void*)&calc_stream);
+        &flagcx_stream, reinterpret_cast<void*>(&calc_stream));
   } else {
     auto comm_stream = comm_ctx->stream();
     flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(
-        &flagcx_stream, (void*)&comm_stream);
+        &flagcx_stream, reinterpret_cast<void*>(&comm_stream));
   }
 
   if (!FLAGS_enable_async_trace) {
@@ -920,8 +920,8 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Point2Point(
   if (!use_calc_stream) {
     if (!is_coalescing_) {
       task->UpdateWaitChain(*comm_ctx);
-      allocation_stream_pairs_.emplace_back(tensor.Holder(),
-                                            *(gpuStream_t*)flagcx_stream);
+      allocation_stream_pairs_.emplace_back(
+          tensor.Holder(), *reinterpret_cast<gpuStream_t*>(flagcx_stream));
     } else {
       coalescing_tensors_.emplace_back(
           std::make_shared<phi::DenseTensor>(tensor));
@@ -1008,11 +1008,11 @@ void ProcessGroupFlagcx::EndCoalescing(
     auto comm_stream = comm_ctx->stream();
     flagcxStream_t flagcx_stream;
     flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(
-        &flagcx_stream, (void*)&comm_stream);
+        &flagcx_stream, reinterpret_cast<void*>(&comm_stream));
 
     flagcx_task->UpdateWaitChain(*comm_ctx);
-    allocation_stream_pairs_.emplace_back(tensor->Holder(),
-                                          *(gpuStream_t*)flagcx_stream);
+    allocation_stream_pairs_.emplace_back(
+        tensor->Holder(), *reinterpret_cast<gpuStream_t*>(flagcx_stream));
     flagcx_comm_ctx->flagcx_handler_->devHandle->streamFree(flagcx_stream);
   }
 
