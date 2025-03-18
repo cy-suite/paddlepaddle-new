@@ -96,6 +96,8 @@ class Buffer:
         )
 
         self._comm_stream = self.runtime.get_comm_stream()
+        self._timer_names = set()
+        self._timers = None
 
         # Synchronize device IDs
         device_ids = []
@@ -151,7 +153,7 @@ class Buffer:
         Buffer.num_sms = new_num_sms
 
     @staticmethod
-    def set_enable_timer(new_enable_timer: bool) -> None:
+    def set_timer(new_enable_timer: bool, new_record_shapes: bool) -> None:
         """
         Enable timer to measure the execution time of kernels.
 
@@ -160,16 +162,6 @@ class Buffer:
         """
 
         Buffer.enable_timer = new_enable_timer
-
-    @staticmethod
-    def set_record_shapes(new_record_shapes: bool) -> None:
-        """
-        Enable to record the input shapes of kernels.
-
-        Arguments:
-            new_record_shapes: the new value to be set.
-        """
-
         Buffer.record_shapes = new_record_shapes
 
     @staticmethod
@@ -261,6 +253,35 @@ class Buffer:
         ), f'Unsupported number of EP ranks: {num_ranks}'
         return config_map[num_ranks]
 
+    def start_timer(self, name):
+        """
+        Start the timer, which can capture the execution time on the comm_stream with cudaEvent.
+        """
+        if Buffer.enable_timer:
+            if not timer.is_timer_initialized():
+                timer.set_timers()
+
+            self._timer_names.add(name)
+            self._timers = timer.get_timers()
+            self._timers(name, use_event=True).start(self._comm_stream)
+
+    def stop_timer(self, name):
+        """
+        Stop the timer, which can capture the execution time on the comm_stream with cudaEvent.
+        """
+        if Buffer.enable_timer:
+            self._timers(name, use_event=True).stop(self._comm_stream)
+
+    def print_timer(self):
+        """
+        Print execution times for all captured kernels when enable_timer is set.
+        """
+
+        if Buffer.enable_timer:
+            self._timers = timer.get_timers()
+            if self._timers is not None:
+                timer.get_timers().log(list(self._timer_names))
+
     # noinspection PyTypeChecker
     def get_dispatch_layout(
         self,
@@ -296,13 +317,8 @@ class Buffer:
             event: the event after executing the kernel (valid only if `async_finish` is set).
         """
 
-        if Buffer.enable_timer:
-            if not timer.is_timer_initialized():
-                self._timers = timer.set_timers()
-            else:
-                self._timers = timer.get_timers()
-            timer_name = "deepep-get_dispatch_layout"
-            self._timers(timer_name, use_event=True).start(self._comm_stream)
+        timer_name = "deepep-get_dispatch_layout"
+        self.start_timer(timer_name)
 
         (
             num_tokens_per_rank,
@@ -318,8 +334,7 @@ class Buffer:
             allocate_on_comm_stream,
         )
 
-        if Buffer.enable_timer:
-            self._timers(timer_name, use_event=True).stop(self._comm_stream)
+        self.stop_timer(timer_name)
 
         return (
             num_tokens_per_rank,
@@ -415,13 +430,8 @@ class Buffer:
                 allocate_on_comm_stream,
             )
 
-        if Buffer.enable_timer:
-            if not timer.is_timer_initialized():
-                self._timers = timer.set_timers()
-            else:
-                self._timers = timer.get_timers()
-            timer_name = "deepep-intranode_dispatch"
-            self._timers(timer_name, use_event=True).start(self._comm_stream)
+        timer_name = "deepep-intranode_dispatch"
+        self.start_timer(timer_name)
 
         # Launch the kernel with cached or non-cached mode
         x, x_scales = x if isinstance(x, tuple) else (x, None)
@@ -456,8 +466,7 @@ class Buffer:
                 )
             )
 
-            if Buffer.enable_timer:
-                self._timers(timer_name, use_event=True).stop(self._comm_stream)
+            self.stop_timer(timer_name)
 
             return (
                 (recv_x, recv_x_scales) if x_scales is not None else recv_x,
@@ -511,8 +520,7 @@ class Buffer:
                 send_head,
             )
 
-            if Buffer.enable_timer:
-                self._timers(timer_name, use_event=True).stop(self._comm_stream)
+            self.stop_timer(timer_name)
 
             return (
                 (recv_x, recv_x_scales) if x_scales is not None else recv_x,
@@ -574,13 +582,8 @@ class Buffer:
                 allocate_on_comm_stream,
             )
 
-        if Buffer.enable_timer:
-            if not timer.is_timer_initialized():
-                self._timers = timer.set_timers()
-            else:
-                self._timers = timer.get_timers()
-            timer_name = "deepep-intranode_combine"
-            self._timers(timer_name, use_event=True).start(self._comm_stream)
+        timer_name = "deepep-intranode_combine"
+        self.start_timer(timer_name)
 
         # NOTES: the second `_` is for the sending side, so we should use the third one
         (
@@ -606,8 +609,7 @@ class Buffer:
             allocate_on_comm_stream,
         )
 
-        if Buffer.enable_timer:
-            self._timers(timer_name, use_event=True).stop(self._comm_stream)
+        self.stop_timer(timer_name)
 
         return recv_x, recv_topk_weights, EventOverlap(event)
 
@@ -641,13 +643,8 @@ class Buffer:
         """
         assert config is not None
 
-        if Buffer.enable_timer:
-            if not timer.is_timer_initialized():
-                self._timers = timer.set_timers()
-            else:
-                self._timers = timer.get_timers()
-            timer_name = "deepep-internode_dispatch"
-            self._timers(timer_name, use_event=True).start(self._comm_stream)
+        timer_name = "deepep-internode_dispatch"
+        self.start_timer(timer_name)
 
         # Launch the kernel with cached or non-cached mode
         x, x_scales = x if isinstance(x, tuple) else (x, None)
@@ -691,8 +688,7 @@ class Buffer:
                 )
             )
 
-            if Buffer.enable_timer:
-                self._timers(timer_name, use_event=True).stop(self._comm_stream)
+            self.stop_timer(timer_name)
 
             return (
                 (recv_x, recv_x_scales) if x_scales is not None else recv_x,
@@ -758,8 +754,7 @@ class Buffer:
                 send_nvl_head,
             )
 
-            if Buffer.enable_timer:
-                self._timers(timer_name, use_event=True).stop(self._comm_stream)
+            self.stop_timer(timer_name)
 
             return (
                 (recv_x, recv_x_scales) if x_scales is not None else recv_x,
@@ -787,13 +782,8 @@ class Buffer:
         """
         assert config is not None
 
-        if Buffer.enable_timer:
-            if not timer.is_timer_initialized():
-                self._timers = timer.set_timers()
-            else:
-                self._timers = timer.get_timers()
-            timer_name = "deepep-internode_combine"
-            self._timers(timer_name, use_event=True).start(self._comm_stream)
+        timer_name = "deepep-internode_combine"
+        self.start_timer(timer_name)
 
         # Unpack handle
         (
@@ -828,8 +818,7 @@ class Buffer:
             )
         )
 
-        if Buffer.enable_timer:
-            self._timers(timer_name, use_event=True).stop(self._comm_stream)
+        self.stop_timer(timer_name)
 
         return combined_x, combined_topk_weights, EventOverlap(event)
 
@@ -850,9 +839,14 @@ class Buffer:
             hidden: the hidden dimension of each token.
             num_experts: the number of all experts.
         """
+        timer_name = "deepep-clean_low_latency_buffer"
+        self.start_timer(timer_name)
+
         self.runtime.clean_low_latency_buffer(
             num_max_dispatch_tokens_per_rank, hidden, num_experts
         )
+
+        self.stop_timer(timer_name)
 
     # noinspection PyTypeChecker
     def low_latency_dispatch(
@@ -904,6 +898,9 @@ class Buffer:
             event: the event after executing the kernel (valid only if `async_finish` is set).
             hook: the receiving hook function (valid only if `return_recv_hook` is set).
         """
+        timer_name = "deepep-low_latency_dispatch"
+        self.start_timer(timer_name)
+
         (
             packed_recv_x,
             packed_recv_x_scales,
@@ -935,6 +932,9 @@ class Buffer:
             packed_recv_src_info,
             packed_recv_layout_range,
         )
+
+        self.stop_timer(timer_name)
+
         return (
             (packed_recv_x, packed_recv_x_scales),
             packed_recv_count,
@@ -980,6 +980,9 @@ class Buffer:
             event: the event after executing the kernel (valid only if `async_finish` is set).
             hook: the receiving hook function (valid only if `return_recv_hook` is set).
         """
+        timer_name = "deepep-low_latency_combine"
+        self.start_timer(timer_name)
+
         (
             src_info,
             layout_range,
@@ -1005,6 +1008,9 @@ class Buffer:
             layout_range,
             combined_x,
         )
+
+        self.stop_timer(timer_name)
+
         return (
             combined_x,
             EventOverlap(event, tensors_to_record if async_finish else None),
