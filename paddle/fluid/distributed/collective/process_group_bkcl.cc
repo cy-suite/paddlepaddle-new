@@ -251,6 +251,12 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupBKCL::Collective(
                "we disable it currently.";
     use_calc_stream = true;
   }
+  CheckTensorContiguous(tensors);
+
+  PADDLE_ENFORCE_GT(
+      tensors.size(),
+      0,
+      common::errors::InvalidArgument("Num of tensors must be greater than 0"));
   const auto& place = tensors[0].place();
   const auto& key = GetKeyFromPlace(place);
 

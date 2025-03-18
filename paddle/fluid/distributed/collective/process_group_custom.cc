@@ -643,6 +643,10 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupCustom::RunFnInXCCLEnv(
     CommType comm_type,
     bool sync_op,
     bool use_calc_stream) {
+  PADDLE_ENFORCE_GT(
+      tensors.size(),
+      0,
+      common::errors::InvalidArgument("Num of tensors must be greater than 0"));
   const auto& place = tensors[0].place();
   const auto& key = GetKeyFromPlace(place);
 

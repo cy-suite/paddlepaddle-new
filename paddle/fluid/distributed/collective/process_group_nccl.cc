@@ -992,6 +992,10 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::Collective(
   CheckTensorContiguous(tensors);
 
   comm_seq_++;
+  PADDLE_ENFORCE_GT(
+      tensors.size(),
+      0,
+      common::errors::InvalidArgument("Num of tensors must be greater than 0"));
   const auto& place = tensors[0].place();
   const auto& key = GetKeyFromPlace(place);
 
