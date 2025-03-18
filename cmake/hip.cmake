@@ -1,3 +1,4 @@
+include(ExternalProject)
 if(NOT WITH_ROCM)
   return()
 endif()
@@ -179,3 +180,51 @@ find_library(ROCM_HIPRTC_LIB ${hip_library_name} HINTS ${HIP_PATH}/lib)
 message(STATUS "ROCM_HIPRTC_LIB: ${ROCM_HIPRTC_LIB}")
 
 include(thrust)
+
+
+set(DCU_GEMM_LIB "extern_gemm")
+set(DCU_GEMM_LIB_NAME "libgemm_w4a16_awq${CMAKE_SHARED_LIBRARY_SUFFIX}")
+set(DCU_GEMM_URL "https://ai-rank.bj.bcebos.com/DCU/${DCU_GEMM_LIB_NAME}")
+set(DCU_GEMM_INSTALL_DIR ${THIRD_PARTY_PATH}/install/hip_gemm)
+set(DCU_GEMM_SOURCE_DIR ${PADDLE_SOURCE_DIR}/third_party/hip_gemm)
+set(DCU_GEMM_LIB_MD5 fc08a4d23840ab66a2d5c8b439255791)
+
+set(DCU_GEMM_LIB_DIR
+"${DCU_GEMM_INSTALL_DIR}/lib"
+CACHE PATH "flash-attn Library Directory" FORCE)
+set(DCU_GEMM_LIBRARIES
+"${DCU_GEMM_INSTALL_DIR}/lib/${DCU_GEMM_LIB_NAME}"
+CACHE FILEPATH "flash-attn Library" FORCE)
+
+function(download_gemm_file)
+  message(
+    STATUS "Downloading ${DCU_GEMM_URL} to ${DCU_GEMM_LIBRARIES}")
+  # NOTE: If the version is updated, consider emptying the folder; maybe add timeout
+  file(
+    DOWNLOAD ${DCU_GEMM_URL} ${DCU_GEMM_LIBRARIES}
+    EXPECTED_MD5 ${DCU_GEMM_LIB_MD5}
+    STATUS ERR)
+  if(ERR EQUAL 0)
+    message(STATUS "Download ${DCU_GEMM_LIB_NAME} success")
+  else()
+    message(
+      FATAL_ERROR
+        "Download failed, error: ${ERR}\n You can try downloading ${DCU_GEMM_LIB_NAME} again"
+    )
+  endif()
+endfunction()
+
+# Download and check mklml.
+if(EXISTS ${DCU_GEMM_LIBRARIES})
+  file(MD5 ${DCU_GEMM_LIBRARIES} LIB_MD5)
+  if(NOT LIB_MD5 STREQUAL DCU_GEMM_LIB_MD5)
+    # clean build file
+    file(REMOVE_RECURSE ${DCU_GEMM_INSTALL_DIR})
+    download_gemm_file()
+  endif()
+else()
+download_gemm_file()
+endif()
+
+add_library(dcu_gemm SHARED IMPORTED GLOBAL)
+set_property(TARGET dcu_gemm PROPERTY IMPORTED_LOCATION ${DCU_GEMM_LIBRARIES})

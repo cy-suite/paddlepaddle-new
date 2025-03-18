@@ -21,6 +21,10 @@ limitations under the License. */
 #include "paddle/phi/kernels/fusion/cutlass/cutlass_kernels/fpA_intB_gemm/fpA_intB_gemm_template.h"
 #endif
 
+#ifdef PADDLE_WITH_HIP
+#include "paddle/phi/kernels/gpu/gemm_w4a16.h"
+#endif
+
 namespace phi {
 
 template <typename T, typename Context>
@@ -33,18 +37,6 @@ void WeightOnlyLinearKernel(const Context& dev_ctx,
                             const int32_t arch,
                             const int32_t group_size,
                             DenseTensor* out) {
-#if defined(PADDLE_WITH_CUTLASS)
-  PADDLE_ENFORCE_EQ(
-      ((arch == 70) || (arch == 75) || (arch == 80) || (arch == 86) ||
-       (arch == 89) || (arch == 90)),
-      true,
-      common::errors::InvalidArgument(
-          "Currently, arch only support 70, 75, 80, 86, 89, 90."));
-#else
-  PADDLE_THROW(common::errors::Unimplemented(
-      "Please compile with cutlass to make cutlass available"));
-#endif
-
   dev_ctx.template Alloc<T>(out);
   const T* x_data = x.data<T>();
   const int8_t* weight_data = weight.data<int8_t>();
@@ -56,6 +48,46 @@ void WeightOnlyLinearKernel(const Context& dev_ctx,
   int n = group_size > 0 ? weight_scale.dims()[1] : weight_scale.dims()[0];
   int k = w_dims[1];
   int m = x.numel() / k;
+#ifdef PADDLE_WITH_HIP
+  {
+    DenseTensor mixgemm_workspace;
+    int64_t mixgemm_workspace_size_bytes = get_w4a16_workspace_size(m, n);
+    mixgemm_workspace.Resize({mixgemm_workspace_size_bytes});
+    dev_ctx.template Alloc<uint8_t>(&mixgemm_workspace);
+    char* mixgemm_workspace_data =
+        reinterpret_cast<char*>(mixgemm_workspace.data<uint8_t>());
+
+    gemm_w4a16(
+        reinterpret_cast<const typename PDDataTypeTraits<T>::DataType*>(x_data),
+        reinterpret_cast<const uint8_t*>(weight_data),
+        reinterpret_cast<const typename PDDataTypeTraits<T>::DataType*>(
+            weight_scale_data),
+        reinterpret_cast<typename PDDataTypeTraits<T>::DataType*>(out_data),
+        m,
+        n,
+        k,
+        k,
+        k,
+        n,
+        group_size,
+        mixgemm_workspace_data,
+        mixgemm_workspace_size_bytes,
+        dev_ctx.stream());
+    return;
+  }
+#endif
+
+#if defined(PADDLE_WITH_CUTLASS)
+  PADDLE_ENFORCE_EQ(
+      ((arch == 70) || (arch == 75) || (arch == 80) || (arch == 86) ||
+       (arch == 89) || (arch == 90)),
+      true,
+      common::errors::InvalidArgument(
+          "Currently, arch only support 70, 75, 80, 86, 89, 90."));
+#else
+  PADDLE_THROW(common::errors::Unimplemented(
+      "Please compile with cutlass to make cutlass available"));
+#endif
 
   // m > 3: run gemm.
   if (m > 3 || (arch == 70)) {
