@@ -1217,9 +1217,19 @@ void maximum_grad(const Tensor& x,
                   const Tensor& out_grad,
                   Tensor* x_grad,
                   Tensor* y_grad) {
+  Tensor half_tensor;
+  if (x_grad || y_grad) {
+    auto equal_tensor = cast<T>(equal<T>(x, y), out_grad.dtype());
+    auto two_tensor = full<T>(common::vectorize(out_grad.dims()),
+                              2.0,
+                              out_grad.dtype(),
+                              out_grad.place());
+    half_tensor = (out_grad / two_tensor) * equal_tensor;
+  }
+
   if (x_grad) {
     auto x_tmp = cast<T>(greater_than<T>(x, y), out_grad.dtype());
-    auto dx_res = out_grad * x_tmp;
+    auto dx_res = out_grad * x_tmp + half_tensor;
     if (has_dynamic_shape(x.shape()) || has_dynamic_shape(out_grad.shape()) ||
         out_grad.dims() != x.dims()) {
       auto dx_reduce_res = reduce_as<T>(dx_res, x);
@@ -1230,8 +1240,8 @@ void maximum_grad(const Tensor& x,
   }
 
   if (y_grad) {
-    auto y_tmp = cast<T>(less_equal<T>(x, y), out_grad.dtype());
-    auto dy_res = out_grad * y_tmp;
+    auto y_tmp = cast<T>(less_than<T>(x, y), out_grad.dtype());
+    auto dy_res = out_grad * y_tmp + half_tensor;
     if (has_dynamic_shape(y.shape()) || has_dynamic_shape(out_grad.shape()) ||
         out_grad.dims() != y.dims()) {
       auto dy_reduce_res = reduce_as<T>(dy_res, y);
@@ -2243,9 +2253,19 @@ void minimum_grad(const Tensor& x,
                   const Tensor& out_grad,
                   Tensor* x_grad,
                   Tensor* y_grad) {
+  Tensor half_tensor;
+  if (x_grad || y_grad) {
+    auto equal_tensor = cast<T>(equal<T>(x, y), out_grad.dtype());
+    auto two_tensor = full<T>(common::vectorize(out_grad.dims()),
+                              2.0,
+                              out_grad.dtype(),
+                              out_grad.place());
+    half_tensor = (out_grad / two_tensor) * equal_tensor;
+  }
+
   if (x_grad) {
     auto x_tmp = cast<T>(less_than<T>(x, y), out_grad.dtype());
-    auto dx_res = out_grad * x_tmp;
+    auto dx_res = out_grad * x_tmp + half_tensor;
     if (has_dynamic_shape(x.shape()) || has_dynamic_shape(out_grad.shape()) ||
         out_grad.dims() != x.dims()) {
       auto dx_reduce_res = reduce_as<T>(dx_res, x);
@@ -2256,8 +2276,8 @@ void minimum_grad(const Tensor& x,
   }
 
   if (y_grad) {
-    auto y_tmp = cast<T>(greater_equal<T>(x, y), out_grad.dtype());
-    auto dy_res = out_grad * y_tmp;
+    auto y_tmp = cast<T>(greater_than<T>(x, y), out_grad.dtype());
+    auto dy_res = out_grad * y_tmp + half_tensor;
     if (has_dynamic_shape(y.shape()) || has_dynamic_shape(out_grad.shape()) ||
         out_grad.dims() != y.dims()) {
       auto dy_reduce_res = reduce_as<T>(dy_res, y);
