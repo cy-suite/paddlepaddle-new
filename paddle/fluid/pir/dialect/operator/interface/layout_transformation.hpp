@@ -18,6 +18,7 @@
 
 #include "paddle/common/enforce.h"
 #include "paddle/common/layout.h"
+#include "paddle/fluid/pir/dialect/operator/interface/infermeta.h"
 #include "paddle/phi/common/data_type.h"
 #include "paddle/pir/include/core/builtin_attribute.h"
 #include "paddle/pir/include/core/builtin_type.h"
