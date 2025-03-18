@@ -41,6 +41,9 @@ SpmdInfo ExpandGradInferSpmd(const DistMetaTensor& x,
                              const IntArray& shape) {
   EXTRACT_SHAPE_AND_DIST_ATTR(x);
   EXTRACT_SHAPE_AND_DIST_ATTR(out_grad);
+  if (x_shape.size() == out_grad_shape.size()) {
+    return {{x_dist_attr_src, out_grad_dist_attr_src}, {x_dist_attr_src}};
+  }
   size_t axis =
       std::abs(static_cast<int>(out_grad.dims().size() - x.dims().size()));
   std::vector<int64_t> x_grad_dims_mapping;
