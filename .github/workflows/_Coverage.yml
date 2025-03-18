@@ -313,11 +313,11 @@ jobs:
       with:
         files: ./build/coverage-diff.info,./build/python-coverage-diff.info
 
-    - name: Terminate and delete the container
-      if: always()
-      run: |
-        set +e
-        rm -rf * .[^.]*
-        docker exec -t ${{ env.container_name }} /bin/bash -c 'rm -rf * .[^.]*'
-        docker stop ${{ env.container_name }}
-        docker rm ${{ env.container_name }}
+    # - name: Terminate and delete the container
+    #   if: always()
+    #   run: |
+    #     set +e
+    #     rm -rf * .[^.]*
+    #     docker exec -t ${{ env.container_name }} /bin/bash -c 'rm -rf * .[^.]*'
+    #     docker stop ${{ env.container_name }}
+    #     docker rm ${{ env.container_name }}
