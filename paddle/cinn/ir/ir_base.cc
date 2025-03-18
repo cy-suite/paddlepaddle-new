@@ -665,7 +665,7 @@ void IrNode::convert_int64_to_int32() {
   }
 }
 
-void TryElevateInt32ToInt64(std::vector<Expr> expr_vec) {
+void TryElevateInt32ToInt64_(std::vector<Expr> &expr_vec) {  // NOLINT
   Type type = expr_vec.front()->type();
   for (const Expr &expr : expr_vec) {
     if (expr->type() == Int(64)) {
@@ -711,9 +711,6 @@ std::vector<Expr> TryElevateInt32ToInt64(const std::vector<Expr> &expr_vec) {
 
 void ElevateInt64ToInt32_(Expr &expr) {  // NOLINT
   if (!expr.is_index()) return;
-  // TODO(liujinnan): Delete dynamic shape judgment after opening dynamic shape
-  // longlong2int pass.
-  if (expr.as_index().IsDynamic()) return;
   if (expr->type() != Int(64))
     if (expr->type() != Int(32))
       PADDLE_ENFORCE_EQ(expr->type().is_unk(),
@@ -735,6 +732,12 @@ void ElevateInt64ToInt32_(Expr &expr) {  // NOLINT
       expr = ir::Cast::Make(Int(32), expr);
     }
   }
+}
+
+Expr ElevateInt64ToInt32(const Expr &expr) {
+  ir::Expr result = expr;
+  ElevateInt64ToInt32_(result);
+  return result;
 }
 
 void ElevateInt64ToInt32_(std::vector<Expr> &expr_vec) {  // NOLINT
