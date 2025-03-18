@@ -9,6 +9,7 @@ on:
 env:
   BRANCH: ${{ github.base_ref }}
   GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  AGILE_REVISION: ${{ github.event.pull_request.head.sha }}
 
 jobs:
   check-approval:
@@ -18,8 +19,8 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Display Required Approvers
+      - name: Display required approvers and check
         run: |
           git remote add upstream https://github.com/PaddlePaddle/Paddle.git
           git fetch upstream $BRANCH
-          bash -x tools/check_file_diff_approvals.sh
+          bash tools/check_file_diff_approvals.sh
