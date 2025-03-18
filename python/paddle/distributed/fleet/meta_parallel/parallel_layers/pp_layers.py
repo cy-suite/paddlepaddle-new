@@ -535,7 +535,7 @@ class PipelineLayer(nn.Layer):
         if self._topo.get_dim("pipe") == 1:
             return
 
-        # First loop to get the pivot stage and all different shared_weight_attrs for one layer name.
+        # The first loop gets the pivot stage and all different shared_weight_attrs for one layer name.
         # Maps one layer name to all shared attrs patterns.
         layer_name_to_attrs = {}
         # Maps one layer name to the first stage idx AKA pivot.
@@ -565,7 +565,7 @@ class PipelineLayer(nn.Layer):
                     attrs.append(layer.shared_weight_attr)
                     layer_name_to_attrs[layer.layer_name] = attrs
 
-        # Second loop to generate comm keys and to assign stages and attrs to the comm key.
+        # The second loop generates comm keys and assigns stages and attrs to the comm key.
         # Record all unique comm keys, the comm key is generated from the layer name and the shared attrs pattern.
         # Each comm key represents a comm group.
         comm_keys = []
@@ -603,7 +603,7 @@ class PipelineLayer(nn.Layer):
                         comm_key_to_stage_idx[comm_key] = stage_idx
                         comm_key_to_shared_attrs[comm_key] = attr
 
-        # Third loop to generate comm group for each comm key.
+        # The third loop generates comm group for each comm key.
         for comm_key in comm_keys:
             shared_stages = comm_key_to_stage_idx[comm_key]
             layer_name = comm_key_to_layer_name[comm_key]
