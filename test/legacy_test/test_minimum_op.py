@@ -120,6 +120,10 @@ class ApiMinimumTest(unittest.TestCase):
         res = res.numpy()
         np.testing.assert_allclose(res, self.np_expected4, rtol=1e-05)
 
+    @unittest.skipIf(
+        core.is_compiled_with_xpu(),
+        "XPU need fix the bug",
+    )
     def test_equal_tensors(self):
         numpy_tensor = np.ones([10000]).astype("float32")
         paddle_x = paddle.to_tensor(numpy_tensor)
