@@ -48,7 +48,7 @@ struct ConcatDenseTensorByNumel {
     PADDLE_ENFORCE_EQ(
         out->numel(),
         in_numel_sum,
-        common::errors::Unimplemented("Numel of in and out must be equal"));
+        common::errors::InvalidArgument("Numel of in and out must be equal"));
 
     phi::funcs::ConcatFunctor<DeviceContext, T> concat_functor;
     concat_functor(context, in_flatten, 0, &out_flatten);
@@ -100,43 +100,6 @@ void ConcatDenseTensorByNumelWithType(
   }
 }
 
-template <>
-void ConcatDenseTensorByNumelWithType(
-    const phi::XPUContext &dev_ctx,
-    const std::vector<phi::DenseTensor> &t_list,
-    phi::DenseTensor *p_out,
-    phi::DataType type) {
-  switch (type) {
-    case phi::DataType::FLOAT16:
-      ConcatDenseTensorByNumel<phi::XPUContext, phi::dtype::float16>()(
-          dev_ctx, t_list, p_out);
-      break;
-    case phi::DataType::BFLOAT16:
-      ConcatDenseTensorByNumel<phi::XPUContext, phi::dtype::bfloat16>()(
-          dev_ctx, t_list, p_out);
-      break;
-    case phi::DataType::FLOAT32:
-      ConcatDenseTensorByNumel<phi::XPUContext, float>()(
-          dev_ctx, t_list, p_out);
-      break;
-    case phi::DataType::INT32:
-      ConcatDenseTensorByNumel<phi::XPUContext, int32_t>()(
-          dev_ctx, t_list, p_out);
-      break;
-    case phi::DataType::INT64:
-      ConcatDenseTensorByNumel<phi::XPUContext, int64_t>()(
-          dev_ctx, t_list, p_out);
-      break;
-    case phi::DataType::UINT8:
-      ConcatDenseTensorByNumel<phi::XPUContext, uint8_t>()(
-          dev_ctx, t_list, p_out);
-      break;
-    default:
-      PADDLE_THROW(common::errors::Unimplemented(
-          "Data type (%s) is not supported when it concats tensors.", type));
-  }
-}
-
 template <typename DeviceContext, typename T>
 struct SplitDenseTensorByNumel {
   void operator()(const DeviceContext &context,
@@ -165,7 +128,7 @@ struct SplitDenseTensorByNumel {
     PADDLE_ENFORCE_EQ(
         in.numel(),
         out_numel_sum,
-        common::errors::Unimplemented("Numel of in and out must be equal"));
+        common::errors::InvalidArgument("Numel of in and out must be equal"));
 
     phi::funcs::SplitFunctor<DeviceContext, T> split_functor;
     split_functor(context, in_flatten, shape_refer, 0, &out_p_list);
@@ -213,84 +176,12 @@ void SplitDenseTensorByNumelWithType(const DeviceContext &dev_ctx,
   }
 }
 
-template <>
-void SplitDenseTensorByNumelWithType(const phi::XPUContext &dev_ctx,
-                                     const phi::DenseTensor &t_in,
-                                     std::vector<phi::DenseTensor> *t_list,
-                                     phi::DataType type) {
-  switch (type) {
-    case phi::DataType::FLOAT16:
-      SplitDenseTensorByNumel<phi::XPUContext, phi::dtype::float16>()(
-          dev_ctx, t_in, t_list);
-      break;
-    case phi::DataType::BFLOAT16:
-      SplitDenseTensorByNumel<phi::XPUContext, phi::dtype::bfloat16>()(
-          dev_ctx, t_in, t_list);
-      break;
-    case phi::DataType::FLOAT32:
-      SplitDenseTensorByNumel<phi::XPUContext, float>()(dev_ctx, t_in, t_list);
-      break;
-    case phi::DataType::INT32:
-      SplitDenseTensorByNumel<phi::XPUContext, int32_t>()(
-          dev_ctx, t_in, t_list);
-      break;
-    case phi::DataType::INT64:
-      SplitDenseTensorByNumel<phi::XPUContext, int64_t>()(
-          dev_ctx, t_in, t_list);
-      break;
-    case phi::DataType::UINT8:
-      SplitDenseTensorByNumel<phi::XPUContext, uint8_t>()(
-          dev_ctx, t_in, t_list);
-      break;
-    default:
-      PADDLE_THROW(common::errors::Unimplemented(
-          "Data type (%s) is not supported when it splits tensors.", type));
-  }
-}
-
 void ConcatTensorByNumel(const phi::DeviceContext &dev_ctx,
                          const std::vector<phi::DenseTensor> &tensor_list,
-                         phi::DenseTensor *tensor) {
-  const auto &place = dev_ctx.GetPlace();
-  if (phi::is_xpu_place(place)) {
-#ifdef PADDLE_WITH_XPU
-    ConcatDenseTensorByNumelWithType(
-        static_cast<const phi::XPUContext &>(dev_ctx),
-        tensor_list,
-        tensor,
-        tensor->dtype());
-#else
-    PADDLE_THROW(common::errors::PermissionDenied(
-        "Paddle can't concat tensor since it's not support XPU, please "
-        "recompile or reinstall Paddle with XPU support."));
-#endif
-  } else {
-    PADDLE_THROW(common::errors::Unimplemented(
-        "Concat tensor by numel not supported on place (%s)", place));
-  }
-}
+                         phi::DenseTensor *tensor);
 
 void SplitTensorByNumel(const phi::DeviceContext &dev_ctx,
                         const phi::DenseTensor &tensor,
-                        std::vector<phi::DenseTensor> *tensor_list) {
-  const auto &place = dev_ctx.GetPlace();
-  if (phi::is_xpu_place(place)) {
-#ifdef PADDLE_WITH_XPU
-    SplitDenseTensorByNumelWithType(
-        static_cast<const phi::XPUContext &>(dev_ctx),
-        tensor,
-        tensor_list,
-        tensor.dtype());
-#else
-    PADDLE_THROW(common::errors::PermissionDenied(
-        "Paddle can't split tensor since it's not compiled with XPU, "
-        "please recompile or reinstall Paddle with XPU support."));
-#endif
-  } else {
-    PADDLE_THROW(common::errors::Unimplemented(
-        "Split tensor by numel not supported on place (%s)", place));
-  }
-}
-
+                        std::vector<phi::DenseTensor> *tensor_list);
 }  // namespace distributed
 }  // namespace paddle
