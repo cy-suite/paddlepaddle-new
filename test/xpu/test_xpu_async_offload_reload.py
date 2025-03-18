@@ -148,4 +148,3 @@ class TestSaveLoadLargeParameters(unittest.TestCase):
 if __name__ == '__main__':
     # print("Default Paddle device:", paddle.get_device())
     unittest.main()
-
