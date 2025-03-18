@@ -48,7 +48,7 @@
   kernel :
     func : fused_elementwise_add
   traits : pir::BinaryElementWiseTrait
-   interfaces: paddle::dialect::LayoutTransformationInterface
+  interfaces: paddle::dialect::LayoutTransformationInterface
 
 - op : fused_elementwise_div
   args : (Tensor x, Tensor y, int axis=-1, str fuse_activation="", float fuse_alpha=0.0, float fuse_beta=0.0, float fused_output_scale=1.0, int[] fused_unsqueeze2_axes={}, float scale_x=1.0, float scale_y=1.0, float scale_out=1.0)
@@ -59,7 +59,7 @@
   kernel :
     func : fused_elementwise_div
   traits : pir::BinaryElementWiseTrait
-   interfaces: paddle::dialect::LayoutTransformationInterface
+  interfaces: paddle::dialect::LayoutTransformationInterface
 
 - op : fused_elementwise_mul
   args : (Tensor x, Tensor y, int axis=-1, str fuse_activation="", float fuse_alpha=0.0, float fuse_beta=0.0, float fused_output_scale=1.0, int[] fused_unsqueeze2_axes={}, float scale_x=1.0, float scale_y=1.0, float scale_out=1.0)
@@ -70,7 +70,7 @@
   kernel :
     func : fused_elementwise_mul
   traits : pir::BinaryElementWiseTrait
-   interfaces: paddle::dialect::LayoutTransformationInterface
+  interfaces: paddle::dialect::LayoutTransformationInterface
 
 - op : fused_elementwise_sub
   args : (Tensor x, Tensor y, int axis=-1, str fuse_activation="", float fuse_alpha=0.0, float fuse_beta=0.0, float fused_output_scale=1.0, int[] fused_unsqueeze2_axes={}, float scale_x=1.0, float scale_y=1.0, float scale_out=1.0)
@@ -81,7 +81,7 @@
   kernel :
     func : fused_elementwise_sub
   traits : pir::BinaryElementWiseTrait
-   interfaces: paddle::dialect::LayoutTransformationInterface
+  interfaces: paddle::dialect::LayoutTransformationInterface
 
 - op : fused_matmul
   args : (Tensor x, Tensor y, Tensor residual_data, bool trans_x=false, bool trans_y=false, float matmul_alpha=1.0, str fuse_activation="", float fuse_alpha=0.0, float fuse_beta=0.0, float fused_output_scale=1.0, int[] fused_reshape_x={}, int[] fused_transpose_x={}, int[] fused_reshape_y={}, int[] fused_transpose_y={}, int[] fused_reshape_out={}, int[] fused_transpose_out={}, str mkldnn_data_type="float32", float scale_x=1.0, float scale_y=1.0, float scale_in_eltwise=0.0, float scale_out=1.0,bool force_fp32_output=false)
