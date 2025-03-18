@@ -212,14 +212,4 @@ class InstanceCheckGuard : public GuardBase {
   PyObject* expected_;
 };
 
-class StringCompareGuard : public GuardBase {
- public:
-  explicit StringCompareGuard(const char& expected) : expected_(expected) {}
-
-  bool check(PyObject* value) override;
-
- private:
-  char expected_;
-};
-
 #endif
