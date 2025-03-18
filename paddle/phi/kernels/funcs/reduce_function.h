@@ -928,8 +928,7 @@ static void LaunchReduceKernel(const Tx* x_data,
 
 template <typename Tx,
           typename Ty,
-          template <typename>
-          class ReduceOp,
+          template <typename> class ReduceOp,
           typename TransformOp>
 static
     typename std::enable_if<!std::is_same<Tx, phi::dtype::float16>::value &&
@@ -970,8 +969,7 @@ static
 
 template <typename Tx,
           typename Ty,
-          template <typename>
-          class ReduceOp,
+          template <typename> class ReduceOp,
           typename TransformOp>
 static typename std::enable_if<std::is_same<Tx, phi::dtype::float16>::value,
                                void>::type
@@ -986,8 +984,7 @@ CubTensorReduceImpl(const Tx* x_data,
 }
 template <typename Tx,
           typename Ty,
-          template <typename>
-          class ReduceOp,
+          template <typename> class ReduceOp,
           typename TransformOp>
 static typename std::enable_if<std::is_same<Tx, phi::dtype::bfloat16>::value,
                                void>::type
@@ -1004,8 +1001,7 @@ CubTensorReduceImpl(const Tx* x_data,
 
 template <typename Tx,
           typename Ty,
-          template <typename>
-          class ReduceOp,
+          template <typename> class ReduceOp,
           typename TransformOp,
           bool IsMean = false>
 struct CubTensorReduce {
@@ -1022,8 +1018,7 @@ struct CubTensorReduce {
 
 template <typename Tx,
           typename Ty,
-          template <typename>
-          class ReduceOp,
+          template <typename> class ReduceOp,
           typename TransformOp>
 struct CubTensorReduce<Tx, Ty, ReduceOp, TransformOp, true> {
   static void apply(const Tx* x_data,
@@ -1040,8 +1035,7 @@ struct CubTensorReduce<Tx, Ty, ReduceOp, TransformOp, true> {
 
 template <typename Tx,
           typename Ty,
-          template <typename>
-          class ReduceOp,
+          template <typename> class ReduceOp,
           typename TransformOp,
           bool IsMean = false>
 void ReduceKernel(const KPDevice& dev_ctx,
@@ -1049,10 +1043,11 @@ void ReduceKernel(const KPDevice& dev_ctx,
                   phi::DenseTensor* y,
                   const TransformOp& transform,
                   const std::vector<int>& origin_reduce_dims) {
-  PADDLE_ENFORCE_GT(x.numel(),
+  PADDLE_ENFORCE_GE(input.numel(),
                     0,
                     common::errors::InvalidArgument(
-                        "Tensor need be reduced must not empty."));
+                        "The input size (numel) of reduce op should be larger "
+                        "than or equal to 0"));
 #ifdef PADDLE_WITH_XPU_KP
   auto stream = dev_ctx.x_context()->xpu_stream;
 #else
@@ -1199,8 +1194,7 @@ void ReduceKernel(const KPDevice& dev_ctx,
 
 template <typename Tx,
           typename Ty,
-          template <typename>
-          class ReduceOp,
+          template <typename> class ReduceOp,
           typename TransformOp,
           bool IsMean = false>
 void TensorReduceImpl(const phi::GPUContext& dev_ctx,
