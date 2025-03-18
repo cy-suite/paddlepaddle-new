@@ -51,19 +51,11 @@ bool ShapeConstraintManager::IsEqual(const ir::IndexExpr& lhs,
                                      const ir::IndexExpr& rhs) {
   return equal_exprs_.HasSameRoot(lhs, rhs);
 }
-const ::common::UnionFindSet<symbol::DimExpr>&
-ShapeConstraintManager::GetDimExprEqual() const {
-  return equal_dim_exprs_;
-}
-const ::common::UnionFindSet<ir::IndexExpr, IndexExprDirectCompare>&
-ShapeConstraintManager::GetEqualExprs() const {
-  return equal_exprs_;
-}
 
 std::ostream& operator<<(std::ostream& stream,
                          const ShapeConstraintManager& constraints_manager) {
   stream << "----------Equal Constraints Expr Clusters---------" << std::endl;
-  constraints_manager.GetEqualExprs().VisitCluster([&](const auto& cluster) {
+  constraints_manager.equal_exprs_.VisitCluster([&](const auto& cluster) {
     stream << "  {" << std::endl;
     for (const auto& expr : cluster) {
       stream << "  " << expr << std::endl;
@@ -72,7 +64,7 @@ std::ostream& operator<<(std::ostream& stream,
   });
   stream << "--------------------------------------------------" << std::endl;
   stream << "--------Equal Constraints DimExpr Clusters--------" << std::endl;
-  constraints_manager.GetDimExprEqual().VisitCluster([&](const auto& cluster) {
+  constraints_manager.equal_dim_exprs_.VisitCluster([&](const auto& cluster) {
     stream << "  {" << std::endl;
     for (const auto& dim_expr : cluster) {
       stream << "  " << dim_expr << std::endl;
