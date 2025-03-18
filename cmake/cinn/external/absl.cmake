@@ -41,6 +41,7 @@ ExternalProject_Add(
     -DCMAKE_BUILD_TYPE:STRING=${THIRD_PARTY_BUILD_TYPE}
   BUILD_BYPRODUCTS ${ABSL_INSTALL_DIR}/lib/libabsl_base.a
   BUILD_BYPRODUCTS ${ABSL_INSTALL_DIR}/lib/libabsl_hash.a
+  BUILD_BYPRODUCTS ${ABSL_INSTALL_DIR}/lib/libabsl_string_view.a
   BUILD_BYPRODUCTS ${ABSL_INSTALL_DIR}/lib/libabsl_low_level_hash.a
   BUILD_BYPRODUCTS ${ABSL_INSTALL_DIR}/lib/libabsl_demangle_internal.a
   BUILD_BYPRODUCTS ${ABSL_INSTALL_DIR}/lib/libabsl_raw_logging_internal.a
@@ -55,6 +56,7 @@ ExternalProject_Add(
 # It may be more convenient if we just include all absl libs
 set(ABSL_LIB_NAMES
     hash
+    string_view
     low_level_hash
     demangle_internal
     raw_logging_internal
