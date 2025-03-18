@@ -1069,6 +1069,84 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupCustom::AllToAll(
       CommType::ALLTOALL);
 }
 
+std::shared_ptr<ProcessGroup::Task> ProcessGroupCustom::AllToAll(
+    std::vector<phi::DenseTensor>* out_tensors,
+    const std::vector<phi::DenseTensor>& in_tensors,
+    bool sync_op,
+    bool use_calc_stream) {
+  CheckTensorContiguous(in_tensors);
+  CheckTensorContiguous(*out_tensors);
+  phi::distributed::CommStaticCheck::CheckDataType(*out_tensors, in_tensors);
+
+  PADDLE_ENFORCE_EQ(
+      CheckTensorsInCustomPlace(in_tensors, device_type_),
+      true,
+      common::errors::InvalidArgument("All inputs should be in CustomPlace."));
+  PADDLE_ENFORCE_EQ(
+      CheckTensorsInCustomPlace(out_tensors, device_type_),
+      true,
+      common::errors::InvalidArgument("All inputs should be in CustomPlace."));
+
+  PADDLE_ENFORCE_EQ(
+      out_tensors->size(),
+      size_,
+      common::errors::InvalidArgument(
+          "Number of out tensors[%d] do not match the world size[%d].",
+          out_tensors->size(),
+          size_));
+  PADDLE_ENFORCE_EQ(
+      in_tensors.size(),
+      size_,
+      common::errors::InvalidArgument(
+          "Number of in tensors[%d] do not match the world size[%d].",
+          in_tensors.size(),
+          size_));
+
+  // NOTE: Since `all_to_all` needs other processes' participation, it cannot
+  // simply be covered by static checks. Factors are set to 0 here to skip the
+  // shape check. Its shape check will be done by dynamic checks with
+  // FLAGS_enable_xccl_dynamic_check.
+  return RunFnInXCCLEnv(
+      [&](const phi::stream::Stream& stream) {
+        auto comm_context = this->GetCommContext();
+
+        int64_t in_offset = 0, in_numel = 0, out_offset = 0, out_numel = 0;
+
+        std::vector<void*> send_buf, recv_buf;
+        std::vector<size_t> send_count, recv_count;
+        std::vector<phi::DataType> send_dtype, recv_dtype;
+        for (auto i = 0; i < size_; i++) {
+          in_numel = in_tensors[i].numel();
+          out_numel = (*out_tensors)[i]->numel();
+          in_offset += in_numel;
+          out_offset += out_numel;
+          send_buf.push_back(in_tensors[i].data());
+          recv_buf.push_back((*out_tensors)[i].data());
+          send_count.push_back(in_numel);
+          recv_count.push_back(out_numel);
+          send_dtype.push_back(in_tensors[i].dtype());
+          recv_dtype.push_back((*out_tensors)[i].dtype());
+        }
+
+        phi::DeviceManager::CCLAllToAll(
+            device_type_,
+            const_cast<const void**>(send_buf.data()),
+            send_count.data(),
+            send_dtype.data(),
+            recv_buf.data(),
+            recv_count.data(),
+            recv_dtype.data(),
+            rank_,
+            size_,
+            comm_context->GetXcclComm(),
+            stream);
+      },
+      in_tensor,
+      CommType::ALLTOALL,
+      sync_op,
+      use_calc_stream);
+}
+
 std::shared_ptr<ProcessGroup::Task> ProcessGroupCustom::Reduce(
     std::vector<phi::DenseTensor>& in_tensors,
     std::vector<phi::DenseTensor>& out_tensors,

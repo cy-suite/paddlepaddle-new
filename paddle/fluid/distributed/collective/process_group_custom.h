@@ -112,6 +112,12 @@ class ProcessGroupCustom final : public ProcessGroupWithStream {
       bool sync_op,
       bool use_calc_stream) override;
 
+  std::shared_ptr<ProcessGroup::Task> AllToAll(
+      std::vector<phi::DenseTensor>* out_tensors,
+      const std::vector<phi::DenseTensor>& in_tensors,
+      bool sync_op,
+      bool use_calc_stream) override;
+
   std::shared_ptr<ProcessGroup::Task> Barrier(
       const BarrierOptions& = BarrierOptions()) override;
 

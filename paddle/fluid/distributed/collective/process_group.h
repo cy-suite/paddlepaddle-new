@@ -14,6 +14,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <chrono>
 #include <memory>
 #include <optional>
@@ -62,6 +63,26 @@ static void CheckTensorContiguous(const std::vector<phi::DenseTensor>& inputs) {
           common::errors::InvalidArgument("The tensor must be contiguous"));
     }
   }
+}
+
+static std::vector<int64_t> GetAllToAllSplitSizes(
+    const std::vector<phi::DenseTensor>& tensors) {
+  std::vector<int64_t> split_sizes(tensors.size());
+  std::transform(tensors.begin(),
+                 tensors.end(),
+                 split_sizes.begin(),
+                 [](const phi::DenseTensor& tensor) { return tensor.numel(); });
+  return split_sizes;
+}
+
+static std::vector<const void*> GetTensorPtrs(
+    const std::vector<phi::DenseTensor>& tensors) {
+  std::vector<const void*> tensor_ptrs(tensors.size());
+  std::transform(tensors.begin(),
+                 tensors.end(),
+                 tensor_ptrs.begin(),
+                 [](const phi::DenseTensor& tensor) { return tensor.data(); });
+  return tensor_ptrs;
 }
 
 }  //  namespace distributed

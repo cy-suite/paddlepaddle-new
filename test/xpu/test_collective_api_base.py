@@ -280,14 +280,14 @@ class TestDistBase(unittest.TestCase):
         tr1_pipe = open(path1, "w")
         tr0_proc = subprocess.Popen(
             tr0_cmd.strip().split(),
-            stdout=subprocess.PIPE,
+            # stdout=subprocess.PIPE,
             # stderr=tr0_pipe,
             env=env0,
         )
 
         tr1_proc = subprocess.Popen(
             tr0_cmd.strip().split(),
-            stdout=subprocess.PIPE,
+            # stdout=subprocess.PIPE,
             # stderr=tr1_pipe,
             env=env1,
         )
@@ -299,8 +299,8 @@ class TestDistBase(unittest.TestCase):
         # close trainer file
         tr0_pipe.close()
         tr1_pipe.close()
-        sys.stdout.write(f'trainer 0 stdout: {tr0_out}\n')
-        sys.stdout.write(f'trainer 1 stdout: {tr1_out}\n')
+        sys.stdout.write(f'trainer 0 stdout: {tr0_out.decode("utf-8")}\n')
+        sys.stdout.write(f'trainer 1 stdout: {tr1_out.decode("utf-8")}\n')
         with open(path0, "r") as f:
             sys.stderr.write(f'trainer 0 stderr file: {f.read()}\n')
         with open(path1, "r") as f:

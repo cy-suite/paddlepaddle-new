@@ -160,6 +160,41 @@ void NCCLDynamicCheck::CheckShape(const phi::DenseTensor& out_tensor,
   }
 }
 
+void NCCLDynamicCheck::CheckAlltoAllShape(
+    const std::vector<phi::DenseTensor>& out_tensor,
+    const std::vector<phi::DenseTensor>& in_tensor,
+    int cur_rank,
+    int world_size,
+    ncclComm_t comm) {
+  CheckDataType(in_tensor[0], /*root_rank*/ 0, cur_rank, comm);
+  for (int rank = 0; rank < world_size; ++rank) {
+    CheckDataType(out_tensor[rank], /*roo_rank*/ rank, cur_rank, comm);
+    CheckDataType(in_tensor[rank], in_tensor[0].dtype());
+    CheckDataType(out_tensor[rank], in_tensor[0].dtype());
+
+    int64_t in_shape_host = in_tensor[rank].numel();
+    int64_t* in_shape_device;
+    PADDLE_ENFORCE_GPU_SUCCESS(gpuMalloc(&in_shape_device, kSize));
+    PADDLE_ENFORCE_GPU_SUCCESS(gpuMemcpy(
+        in_shape_device, &in_shape_host, kSize, gpuMemcpyHostToDevice));
+    PADDLE_ENFORCE_GPU_SUCCESS(phi::dynload::ncclReduce(in_shape_device,
+                                                        in_shape_device,
+                                                        1,
+                                                        ncclInt64,
+                                                        ncclSum,
+                                                        rank,
+                                                        comm,
+                                                        kDefaultStream));
+    if (rank == cur_rank) {
+      PADDLE_ENFORCE_GPU_SUCCESS(gpuMemcpy(
+          &in_shape_host, in_shape_device, kSize, gpuMemcpyDeviceToHost));
+      VLOG(3) << "Dynamic check recv metadata, shape: " << in_shape_host;
+      CheckShape(out_tensor[rank], in_shape_host);
+    }
+    PADDLE_ENFORCE_GPU_SUCCESS(gpuFree(in_shape_device));
+  }
+}
+
 void NCCLDynamicCheck::CheckGatherShape(
     const phi::DenseTensor& in_tensor,
     const std::vector<phi::DenseTensor>& out_tensors,

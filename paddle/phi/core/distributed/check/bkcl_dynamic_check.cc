@@ -109,4 +109,44 @@ void BKCLDynamicCheck::CheckShape(const phi::DenseTensor& out_tensor,
   }
 }
 
+void BKCLDynamicCheck::CheckAlltoAllShape(
+    const std::vector<phi::DenseTensor>& out_tensor,
+    const std::vector<phi::DenseTensor>& in_tensor,
+    int cur_rank,
+    int world_size,
+    ncclComm_t comm) {
+  CheckDataType(in_tensor[0], /*root_rank*/ 0, cur_rank, comm);
+  for (int rank = 0; rank < world_size; ++rank) {
+    CheckDataType(in_tensor[rank], in_tensor[0].dtype());
+    CheckDataType(out_tensor[rank], in_tensor[0].dtype());
+
+    int64_t in_shape_host = in_tensor[rank].numel();
+    int64_t* in_shape_device;
+    PADDLE_ENFORCE_XPU_SUCCESS(
+        xpu_malloc(reinterpret_cast<void**>(&in_shape_device), kSize));
+    PADDLE_ENFORCE_XPU_SUCCESS(xpu_memcpy(in_shape_device,
+                                          &in_shape_host,
+                                          kSize,
+                                          XPUMemcpyKind::XPU_HOST_TO_DEVICE));
+    PADDLE_ENFORCE_XPU_SUCCESS(bkcl_reduce(comm,
+                                           in_shape_device,
+                                           in_shape_device,
+                                           1,
+                                           BKCL_INT64,
+                                           BKCL_ADD,
+                                           rank,
+                                           0));
+    if (rank == cur_rank) {
+      PADDLE_ENFORCE_XPU_SUCCESS(xpu_wait());
+      PADDLE_ENFORCE_XPU_SUCCESS(xpu_memcpy(&in_shape_host,
+                                            in_shape_device,
+                                            kSize,
+                                            XPUMemcpyKind::XPU_DEVICE_TO_HOST));
+      VLOG(3) << "Dynamic check recv metadata, shape: " << in_shape_host;
+      CheckShape(out_tensor[rank], in_shape_host);
+    }
+    PADDLE_ENFORCE_XPU_SUCCESS(xpu_free(in_shape_device));
+  }
+}
+
 }  // namespace phi::distributed

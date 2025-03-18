@@ -17,6 +17,7 @@
 #include "paddle/common/errors.h"
 #include "paddle/fluid/distributed/collective/bkcl_tools.h"
 #include "paddle/fluid/distributed/collective/common.h"
+#include "paddle/fluid/distributed/collective/process_group_kernel_utils.h"
 #include "paddle/phi/api/lib/utils/allocator.h"
 #include "paddle/phi/core/device_context.h"
 #include "paddle/phi/core/distributed/check/bkcl_dynamic_check.h"
@@ -520,6 +521,173 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupBKCL::AllToAll(
         }
       },
       in_tensor,
+      CommType::ALLTOALL,
+      sync_op,
+      use_calc_stream);
+}
+
+std::shared_ptr<ProcessGroup::Task> ProcessGroupBKCL::AllToAll(
+    std::vector<phi::DenseTensor>* out_tensors,
+    const std::vector<phi::DenseTensor>& in_tensors,
+    bool sync_op,
+    bool use_calc_stream) {
+  CheckTensorContiguous(in_tensors);
+  CheckTensorContiguous(*out_tensors);
+  phi::distributed::CommStaticCheck::CheckDataType(*out_tensors, in_tensors);
+
+  PADDLE_ENFORCE_EQ(
+      out_tensors->size(),
+      size_,
+      common::errors::InvalidArgument(
+          "Number of out tensors[%d] do not match the world size[%d].",
+          out_tensors->size(),
+          size_));
+  PADDLE_ENFORCE_EQ(
+      in_tensors.size(),
+      size_,
+      common::errors::InvalidArgument(
+          "Number of in tensors[%d] do not match the world size[%d].",
+          in_tensors.size(),
+          size_));
+
+  // AllToAllUnequalSplit requires allocating temporary memory and must use
+  // calc_stream to ensure the correct lifecycle management of the temporary
+  // tensor.
+  if (!use_calc_stream) {
+    VLOG(3) << "For XPU, Communication on non-calc stream has minor effect on "
+               "performance and might be conflict with streams in calc_ctx, so "
+               "we disable it currently.";
+    use_calc_stream = true;
+  }
+  return Collective(
+      [&](phi::distributed::BKCLCommContext* comm_context, XPUStream stream) {
+        if (FLAGS_enable_bkcl_dynamic_check) {
+          phi::distributed::BKCLDynamicCheck::CheckAlltoAllShape(
+              *out_tensors,
+              in_tensors,
+              rank_,
+              size_,
+              comm_context->GetBKCLComm());
+        }
+
+        VLOG(3) << "[AllToAll] "
+                << "sendbuff: "
+                << string::join_strings(GetTensorPtrs(in_tensors), ',')
+                << ", recvbuff: "
+                << string::join_strings(GetTensorPtrs(*out_tensors), ',')
+                << ", datatype: "
+                << BKCLDTypeToString(phi::ToBKCLDataType(in_tensors[0].dtype()))
+                << ", bkcl_comm: " << comm_context->GetBKCLComm()
+                << ", stream: " << stream << ", rank_in_group: " << rank_
+                << ", nranks: " << size_ << ", out_split_sizes: "
+                << string::join_strings(GetAllToAllSplitSizes(*out_tensors),
+                                        ',')
+                << ", in_split_sizes: "
+                << string::join_strings(GetAllToAllSplitSizes(in_tensors), ',')
+                << ", sync_op: " << sync_op
+                << ", use_calc_stream: " << use_calc_stream;
+
+        int64_t nranks = size_;
+        int64_t in_numel_sum = 0;
+        int64_t out_numel_sum = 0;
+
+        for (int64_t i = 0; i < nranks; i++) {
+          in_numel_sum += in_tensors[i].numel();
+          out_numel_sum += (*out_tensors)[i].numel();
+        }
+
+        if (in_numel_sum > 0 || out_numel_sum > 0) {
+          std::vector<int64_t> in_numel_vec(nranks);
+          std::vector<int64_t> in_offset_vec(nranks);
+          std::vector<int64_t> out_numel_vec(nranks);
+          std::vector<int64_t> out_offset_vec(nranks);
+
+          int64_t in_offset = 0;
+          int64_t out_offset = 0;
+          for (int64_t i = 0; i < nranks; i++) {
+            int64_t in_numel = in_tensors[i].numel();
+            int64_t out_numel = (*out_tensors)[i].numel();
+
+            in_numel_vec[i] = in_numel;
+            in_offset_vec[i] = in_offset;
+            in_offset += in_numel;
+
+            out_numel_vec[i] = out_numel;
+            out_offset_vec[i] = out_offset;
+            out_offset += out_numel;
+          }
+
+          PADDLE_ENFORCE_GE(
+              in_tensors[0].place().GetDeviceId(),
+              0,
+              common::errors::PreconditionNotMet(
+                  "The all_to_all device id must greater or equal than 0."));
+          phi::XPUPlace place = in_tensors[0].place();
+          auto allocator = std::unique_ptr<phi::Allocator>(
+              new paddle::experimental::DefaultAllocator(place));
+
+          phi::DenseTensorMeta concated_in_tensor_meta(in_tensors[0].dtype(),
+                                                       phi::DDim{in_numel_sum});
+          phi::DenseTensorMeta concated_out_tensor_meta(
+              (*out_tensors)[0].dtype(), phi::DDim{out_numel_sum});
+          phi::DenseTensorMeta split_meta(phi::DataType::INT64,
+                                          phi::DDim{nranks});
+
+          phi::DenseTensor concated_in_tensor = {allocator.get(),
+                                                 concated_in_tensor_meta};
+          phi::DenseTensor concated_out_tensor = {allocator.get(),
+                                                  concated_out_tensor_meta};
+          phi::DenseTensor in_size_tensor = {allocator.get(), split_meta};
+          phi::DenseTensor in_offset_tensor = {allocator.get(), split_meta};
+          phi::DenseTensor out_size_tensor = {allocator.get(), split_meta};
+          phi::DenseTensor out_offset_tensor = {allocator.get(), split_meta};
+
+          if (in_numel_sum > 0) {
+            ConcatTensorByNumel(*GetDeviceContext(place, use_calc_stream),
+                                in_tensors,
+                                &concated_in_tensor);
+          }
+
+          memory::Copy(place,
+                       in_size_tensor.data(),
+                       phi::CPUPlace(),
+                       in_numel_vec.data(),
+                       in_size_tensor.numel() * sizeof(int64_t));
+
+          memory::Copy(place,
+                       in_offset_tensor.data(),
+                       phi::CPUPlace(),
+                       in_offset_vec.data(),
+                       in_offset_tensor.numel() * sizeof(int64_t));
+
+          memory::Copy(place,
+                       out_size_tensor.data(),
+                       phi::CPUPlace(),
+                       out_numel_vec.data(),
+                       out_size_tensor.numel() * sizeof(int64_t));
+
+          memory::Copy(place,
+                       out_offset_tensor.data(),
+                       phi::CPUPlace(),
+                       out_offset_vec.data(),
+                       out_offset_tensor.numel() * sizeof(int64_t));
+
+          comm_context->AllToAllUnequalSplit(&concated_out_tensor,
+                                             concated_in_tensor,
+                                             out_size_tensor,
+                                             out_offset_tensor,
+                                             in_size_tensor,
+                                             in_offset_tensor,
+                                             stream);
+
+          if (out_numel_sum > 0) {
+            SplitTensorByNumel(*GetDeviceContext(place, use_calc_stream),
+                               concated_out_tensor,
+                               out_tensors);
+          }
+        }
+      },
+      in_tensors[0],
       CommType::ALLTOALL,
       sync_op,
       use_calc_stream);

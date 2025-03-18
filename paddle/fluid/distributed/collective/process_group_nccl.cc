@@ -382,6 +382,80 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::AllToAll(
       use_calc_stream);
 }
 
+std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::AllToAll(
+    std::vector<phi::DenseTensor>* out_tensors,
+    const std::vector<phi::DenseTensor>& in_tensors,
+    bool sync_op,
+    bool use_calc_stream) {
+  CheckTensorContiguous(in_tensors);
+  CheckTensorContiguous(*out_tensors);
+  phi::distributed::CommStaticCheck::CheckDataType(*out_tensors, in_tensors);
+
+  PADDLE_ENFORCE_EQ(
+      out_tensors->size(),
+      size_,
+      common::errors::InvalidArgument(
+          "Number of out tensors[%d] do not match the world size[%d].",
+          out_tensors->size(),
+          size_));
+  PADDLE_ENFORCE_EQ(
+      in_tensors.size(),
+      size_,
+      common::errors::InvalidArgument(
+          "Number of in tensors[%d] do not match the world size[%d].",
+          in_tensors.size(),
+          size_));
+
+  return Collective(
+      [&](phi::distributed::NCCLCommContext* comm_context, gpuStream_t stream) {
+        if (FLAGS_enable_nccl_dynamic_check) {
+          phi::distributed::NCCLDynamicCheck::CheckAlltoAllShape(
+              *out_tensors,
+              in_tensors,
+              rank_,
+              size_,
+              comm_context->GetNcclComm());
+        }
+
+        VLOG(3) << "[AllToAll] "
+                << "sendbuff: "
+                << string::join_strings(GetTensorPtrs(in_tensors), ',')
+                << ", recvbuff: "
+                << string::join_strings(GetTensorPtrs(*out_tensors), ',')
+                << ", datatype: "
+                << NCCLDTypeToString(phi::ToNCCLDataType(in_tensors[0].dtype()))
+                << ", ncclcomm: " << comm_context->GetNcclComm()
+                << ", stream: " << stream << ", rank_in_group: " << rank_
+                << ", nranks: " << size_ << ", out_split_sizes: "
+                << string::join_strings(GetAllToAllSplitSizes(*out_tensors),
+                                        ',')
+                << ", in_split_sizes: "
+                << string::join_strings(GetAllToAllSplitSizes(in_tensors), ',')
+                << ", sync_op: " << sync_op
+                << ", use_calc_stream: " << use_calc_stream << ", "
+                << GetGroupMessage();
+
+        GroupStart();
+        for (auto i = 0; i < size_; i++) {
+          int64_t in_numel = in_tensors[i].numel();
+          int64_t out_numel = (*out_tensors)[i].numel();
+
+          if (in_numel > 0) {
+            comm_context->Send(in_tensors[i], in_numel, i, stream);
+          }
+
+          if (out_numel > 0) {
+            comm_context->Recv(&(*out_tensors)[i], out_numel, i, stream);
+          }
+        }
+        GroupEnd();
+      },
+      in_tensors[0],
+      CommType::ALLTOALL,
+      sync_op,
+      use_calc_stream);
+}
+
 std::shared_ptr<ProcessGroup::Task> ProcessGroupNCCL::Barrier(
     const BarrierOptions& opts) {
   PADDLE_ENFORCE_GE(opts.device_id,

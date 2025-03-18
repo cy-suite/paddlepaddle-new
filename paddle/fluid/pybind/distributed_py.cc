@@ -329,40 +329,15 @@ void BindDistributed(py::module *m) {
                     CastPyArg2VectorOfTensor(py_out_tensor_list.ptr(), 0);
                 auto in_tensor_list =
                     CastPyArg2VectorOfTensor(py_in_tensor_list.ptr(), 0);
+                auto out_dense_list = ToDenseTensors(out_tensor_list);
+                auto in_dense_list = ToDenseTensors(in_tensor_list);
+
                 py::gil_scoped_release release;
 
-                std::vector<Tensor> flattened_out_tensor_list;
-                for (const auto &tensor : out_tensor_list) {
-                  flattened_out_tensor_list.push_back(
-                      paddle::reshape(tensor, {tensor.numel()}));
-                }
-                Tensor concat_out_tensor =
-                    paddle::concat(flattened_out_tensor_list, 0);
-                auto p_out_tensor = std::dynamic_pointer_cast<phi::DenseTensor>(
-                    concat_out_tensor.impl());
-                auto *out_dense = p_out_tensor.get();
-
-                std::vector<Tensor> flattened_in_tensor_list;
-                for (const auto &tensor : in_tensor_list) {
-                  flattened_in_tensor_list.push_back(
-                      paddle::reshape(tensor, {tensor.numel()}));
-                }
-                Tensor concat_in_tensor =
-                    paddle::concat(flattened_in_tensor_list, 0);
-                auto p_in_tensor = std::dynamic_pointer_cast<phi::DenseTensor>(
-                    concat_in_tensor.impl());
-                auto in_dense = *p_in_tensor;
-
                 // in_tensor_list should not be empty
-                auto task = self.AllToAll(out_dense,
-                                          in_dense,
-                                          GetSplitSizesByNumel(out_tensor_list),
-                                          GetSplitSizesByNumel(in_tensor_list),
-                                          sync_op);
-                auto *dev_ctx =
-                    self.GetDeviceContext(in_tensor_list.back().place());
-                SplitTensorByNumel(*dev_ctx, *out_dense, &out_tensor_list);
-                task->UpdateWaitChain(*dev_ctx);
+                auto task =
+                    self.AllToAll(&out_dense_list, in_dense_list, sync_op);
+
                 return task;
               },
               py::arg("out"),
@@ -920,40 +895,15 @@ void BindDistributed(py::module *m) {
                     CastPyArg2VectorOfTensor(py_out_tensor_list.ptr(), 0);
                 auto in_tensor_list =
                     CastPyArg2VectorOfTensor(py_in_tensor_list.ptr(), 0);
+                auto out_dense_list = ToDenseTensors(out_tensor_list);
+                auto in_dense_list = ToDenseTensors(in_tensor_list);
                 py::gil_scoped_release release;
 
-                std::vector<Tensor> flattened_out_tensor_list;
-                for (const auto &tensor : out_tensor_list) {
-                  flattened_out_tensor_list.push_back(
-                      paddle::reshape(tensor, {tensor.numel()}));
-                }
-                Tensor concat_out_tensor =
-                    paddle::concat(flattened_out_tensor_list, 0);
-                auto p_out_tensor = std::dynamic_pointer_cast<phi::DenseTensor>(
-                    concat_out_tensor.impl());
-                auto *out_dense = p_out_tensor.get();
-
-                std::vector<Tensor> flattened_in_tensor_list;
-                for (const auto &tensor : in_tensor_list) {
-                  flattened_in_tensor_list.push_back(
-                      paddle::reshape(tensor, {tensor.numel()}));
-                }
-                Tensor concat_in_tensor =
-                    paddle::concat(flattened_in_tensor_list, 0);
-                auto p_in_tensor = std::dynamic_pointer_cast<phi::DenseTensor>(
-                    concat_in_tensor.impl());
-                auto in_dense = *p_in_tensor;
-
                 // in_tensor_list should not be empty
-                auto task = self.AllToAll(out_dense,
-                                          in_dense,
-                                          GetSplitSizesByNumel(out_tensor_list),
-                                          GetSplitSizesByNumel(in_tensor_list),
+                auto task = self.AllToAll(&out_dense_list,
+                                          in_dense_list,
                                           /*sync_op*/ true,
                                           /*use_calc_stream*/ true);
-                auto *dev_ctx = self.GetDeviceContext(
-                    in_tensor_list.back().place(), /*use_calc_stream*/ true);
-                SplitTensorByNumel(*dev_ctx, *out_dense, &out_tensor_list);
                 return task;
               },
               py::arg("out"),
