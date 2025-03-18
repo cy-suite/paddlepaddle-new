@@ -23,6 +23,10 @@
 #include "paddle/pir/include/core/builtin_type.h"
 #include "paddle/pir/include/core/operation.h"
 #include "paddle/pir/include/core/type_name.h"
+#include "paddle/pir/include/pass/utils.h"
+#ifdef PADDLE_WITH_CINN
+#include "paddle/pir/include/dialect/shape/utils/shape_analysis.h"
+#endif
 
 #define OVERLOAD_PREFER_LAYOUT(op)                          \
   template <>                                               \
@@ -56,62 +60,12 @@ namespace paddle {
 namespace dialect {
 
 template <typename ConcreteOp>
-void RewriteByInfermeta(pir::Operation* op, common::DataLayout new_layout) {
-  std::vector<pir::Type> new_outputs = ConcreteOp::InferMeta(
-      op->operands_source(), const_cast<pir::AttributeMap*>(&op->attributes()));
-  for (size_t i = 0; i < new_outputs.size(); ++i) {
-    op->result(i).set_type(new_outputs[i]);
-  }
-
-  pir::TransLayoutCallbackFn callback = nullptr;
-#ifdef PADDLE_WITH_CINN
-  auto& shape_analysis =
-      pir::ShapeAnalysisManager::Instance().Get(op->GetParentProgram());
-  const pir::TransLayoutType trans_layout_type = [&] {
-    if (new_layout == common::DataLayout::NHWC) {
-      return pir::TransLayoutType::NCHW2NHWC;
-    }
-    if (new_layout == common::DataLayout::NHWC) {
-      return pir::TransLayoutType::NHWC2NCHW;
-    }
-    return pir::TransLayoutType::INVALID;
-  }();
-
-  if (trans_layout_type != pir::TransLayoutType::INVALID) {
-    callback = [&](pir::Value value, common::DataLayout new_layout) -> void {
-      shape_analysis.UpdateShapeOrDataByTransLayout(value, trans_layout_type);
-    };
-  }
-#endif
-  for (auto value : RelevantOutputsImpl<ConcreteOp>(op)) {
-    pir::SetNewLayoutForValue(value, new_layout, callback);
-  }
-}
-
-template <typename ConcreteOp>
 common::DataLayout PreferLayoutImpl(pir::Operation* op) {
   auto data_format_attr = op->attribute<pir::StrAttribute>("data_format");
   if (!data_format_attr) {
     return common::DataLayout::ALL_LAYOUT;
   }
   return common::StringToDataLayout(data_format_attr.AsString());
-}
-
-template <typename ConcreteOp>
-void RewriteByLayoutImpl(pir::Operation* op, common::DataLayout new_layout) {
-  if (!op->HasInterface<paddle::dialect::InferMetaInterface>()) {
-    PADDLE_THROW(common::errors::Unimplemented(
-        "Op %s should have a specialized RewriteByLayout function",
-        pir::get_type_name<ConcreteOp>()));
-  }
-
-  if (op->HasAttribute("data_format")) {
-    op->set_attribute(
-        "data_format",
-        pir::StrAttribute::get(ctx_, common::DataLayoutToString(new_layout)));
-  }
-
-  RewriteByInfermeta<ConcreteOp>(op, new_layout);
 }
 
 template <typename ConcreteOp>
@@ -149,6 +103,57 @@ bool CanBeModifiedImpl(pir::Operation* op) {
   auto cur_layout = common::StringToDataLayout(data_format_attr.AsString());
   auto prefer_layout = PreferLayoutImpl<ConcreteOp>(op);
   return cur_layout != prefer_layout;
+}
+
+template <typename ConcreteOp>
+void RewriteByInfermeta(pir::Operation* op, common::DataLayout new_layout) {
+  std::vector<pir::Type> new_outputs = ConcreteOp::InferMeta(
+      op->operands_source(), const_cast<pir::AttributeMap*>(&op->attributes()));
+  for (size_t i = 0; i < new_outputs.size(); ++i) {
+    op->result(i).set_type(new_outputs[i]);
+  }
+
+  pir::TransLayoutCallbackFn callback = nullptr;
+#ifdef PADDLE_WITH_CINN
+  auto& shape_analysis =
+      pir::ShapeAnalysisManager::Instance().Get(op->GetParentProgram());
+  const pir::TransLayoutType trans_layout_type = [&] {
+    if (new_layout == common::DataLayout::NHWC) {
+      return pir::TransLayoutType::NCHW2NHWC;
+    }
+    if (new_layout == common::DataLayout::NHWC) {
+      return pir::TransLayoutType::NHWC2NCHW;
+    }
+    return pir::TransLayoutType::INVALID;
+  }();
+
+  if (trans_layout_type != pir::TransLayoutType::INVALID) {
+    callback = [&](pir::Value value, common::DataLayout new_layout) -> void {
+      shape_analysis.UpdateShapeOrDataByTransLayout(value, trans_layout_type);
+    };
+  }
+#endif
+  for (auto value : RelevantOutputsImpl<ConcreteOp>(op)) {
+    pir::SetNewLayoutForValue(value, new_layout, callback);
+  }
+}
+
+template <typename ConcreteOp>
+void RewriteByLayoutImpl(pir::Operation* op, common::DataLayout new_layout) {
+  if (!op->HasInterface<paddle::dialect::InferMetaInterface>()) {
+    PADDLE_THROW(common::errors::Unimplemented(
+        "Op %s should have a specialized RewriteByLayout function",
+        pir::get_type_name<ConcreteOp>()));
+  }
+
+  if (op->HasAttribute("data_format")) {
+    op->set_attribute(
+        "data_format",
+        pir::StrAttribute::get(pir::IrContext::Instance(),
+                               common::DataLayoutToString(new_layout)));
+  }
+
+  RewriteByInfermeta<ConcreteOp>(op, new_layout);
 }
 
 class FusedConv2dAddActOp;

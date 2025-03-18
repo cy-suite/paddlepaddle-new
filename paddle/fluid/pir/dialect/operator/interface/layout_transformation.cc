@@ -21,9 +21,6 @@
 #include "paddle/pir/include/core/builtin_attribute.h"
 #include "paddle/pir/include/core/ir_context.h"
 #include "paddle/pir/include/pass/utils.h"
-#ifdef PADDLE_WITH_CINN
-#include "paddle/pir/include/dialect/shape/utils/shape_analysis.h"
-#endif
 
 namespace paddle::dialect {
 
