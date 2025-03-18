@@ -517,10 +517,6 @@ def search_all(tuner_cfg):
     search_space_size_before_prune = len(all_cfgs_with_acc_steps)
     pruned_all_cfgs = []
     tuner_cfg["num_gpus"] = num_gpus
-
-    for cfg in all_cfgs_with_acc_steps:
-        print(cfg)
-
     for cur_cfg in all_cfgs_with_acc_steps:
         pruned = False
         for func in _PRUNE_FUNC:
@@ -570,6 +566,7 @@ def sort_by_refined_recompute(all_cfgs):
         return level_order
 
     grouped = group_by_excluding_keys(all_cfgs, __REFINED_RECOMPUTE_OPS__)
+
     sorted_cfgs = []
     for key, cfg_list in grouped.items():
         sorted(
@@ -1627,6 +1624,64 @@ def read_memory_log(path, file) -> tuple[float, bool]:
     return max(memory_used), False
 
 
+def get_gpu_peak_memory_usage(path, file):
+    log_path = os.path.join(path, file)
+    if not os.path.exists(log_path):
+        return None
+    peak_memory_usage = {}
+    with open(log_path, 'r') as f:
+        reader = csv.reader(f)
+        flag = False
+        # skip headers
+        while not flag:
+            # show the first line of reader
+            row = next(reader)
+            if len(row) == 6 and 'memory_used' in row:
+                flag = True
+        for row in reader:
+            # If row length is 6 then it's a utilization data row
+            # skip header
+            if len(row) == 6:
+                index, util_gpu, _, mem_used, _, _ = row
+                if index not in peak_memory_usage:
+                    peak_memory_usage[index] = int(mem_used)
+                else:
+                    peak_memory_usage[index] = max(
+                        peak_memory_usage[index], int(mem_used)
+                    )
+    return peak_memory_usage
+
+
+def get_model_parameters_per_gpu(path, gpus_per_node):
+    model_parameters_per_gpu = {}
+    for gpu_id in range(gpus_per_node):
+        log_path = os.path.join(path, "workerlog." + str(gpu_id))
+        if not os.path.exists(log_path):
+            model_parameters_per_gpu[gpu_id] = None
+            continue
+        with open(log_path, 'r') as f:
+            re_model_parameter_pattern = (
+                r"Number of trainable parameters\s*=\s*([\d,]+).*\(per device"
+            )
+            lines = f.readlines()
+            model_param = []
+            for line in lines:
+                result = re.findall(re_model_parameter_pattern, line)
+                if result:
+                    value = None
+                    for item in result:
+                        try:
+                            value = int(item.replace(",", ""))
+                            model_param.append(value)
+                            break
+                        except:
+                            continue
+                    assert value is not None
+            assert len(model_param) == 1
+            model_parameters_per_gpu[gpu_id] = model_param[0]
+    return model_parameters_per_gpu
+
+
 def read_completed(path):
     """
     check if training is completed
@@ -1837,7 +1892,22 @@ def gbs_search_all(tuner_cfg):
             * new_cfg["dp_degree"]
             * new_cfg["micro_batch_size"]
         )
+
+        if (
+            new_cfg["global_batch_size"]
+            % (new_cfg["sharding_degree"] * new_cfg["dp_degree"])
+            != 0
+        ):
+            continue
+        local_batch_size = new_cfg["global_batch_size"] // (
+            new_cfg["sharding_degree"] * new_cfg["dp_degree"]
+        )
+        if local_batch_size % new_cfg["micro_batch_size"] != 0:
+            continue
+
+        new_cfg["acc_steps"] = local_batch_size // new_cfg["micro_batch_size"]
         new_all_cfgs.append(new_cfg)
+
     return new_all_cfgs
 
 

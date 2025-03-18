@@ -56,6 +56,11 @@ class GridSearch(SearchAlgo):
             from .utils import memory_sort
 
             self.all_tasks.sort(key=memory_sort)
+
+        print("=====>GridSearch all tasks:", len(self.all_tasks))
+        for task in self.all_tasks:
+            print(task)
+
         self.previous_cfg = None
 
     def search_once(self, history_cfgs):
@@ -114,7 +119,9 @@ class DpEstimationSearch(SearchAlgo):
             if self.idx < len(self.all_tasks):
                 new_cfg = self.all_tasks[self.idx]
                 self.idx += 1
-                stop = not self.prune(self.tuner_cfg, new_cfg, history_cfgs)
+                stop = not self.prune(
+                    self.tuner_cfg, new_cfg, history_cfgs, self.pruned_cfgs
+                )
             else:
                 return None
         return new_cfg
@@ -125,6 +132,9 @@ class GBSSearch(SearchAlgo):
         super().__init__(tuner_cfg)
         self.idx = 0
         self.all_tasks = gbs_search_all(tuner_cfg)
+        print("=====>GBSSearch all tasks:", len(self.all_tasks))
+        for task in self.all_tasks:
+            print(task)
 
     def search_once(self, history_cfgs):
         new_cfg = None
@@ -135,7 +145,9 @@ class GBSSearch(SearchAlgo):
                 self.idx += 1
                 glb = new_cfg.get("global_batch_size", None)
                 self.tuner_cfg["model_cfg"]["global_batch_size"] = glb
-                stop = not self.prune(self.tuner_cfg, new_cfg, history_cfgs)
+                stop = not self.prune(
+                    self.tuner_cfg, new_cfg, history_cfgs, self.pruned_cfgs
+                )
             else:
                 return None
         return new_cfg

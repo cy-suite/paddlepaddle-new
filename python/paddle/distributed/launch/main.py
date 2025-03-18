@@ -313,6 +313,7 @@ def launch() -> None:
             find_error_from_log,
             gen_new_args,
             gen_new_ctx,
+            get_gpu_peak_memory_usage,
             read_completed,
             read_log,
             read_step_time_log,
@@ -460,7 +461,7 @@ def launch() -> None:
         ):
             # adjust micron batch size until out of memory to get best global batch size
             gbs_tuner_cfg = copy.deepcopy(tuner_cfg)
-            gbs_tuner_cfg["search_algo"] = "gbs"
+            gbs_tuner_cfg["search_algo"] = {"name": "gbs"}
             gbs_tuner = AutoTuner(gbs_tuner_cfg)
 
             gbs_cur_cfg = gbs_tuner.search_once()
@@ -697,6 +698,13 @@ def launch() -> None:
                     to_json_str = json.dumps(cur_best_cfgs)
                     ctx.logger.info(f"Current best config: {to_json_str}")
                     logger.info(f"Current best config: {to_json_str}")
+                    cur_best_cfgs_log_path = os.path.join(
+                        os.path.dirname(ctx.args.auto_tuner_json), "best_cfg"
+                    )
+                    peek_memory_usage_per_gpu = get_gpu_peak_memory_usage(
+                        cur_best_cfgs_log_path, "best_cfg.gpu.log"
+                    )
+
                 else:
                     ctx.logger.info(
                         "Get best config failed. Currently no config can be run."
