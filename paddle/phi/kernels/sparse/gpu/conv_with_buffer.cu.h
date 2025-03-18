@@ -42,7 +42,7 @@ inline __device__ uint32_t BitCount(const uint32_t data) {
   return count;
 }
 
-static __global__ void GetOutIndicesCounter(const int* flags,
+static __global__ void GetOutIndexsCounter(const int* flags,
                                             const int n,
                                             int* out) {
   int tid = threadIdx.x + blockDim.x * blockIdx.x;
@@ -178,7 +178,7 @@ void cuda_remove(const GPUContext& dev_ctx,
 }
 
 template <int BS>
-__global__ void GetOutIndices(const int* flags,
+__global__ void GetOutIndexs(const int* flags,
                               const int n,
                               const int* offsets,
                               const int* out_nnz,
@@ -226,7 +226,7 @@ __global__ void GetOutIndices(const int* flags,
 }
 
 template <typename IntT>
-__global__ void GroupIndices(const int* out_index_table,
+__global__ void GroupIndexs(const int* out_index_table,
                              const int* rulebook_len_ptr,
                              const int kernel_size,
                              IntT* out_indices,
@@ -468,7 +468,7 @@ int ProductRuleBookWithBuffer(const Context& dev_ctx,
   const int blocks = (index_flags->numel() + threads - 1) / threads;
   int* out_index_table_ptr = out_index_table->data<int>();
 
-  GetOutIndicesCounter<<<blocks, threads, 0, dev_ctx.stream()>>>(
+  GetOutIndexsCounter<<<blocks, threads, 0, dev_ctx.stream()>>>(
       index_flags_ptr, index_flags->numel(), out_index_table_ptr);
 
   size_t temp_size1 = 0;
@@ -489,7 +489,7 @@ int ProductRuleBookWithBuffer(const Context& dev_ctx,
                                 blocks,
                                 dev_ctx.stream());
 
-  GetOutIndices<threads>
+  GetOutIndexs<threads>
       <<<blocks, threads, 0, dev_ctx.stream()>>>(index_flags_ptr,
                                                  index_flags->numel(),
                                                  out_index_table_ptr,
@@ -519,7 +519,7 @@ int ProductRuleBookWithBuffer(const Context& dev_ctx,
   unique_value->ResizeAndAllocate({static_cast<int>(max_nnz * kernel_size)});
   int* unique_value_ptr = unique_value->data<int>();
 
-  GroupIndices<<<config.block_per_grid,
+  GroupIndexs<<<config.block_per_grid,
                  config.thread_per_block,
                  0,
                  dev_ctx.stream()>>>(out_index_table_ptr,
