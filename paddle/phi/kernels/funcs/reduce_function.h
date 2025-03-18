@@ -928,7 +928,8 @@ static void LaunchReduceKernel(const Tx* x_data,
 
 template <typename Tx,
           typename Ty,
-          template <typename> class ReduceOp,
+          template <typename>
+          class ReduceOp,
           typename TransformOp>
 static
     typename std::enable_if<!std::is_same<Tx, phi::dtype::float16>::value &&
@@ -969,7 +970,8 @@ static
 
 template <typename Tx,
           typename Ty,
-          template <typename> class ReduceOp,
+          template <typename>
+          class ReduceOp,
           typename TransformOp>
 static typename std::enable_if<std::is_same<Tx, phi::dtype::float16>::value,
                                void>::type
@@ -984,7 +986,8 @@ CubTensorReduceImpl(const Tx* x_data,
 }
 template <typename Tx,
           typename Ty,
-          template <typename> class ReduceOp,
+          template <typename>
+          class ReduceOp,
           typename TransformOp>
 static typename std::enable_if<std::is_same<Tx, phi::dtype::bfloat16>::value,
                                void>::type
@@ -1001,7 +1004,8 @@ CubTensorReduceImpl(const Tx* x_data,
 
 template <typename Tx,
           typename Ty,
-          template <typename> class ReduceOp,
+          template <typename>
+          class ReduceOp,
           typename TransformOp,
           bool IsMean = false>
 struct CubTensorReduce {
@@ -1018,7 +1022,8 @@ struct CubTensorReduce {
 
 template <typename Tx,
           typename Ty,
-          template <typename> class ReduceOp,
+          template <typename>
+          class ReduceOp,
           typename TransformOp>
 struct CubTensorReduce<Tx, Ty, ReduceOp, TransformOp, true> {
   static void apply(const Tx* x_data,
@@ -1035,7 +1040,8 @@ struct CubTensorReduce<Tx, Ty, ReduceOp, TransformOp, true> {
 
 template <typename Tx,
           typename Ty,
-          template <typename> class ReduceOp,
+          template <typename>
+          class ReduceOp,
           typename TransformOp,
           bool IsMean = false>
 void ReduceKernel(const KPDevice& dev_ctx,
@@ -1194,7 +1200,8 @@ void ReduceKernel(const KPDevice& dev_ctx,
 
 template <typename Tx,
           typename Ty,
-          template <typename> class ReduceOp,
+          template <typename>
+          class ReduceOp,
           typename TransformOp,
           bool IsMean = false>
 void TensorReduceImpl(const phi::GPUContext& dev_ctx,
