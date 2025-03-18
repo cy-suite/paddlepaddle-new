@@ -762,7 +762,7 @@ class RangeVariable(ContainerVariable):
         return [
             FasterStringifiedExpression(
                 "isinstance({0}, range)",
-                paddle.framework.core.RangeMatchGuard(self.init_value),
+                paddle.framework.core.InstanceCheckGuard(range),
                 [frame_value_tracer],
                 frame_value_tracer.free_vars,
             ),
