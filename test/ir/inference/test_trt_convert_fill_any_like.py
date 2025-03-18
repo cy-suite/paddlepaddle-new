@@ -296,9 +296,15 @@ class TrtConvertExpandV2BoolTest(TrtLayerAutoScanTest):
                     "fill_any_like_input": [1, 48]
                 }
             elif self.dims == 1:
-                self.dynamic_shape.min_input_shape = {"fill_any_like_input": [48]}
-                self.dynamic_shape.max_input_shape = {"fill_any_like_input": [48]}
-                self.dynamic_shape.opt_input_shape = {"fill_any_like_input": [48]}
+                self.dynamic_shape.min_input_shape = {
+                    "fill_any_like_input": [48]
+                }
+                self.dynamic_shape.max_input_shape = {
+                    "fill_any_like_input": [48]
+                }
+                self.dynamic_shape.opt_input_shape = {
+                    "fill_any_like_input": [48]
+                }
 
         def clear_dynamic_shape():
             self.dynamic_shape.min_input_shape = {}
