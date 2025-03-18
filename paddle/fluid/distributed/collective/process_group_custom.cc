@@ -1130,7 +1130,8 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupCustom::AllToAll(
 
         int64_t in_offset = 0, in_numel = 0, out_offset = 0, out_numel = 0;
 
-        std::vector<const void*> send_buf, recv_buf;
+        std::vector<const void*> send_buf;
+        std::vector<void*> recv_buf;
         std::vector<size_t> send_count, recv_count;
         std::vector<phi::DataType> send_dtype, recv_dtype;
         for (auto i = 0; i < size_; i++) {
@@ -1146,18 +1147,17 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupCustom::AllToAll(
           recv_dtype.push_back((*out_tensors)[i].dtype());
         }
 
-        phi::DeviceManager::CCLAllToAll(
-            device_type_,
-            const_cast<const void**>(send_buf.data()),
-            send_count.data(),
-            send_dtype.data(),
-            recv_buf.data(),
-            recv_count.data(),
-            recv_dtype.data(),
-            rank_,
-            size_,
-            comm_context->GetXcclComm(),
-            stream);
+        phi::DeviceManager::CCLAllToAll(device_type_,
+                                        send_buf.data(),
+                                        send_count.data(),
+                                        send_dtype.data(),
+                                        recv_buf.data(),
+                                        recv_count.data(),
+                                        recv_dtype.data(),
+                                        rank_,
+                                        size_,
+                                        comm_context->GetXcclComm(),
+                                        stream);
       },
       in_tensors,
       CommType::ALLTOALL,
