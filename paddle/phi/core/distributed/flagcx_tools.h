@@ -14,11 +14,9 @@
 
 #pragma once
 
-#include <string>
-
-#include "paddle/phi/core/distributed/types.h"
-
 #include <flagcx.h>
+#include <string>
+#include "paddle/phi/core/distributed/types.h"
 
 namespace phi {
 namespace distributed {

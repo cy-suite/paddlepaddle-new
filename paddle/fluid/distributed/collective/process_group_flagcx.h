@@ -231,7 +231,7 @@ class ProcessGroupFlagcx final : public ProcessGroupWithStream {
     for (const auto& allocation_stream : allocation_stream_pairs_) {
       auto holder_ptr = allocation_stream.first.lock();
       if (holder_ptr) {
-        auto stream = (gpuStream_t*)allocation_stream.second;
+        auto stream = reinterpret_cast<gpuStream_t*>(allocation_stream.second);
         memory::EraseStream(holder_ptr, *stream);
       }
     }
