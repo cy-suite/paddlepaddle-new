@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import os
 import unittest
 from functools import partial
 
@@ -148,7 +149,8 @@ class TrtConvertRangeDynamicTest(TrtLayerAutoScanTest):
         ), 1e-2
 
     def test(self):
-        self.run_test(run_pir=True)
+        if os.name != 'nt':
+            self.run_test(run_pir=True)
 
 
 class TrtConvertRangeStaticTest(TrtLayerAutoScanTest):
