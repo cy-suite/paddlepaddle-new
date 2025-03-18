@@ -114,7 +114,7 @@ def register_prune(func):
         return func(*args, **kwargs)
 
     _PRUNE_FUNC.append(wrapper)
-    return func
+    return wrapper
 
 
 def register_prune_history(func):
