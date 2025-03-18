@@ -142,9 +142,6 @@ class LongLong2IntExprPass : public ExprPass {
 }  // namespace
 
 LogicalResult LongLong2IntStmtPass::Run(ir::stmt::StmtRef stmt) {
-  CastLonglong2IntMutator narrow;
-  // store and if_then_else stmt may has recursive load, so we need to use
-  // mutator to change those type.
   auto CastStore = [&](StmtRef stmt) {
     Store store_stmt = stmt.as<Store>();
     store_stmt->set_indices(
