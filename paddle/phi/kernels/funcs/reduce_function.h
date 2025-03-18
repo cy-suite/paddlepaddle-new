@@ -1043,7 +1043,7 @@ void ReduceKernel(const KPDevice& dev_ctx,
                   phi::DenseTensor* y,
                   const TransformOp& transform,
                   const std::vector<int>& origin_reduce_dims) {
-  PADDLE_ENFORCE_GE(input.numel(),
+  PADDLE_ENFORCE_GE(x.numel(),
                     0,
                     common::errors::InvalidArgument(
                         "The input size (numel) of reduce op should be larger "
