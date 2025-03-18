@@ -34,8 +34,18 @@
 #include "paddle/phi/common/data_type.h"
 #include "paddle/phi/common/place.h"
 #include "paddle/phi/core/distributed/utils.h"
+#include "paddle/phi/core/memory/allocation/allocator_facade.h"
 
 namespace deep_ep {
+
+namespace {
+void SetAllocatorStreamForGPUContext(cudaStream_t stream,
+                                     phi::GPUContext* ctx) {
+  ctx->SetAllocator(paddle::memory::allocation::AllocatorFacade::Instance()
+                        .GetAllocator(ctx->GetPlace(), stream)
+                        .get());
+}
+}  // namespace
 
 Buffer::Buffer(int rank,
                int num_ranks,
@@ -322,7 +332,7 @@ Buffer::get_dispatch_layout(const deep_ep::detail::Tensor& topk_idx,
   auto compute_stream = calc_ctx->stream();
   if (allocate_on_comm_stream) {
     EP_HOST_ASSERT(previous_event.has_value() && async);
-    deep_ep::detail::setCurrentCUDAStream(comm_stream);
+    SetAllocatorStreamForGPUContext(comm_stream, calc_ctx);
   }
 
   // Wait previous tasks to be finished
@@ -387,7 +397,7 @@ Buffer::get_dispatch_layout(const deep_ep::detail::Tensor& topk_idx,
 
   // Switch back compute stream
   if (allocate_on_comm_stream)
-    deep_ep::detail::setCurrentCUDAStream(compute_stream);
+    SetAllocatorStreamForGPUContext(compute_stream, calc_ctx);
 
   return {num_tokens_per_rank,
           num_tokens_per_rdma_rank,
@@ -520,7 +530,7 @@ Buffer::intranode_dispatch(
   auto compute_stream = calc_ctx->stream();
   if (allocate_on_comm_stream) {
     EP_HOST_ASSERT(previous_event.has_value() && async);
-    deep_ep::detail::setCurrentCUDAStream(comm_stream);
+    SetAllocatorStreamForGPUContext(comm_stream, calc_ctx);
   }
 
   // Wait previous tasks to be finished
@@ -750,7 +760,7 @@ Buffer::intranode_dispatch(
 
   // Switch back compute stream
   if (allocate_on_comm_stream)
-    deep_ep::detail::setCurrentCUDAStream(compute_stream);
+    SetAllocatorStreamForGPUContext(compute_stream, calc_ctx);
 
   // Return values
   return {recv_x,
@@ -814,7 +824,7 @@ Buffer::intranode_combine(
   auto compute_stream = calc_ctx->stream();
   if (allocate_on_comm_stream) {
     EP_HOST_ASSERT(previous_event.has_value() && async);
-    deep_ep::detail::setCurrentCUDAStream(comm_stream);
+    SetAllocatorStreamForGPUContext(comm_stream, calc_ctx);
   }
 
   // Wait previous tasks to be finished
@@ -918,7 +928,7 @@ Buffer::intranode_combine(
 
   // Switch back compute stream
   if (allocate_on_comm_stream)
-    deep_ep::detail::setCurrentCUDAStream(compute_stream);
+    SetAllocatorStreamForGPUContext(compute_stream, calc_ctx);
 
   return {recv_x, recv_topk_weights, event};
 }
@@ -1076,7 +1086,7 @@ Buffer::internode_dispatch(
   auto compute_stream = calc_ctx->stream();
   if (allocate_on_comm_stream) {
     EP_HOST_ASSERT(previous_event.has_value() && async);
-    deep_ep::detail::setCurrentCUDAStream(comm_stream);
+    SetAllocatorStreamForGPUContext(comm_stream, calc_ctx);
   }
 
   // Wait previous tasks to be finished
@@ -1357,7 +1367,7 @@ Buffer::internode_dispatch(
 
   // Switch back compute stream
   if (allocate_on_comm_stream)
-    deep_ep::detail::setCurrentCUDAStream(compute_stream);
+    SetAllocatorStreamForGPUContext(compute_stream, calc_ctx);
 
   // Return values
   return {recv_x,
@@ -1448,7 +1458,7 @@ Buffer::internode_combine(
   auto compute_stream = calc_ctx->stream();
   if (allocate_on_comm_stream) {
     EP_HOST_ASSERT(previous_event.has_value() && async);
-    deep_ep::detail::setCurrentCUDAStream(comm_stream);
+    SetAllocatorStreamForGPUContext(comm_stream, calc_ctx);
   }
 
   // Wait previous tasks to be finished
@@ -1567,7 +1577,7 @@ Buffer::internode_combine(
 
   // Switch back compute stream
   if (allocate_on_comm_stream)
-    deep_ep::detail::setCurrentCUDAStream(compute_stream);
+    SetAllocatorStreamForGPUContext(compute_stream, calc_ctx);
 
   // Return values
   return {combined_x, combined_topk_weights, event};
