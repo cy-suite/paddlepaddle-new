@@ -22,6 +22,7 @@ jobs:
       - name: Display Required Approvers
         run: |
           git remote add upstream https://github.com/PaddlePaddle/Paddle.git
+          git fetch upstream
           bash -x tools/check_file_diff_approvals.sh
 
   approved-actions:
