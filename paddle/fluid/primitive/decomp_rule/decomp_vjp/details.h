@@ -1220,10 +1220,7 @@ void maximum_grad(const Tensor& x,
   Tensor half_tensor;
   if (x_grad || y_grad) {
     auto equal_tensor = cast<T>(equal<T>(x, y), out_grad.dtype());
-    auto two_tensor = full<T>(common::vectorize(out_grad.dims()),
-                              2.0,
-                              out_grad.dtype(),
-                              out_grad.place());
+    auto two_tensor = full_scalar<T>(2.0, out_grad.dtype());
     half_tensor = (out_grad / two_tensor) * equal_tensor;
   }
 
@@ -2256,10 +2253,7 @@ void minimum_grad(const Tensor& x,
   Tensor half_tensor;
   if (x_grad || y_grad) {
     auto equal_tensor = cast<T>(equal<T>(x, y), out_grad.dtype());
-    auto two_tensor = full<T>(common::vectorize(out_grad.dims()),
-                              2.0,
-                              out_grad.dtype(),
-                              out_grad.place());
+    auto two_tensor = full_scalar<T>(2.0, out_grad.dtype());
     half_tensor = (out_grad / two_tensor) * equal_tensor;
   }
 
