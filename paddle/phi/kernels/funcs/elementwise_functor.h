@@ -477,16 +477,16 @@ struct MaximumFunctor {
 template <typename T>
 struct MaxGradXFunctor {
   inline HOSTDEVICE T operator()(const T x, const T y, const T dout) const {
-    return dout * static_cast<InT>(x > y) +
-           (dout / static_cast<InT>(2)) * static_cast<InT>(x == y);
+    return dout * static_cast<T>(x > y) +
+           (dout / static_cast<T>(2)) * static_cast<T>(x == y);
   }
 };
 
 template <typename T>
 struct MaxGradYFunctor {
   inline HOSTDEVICE T operator()(const T x, const T y, const T dout) const {
-    return dout * static_cast<InT>(x < y) +
-           (dout / static_cast<InT>(2)) * static_cast<InT>(x == y);
+    return dout * static_cast<T>(x < y) +
+           (dout / static_cast<T>(2)) * static_cast<T>(x == y);
   }
 };
 
@@ -518,15 +518,15 @@ struct MinimumFunctor {
 template <typename T>
 struct MinGradXFunctor {
   inline HOSTDEVICE T operator()(const T x, const T y, const T dout) const {
-    return dout * static_cast<InT>(x < y) +
-           (dout / static_cast<InT>(2)) * static_cast<InT>(x == y);
+    return dout * static_cast<T>(x < y) +
+           (dout / static_cast<T>(2)) * static_cast<T>(x == y);
   }
 };
 template <typename T>
 struct MinGradYFunctor {
   inline HOSTDEVICE T operator()(const T x, const T y, const T dout) const {
-    return dout * static_cast<InT>(x > y) +
-           (dout / static_cast<InT>(2)) * static_cast<InT>(x == y);
+    return dout * static_cast<T>(x > y) +
+           (dout / static_cast<T>(2)) * static_cast<T>(x == y);
   }
 };
 
