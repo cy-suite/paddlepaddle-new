@@ -5,9 +5,6 @@
 # are consistent and correspond one-to-one. It's forbidden that the
 # operator configured in this yaml file does not have Python API.
 
-  interfaces: paddle::dialect::LayoutTransformationInterface
-  # interfaces : paddle::dialect::InferSymbolicShapeInterface
-
 - op : abs
   args : (Tensor x)
   output : Tensor(out)
