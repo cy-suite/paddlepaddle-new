@@ -42,6 +42,7 @@ ExternalProject_Add(
   BUILD_BYPRODUCTS ${ABSL_INSTALL_DIR}/lib/libabsl_base.a
   BUILD_BYPRODUCTS ${ABSL_INSTALL_DIR}/lib/libabsl_hash.a
   BUILD_BYPRODUCTS ${ABSL_INSTALL_DIR}/lib/libabsl_low_level_hash.a
+  BUILD_BYPRODUCTS ${ABSL_INSTALL_DIR}/lib/libabsl_demangle_internal.a
   BUILD_BYPRODUCTS ${ABSL_INSTALL_DIR}/lib/libabsl_raw_logging_internal.a
   BUILD_BYPRODUCTS ${ABSL_INSTALL_DIR}/lib/libabsl_city.a
   BUILD_BYPRODUCTS ${ABSL_INSTALL_DIR}/lib/libabsl_strings.a
@@ -55,6 +56,7 @@ ExternalProject_Add(
 set(ABSL_LIB_NAMES
     hash
     low_level_hash
+    demangle_internal
     raw_logging_internal
     city
     strings
