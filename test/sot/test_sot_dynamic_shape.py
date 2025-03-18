@@ -93,28 +93,28 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
             True
         ), test_instruction_translator_cache_context() as ctx:
             self.assert_results(
-                dynamic_int_input_func1, paddle.randn([3, 4, 5]), 1
+                dynamic_int_input_func1, paddle.randn([4, 5, 6]), 2
             )
             self.assertEqual(ctx.translate_count, 1)
-            for i in range(2, 6):
+            for i in range(3, 7):
                 self.assert_results(
-                    dynamic_int_input_func1, paddle.randn([3, 4, 5]), i
+                    dynamic_int_input_func1, paddle.randn([4, 5, 6]), i
                 )
-                self.assertEqual(ctx.translate_count, 2 if i == 2 else 3)
+                self.assertEqual(ctx.translate_count, 2)
 
     def test_dynamic_int_input_cache_hit_case2(self):
         with allow_dynamic_shape_guard(
             True
         ), test_instruction_translator_cache_context() as ctx:
             self.assert_results(
-                dynamic_int_input_func2, paddle.randn([3, 4, 5]), {1: 1}
+                dynamic_int_input_func2, paddle.randn([4, 5, 6]), {1: 2}
             )
             self.assertEqual(ctx.translate_count, 1)
-            for i in range(2, 6):
+            for i in range(3, 7):
                 self.assert_results(
-                    dynamic_int_input_func2, paddle.randn([3, 4, 5]), {1: i}
+                    dynamic_int_input_func2, paddle.randn([4, 5, 6]), {1: i}
                 )
-                self.assertEqual(ctx.translate_count, 2 if i == 2 else 3)
+                self.assertEqual(ctx.translate_count, 2)
 
     def test_dynamic_int_input_cache_hit_case3(self):
         with allow_dynamic_shape_guard(
@@ -122,7 +122,7 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
         ), test_instruction_translator_cache_context() as ctx:
             for i in range(0, 6):
                 self.assert_results(
-                    dynamic_int_input_func3, paddle.randn([3, 4, 5]), i
+                    dynamic_int_input_func3, paddle.randn([4, 5, 6]), i
                 )
                 self.assertEqual(ctx.translate_count, i + 1)
 
@@ -131,29 +131,29 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
             True
         ), test_instruction_translator_cache_context() as ctx:
             self.assert_results(
-                dynamic_shape_input_func1, paddle.randn([1, 4, 5])
+                dynamic_shape_input_func1, paddle.randn([2, 4, 5])
             )
             self.assertEqual(ctx.translate_count, 1)
-            for i in range(2, 6):
+            for i in range(3, 7):
                 self.assert_results(
                     dynamic_shape_input_func1, paddle.randn([i, 4, 5])
                 )
-                self.assertEqual(ctx.translate_count, 2 if i == 2 else 3)
+                self.assertEqual(ctx.translate_count, 2)
 
     def test_dynamic_shape_input_cache_hit_case2(self):
         with allow_dynamic_shape_guard(
             True
         ), test_instruction_translator_cache_context() as ctx:
             self.assert_results(
-                dynamic_shape_access_inner_var_shape, paddle.randn([1, 4, 5])
+                dynamic_shape_access_inner_var_shape, paddle.randn([2, 4, 5])
             )
             self.assertEqual(ctx.translate_count, 1)
-            for i in range(2, 6):
+            for i in range(3, 7):
                 self.assert_results(
                     dynamic_shape_access_inner_var_shape,
                     paddle.randn([i, 4, 5]),
                 )
-                self.assertEqual(ctx.translate_count, 2 if i == 2 else 3)
+                self.assertEqual(ctx.translate_count, 2)
 
     def test_dynamic_shape_cast(self):
         with allow_dynamic_shape_guard(
@@ -172,17 +172,17 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
         ), test_instruction_translator_cache_context() as ctx:
             self.assert_results(
                 dynamic_shape_in_list,
-                paddle.randn([1, 4, 5]),
+                paddle.randn([2, 2, 5]),
                 [4, 5],
             )
             self.assertEqual(ctx.translate_count, 1)
-            for i in range(2, 6):
+            for i in range(3, 7):
                 self.assert_results(
                     dynamic_shape_in_list,
-                    paddle.randn([i, 4, 5]),
-                    [i * 4, 5],
+                    paddle.randn([i, 2, 5]),
+                    [i * 2, 5],
                 )
-                self.assertEqual(ctx.translate_count, 2 if i == 2 else 3)
+                self.assertEqual(ctx.translate_count, 2)
 
     def test_conv_dynamic_shape_stride_fallback(self):
         with allow_dynamic_shape_guard(
@@ -219,6 +219,21 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
         ), test_instruction_translator_cache_context() as ctx:
             for i in range(1, 6):
                 self.assert_results(dynamic_shape_int_mul_float, i)
+
+    def test_mixed_dynamic_and_static(self):
+        with allow_dynamic_shape_guard(
+            True
+        ), test_instruction_translator_cache_context() as ctx:
+            a = paddle.randn([4, 5, 6])
+            self.assert_results(dynamic_int_input_func1, a, 1)
+            self.assertEqual(ctx.translate_count, 1)
+            self.assert_results(dynamic_int_input_func1, a, 0)
+            self.assertEqual(ctx.translate_count, 2)
+            self.assert_results(dynamic_int_input_func1, a, 2)
+            self.assertEqual(ctx.translate_count, 3)
+            for i in range(3, 6):
+                self.assert_results(dynamic_int_input_func1, a, i)
+                self.assertEqual(ctx.translate_count, 4)
 
 
 if __name__ == '__main__':
