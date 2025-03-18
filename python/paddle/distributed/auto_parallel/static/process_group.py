@@ -198,8 +198,26 @@ class ProcessGroup:
                 )
             elif genv.device_type in core.get_all_custom_device_type():
                 place = core.CustomPlace(genv.device_type, genv.device_id)
-                core.XCCLParallelContext(strategy, place).init_with_ring_id(
-                    ring_id
+                # core.XCCLParallelContext(strategy, place).init_with_ring_id(
+                #     ring_id
+                # )
+                store = core.create_or_get_global_tcp_store()
+                endpoints_str = ""
+                for endpoint in strategy.trainer_endpoints:
+                    endpoints_str += endpoint
+                endpoints_str += f"ring_id:{ring_id}"
+                endpoints_str_hash = hashlib.md5(
+                    endpoints_str.encode(encoding='UTF-8')
+                ).hexdigest()
+
+                core.CommContextManager.set_device_id(genv.device_id)
+                core.CommContextManager.create_xccl_comm_context(
+                    store,
+                    str(ring_id),
+                    place,
+                    strategy.local_rank,
+                    strategy.nranks,
+                    endpoints_str_hash,
                 )
             else:
                 raise AssertionError('No CUDA device found')

@@ -30,14 +30,20 @@ limitations under the License. */
 #define COMM_CONTEXT phi::distributed::NCCLCommContext
 #elif (defined(PADDLE_WITH_XPU) && defined(PADDLE_WITH_XPU_BKCL))
 #define COMM_CONTEXT phi::distributed::BKCLCommContext
+#elif defined(PADDLE_WITH_CUSTOM_DEVICE)
+#define COMM_CONTEXT phi::distributed::XCCLCommContext
 #endif
 
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
+
 #define CREATE_COMM_CONTEXT \
-  phi::distributed::CommContextManager::CreateNCCLCommContext
+  phi::distributed::CommContextManager::CreateXCCLCommContext
 #elif defined(PADDLE_WITH_XPU_BKCL)
 #define CREATE_COMM_CONTEXT \
   phi::distributed::CommContextManager::CreateBKCLCommContext
+#elif defined(PADDLE_WITH_CUSTOM_DEVICE)
+#define CREATE_COMM_CONTEXT \
+  phi::distributed::CommContextManager::CreateNCCLCommContext
 #endif
 
 namespace common {
