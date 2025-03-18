@@ -25,7 +25,6 @@ jobs:
       - name: Display required approvers and check
         run: |
           git switch -c test
-          git log --pretty=oneline
           git remote add upstream https://github.com/PaddlePaddle/Paddle.git
           git fetch upstream $BRANCH
-          bash ci/check_approval.sh
+          bash -x ci/check_approval.sh
