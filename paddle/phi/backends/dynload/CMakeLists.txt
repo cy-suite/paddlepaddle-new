@@ -80,7 +80,7 @@ if(WITH_XPU)
   collect_srcs(backends_srcs SRCS xpti.cc)
 endif()
 
-if (WITH_FLAGCX)
+if(WITH_FLAGCX)
   collect_srcs(backends_srcs SRCS flagcx.cc)
 endif()
 

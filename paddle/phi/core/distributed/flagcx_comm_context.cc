@@ -30,16 +30,21 @@ namespace phi::distributed {
 // constexpr bool FLAGS_enable_flagcx_dynamic_check = false;
 
 FlagcxCommContext::FlagcxCommContext(int rank,
-                                 int size,
-                                 flagcxHandlerGroup_t flagcx_handler)
-    : CommContext(rank, size), flagcx_version_(0), flagcx_handler_(flagcx_handler) {
-  flagcxCommInitRank(&flagcx_handler_->comm, size_, flagcx_handler_->uniqueId, rank_),
-  flagcxGetVersion(&flagcx_version_);
+                                     int size,
+                                     flagcxHandlerGroup_t flagcx_handler)
+    : CommContext(rank, size),
+      flagcx_version_(0),
+      flagcx_handler_(flagcx_handler) {
+  flagcxCommInitRank(
+      &flagcx_handler_->comm, size_, flagcx_handler_->uniqueId, rank_),
+      flagcxGetVersion(&flagcx_version_);
 }
 
 int FlagcxCommContext::GetFlagcxVersion() { return flagcx_version_; }
 
-flagcxComm_t FlagcxCommContext::GetFlagcxComm() { return flagcx_handler_->comm; }
+flagcxComm_t FlagcxCommContext::GetFlagcxComm() {
+  return flagcx_handler_->comm;
+}
 
 void FlagcxCommContext::Broadcast(phi::DenseTensor* out_tensor,
                                   const phi::DenseTensor& in_tensor,
@@ -83,21 +88,21 @@ void FlagcxCommContext::ReduceScatter(phi::DenseTensor* out_tensor,
                                                       /*dst_rank*/ rank_,
                                                       /*cur_rank*/ rank_,
                                                       size_);
-  FLAGCX_CHECK(phi::dynload::flagcxReduceScatter(in_tensor.data(),
-                                                 out_tensor->data(),
-                                                 out_tensor->numel(),
-                                                 ToFlagcxDataType(in_tensor.type()),
-                                                 reduce_type,
-                                                 flagcx_handler_->comm,
-                                                 stream));
+  FLAGCX_CHECK(
+      phi::dynload::flagcxReduceScatter(in_tensor.data(),
+                                        out_tensor->data(),
+                                        out_tensor->numel(),
+                                        ToFlagcxDataType(in_tensor.type()),
+                                        reduce_type,
+                                        flagcx_handler_->comm,
+                                        stream));
 }
 
 void FlagcxCommContext::Send(const phi::DenseTensor& in_tensor,
-                           const int64_t& count,
-                           const int& peer,
-                           flagcxStream_t stream) {
+                             const int64_t& count,
+                             const int& peer,
+                             flagcxStream_t stream) {
   phi::distributed::CommStaticCheck::CheckShape(in_tensor, rank_, size_);
-
 
   FLAGCX_CHECK(phi::dynload::flagcxSend(in_tensor.data(),
                                         count,
@@ -110,9 +115,9 @@ void FlagcxCommContext::Send(const phi::DenseTensor& in_tensor,
 }
 
 void FlagcxCommContext::Recv(phi::DenseTensor* out_tensor,
-                           const int64_t& count,
-                           const int& peer,
-                           flagcxStream_t stream) {
+                             const int64_t& count,
+                             const int& peer,
+                             flagcxStream_t stream) {
   phi::distributed::CommStaticCheck::CheckShape(*out_tensor, rank_, size_);
 
   FLAGCX_CHECK(phi::dynload::flagcxRecv(out_tensor->data(),
@@ -126,9 +131,9 @@ void FlagcxCommContext::Recv(phi::DenseTensor* out_tensor,
 }
 
 void FlagcxCommContext::AllReduce(phi::DenseTensor* out_tensor,
-                                const phi::DenseTensor& in_tensor,
-                                flagcxRedOp_t reduce_type,
-                                flagcxStream_t stream) {
+                                  const phi::DenseTensor& in_tensor,
+                                  flagcxRedOp_t reduce_type,
+                                  flagcxStream_t stream) {
   phi::distributed::CommStaticCheck::SameShape(*out_tensor,
                                                in_tensor,
                                                /*dst_rank*/ rank_,
@@ -166,7 +171,8 @@ void FlagcxCommContext::Reduce(phi::DenseTensor* out_tensor,
 void FlagcxCommContext::GroupStart() {
   FLAGCX_CHECK(phi::dynload::flagcxGroupStart(flagcx_handler_->comm));
 }
-void FlagcxCommContext::GroupEnd() { FLAGCX_CHECK(phi::dynload::flagcxGroupEnd(flagcx_handler_->comm)); }
-
+void FlagcxCommContext::GroupEnd() {
+  FLAGCX_CHECK(phi::dynload::flagcxGroupEnd(flagcx_handler_->comm));
+}
 
 }  // namespace phi::distributed

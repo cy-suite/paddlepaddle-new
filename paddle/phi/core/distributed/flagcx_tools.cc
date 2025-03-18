@@ -24,18 +24,19 @@ namespace distributed {
 
 flagcxRedOp_t ToFlagcxRedType(ReduceOp reduction) {
   static const std::unordered_map<ReduceOp, flagcxRedOp_t> red_type = {
-    {ReduceOp::MIN, flagcxMin},
-    {ReduceOp::MAX, flagcxMax},
-    {ReduceOp::SUM, flagcxSum},
-    {ReduceOp::PRODUCT, flagcxProd},
-    {ReduceOp::AVG, flagcxAvg},
+      {ReduceOp::MIN, flagcxMin},
+      {ReduceOp::MAX, flagcxMax},
+      {ReduceOp::SUM, flagcxSum},
+      {ReduceOp::PRODUCT, flagcxProd},
+      {ReduceOp::AVG, flagcxAvg},
   };
   auto it = red_type.find(reduction);
-  PADDLE_ENFORCE_EQ(it != red_type.end(),
-                    true,
-                    common::errors::InvalidArgument(
-                        "Invalid flagcx reduction. Must be flagcxMin | flagcxMax | "
-                        "flagcxProd | flagcxSum | flagcxAvg."));
+  PADDLE_ENFORCE_EQ(
+      it != red_type.end(),
+      true,
+      common::errors::InvalidArgument(
+          "Invalid flagcx reduction. Must be flagcxMin | flagcxMax | "
+          "flagcxProd | flagcxSum | flagcxAvg."));
   return it->second;
 }
 

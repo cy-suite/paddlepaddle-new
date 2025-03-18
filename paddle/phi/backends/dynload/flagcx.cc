@@ -14,7 +14,6 @@ limitations under the License. */
 
 #include "paddle/phi/backends/dynload/flagcx.h"
 
-
 namespace phi {
 namespace dynload {
 
@@ -24,8 +23,6 @@ void* flagcx_dso_handle = nullptr;
 #define DEFINE_WRAP(__name) DynLoad__##__name __name
 
 FLAGCX_RAND_ROUTINE_EACH(DEFINE_WRAP);
-
-
 
 }  // namespace dynload
 }  // namespace phi

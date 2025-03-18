@@ -14,12 +14,10 @@
 #pragma once
 
 #include "paddle/common/macros.h"
+#include "paddle/phi/backends/dynload/flagcx.h"
 #include "paddle/phi/backends/gpu/gpu_context.h"
 #include "paddle/phi/backends/gpu/gpu_decls.h"
 #include "paddle/phi/core/distributed/comm_context.h"
-#include "paddle/phi/backends/dynload/flagcx.h"
-
-
 
 namespace phi {
 class DenseTensor;
@@ -27,9 +25,7 @@ namespace distributed {
 
 class FlagcxCommContext final : public CommContext {
  public:
-  FlagcxCommContext(int rank,
-                    int size,
-                    flagcxHandlerGroup_t flagcx_handler);
+  FlagcxCommContext(int rank, int size, flagcxHandlerGroup_t flagcx_handler);
   ~FlagcxCommContext() override = default;
 
   int GetFlagcxVersion();
@@ -90,7 +86,6 @@ class FlagcxCommContext final : public CommContext {
 
  public:
   flagcxHandlerGroup_t flagcx_handler_;
-
 };
 
 }  // namespace distributed
