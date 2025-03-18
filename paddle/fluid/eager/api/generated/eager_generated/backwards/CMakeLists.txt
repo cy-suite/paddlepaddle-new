@@ -3,6 +3,11 @@ cc_library(
   SRCS scale_node.cc
   DEPS global_utils phi grad_node_info)
 
+cc_library(
+  identity_node
+  SRCS identity_node.cc
+  DEPS global_utils phi grad_node_info)
+
 if(NOT (NOT WITH_PYTHON AND ON_INFER))
   cc_library(
     final_dygraph_node

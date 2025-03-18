@@ -510,6 +510,7 @@ class FunctionGeneratorBase:
         )  # {name: func_name, args: [input_name, ...]}
         self.intermediate_outputs = []  # [name, ...]
         self.forward_inplace_map = {}  # {name : name, ...}
+        self.jvp_rule = None  # jvp_rule: auto_linear/auto_elementwise/xxx_jvp
 
     def ParseForwardInplaceInfo(self):
         forward_api_contents = self.forward_api_contents
@@ -555,6 +556,18 @@ class FunctionGeneratorBase:
                 name = name.strip()
                 name = RemoveSpecialSymbolsInName(name)
                 self.intermediate_outputs.append(name)
+
+    def ParseJvpRule(self):
+        self.jvp_rule = self.forward_api_contents.get('jvp_rule', None)
+        if (
+            self.jvp_rule is not None
+            and self.jvp_rule != "auto_elementwise"
+            and self.jvp_rule != "auto_linear"
+            and not self.jvp_rule.endswith("_jvp")
+        ):
+            raise ValueError(
+                f"The JVP rule of the operator '{self.forward_api_name}' should be 'auto_elementwise', 'auto_linear', or 'xxx_jvp', but got {self.jvp_rule}."
+            )
 
     def CollectOriginalForwardInfo(self):
         forward_api_contents = self.forward_api_contents

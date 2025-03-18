@@ -856,6 +856,7 @@ set(FLUID_FRAMEWORK_MODULES
     layer
     phi
     common
-    custom_operator)
+    custom_operator
+    forward_grad)
 
 cc_library(paddle_framework DEPS ${FLUID_FRAMEWORK_MODULES})

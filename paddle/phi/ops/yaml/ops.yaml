@@ -16,6 +16,7 @@
   inplace: (x -> out)
   backward : abs_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  jvp_rule: auto_elementwise
 
 - op : accuracy
   args : (Tensor x, Tensor indices, Tensor label)
@@ -50,6 +51,7 @@
   inplace: (x -> out)
   backward : acos_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  jvp_rule: auto_elementwise
 
 - op : acosh
   args : (Tensor x)
@@ -61,6 +63,7 @@
   inplace: (x -> out)
   backward : acosh_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  jvp_rule: auto_elementwise
 
 - op : adadelta_
   args : (Tensor param, Tensor grad, Tensor avg_squared_grad, Tensor avg_squared_update,
@@ -1003,6 +1006,7 @@
     data_type : x
   backward : concat_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface, paddle::dialect::LayoutTransformationInterface
+  jvp_rule: concat_jvp
 
 - op : conj
   args : (Tensor x)
@@ -4172,6 +4176,7 @@
   view: (x -> out)
   backward: reshape_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  jvp_rule: auto_linear
 
 - op : restrict_nonzero
   args : (Tensor condition, int64_t total_true_num)
@@ -4742,6 +4747,7 @@
     func : split
   backward : split_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  jvp_rule: auto_linear
 
 - op : split_with_num
   args : (Tensor x, int num, Scalar(int) axis)
@@ -4753,6 +4759,7 @@
     func : split_with_num
   backward : split_with_num_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  jvp_rule: auto_linear
 
 - op : sqrt
   args : (Tensor x)
@@ -4969,6 +4976,7 @@
   inplace : (x -> out)
   backward : tanh_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  jvp_rule: auto_elementwise
 
 - op : tanh_shrink
   args : (Tensor x)

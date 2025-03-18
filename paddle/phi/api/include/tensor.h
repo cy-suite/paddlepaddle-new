@@ -53,6 +53,10 @@ using IntArray = experimental::IntArray;
 class AbstractAutogradMeta {
  public:
   // No AbstractAutogradMeta should be created
+  virtual const paddle::Tensor& fw_grad(uint64_t level) const = 0;
+  virtual void set_fw_grad(const paddle::Tensor& new_grad,
+                           uint64_t level,
+                           bool is_inplace_op) = 0;
   virtual ~AbstractAutogradMeta() = default;
 };
 
@@ -661,6 +665,14 @@ class PADDLE_API Tensor final {
    * @return Tensor
    */
   Tensor contiguous();
+
+  /* Part 13: Forward AD related*/
+  // The Forward AD API functions below are low level and are not to be used by
+  // end users who should use the API provided in torch/csrc/autograd.h
+
+  const Tensor& _fw_grad(uint64_t level) const;
+  void _set_fw_grad(const Tensor& new_grad, uint64_t level, bool is_inplace_op);
+  Tensor _fw_primal(int64_t level) const;
 
  private:
   /**

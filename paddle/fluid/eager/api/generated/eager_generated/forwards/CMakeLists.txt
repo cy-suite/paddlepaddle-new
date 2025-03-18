@@ -3,6 +3,11 @@ cc_library(
   SRCS scale.cc
   DEPS phi autograd_meta scale_node)
 
+cc_library(
+  eager_fw_primal
+  SRCS fw_primal.cc
+  DEPS phi autograd_meta identity_node)
+
 if(NOT (NOT WITH_PYTHON AND ON_INFER))
   cc_library(
     final_dygraph_function

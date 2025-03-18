@@ -21,6 +21,8 @@ limitations under the License. */
 #include "glog/logging.h"
 
 #include "paddle/common/ddim.h"
+#include "paddle/fluid/eager/api/generated/eager_generated/forwards/dygraph_functions.h"
+#include "paddle/fluid/eager/autograd_meta.h"
 #include "paddle/phi/api/include/context_pool.h"
 #include "paddle/phi/api/lib/data_transform.h"
 #include "paddle/phi/api/lib/utils/allocator.h"
@@ -38,6 +40,7 @@ limitations under the License. */
 #include "paddle/phi/core/tensor_utils.h"
 
 namespace paddle {
+Tensor singleton_undefined_tensor;
 
 using DeviceContextPool = experimental::DeviceContextPool;
 using DefaultAllocator = experimental::DefaultAllocator;
@@ -558,6 +561,29 @@ Tensor Tensor::contiguous() {
     PADDLE_THROW(common::errors::Unimplemented(
         "Only support contiguous operation on DenseTensor or DistTensor now."));
   }
+}
+
+const Tensor &Tensor::_fw_grad(uint64_t level) const {
+  if (!autograd_meta_) {
+    return singleton_undefined_tensor;
+  }
+  return autograd_meta_->fw_grad(level);
+}
+
+void Tensor::_set_fw_grad(const Tensor &new_grad,
+                          uint64_t level,
+                          bool is_inplace_op) {
+  if (!autograd_meta_) {
+    autograd_meta_ = std::make_shared<egr::AutogradMeta>();
+  }
+  autograd_meta_->set_fw_grad(new_grad, level, is_inplace_op);
+}
+
+Tensor Tensor::_fw_primal(int64_t level) const {
+  // discard the fw grads reserved in autogradmeta
+  // return a pure primal Tensor
+  // Here the returned Tensor has no autograd_meta_
+  return Tensor(this->impl(), this->name());
 }
 
 }  // namespace paddle

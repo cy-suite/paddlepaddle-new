@@ -11,7 +11,8 @@ set(eager_deps
     eager_nan_inf_utils
     grad_node_info
     grad_tensor_holder
-    custom_operator_node)
+    custom_operator_node
+    forward_grad)
 
 if(WITH_GPU OR WITH_ROCM)
   set(eager_deps ${eager_deps} phi_gpu)
@@ -32,6 +33,7 @@ endif()
 
 add_subdirectory(api)
 add_subdirectory(custom_operator)
+add_subdirectory(forward_grad)
 if(NOT ((NOT WITH_PYTHON) AND ON_INFER))
   add_subdirectory(accumulation)
   add_subdirectory(pylayer)
@@ -42,7 +44,8 @@ if(NOT ((NOT WITH_PYTHON) AND ON_INFER))
   add_dependencies(grad_tensor_holder eager_codegen)
   cc_library(
     backward
-    SRCS backward.cc
+    SRCS backward.cc forward_grad/functionality.cc forward_grad/forward_grad.cc
+         forward_grad/forward_grad.h
     DEPS grad_tensor_holder utils autograd_meta grad_node_info phi common)
 endif()
 

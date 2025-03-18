@@ -15,10 +15,12 @@
 #pragma once
 
 #include "paddle/fluid/eager/api/utils/global_utils.h"
+#include "paddle/fluid/eager/forward_grad/forward_grad.h"
 #include "paddle/fluid/eager/grad_node_info.h"
 namespace egr {
 
 using AbstractAutogradMeta = paddle::AbstractAutogradMeta;
+using ForwardGrad = forward_ad::ForwardGrad;
 /**
  *
  * AutogradMeta is what record the backward info for tensor. When we run
@@ -131,6 +133,13 @@ class AutogradMeta : public AbstractAutogradMeta {
 
   void SetRetainGrads(bool value) { retain_grads_ = value; }
 
+  const paddle::Tensor& fw_grad(uint64_t level) const override {
+    const auto& direct_fw_grad =
+        fw_grad_ ? fw_grad_->value(level) : ForwardGrad::undef_grad();
+
+    return direct_fw_grad;
+  }
+
  private:
   // TODO(jiabin) :Should we use pointer instead of object?
   std::shared_ptr<paddle::Tensor> grad_ = std::make_shared<paddle::Tensor>();
@@ -164,5 +173,55 @@ class AutogradMeta : public AbstractAutogradMeta {
 
   // TODO(jiabin) :Support Quantum here and add cache mechanism as
   // VarCache defined in VarBase
+
+  // This field is used to store all the forward AD gradients
+  // associated with this AutogradMeta (and the Tensor it corresponds to)
+  // There is a semantic 1:1 correspondence between AutogradMeta and
+  // ForwardGrad but:
+  //   - This field is lazily populated.
+  //   - This field is a shared_ptr but it must never be
+  //     shared by multiple Tensors. See Note [ Using ForwardGrad ]
+  mutable std::shared_ptr<ForwardGrad> fw_grad_;
+
+  /**
+   * NOTE: This function is will ensure that the fw_grad_ is properly a view of
+   * the base for inplace ops on Tensors that do not have forward grad
+   * originally.
+   */
+  void set_fw_grad(const paddle::Tensor& new_grad,
+                   uint64_t level,
+                   bool is_inplace_op) override {
+    PD_CHECK(
+        !new_grad._fw_grad(level).defined(),
+        "Setting a forward grad that "
+        "itself has a forward gradient at the same level %d is not supported.",
+        level);
+
+    // Lazy initialization
+    {
+      if (!fw_grad_) {
+        fw_grad_ = std::make_shared<ForwardGrad>();
+      }
+    }
+    if (fw_grad_->contains(level)) {
+      // Setting the forward grad again is only allowed if it is a no-op.
+      // We do allow this case to simplify writing codegen for inplace ops.
+      PD_CHECK(new_grad.defined(),
+               "Cannot set a forward grad that is an undefined Tensor. Use "
+               "_fw_primal(level) to get a new Tensor with this forward grad "
+               "unset.");
+
+      PD_CHECK(is_inplace_op,
+               "Only inplace operations can re-set the forward grad of a "
+               "Tensor that "
+               "already has one.");
+
+      PD_CHECK(fw_grad_->value(level).impl() == new_grad.impl(),
+               "Cannot set a value of a forward grad if it "
+               "already exists. Inplace operations should modify it inplace.");
+    } else {
+      fw_grad_->set_value(new_grad, level);
+    }
+  }
 };
 }  // namespace egr
