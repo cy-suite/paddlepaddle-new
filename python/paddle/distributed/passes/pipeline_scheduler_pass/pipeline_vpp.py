@@ -32,6 +32,8 @@ from ..pass_utils import (
 )
 from .pipeline_pass_base import PipelinePassBase
 
+RECV_FORWARD = "recv_forward"
+SEND_BACKWARD = "send_backward"
 FORWARD = "forward"
 BACKWARD = "backward"
 OPT = "optimizer"
@@ -47,6 +49,12 @@ class PipelineVirtualPipelinePass(PipelinePassBase):
         self.reduce_comm_suffix = "_reduce"
         self._forward_micro_step_counter = {}
         self._backward_micro_step_counter = {}
+        self.jobs_in_stable_phase_in_pir = [
+            BACKWARD,
+            RECV_FORWARD,
+            SEND_BACKWARD,
+            FORWARD,
+        ]
 
     def _record_fwd_micro_step(self, virtual_pp_rank):
         real_micro_step = self._forward_micro_step_counter[virtual_pp_rank]
@@ -59,6 +67,8 @@ class PipelineVirtualPipelinePass(PipelinePassBase):
         return real_micro_step
 
     def _create_job_list(self):
+        if self._in_pir_mode:
+            return self._pir_create_job_list()
         accumulate_steps = self.get_attr("num_micro_batches")
         stage_id = self.get_attr("pp_stage")
         num_stages = self.get_attr("pp_degree")
@@ -139,6 +149,153 @@ class PipelineVirtualPipelinePass(PipelinePassBase):
                 bwd_job = core.Job(BACKWARD + str(virtual_pp_rank))
             bwd_job.set_micro_batch_id(micro_batch_id)
             job_list.append(bwd_job)
+            # TODO(lizhiyu): Inserting 'backward_b' and 'backward_w' interleavedly can decrease the memory,
+            #                but it reduces the speed. We should find the better way to use the code here.
+            # next_virtual_pp_rank = _get_virtual_pp_rank(micro_step + 1, forward=False)
+            # if next_virtual_pp_rank != virtual_pp_rank:
+            #     for micro_batch_id in range(0, accumulate_steps):
+            #         w_job = core.Job(BACKWARD + "_w" + str(virtual_pp_rank))
+            #         w_job.set_micro_batch_id(micro_batch_id)
+            #         job_list.append(w_job)
+
+        if real_split_backward:
+            for chunk_id in range(num_model_chunks - 1, -1, -1):
+                for micro_batch_id in range(0, accumulate_steps):
+                    if (
+                        self._real_overlap_sharding_reduce
+                        and micro_batch_id == accumulate_steps - 1
+                    ):
+                        w_job = core.Job(
+                            BACKWARD
+                            + "_w"
+                            + str(chunk_id)
+                            + self.reduce_comm_suffix
+                        )
+                    else:
+                        w_job = core.Job(BACKWARD + "_w" + str(chunk_id))
+                    w_job.set_micro_batch_id(micro_batch_id)
+                    job_list.append(w_job)
+        job_types = [job.type() for job in job_list]
+        logger.debug(f"The VPP job list: {job_types}")
+        opt_job = core.Job(OPT)
+        job_list.append(opt_job)
+        return job_list
+
+    def _pir_create_job_list(self):
+        accumulate_steps = self.get_attr("num_micro_batches")
+        stage_id = self.get_attr("pp_stage")
+        num_stages = self.get_attr("pp_degree")
+        num_model_chunks = self.get_attr("vpp_degree")
+        split_backward = self.get_attr("split_backward", False)
+        remainder = accumulate_steps % num_stages
+        for i in range(num_model_chunks):
+            self._forward_micro_step_counter[i] = 0
+            self._backward_micro_step_counter[i] = 0
+
+        assert accumulate_steps >= num_stages
+
+        def _get_virtual_pp_rank(micro_step, forward):
+            virtual_pp_stage = micro_step % (num_stages * num_model_chunks)
+            if micro_step <= (accumulate_steps // num_stages) * (
+                num_stages * num_model_chunks
+            ):
+                virtual_pp_stage = virtual_pp_stage // num_stages
+            else:
+                virtual_pp_stage = virtual_pp_stage // remainder
+            if not forward:
+                virtual_pp_stage = num_model_chunks - virtual_pp_stage - 1
+            return virtual_pp_stage
+
+        total_num_steps = accumulate_steps * num_model_chunks
+        if accumulate_steps == num_stages:
+            warmup_steps = total_num_steps
+        else:
+            warmup_steps = (num_stages - stage_id - 1) * 2
+            warmup_steps += (num_model_chunks - 1) * num_stages
+            warmup_steps = min(warmup_steps, total_num_steps)
+
+        real_split_backward = (
+            accumulate_steps == num_stages
+        ) and split_backward
+        if not real_split_backward:
+            warmup_steps = min(total_num_steps, warmup_steps + 1)
+        steady_steps = total_num_steps - warmup_steps
+        job_list = []
+        for micro_step in range(warmup_steps):
+            virtual_pp_rank = _get_virtual_pp_rank(micro_step, forward=True)
+            micro_batch_id = self._record_fwd_micro_step(virtual_pp_rank)
+            if not real_split_backward:
+                recv_fwd_job = core.Job(RECV_FORWARD + str(virtual_pp_rank))
+                recv_fwd_job.set_micro_batch_id(micro_batch_id)
+                job_list.append(recv_fwd_job)
+            fw_job = core.Job(FORWARD + str(virtual_pp_rank))
+            fw_job.set_micro_batch_id(micro_batch_id)
+            job_list.append(fw_job)
+
+        if real_split_backward:
+            for micro_step in range(steady_steps):
+                fwd_micro_step = micro_step + warmup_steps
+                fwd_virtual_pp_rank = _get_virtual_pp_rank(
+                    fwd_micro_step, forward=True
+                )
+                fwd_micro_batch_id = self._record_fwd_micro_step(
+                    fwd_virtual_pp_rank
+                )
+                fwd_job = core.Job(FORWARD + str(fwd_virtual_pp_rank))
+                fwd_job.set_micro_batch_id(fwd_micro_batch_id)
+                job_list.append(fwd_job)
+
+                bw_micro_step = micro_step
+                bwd_virtual_pp_rank = _get_virtual_pp_rank(
+                    bw_micro_step, forward=False
+                )
+                bwd_micro_batch_id = self._record_bwd_micro_step(
+                    bwd_virtual_pp_rank
+                )
+                bwd_job = core.Job(BACKWARD + "_b" + str(bwd_virtual_pp_rank))
+                bwd_job.set_micro_batch_id(bwd_micro_batch_id)
+                job_list.append(bwd_job)
+        else:
+            for micro_step in range(steady_steps):
+                fwd_micro_step = micro_step + warmup_steps
+                fwd_virtual_pp_rank = _get_virtual_pp_rank(
+                    fwd_micro_step, forward=True
+                )
+                fwd_micro_batch_id = self._record_fwd_micro_step(
+                    fwd_virtual_pp_rank
+                )
+                bw_micro_step = micro_step
+                bwd_virtual_pp_rank = _get_virtual_pp_rank(
+                    bw_micro_step, forward=False
+                )
+                bwd_micro_batch_id = self._record_bwd_micro_step(
+                    bwd_virtual_pp_rank
+                )
+                for job_type in self.jobs_in_stable_phase_in_pir:
+                    if job_type.startswith(FORWARD) or job_type.startswith(
+                        RECV_FORWARD
+                    ):
+                        job = core.Job(job_type + str(fwd_virtual_pp_rank))
+                        job.set_micro_batch_id(fwd_micro_batch_id)
+                    else:
+                        job = core.Job(job_type + str(bwd_virtual_pp_rank))
+                        job.set_micro_batch_id(bwd_micro_batch_id)
+                    job_list.append(job)
+
+        for micro_step in range(steady_steps, total_num_steps):
+            virtual_pp_rank = _get_virtual_pp_rank(micro_step, forward=False)
+            micro_batch_id = self._record_bwd_micro_step(virtual_pp_rank)
+            if real_split_backward:
+                bwd_job = core.Job(BACKWARD + "_b" + str(virtual_pp_rank))
+                bwd_job.set_micro_batch_id(micro_batch_id)
+                job_list.append(bwd_job)
+            else:
+                bwd_job = core.Job(BACKWARD + str(virtual_pp_rank))
+                send_bwd_job = core.Job(SEND_BACKWARD + str(virtual_pp_rank))
+                bwd_job.set_micro_batch_id(micro_batch_id)
+                send_bwd_job.set_micro_batch_id(micro_batch_id)
+                job_list.append(bwd_job)
+                job_list.append(send_bwd_job)
             # TODO(lizhiyu): Inserting 'backward_b' and 'backward_w' interleavedly can decrease the memory,
             #                but it reduces the speed. We should find the better way to use the code here.
             # next_virtual_pp_rank = _get_virtual_pp_rank(micro_step + 1, forward=False)

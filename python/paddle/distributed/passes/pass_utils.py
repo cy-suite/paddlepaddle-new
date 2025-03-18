@@ -1193,7 +1193,13 @@ def _pir_program_for_vpp(
 ):
     _pir_overlap_send_recv(program)
 
-    oprole_names = ["forward", "backward", "optimizer"]
+    oprole_names = [
+        "recv_forward",
+        "forward",
+        "backward",
+        "send_backward",
+        "optimizer",
+    ]
     if split_bw:
         oprole_names = ["forward", "backward_b", "backward_w", "optimizer"]
 
