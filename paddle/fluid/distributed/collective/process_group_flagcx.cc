@@ -1,4 +1,4 @@
-// Copyright (c) 2022 PaddlePaddle Authors. All Rights Reserved.
+// Copyright (c) 2025 PaddlePaddle Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,11 +28,7 @@
 #include "paddle/phi/core/platform/device/gpu/nccl_helper.h"
 #include "paddle/phi/core/utils/data_type.h"
 
-COMMON_DECLARE_bool(benchmark);
-COMMON_DECLARE_bool(benchmark_flagcx);
 COMMON_DECLARE_bool(flagcx_blocking_wait);
-COMMON_DECLARE_bool(use_stream_safe_cuda_allocator);
-COMMON_DECLARE_bool(use_cuda_malloc_async_allocator);
 COMMON_DECLARE_bool(enable_async_trace);
 COMMON_DECLARE_bool(eager_communication_connection);
 

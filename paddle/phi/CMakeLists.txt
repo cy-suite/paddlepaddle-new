@@ -88,7 +88,7 @@ if(WITH_GLOO)
 endif()
 
 if (WITH_FLAGCX)
-    list(APPEND PHI_DEPS flagcx) #这个flagcx在哪里define
+    list(APPEND PHI_DEPS flagcx)
 endif()
 
 if(WITH_CUDNN_FRONTEND)
