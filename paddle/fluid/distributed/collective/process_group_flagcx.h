@@ -37,14 +37,14 @@ using Place = phi::Place;
 class ProcessGroupFlagcx final : public ProcessGroupWithStream {
  public:
   class FlagcxTask final : public ProcessGroupWithStream::TaskStream,
-                         public std::enable_shared_from_this<FlagcxTask> {
+                           public std::enable_shared_from_this<FlagcxTask> {
    public:
     FlagcxTask(const Place& place,
-             int rank,
-             CommType comm_type,
-             bool sync_op,
-             bool use_calc_stream,
-             int gid);
+               int rank,
+               CommType comm_type,
+               bool sync_op,
+               bool use_calc_stream,
+               int gid);
     virtual ~FlagcxTask();
 
     bool IsCompleted() override;
@@ -57,9 +57,9 @@ class ProcessGroupFlagcx final : public ProcessGroupWithStream {
 
     // TODO(changtao): methods below will be removed later
     FlagcxTask(const std::vector<Place>& places,
-             int rank,
-             CommType CommType,
-             const std::vector<phi::DenseTensor>& inputs);
+               int rank,
+               CommType CommType,
+               const std::vector<phi::DenseTensor>& inputs);
 
     void RemoveHolderStreamInGroup();
 
@@ -80,11 +80,11 @@ class ProcessGroupFlagcx final : public ProcessGroupWithStream {
       int flagcx_comm_init_option);
 
   ProcessGroupFlagcx(const std::shared_ptr<phi::distributed::Store>& store,
-                   int rank,
-                   int size,
-                   int gid,
-                   int64_t timeout = 30 * 60 * 1000,
-                   int flagcx_comm_init_option = 0);
+                     int rank,
+                     int size,
+                     int gid,
+                     int64_t timeout = 30 * 60 * 1000,
+                     int flagcx_comm_init_option = 0);
   ~ProcessGroupFlagcx();
 
   std::string GetBackendName() const override { return "FLAGCX"; }
@@ -173,10 +173,11 @@ class ProcessGroupFlagcx final : public ProcessGroupWithStream {
                                            bool sync_op,
                                            bool use_calc_stream) override;
 
-    // Can't declare these two functions as static because we access non-static variable in these functions
-     void GroupStart();
+  // Can't declare these two functions as static because we access non-static
+  // variable in these functions
+  void GroupStart();
 
-   void GroupEnd();
+  void GroupEnd();
 
   flagcxComm_t FlagcxComm(const Place& place) const;
 
@@ -186,35 +187,37 @@ class ProcessGroupFlagcx final : public ProcessGroupWithStream {
       const Place& place, CommType comm_type = CommType::UNKNOWN);
 
  private:
-  std::shared_ptr<ProcessGroupFlagcx::FlagcxTask> CreateTask(const Place& place,
-                                                         int rank,
-                                                         CommType op_type,
-                                                         bool sync_op,
-                                                         bool use_calc_stream,
-                                                         int gid);
+  std::shared_ptr<ProcessGroupFlagcx::FlagcxTask> CreateTask(
+      const Place& place,
+      int rank,
+      CommType op_type,
+      bool sync_op,
+      bool use_calc_stream,
+      int gid);
 
   void GetStoreKey(const std::string& place_key,
                    CommType comm_type,
                    std::string* store_key);
 
   void CreateFlagcxEnvCache(const Place& place,
-                          const std::string& place_key,
-                          const std::string& store_key,
-                          CommType comm_type,
-                          int p2p_rank = 0);
+                            const std::string& place_key,
+                            const std::string& store_key,
+                            CommType comm_type,
+                            int p2p_rank = 0);
 
   void SyncCalcStream(const Place& place, const std::string& place_key);
 
   std::shared_ptr<ProcessGroup::Task> Collective(
-      std::function<void(phi::distributed::FlagcxCommContext*, flagcxStream_t)> fn,
+      std::function<void(phi::distributed::FlagcxCommContext*, flagcxStream_t)>
+          fn,
       const phi::DenseTensor& tensor,
       CommType comm_type,
       bool sync_op,
       bool use_calc_stream);
 
   std::shared_ptr<ProcessGroup::Task> Point2Point(
-      std::function<void(phi::distributed::FlagcxCommContext*, flagcxStream_t, int)>
-          fn,
+      std::function<
+          void(phi::distributed::FlagcxCommContext*, flagcxStream_t, int)> fn,
       int peer,
       const phi::DenseTensor& tensor,
       CommType comm_type,
@@ -253,7 +256,7 @@ class ProcessGroupFlagcx final : public ProcessGroupWithStream {
 
   std::unordered_map<std::string, platform::DeviceEvent>
       place_to_calc_event_;  // event on calc stream
-  //TODO(changtao02): find a way to manage different context
+  // TODO(changtao02): find a way to manage different context
   std::unordered_map<std::string, phi::GPUContext*> place_to_calc_ctx_;
   std::unordered_map<std::string, std::unique_ptr<phi::GPUContext>>
       place_to_comm_ctx_;

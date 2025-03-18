@@ -243,11 +243,12 @@ void CommContextManager::CreateBKCLCommContext(
 #endif
 
 #if defined(PADDLE_WITH_FLAGCX)
-void CommContextManager::CreateFlagcxCommContext(const std::shared_ptr<Store>& store,
-                                                 const std::string& unique_comm_key,
-                                                 int rank,
-                                                 int size,
-                                                 const std::string& hash_key) {
+void CommContextManager::CreateFlagcxCommContext(
+    const std::shared_ptr<Store>& store,
+    const std::string& unique_comm_key,
+    int rank,
+    int size,
+    const std::string& hash_key) {
   auto& comm_context_manager = CommContextManager::GetInstance();
   if (comm_context_manager.Has(unique_comm_key)) {
     return;
@@ -262,21 +263,24 @@ void CommContextManager::CreateFlagcxCommContext(const std::shared_ptr<Store>& s
   if (rank == 0) {
     std::vector<uint8_t> flagcx_id_wrapper(
         reinterpret_cast<uint8_t*>(flagcx_handler->uniqueId),
-        reinterpret_cast<uint8_t*>(flagcx_handler->uniqueId) + sizeof(flagcxUniqueId));
+        reinterpret_cast<uint8_t*>(flagcx_handler->uniqueId) +
+            sizeof(flagcxUniqueId));
     store->set(unique_key, flagcx_id_wrapper);
   } else {
     const auto& flagcx_id_wrapper = store->get(unique_key);
-    std::memcpy(reinterpret_cast<uint8_t*>(flagcx_handler->uniqueId), flagcx_id_wrapper.data(), flagcx_id_wrapper.size());
+    std::memcpy(reinterpret_cast<uint8_t*>(flagcx_handler->uniqueId),
+                flagcx_id_wrapper.data(),
+                flagcx_id_wrapper.size());
   }
 
   VLOG(3) << "init FlagcxCommContext rank: " << rank << ", size: " << size
           << ", unique_comm_key: " << unique_comm_key
-          << ", unique_key: " << unique_key
-          << ", flagcx_id: " << SerializeFlagcxUniqueId(*flagcx_handler->uniqueId);
-  auto flagcx_comm_context = std::make_unique<FlagcxCommContext>(
-      rank, size, flagcx_handler);
-  //TODO(changtao): find a way to manage different device context,
-  // now we use cuda device context as default
+          << ", unique_key: " << unique_key << ", flagcx_id: "
+          << SerializeFlagcxUniqueId(*flagcx_handler->uniqueId);
+  auto flagcx_comm_context =
+      std::make_unique<FlagcxCommContext>(rank, size, flagcx_handler);
+  // TODO(changtao): find a way to manage different device context,
+  //  now we use cuda device context as default
   comm_context_manager.SetStore(store);
   comm_context_manager.Emplace(unique_comm_key, std::move(flagcx_comm_context));
 }

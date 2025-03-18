@@ -87,8 +87,8 @@ if(WITH_GLOO)
   list(APPEND PHI_DEPS gloo)
 endif()
 
-if (WITH_FLAGCX)
-    list(APPEND PHI_DEPS flagcx)
+if(WITH_FLAGCX)
+  list(APPEND PHI_DEPS flagcx)
 endif()
 
 if(WITH_CUDNN_FRONTEND)

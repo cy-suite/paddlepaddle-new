@@ -39,20 +39,20 @@ constexpr int64_t kWaitBlockTImeout = 10;
 namespace paddle::distributed {
 
 using phi::distributed::CheckSizeOnEachRank;
-using phi::distributed::IsP2POP;
 using phi::distributed::FlagcxDTypeToString;
 using phi::distributed::FlagcxRedTypeToString;
+using phi::distributed::IsP2POP;
 using phi::distributed::SerializeFlagcxUniqueId;
 using phi::distributed::ToFlagcxRedType;
 
 uint64_t ProcessGroupFlagcx::s_group_call_counter = 0;
 
 ProcessGroupFlagcx::FlagcxTask::FlagcxTask(const Place& place,
-                                     int rank,
-                                     CommType comm_type,
-                                     bool sync_op,
-                                     bool use_calc_stream,
-                                     int gid)
+                                           int rank,
+                                           CommType comm_type,
+                                           bool sync_op,
+                                           bool use_calc_stream,
+                                           int gid)
     : TaskStream(rank, comm_type, sync_op, use_calc_stream),
       task_place_(place),
       gid_(gid) {
@@ -183,7 +183,9 @@ phi::DeviceContext* ProcessGroupFlagcx::GetDeviceContext(
 }
 
 flagcxComm_t ProcessGroupFlagcx::FlagcxComm(const Place& place) const {
-  PADDLE_ENFORCE_NOT_NULL(flagcx_comm_, ::common::errors::InvalidArgument("flagcx_comm_ is nullptr"));
+  PADDLE_ENFORCE_NOT_NULL(
+      flagcx_comm_,
+      ::common::errors::InvalidArgument("flagcx_comm_ is nullptr"));
   return flagcx_comm_;
 }
 
@@ -212,7 +214,8 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::AllGather(
   const phi::DenseTensor& in_tensor_maybe_partial =
       numel > 0 ? GetPartialTensor(in_tensor, offset, numel) : in_tensor;
   return Collective(
-      [&](phi::distributed::FlagcxCommContext* comm_context, flagcxStream_t stream) {
+      [&](phi::distributed::FlagcxCommContext* comm_context,
+          flagcxStream_t stream) {
         VLOG(3) << "[flagcxAllGather] "
                 << "sendbuff: " << in_tensor_maybe_partial.data()
                 << ", recvbuff: " << out_tensor->data()
@@ -244,7 +247,8 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::AllReduce(
   CheckTensorContiguous(*out_tensor);
 
   return Collective(
-      [&](phi::distributed::FlagcxCommContext* comm_context, flagcxStream_t stream) {
+      [&](phi::distributed::FlagcxCommContext* comm_context,
+          flagcxStream_t stream) {
         VLOG(3) << "[flagcxAllReduce] "
                 << "sendbuff: " << in_tensor.data()
                 << ", recvbuff: " << out_tensor->data()
@@ -283,8 +287,8 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::AllToAll(
   CheckSizeOnEachRank(in_dim, in_size_each_rank, size_);
 
   return Collective(
-      [&](phi::distributed::FlagcxCommContext* comm_context, flagcxStream_t stream) {
-
+      [&](phi::distributed::FlagcxCommContext* comm_context,
+          flagcxStream_t stream) {
         int64_t in_row_size =
             in_dim[0] == 0 ? 0 : in_tensor.numel() / in_dim[0];
         int64_t out_row_size =
@@ -367,7 +371,8 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Broadcast(
   CheckTensorContiguous(*out_tensor);
 
   return Collective(
-      [&](phi::distributed::FlagcxCommContext* comm_context, flagcxStream_t stream) {
+      [&](phi::distributed::FlagcxCommContext* comm_context,
+          flagcxStream_t stream) {
         int root = opts.source_rank + opts.source_root;
 
         VLOG(3) << "[flagcxBroadcast] "
@@ -399,7 +404,8 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Reduce(
   CheckTensorContiguous(*out_tensor);
 
   return Collective(
-      [&](phi::distributed::FlagcxCommContext* comm_context, flagcxStream_t stream) {
+      [&](phi::distributed::FlagcxCommContext* comm_context,
+          flagcxStream_t stream) {
         VLOG(3) << "[flagcxReduce] "
                 << "sendbuff: " << in_tensor.data()
                 << ", recvbuff: " << out_tensor->data()
@@ -435,7 +441,8 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::ReduceScatter(
   CheckTensorContiguous(*out_tensor);
 
   return Collective(
-      [&](phi::distributed::FlagcxCommContext* comm_context, flagcxStream_t stream) {
+      [&](phi::distributed::FlagcxCommContext* comm_context,
+          flagcxStream_t stream) {
         VLOG(3) << "[flagcxReduceScatter] "
                 << "sendbuff: " << in_tensor.data()
                 << ", recvbuff: " << out_tensor->data()
@@ -473,8 +480,8 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Scatter(
       /*cur_rank*/ rank_,
       size_);
   return Collective(
-      [&](phi::distributed::FlagcxCommContext* comm_context, flagcxStream_t stream) {
-
+      [&](phi::distributed::FlagcxCommContext* comm_context,
+          flagcxStream_t stream) {
         VLOG(3) << "[Scatter] "
                 << "sendbuff: " << in_tensor.data()
                 << ", recvbuff: " << out_tensor->data()
@@ -551,7 +558,6 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Gather(
                         opts.root_rank));
   auto gather_func = [&](phi::distributed::FlagcxCommContext* comm_context,
                          flagcxStream_t stream) {
-
     VLOG(3) << "[Gather] "
             << "sendbuff: " << in_tensor.data()
             << ", count: " << in_tensor.numel() << ", datatype: "
@@ -672,9 +678,8 @@ std::shared_ptr<ProcessGroupFlagcx::FlagcxTask> ProcessGroupFlagcx::CreateTask(
 }
 
 void ProcessGroupFlagcx::GetStoreKey(const std::string& place_key,
-                                   CommType comm_type,
-                                   std::string* store_key) {
-
+                                     CommType comm_type,
+                                     std::string* store_key) {
   *store_key = "flagcx_ids/" + std::to_string(gid_) + "/0";
 
   place_to_group_key_[place_key] = *store_key;
@@ -685,7 +690,7 @@ void ProcessGroupFlagcx::CreateFlagcxEnvCache(const Place& place,
                                               const std::string& store_key,
                                               CommType comm_type,
                                               int p2p_rank) {
-  //TODO(changtao): we only support one flagcx comm ctx
+  // TODO(changtao): we only support one flagcx comm ctx
   if (flagcx_comm_ != nullptr) {
     return;
   }
@@ -697,12 +702,10 @@ void ProcessGroupFlagcx::CreateFlagcxEnvCache(const Place& place,
   phi::distributed::CommContextManager::CreateFlagcxCommContext(
       store_, store_key, rank_, size_, "");
 
-
   auto flagcx_comm_ctx = this->GetCommContext(&store_key);
   VLOG(3) << "Get flagcx comm: " << flagcx_comm_ctx->GetFlagcxComm();
   flagcx_comm_ = flagcx_comm_ctx->GetFlagcxComm();
   auto comm_ctx = std::make_unique<phi::GPUContext>(place);
-  
 
   auto* calc_ctx = static_cast<phi::GPUContext*>(
       phi::DeviceContextPool::Instance().Get(place));
@@ -712,11 +715,10 @@ void ProcessGroupFlagcx::CreateFlagcxEnvCache(const Place& place,
       platform::DeviceEvent(place, platform::GenerateDeviceEventFlag()));
   place_to_calc_ctx_.emplace(place_key, calc_ctx);
   place_to_comm_ctx_.emplace(place_key, std::move(comm_ctx));
-
 }
 
 void ProcessGroupFlagcx::SyncCalcStream(const Place& place,
-                                      const std::string& place_key) {
+                                        const std::string& place_key) {
   auto& calc_event = place_to_calc_event_.at(place_key);
   const auto* calc_ctx = place_to_calc_ctx_.at(place_key);
   const auto* comm_ctx = place_to_comm_ctx_.at(place_key).get();
@@ -778,7 +780,8 @@ void ProcessGroupFlagcx::EagerConnectRingExchange() {
 }
 
 std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Collective(
-    std::function<void(phi::distributed::FlagcxCommContext*, flagcxStream_t)> fn,
+    std::function<void(phi::distributed::FlagcxCommContext*, flagcxStream_t)>
+        fn,
     const phi::DenseTensor& tensor,
     CommType comm_type,
     bool sync_op,
@@ -807,26 +810,29 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Collective(
 
   const auto& comm_ctx = place_to_comm_ctx_.at(key);
   const auto* calc_ctx = place_to_calc_ctx_.at(key);
-  
+
   auto flagcx_comm_ctx = this->GetCommContext(&store_key);
 
   flagcxStream_t flagcx_stream;
   if (use_calc_stream) {
-      auto calc_stream = calc_ctx->stream();
-      flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(&flagcx_stream, (void *)&calc_stream);
+    auto calc_stream = calc_ctx->stream();
+    flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(
+        &flagcx_stream, (void*)&calc_stream);
   } else {
-      auto comm_stream = comm_ctx->stream();
-      flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(&flagcx_stream, (void *)&comm_stream);
+    auto comm_stream = comm_ctx->stream();
+    flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(
+        &flagcx_stream, (void*)&comm_stream);
   }
 
   if (!FLAGS_enable_async_trace) {
     fn(flagcx_comm_ctx, flagcx_stream);
-  } 
+  }
 
   if (!use_calc_stream) {
     if (!is_coalescing_) {
       task->UpdateWaitChain(*comm_ctx);
-      allocation_stream_pairs_.emplace_back(tensor.Holder(), *(gpuStream_t*)flagcx_stream);
+      allocation_stream_pairs_.emplace_back(tensor.Holder(),
+                                            *(gpuStream_t*)flagcx_stream);
     } else {
       coalescing_tensors_.emplace_back(
           std::make_shared<phi::DenseTensor>(tensor));
@@ -837,15 +843,15 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Collective(
   if (sync_op) {
     task->Wait();
   }
-  
+
   flagcx_comm_ctx->flagcx_handler_->devHandle->streamFree(flagcx_stream);
 
   return task;
 }
 
 std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Point2Point(
-    std::function<void(phi::distributed::FlagcxCommContext*, flagcxStream_t, int)>
-        fn,
+    std::function<
+        void(phi::distributed::FlagcxCommContext*, flagcxStream_t, int)> fn,
     int peer,
     const phi::DenseTensor& tensor,
     CommType comm_type,
@@ -898,22 +904,24 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Point2Point(
 
   flagcxStream_t flagcx_stream;
   if (use_calc_stream) {
-      auto calc_stream = calc_ctx->stream();
-      flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(&flagcx_stream, (void *)&calc_stream);
+    auto calc_stream = calc_ctx->stream();
+    flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(
+        &flagcx_stream, (void*)&calc_stream);
   } else {
-      auto comm_stream = comm_ctx->stream();
-      flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(&flagcx_stream, (void *)&comm_stream);
+    auto comm_stream = comm_ctx->stream();
+    flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(
+        &flagcx_stream, (void*)&comm_stream);
   }
-
 
   if (!FLAGS_enable_async_trace) {
     fn(flagcx_comm_ctx, flagcx_stream, p2p_target_rank);
-  } 
+  }
 
   if (!use_calc_stream) {
     if (!is_coalescing_) {
       task->UpdateWaitChain(*comm_ctx);
-      allocation_stream_pairs_.emplace_back(tensor.Holder(), *(gpuStream_t*)flagcx_stream);
+      allocation_stream_pairs_.emplace_back(tensor.Holder(),
+                                            *(gpuStream_t*)flagcx_stream);
     } else {
       coalescing_tensors_.emplace_back(
           std::make_shared<phi::DenseTensor>(tensor));
@@ -924,12 +932,13 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Point2Point(
   if (sync_op) {
     task->Wait();
   }
-  
+
   flagcx_comm_ctx->flagcx_handler_->devHandle->streamFree(flagcx_stream);
   return task;
 }
 
-std::shared_ptr<ProcessGroupFlagcx> ProcessGroupFlagcx::CreateProcessGroupFlagcx(
+std::shared_ptr<ProcessGroupFlagcx>
+ProcessGroupFlagcx::CreateProcessGroupFlagcx(
     const std::shared_ptr<phi::distributed::Store>& store,
     int rank,
     int size,
@@ -952,9 +961,10 @@ phi::distributed::FlagcxCommContext* ProcessGroupFlagcx::GetCommContext(
       phi::distributed::CommContextManager::GetInstance();
   auto comm_context = static_cast<phi::distributed::FlagcxCommContext*>(
       comm_context_manager.Get(store_key));
-  PADDLE_ENFORCE_NE(comm_context,
-                    nullptr,
-                    common::errors::Unavailable("FlagcxCommContext is nullptr"));
+  PADDLE_ENFORCE_NE(
+      comm_context,
+      nullptr,
+      common::errors::Unavailable("FlagcxCommContext is nullptr"));
   return comm_context;
 }
 
@@ -989,17 +999,20 @@ void ProcessGroupFlagcx::EndCoalescing(
           coalescing_tensors_.size()));
 
   for (size_t i = 0; i < tasks.size(); ++i) {
-    auto* flagcx_task = static_cast<ProcessGroupFlagcx::FlagcxTask*>(tasks[i].get());
+    auto* flagcx_task =
+        static_cast<ProcessGroupFlagcx::FlagcxTask*>(tasks[i].get());
     const auto& tensor = coalescing_tensors_[i];
     const auto& key = coalescing_place_keys_[i];
     const auto& comm_ctx = place_to_comm_ctx_.at(key);
     auto flagcx_comm_ctx = this->GetCommContext(&store_key_);
     auto comm_stream = comm_ctx->stream();
     flagcxStream_t flagcx_stream;
-    flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(&flagcx_stream, (void *)&comm_stream);
+    flagcx_comm_ctx->flagcx_handler_->devHandle->streamCopy(
+        &flagcx_stream, (void*)&comm_stream);
 
     flagcx_task->UpdateWaitChain(*comm_ctx);
-    allocation_stream_pairs_.emplace_back(tensor->Holder(), *(gpuStream_t*)flagcx_stream);
+    allocation_stream_pairs_.emplace_back(tensor->Holder(),
+                                          *(gpuStream_t*)flagcx_stream);
     flagcx_comm_ctx->flagcx_handler_->devHandle->streamFree(flagcx_stream);
   }
 

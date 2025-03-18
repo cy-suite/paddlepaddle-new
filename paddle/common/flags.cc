@@ -1784,8 +1784,7 @@ PHI_DEFINE_EXPORTED_string(
     "",
     "Specify path for loading libflagcx.so. For instance, "
     "For instance, /usr/local/flagcx/lib. If default, "
-    "dlopen will search flagcx from LD_LIBRARY_PATH"
-);
+    "dlopen will search flagcx from LD_LIBRARY_PATH");
 
 PHI_DEFINE_EXPORTED_string(cupti_dir,
                            "",

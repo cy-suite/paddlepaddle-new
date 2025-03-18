@@ -309,11 +309,11 @@ bool IsCompiledWithNCCL() {
 }
 
 bool IsCompiledWithFlagcx() {
-  #ifdef PADDLE_WITH_FLAGCX
-    return true;
-  #else
-    return false;
-  #endif
+#ifdef PADDLE_WITH_FLAGCX
+  return true;
+#else
+  return false;
+#endif
 }
 
 bool IsCompiledWithMPI() {

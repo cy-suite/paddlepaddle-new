@@ -179,8 +179,14 @@ def _new_process_group_impl(
     elif backend == "bkcl":
         pg = core.ProcessGroupBKCL.create(store, rank, world_size, group_id)
     elif backend == "flagcx":
-        pg = core.ProcessGroupFlagcx.create(store, rank, world_size, group_id, genv.pg_timeout,
-            nccl_comm_init_option)
+        pg = core.ProcessGroupFlagcx.create(
+            store,
+            rank,
+            world_size,
+            group_id,
+            genv.pg_timeout,
+            nccl_comm_init_option,
+        )
     return pg
 
 

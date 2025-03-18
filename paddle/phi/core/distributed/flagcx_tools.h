@@ -23,16 +23,16 @@
 namespace phi {
 namespace distributed {
 
-#define FLAGCX_CHECK(cmd)                                                 \
-  do {                                                                    \
-    flagcxResult_t r = cmd;                                               \
-    if (r != flagcxSuccess) {                                             \
-      PADDLE_THROW(                                                       \
-          common::errors::External("Failed, FlagCX error %s:%d '%s'\n",   \
-                                   __FILE__,                              \
-                                   __LINE__,                              \
-                                   phi::dynload::flagcxGetErrorString(r)));             \
-    }                                                                     \
+#define FLAGCX_CHECK(cmd)                                                   \
+  do {                                                                      \
+    flagcxResult_t r = cmd;                                                 \
+    if (r != flagcxSuccess) {                                               \
+      PADDLE_THROW(                                                         \
+          common::errors::External("Failed, FlagCX error %s:%d '%s'\n",     \
+                                   __FILE__,                                \
+                                   __LINE__,                                \
+                                   phi::dynload::flagcxGetErrorString(r))); \
+    }                                                                       \
   } while (0)
 
 flagcxRedOp_t ToFlagcxRedType(ReduceOp reduction);
