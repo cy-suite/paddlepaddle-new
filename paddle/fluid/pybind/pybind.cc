@@ -2473,7 +2473,7 @@ All parameter, weight, gradient are variables in Paddle.
             if (stream == nullptr) {
               timer.Start();
             } else {
-              timer.Start(stream);
+              timer.Start(stream->raw_stream());
             }
           },
           py::arg("stream") = nullptr,
@@ -2484,7 +2484,7 @@ All parameter, weight, gradient are variables in Paddle.
             if (stream == nullptr) {
               timer.Stop();
             } else {
-              timer.Stop(stream);
+              timer.Stop(stream->raw_stream());
             }
           },
           py::arg("stream") = nullptr,

@@ -28,6 +28,7 @@ from paddle.base.core import (
     Config,
     get_low_latency_rdma_size_hint,
 )
+from paddle.distributed.fleet.utils import timer_helper as timer
 
 if TYPE_CHECKING:
     from paddle.distributed.communication.group import Group
@@ -55,6 +56,8 @@ class Buffer:
     """
 
     num_sms: int = 20
+    enable_timer: bool = False
+    record_shapes: bool = False
 
     def __init__(
         self,
@@ -91,6 +94,8 @@ class Buffer:
             low_latency_mode,
             group.id,
         )
+
+        self._comm_stream = self.runtime.get_comm_stream()
 
         # Synchronize device IDs
         device_ids = []
@@ -144,6 +149,28 @@ class Buffer:
 
         assert new_num_sms % 2 == 0, 'The SM count must be even'
         Buffer.num_sms = new_num_sms
+
+    @staticmethod
+    def set_enable_timer(new_enable_timer: bool) -> None:
+        """
+        Enable timer to measure the execution time of kernels.
+
+        Arguments:
+            new_enable_timer: the new value to be set.
+        """
+
+        Buffer.enable_timer = new_enable_timer
+
+    @staticmethod
+    def set_record_shapes(new_record_shapes: bool) -> None:
+        """
+        Enable to record the input shapes of kernels.
+
+        Arguments:
+            new_record_shapes: the new value to be set.
+        """
+
+        Buffer.record_shapes = new_record_shapes
 
     @staticmethod
     def capture() -> EventOverlap:
@@ -268,6 +295,15 @@ class Buffer:
             is_token_in_rank: `[num_tokens, num_ranks]` with `bool`, whether a token be sent to a rank.
             event: the event after executing the kernel (valid only if `async_finish` is set).
         """
+
+        if Buffer.enable_timer:
+            if not timer.is_timer_initialized():
+                self._timers = timer.set_timers()
+            else:
+                self._timers = timer.get_timers()
+            timer_name = "deepep-get_dispatch_layout"
+            self._timers(timer_name, use_event=True).start(self._comm_stream)
+
         (
             num_tokens_per_rank,
             num_tokens_per_rdma_rank,
@@ -281,6 +317,10 @@ class Buffer:
             async_finish,
             allocate_on_comm_stream,
         )
+
+        if Buffer.enable_timer:
+            self._timers(timer_name, use_event=True).stop(self._comm_stream)
+
         return (
             num_tokens_per_rank,
             num_tokens_per_rdma_rank,
@@ -349,6 +389,7 @@ class Buffer:
             handle: the returned communication handle.
             event: the event after executing the kernel (valid only if `async_finish` is set).
         """
+
         # Default config
         config = (
             self.get_dispatch_config(self.group_size)
@@ -373,6 +414,14 @@ class Buffer:
                 async_finish,
                 allocate_on_comm_stream,
             )
+
+        if Buffer.enable_timer:
+            if not timer.is_timer_initialized():
+                self._timers = timer.set_timers()
+            else:
+                self._timers = timer.get_timers()
+            timer_name = "deepep-intranode_dispatch"
+            self._timers(timer_name, use_event=True).start(self._comm_stream)
 
         # Launch the kernel with cached or non-cached mode
         x, x_scales = x if isinstance(x, tuple) else (x, None)
@@ -406,6 +455,10 @@ class Buffer:
                     allocate_on_comm_stream,
                 )
             )
+
+            if Buffer.enable_timer:
+                self._timers(timer_name, use_event=True).stop(self._comm_stream)
+
             return (
                 (recv_x, recv_x_scales) if x_scales is not None else recv_x,
                 None,
@@ -457,6 +510,10 @@ class Buffer:
                 is_token_in_rank,
                 send_head,
             )
+
+            if Buffer.enable_timer:
+                self._timers(timer_name, use_event=True).stop(self._comm_stream)
+
             return (
                 (recv_x, recv_x_scales) if x_scales is not None else recv_x,
                 recv_topk_idx,
@@ -517,6 +574,14 @@ class Buffer:
                 allocate_on_comm_stream,
             )
 
+        if Buffer.enable_timer:
+            if not timer.is_timer_initialized():
+                self._timers = timer.set_timers()
+            else:
+                self._timers = timer.get_timers()
+            timer_name = "deepep-intranode_combine"
+            self._timers(timer_name, use_event=True).start(self._comm_stream)
+
         # NOTES: the second `_` is for the sending side, so we should use the third one
         (
             rank_prefix_matrix,
@@ -540,6 +605,10 @@ class Buffer:
             async_finish,
             allocate_on_comm_stream,
         )
+
+        if Buffer.enable_timer:
+            self._timers(timer_name, use_event=True).stop(self._comm_stream)
+
         return recv_x, recv_topk_weights, EventOverlap(event)
 
     # noinspection PyTypeChecker
@@ -571,6 +640,14 @@ class Buffer:
         Normally, you should not directly call this function.
         """
         assert config is not None
+
+        if Buffer.enable_timer:
+            if not timer.is_timer_initialized():
+                self._timers = timer.set_timers()
+            else:
+                self._timers = timer.get_timers()
+            timer_name = "deepep-internode_dispatch"
+            self._timers(timer_name, use_event=True).start(self._comm_stream)
 
         # Launch the kernel with cached or non-cached mode
         x, x_scales = x if isinstance(x, tuple) else (x, None)
@@ -613,6 +690,10 @@ class Buffer:
                     allocate_on_comm_stream,
                 )
             )
+
+            if Buffer.enable_timer:
+                self._timers(timer_name, use_event=True).stop(self._comm_stream)
+
             return (
                 (recv_x, recv_x_scales) if x_scales is not None else recv_x,
                 None,
@@ -676,6 +757,10 @@ class Buffer:
                 send_rdma_head,
                 send_nvl_head,
             )
+
+            if Buffer.enable_timer:
+                self._timers(timer_name, use_event=True).stop(self._comm_stream)
+
             return (
                 (recv_x, recv_x_scales) if x_scales is not None else recv_x,
                 recv_topk_idx,
@@ -701,6 +786,14 @@ class Buffer:
         Normally, you should not directly call this function.
         """
         assert config is not None
+
+        if Buffer.enable_timer:
+            if not timer.is_timer_initialized():
+                self._timers = timer.set_timers()
+            else:
+                self._timers = timer.get_timers()
+            timer_name = "deepep-internode_combine"
+            self._timers(timer_name, use_event=True).start(self._comm_stream)
 
         # Unpack handle
         (
@@ -734,6 +827,10 @@ class Buffer:
                 allocate_on_comm_stream,
             )
         )
+
+        if Buffer.enable_timer:
+            self._timers(timer_name, use_event=True).stop(self._comm_stream)
+
         return combined_x, combined_topk_weights, EventOverlap(event)
 
     def clean_low_latency_buffer(
