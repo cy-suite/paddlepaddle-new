@@ -6,6 +6,7 @@ on:
 
 env:
   BRANCH: ${{ github.base_ref }}
+  PR_ID: ${{ github.event.pull_request.number }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   OWNER: ${{ github.repository_owner }}
   REPO: ${{ github.event.repository.name }}
@@ -24,19 +25,20 @@ jobs:
 
       - name: Display required approvers and check
         run: |
-          # 获取与 PR 相关的工作流运行
           response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
             "https://api.github.com/repos/$OWNER/$REPO/actions/runs?event=pull_request&per_page=100")
 
-          run_id=$(echo "$response" | jq -r --arg pr_number "$PR_NUMBER" --arg target_workflow "$TARGET_WORKFLOW_NAME" \
+          echo "$response"
+
+          run_id=$(echo "$response" | jq -r --arg pr_number "$PR_ID" --arg target_workflow "$TARGET_WORKFLOW_NAME" \
             '.workflow_runs[] | select(.head_branch | contains($pr_number) and .name == $target_workflow) | .id' | head -n 1)
 
           if [ -n "$run_id" ]; then
-            echo "Found run_id for PR #$PR_NUMBER with target workflow '$TARGET_WORKFLOW_NAME': $run_id"
+            echo "Found run_id for PR #$PR_ID with target workflow '$TARGET_WORKFLOW_NAME': $run_id"
             curl -X POST -H "Accept: application/vnd.github.v3+json" \
               -H "Authorization: token $GITHUB_TOKEN" \
               "https://api.github.com/repos/$OWNER/$REPO/actions/runs/$run_id/rerun"
           else
-            echo "No matching workflow run found for PR #$PR_NUMBER with target workflow '$TARGET_WORKFLOW_NAME'."
+            echo "No matching workflow run found for PR #$PR_ID with target workflow '$TARGET_WORKFLOW_NAME'."
             exit 1
           fi
