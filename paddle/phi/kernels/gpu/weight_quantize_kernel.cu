@@ -98,11 +98,13 @@ void WeightQuantizeKernel(const Context& dev_ctx,
     DenseTensor x_int_tmp(out->type());
     x_int_tmp.Resize({static_cast<int64_t>(m), static_cast<int64_t>(n / 2)});
     dev_ctx.template Alloc<int8_t>(&x_int_tmp);
-    int8_t* x_int_tmp_data = x_int_tmp.data<int8_t>();
-    int8_t* quanted_x_data = quanted_x.data<int8_t>();
-    for (int i = 0; i < out->numel(); ++i) {
-      x_int_tmp_data[i] = quanted_x_data[i];
-    }
+    auto stream = reinterpret_cast<const phi::GPUContext&>(dev_ctx).stream();
+    memory_utils::Copy(dev_ctx.GetPlace(),
+                       x_int_tmp.data<int8_t>(),
+                       dev_ctx.GetPlace(),
+                       quanted_x.data<int8_t>(),
+                       out->numel() * sizeof(int8_t),
+                       stream);
     std::vector<int> axis = {1, 0};
     funcs::Transpose<Context, int8_t, 2> trans;
     trans(dev_ctx, x_int_tmp, out, axis);
