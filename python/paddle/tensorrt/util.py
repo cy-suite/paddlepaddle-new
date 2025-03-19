@@ -341,6 +341,10 @@ def get_cache_path(cache_path):
         home_path = os.path.expanduser("~")
         cache_path = os.path.join(home_path, ".pp_trt_cache")
 
+    if not os.path.exists(cache_path):
+        os.makedirs(cache_path)
+    return cache_path
+
 
 def remove_duplicate_value(value_list):
     ret_list = []
