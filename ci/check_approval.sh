@@ -97,7 +97,9 @@ if [ "${DEPS_PHI_IN_IR}" ] && [ "${DEPS_PHI_IN_IR}" != "" ]; then
     echo_line="You must have one RD (phlrain, zhangbo9674) approval for the CMakeLists.txt with DEPS phi* in paddle/pir directory.\n"
     check_approval 1 phlrain zhangbo9674
 fi
+
 FILTER=`git diff --name-only upstream/$BRANCH | grep -v "tools/" | grep -v "ci/"`
+
 HAS_CONST_CAST=`git diff -U0 upstream/$BRANCH $FILTER | grep '^\+' | grep -o -m 1 "const_cast" || true`
 if [ ${HAS_CONST_CAST} ] && [ "${PR_ID}" != "" ]; then
     echo_line="You must have one RD (XiaoguangHu01, zhiqiu, Xreki, zhangbo9674, zyfncg, phlrain) approval for the usage of const_cast.\n"
@@ -160,19 +162,21 @@ if [ "${HAS_MODIFIED_DECLARATIONS}" != "" ] && [ "${PR_ID}" != "" ]; then
     check_approval 1 zyfncg zhangbo9674 phlrain
 fi
 
-HAS_USED_CCTESTOLD=`git diff -U0 upstream/$BRANCH |grep "cc_test_old" || true`
+CI_FILTER=`git diff --name-only upstream/$BRANCH | grep -v "ci/"`
+
+HAS_USED_CCTESTOLD=`git diff -U0 upstream/$BRANCH $CI_FILTER |grep "cc_test_old" || true`
 if [ "${HAS_USED_CCTESTOLD}" != "" ] && [ "${PR_ID}" != "" ]; then
     echo_line="You must be approved by phlrain or risemeup1 or zhangbo9674 for using cc_test_old. Thanks!\n"
     check_approval 1 phlrain risemeup1 zhangbo9674
 fi
 
-HAS_USED_CCTEST=`git diff -U0 upstream/$BRANCH |grep -w "cc_test" || true`
+HAS_USED_CCTEST=`git diff -U0 upstream/$BRANCH $CI_FILTER |grep -w "cc_test" || true`
 if [ "${HAS_USED_CCTEST}" != "" ] && [ "${PR_ID}" != "" ]; then
     echo_line="Paddle utest will gradually discard cc_test\n  instead, the paddle_test is recommended,\n if you must use cc_test, you must be approved by risemeup1 or zhangbo9674 for using cc_test. Thanks!\n"
     check_approval 1 risemeup1 zhangbo9674
 fi
 
-HAS_CREATE_NEW_PASS=`git diff -U0 upstream/$BRANCH |grep "paddle/pir/include/pass/pass.h" || true`
+HAS_CREATE_NEW_PASS=`git diff -U0 upstream/$BRANCH $CI_FILTER |grep "paddle/pir/include/pass/pass.h" || true`
 if [ "${HAS_CREATE_NEW_PASS}" != "" ] && [ "${PR_ID}" != "" ]; then
     echo_line="If you implement a new Pass, you must be approved by yuanlehome or zyfncg. Thanks!\n"
     check_approval 1 yuanlehome zyfncg
@@ -329,7 +333,7 @@ if [ "${HAS_MODIFIED_DY2ST_TEST_TENSOR_ATTR_CONSISTENCY}" != "" ] && [ "${PR_ID}
     check_approval 1 SigureMo DrRyanHuang zrr1999 gouzil
 fi
 
-HAS_USED_AUTO_PARALLEL_ALIGN_MODE=`git diff -U0 upstream/$BRANCH |grep -o -m 1 "auto_parallel_align_mode" || true`
+HAS_USED_AUTO_PARALLEL_ALIGN_MODE=`git diff -U0 upstream/$BRANCH $CI_FILTER |grep -o -m 1 "auto_parallel_align_mode" || true`
 if [ ${HAS_USED_AUTO_PARALLEL_ALIGN_MODE} ] && [ "${PR_ID}" != "" ]; then
     echo_line="You must have one RD (sneaxiy, zhiqiu, ForFishes, or From00) approval for the usage of auto-parallel align mode.\n"
     check_approval 1 sneaxiy zhiqiu ForFishes From00

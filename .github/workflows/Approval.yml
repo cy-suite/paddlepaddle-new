@@ -35,4 +35,4 @@ jobs:
           git switch -c test
           git remote add upstream https://github.com/PaddlePaddle/Paddle.git
           git fetch upstream $BRANCH
-          bash -x ci/check_approval.sh
+          bash ci/check_approval.sh
