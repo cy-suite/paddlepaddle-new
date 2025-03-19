@@ -762,7 +762,6 @@
     func: BroadcastTensorsInferMeta
   kernel:
     func: broadcast_tensors
-    data_type : input
   backward: broadcast_tensors_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
 

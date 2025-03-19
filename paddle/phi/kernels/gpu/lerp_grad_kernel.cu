@@ -144,7 +144,7 @@ void SwitchKernel(const Context& ctx,
     DenseTensor b_out = phi::EmptyLike<T>(ctx, out_grad);
     std::vector<DenseTensor*> out_tensors = {&b_weight, &b_out};
 
-    phi::BroadcastTensorsKernel<T, Context>(ctx, in_tensors, out_tensors);
+    phi::BroadcastTensorsKernel<Context>(ctx, in_tensors, out_tensors);
 
     const T* weight_data = b_weight.data<T>();
     const T* out_grad_data = b_out.data<T>();

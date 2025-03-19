@@ -24,13 +24,31 @@
 #include "paddle/phi/kernels/funcs/eigen/eigen_function.h"
 #include "paddle/phi/kernels/funcs/math_function.h"
 
-#define SWITCH_OUT_RANK_CASE(n)                                        \
-  case n: {                                                            \
-    ApplyBroadcast<T, Context, n>(ctx, in_tensors[i], out_tensors[i]); \
-    break;                                                             \
-  }
-
 namespace phi {
+
+template <typename Context, int OutRank>
+struct BroadcastVisitor {
+  const Context& ctx;
+  const DenseTensor* in_tensor;
+  DenseTensor* out_tensor;
+
+  BroadcastVisitor(const Context& ctx,
+                   const DenseTensor* in_tensor,
+                   DenseTensor* out_tensor)
+      : ctx(ctx), in_tensor(in_tensor), out_tensor(out_tensor) {}
+
+  template <typename T>
+  void apply() const {
+    ApplyBroadcast<T, Context, OutRank>(ctx, in_tensor, out_tensor);
+  }
+};
+
+#define SWITCH_OUT_RANK_CASE(n)                                               \
+  case n: {                                                                   \
+    BroadcastVisitor<Context, n> visitor(ctx, in_tensors[i], out_tensors[i]); \
+    phi::VisitDataType(in_tensors[i]->dtype(), visitor);                      \
+    break;                                                                    \
+  }
 
 template <typename T, typename Context, int OutRank>
 void ApplyBroadcast(const Context& ctx,
@@ -74,7 +92,7 @@ void ApplyBroadcast(const Context& ctx,
       place, y, x, bcast_dims);
 }
 
-template <typename T, typename Context>
+template <typename Context>
 void BroadcastTensorsKernel(const Context& ctx,
                             const std::vector<const DenseTensor*>& x,
                             std::vector<DenseTensor*> out) {
@@ -82,12 +100,11 @@ void BroadcastTensorsKernel(const Context& ctx,
   auto out_tensors = out;
   size_t num_ins = in_tensors.size();
 
-  PADDLE_ENFORCE_GT(
-      num_ins,
-      1,
-      errors::InvalidArgument(
-          "Expected at least 2 input tensors, but only received %d.",
-          in_tensors.size()));
+  PADDLE_ENFORCE_GE(num_ins,
+                    1,
+                    errors::InvalidArgument(
+                        "Expected at least 1 input tensor, but received %d.",
+                        in_tensors.size()));
 
   PADDLE_ENFORCE_EQ(num_ins,
                     out_tensors.size(),

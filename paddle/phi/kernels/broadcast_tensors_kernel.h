@@ -20,9 +20,13 @@
 
 namespace phi {
 
-template <typename T, typename Context>
+template <typename Context>
 void BroadcastTensorsKernel(const Context& ctx,
                             const std::vector<const DenseTensor*>& x,
                             std::vector<DenseTensor*> out);
 
 }  // namespace phi
+
+PD_REGISTER_KERNEL_FOR_ALL_BACKEND_DTYPE(broadcast_tensors,
+                                         ALL_LAYOUT,
+                                         phi::BroadcastTensorsKernel) {}
