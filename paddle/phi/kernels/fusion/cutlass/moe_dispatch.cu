@@ -35,17 +35,19 @@ namespace phi {
 namespace fusion {
 
 template <typename T, typename Context>
-void MoeDispatchKernel(const Context& ctx,
-                       const DenseTensor& X,
-                       const DenseTensor& gating_output,
-                       const int moe_topk,
-                       const bool group_moe,
-                       const bool topk_only_mode,
-                       DenseTensor* permute_input,
-                       DenseTensor* token_nums_per_expert,
-                       DenseTensor* permute_indices_per_token,
-                       DenseTensor* expert_scales_float,
-                       DenseTensor* top_k_indices) {
+void MoeDispatchKernel(
+    const Context& ctx,
+    const DenseTensor& X,
+    const DenseTensor& gating_output,
+    const paddle::optional<DenseTensor>& gating_correction_bias,
+    const int moe_topk,
+    const bool group_moe,
+    const bool topk_only_mode,
+    DenseTensor* permute_input,
+    DenseTensor* token_nums_per_expert,
+    DenseTensor* permute_indices_per_token,
+    DenseTensor* expert_scales_float,
+    DenseTensor* top_k_indices) {
   int token_rows = 0;
   auto input_dims = X.dims();
   if (input_dims.size() == 3) {
@@ -134,6 +136,8 @@ void MoeDispatchKernel(const Context& ctx,
 
   topk_gating_softmax_kernelLauncher<float>(
       gating_output.data<float>(),
+      gating_correction_bias ? gating_correction_bias.get().data<float>()
+                             : nullptr,
       finished,
       ctx.template Alloc<float>(expert_scales_float),
       softmax_out_,
