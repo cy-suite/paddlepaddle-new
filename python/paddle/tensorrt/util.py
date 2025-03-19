@@ -351,9 +351,6 @@ def weight_to_tensor(network, paddle_value, trt_tensor, use_op_name=None):
     if isinstance(trt_tensor, trt.Weights):
         input_shape = paddle_value.shape
         constant_layer = network.add_constant(input_shape, trt_tensor)
-        constant_layer.name = (
-            f"dynamic_weight_{paddle_value.id}_for_{use_op_name}"
-        )
         return constant_layer.get_output(0)
     return trt_tensor
 
@@ -388,12 +385,9 @@ def is_shape_tensor(value):
     return total_elements <= 8 and total_elements >= 1 and is_int_dtype
 
 
-def get_cache_path(cache_path):
-    if cache_path is not None:
-        cache_path = cache_path
-    else:
-        home_path = os.path.expanduser("~")
-        cache_path = os.path.join(home_path, ".pp_trt_cache")
+def get_cache_path():
+    home_path = os.path.expanduser("~")
+    cache_path = os.path.join(home_path, ".pp_trt_cache")
 
     if not os.path.exists(cache_path):
         os.makedirs(cache_path)
