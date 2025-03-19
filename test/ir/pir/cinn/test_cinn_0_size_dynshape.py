@@ -18,13 +18,16 @@ import numpy
 import utils
 
 import paddle
+from paddle.static import InputSpec
 
 
-class Test0Size(unittest.TestCase):
-    def eval(self, dy_compute, inputs):
+class Test0SizeDynShape(unittest.TestCase):
+    def eval(self, dy_compute, inputs, input_spec=None):
         dy_out = dy_compute(*inputs)
 
-        static_compute = utils.apply_to_static(dy_compute, use_cinn=True)
+        static_compute = utils.apply_to_static(
+            dy_compute, use_cinn=True, input_spec=input_spec
+        )
         st_out = static_compute(*inputs)
 
         for a, b in zip(
@@ -32,46 +35,43 @@ class Test0Size(unittest.TestCase):
         ):
             numpy.testing.assert_allclose(a, b, atol=1e-6, rtol=1e-6)
 
-    def test_r_r0(self):
-        def func(x):
-            return x.sum()
-
-        x = paddle.uniform([128, 0])
-
-        self.eval(func, [x])
-
-    def test_s0_s(self):
+    def test_s0_s_dynshape(self):
         def func(x, y):
             return x + y
 
         x = paddle.uniform([0, 128])
-        y = paddle.uniform([128])
+        x_spec = InputSpec([None, 128])
+        y = paddle.uniform([1, 128])
+        y_spec = InputSpec([None, 128])
 
-        self.eval(func, [x, y])
+        self.eval(func, [x, y], [x_spec, y_spec])
 
-    def test_s0_r(self):
+    def test_s0_r_dynshape(self):
         def func(x):
             return x.sum(axis=1)
 
         x = paddle.uniform([0, 128])
+        x_spec = InputSpec([0, None])
 
-        self.eval(func, [x])
+        self.eval(func, [x], [x_spec])
 
-    def test_r_r0_s(self):
+    def test_r0_s_dynshape(self):
         def func(x):
-            return x.sum(axis=(0, 1))
+            return x.sum(axis=0)
 
-        x = paddle.uniform([32, 0, 128])
+        x = paddle.uniform([0, 128])
+        x_spec = InputSpec([None, 128])
 
-        self.eval(func, [x])
+        self.eval(func, [x], [x_spec])
 
-    def test_s_r_s0(self):
+    def test_r_s_r0_dynshape(self):
         def func(x):
-            return x.sum(axis=1)
+            return x.sum(axis=(0, 2))
 
         x = paddle.uniform([16, 32, 0])
+        x_spec = InputSpec([16, None, 0])
 
-        self.eval(func, [x])
+        self.eval(func, [x], [x_spec])
 
 
 if __name__ == "__main__":
