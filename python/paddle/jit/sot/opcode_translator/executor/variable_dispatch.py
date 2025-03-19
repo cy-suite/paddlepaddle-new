@@ -24,7 +24,16 @@ import numpy as np
 
 import paddle
 
-from ...utils import BreakGraphError, FallbackError, get_numpy_ufuncs
+from ...utils import (
+    BreakGraphError,
+    BuiltinFunctionBreak,
+    FallbackError,
+    UnsupportedIteratorBreak,
+    UnsupportedOperationBreak,
+    do_until_stop_iteration,
+    get_numpy_ufuncs,
+)
+from ...utils.exceptions import InnerError
 from ...utils.magic_methods import (
     BINARY_OPS,
     UNARY_OPS,
@@ -32,21 +41,24 @@ from ...utils.magic_methods import (
 )
 from ...utils.paddle_api_config import get_tensor_methods
 from .dispatch_functions import (
+    create_raise_break_graph_handler,
+    generator_send,
     operator_in,
     operator_is_none,
     operator_is_not_none,
     operator_not_in,
-    raise_break_graph_fn,
     tensor_numel,
 )
 from .dispatcher import Dispatcher, optional
 from .tracker import ConstTracker, DanglingTracker, DummyTracker
 from .variables import (
     BuiltinVariable,
+    CallableVariable,
     ConstantVariable,
     ContainerVariable,
     DictVariable,
     EnumerateVariable,
+    IterVariable,
     ListVariable,
     MapVariable,
     NumpyArrayVariable,
@@ -115,12 +127,25 @@ Dispatcher.register(
     lambda variable: variable.get_iter(),
 )
 
+Dispatcher.register(
+    next,
+    ("IterVariable",),
+    lambda var: var.next(),
+)
+
+Dispatcher.register(
+    generator_send,
+    ("IterVariable", "VariableBase"),
+    lambda var, value: var.send(value),
+)
 
 # in
 Dispatcher.register(
     operator_in,
     ("VariableBase", "IterVariable"),
-    raise_err_handle(BreakGraphError("Codes like: `variable in iterator`.")),
+    create_raise_break_graph_handler(
+        UnsupportedIteratorBreak("Codes like: `variable in iterator`.")
+    ),
 )
 
 Dispatcher.register(
@@ -152,8 +177,8 @@ Dispatcher.register(
 Dispatcher.register(
     operator_not_in,
     ("VariableBase", "IterVariable"),
-    raise_err_handle(
-        BreakGraphError("Codes like: `variable not in iterator`.")
+    create_raise_break_graph_handler(
+        UnsupportedIteratorBreak("Codes like: `variable not in iterator`.")
     ),
 )
 
@@ -633,16 +658,12 @@ def create_zip(*var: VariableBase):
 
 
 # map
-Dispatcher.register(
-    map,
-    (
-        "CallableVariable",
-        "VariableBase",
-    ),
-    lambda fn, var: MapVariable.from_iterator(
-        fn, var, graph=var.graph, tracker=DummyTracker([var])
-    ),
-)
+@Dispatcher.register_decorator(map)
+def create_map(fn: CallableVariable, *vars: VariableBase):
+    tracked_vars = [fn, *vars]
+    return MapVariable.from_iterator(
+        fn, vars, graph=Dispatcher.graph, tracker=DummyTracker(tracked_vars)
+    )
 
 
 # reversed
@@ -1025,7 +1046,11 @@ for unary_fn in UNARY_OPS:
         Dispatcher.register(
             unary_fn,
             ("TensorVariable",),
-            raise_break_graph_fn,
+            create_raise_break_graph_handler(
+                BuiltinFunctionBreak(
+                    fn_name=unary_fn, arg_types="TensorVariable"
+                )
+            ),
         )
         continue
 
@@ -1090,7 +1115,11 @@ for binary_fn in BINARY_OPS:
                 ):
                     if var.get_py_type() is str:
                         raise BreakGraphError(
-                            "(ConstantVariable % TensorVariable) raise a callback. "
+                            UnsupportedOperationBreak(
+                                left_type="ConstantVariable",
+                                right_type="TensorVariable",
+                                operator="__rmod__",
+                            )
                         )
                     raise FallbackError("Tensor doesn't support __rmod__")
 
@@ -1227,7 +1256,7 @@ def dispatch_pow(
 ):
     graph = base.graph
     result = BuiltinVariable(operator.pow, graph, DanglingTracker())(base, exp)
-    if exp is not None:
+    if mod is not None:
         result = BuiltinVariable(operator.mod, graph, DanglingTracker())(
             result, mod
         )
@@ -1246,7 +1275,7 @@ Dispatcher.register(
 
 
 @Dispatcher.register_decorator(sum)
-def dispatch_sum(
+def dispatch_sum_container_and_tensor(
     var: ContainerVariable | TensorVariable,
     start: VariableBase = None,  # type: ignore
 ):
@@ -1264,17 +1293,88 @@ def dispatch_sum(
     return result
 
 
-Dispatcher.register(
-    max,
-    ("ListVariable",),
-    lambda var: var.max(),
-)
+@Dispatcher.register_decorator(sum)
+def dispatch_sum_iterable(
+    var: IterVariable,
+    start: VariableBase = None,  # type: ignore
+):
+    if start is None:
+        start = ConstantVariable.wrap_literal(0, var.graph)
+    call_next = BuiltinVariable(next, var.graph, DanglingTracker())
+    elements = do_until_stop_iteration(lambda: call_next(var))
+    result = reduce(
+        BuiltinVariable(operator.add, var.graph, DanglingTracker()),
+        elements,
+        start,
+    )
+    return result
 
-Dispatcher.register(
-    min,
-    ("ListVariable",),
-    lambda var: var.min(),
-)
+
+@Dispatcher.register_decorator(reduce)
+def dispatch_reduce(
+    func: CallableVariable,
+    iterable: ContainerVariable | TensorVariable | IterVariable,
+    initializer: VariableBase = None,  # type: ignore
+):
+    iterator = iterable.get_iter()
+    if initializer is None or (
+        isinstance(initializer, ConstantVariable)
+        and initializer.get_py_value() is None
+    ):
+        try:
+            initializer = iterator.next()
+        except StopIteration:
+            raise InnerError("reduce() of empty iterable with no initial value")
+    result = initializer
+
+    def update_result():
+        nonlocal result
+        result = func(result, iterator.next())
+
+    do_until_stop_iteration(update_result)
+    return result
+
+
+@Dispatcher.register_decorator(max)
+def dispatch_max_iterable(var: ContainerVariable | IterVariable):
+    it = var.get_iter()
+    call_next = BuiltinVariable(next, var.graph, DanglingTracker())
+    try:
+        res = call_next(it)
+    except StopIteration:
+        raise InnerError("max() arg is an empty sequence")
+    call_gt = BuiltinVariable(operator.gt, var.graph, DanglingTracker())
+
+    def compare_max():
+        nonlocal res
+        item = call_next(it)
+        gt = call_gt(item, res)
+        if gt.get_py_value() is True:
+            res = item
+
+    do_until_stop_iteration(compare_max)
+    return res
+
+
+@Dispatcher.register_decorator(min)
+def dispatch_min_iterable(var: ContainerVariable | IterVariable):
+    it = var.get_iter()
+    call_next = BuiltinVariable(next, var.graph, DanglingTracker())
+    try:
+        res = call_next(it)
+    except StopIteration:
+        raise InnerError("min() arg is an empty sequence")
+    call_lt = BuiltinVariable(operator.lt, var.graph, DanglingTracker())
+
+    def compare_min():
+        nonlocal res
+        item = call_next(it)
+        lt = call_lt(item, res)
+        if lt.get_py_value() is True:
+            res = item
+
+    do_until_stop_iteration(compare_min)
+    return res
 
 
 @Dispatcher.register_decorator(max)
@@ -1396,6 +1496,43 @@ Dispatcher.register(
         tracker=DummyTracker([x]),
     ),
 )
+
+
+# any
+@Dispatcher.register_decorator(any)
+def dispatch_any(var: ContainerVariable | IterVariable):
+    graph = var.graph
+    to_bool = BuiltinVariable(bool, graph, DanglingTracker())
+    it = var.get_iter()
+    while True:
+        try:
+            item = it.next()
+            bool_item = to_bool(item)
+            assert isinstance(bool_item, ConstantVariable)
+            if bool_item.get_py_value():
+                return ConstantVariable(True, graph, DummyTracker([var]))
+        except StopIteration:
+            break
+    return ConstantVariable(False, graph, DummyTracker([var]))
+
+
+# all
+@Dispatcher.register_decorator(all)
+def dispatch_all(var: ContainerVariable | IterVariable):
+    graph = var.graph
+    to_bool = BuiltinVariable(bool, graph, DanglingTracker())
+    it = var.get_iter()
+    while True:
+        try:
+            item = it.next()
+            bool_item = to_bool(item)
+            assert isinstance(bool_item, ConstantVariable)
+            if not bool_item.get_py_value():
+                return ConstantVariable(False, graph, DummyTracker([var]))
+        except StopIteration:
+            break
+    return ConstantVariable(True, graph, DummyTracker([var]))
+
 
 Dispatcher.register(
     np.number.item,
