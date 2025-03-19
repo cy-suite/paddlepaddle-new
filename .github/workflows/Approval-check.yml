@@ -1,8 +1,6 @@
-name: Approval
+name: Check approval
 
 on:
-  pull_request:
-    types: [opened, synchronize]
   pull_request_review:
     types: [submitted]
 
@@ -13,31 +11,13 @@ env:
   COMMIT_ID: ${{ github.event.pull_request.head.sha }}
 
 jobs:
-  display-approvers:
-    name: Display approvers
-    if: ${{ github.event_name == 'pull_request' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 10
-
-      - name: Display Required Approvers
-        run: |
-          git switch -c test
-          git remote add upstream https://github.com/PaddlePaddle/Paddle.git
-          git fetch upstream $BRANCH
-          bash ci/check_approval.sh
-
   approved-actions:
     name: Check approval
-    # if: ${{ github.event_name == 'pull_request_review' && github.event.review.state == 'approved' }}
     runs-on: ubuntu-latest
     steps:
       - name: Judge
         run: |
-          if [ "${{ github.event_name }}" != "pull_request_review" ] || [ "${{ github.event.review.state }}" != "approved" ]; then
+          if [ "${{ github.event.review.state }}" != "approved" ]; then
             exit 1
           fi
 
