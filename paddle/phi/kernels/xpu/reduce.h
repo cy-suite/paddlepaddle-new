@@ -84,7 +84,13 @@ int XPUReduce(const Context& dev_ctx,
   GetReduceDims(x.dims(), dims, reduce_all, &reduce_dims);
 
   int r = xpu::SUCCESS;
-  if (reduce_dims.size() == 0) {
+  if (x.numel() == 0) {
+    r = xpu::constant<XPUType>(dev_ctx.x_context(),
+                               reinterpret_cast<XPUType*>(y_data),
+                               out->numel(),
+                               std::numeric_limits<XPUType>::quiet_NaN());
+    PADDLE_ENFORCE_XDNN_SUCCESS(r, "constant");
+  } else if (reduce_dims.size() == 0) {
     r = xpu::copy<XPUType>(dev_ctx.x_context(),
                            reinterpret_cast<const XPUType*>(x_data),
                            reinterpret_cast<XPUType*>(y_data),
@@ -106,7 +112,13 @@ void ReduceKernelImpl(const DeviceContext& dev_ctx,
   dev_ctx.template Alloc<OutT>(output);
   const auto* x_data = input.data<OutT>();
   auto* y_data = output->data<OutT>();
-  if (reduce_dims.size() == 0) {
+  if (input.numel() == 0) {
+    int r = xpu::constant<XPUType>(dev_ctx.x_context(),
+                                   reinterpret_cast<XPUType*>(y_data),
+                                   output->numel(),
+                                   std::numeric_limits<XPUType>::quiet_NaN());
+    PADDLE_ENFORCE_XDNN_SUCCESS(r, "constant");
+  } else if (reduce_dims.size() == 0) {
     int r = xpu::copy<XPUType>(dev_ctx.x_context(),
                                reinterpret_cast<const XPUType*>(x_data),
                                reinterpret_cast<XPUType*>(y_data),
@@ -136,6 +148,17 @@ void XPUReduce(const DeviceContext& dev_ctx,
 
   std::vector<int64_t> reduce_dims;
   GetReduceDims(x.dims(), dims, reduce_all, &reduce_dims);
+
+  if (x.numel() == 0) {
+    dev_ctx.template Alloc<T>(out);
+    using XPUType = typename XPUTypeTrait<T>::Type;
+    int r = xpu::constant<XPUType>(dev_ctx.x_context(),
+                                   reinterpret_cast<XPUType*>(out->data<T>()),
+                                   out->numel(),
+                                   std::numeric_limits<XPUType>::quiet_NaN());
+    PADDLE_ENFORCE_XDNN_SUCCESS(r, "constant");
+    return;
+  }
 
   // no need to cast dtype
   if (out_dtype == phi::DataType::UNDEFINED || out_dtype == x.dtype()) {
