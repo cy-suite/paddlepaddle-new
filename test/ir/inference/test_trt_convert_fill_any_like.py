@@ -74,7 +74,7 @@ class TrtConvertExpandV2Test(TrtLayerAutoScanTest):
 
         for dims in [1, 2, 3, 4]:
             for value in [2]:
-                for dtype in [-1, 1, 2, 3, 4, 5, 6]:
+                for dtype in [-1, 0, 1, 2, 3, 4, 5, 6]:
                     dics = [
                         {
                             "value": value,
