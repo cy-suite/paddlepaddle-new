@@ -313,7 +313,6 @@ def launch() -> None:
             find_error_from_log,
             gen_new_args,
             gen_new_ctx,
-            get_gpu_peak_memory_usage,
             read_completed,
             read_log,
             read_step_time_log,
@@ -507,7 +506,7 @@ def launch() -> None:
                 # process generated result
                 # TODO differentiate out of memory and no loss(maybe over time)
                 # TODO integrate memory and metric read
-                metric, mem, err = read_log(
+                metric, mem, _, err = read_log(
                     path=ctx.args.log_dir,
                     metric_file="workerlog.0",
                     target_metric=tuner_cfg["metric_cfg"]["name"],
@@ -524,7 +523,7 @@ def launch() -> None:
                     # for pruner use
                     gbs_cur_cfg['time'] = -1
                     gbs_cur_cfg[tuner_cfg['metric_cfg']['name']] = None
-                    gbs_cur_cfg["max_mem_usage"] = mem
+                    gbs_cur_cfg["max_mem_usage"] = max(mem)
 
                 if err & (1 << 1):
                     ctx.logger.warning(
@@ -550,7 +549,7 @@ def launch() -> None:
                     # for pruner use
                     gbs_cur_cfg['time'] = metric
                     gbs_cur_cfg[tuner_cfg['metric_cfg']['name']] = metric
-                    gbs_cur_cfg["max_mem_usage"] = mem
+                    gbs_cur_cfg["max_mem_usage"] = max(mem)
 
                 if err & (1 << 0) or err & (1 << 1):
                     # no metric or out of memory, end gbs search
@@ -700,9 +699,6 @@ def launch() -> None:
                     logger.info(f"Current best config: {to_json_str}")
                     cur_best_cfgs_log_path = os.path.join(
                         os.path.dirname(ctx.args.auto_tuner_json), "best_cfg"
-                    )
-                    peek_memory_usage_per_gpu = get_gpu_peak_memory_usage(
-                        cur_best_cfgs_log_path, "best_cfg.gpu.log"
                     )
 
                 else:
@@ -890,7 +886,7 @@ def launch() -> None:
             )
             # process generated result
 
-            metric, mem, err = read_log(
+            metric, mem, num_trainable_params, err = read_log(
                 path=ctx.args.log_dir,
                 metric_file="workerlog.0",
                 target_metric=tuner_cfg["metric_cfg"]["name"],
@@ -952,7 +948,7 @@ def launch() -> None:
                 # for pruner use
                 cur_cfg['time'] = -1
                 cur_cfg[tuner_cfg['metric_cfg']['name']] = None
-                cur_cfg["max_mem_usage"] = mem if not OOM_flag else "OOM"
+                cur_cfg["max_mem_usage"] = max(mem) if not OOM_flag else "OOM"
                 has_error = True
 
             if err & (1 << 1):
@@ -974,7 +970,7 @@ def launch() -> None:
                 # for pruner use
                 cur_cfg['time'] = metric
                 cur_cfg[tuner_cfg['metric_cfg']['name']] = metric
-                cur_cfg["max_mem_usage"] = mem if not OOM_flag else "OOM"
+                cur_cfg["max_mem_usage"] = max(mem) if not OOM_flag else "OOM"
 
             if not has_error and not timeout_flag:
                 cur_cfg['time'] = -1
@@ -1009,6 +1005,91 @@ def launch() -> None:
                     cur_cfg["max_mem_usage"] = max(
                         int(float(mem)), int(float(cur_cfg["max_mem_usage"]))
                     )
+
+            # Log the peak memory usage of all GPUs and the number of trainable parameters.
+            if not err & (1 << 2) and cur_cfg["max_mem_usage"] != "OOM":
+                per_node_peek_memory_info = {}
+                path = f"auto_tuner/peek_mem/per_node/{job_id}/{ip}"
+                if nnodes > 1:
+                    import ast
+
+                    while not client.put(path, str(mem).encode('latin-1')):
+                        time.sleep(1)
+                    result = list(
+                        client.get_prefix(
+                            f"auto_tuner/peek_mem/per_node/{job_id}"
+                        )
+                    )
+                    size = len(result)
+                    while size != nnodes:
+                        time.sleep(1)
+                        result = list(
+                            client.get_prefix(
+                                f"auto_tuner/peek_mem/per_node/{job_id}/"
+                            )
+                        )
+                        size = len(result)
+                    per_node_peek_memory_info = {
+                        i[1]: ast.literal_eval(i[0].decode()) for i in result
+                    }
+
+                else:
+                    per_node_peek_memory_info["node0"] = mem
+
+                log_str = "Peek Memory Info Summary:\n"
+                for node, peek_memory in per_node_peek_memory_info.items():
+                    mem_info_str = f"Memory Value: {peek_memory}"
+                    log_str += f"Node: {node} | {mem_info_str}\n"
+                log_str = log_str[:-1]
+                for sub_log_str in log_str.split("\n"):
+                    ctx.logger.info(sub_log_str)
+                for sub_log_str in log_str.split("\n"):
+                    logger.info(sub_log_str)
+
+                per_node_trainable_params_info = {}
+                path = f"auto_tuner/trainable_params/per_node/{job_id}/{ip}"
+                if nnodes > 1:
+                    import ast
+
+                    while not client.put(
+                        path, str(num_trainable_params).encode('latin-1')
+                    ):
+                        time.sleep(1)
+                    result = list(
+                        client.get_prefix(
+                            f"auto_tuner/trainable_params/per_node/{job_id}"
+                        )
+                    )
+                    size = len(result)
+                    while size != nnodes:
+                        time.sleep(1)
+                        result = list(
+                            client.get_prefix(
+                                f"auto_tuner/trainable_params/per_node/{job_id}/"
+                            )
+                        )
+                        size = len(result)
+                    per_node_trainable_params_info = {
+                        i[1]: ast.literal_eval(i[0].decode()) for i in result
+                    }
+
+                else:
+                    per_node_trainable_params_info["node0"] = (
+                        num_trainable_params
+                    )
+
+                log_str = "Trainable Params Info Summary:\n"
+                for (
+                    node,
+                    trainable_params,
+                ) in per_node_trainable_params_info.items():
+                    params_info_str = f"Params Value: {trainable_params}"
+                    log_str += f"Node: {node} | {params_info_str}\n"
+                log_str = log_str[:-1]
+                for sub_log_str in log_str.split("\n"):
+                    ctx.logger.info(sub_log_str)
+                for sub_log_str in log_str.split("\n"):
+                    logger.info(sub_log_str)
 
             # if need accurate peak memory
             if os.environ.get("FLAGS_log_memory_stats", False):

@@ -14,7 +14,6 @@
 
 
 import logging
-import os
 from abc import ABC, abstractmethod
 
 from .prune import _PRUNE_HISTORY_FUNC
@@ -56,10 +55,6 @@ class GridSearch(SearchAlgo):
             from .utils import memory_sort
 
             self.all_tasks.sort(key=memory_sort)
-
-        print("=====>GridSearch all tasks:", len(self.all_tasks))
-        for task in self.all_tasks:
-            print(task)
 
         self.previous_cfg = None
 
@@ -132,9 +127,6 @@ class GBSSearch(SearchAlgo):
         super().__init__(tuner_cfg)
         self.idx = 0
         self.all_tasks = gbs_search_all(tuner_cfg)
-        print("=====>GBSSearch all tasks:", len(self.all_tasks))
-        for task in self.all_tasks:
-            print(task)
 
     def search_once(self, history_cfgs):
         new_cfg = None
@@ -157,11 +149,7 @@ class CustomizeSearch(SearchAlgo):
     def __init__(self, tuner_cfg):
         super().__init__(tuner_cfg)
         self.idx = 0
-        self.configs_csv = tuner_cfg.get("configs_csv", None)
-        assert os.path.exists(
-            self.configs_csv
-        ), "configs_csv file is necessary in CustomizeSearch mode."
-        self.all_tasks = load_configs_from_csv(self.configs_csv)
+        self.all_tasks = load_configs_from_csv(tuner_cfg)
 
     def search_once(self, history_cfgs):
         new_cfg = self.all_tasks[self.idx]

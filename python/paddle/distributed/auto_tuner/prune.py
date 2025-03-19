@@ -249,7 +249,7 @@ def prune_by_vpp(tuner_cfg, cur_cfg, history_cfgs=[]):
 
     if num_layers:
         acc_steps = cur_cfg.get("acc_steps", 1)
-        if tuner_cfg.get("check_pp_divide_acc_steps", False):
+        if tuner_cfg.get("enable_pp_divide_acc_steps_prune", False):
             if vpp_degree > 1 and acc_steps % pp_degree != 0:
                 return True
         if num_layers % (pp_degree * vpp_degree) != 0:
@@ -330,7 +330,7 @@ def prune_by_mbs(tuner_cfg, cur_cfg, history_cfgs=[]):
         if pp_degree is not None:
             if acc_steps < pp_degree:
                 return True
-        if tuner_cfg.get("check_pp_divide_acc_steps", False):
+        if tuner_cfg.get("enable_pp_divide_acc_steps_prune", False):
             vpp_degree = cur_cfg.get("vpp_degree", None)
             if vpp_degree is not None and vpp_degree > 1:
                 if pp_degree is not None:

@@ -1596,13 +1596,11 @@ def read_allocated_memory_log(
             return metric_list[-1]
 
 
-def read_memory_log(path, file) -> tuple[float, bool]:
+def read_memory_log(path, file) -> tuple[list, bool]:
     log_path = os.path.join(path, file)
     if not os.path.exists(log_path):
-        return (0.0, True)
-    memory_used = []
-    utilization_gpu = []
-    indices = []
+        return ([0], True)
+    memory_used = {}
 
     with open(log_path, 'r') as f:
         reader = csv.reader(f)
@@ -1617,69 +1615,38 @@ def read_memory_log(path, file) -> tuple[float, bool]:
             # If row length is 6 then it's a utilization data row
             # skip header
             if len(row) == 6:
-                index, util_gpu, _, mem_used, _, _ = row
-                indices.append(int(index))
-                memory_used.append(int(mem_used))
-                utilization_gpu.append(int(util_gpu))
-    return max(memory_used), False
+                index, _, _, mem_used, _, _ = row
+                index = int(index)
+                if index not in memory_used:
+                    memory_used[index] = int(mem_used)
+                memory_used[index] = max(int(mem_used), memory_used[index])
+
+    mem_used_per_gpu = [
+        memory_used.get(i, 0) for i in range(max(memory_used.keys()) + 1)
+    ]
+    return mem_used_per_gpu, False
 
 
-def get_gpu_peak_memory_usage(path, file):
+def read_trainable_parameters_log(path, file) -> int:
     log_path = os.path.join(path, file)
     if not os.path.exists(log_path):
-        return None
-    peak_memory_usage = {}
+        return 0
     with open(log_path, 'r') as f:
-        reader = csv.reader(f)
-        flag = False
-        # skip headers
-        while not flag:
-            # show the first line of reader
-            row = next(reader)
-            if len(row) == 6 and 'memory_used' in row:
-                flag = True
-        for row in reader:
-            # If row length is 6 then it's a utilization data row
-            # skip header
-            if len(row) == 6:
-                index, util_gpu, _, mem_used, _, _ = row
-                if index not in peak_memory_usage:
-                    peak_memory_usage[index] = int(mem_used)
-                else:
-                    peak_memory_usage[index] = max(
-                        peak_memory_usage[index], int(mem_used)
-                    )
-    return peak_memory_usage
-
-
-def get_model_parameters_per_gpu(path, gpus_per_node):
-    model_parameters_per_gpu = {}
-    for gpu_id in range(gpus_per_node):
-        log_path = os.path.join(path, "workerlog." + str(gpu_id))
-        if not os.path.exists(log_path):
-            model_parameters_per_gpu[gpu_id] = None
-            continue
-        with open(log_path, 'r') as f:
-            re_model_parameter_pattern = (
-                r"Number of trainable parameters\s*=\s*([\d,]+).*\(per device"
-            )
-            lines = f.readlines()
-            model_param = []
-            for line in lines:
-                result = re.findall(re_model_parameter_pattern, line)
-                if result:
-                    value = None
-                    for item in result:
-                        try:
-                            value = int(item.replace(",", ""))
-                            model_param.append(value)
-                            break
-                        except:
-                            continue
-                    assert value is not None
-            assert len(model_param) == 1
-            model_parameters_per_gpu[gpu_id] = model_param[0]
-    return model_parameters_per_gpu
+        re_model_parameter_pattern = (
+            r"Number of trainable parameters\s*=\s*([\d,]+).*\(per device"
+        )
+        lines = f.readlines()
+        model_param = set()
+        for line in lines:
+            result = re.findall(re_model_parameter_pattern, line)
+            if result:
+                value = None
+                for item in result:
+                    value = int(item.replace(",", ""))
+                    model_param.add(value)
+                assert value is not None
+        assert len(model_param) == 1
+    return model_param.pop()
 
 
 def read_completed(path):
@@ -1714,15 +1681,16 @@ def read_log(
     metric_file="workerlog.0",
     target_metric='step/s',
     memory_file="0.gpu.log",
-) -> tuple[float, float, int]:
+) -> tuple[float, list, list, int]:
     """
-    extract metric and max memory usage from log file
+    extract metric and max memory usage and trainable params number from log file
     return:
         metric: average metric of last 10 steps
-        memory: max memory used
+        memory:  memory used per gpu
         err_code: 00: no error, 01: no metric, 10: out of memory, 100: no memory log
     """
     err_code = 0
+    param_per_gpu = {}
     # check out of memory
     for root, dirs, files in os.walk(path):
         for file in files:
@@ -1732,17 +1700,24 @@ def read_log(
             if metric_flag:
                 err_code = (metric_flag & 2) | err_code
 
+            rank_num = int(file.split(".")[1])
+            param_per_gpu[rank_num] = read_trainable_parameters_log(path, file)
+            trainable_params = [
+                param_per_gpu.get(i, 0)
+                for i in range(max(param_per_gpu.keys()) + 1)
+            ]
     # read metric
     res_metric, metric_flag = read_metric_log(path, metric_file, target_metric)
     err_code = metric_flag | err_code
     # check max memory usage
+    res_memory, memory_flag = read_memory_log(path, memory_file)
     try:
         res_memory, memory_flag = read_memory_log(path, memory_file)
         err_code = (memory_flag << 2) | err_code
     except:
-        res_memory = 0.0
+        res_memory = [0.0]
         err_code = (1 << 2) | err_code
-    return res_metric, res_memory, err_code
+    return res_metric, res_memory, trainable_params, err_code
 
 
 def get_error_info(filename):
@@ -1911,8 +1886,12 @@ def gbs_search_all(tuner_cfg):
     return new_all_cfgs
 
 
-def load_configs_from_csv(configs_csv):
+def load_configs_from_csv(tuner_cfg):
     """Load the configs from csv file."""
+    configs_csv = tuner_cfg.get("configs_csv", None)
+    assert os.path.exists(
+        configs_csv
+    ), "configs_csv file is necessary in CustomizeSearch mode."
     all_configs = []
     extract_keys_integer = [
         "dp_degree",
@@ -1922,8 +1901,15 @@ def load_configs_from_csv(configs_csv):
         "micro_batch_size",
         "sharding_degree",
         "sharding_stage",
-        "global_batch_size",
     ]
+    global_batch_size = tuner_cfg.get("global_batch_size", None)
+    assert isinstance(
+        global_batch_size, list
+    ), "global_batch_size must be list!"
+    assert (
+        len(global_batch_size) == 1
+    ), "global_batch_size must be a list with only one element!"
+
     extract_keys_string = ["use_recompute", "recompute_granularity"]
     with open(configs_csv, "r") as f:
         reader = csv.DictReader(f)
@@ -1939,7 +1925,7 @@ def load_configs_from_csv(configs_csv):
                     f"{extract_key} must be integer, but got {val}"
                 )
 
-        global_batch_size = config["global_batch_size"]
+        global_batch_size = global_batch_size[0]
         dp_degree = config["dp_degree"]
         sharding_degree = config["sharding_degree"]
         assert global_batch_size % (dp_degree * sharding_degree) == 0, (
