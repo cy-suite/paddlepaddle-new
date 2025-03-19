@@ -2480,6 +2480,7 @@ set +x
         # houjue debug
         set -x
         export
+        xpu-smi
         ls -l /dev
 
         #card_test "$single_card_tests" 1 4
