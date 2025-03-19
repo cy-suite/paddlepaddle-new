@@ -7,7 +7,6 @@ on:
 env:
   BRANCH: ${{ github.base_ref }}
   PR_ID: ${{ github.event.pull_request.number }}
-  PR_ID: 71738
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   OWNER: ${{ github.repository_owner }}
   REPO: ${{ github.event.repository.name }}
