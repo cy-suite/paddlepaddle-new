@@ -216,6 +216,7 @@ python ${PADDLE_ROOT}/tools/coverage/coverage_diff.py python-coverage-diff.info 
 
 mv -f python-coverage-diff.tmp python-coverage-diff.info
 
+
 # assert coverage lines
 
 echo "Assert Diff Coverage"
