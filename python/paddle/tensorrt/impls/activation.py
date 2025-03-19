@@ -28,7 +28,6 @@ from paddle.tensorrt.converter_utils import (
     trt_sum,
 )
 from paddle.tensorrt.register import converter_registry
-from paddle.tensorrt.util import RefitManager
 
 activation_type_map = {
     "pd_op.tanh": trt.ActivationType.TANH,
