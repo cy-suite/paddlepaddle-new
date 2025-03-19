@@ -12,17 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#pragma once
+#include "paddle/phi/kernels/broadcast_tensors_kernel.h"
 
-#include <vector>
+#include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/kernels/impl/broadcast_tensors_kernel_impl.h"
 
-#include "paddle/phi/core/dense_tensor.h"
-
-namespace phi {
-
-template <typename Context>
-void BroadcastTensorsKernel(const Context& ctx,
-                            const std::vector<const DenseTensor*>& x,
-                            std::vector<DenseTensor*> out);
-
-}  // namespace phi
+PD_REGISTER_KERNEL_FOR_ALL_BACKEND_DTYPE(broadcast_tensors,
+                                         ALL_LAYOUT,
+                                         phi::BroadcastTensorsKernel) {}
