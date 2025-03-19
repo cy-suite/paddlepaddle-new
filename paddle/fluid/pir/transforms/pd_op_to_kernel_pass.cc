@@ -190,6 +190,7 @@ const std::unordered_map<int, phi::Place> MemcpyOpAttr2Place = {
     {2, phi::GPUPinnedPlace()},
 #elif defined(PADDLE_WITH_XPU)
     {3, phi::XPUPlace()},
+    {5, phi::XPUPinnedPlace()},
 #elif defined(PADDLE_WITH_CUSTOM_DEVICE)
     {4, phi::CustomPlace()}
 #endif
@@ -1176,12 +1177,15 @@ phi::KernelKey GetKernelKey(
   }
 
   if (op->isa<FullWithTensorOp>()) {
-    VLOG(6) << "FullWithTensorOp doesn't need a kernel";
     auto backend = paddle::experimental::ParseBackend(place);
     auto dtype =
         op->attributes().at("dtype").dyn_cast<DataTypeAttribute>().data();
 
-    return {backend, phi::DataLayout::ANY, dtype};
+    phi::KernelKey res(backend, phi::DataLayout::ANY, dtype);
+    if (NeedFallBackCpu(op, kernel_fn_str, res)) {
+      res.set_backend(phi::Backend::CPU);
+    }
+    return res;
   }
 
   if (op->isa<CreateArrayOp>()) {

@@ -48,7 +48,10 @@ from ....utils import (
     printable,
 )
 from ....utils.envs import ENV_SOT_BREAK_GRAPH_ON_GET_SYMBOLIC_VALUE
-from ....utils.exceptions import HasNoAttributeError, InnerError
+from ....utils.exceptions import (
+    InnerError,
+    UnsupportedPaddleAPIBreak,
+)
 from ..dispatch_functions import tensor_numel
 from ..guard import (
     FasterStringifiedExpression,
@@ -704,7 +707,9 @@ class TensorVariable(VariableBase):
             )
             return fn_var.bind(self, name)
         else:
-            raise HasNoAttributeError(f"Unknown Tensor attribute: {name}")
+            raise BreakGraphError(
+                UnsupportedPaddleAPIBreak(fn_name=f"Tensor.{name}")
+            )
 
     def setattr(self, key, val):
         # support tensor variable store attr, like:
@@ -832,7 +837,7 @@ class SymbolicVariable(VariableBase):
         self.need_guard_value = True
         log(
             3,
-            f"get_py_value from SymbolicVariable {self} caused value need guard",
+            f"get_py_value from SymbolicVariable {self} caused value need guard\n",
         )
         if isinstance(self.value, SymbolicValue):
             assert isinstance(
@@ -1216,6 +1221,11 @@ class NumpyVariable(VariableBase):
 
     @staticmethod
     def format_dtype(dtype: np.dtype):
+        if (
+            np.lib.NumpyVersion(np.__version__) >= "1.20.0"
+            and dtype == np.bool_
+        ):
+            return "np.bool_"
         return f"np.{dtype}"
 
     @staticmethod
@@ -1227,8 +1237,6 @@ class NumpyVariable(VariableBase):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if isinstance(value, (np.number)):
-            return NumpyNumberVariable(value, graph, tracker)
         if isinstance(value, (np.ndarray)):
             return NumpyArrayVariable(value, graph, tracker)
         return None
@@ -1269,6 +1277,20 @@ class NumpyNumberVariable(NumpyVariable):
                 union_free_vars(frame_value_tracer.free_vars, {"np": np}),
             ),
         ]
+
+    @VariableFactory.register_from_value()
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
+        if isinstance(value, np.number):
+            return NumpyNumberVariable(value, graph, tracker)
+        return None
+
+
+class NumpyBoolVariable(NumpyNumberVariable):
+    @VariableFactory.register_from_value()
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
+        if isinstance(value, (np.bool_)):
+            return NumpyBoolVariable(value, graph, tracker)
+        return None
 
 
 class NumpyArrayVariable(NumpyVariable):
