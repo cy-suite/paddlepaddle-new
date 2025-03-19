@@ -525,8 +525,10 @@ if [[ ${SKIP_CI} ]];then
     check_approval 1 tianshuo78520a zhiqiu phlrain Ligoml
 fi
 
+echo "::group:: Installing dependencies..."
 # Get the list of PR authors with unresolved unit test issues
 pip install PyGithub
+echo "::endgroup::"
 # For getting PR related data
 wget https://sys-p0.bj.bcebos.com/blk/block.txt --no-check-certificate --no-proxy
 wget https://sys-p0.bj.bcebos.com/bk-ci/bk.txt --no-check-certificate --no-proxy
