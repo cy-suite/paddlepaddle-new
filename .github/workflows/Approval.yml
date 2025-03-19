@@ -28,7 +28,7 @@ jobs:
           git switch -c test
           git remote add upstream https://github.com/PaddlePaddle/Paddle.git
           git fetch upstream $BRANCH
-          bash tools/check_file_diff_approvals.sh
+          bash  tools/check_file_diff_approvals.sh
 
   approved-actions:
     name: Check approval
