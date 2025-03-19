@@ -609,8 +609,9 @@ void IrNode::convert_int32_to_int64() {
                         true,
                         ::common::errors::InvalidArgument(
                             "Current only support convert int32_t "
-                            "to int64_t, but get type is: %s",
-                            type()));
+                            "to int64_t, but get type is: %s, node type is: %s",
+                            type(),
+                            node_type()));
 
   if (type() == Int(32)) set_type(Int(64));
   if (type() == UInt(32)) set_type(UInt(64));
@@ -648,7 +649,7 @@ void IrNode::convert_int64_to_int32() {
   }
 
   if (type() == Int(64)) set_type(Int(32));
-  if (type() == UInt(64)) set_type(Int(32));
+  if (type() == UInt(64)) set_type(UInt(32));
 
   for (Expr &operand : operands) {
     operand->convert_int64_to_int32();
