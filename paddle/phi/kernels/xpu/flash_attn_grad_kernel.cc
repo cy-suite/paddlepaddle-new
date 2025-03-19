@@ -221,7 +221,7 @@ void FlashAttnGradKernelBase(
       (const int*)downend_row_indices_data,
       (const int*)upstart_row_indices_data,
       (const int*)upend_row_indices_data,
-      is_flashmask ? startend_row_indices->dims()[3] : 0,
+      is_flashmask ? startend_row_indices->dims()[1] : 0,
       nullptr,
       is_flashmask ? flashmask_stream : nullptr);
   PADDLE_ENFORCE_XDNN_SUCCESS(r, "mha_varlen_bwd");
@@ -491,6 +491,6 @@ PD_REGISTER_KERNEL(flashmask_attention_grad,
                    phi::FlashMaskGradKernel,
                    phi::dtype::float16,
                    phi::dtype::bfloat16) {
-  kernel->InputAt(4).SetBackend(
+  kernel->InputAt(6).SetBackend(
       phi::Backend::ALL_BACKEND);  // fixed_seed_offset
 }

@@ -209,7 +209,7 @@ void FlashAttnKernelBase(
       (const int*)downend_row_indices_data,       // downend_row_indices_data
       (const int*)upstart_row_indices_data,       // upstart_row_indices_data
       (const int*)upend_row_indices_data,         // upend_row_indices_data
-      is_flashmask ? startend_row_indices->dims()[3]
+      is_flashmask ? startend_row_indices->dims()[1]
                    : 0,                          // flash_mask_head_num
       nullptr,                                   // flashmask_maxmin
       is_flashmask ? flashmask_stream : nullptr  // side_stream

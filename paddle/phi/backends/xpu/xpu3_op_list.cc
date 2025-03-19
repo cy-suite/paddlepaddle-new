@@ -617,6 +617,8 @@ XPUOpMap& get_kl3_ops() {
                      phi::DataType::FLOAT16})},
       {"flashmask_attention",
        XPUKernelSet({phi::DataType::BFLOAT16, phi::DataType::FLOAT16})},
+      {"flashmask_attention_grad",
+       XPUKernelSet({phi::DataType::BFLOAT16, phi::DataType::FLOAT16})},
       {"flash_attn_unpadded",
        XPUKernelSet({phi::DataType::BFLOAT16,
                      phi::DataType::FLOAT32,

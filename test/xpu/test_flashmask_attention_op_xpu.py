@@ -44,7 +44,7 @@ def naive_attention(query, key, value, mask):
     product = paddle.scale(product, scale)
 
     if mask is not None:
-        mask[mask == -np.inf] = -3.3895313892515355e37
+        mask[mask == -np.inf] = -1e37
         product = product + mask
 
     weights = paddle.nn.functional.softmax(product)
@@ -80,6 +80,46 @@ def flashmask_to_densemask(startend_row_indices, dtype, causal=True):
                         upend = startend_row_indices[bi, hi, j, 1]
                         m[bi, hi, :upend, j] = -np.inf
     return m
+
+
+def generate_causal_blockwise_mask(B, S, H, D, doc_seq_lens):
+    total_seq_len = np.sum(doc_seq_lens)
+    assert total_seq_len <= S
+    assert len(doc_seq_lens) >= 3
+    padding = S - np.sum(doc_seq_lens)
+
+    start_row_indices = []
+    cur_len_so_far = doc_seq_lens[0]
+    for i in range(len(doc_seq_lens)):
+        start_row_indices.extend([cur_len_so_far] * doc_seq_lens[i])
+        if i < len(doc_seq_lens) - 1:
+            cur_len_so_far += doc_seq_lens[i + 1]
+    if padding > 0:
+        start_row_indices.extend([cur_len_so_far] * padding)
+    start_row_indices = (
+        paddle.to_tensor(start_row_indices, dtype=paddle.int32)
+        .reshape((1, 1, S, 1))
+        .repeat_interleave(B, 0)
+    )
+
+    seq_cusums = np.cumsum(doc_seq_lens)
+    end_row_indices = (
+        [seq_cusums[-2]] * seq_cusums[-2]
+        + [seq_cusums[-1]] * doc_seq_lens[-1]
+        + [S] * padding
+    )
+    end_row_indices = (
+        paddle.to_tensor(end_row_indices, dtype=paddle.int32)
+        .reshape((1, 1, S, 1))
+        .repeat_interleave(B, 0)
+    )
+
+    startend_row_indices = paddle.concat(
+        [start_row_indices, end_row_indices], axis=-1
+    )
+
+    causal = True
+    return startend_row_indices, causal
 
 
 def generate_causal_mask(B, L, H, D, doc_seq_lens):
@@ -167,10 +207,20 @@ class TestFlashAttentionAPI(unittest.TestCase):
             tolerance_dv=1e-2,
             generate_mask_fn=generate_share_question_mask,
         )
+        self.run_case(
+            dtype="float16",
+            tolerance=5e-4,
+            tolerance_dv=1e-3,
+            generate_mask_fn=generate_causal_blockwise_mask,
+        )
+        self.run_case(
+            dtype="bfloat16",
+            tolerance=6e-3,
+            tolerance_dv=1e-2,
+            generate_mask_fn=generate_causal_blockwise_mask,
+        )
 
     def run_case(self, dtype, tolerance, tolerance_dv, generate_mask_fn):
-        print(f"Test case shape {self.shape} dtype {dtype}")
-
         # test dynamic
         paddle.disable_static()
         B = self.shape[0]
@@ -220,21 +270,48 @@ class TestFlashAttentionAPI(unittest.TestCase):
 
         out_ = naive_attention(q_, k_, v_, dense_mask)
 
+        out.backward()
+        out_.backward()
+
         # forward result
         float_out = paddle.cast(out, "float32")
         float_out_ = paddle.cast(out_, "float32")
 
-        max_diff_forward = np.max(
-            np.abs(float_out.numpy() - float_out_.numpy())
-        )
-        mean_diff_forward = np.mean(
-            np.abs(float_out.numpy() - float_out_.numpy())
-        )
-        print("max_diff_forward:", max_diff_forward)
-        print("mean_diff_forward:", mean_diff_forward)
-
         np.testing.assert_allclose(
             float_out, float_out_, rtol=tolerance, atol=tolerance
+        )
+
+        # backward shape
+        self.assertEqual(q.grad.shape, q.shape)
+        self.assertEqual(q_.grad.shape, q.shape)
+        self.assertEqual(k.grad.shape, k.shape)
+        self.assertEqual(k_.grad.shape, k.shape)
+        self.assertEqual(v.grad.shape, v.shape)
+        self.assertEqual(v_.grad.shape, v.shape)
+
+        # backward result
+        float_q_grad = paddle.cast(q.grad, "float32")
+        float_q_grad_ = paddle.cast(q_.grad, "float32")
+        float_k_grad = paddle.cast(k.grad, "float32")
+        float_k_grad_ = paddle.cast(k_.grad, "float32")
+        float_v_grad = paddle.cast(v.grad, "float32")
+        float_v_grad_ = paddle.cast(v_.grad, "float32")
+
+        max_diff_q_grad = np.max(
+            np.abs(float_q_grad.numpy() - float_q_grad_.numpy())
+        )
+        mean_diff_q_grad = np.mean(
+            np.abs(float_q_grad.numpy() - float_q_grad_.numpy())
+        )
+
+        np.testing.assert_allclose(
+            float_q_grad, float_q_grad_, rtol=tolerance, atol=tolerance
+        )
+        np.testing.assert_allclose(
+            float_k_grad, float_k_grad_, rtol=tolerance, atol=tolerance
+        )
+        np.testing.assert_allclose(
+            float_v_grad, float_v_grad_, rtol=tolerance_dv, atol=tolerance_dv
         )
 
 
