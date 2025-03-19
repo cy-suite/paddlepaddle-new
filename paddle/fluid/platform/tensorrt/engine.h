@@ -244,9 +244,9 @@ class TensorRTEngine {
   Weight GetTrtWeight(const std::string& name,
                       const phi::DenseTensor& weight_tensor);
 
-  bool setRefitWeights(
-      const std::map<std::string, std::pair<std::string, std::string>>&
-          refit_mapping,
+  bool SetRefitWeights(
+      const std::map<std::string, std::map<std::string, std::string>>
+          refit_param_names2trt_names,
       const std::string& param_name,
       const phi::DenseTensor& new_weight_tensor);
 

@@ -196,14 +196,17 @@ def deformable_conv_converter(network, paddle_op, inputs):
     filter = inputs[2]
     mask = inputs[3]
 
-    filter_name = (
-        paddle_op.operands()[2]
-        .source()
-        .get_defining_op()
-        .attrs()['parameter_name']
-    )
+    if isinstance(filter, trt.ITensor):
+        filter_name = (
+            paddle_op.operands()[2]
+            .source()
+            .get_defining_op()
+            .attrs()['parameter_name']
+        )
 
-    filter = constant_manager.get_constant_value(filter_name)
+        filter = constant_manager.get_constant_value(filter_name)
+    else:
+        filter = filter.numpy()
 
     groups = paddle_op.attrs().get("groups")
     deformable_groups = paddle_op.attrs().get("deformable_groups")

@@ -40,7 +40,7 @@ const char *TensorRTEngineOp::attributes_name[16] = {
     "converter_debug_info",
     "refit_params_path",
     "refit_param_names",
-    "refit_mapping",
+    "refit_param_names2trt_names",
 };
 
 OpInfoTuple TensorRTEngineOp::GetOpInfo() {
@@ -84,7 +84,7 @@ OpInfoTuple TensorRTEngineOp::GetOpInfo() {
       paddle::dialect::OpAttributeInfo(
           "refit_param_names", "pir::ArrayAttribute", ""),
       paddle::dialect::OpAttributeInfo(
-          "refit_mapping", "pir::ArrayAttribute", ""),
+          "refit_param_names2trt_names", "pir::ArrayAttribute", ""),
   };
 
   std::vector<paddle::dialect::OpOutputInfo> outputs = {
@@ -159,18 +159,21 @@ void TensorRTEngineOp::Build(pir::Builder &builder,             // NOLINT
                         pir::ArrayAttribute::get(pir::IrContext::Instance(),
                                                  refit_param_names_attrs));
 
-  std::vector<pir::Attribute> refit_mapping_attrs;
-  for (const auto &item : trt_params.refit_mapping) {
-    const std::string param_name = item.first;
-    const std::string &layer_name = item.second.first;
-    const std::string &role = item.second.second;
-    std::string mapping_str = param_name + ":" + layer_name + ":" + role;
-    refit_mapping_attrs.push_back(
-        pir::StrAttribute::get(pir::IrContext::Instance(), mapping_str));
+  std::vector<pir::Attribute> refit_param_names2trt_names_attrs;
+  for (const auto &param_item : trt_params.refit_param_names2trt_names) {
+    const std::string param_name = param_item.first;
+    for (const auto &role_item : param_item.second) {
+      const std::string &role = role_item.first;
+      const std::string &layer_name = role_item.second;
+      std::string mapping_str = param_name + ":" + role + ":" + layer_name;
+      refit_param_names2trt_names_attrs.push_back(
+          pir::StrAttribute::get(pir::IrContext::Instance(), mapping_str));
+    }
   }
-  pir::Attribute attr_refit_mapping =
-      pir::ArrayAttribute::get(pir::IrContext::Instance(), refit_mapping_attrs);
-  argument.AddAttribute("refit_mapping", attr_refit_mapping);
+  pir::Attribute attr_refit_param_names2trt_names = pir::ArrayAttribute::get(
+      pir::IrContext::Instance(), refit_param_names2trt_names_attrs);
+  argument.AddAttribute("refit_param_names2trt_names",
+                        attr_refit_param_names2trt_names);
 
   std::vector<pir::Attribute> outputs_rank_tmp;
   outputs_rank_tmp.reserve(outputs_shape.size());
@@ -288,7 +291,7 @@ void TensorRTEngineOp::VerifySig() {
     VERIFY_ATTRIBUTE(pir::StrAttribute, converter_debug_info);
     VERIFY_ATTRIBUTE(pir::StrAttribute, refit_params_path);
     VERIFY_ATTRIBUTE(pir::ArrayAttribute, refit_param_names);
-    VERIFY_ATTRIBUTE(pir::ArrayAttribute, refit_mapping);
+    VERIFY_ATTRIBUTE(pir::ArrayAttribute, refit_param_names2trt_names);
   }
 
   VLOG(4) << "Verifying outputs:";

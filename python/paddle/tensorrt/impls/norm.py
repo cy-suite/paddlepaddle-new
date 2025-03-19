@@ -21,6 +21,8 @@ from paddle.base.log_helper import get_logger
 from paddle.tensorrt.converter_utils import (
     WithFp16,
     add_1D_constant_layer,
+    append_ones,
+    get_axes_for_reduce_op,
     get_dynamic_dims,
     get_trt_plugin,
     has_dynamic_shape,
@@ -34,9 +36,7 @@ from paddle.tensorrt.converter_utils import (
     trt_sum,
 )
 from paddle.tensorrt.register import converter_registry
-from paddle.tensorrt.util import (
-    TensorRTConstantManager,
-)
+from paddle.tensorrt.util import RefitRole, TensorRTConstantManager
 
 _logger = get_logger(
     __name__, logging.INFO, fmt='%(asctime)s-%(levelname)s: %(message)s'
@@ -54,57 +54,92 @@ def layernorm_converter(network, paddle_op, inputs):
     begin_axis = paddle_op.attrs().get("begin_norm_axis", 0)
     eps = paddle_op.attrs().get("epsilon", 1e-5)
     rank = len(input_a.shape)
-    axisMask = 0
-    for i in range(begin_axis, rank):
-        axisMask |= 1 << i
+    if isinstance(scale, trt.ITensor):
+        axisMask = 0
+        for i in range(begin_axis, rank):
+            axisMask |= 1 << i
 
-    indice_dim_vec = list(range(rank))
-    indice_dim_vec = [x for x in indice_dim_vec if x >= begin_axis]
+        indice_dim_vec = list(range(rank))
+        indice_dim_vec = [x for x in indice_dim_vec if x >= begin_axis]
 
-    newDims = trt_gather(
-        network,
-        trt_shape(network, input_a),
-        indice_dim_vec,
-        name=[paddle_op.name(), "trt_gather"],
-    )
-    newrank = len(indice_dim_vec)
-
-    prepend_dims = []
-    for i in range(rank - newrank):
-        one_const = network.add_constant((1,), np.array([1], dtype=np.int32))
-        set_layer_name(one_const, [paddle_op.name(), f"one_const_{i}"])
-        prepend_dims.append(one_const.get_output(0))
-
-    if prepend_dims:
-        concat_dims = [*prepend_dims, newDims]
-        concat_shape_tensor = trt_concat(
+        newDims = trt_gather(
             network,
-            concat_dims,
-            name=[paddle_op.name(), "concat_shape_tensor"],
+            trt_shape(network, input_a),
+            indice_dim_vec,
+            name=[paddle_op.name(), "trt_gather"],
         )
-    else:
-        concat_shape_tensor = newDims
+        newrank = len(indice_dim_vec)
 
-    Bias_reshape = trt_reshape(
-        network,
-        bias,
-        concat_shape_tensor,
-        is_shape_tensor=True,
-        name=[paddle_op.name(), "Bias_reshape"],
-    )
-    Scale_reshape = trt_reshape(
-        network,
-        scale,
-        concat_shape_tensor,
-        is_shape_tensor=True,
-        name=[paddle_op.name(), "Scale_reshape"],
-    )
-    layer = network.add_normalization(
-        input_a, Scale_reshape, Bias_reshape, axisMask
-    )
-    set_layer_name(layer, paddle_op)
-    support_fp32_mix_precision(paddle_op.name(), layer)
-    layer.epsilon = eps
+        prepend_dims = []
+        for i in range(rank - newrank):
+            one_const = network.add_constant(
+                (1,), np.array([1], dtype=np.int32)
+            )
+            set_layer_name(one_const, [paddle_op.name(), f"one_const_{i}"])
+            prepend_dims.append(one_const.get_output(0))
+
+        if prepend_dims:
+            concat_dims = [*prepend_dims, newDims]
+            concat_shape_tensor = trt_concat(
+                network,
+                concat_dims,
+                name=[paddle_op.name(), "concat_shape_tensor"],
+            )
+        else:
+            concat_shape_tensor = newDims
+
+        Bias_reshape = trt_reshape(
+            network,
+            bias,
+            concat_shape_tensor,
+            is_shape_tensor=True,
+            name=[paddle_op.name(), "Bias_reshape"],
+        )
+        Scale_reshape = trt_reshape(
+            network,
+            scale,
+            concat_shape_tensor,
+            is_shape_tensor=True,
+            name=[paddle_op.name(), "Scale_reshape"],
+        )
+        layer = network.add_normalization(
+            input_a, Scale_reshape, Bias_reshape, axisMask
+        )
+        set_layer_name(layer, paddle_op)
+        support_fp32_mix_precision(paddle_op.name(), layer)
+        layer.epsilon = eps
+    else:
+        scale_shape = paddle_op.operands()[1].source().shape
+        scale_tensor = network.add_constant(scale_shape, scale)
+        set_layer_name(scale_tensor, paddle_op)
+        scale_tensor = scale_tensor.get_output(0)
+        bias_shape = paddle_op.operands()[2].source().shape
+        bias_tensor = network.add_constant(bias_shape, bias)
+        set_layer_name(bias_tensor, paddle_op)
+        bias_tensor = bias_tensor.get_output(0)
+        dims = list(range(len(input_a.shape)))[begin_axis:]
+        axes = get_axes_for_reduce_op(dims)
+        scale_tensor = append_ones(
+            network,
+            scale_tensor,
+            [paddle_op.name(), "scale_tensor_broadcast"],
+            len(input_a.shape) - len(scale_tensor.shape),
+        )
+        bias_tensor = append_ones(
+            network,
+            bias_tensor,
+            [paddle_op.name(), "bias_tensor_broadcast"],
+            len(input_a.shape) - len(bias_tensor.shape),
+        )
+        layer_norm = network.add_normalization(
+            input_a, scale_tensor, bias_tensor, axes
+        )
+        layer_norm.epsilon = eps
+        layer_norm.compute_precision = trt.float32
+        set_layer_name(layer_norm, paddle_op)
+
+    return layer_norm.get_output(0)
+
     return layer.get_output(0)
 
 
@@ -117,41 +152,45 @@ def layernorm_converter(network, paddle_op, inputs):
 def batch_norm_converter(network, paddle_op, inputs):
     constant_manager = TensorRTConstantManager()
 
-    input_tensor, mean_tensor, variance_tensor, scale_tensor, bias_tensor = (
-        inputs
-    )
+    input_tensor, mean, variance, scale, bias = inputs
+
     scale_shape = paddle_op.operands()[3].source().shape
     eps = paddle_op.attrs().get("epsilon", 1e-8)
 
-    mean_name = (
-        paddle_op.operands()[1]
-        .source()
-        .get_defining_op()
-        .attrs()['parameter_name']
-    )
-    variance_name = (
-        paddle_op.operands()[2]
-        .source()
-        .get_defining_op()
-        .attrs()['parameter_name']
-    )
-    scale_name = (
-        paddle_op.operands()[3]
-        .source()
-        .get_defining_op()
-        .attrs()['parameter_name']
-    )
-    bias_name = (
-        paddle_op.operands()[4]
-        .source()
-        .get_defining_op()
-        .attrs()['parameter_name']
-    )
-
-    mean_np = constant_manager.get_constant_value(mean_name)
-    variance_np = constant_manager.get_constant_value(variance_name)
-    scale_np = constant_manager.get_constant_value(scale_name)
-    bias_np = constant_manager.get_constant_value(bias_name)
+    if isinstance(mean, trt.ITensor):
+        mean_name = (
+            paddle_op.operands()[1]
+            .source()
+            .get_defining_op()
+            .attrs()['parameter_name']
+        )
+        variance_name = (
+            paddle_op.operands()[2]
+            .source()
+            .get_defining_op()
+            .attrs()['parameter_name']
+        )
+        scale_name = (
+            paddle_op.operands()[3]
+            .source()
+            .get_defining_op()
+            .attrs()['parameter_name']
+        )
+        bias_name = (
+            paddle_op.operands()[4]
+            .source()
+            .get_defining_op()
+            .attrs()['parameter_name']
+        )
+        mean_np = constant_manager.get_constant_value(mean_name)
+        variance_np = constant_manager.get_constant_value(variance_name)
+        scale_np = constant_manager.get_constant_value(scale_name)
+        bias_np = constant_manager.get_constant_value(bias_name)
+    else:
+        mean_np = mean.numpy()
+        variance_np = variance.numpy()
+        scale_np = scale.numpy()
+        bias_np = bias.numpy()
 
     actual_scale_np = scale_np / np.sqrt(variance_np + eps)
     actual_bias_np = bias_np - mean_np * actual_scale_np
@@ -194,8 +233,12 @@ def batch_norm_converter(network, paddle_op, inputs):
         input_tensor, trt.ScaleMode.CHANNEL, bias, scale, power
     )
     set_layer_name(batch_norm_layer, paddle_op)
-    constant_manager.set_mapping(bias_name, batch_norm_layer.name, 'SHIFT')
-    constant_manager.set_mapping(scale_name, batch_norm_layer.name, 'SCALE')
+    constant_manager.set_mapping(
+        bias_name, batch_norm_layer.name, RefitRole.SHIFT
+    )
+    constant_manager.set_mapping(
+        scale_name, batch_norm_layer.name, RefitRole.SCALE
+    )
 
     if not network.has_implicit_batch_dimension and len(output_shape) < 4:
         reshape_output_layer = network.add_shuffle(

@@ -53,8 +53,9 @@ struct EngineParams {
   // For refit
   std::string refit_params_path{""};
   std::vector<std::string> refit_param_names;
-  // param_name->(layer_name,rtol)
-  std::map<std::string, std::pair<std::string, std::string>> refit_mapping;
+  // param_name(role,layer_name)
+  std::map<std::string, std::map<std::string, std::string>>
+      refit_param_names2trt_names;
 
   //
   // From tensorrt_subgraph_pass, only used for OpConverter.

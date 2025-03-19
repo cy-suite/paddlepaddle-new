@@ -550,11 +550,15 @@ def anchor_generator_converter(network, paddle_op, inputs):
 
 @converter_registry.register("pd_op.affine_channel", trt_version="8.x")
 def affine_channel_converter(network, paddle_op, inputs):
-    x, scale_tensor, bias_tensor = inputs
+    x, scale, bias = inputs
     data_layout = paddle_op.attrs().get("data_layout")
-    constant_manager = TensorRTConstantManager()
-    scale_weights = constant_manager.get_trt_weight_tensor(scale_tensor.name)
-    bias_weights = constant_manager.get_trt_weight_tensor(bias_tensor.name)
+    if isinstance(scale, trt.ITensor):
+        constant_manager = TensorRTConstantManager()
+        scale_weights = constant_manager.get_trt_weight_tensor(scale.name)
+        bias_weights = constant_manager.get_trt_weight_tensor(bias.name)
+    else:
+        scale_weights = scale
+        bias_weights = bias
 
     if data_layout == "NCHW":
         channel_axis = 1

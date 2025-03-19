@@ -491,8 +491,9 @@ def prelu_converter(network, paddle_op, inputs):
     mode = paddle_op.attrs()["mode"]
     data_format = paddle_op.attrs().get("data_format", "NCHW")
 
-    constant_manager = TensorRTConstantManager()
-    alpha_data = constant_manager.get_trt_weight_tensor(alpha_data.name)
+    if isinstance(alpha_data, trt.ITensor):
+        constant_manager = TensorRTConstantManager()
+        alpha_data = constant_manager.get_trt_weight_tensor(alpha_data.name)
 
     w_dims = trt.Dims(alpha_data.numpy().shape)
     trt_w_dims = w_dims

@@ -102,7 +102,7 @@ class TestConvert(unittest.TestCase):
     def setUp(self):
         paddle.seed(2024)
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.save_path = './opt_cache/tensor_axis_cumsum'
+        self.save_path = os.path.join(self.temp_dir.name, 'tensor_axis_cumsum')
         self.place = (
             paddle.CUDAPlace(0)
             if paddle.is_compiled_with_cuda()
@@ -151,11 +151,9 @@ class TestConvert(unittest.TestCase):
             # Create a TensorRTConfig with inputs as a required field.
             trt_config = TensorRTConfig(inputs=[input_config])
 
-            trt_save_path = os.path.join('./opt_cache', 'trt')
+            trt_save_path = os.path.join(self.temp_dir.name, 'trt')
             trt_config.save_model_dir = trt_save_path
-            trt_config.refit_params_path = (
-                "./opt_cache/tensor_axis_cumsum.pdiparams"
-            )
+            trt_config.refit_params_path = self.save_path + '.pdiparams'
 
             model_dir = self.save_path
             # Obtain tensorrt_engine_op by passing the model path and trt_config.(converted_program)
@@ -310,9 +308,7 @@ class TestConvertMultipleInputs(unittest.TestCase):
 class TestConvertPredictor(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.save_path = os.path.join(
-            self.temp_dir.name, 'tensor_axis_cumsum_predictor'
-        )
+        self.save_path = os.path.join(self.temp_dir.name, 'tensor_axis_cumsum')
         self.place = (
             paddle.CUDAPlace(0)
             if paddle.is_compiled_with_cuda()

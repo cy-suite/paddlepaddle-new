@@ -107,8 +107,9 @@ TensorRTEngineInstruction::TensorRTEngineInstruction(
     }
   }
 
-  if (op_attributes.find("refit_mapping") != op_attributes.end()) {
-    auto refit_mapping_attrs = op_attributes.at("refit_mapping")
+  if (op_attributes.find("refit_param_names2trt_names") !=
+      op_attributes.end()) {
+    auto refit_mapping_attrs = op_attributes.at("refit_param_names2trt_names")
                                    .dyn_cast<pir::ArrayAttribute>()
                                    .AsVector();
     for (const auto &attr : refit_mapping_attrs) {
@@ -117,9 +118,9 @@ TensorRTEngineInstruction::TensorRTEngineInstruction(
       size_t pos2 = mapping_str.find(':', pos1 + 1);
       if (pos1 != std::string::npos && pos2 != std::string::npos) {
         std::string param_name = mapping_str.substr(0, pos1);
-        std::string layer_name = mapping_str.substr(pos1 + 1, pos2 - pos1 - 1);
-        std::string role = mapping_str.substr(pos2 + 1);
-        refit_mapping_[param_name] = {layer_name, role};
+        std::string role = mapping_str.substr(pos1 + 1, pos2 - pos1 - 1);
+        std::string layer_name = mapping_str.substr(pos2 + 1);
+        refit_param_names2trt_names_[param_name][role] = layer_name;
       }
     }
   }
@@ -226,8 +227,8 @@ TensorRTEngineInstruction::TensorRTEngineInstruction(
     for (size_t i = 0; i < param_names.size(); ++i) {
       const std::string &param_name = param_names[i];
       PADDLE_ENFORCE_EQ(
-          trt_engine_->setRefitWeights(
-              refit_mapping_, param_name, *tensor_out[i]),
+          trt_engine_->SetRefitWeights(
+              refit_param_names2trt_names_, param_name, *tensor_out[i]),
           true,
           common::errors::InvalidArgument(
               std::string("Failed to set refit weights for") + param_name));

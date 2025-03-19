@@ -70,7 +70,8 @@ class TensorRTEngineInstruction : public InstructionBase {
   ::pir::Operation* op_{nullptr};  // not owned
   std::string refit_params_path_;
   std::vector<std::string> refit_param_names_;
-  std::map<std::string, std::pair<std::string, std::string>> refit_mapping_;
+  std::map<std::string, std::map<std::string, std::string>>
+      refit_param_names2trt_names_;
 
   const ValueExecutionInfo* value_exec_info_;  // not owned
 };

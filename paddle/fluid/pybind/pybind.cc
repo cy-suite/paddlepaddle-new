@@ -3431,8 +3431,9 @@ All parameter, weight, gradient are variables in Paddle.
                      &paddle::platform::EngineParams::refit_params_path)
       .def_readwrite("refit_param_name",
                      &paddle::platform::EngineParams::refit_param_names)
-      .def_readwrite("refit_mapping",
-                     &paddle::platform::EngineParams::refit_mapping);
+      .def_readwrite(
+          "refit_param_names2trt_names",
+          &paddle::platform::EngineParams::refit_param_names2trt_names);
 
   py::enum_<paddle::framework::ShapeMode>(m, "ShapeMode")
       .value("kMIN", paddle::framework::ShapeMode::kMIN)

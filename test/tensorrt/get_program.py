@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 import numpy as np
 
 import paddle
@@ -23,7 +24,33 @@ def get_r50_program():
     paddle.enable_static()
     from paddle.vision.models import wide_resnet50_2
 
-    save_path = './opt_cache/resnet50'
+    with paddle.pir_utils.IrGuard():
+        infer_program = paddle.static.Program()
+        startup_program = paddle.static.Program()
+        with static.program_guard(infer_program, startup_program):
+            scope = paddle.static.global_scope()
+            input_data = paddle.static.data(
+                shape=[-1, 3, 224, 224], dtype='float32', name='input'
+            )
+            model = wide_resnet50_2()
+            model.eval()
+            output = model(input_data)
+        place = paddle.CUDAPlace(0)
+        exe = static.Executor(place)
+        exe.run(startup_program)
+
+    params = infer_program.global_block().all_parameters()
+    param_dict = {}
+    for v in params:
+        name = v.get_defining_op().attrs()["parameter_name"]
+        param_dict.update({name: np.array(scope.var(name).get_tensor())})
+
+    return infer_program, scope, param_dict
+
+
+def get_r50_refit_program(save_path):
+    paddle.enable_static()
+    from paddle.vision.models import wide_resnet50_2
 
     infer_program = paddle.static.Program()
     startup_program = paddle.static.Program()

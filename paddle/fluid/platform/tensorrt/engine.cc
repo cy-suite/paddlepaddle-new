@@ -439,9 +439,9 @@ void TensorRTEngine::InitRefitter() {
   }
 }
 
-bool TensorRTEngine::setRefitWeights(
-    const std::map<std::string, std::pair<std::string, std::string>>
-        &refit_mapping,
+bool TensorRTEngine::SetRefitWeights(
+    const std::map<std::string, std::map<std::string, std::string>>
+        refit_param_names2trt_names,
     const std::string &param_name,
     const phi::DenseTensor &new_weight_tensor) {
   InitRefitter();
@@ -451,87 +451,71 @@ bool TensorRTEngine::setRefitWeights(
       common::errors::InvalidArgument("Engine is not enabled for refitting, "
                                       "please check if krefit is set."));
 
-  auto strToRole = [](const std::string &role_str)
-      -> std::pair<nvinfer1::WeightsRole, bool> {
-    if (role_str == "CONSTANT") {
-      return std::make_pair(nvinfer1::WeightsRole::kCONSTANT, true);
-    } else if (role_str == "BIAS") {
-      return std::make_pair(nvinfer1::WeightsRole::kBIAS, true);
-    } else if (role_str == "SHIFT") {
-      return std::make_pair(nvinfer1::WeightsRole::kSHIFT, true);
-    } else if (role_str == "SCALE") {
-      return std::make_pair(nvinfer1::WeightsRole::kSCALE, true);
-    } else if (role_str == "KERNEL") {
-      return std::make_pair(nvinfer1::WeightsRole::kKERNEL, true);
-    } else {
-      PADDLE_THROW(
-          common::errors::InvalidArgument("Unknown role string:" + role_str));
-    }
+  auto strToRole = [](const std::string &role_str) -> nvinfer1::WeightsRole {
+    if (role_str == "CONSTANT") return nvinfer1::WeightsRole::kCONSTANT;
+    if (role_str == "BIAS") return nvinfer1::WeightsRole::kBIAS;
+    if (role_str == "SHIFT") return nvinfer1::WeightsRole::kSHIFT;
+    if (role_str == "SCALE") return nvinfer1::WeightsRole::kSCALE;
+    if (role_str == "KERNEL") return nvinfer1::WeightsRole::kKERNEL;
+    PADDLE_THROW(
+        common::errors::InvalidArgument("Unknown role string: " + role_str));
   };
 
-  int32_t total_refit_weights = infer_refitter_->getAllWeights(0, nullptr);
-  std::vector<const char *> weight_names(total_refit_weights, nullptr);
-  infer_refitter_->getAllWeights(total_refit_weights, weight_names.data());
+  // int32_t total_refit_weights = infer_refitter_->getAllWeights(0, nullptr);
+  // std::vector<const char *> weight_names(total_refit_weights, nullptr);
+  // infer_refitter_->getAllWeights(total_refit_weights, weight_names.data());
 
   // Obtain the names and roles of the weights that need refitting through
   // getAllWeights, and split them into the name and role of the trt weights
   // using spaces
-  std::map<std::string, std::string> weight_role_map;
+  std::set<std::string> refittable_weights;  // 使用 set 存储拼接后的权重名称
+  int32_t total_refit_weights = infer_refitter_->getAllWeights(0, nullptr);
+  std::vector<const char *> weight_names(total_refit_weights, nullptr);
+  infer_refitter_->getAllWeights(total_refit_weights, weight_names.data());
   for (int i = 0; i < total_refit_weights; ++i) {
     std::string weight_info = weight_names[i];
-    size_t space_pos = weight_info.find(' ');
-    if (space_pos != std::string::npos) {
-      std::string weight_name = weight_info.substr(0, space_pos);
-      std::string role_str = weight_info.substr(space_pos + 1);
-      weight_role_map[weight_name] = role_str;
-    }
-    VLOG(3) << "Refittable weight:" << weight_names[i];
+    refittable_weights.insert(weight_info);
+    VLOG(3) << "Refittable weight: " << weight_info;
   }
 
-  std::string layer_name;
-  nvinfer1::WeightsRole role;
-  auto it = refit_mapping.find(param_name);
-  // An operation that is applicable to inputs with multiple weights, such as
-  // pd_op.batch_norm.
-  if (it != refit_mapping.end()) {
-    layer_name = it->second.first;
-    std::string role_str = it->second.second;
-    std::pair<nvinfer1::WeightsRole, bool> role_result = strToRole(role_str);
-    role = role_result.first;
-    VLOG(3) << "Using mapping role " << role_str << " for layer" << layer_name;
-  } else {
-    // An operation that is applicable to inputs with only one weight, such as
-    // pd_op.conv2d.
-    auto weight_it = weight_role_map.find(param_name);
-    if (weight_it != weight_role_map.end()) {
-      layer_name = param_name;
-      std::string role_str = weight_it->second;
-      std::pair<nvinfer1::WeightsRole, bool> role_result = strToRole(role_str);
-      role = role_result.first;
-      VLOG(3) << "Using weight role " << role_str << " for layer" << layer_name;
-    } else {
-      VLOG(3) << "Weight" << param_name
-              << "not found in mappings,skipping update.";
-      return true;
+  auto it = refit_param_names2trt_names.find(param_name);
+  if (it == refit_param_names2trt_names.end()) {
+    VLOG(3) << "Parameter " << param_name
+            << " not found in refit mappigit ngs,skipping.";
+    return true;
+  }
+
+  const auto &role_map = it->second;
+  for (const auto &role_pair : role_map) {
+    std::string role_str = role_pair.first;
+    std::string layer_name = role_pair.second;
+    nvinfer1::WeightsRole role = strToRole(role_str);
+
+    std::string weight_key = layer_name + " " + role_str;
+    if (refittable_weights.find(weight_key) == refittable_weights.end()) {
+      VLOG(3) << "Weight " << weight_key
+              << " not found in refittable weights, skipping.";
+      continue;
+    }
+    PADDLE_ENFORCE_NOT_NULL(
+        infer_refitter_,
+        common::errors::InvalidArgument(
+            "Refitter is not initialized. Make sure you enabled refit at build "
+            "time by calling use_refittable()."));
+
+    auto layer_weight = this->GetTrtWeight(param_name, new_weight_tensor);
+    const nvinfer1::Weights &final_weights = layer_weight.get();
+    bool set_result =
+        infer_refitter_->setWeights(layer_name.c_str(), role, final_weights);
+    if (!set_result) {
+      PADDLE_ENFORCE_EQ(set_result,
+                        true,
+                        common::errors::InvalidArgument(
+                            "Failed to set weights for layer:%s ", layer_name));
+      return false;
     }
   }
-  PADDLE_ENFORCE_NOT_NULL(
-      infer_refitter_,
-      common::errors::InvalidArgument(
-          "Refitter is not initialized. Make sure you enabled refit at build "
-          "time by calling use_refittable()."));
 
-  auto layer_weight = this->GetTrtWeight(param_name, new_weight_tensor);
-  const nvinfer1::Weights &final_weights = layer_weight.get();
-  bool set_result =
-      infer_refitter_->setWeights(layer_name.c_str(), role, final_weights);
-  if (!set_result) {
-    PADDLE_ENFORCE_EQ(set_result,
-                      true,
-                      common::errors::InvalidArgument(
-                          "Failed to set weights for layer:%s ", layer_name));
-    return false;
-  }
   return true;
 }
 
@@ -541,6 +525,7 @@ bool TensorRTEngine::FinalizeRefit() {
       phi::errors::InvalidArgument(
           "Refit is not initialize.Make sure you enabled refit."));
   int missing_count = infer_refitter_->getMissingWeights(0, nullptr);
+  VLOG(3) << "missing_count" << missing_count;
   if (missing_count > 0) {
     std::vector<const char *> missing_names(missing_count);
     infer_refitter_->getMissingWeights(missing_count, missing_names.data());
