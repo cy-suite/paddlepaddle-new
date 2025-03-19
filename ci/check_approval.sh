@@ -156,13 +156,13 @@ if [ "${HAS_MODIFIED_DEMO_CMAKE}" != "" ] && [ "${PR_ID}" != "" ]; then
     check_approval 1 yuanlehome vivienfanghuagood
 fi
 
-HAS_MODIFIED_DECLARATIONS=`git diff -U0 upstream/$BRANCH |grep "^+" |grep "paddle/phi/kernels/declarations.h" || true`
+CI_FILTER=`git diff --name-only upstream/$BRANCH | grep -v "ci/"`
+
+HAS_MODIFIED_DECLARATIONS=`git diff -U0 upstream/$BRANCH $CI_FILTER |grep "^+" |grep "paddle/phi/kernels/declarations.h" || true`
 if [ "${HAS_MODIFIED_DECLARATIONS}" != "" ] && [ "${PR_ID}" != "" ]; then
     echo_line="You must be approved by zyfncg or zhangbo9674 or phlrain for paddle/phi/kernels/declarations.h using. Thanks!\n"
     check_approval 1 zyfncg zhangbo9674 phlrain
 fi
-
-CI_FILTER=`git diff --name-only upstream/$BRANCH | grep -v "ci/"`
 
 HAS_USED_CCTESTOLD=`git diff -U0 upstream/$BRANCH $CI_FILTER |grep "cc_test_old" || true`
 if [ "${HAS_USED_CCTESTOLD}" != "" ] && [ "${PR_ID}" != "" ]; then
