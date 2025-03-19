@@ -9,7 +9,7 @@ env:
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   OWNER: ${{ github.repository_owner }}
   REPO: ${{ github.event.repository.name }}
-  WORKFLOW_ID: Approval.yml
+  WORKFLOW_ID: Codestyle-Check.yml
 
 jobs:
   approved-actions:
