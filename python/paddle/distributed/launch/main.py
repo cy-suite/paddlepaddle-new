@@ -697,9 +697,6 @@ def launch() -> None:
                     to_json_str = json.dumps(cur_best_cfgs)
                     ctx.logger.info(f"Current best config: {to_json_str}")
                     logger.info(f"Current best config: {to_json_str}")
-                    cur_best_cfgs_log_path = os.path.join(
-                        os.path.dirname(ctx.args.auto_tuner_json), "best_cfg"
-                    )
 
                 else:
                     ctx.logger.info(
