@@ -97,7 +97,7 @@ if [ "${DEPS_PHI_IN_IR}" ] && [ "${DEPS_PHI_IN_IR}" != "" ]; then
     echo_line="You must have one RD (phlrain, zhangbo9674) approval for the CMakeLists.txt with DEPS phi* in paddle/pir directory.\n"
     check_approval 1 phlrain zhangbo9674
 fi
-FILTER=`git diff --name-only upstream/develop | grep -v "tools/" | grep -v "ci/"`
+FILTER=`git diff --name-only upstream/$BRANCH | grep -v "tools/" | grep -v "ci/"`
 HAS_CONST_CAST=`git diff -U0 upstream/$BRANCH $FILTER | grep '^\+' | grep -o -m 1 "const_cast" || true`
 if [ ${HAS_CONST_CAST} ] && [ "${PR_ID}" != "" ]; then
     echo_line="You must have one RD (XiaoguangHu01, zhiqiu, Xreki, zhangbo9674, zyfncg, phlrain) approval for the usage of const_cast.\n"
@@ -110,7 +110,6 @@ if [ ${HAS_PADDLE_GET} ] && [ "${PR_ID}" != "" ]; then
     check_approval 1 luotao1 zhangbo9674 phlrain
 fi
 
-FILTER=`git diff --name-only upstream/develop | grep -v "tools/"`
 HAS_LEGACY_KERNEL_REGISTRATION=`git diff -U0 upstream/$BRANCH $FILTER | grep '^\+' | grep -oE -m 1 "REGISTER_OP[A-Z_]{1,9}KERNEL[_FUNCTOR|_WITH_CUSTOM_TYPE|_EX]*" || true`
 if [ ${HAS_LEGACY_KERNEL_REGISTRATION} ] && [ "${PR_ID}" != "" ]; then
     echo_line="In principle, adding an OpKernel needs to be in the phi/kernels directory. If you must add an OpKernel in the fluid/operators directory, please request one of the RD (zyfncg, YuanRisheng, phlrain) review and approve.\n"
