@@ -758,8 +758,10 @@ def convert(model_path, config):
             raise ValueError(
                 f"Unsupported extension {ext}. Only support json/pdmodel"
             )
+        params_path = os.path.join(model_dir, model_prefix + '.pdiparams')
     else:
         model_prefix = model_path
+        params_path = model_prefix + '.pdiparams'
         if os.path.exists(model_prefix + '.json'):
             is_json = True
         elif os.path.exists(model_prefix + '.pdmodel'):
@@ -768,6 +770,11 @@ def convert(model_path, config):
             raise ValueError(
                 f"No valid model file found in the directory '{model_path}'. Expected either 'json' or 'pdmodel'. Please ensure that the directory contains one of these files."
             )
+
+    if not os.path.exists(params_path):
+        raise ValueError(
+            f"Parameters file '{params_path}' not found. Please ensure the weights file exists in the model directory."
+        )
 
     if is_json:
         with paddle.pir_utils.IrGuard():

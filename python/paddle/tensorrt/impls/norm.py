@@ -135,14 +135,12 @@ def layernorm_converter(network, paddle_op, inputs):
             [paddle_op.name(), "bias_tensor_broadcast"],
             len(input_a.shape) - len(bias_tensor.shape),
         )
-        layer_norm = network.add_normalization(
+        layer = network.add_normalization(
             input_a, scale_tensor, bias_tensor, axes
         )
-        layer_norm.epsilon = eps
-        layer_norm.compute_precision = trt.float32
-        set_layer_name(layer_norm, paddle_op)
-
-    return layer_norm.get_output(0)
+        layer.epsilon = eps
+        layer.compute_precision = trt.float32
+        set_layer_name(layer, paddle_op)
 
     return layer.get_output(0)
 
@@ -162,6 +160,8 @@ def batch_norm_converter(network, paddle_op, inputs):
     scale_shape = paddle_op.operands()[3].source().shape
     eps = paddle_op.attrs().get("epsilon", 1e-8)
 
+    scale_name = None
+    bias_name = None
     if isinstance(mean, trt.ITensor):
         mean_name = (
             paddle_op.operands()[1]
