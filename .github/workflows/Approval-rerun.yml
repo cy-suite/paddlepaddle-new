@@ -12,7 +12,7 @@ env:
   BRANCH: ${{ github.base_ref }}
   PR_ID: ${{ github.event.pull_request.number }}
   COMMIT_ID: ${{ github.event.pull_request.head.sha }}
-  GITHUB_TOKEN: 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
+  GITHUB_TOKEN: ghp_N
   OWNER: ${{ github.repository_owner }}
   REPO: ${{ github.event.repository.name }}
   TARGET_WORKFLOW_NAME: Approval
