@@ -22,12 +22,12 @@ jobs:
         with:
           fetch-depth: 10
 
-      - name: Check bypass
-        id: check-bypass
-        uses: ./.github/actions/check-bypass
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          workflow-name: approval
+      # - name: Check bypass
+      #   id: check-bypass
+      #   uses: ./.github/actions/check-bypass
+      #   with:
+      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      #     workflow-name: approval
 
       - name: Display required approvers and check
         if: steps.check-bypass.outputs.can_skip != 'true'
