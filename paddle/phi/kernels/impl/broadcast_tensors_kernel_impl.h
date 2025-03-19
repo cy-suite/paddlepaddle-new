@@ -24,31 +24,13 @@
 #include "paddle/phi/kernels/funcs/eigen/eigen_function.h"
 #include "paddle/phi/kernels/funcs/math_function.h"
 
+#define SWITCH_OUT_RANK_CASE(n)                                        \
+  case n: {                                                            \
+    DispatchBroadcast<Context, n>(ctx, in_tensors[i], out_tensors[i]); \
+    break;                                                             \
+  }
+
 namespace phi {
-
-template <typename Context, int OutRank>
-struct BroadcastVisitor {
-  const Context& ctx;
-  const DenseTensor* in_tensor;
-  DenseTensor* out_tensor;
-
-  BroadcastVisitor(const Context& ctx,
-                   const DenseTensor* in_tensor,
-                   DenseTensor* out_tensor)
-      : ctx(ctx), in_tensor(in_tensor), out_tensor(out_tensor) {}
-
-  template <typename T>
-  void apply() const {
-    ApplyBroadcast<T, Context, OutRank>(ctx, in_tensor, out_tensor);
-  }
-};
-
-#define SWITCH_OUT_RANK_CASE(n)                                               \
-  case n: {                                                                   \
-    BroadcastVisitor<Context, n> visitor(ctx, in_tensors[i], out_tensors[i]); \
-    phi::VisitDataType(in_tensors[i]->dtype(), visitor);                      \
-    break;                                                                    \
-  }
 
 template <typename T, typename Context, int OutRank>
 void ApplyBroadcast(const Context& ctx,
@@ -90,6 +72,47 @@ void ApplyBroadcast(const Context& ctx,
   auto& place = *ctx.eigen_device();
   funcs::EigenBroadcast<std::decay_t<decltype(place)>, T, OutRank>::Eval(
       place, y, x, bcast_dims);
+}
+
+template <typename Context, int OutRank>
+void DispatchBroadcast(const Context& ctx,
+                       const DenseTensor* input_tensor,
+                       DenseTensor* output_tensor) {
+  switch (input_tensor->dtype()) {
+    case DataType::BOOL:
+      ApplyBroadcast<bool, Context, OutRank>(ctx, input_tensor, output_tensor);
+      break;
+    case DataType::INT32:
+      ApplyBroadcast<int, Context, OutRank>(ctx, input_tensor, output_tensor);
+      break;
+    case DataType::INT64:
+      ApplyBroadcast<int64_t, Context, OutRank>(
+          ctx, input_tensor, output_tensor);
+      break;
+    case DataType::FLOAT32:
+      ApplyBroadcast<float, Context, OutRank>(ctx, input_tensor, output_tensor);
+      break;
+    case DataType::FLOAT64:
+      ApplyBroadcast<double, Context, OutRank>(
+          ctx, input_tensor, output_tensor);
+      break;
+    case DataType::FLOAT16:
+      ApplyBroadcast<phi::dtype::float16, Context, OutRank>(
+          ctx, input_tensor, output_tensor);
+      break;
+    case DataType::COMPLEX64:
+      ApplyBroadcast<phi::dtype::complex<float>, Context, OutRank>(
+          ctx, input_tensor, output_tensor);
+      break;
+    case DataType::COMPLEX128:
+      ApplyBroadcast<phi::dtype::complex<double>, Context, OutRank>(
+          ctx, input_tensor, output_tensor);
+      break;
+    default:
+      PADDLE_THROW(common::errors::InvalidArgument(
+          "Unsupported data type for broadcast_tensors: %s",
+          input_tensor->dtype()));
+  }
 }
 
 template <typename Context>
