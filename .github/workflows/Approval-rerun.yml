@@ -1,0 +1,30 @@
+name: Approval rerun
+
+on:
+  pull_request_review:
+    types: [submitted]
+
+env:
+  BRANCH: ${{ github.base_ref }}
+  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  OWNER: ${{ github.repository_owner }}
+  REPO: ${{ github.event.repository.name }}
+  WORKFLOW_ID: Approval.yml
+
+jobs:
+  approved-actions:
+    name: Check approval
+    if: github.event.review.state == 'approved'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 10
+
+      - name: Display required approvers and check
+        run: |
+          curl -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token $GITHUB_TOKEN" \
+            https://api.github.com/repos/$OWNER/$REPO/actions/runs/$WORKFLOW_ID/rerun

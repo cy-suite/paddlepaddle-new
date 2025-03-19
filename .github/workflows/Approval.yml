@@ -1,8 +1,8 @@
-name: Check approval
+name: Approval
 
 on:
-  pull_request_review:
-    types: [submitted]
+  pull_request:
+    types: [opened, synchronize]
 
 env:
   BRANCH: ${{ github.base_ref }}
@@ -11,16 +11,10 @@ env:
   COMMIT_ID: ${{ github.event.pull_request.head.sha }}
 
 jobs:
-  approved-actions:
-    name: Check approval
+  check-approvers:
+    name: Check Approvers
     runs-on: ubuntu-latest
     steps:
-      - name: Judge
-        run: |
-          if [ "${{ github.event.review.state }}" != "approved" ]; then
-            exit 1
-          fi
-
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
@@ -33,8 +27,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           workflow-name: approval
 
-      - name: Display required approvers and check
-        if: steps.check-bypass.outputs.can_skip != 'true'
+      - name: Display Required Approvers
         run: |
           git switch -c test
           git remote add upstream https://github.com/PaddlePaddle/Paddle.git
