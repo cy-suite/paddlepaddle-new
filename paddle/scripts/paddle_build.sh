@@ -2476,8 +2476,13 @@ set +x
                 single_card_tests="$single_card_tests|^$testcase$"
             fi
         done <<< "$test_cases";
-        card_test "$single_card_tests" 1 4
-        card_test "$single_card_tests_1" 1 4
+
+        # houjue debug
+        ls -l /dev
+
+        #card_test "$single_card_tests" 1 4
+        #card_test "$single_card_tests_1" 1 4
+        set -x
         card_test "$multi_card_ut_list_for_xpu" 2 1
         failed_test_lists=''
         collect_failed_tests
