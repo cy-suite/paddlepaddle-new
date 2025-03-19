@@ -2443,6 +2443,7 @@ EOF
 
 set +x
         echo "Starting running xpu tests"
+        set -x
         export XPU_OP_LIST_DIR=$tmp_dir
         ut_startTime_s=`date +%s`
         get_quickly_disable_ut||disable_ut_quickly='disable_ut'   # indicate whether the case was in quickly disable list
@@ -2480,7 +2481,7 @@ set +x
         # houjue debug
         set -x
         export
-        xpu-smi
+        #xpu-smi
         ls -l /dev
 
         #card_test "$single_card_tests" 1 4
