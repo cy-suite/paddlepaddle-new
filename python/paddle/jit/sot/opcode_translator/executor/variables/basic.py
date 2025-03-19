@@ -941,6 +941,7 @@ class SymbolicVariable(VariableBase):
         tracker: Tracker,
         symbolic_inputs: dict[str, dict[int, int] | None],
     ):
+        # The behavior specializes for 0 and 1, so we just ignore them here.
         if value < 2:
             return False
         tracker_expr = tracker.trace_value_from_frame().inlined_expr
