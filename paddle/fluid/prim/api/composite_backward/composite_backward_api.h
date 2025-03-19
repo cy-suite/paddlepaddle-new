@@ -1417,9 +1417,8 @@ void maximum_grad(const Tensor& x,
   Tensor out_grad_copy = out_grad;
   if (x_grad || y_grad) {
     // cast, because divide and add kernel is not support bf16 and fp16 on CPU
-    if ((out_grad.dtype() == phi::DataType::BFLOAT16 ||
-         out_grad.dtype() == phi::DataType::FLOAT16) &&
-        phi::is_cpu_place(out_grad.place())) {
+    if (out_grad.dtype() == phi::DataType::BFLOAT16 ||
+        out_grad.dtype() == phi::DataType::FLOAT16) {
       out_grad_copy = cast<T>(out_grad, phi::DataType::FLOAT32);
     }
     auto equal_tensor = cast<T>(equal<T>(x, y), out_grad_copy.dtype());
@@ -1431,9 +1430,8 @@ void maximum_grad(const Tensor& x,
   if (x_grad) {
     auto x_tmp = cast<T>(greater_than<T>(x, y), out_grad_copy.dtype());
     auto dx_res = out_grad_copy * x_tmp + half_tensor;
-    if ((out_grad.dtype() == phi::DataType::BFLOAT16 ||
-         out_grad.dtype() == phi::DataType::FLOAT16) &&
-        phi::is_cpu_place(out_grad.place())) {
+    if (out_grad.dtype() == phi::DataType::BFLOAT16 ||
+        out_grad.dtype() == phi::DataType::FLOAT16) {
       dx_res = cast<T>(dx_res, out_grad.dtype());
     }
 
@@ -1461,9 +1459,8 @@ void maximum_grad(const Tensor& x,
   if (y_grad) {
     auto y_tmp = cast<T>(less_than<T>(x, y), out_grad_copy.dtype());
     auto dy_res = out_grad_copy * y_tmp + half_tensor;
-    if ((out_grad.dtype() == phi::DataType::BFLOAT16 ||
-         out_grad.dtype() == phi::DataType::FLOAT16) &&
-        phi::is_cpu_place(out_grad.place())) {
+    if (out_grad.dtype() == phi::DataType::BFLOAT16 ||
+        out_grad.dtype() == phi::DataType::FLOAT16) {
       dy_res = cast<T>(dy_res, out_grad.dtype());
     }
     if (out_grad.dims() != y.dims()) {
@@ -1927,9 +1924,8 @@ void minimum_grad(const Tensor& x,
   Tensor out_grad_copy = out_grad;
   if (x_grad || y_grad) {
     // cast, because divide and add kernel is not support bf16 and fp16 on CPU
-    if ((out_grad.dtype() == phi::DataType::BFLOAT16 ||
-         out_grad.dtype() == phi::DataType::FLOAT16) &&
-        phi::is_cpu_place(out_grad.place())) {
+    if (out_grad.dtype() == phi::DataType::BFLOAT16 ||
+        out_grad.dtype() == phi::DataType::FLOAT16) {
       out_grad_copy = cast<T>(out_grad, phi::DataType::FLOAT32);
     }
     auto equal_tensor = cast<T>(equal<T>(x, y), out_grad_copy.dtype());
@@ -1941,9 +1937,8 @@ void minimum_grad(const Tensor& x,
   if (x_grad) {
     auto x_tmp = cast<T>(less_than<T>(x, y), out_grad_copy.dtype());
     auto dx_res = out_grad_copy * x_tmp + half_tensor;
-    if ((out_grad.dtype() == phi::DataType::BFLOAT16 ||
-         out_grad.dtype() == phi::DataType::FLOAT16) &&
-        phi::is_cpu_place(out_grad.place())) {
+    if (out_grad.dtype() == phi::DataType::BFLOAT16 ||
+        out_grad.dtype() == phi::DataType::FLOAT16) {
       dx_res = cast<T>(dx_res, out_grad.dtype());
     }
     if (out_grad.dims() != x.dims()) {
@@ -1970,9 +1965,8 @@ void minimum_grad(const Tensor& x,
   if (y_grad) {
     auto y_tmp = cast<T>(greater_than<T>(x, y), out_grad_copy.dtype());
     auto dy_res = out_grad_copy * y_tmp + half_tensor;
-    if ((out_grad.dtype() == phi::DataType::BFLOAT16 ||
-         out_grad.dtype() == phi::DataType::FLOAT16) &&
-        phi::is_cpu_place(out_grad.place())) {
+    if (out_grad.dtype() == phi::DataType::BFLOAT16 ||
+        out_grad.dtype() == phi::DataType::FLOAT16) {
       dy_res = cast<T>(dy_res, out_grad.dtype());
     }
     if (out_grad.dims() != y.dims()) {
