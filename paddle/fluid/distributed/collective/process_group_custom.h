@@ -154,13 +154,15 @@ class ProcessGroupCustom final : public ProcessGroupWithStream {
       bool sync_op,
       bool use_calc_stream) override;
 
+  using ProcessGroupWithStream::Recv;
+
   std::shared_ptr<ProcessGroup::Task> Recv(phi::DenseTensor* tensor,
                                            int src_rank,
                                            int64_t offset,
                                            int64_t numel,
                                            bool sync_op,
                                            bool use_calc_stream) override;
-
+  using ProcessGroupWithStream::Send;
   std::shared_ptr<ProcessGroup::Task> Send(const phi::DenseTensor& tensor,
                                            int dst_rank,
                                            int64_t offset,
