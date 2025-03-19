@@ -584,8 +584,8 @@ def trt_reduce_to_scalar(network, tensor, dtype=trt.int32, name=None):
 
 def convert_conv2d(network, paddle_op, inputs):
     from paddle.tensorrt.util import (
+        RefitManager,
         RefitRole,
-        TensorRTConstantManager,
         support_fp32_mix_precision,
     )
 
@@ -710,16 +710,16 @@ def convert_conv2d(network, paddle_op, inputs):
 
     filter_param = paddle_op.operands()[1].source()
     filter_name = filter_param.get_defining_op().attrs()['parameter_name']
-    constant_manager = TensorRTConstantManager()
-    constant_manager.set_mapping(filter_name, filter_name, RefitRole.CONSTANT)
+    refit_manager = RefitManager()
+    refit_manager.set_mapping(filter_name, filter_name, RefitRole.CONSTANT)
 
     return layer.get_output(0)
 
 
 def convert_conv3d(network, paddle_op, inputs):
     from paddle.tensorrt.util import (
+        RefitManager,
         RefitRole,
-        TensorRTConstantManager,
     )
 
     input_tensor, filter = inputs
@@ -795,8 +795,8 @@ def convert_conv3d(network, paddle_op, inputs):
     set_layer_name(layer, paddle_op)
     filter_param = paddle_op.operands()[1].source()
     filter_name = filter_param.get_defining_op().attrs()['parameter_name']
-    constant_manager = TensorRTConstantManager()
-    constant_manager.set_mapping(filter_name, filter_name, RefitRole.CONSTANT)
+    refit_manager = RefitManager()
+    refit_manager.set_mapping(filter_name, filter_name, RefitRole.CONSTANT)
 
     return layer.get_output(0)
 

@@ -278,6 +278,17 @@ class TensorRTConstantManager:
     def get_constant_value(self, name):
         return self.constant_dict[name]
 
+
+class RefitManager:
+    _instance = None
+
+    def __new__(cls, trt_config=None):
+        if not cls._instance:
+            cls._instance = super().__new__(cls)
+            cls._instance.trt_weights_dict = {}
+            cls._instance.refit_param_names2trt_names = {}
+        return cls._instance
+
     def set_trt_weight_tensor(self, name, trt_weights):
         self.trt_weights_dict[name] = trt_weights
 

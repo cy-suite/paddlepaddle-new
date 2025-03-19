@@ -461,14 +461,10 @@ bool TensorRTEngine::SetRefitWeights(
         common::errors::InvalidArgument("Unknown role string: " + role_str));
   };
 
-  // int32_t total_refit_weights = infer_refitter_->getAllWeights(0, nullptr);
-  // std::vector<const char *> weight_names(total_refit_weights, nullptr);
-  // infer_refitter_->getAllWeights(total_refit_weights, weight_names.data());
-
   // Obtain the names and roles of the weights that need refitting through
   // getAllWeights, and split them into the name and role of the trt weights
   // using spaces
-  std::set<std::string> refittable_weights;  // 使用 set 存储拼接后的权重名称
+  std::set<std::string> refittable_weights;
   int32_t total_refit_weights = infer_refitter_->getAllWeights(0, nullptr);
   std::vector<const char *> weight_names(total_refit_weights, nullptr);
   infer_refitter_->getAllWeights(total_refit_weights, weight_names.data());
@@ -480,6 +476,9 @@ bool TensorRTEngine::SetRefitWeights(
 
   auto it = refit_param_names2trt_names.find(param_name);
   if (it == refit_param_names2trt_names.end()) {
+    // Some weights do not need to be updated but are present in
+    // refit_param_names. For example, the weights corresponding to the mean
+    // input of pd_op.batch_norm do not require updating.
     VLOG(3) << "Parameter " << param_name
             << " not found in refit mappigit ngs,skipping.";
     return true;

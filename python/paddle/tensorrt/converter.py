@@ -46,6 +46,7 @@ from .impls.stat import *  # noqa: F403
 from .impls.vision import *  # noqa: F403
 from .register import converter_registry
 from .util import (
+    RefitManager,
     RefitRole,
     TensorRTConfigManager,
     TensorRTConstantManager,
@@ -73,6 +74,7 @@ class PaddleToTensorRTConverter:
         self.program = paddle_program
         self.trt_config = trt_config
         self.constant_manager = TensorRTConstantManager()
+        self.refit_manager = RefitManager()
         params = paddle_program.global_block().all_parameters()
         param_dict = {}
         # save parameters
@@ -185,10 +187,10 @@ class PaddleToTensorRTConverter:
                     constant_layer = network.add_constant(trt_shape, weight)
                     constant_layer.name = param_name
                     value_to_trt_tensor[value.id] = constant_layer.get_output(0)
-                    self.constant_manager.set_trt_weight_tensor(
+                    self.refit_manager.set_trt_weight_tensor(
                         constant_layer.get_output(0).name, weight
                     )
-                    self.constant_manager.set_mapping(
+                    self.refit_manager.set_mapping(
                         param_name, param_name, RefitRole.CONSTANT
                     )
                 else:
@@ -214,7 +216,7 @@ class PaddleToTensorRTConverter:
                     )
                     constant_layer.name = constant_value_name
                     value_to_trt_tensor[value.id] = constant_layer.get_output(0)
-                    self.constant_manager.set_trt_weight_tensor(
+                    self.refit_manager.set_trt_weight_tensor(
                         constant_layer.get_output(0).name, weight
                     )
                 else:
@@ -526,7 +528,7 @@ class PaddleToTensorRTConverter:
             trt_params.refit_params_path = self.trt_config.refit_params_path
             trt_params.refit_param_name = refit_param_name
             trt_params.refit_param_names2trt_names = (
-                self.constant_manager.get_all_mappings()
+                self.refit_manager.get_all_mappings()
             )
         group_str = str(group_op)
         engine_name = (

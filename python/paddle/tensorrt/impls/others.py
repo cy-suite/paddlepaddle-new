@@ -35,7 +35,7 @@ from paddle.tensorrt.converter_utils import (
     trt_unsqueeze,
 )
 from paddle.tensorrt.register import converter_registry
-from paddle.tensorrt.util import TensorRTConstantManager
+from paddle.tensorrt.util import RefitManager
 
 _logger = get_logger(
     __name__, logging.INFO, fmt='%(asctime)s-%(levelname)s: %(message)s'
@@ -553,9 +553,9 @@ def affine_channel_converter(network, paddle_op, inputs):
     x, scale, bias = inputs
     data_layout = paddle_op.attrs().get("data_layout")
     if isinstance(scale, trt.ITensor):
-        constant_manager = TensorRTConstantManager()
-        scale_weights = constant_manager.get_trt_weight_tensor(scale.name)
-        bias_weights = constant_manager.get_trt_weight_tensor(bias.name)
+        refit_manager = RefitManager()
+        scale_weights = refit_manager.get_trt_weight_tensor(scale.name)
+        bias_weights = refit_manager.get_trt_weight_tensor(bias.name)
     else:
         scale_weights = scale
         bias_weights = bias

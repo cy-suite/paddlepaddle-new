@@ -28,7 +28,7 @@ from paddle.tensorrt.converter_utils import (
     trt_sum,
 )
 from paddle.tensorrt.register import converter_registry
-from paddle.tensorrt.util import TensorRTConstantManager
+from paddle.tensorrt.util import RefitManager
 
 activation_type_map = {
     "pd_op.tanh": trt.ActivationType.TANH,
@@ -492,8 +492,8 @@ def prelu_converter(network, paddle_op, inputs):
     data_format = paddle_op.attrs().get("data_format", "NCHW")
 
     if isinstance(alpha_data, trt.ITensor):
-        constant_manager = TensorRTConstantManager()
-        alpha_data = constant_manager.get_trt_weight_tensor(alpha_data.name)
+        refit_manager = RefitManager
+        alpha_data = refit_manager.get_trt_weight_tensor(alpha_data.name)
 
     w_dims = trt.Dims(alpha_data.numpy().shape)
     trt_w_dims = w_dims

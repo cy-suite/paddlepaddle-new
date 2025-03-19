@@ -36,7 +36,11 @@ from paddle.tensorrt.converter_utils import (
     trt_sum,
 )
 from paddle.tensorrt.register import converter_registry
-from paddle.tensorrt.util import RefitRole, TensorRTConstantManager
+from paddle.tensorrt.util import (
+    RefitManager,
+    RefitRole,
+    TensorRTConstantManager,
+)
 
 _logger = get_logger(
     __name__, logging.INFO, fmt='%(asctime)s-%(levelname)s: %(message)s'
@@ -151,6 +155,7 @@ def layernorm_converter(network, paddle_op, inputs):
 )
 def batch_norm_converter(network, paddle_op, inputs):
     constant_manager = TensorRTConstantManager()
+    refit_manager = RefitManager()
 
     input_tensor, mean, variance, scale, bias = inputs
 
@@ -233,10 +238,8 @@ def batch_norm_converter(network, paddle_op, inputs):
         input_tensor, trt.ScaleMode.CHANNEL, bias, scale, power
     )
     set_layer_name(batch_norm_layer, paddle_op)
-    constant_manager.set_mapping(
-        bias_name, batch_norm_layer.name, RefitRole.SHIFT
-    )
-    constant_manager.set_mapping(
+    refit_manager.set_mapping(bias_name, batch_norm_layer.name, RefitRole.SHIFT)
+    refit_manager.set_mapping(
         scale_name, batch_norm_layer.name, RefitRole.SCALE
     )
 
@@ -283,11 +286,10 @@ def fused_bias_dropout_residual_layer_norm_converter(
     network, paddle_op, inputs
 ):
     input1, input2, ele_bias, scale, bias = inputs
-    constant_manager = TensorRTConstantManager()
-    ele_bias = constant_manager.get_trt_weight_tensor(ele_bias.name)
-    scale = constant_manager.get_trt_weight_tensor(scale.name)
-    bias = constant_manager.get_trt_weight_tensor(bias.name)
-    constant_manager = TensorRTConstantManager()
+    refit_manager = RefitManager
+    ele_bias = refit_manager.get_trt_weight_tensor(ele_bias.name)
+    scale = refit_manager.get_trt_weight_tensor(scale.name)
+    bias = refit_manager.get_trt_weight_tensor(bias.name)
     has_bias = ele_bias is not None
     bias_size = bias.size
     scale_size = scale.size
