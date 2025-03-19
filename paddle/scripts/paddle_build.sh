@@ -1573,6 +1573,12 @@ function card_test() {
         return 0
     fi
 
+
+    # for XPU, split XPU_VISIBLE_DEVICES
+    if [[ "$WITH_XPU" == "ON" ]]; then
+        IFS=',' read -ra XPU_DEVICE_ARRAY <<< "$XPU_VISIBLE_DEVICES"
+    fi
+
     trap 'caught_error' CHLD
     tmpfile_rand=`date +%s%N`
     NUM_PROC=$[CUDA_DEVICE_COUNT/$cardnumber]
@@ -1585,11 +1591,22 @@ function card_test() {
         cuda_list=()
         for (( j = 0; j < cardnumber; j++ )); do
             if [ $j -eq 0 ]; then
-                    cuda_list=("$[i*cardnumber]")
-                else
-                    cuda_list="$cuda_list,$[i*cardnumber+j]"
+                cuda_list=("$[i*cardnumber]")
+            else
+                cuda_list="$cuda_list,$[i*cardnumber+j]"
             fi
         done
+
+        # for XPU, split XPU_VISIBLE_DEVICES
+        if [[ "$WITH_XPU" == "ON" ]]; then
+            cuda_list=()
+            for (( j = 0; j < cardnumber; j++ )); do
+                index=$((i * cardnumber + j))
+                cuda_list+=("${XPU_DEVICE_ARRAY[index]}")
+            done
+            cuda_list_str=$(IFS=,; echo "${cuda_list[*]}")
+        fi
+
         tmpfile=$tmp_dir/$tmpfile_rand"_"$i
         if [ ${TESTING_DEBUG_MODE:-OFF} == "ON" ] ; then
             if [[ $cardnumber == $CUDA_DEVICE_COUNT ]]; then
@@ -1598,7 +1615,8 @@ function card_test() {
                 if [[ "$WITH_ROCM" == "ON" ]]; then
                     (env HIP_VISIBLE_DEVICES=$cuda_list ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} --timeout 120 -V -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
                 elif [[ "$WITH_XPU" == "ON" ]]; then
-                    (env XPU_VISIBLE_DEVICES=$cuda_list ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} --timeout 120 -V -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
+                    echo "houjue debug: run ctest using cuda_list_str: $cuda_list_str"
+                    (env XPU_VISIBLE_DEVICES=$cuda_list_str ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} --timeout 120 -V -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
                 else
                     (env CUDA_VISIBLE_DEVICES=$cuda_list ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} --timeout 120 -V -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
                 fi
@@ -1610,7 +1628,8 @@ function card_test() {
                 if [[ "$WITH_ROCM" == "ON" ]]; then
                     (env HIP_VISIBLE_DEVICES=$cuda_list ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} --timeout 120 --output-on-failure  -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
                 elif [[ "$WITH_XPU" == "ON" ]]; then
-                    (env XPU_VISIBLE_DEVICES=$cuda_list ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} --timeout 120 --output-on-failure  -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
+                    echo "houjue debug: run ctest using cuda_list_str: $cuda_list_str"
+                    (env XPU_VISIBLE_DEVICES=$cuda_list_str ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} --timeout 120 --output-on-failure  -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
                 else
                     (env CUDA_VISIBLE_DEVICES=$cuda_list ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} --timeout 120 --output-on-failure  -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
                 fi

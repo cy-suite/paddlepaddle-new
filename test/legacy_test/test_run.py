@@ -93,7 +93,11 @@ class Collective_Test(unittest.TestCase):
         log_dir = tempfile.TemporaryDirectory()
         if paddle.core.is_compiled_with_xpu():
             # only 2 cards available in xpu ci
-            args = f"--job_id test2 --devices 0,1 --log_dir {log_dir.name}"
+            xpu_devices = os.environ.get('XPU_VISIBLE_DEVICES')
+            if xpu_devices is not None:
+                args = f"--job_id test2 --devices {xpu_devices} --log_dir {log_dir.name}"
+            else:
+                raise AssertionError("XPU_VISIBLE_DEVICES not found in env")
         else:
             args = f"--job_id test2 --devices 0,1,2 --log_dir {log_dir.name}"
         p = self.pdrun(args)
