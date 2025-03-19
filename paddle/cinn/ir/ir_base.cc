@@ -603,17 +603,17 @@ void IrNode::set_index(bool flag) {
 }
 
 void IrNode::convert_int32_to_int64() {
-  if (type_ != Int(64) && type_ != UInt(64))
-    if (type_ != Int(32) && type_ != UInt(32))
-      PADDLE_ENFORCE_EQ(type_.is_unk(),
+  if (type() != Int(64) && type() != UInt(64))
+    if (type() != Int(32) && type() != UInt(32))
+      PADDLE_ENFORCE_EQ(type().is_unk(),
                         true,
                         ::common::errors::InvalidArgument(
                             "Current only support convert int32_t "
                             "to int64_t, but get type is: %s",
-                            type_));
+                            type()));
 
-  if (type_ == Int(32)) type_ = Int(64);
-  if (type_ == UInt(32)) type_ = UInt(64);
+  if (type() == Int(32)) set_type(Int(64));
+  if (type() == UInt(32)) set_type(UInt(64));
 
   for (Expr &operand : operands) {
     operand->convert_int32_to_int64();
@@ -625,20 +625,20 @@ void IrNode::convert_int32_to_int64() {
         operand->set_type(Int(64));
       }
     } else if (operand->node_type() == IrNodeTy::Load) {
-      operand = ir::Cast::Make(type_, operand);
+      operand = ir::Cast::Make(type(), operand);
     }
   }
 }
 
 void IrNode::convert_int64_to_int32() {
-  if (type_ != Int(64) && type_ != UInt(64))
-    if (type_ != Int(32) && type_ != UInt(32))
-      PADDLE_ENFORCE_EQ(type_.is_unk(),
+  if (type() != Int(64) && type() != UInt(64))
+    if (type() != Int(32) && type() != UInt(32))
+      PADDLE_ENFORCE_EQ(type().is_unk(),
                         true,
                         ::common::errors::InvalidArgument(
                             "Current only support convert int64_t "
                             "to int32_t, but get type is: %s, node type is: %s",
-                            type_,
+                            type(),
                             node_type()));
 
   if (node_type() == IrNodeTy::IntImm) {
@@ -647,8 +647,8 @@ void IrNode::convert_int64_to_int32() {
     int_imm->value = int32_t(int_imm->value);
   }
 
-  if (type_ == Int(64)) type_ = Int(32);
-  if (type_ == UInt(64)) type_ = UInt(32);
+  if (type() == Int(64)) set_type(Int(32));
+  if (type() == UInt(64)) set_type(Int(32));
 
   for (Expr &operand : operands) {
     operand->convert_int64_to_int32();
@@ -660,7 +660,7 @@ void IrNode::convert_int64_to_int32() {
         operand->set_type(Int(32));
       }
     } else if (operand->node_type() == IrNodeTy::Load) {
-      operand = ir::Cast::Make(type_, operand);
+      operand = ir::Cast::Make(type(), operand);
     }
   }
 }
