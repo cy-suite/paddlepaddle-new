@@ -628,16 +628,15 @@ class TensorVariable(VariableBase):
         if len(self.meta.shape) == 0:
             raise InnerError("len() of a 0-D tensor is wrong")
         first_dim = self.meta.shape[0]
-        if isinstance(first_dim, SymbolicInt):
-            if not ENV_SOT_ALLOW_DYNAMIC_SHAPE.get():
-                raise BreakGraphError(
-                    DataDependencyDynamicShapeBreak(
-                        "Getting len() for a dynamic shape tensor causes graph break."
-                    )
+        if not isinstance(first_dim, SymbolicInt):
+            return ConstantVariable(first_dim, self.graph, DummyTracker([self]))
+        if not ENV_SOT_ALLOW_DYNAMIC_SHAPE.get():
+            raise BreakGraphError(
+                DataDependencyDynamicShapeBreak(
+                    "Getting len() for a dynamic shape tensor causes graph break."
                 )
-            return self.shape[0]
-
-        return ConstantVariable(first_dim, self.graph, DummyTracker([self]))
+            )
+        return self.shape[0]
 
     def is_tensor(self):
         return ConstantVariable(True, self.graph, DummyTracker([self]))
