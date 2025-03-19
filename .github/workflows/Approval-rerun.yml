@@ -7,6 +7,7 @@ on:
 env:
   BRANCH: ${{ github.base_ref }}
   PR_ID: ${{ github.event.pull_request.number }}
+  COMMIT_ID: ${{ github.event.pull_request.head.sha }}
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
   OWNER: ${{ github.repository_owner }}
   REPO: ${{ github.event.repository.name }}
@@ -28,8 +29,8 @@ jobs:
           response=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
             "https://api.github.com/repos/$OWNER/$REPO/actions/runs?event=pull_request&per_page=100")
 
-          run_id=$(echo "$response" | jq -r --arg pr_number "$PR_ID" --arg target_workflow "$TARGET_WORKFLOW_NAME" \
-            '.workflow_runs[] | select(.pull_requests[].number == ($pr_number | tonumber) and .name == $target_workflow) | .id' | head -n 1)
+          run_id=$(echo "$response" | jq -r --arg commit_id "$COMMIT_ID" --arg target_workflow "$TARGET_WORKFLOW_NAME" \
+            '.workflow_runs[] | select(.head_sha == $commit_id and .name == $target_workflow) | .id' | head -n 1)
 
           if [ -n "$run_id" ]; then
             echo "Found run_id for PR #$PR_ID with target workflow '$TARGET_WORKFLOW_NAME': $run_id"
