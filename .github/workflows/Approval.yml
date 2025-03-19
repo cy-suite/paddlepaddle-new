@@ -32,6 +32,7 @@ jobs:
 
   approved-actions:
     name: Check approval
+    needs: display-approvers
     if: ${{ github.event_name == 'pull_request_review' && github.event.review.state == 'approved' }}
     runs-on: ubuntu-latest
     steps:
