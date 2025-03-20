@@ -444,6 +444,9 @@ def in_cinn_mode() -> bool:
 
     """
     CINN_FLAG_NAME = "FLAGS_use_cinn"
+    # NOTE: This flag only available when compiled with CINN
+    if not is_compiled_with_cinn():
+        return False
     return paddle.get_flags(CINN_FLAG_NAME)[CINN_FLAG_NAME]
 
 
