@@ -539,10 +539,10 @@ def search_all(tuner_cfg):
 
 
 def sort_by_refined_recompute(all_cfgs):
-    def group_by_excluding_keys(dict_list, refined_recompute_ops):
+    def group_by_excluding_keys(dict_list, excluding_keys):
         grouped = {}
         for d in dict_list:
-            key = tuple(d[k] for k in d if k not in refined_recompute_ops)
+            key = tuple(d[k] for k in d if k not in excluding_keys)
             if key not in grouped:
                 grouped[key] = []
             grouped[key].append(d)
@@ -1710,7 +1710,6 @@ def read_log(
     res_metric, metric_flag = read_metric_log(path, metric_file, target_metric)
     err_code = metric_flag | err_code
     # check max memory usage
-    res_memory, memory_flag = read_memory_log(path, memory_file)
     try:
         res_memory, memory_flag = read_memory_log(path, memory_file)
         err_code = (memory_flag << 2) | err_code
