@@ -274,7 +274,6 @@ class PyFileGen:
             "    paddle.set_flags({'FLAGS_prim_all': with_prim})",
             "    if with_cinn:",
             '        assert with_prim, "with_cinn=True but with_prim=False is unsupported"',
-            "        build_strategy.build_cinn_pass = True",
             '        net = paddle.jit.to_static(net, backend="CINN", full_graph=True)',
             "    else:",
             "        net = paddle.jit.to_static(net, backend=None, full_graph=True)",
