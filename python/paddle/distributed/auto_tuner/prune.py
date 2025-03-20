@@ -952,10 +952,13 @@ def prune_by_acc_steps(tuner_cfg, cur_cfg, pruned_cfgs=[]):
             return True
     # Handld the case of interleave mode
     else:
-        max_acc_step_divisible_by_pp_degree = max(
-            [x for x in candidates_acc_steps if x % pp_degree == 0]
-        )
+        divisible_acc_steps = [
+            x for x in candidates_acc_steps if x % pp_degree == 0
+        ]
+        if not divisible_acc_steps:
+            return False
 
+        max_acc_step_divisible_by_pp_degree = max(divisible_acc_steps)
         if acc_steps < max_acc_step_divisible_by_pp_degree:
             return True
 
