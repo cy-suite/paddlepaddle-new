@@ -57,6 +57,26 @@ void XPUElementwise(const XPUContext& dev_ctx,
           "Axis should be less than or equal to %d, but received axis is %d.",
           max_dim,
           axis));
+
+  // Intercept the 0-size dimension case
+  bool has_zero_dim = false;
+  for (int i = 0; i < x_dims.size(); i++) {
+    if (x_dims[i] == 0) {
+      has_zero_dim = true;
+      break;
+    }
+  }
+  for (int i = 0; i < y_dims.size(); i++) {
+    if (y_dims[i] == 0) {
+      has_zero_dim = true;
+      break;
+    }
+  }
+
+  if (has_zero_dim) {
+    return;
+  }
+
   std::vector<int64_t> x_dims_vec(max_dim, 1);
   std::vector<int64_t> y_dims_vec(max_dim, 1);
   if (x_dims.size() == max_dim) {

@@ -15,6 +15,7 @@
 import unittest
 
 import numpy as np
+from op_test import paddle_static_guard
 
 import paddle
 
@@ -143,10 +144,10 @@ class TestVarAPI_alias(unittest.TestCase):
 class TestVarError(unittest.TestCase):
 
     def test_error(self):
-        paddle.enable_static()
-        with paddle.static.program_guard(paddle.static.Program()):
-            x = paddle.static.data('X', [2, 3, 4], 'int32')
-            self.assertRaises(TypeError, paddle.var, x)
+        with paddle_static_guard():
+            with paddle.static.program_guard(paddle.static.Program()):
+                x = paddle.static.data('X', [2, 3, 4], 'int32')
+                self.assertRaises(TypeError, paddle.var, x)
 
 
 if __name__ == '__main__':
