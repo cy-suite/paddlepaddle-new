@@ -44,13 +44,6 @@ class TestVarAPI(unittest.TestCase):
             else paddle.CPUPlace()
         )
 
-        self.zero_size_cases = {
-            'empty': np.array([], dtype=self.dtype),
-            'shape_0': np.array([], dtype=self.dtype).reshape([0]),
-            'shape_0x3': np.array([], dtype=self.dtype).reshape([0, 3]),
-            'shape_2x0x4': np.array([], dtype=self.dtype).reshape([2, 0, 4]),
-        }
-
     def set_attrs(self):
         pass
 
@@ -82,21 +75,6 @@ class TestVarAPI(unittest.TestCase):
             self.assertTrue(np.equal(out_ref.shape, out_static.shape).all())
 
         test_static_or_pir_mode()
-
-        for name, zero_input in self.zero_size_cases.items():
-            paddle.disable_static()
-            x_tensor = paddle.to_tensor(zero_input)
-            out_dy = paddle.var(x_tensor)
-            out_ref = np.array([np.nan], dtype=self.dtype)
-            np.testing.assert_allclose(out_dy.numpy(), out_ref, equal_nan=True)
-            paddle.enable_static()
-
-            with paddle.static.program_guard(paddle.static.Program()):
-                x = paddle.static.data('X', zero_input.shape, self.dtype)
-                out = paddle.var(x)
-                exe = paddle.static.Executor(self.place)
-                res = exe.run(feed={'X': zero_input}, fetch_list=[out])
-                np.testing.assert_allclose(res[0], out_ref, equal_nan=True)
 
 
 class TestVarAPI_dtype(TestVarAPI):
@@ -142,12 +120,105 @@ class TestVarAPI_alias(unittest.TestCase):
 
 
 class TestVarError(unittest.TestCase):
-
     def test_error(self):
         with paddle_static_guard():
             with paddle.static.program_guard(paddle.static.Program()):
                 x = paddle.static.data('X', [2, 3, 4], 'int32')
                 self.assertRaises(TypeError, paddle.var, x)
+
+
+class TestVarAPIZeroSize(unittest.TestCase):
+    def setUp(self):
+        self.dtype = 'float64'
+        self.place = (
+            paddle.CUDAPlace(0)
+            if paddle.base.core.is_compiled_with_cuda()
+            else paddle.CPUPlace()
+        )
+        self.zero_size_cases = {
+            'empty': np.array([], dtype=self.dtype),
+            'shape_0': np.array([], dtype=self.dtype).reshape([0]),
+            'shape_0x3': np.array([], dtype=self.dtype).reshape([0, 3]),
+            'shape_2x0x4': np.array([], dtype=self.dtype).reshape([2, 0, 4]),
+            'shape_3x0x2': np.array([], dtype=self.dtype).reshape([3, 0, 2]),
+        }
+
+    def _run_var_test(self, x, axis=None, unbiased=True, keepdim=False):
+        # Dynamic graph test
+        paddle.disable_static()
+        x_tensor = paddle.to_tensor(x)
+        out_dy = paddle.var(
+            x_tensor, axis=axis, unbiased=unbiased, keepdim=keepdim
+        )
+        paddle.enable_static()
+
+        # Static graph test
+        with paddle_static_guard():
+            with paddle.static.program_guard(paddle.static.Program()):
+                x_static = paddle.static.data('X', x.shape, self.dtype)
+                out_static = paddle.var(
+                    x_static, axis=axis, unbiased=unbiased, keepdim=keepdim
+                )
+                exe = paddle.static.Executor(self.place)
+                res = exe.run(feed={'X': x}, fetch_list=[out_static])
+
+        # Reference result (expecting nan for zero-size inputs)
+        out_ref = np.var(
+            x, axis=axis, ddof=1 if unbiased else 0, keepdims=keepdim
+        )
+
+        # Verify results
+        np.testing.assert_allclose(out_dy.numpy(), out_ref, equal_nan=True)
+        np.testing.assert_allclose(res[0], out_ref, equal_nan=True)
+
+    def test_basic_zero_size(self):
+        for name, zero_input in self.zero_size_cases.items():
+            self._run_var_test(zero_input)
+
+    def test_axis_variations(self):
+        test_cases = [
+            {'axis': 0},
+            {'axis': [0, 1]},
+            {'axis': -1},
+        ]
+        for case in test_cases:
+            for _, zero_input in self.zero_size_cases.items():
+                axis = case['axis']
+                if isinstance(axis, int):
+                    axis = [axis]
+                normalized_axis = [
+                    a + zero_input.ndim if a < 0 else a for a in axis
+                ]
+                if zero_input.ndim > max(normalized_axis):
+                    self._run_var_test(zero_input, **case)
+
+    def test_keepdim(self):
+        for _, zero_input in self.zero_size_cases.items():
+            self._run_var_test(zero_input, keepdim=True)
+
+    def test_unbiased(self):
+        for _, zero_input in self.zero_size_cases.items():
+            self._run_var_test(zero_input, unbiased=False)
+
+
+class TestVarAPIZeroSizeDtype(TestVarAPIZeroSize):
+    def setUp(self):
+        super().setUp()
+        self.dtypes = [
+            'float32',
+            'float64',
+            'int32',
+            'int64',
+            'complex64',
+            'complex128',
+        ]
+
+    def test_different_dtypes(self):
+        for dtype in self.dtypes:
+            self.dtype = dtype
+            for _, zero_input in self.zero_size_cases.items():
+                typed_input = zero_input.astype(dtype)
+                self._run_var_test(typed_input)
 
 
 if __name__ == '__main__':
