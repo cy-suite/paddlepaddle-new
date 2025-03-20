@@ -157,7 +157,7 @@ IGNORE_OPS: list[str] = [
     "cf.stack_create",
 ]
 
-AGGRESSIVE_RECOMPUTATION = False
+RECOMPUTE_LEVEL = os.getenv("FLAGS_recompute_level")
 # Restricts the amount of computation recompute can do.
 MAX_DIST_FROM_BW = 3
 
@@ -503,7 +503,7 @@ def auto_recompute(
             return mem_sz * 2
 
     def _ban_recomputation(value_node):
-        if AGGRESSIVE_RECOMPUTATION:
+        if str(RECOMPUTE_LEVEL).upper() in ("AGGRESSIVE"):
             return value_node.get_defining_op().name() in unrecomputable_ops
         else:
             if value_node.get_defining_op().name() in tending_to_recompute_ops:
