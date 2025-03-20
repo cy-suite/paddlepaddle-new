@@ -629,6 +629,18 @@ EOF
     fi
 }
 
+EXIT_CODE=0
+function caught_error() {
+ for job in `jobs -p`; do
+        # echo "PID => ${job}"
+        if ! wait ${job} ; then
+            JOB_EXIT_CODE=$?
+            echo "At least one test failed with exit code => ${JOB_EXIT_CODE}" ;
+            EXIT_CODE=1;
+        fi
+    done
+}
+
 function card_test() {
     set -m
     case_count $1 $2
@@ -991,7 +1003,7 @@ set +x
         echo "ipipe_log_param_Rerun_TestCases_Total_Time: $[ $rerun_ut_endTime_s - $rerun_ut_startTime_s ]s"
         echo "ipipe_log_param_Rerun_TestCases_Total_Time: $[ $rerun_ut_endTime_s - $rerun_ut_startTime_s ]s" >> ${PADDLE_ROOT}/build/build_summary.txt
         if [ "$WITH_ROCM" != "ON" ];then
-            cp $PADDLE_ROOT/build/Testing/Temporary/CTestCostData.txt /home/data/cfs/coverage/${AGILE_PULL_ID}/${AGILE_REVISION}/
+            cp $PADDLE_ROOT/build/Testing/Temporary/CTestCostData.txt /home/data/cfs/coverage/${PR_ID}/${COMMIT_ID}/
         fi
         if [[ "$EXIT_CODE" != "0" ]]; then
             show_ut_retry_result

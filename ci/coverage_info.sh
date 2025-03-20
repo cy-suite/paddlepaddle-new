@@ -31,12 +31,12 @@ echo "::endgroup::"
 
 cd ${PADDLE_ROOT}/build
 
-python ${PADDLE_ROOT}/tools/coverage/gcda_clean.py ${GIT_PR_ID} || exit 101
+python ${PADDLE_ROOT}/ci/coverage_gcda_clean.py ${PR_ID} || exit 101
 echo "::group::Run lcov"
 lcov --ignore-errors gcov --capture -d ./ -o coverage.info --rc lcov_branch_coverage=0
 echo "::endgroup::"
 
-function gen_full_html_report_cinn(){
+function gen_full_report_cinn(){
     lcov --extract coverage.info \
         "${PADDLE_ROOT}/paddle/cinn/adt/*" \
         "${PADDLE_ROOT}/paddle/cinn/api/*" \
@@ -58,7 +58,7 @@ function gen_full_html_report_cinn(){
 }
 
 
-function gen_full_html_report() {
+function gen_full_report() {
     lcov --extract coverage.info \
         "${PADDLE_ROOT}/paddle/fluid/framework/*" \
         "${PADDLE_ROOT}/paddle/fluid/imperative/*" \
@@ -92,7 +92,7 @@ function gen_full_html_report() {
     mv -f coverage-full.tmp coverage-full.info
 }
 
-function gen_full_html_report_xpu() {
+function gen_full_report_xpu() {
     lcov --extract coverage.info \
         "${PADDLE_ROOT}/paddle/fluid/operators/*xpu*" \
         "${PADDLE_ROOT}/paddle/phi/kernels/xpu/*" \
@@ -113,7 +113,7 @@ function gen_full_html_report_xpu() {
     mv -f coverage-full.tmp coverage-full.info
 }
 
-function gen_full_html_report_npu() {
+function gen_full_report_npu() {
     lcov --extract coverage.info \
         "${PADDLE_ROOT}/paddle/fluid/operators/*npu*" \
         -o coverage-full.tmp \
@@ -134,28 +134,28 @@ function gen_full_html_report_npu() {
 }
 
 if [ ${WITH_XPU:-OFF} == "ON" ]; then
-    gen_full_html_report_xpu || true
+    gen_full_report_xpu || true
 else
-    echo "::group::Gen full html report"
-    gen_full_html_report || true
+    echo "::group::Gen full report"
+    gen_full_report || true  # coverage-full.info
     echo "::endgroup::"
 fi
 
 if [ ${WITH_CINN:-OFF} == "ON" ]; then
-    echo "::group::Gen full html report for cinn"
-    gen_full_html_report_cinn || true
+    echo "::group::Gen full report for cinn"
+    gen_full_report_cinn || true  # coverage-full.tmp. Didn't use this file
     echo "::endgroup::"
 else
-    gen_full_html_report || true
+    gen_full_report || true
 fi
 
 
 
-if [ "${GIT_PR_ID}" != "" ]; then
+if [ "${PR_ID}" != "" ]; then
 
-    COVERAGE_DIFF_PATTERN="`python ${PADDLE_ROOT}/tools/coverage/pull_request.py files ${GIT_PR_ID}`"
+    COVERAGE_DIFF_PATTERN="`python ${PADDLE_ROOT}/ci/coverage_pull_request.py files ${PR_ID}`"
 
-    python ${PADDLE_ROOT}/tools/coverage/pull_request.py diff ${GIT_PR_ID} > git-diff.out
+    python ${PADDLE_ROOT}/ci/coverage_pull_request.py diff ${PR_ID} > git-diff.out
 fi
 
 lcov --extract coverage-full.info \
@@ -163,7 +163,7 @@ lcov --extract coverage-full.info \
     -o coverage-diff.info \
     --rc lcov_branch_coverage=0
 
-python ${PADDLE_ROOT}/tools/coverage/coverage_diff.py coverage-diff.info git-diff.out > coverage-diff.tmp
+python ${PADDLE_ROOT}/ci/coverage_diff.py coverage-diff.info git-diff.out > coverage-diff.tmp
 
 mv -f coverage-diff.tmp coverage-diff.info
 
@@ -171,16 +171,16 @@ mv -f coverage-diff.tmp coverage-diff.info
 
 # python coverage
 
-coverage combine `$(ls python-coverage.data.*)` || NO_PYTHON_COVERAGE_DATA=1
+coverage combine $(ls python-coverage.data.*) || NO_PYTHON_COVERAGE_DATA=1
 
-`$(coverage xml -i -o python-coverage.xml)` || [[ "${NO_PYTHON_COVERAGE_DATA}" == "1" ]]
+coverage xml -i -o python-coverage.xml || [[ "${NO_PYTHON_COVERAGE_DATA}" == "1" ]]
 
 sed -i "s#/mnt\/paddle#${PADDLE_ROOT//\//\\/}#g" python-coverage.xml
 
 `$(python ${PADDLE_ROOT}/tools/coverage/python_coverage.py > python-coverage.info)` || [[ "${NO_PYTHON_COVERAGE_DATA}" == "1" ]]
 
 
-function gen_python_full_html_report() {
+function gen_python_full_report() {
     lcov --extract python-coverage.info \
         "${PADDLE_ROOT}/python/*" \
         -o python-coverage-full.tmp \
@@ -196,15 +196,13 @@ function gen_python_full_html_report() {
     mv -f python-coverage-full.tmp python-coverage-full.info
 }
 
-gen_python_full_html_report || true
-
-# python diff html report
+gen_python_full_report || true  # python-coverage-full.info
 
 
 if [ "${GIT_PR_ID}" != "" ]; then
-    COVERAGE_DIFF_PATTERN="`python ${PADDLE_ROOT}/tools/coverage/pull_request.py files ${GIT_PR_ID}`"
+    COVERAGE_DIFF_PATTERN="`python ${PADDLE_ROOT}/ci/coverage_pull_request.py files ${GIT_PR_ID}`"
 
-    python ${PADDLE_ROOT}/tools/coverage/pull_request.py diff ${GIT_PR_ID} > python-git-diff.out
+    python ${PADDLE_ROOT}/ci/coverage_pull_request.py diff ${GIT_PR_ID} > python-git-diff.out
 fi
 
 lcov --extract python-coverage-full.info \
@@ -212,7 +210,7 @@ lcov --extract python-coverage-full.info \
     -o python-coverage-diff.info \
     --rc lcov_branch_coverage=0
 
-python ${PADDLE_ROOT}/tools/coverage/coverage_diff.py python-coverage-diff.info python-git-diff.out > python-coverage-diff.tmp
+python ${PADDLE_ROOT}/ci/coverage_diff.py python-coverage-diff.info python-git-diff.out > python-coverage-diff.tmp
 
 mv -f python-coverage-diff.tmp python-coverage-diff.info
 

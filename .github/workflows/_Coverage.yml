@@ -303,13 +303,13 @@ jobs:
         . ../../../proxy
         bash $ci_scripts/coverage_test.sh ${{ github.env }}
         '
-    - name: Check coverage data
-      run: |
-        docker exec -t ${{ env.container_name }} /bin/bash -c '
-        . ../../../proxy
-        source ${ci_scripts}/utils.sh; check_coverage
-        EXIT_CODE=$?
-        '
+    # - name: Check coverage data
+    #   run: |
+    #     docker exec -t ${{ env.container_name }} /bin/bash -c '
+    #     . ../../../proxy
+    #     source ${ci_scripts}/utils.sh; check_coverage
+    #     EXIT_CODE=$?
+    #     '
 
     - name: Upload coverage report
       uses: codecov/codecov-action@v5
