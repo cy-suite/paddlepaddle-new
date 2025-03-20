@@ -1640,12 +1640,13 @@ def read_trainable_parameters_log(path, file) -> int:
         for line in lines:
             result = re.findall(re_model_parameter_pattern, line)
             if result:
-                value = None
                 for item in result:
                     value = int(item.replace(",", ""))
                     model_param.add(value)
-                assert value is not None
-        assert len(model_param) == 1
+        assert len(model_param) <= 1
+    # At this point, the Task has not been successfully started, and the training parameters have not been printed in the log.
+    if len(model_param) == 0:
+        return 0
     return model_param.pop()
 
 
