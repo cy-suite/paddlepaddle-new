@@ -237,9 +237,6 @@ void PatternGraph::ItersPermutationFusion() {
 void PatternGraph::SplitRecomputePattern() {
   GraphTransformer<NodePattern, RecomputeNodeMatcher, SplitRecomputeOperation>(
       this);
-  GraphTransformer<NodePattern,
-                   StmtPatternGraphMatcher<TrivialPattern>,
-                   LiftToAnchorPatternOperation>(this);
 }
 
 PatternGraph::PatternGraph(const std::vector<PatternContent>& contents,
