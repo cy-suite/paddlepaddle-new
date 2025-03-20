@@ -16,7 +16,7 @@ import os
 import unittest
 
 import paddle
-from paddle.base.framework import in_cinn_mode, in_pir_executor_mode
+from paddle.base.framework import flag_guard, in_cinn_mode, in_pir_executor_mode
 
 
 class TestPIRModeFlags(unittest.TestCase):
@@ -33,8 +33,8 @@ class TestCinnModeFlags(unittest.TestCase):
             self.assertFalse(in_cinn_mode())
             return
         self.assertFalse(in_cinn_mode())
-        paddle.set_flags({CINN_FLAG_NAME: True})
-        self.assertTrue(in_cinn_mode())
+        with flag_guard(CINN_FLAG_NAME, True):
+            self.assertTrue(in_cinn_mode())
 
 
 if __name__ == '__main__':
