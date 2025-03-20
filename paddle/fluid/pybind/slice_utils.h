@@ -234,7 +234,7 @@ static void ParseIndex(const paddle::Tensor& tensor,
           0 <= start && start < dim_len,
           common::errors::OutOfRange("The starting index %d of slice is out "
                                      "of bounds in tensor %d-th axis, it "
-                                     "shound be in the range of [%d, %d).",
+                                     "should be in the range of [%d, %d).",
                                      s_t,
                                      current_dim,
                                      -dim_len,
@@ -302,7 +302,7 @@ static void ParseIndex(const paddle::Tensor& tensor,
                          common::errors::OutOfRange(
                              "The starting index %d of slice is out "
                              "of bounds in tensor %d-th axis, it "
-                             "shound be in the range of [%d, %d).",
+                             "should be in the range of [%d, %d).",
                              s_t,
                              current_dim,
                              -dim_len,
@@ -354,12 +354,12 @@ static void ParseIndex(const paddle::Tensor& tensor,
   }
 
   // valid_index is the number of dimensions exclude None index
-  const int valid_indexs = size - none_axes->size() - ell_count;
-  PADDLE_ENFORCE_EQ(valid_indexs <= rank,
+  const int valid_indices = size - none_axes->size() - ell_count;
+  PADDLE_ENFORCE_EQ(valid_indices <= rank,
                     true,
                     common::errors::InvalidArgument(
                         "Too many indices (%d) for tensor of dimension %d.",
-                        valid_indexs,
+                        valid_indices,
                         rank));
 }
 

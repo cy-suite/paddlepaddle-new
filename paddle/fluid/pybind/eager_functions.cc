@@ -244,7 +244,7 @@ PyObject* eager_api_get_all_grads(PyObject* self,
       ret.emplace_back(paddle::Tensor());
       continue;
     }
-    if (meta && meta->Grad().initialized()) {
+    if (meta && meta->Grad().has_allocation()) {
       ret.emplace_back(meta->Grad());
     } else {
       ret.emplace_back(paddle::Tensor());
@@ -265,7 +265,7 @@ PyObject* eager_api_get_grads_lists(PyObject* self,
   for (auto& tensor : tensor_list) {
     VLOG(6) << "Get grad for tensor: " << tensor.name();
     auto meta = egr::EagerUtils::nullable_autograd_meta(tensor);
-    if (meta && meta->Grad().initialized()) {
+    if (meta && meta->Grad().has_allocation()) {
       auto& grad = meta->Grad();
       switch (grad.dtype()) {
         case phi::DataType::FLOAT16:
@@ -727,7 +727,7 @@ PyObject* eager_api_run_custom_op(PyObject* self,
       if (ctx.OutputRangeAt(i).first + 1 == ctx.OutputRangeAt(i).second) {
         paddle::Tensor* out_tensor =
             ctx.MutableOutputAt(ctx.OutputRangeAt(i).first);
-        if (!out_tensor->initialized()) {
+        if (!out_tensor->has_allocation()) {
           PADDLE_ENFORCE(
               paddle::framework::detail::IsOptionalVar(outputs.at(i)) ||
                   out_tensor->is_dist_tensor(),
@@ -1353,7 +1353,7 @@ static PyObject* eager_api_set_master_grads(PyObject* self,
         common::errors::Fatal("Detected nullptr grad"
                               "Please check if you have manually cleared"
                               "the grad inside autograd_meta"));
-    if (((*grad).initialized() || (*grad).is_dist_tensor()) &&
+    if (((*grad).has_allocation() || (*grad).is_dist_tensor()) &&
         ((*grad).dtype() == phi::DataType::FLOAT16 ||
          (*grad).dtype() == phi::DataType::BFLOAT16)) {
       auto master_grad =
@@ -1372,6 +1372,34 @@ PyObject* eager__is_run_in_backward(PyObject* self,
   EAGER_TRY
 
   return ToPyObject(egr::Controller::Instance().GetIsInBackward());
+
+  EAGER_CATCH_AND_THROW_RETURN_NULL
+}
+
+PyObject* eager__for_test_check_cuda_error(PyObject* self,
+                                           PyObject* args,
+                                           PyObject* kwargs) {
+  EAGER_TRY
+#ifdef PADDLE_WITH_CUDA
+  // 1. wait all kernel finish
+  PADDLE_ENFORCE_GPU_SUCCESS(cudaDeviceSynchronize());
+
+  // 2. get error state
+  PADDLE_ENFORCE_GPU_SUCCESS(cudaGetLastError());
+
+  // 3. check if cuda 700
+  size_t bytes = 256;
+  char* cuda_mem;
+  char* cpu_mem = new char[bytes + 1];
+
+  cudaMalloc(&cuda_mem, bytes + 1);
+  cudaMemset(cuda_mem, 0, bytes + 1);
+  cudaMemcpyAsync(cpu_mem, cuda_mem, bytes, cudaMemcpyDeviceToHost);
+
+  cudaFree(cuda_mem);
+  delete[] cpu_mem;
+#endif
+  RETURN_PY_NONE
 
   EAGER_CATCH_AND_THROW_RETURN_NULL
 }
@@ -1451,6 +1479,10 @@ PyMethodDef variable_functions[] = {  // NOLINT
      nullptr},
     {"_is_run_in_backward",
      (PyCFunction)(void (*)())eager__is_run_in_backward,
+     METH_VARARGS | METH_KEYWORDS,
+     nullptr},
+    {"_for_test_check_cuda_error",
+     (PyCFunction)(void (*)())eager__for_test_check_cuda_error,
      METH_VARARGS | METH_KEYWORDS,
      nullptr},
 /**sparse functions**/

@@ -14,7 +14,7 @@ on:
 
 jobs:
   check-bypass:
-    name: Check Bypass
+    name: Check bypass
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -40,7 +40,7 @@ jobs:
                 },
                 {
                   "type": "commented",
-                  "comment-pattern": [".+/skip-ci ${{ inputs.workflow-name }}.+", ".+/skip-ci all.+"],
+                  "comment-pattern": [".*/skip-ci ${{ inputs.workflow-name }}.*", ".*/skip-ci all.*"],
                   "username": ${{ env.CI_TEAM_MEMBERS }}
                 }
               ]

@@ -223,7 +223,7 @@ struct PDNode {
  * and Variable Nodes can be ruled in PDNode.assert_more(...).
  *
  * PDPattern can record the general patterns, such as the pattern represents
- *   - Op in CPU -> Op in GPU -> Op in CPU, to findout the IO abnormal place.
+ *   - Op in CPU -> Op in GPU -> Op in CPU, to find out the IO abnormal place.
  *   - Ops whose inputs and outputs share the same variables
  */
 class PDPattern {
@@ -327,7 +327,7 @@ class GraphPatternDetector {
 
   // Operate on the detected pattern.
   using handle_t =
-      std::function<void(const subgraph_t& /*hitted pattern*/, Graph*)>;
+      std::function<void(const subgraph_t& /*hit pattern*/, Graph*)>;
 
   void operator()(Graph* graph, handle_t handler);
 
@@ -1585,8 +1585,8 @@ struct SelfAttention : public PatternBase {
 
 // Conv + ElementwiseAdd + an activation
 // This pattern can further fuse the conv related ops after the conv+bn fusion.
-struct ConvElementwiseaddAct : public PatternBase {
-  ConvElementwiseaddAct(PDPattern* pattern, const std::string& name_scope)
+struct ConvElementwiseAddAct : public PatternBase {
+  ConvElementwiseAddAct(PDPattern* pattern, const std::string& name_scope)
       : PatternBase(pattern, name_scope, "conv_elementwiseadd_act") {}
 
   PDNode* operator()(PDNode* conv_in,
@@ -1631,9 +1631,9 @@ struct ConvElementwiseAdd2Act : public PatternBase {
 
 // Conv + ElementwiseAdd
 // This pattern should be used after ConvElementwiseAdd2Act or
-// ConvElementwiseadd pass
-struct ConvElementwiseadd : public PatternBase {
-  ConvElementwiseadd(PDPattern* pattern, const std::string& name_scope)
+// ConvElementwiseAdd pass
+struct ConvElementwiseAdd : public PatternBase {
+  ConvElementwiseAdd(PDPattern* pattern, const std::string& name_scope)
       : PatternBase(pattern, name_scope, "conv_elementwiseadd") {}
 
   PDNode* operator()(PDNode* conv_in);

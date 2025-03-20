@@ -5,6 +5,8 @@
 # are consistent and correspond one-to-one. It's forbidden that the
 # operator configured in this yaml file does not have Python API.
 
+  # interfaces : paddle::dialect::InferSymbolicShapeInterface
+
 - op : abs
   args : (Tensor x)
   output : Tensor(out)
@@ -16,6 +18,7 @@
   inplace: (x -> out)
   backward : abs_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : accuracy
   args : (Tensor x, Tensor indices, Tensor label)
@@ -50,6 +53,7 @@
   inplace: (x -> out)
   backward : acos_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : acosh
   args : (Tensor x)
@@ -61,6 +65,7 @@
   inplace: (x -> out)
   backward : acosh_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : adadelta_
   args : (Tensor param, Tensor grad, Tensor avg_squared_grad, Tensor avg_squared_update,
@@ -258,6 +263,7 @@
     func : angle
   backward : angle_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits : pir::UnaryElementWiseTrait
 
 - op : any
   args : (Tensor x, int64_t[] axis={}, bool keepdim=false)
@@ -369,6 +375,7 @@
   inplace: (x -> out)
   backward : asin_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : asinh
   args : (Tensor x)
@@ -380,6 +387,7 @@
   inplace: (x -> out)
   backward : asinh_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : assign_out_
   args : (Tensor x, Tensor output)
@@ -429,6 +437,7 @@
   inplace: (x -> out)
   backward : atan_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : atan2
   args : (Tensor x, Tensor y)
@@ -450,6 +459,7 @@
   inplace: (x -> out)
   backward : atanh_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : attention_lstm
   args: (Tensor x, Tensor c0, Tensor h0, Tensor attention_weight, Tensor attention_bias,
@@ -489,6 +499,18 @@
     data_type : param
   inplace : (in_sum_1 -> out_sum_1), (in_sum_2 -> out_sum_2), (in_sum_3 -> out_sum_3), (in_num_accumulates -> out_num_accumulates), (in_old_num_accumulates -> out_old_num_accumulates), (in_num_updates -> out_num_updates)
   traits : paddle::dialect::ForwardOnlyTrait
+
+- op : baddbmm
+  args : (Tensor input, Tensor x, Tensor y, float beta=1.0, float alpha=1.0)
+  output : Tensor(out)
+  infer_meta :
+    func : BaddbmmInferMeta
+  kernel :
+    func : baddbmm
+    data_type : x
+  inplace: (input -> out)
+  backward : baddbmm_grad
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : barrier
   args : (Tensor x, int ring_id=0)
@@ -543,7 +565,7 @@
   kernel :
     func : bernoulli
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-  traits : paddle::dialect::ForwardOnlyTrait
+  traits : paddle::dialect::ForwardOnlyTrait, pir::UnaryElementWiseTrait
 
 - op : bicubic_interp
   args : (Tensor x, Tensor out_size, Tensor[] size_tensor, Tensor scale_tensor, str data_format="NCHW", int out_d=0, int out_h=0, int out_w=0, float[] scale={}, str interp_method="bilinear", bool align_corners=true, int align_mode=1)
@@ -652,7 +674,7 @@
     backend : x
   inplace: (x -> out)
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-  traits : paddle::dialect::ForwardOnlyTrait
+  traits : paddle::dialect::ForwardOnlyTrait, pir::UnaryElementWiseTrait
 
 - op : bitwise_or
   args : (Tensor x, Tensor y)
@@ -762,7 +784,7 @@
     param : [x, nranks]
   kernel :
     func : c_concat
-  traits : paddle::dialect::ForwardOnlyTrait
+  backward: c_concat_grad
 
 - op : c_identity
   args : (Tensor x, int ring_id, bool use_calc_stream, bool use_model_parallel)
@@ -783,6 +805,19 @@
   kernel :
     func : c_scatter
   traits : paddle::dialect::ForwardOnlyTrait
+
+- op : c_softmax_with_cross_entropy
+  args: (Tensor logits, Tensor label,  int64_t ignore_index=-100, int ring_id=0, int rank=0, int nranks=0)
+  output: Tensor(softmax), Tensor(loss)
+  infer_meta:
+    func : CSoftmaxWithCrossEntropyInferMeta
+    spmd_rule : CSoftmaxWithCrossEntropyInferSpmd
+    param: [logits, label, ignore_index, rank, nranks]
+  kernel:
+    func: c_softmax_with_cross_entropy
+    data_type : logits
+    param: [logits, label, ignore_index, rank, nranks]
+  backward: c_softmax_with_cross_entropy_grad
 
 - op : c_split
   args : (Tensor x, int rank = 0, int nranks = 1, int ring_id = 0, bool use_model_parallel = true)
@@ -829,6 +864,7 @@
   inplace : (x -> out)
   backward : ceil_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : celu
   args : (Tensor x, float alpha = 1.0)
@@ -840,6 +876,7 @@
     func : celu
   backward : celu_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : channel_shuffle
   args : (Tensor x, int groups, str data_format="NCHW")
@@ -914,6 +951,7 @@
   infer_meta :
     func : UnchangedInferMeta
     param : [x]
+    spmd_rule : ClipInferSpmd
   kernel :
     func : clip
     data_type : x
@@ -987,6 +1025,7 @@
     func : conj
   backward : conj_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : conv2d
   args : (Tensor input, Tensor filter, int[] strides={1, 1}, int[] paddings={0, 0}, str padding_algorithm="EXPLICIT", int[] dilations={1, 1}, int groups=1, str data_format="NCHW")
@@ -1073,7 +1112,6 @@
     func : correlation
     data_type : input1
   backward : correlation_grad
-  # interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : cos
   args : (Tensor x)
@@ -1086,6 +1124,7 @@
   inplace: (x -> out)
   backward : cos_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : cosh
   args : (Tensor x)
@@ -1097,6 +1136,7 @@
   inplace: (x -> out)
   backward : cosh_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : crf_decoding
   args: (Tensor emission, Tensor transition, Tensor label, Tensor length)
@@ -1562,6 +1602,7 @@
   inplace : (x -> out)
   backward : elu_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : embedding_with_scaled_gradient
   args : (Tensor x, Tensor weight, int64_t padding_idx=-1)
@@ -1635,6 +1676,7 @@
   inplace : (x -> out)
   backward : erf_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : erfinv
   args : (Tensor x)
@@ -1646,6 +1688,7 @@
   inplace : (x -> out)
   backward : erfinv_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : exp
   args : (Tensor x)
@@ -1658,12 +1701,15 @@
   inplace : (x -> out)
   backward : exp_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : expand
   args : (Tensor x, IntArray shape = {})
   output : Tensor(out)
   infer_meta :
     func : ExpandInferMeta
+    local_shape: out
+    spmd_rule : ExpandInferSpmd
   kernel :
     func : expand
     data_type : x
@@ -1693,6 +1739,7 @@
   inplace: (x -> out)
   backward : expm1_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : exponential_
   args : (Tensor x, float lam)
@@ -1918,7 +1965,7 @@
   interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : flash_attn_unpadded
-  args : (Tensor q, Tensor k, Tensor v, Tensor cu_seqlens_q,  Tensor cu_seqlens_k, Tensor fixed_seed_offset, Tensor attn_mask, int64_t max_seqlen_q, int64_t max_seqlen_k, float scale, float dropout = 0.0, bool causal = false, bool return_softmax = false, bool is_test = false, str rng_name = "")
+  args : (Tensor q, Tensor k, Tensor v, Tensor cu_seqlens_q,  Tensor cu_seqlens_k, Tensor fixed_seed_offset, Tensor attn_mask, Scalar max_seqlen_q, Scalar max_seqlen_k, float scale, float dropout = 0.0, bool causal = false, bool return_softmax = false, bool is_test = false, str rng_name = "")
   output : Tensor(out), Tensor(softmax), Tensor(softmax_lse), Tensor(seed_offset)
   optional :  fixed_seed_offset , attn_mask
   infer_meta :
@@ -1931,7 +1978,7 @@
   backward : flash_attn_unpadded_grad
 
 - op : flash_attn_varlen_qkvpacked
-  args : (Tensor qkv, Tensor cu_seqlens_q,  Tensor cu_seqlens_k, Tensor fixed_seed_offset, Tensor attn_mask, int64_t max_seqlen_q, int64_t max_seqlen_k, float scale, float dropout = 0.0, bool causal = false, bool return_softmax = false, bool is_test = false, str rng_name = "", bool varlen_padded = true)
+  args : (Tensor qkv, Tensor cu_seqlens_q,  Tensor cu_seqlens_k, Tensor fixed_seed_offset, Tensor attn_mask, Scalar max_seqlen_q, Scalar max_seqlen_k, float scale, float dropout = 0.0, bool causal = false, bool return_softmax = false, bool is_test = false, str rng_name = "", bool varlen_padded = true)
   output : Tensor(out), Tensor(softmax), Tensor(softmax_lse), Tensor(seed_offset)
   optional :  fixed_seed_offset , attn_mask
   infer_meta :
@@ -1951,6 +1998,7 @@
   infer_meta :
     func : FlashAttnInferMeta
     param : [q, k, v]
+    spmd_rule : FlashMaskInferSpmd
   kernel :
     func : flashmask_attention
     data_type : q
@@ -1991,6 +2039,7 @@
   inplace : (x -> out)
   backward : floor_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : fmax
   args : (Tensor x, Tensor y)
@@ -2233,6 +2282,7 @@
   inplace: (x -> out)
   backward : gammaln_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : gather
   args : (Tensor x, Tensor index, Scalar axis=0)
@@ -2439,6 +2489,7 @@
     func : hard_shrink
   backward : hardshrink_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : hardsigmoid
   args : (Tensor x, float slope = 0.2, float offset = 0.5)
@@ -2450,6 +2501,7 @@
     func : hardsigmoid
   backward : hardsigmoid_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : hardtanh
   args : (Tensor x, float t_min=0, float t_max=24)
@@ -2462,6 +2514,7 @@
   inplace: (x -> out)
   backward : hardtanh_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : heaviside
   args : (Tensor x, Tensor y)
@@ -2528,6 +2581,7 @@
   inplace: (x -> out)
   backward : i0_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : i0e
   args : (Tensor x)
@@ -2538,6 +2592,7 @@
     func : i0e
   backward : i0e_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : i1
   args : (Tensor x)
@@ -2548,6 +2603,7 @@
     func : i1
   backward : i1_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : i1e
   args : (Tensor x)
@@ -2558,6 +2614,7 @@
     func : i1e
   backward : i1e_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : identity_loss
   args : (Tensor x, int reduction = 1)
@@ -2590,6 +2647,7 @@
     func : imag
   backward : imag_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : increment
   args : (Tensor x, float value = 1.0)
@@ -2685,6 +2743,7 @@
     func : inverse
   backward : inverse_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : is_empty
   args : (Tensor x)
@@ -2717,7 +2776,7 @@
     func : isfinite {dense -> dense},
            isfinite_sr {selected_rows -> selected_rows}
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-  traits : paddle::dialect::ForwardOnlyTrait
+  traits : paddle::dialect::ForwardOnlyTrait, pir::UnaryElementWiseTrait
 
 - op : isinf
   args : (Tensor x)
@@ -2728,7 +2787,7 @@
     func : isinf {dense -> dense},
            isinf_sr {selected_rows -> selected_rows}
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-  traits : paddle::dialect::ForwardOnlyTrait
+  traits : paddle::dialect::ForwardOnlyTrait, pir::UnaryElementWiseTrait
 
 - op : isnan
   args : (Tensor x)
@@ -2739,7 +2798,7 @@
     func : isnan {dense -> dense},
            isnan_sr {selected_rows -> selected_rows}
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-  traits : paddle::dialect::ForwardOnlyTrait
+  traits : paddle::dialect::ForwardOnlyTrait, pir::UnaryElementWiseTrait
 
 - op : kldiv_loss
   args : (Tensor x, Tensor label, str reduction = "mean", bool log_target = false)
@@ -2835,6 +2894,7 @@
   inplace: (x -> out)
   backward : leaky_relu_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : lerp
   args : (Tensor x, Tensor y, Tensor weight)
@@ -2857,6 +2917,7 @@
   inplace: (x -> out)
   backward : lgamma_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : limit_by_capacity
   args : (Tensor expert_count, Tensor capacity, int n_worker)
@@ -2918,6 +2979,7 @@
   inplace: (x -> out)
   backward: log_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : log10
   args : (Tensor x)
@@ -2929,6 +2991,7 @@
   inplace: (x -> out)
   backward: log10_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : log1p
   args : (Tensor x)
@@ -2940,6 +3003,7 @@
   inplace: (x -> out)
   backward: log1p_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : log2
   args : (Tensor x)
@@ -2951,6 +3015,7 @@
   inplace: (x -> out)
   backward: log2_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : log_loss
   args : (Tensor input, Tensor label, float epsilon)
@@ -3009,7 +3074,7 @@
     backend : x
   inplace: (x -> out)
   interfaces : paddle::dialect::InferSymbolicShapeInterface
-  traits : paddle::dialect::ForwardOnlyTrait
+  traits : paddle::dialect::ForwardOnlyTrait, pir::UnaryElementWiseTrait
 
 - op : logical_or
   args : (Tensor x, Tensor y)
@@ -3050,6 +3115,7 @@
   inplace: (x -> out)
   backward : logit_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : logsigmoid
   args : (Tensor x)
@@ -3060,6 +3126,7 @@
     func : logsigmoid
   backward : logsigmoid_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : logspace
   args : (Tensor start, Tensor stop, Tensor num, Tensor base, DataType dtype, Place place={})
@@ -3145,6 +3212,18 @@
     data_type : x
   inplace : (x -> out)
   backward : lu_grad
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
+
+- op : lu_solve
+  args : (Tensor b, Tensor lu, Tensor pivots, str trans)
+  output : Tensor(out)
+  infer_meta :
+    func : UnchangedInferMeta
+    param : [b]
+  kernel :
+    func : lu_solve
+    data_type : b
+  backward : lu_solve_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : lu_unpack
@@ -3385,7 +3464,7 @@
 
 - op : meshgrid
   args : (Tensor[] inputs)
-  output : Tensor[]{inputs.size()}
+  output : Tensor[](out){inputs.size()}
   infer_meta :
     func : MeshgridInferMeta
   kernel :
@@ -3404,6 +3483,7 @@
     func : mish
   backward : mish_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : mode
   args : (Tensor x,  int axis = -1,  bool keepdim = false)
@@ -3414,6 +3494,35 @@
     func : mode
   backward : mode_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+
+- op : moe_dispatch
+  args : (Tensor X, Tensor gating_output, int moe_topk = 2, bool group_moe = false, bool topk_only_mode = false)
+  output : Tensor(permute_input), Tensor(token_nums_per_expert), Tensor(permute_indices_per_token), Tensor(expert_scales_float), Tensor(top_k_indices)
+  infer_meta :
+    func : MoeDispatchInferMeta
+  kernel :
+    func : moe_dispatch
+    data_type : X
+
+- op : moe_ffn
+  args : (Tensor permute_input, Tensor token_nums_per_expert, Tensor ffn1_weight, Tensor ffn2_weight, Tensor ffn1_bias, Tensor ffn1_scale, Tensor ffn2_scale, str quant_method)
+  output : Tensor(ffn_out)
+  infer_meta :
+    func : MoeFFNInferMeta
+  kernel :
+    func : moe_ffn
+    data_type : permute_input
+  optional : ffn1_bias, ffn1_scale, ffn2_scale
+
+- op : moe_reduce
+  args : (Tensor ffn_out, Tensor expert_scales_float, Tensor permute_indices_per_token, Tensor top_k_indices, Tensor ffn2_bias, bool norm_topk_prob = false, float routed_scaling_factor = 1.0)
+  output : Tensor(output)
+  infer_meta :
+    func : MoeReduceInferMeta
+  kernel :
+    func : moe_reduce
+    data_type : ffn_out
+  optional : ffn2_bias
 
 - op : momentum_
   args : (Tensor param, Tensor grad, Tensor velocity, Tensor learning_rate, Tensor master_param, float mu, bool use_nesterov = false, str regularization_method = "", float regularization_coeff = 0.0f, bool multi_precision = false, float rescale_grad = 1.0f)
@@ -3983,6 +4092,7 @@
   inplace : (x -> out)
   backward : reciprocal_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : reduce
   args : (Tensor x, int ring_id = 0, int root_id = 0, int reduce_type = 0)
@@ -4042,6 +4152,7 @@
   inplace : (x -> out)
   backward : relu_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : relu6
   args : (Tensor x)
@@ -4053,6 +4164,7 @@
     func : relu6
   backward : relu6_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : renorm
   args : (Tensor x, float p, int axis, float max_norm)
@@ -4102,6 +4214,15 @@
   view: (x -> out)
   backward: reshape_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+
+- op : restrict_nonzero
+  args : (Tensor condition, int64_t total_true_num)
+  output : Tensor (out)
+  infer_meta :
+    func : RestrictNonZeroInferMeta
+  kernel :
+    func : restrict_nonzero
+  traits : paddle::dialect::ForwardOnlyTrait
 
 - op : reverse
   args : (Tensor x, IntArray axis)
@@ -4241,6 +4362,7 @@
   inplace : (x -> out)
   backward : rsqrt_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : scale
   args : (Tensor x, Scalar scale=1.0, Scalar bias=0.0, bool bias_after_scale=true)
@@ -4434,6 +4556,7 @@
     skip_transform : input
   interfaces : paddle::dialect::InferSymbolicShapeInterface
   traits : paddle::dialect::ForwardOnlyTrait
+  no_need_buffer : input
 
 - op : shape64
   args : (Tensor input)
@@ -4447,6 +4570,7 @@
     skip_transform : input
   interfaces : paddle::dialect::InferSymbolicShapeInterface
   traits : paddle::dialect::ForwardOnlyTrait
+  no_need_buffer : input
 
 - op : shard_index
   args : (Tensor input, int index_num, int nshards, int shard_id, int ignore_value=-1)
@@ -4498,11 +4622,13 @@
   output : Tensor
   infer_meta :
     func : UnchangedInferMeta
+    spmd_rule : ElementwiseUnaryInferSpmd
   kernel :
     func : sigmoid
   inplace : (x -> out)
   backward : sigmoid_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : sigmoid_cross_entropy_with_logits
   args : (Tensor x, Tensor label, Tensor pos_weight, bool normalize=false, int ignore_index=-100)
@@ -4525,6 +4651,7 @@
     func : sign
   backward : sign_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : silu
   args : (Tensor x)
@@ -4536,6 +4663,7 @@
     func : silu
   backward : silu_grad
   interfaces : paddle::dialect::LayoutTransformationInterface, paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : sin
   args : (Tensor x)
@@ -4548,6 +4676,7 @@
   inplace : (x -> out)
   backward : sin_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : sinh
   args : (Tensor x)
@@ -4559,6 +4688,7 @@
   inplace: (x -> out)
   backward : sinh_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : slice
   args : (Tensor input, int64_t[] axes, IntArray starts, IntArray ends, int64_t[] infer_flags, int64_t[] decrease_axis)
@@ -4591,6 +4721,7 @@
     func : softplus
   backward : softplus_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : softshrink
   args : (Tensor x, float threshold = 0.5)
@@ -4602,6 +4733,7 @@
     func : softshrink
   backward : softshrink_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : softsign
   args : (Tensor x)
@@ -4613,6 +4745,7 @@
     func : softsign
   backward : softsign_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : solve
   args : (Tensor x, Tensor y)
@@ -4683,6 +4816,7 @@
   inplace : (x -> out)
   backward : sqrt_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : square
   args : (Tensor x)
@@ -4696,6 +4830,7 @@
   inplace : (x -> out)
   backward : square_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : squared_l2_norm
   args : (Tensor x)
@@ -4753,6 +4888,7 @@
     func : stanh
   backward : stanh_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : stft
   args: (Tensor x, Tensor window, int n_fft, int hop_length, bool normalized, bool onesided)
@@ -4774,7 +4910,7 @@
   kernel :
     func : strided_slice
   backward : strided_slice_grad
-  # interfaces : paddle::dialect::InferSymbolicShapeInterface
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : sum
   args : (Tensor x, IntArray axis={}, DataType dtype=DataType::UNDEFINED, bool keepdim=false)
@@ -4829,6 +4965,7 @@
     func : swish
   backward : swish_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface, paddle::dialect::LayoutTransformationInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : sync_batch_norm_
   args : (Tensor x, Tensor mean, Tensor variance, Tensor scale, Tensor bias, bool is_test, float momentum, float epsilon, str data_format, bool use_global_stats, bool trainable_statistics)
@@ -4876,6 +5013,7 @@
   inplace : (x -> out)
   backward : tan_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : tanh
   args : (Tensor x)
@@ -4887,6 +5025,7 @@
   inplace : (x -> out)
   backward : tanh_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : tanh_shrink
   args : (Tensor x)
@@ -4897,6 +5036,7 @@
     func : tanh_shrink
   backward : tanh_shrink_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : tdm_child
   args: (Tensor x, Tensor tree_info, int child_nums, DataType dtype = DataType::INT32)
@@ -4943,6 +5083,7 @@
   inplace: (x -> out)
   backward : thresholded_relu_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
+  traits: pir::UnaryElementWiseTrait
 
 - op : top_p_sampling
   args : (Tensor x, Tensor ps, Tensor threshold, Tensor topp_seed, int seed=-1, int k=0, str mode="truncate")
@@ -5237,6 +5378,15 @@
   interfaces : paddle::dialect::InferSymbolicShapeInterface
   traits : paddle::dialect::ForwardOnlyTrait
 
+- op : variance
+  args : (Tensor x, int64_t[] axis={}, bool keepdim=false)
+  output : Tensor(out)
+  infer_meta :
+    func : ReduceInferMeta
+  kernel :
+    func : variance
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
+
 - op : view_dtype
   args : (Tensor input, DataType dtype)
   output : Tensor(out)
@@ -5248,16 +5398,6 @@
     data_type : input
   backward : view_dtype_grad
   no_need_buffer : input
-  interfaces : paddle::dialect::InferSymbolicShapeInterface
-
-- op : view_shape
-  args : (Tensor input, int64_t[] dims = {})
-  output : Tensor(out)
-  infer_meta :
-    func : ViewShapeInferMeta
-  kernel :
-    func : view_shape
-  backward : view_shape_grad
   interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : view_slice

@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import unittest
+from collections import OrderedDict
 
 import paddle
 
@@ -66,8 +67,19 @@ class TestBasicFasterGuard(unittest.TestCase):
 
     def test_length_match_guard(self):
         guard_length = paddle.framework.core.LengthMatchGuard(1)
+        # list
         self.assertTrue(guard_length.check([1]))
         self.assertFalse(guard_length.check([1, 2]))
+
+        # dict
+        order_dict = OrderedDict()
+        order_dict[1] = 2
+        self.assertTrue(guard_length.check(order_dict))
+        self.assertTrue(guard_length.check({1: 2}))
+
+        # tuple
+        self.assertTrue(guard_length.check((1,)))
+        self.assertFalse(guard_length.check((1, 2)))
 
     def test_dtype_match_guard(self):
         guard_dtype = paddle.framework.core.DtypeMatchGuard(paddle.int32)
@@ -141,14 +153,6 @@ class TestFasterGuardGroup(unittest.TestCase):
         guard_range = paddle.framework.core.RangeMatchGuard(range(1, 10, 2))
         self.assertTrue(guard_range.check(range(1, 10, 2)))
         self.assertFalse(guard_range.check(range(11)))
-
-    def test_float_close_guard(self):
-        expected = 0.018181818181818184
-        epsilon = 1e-13
-        guard_float = paddle.framework.core.FloatCloseGuard(expected, epsilon)
-        self.assertTrue(guard_float.check(0.018181818181818184))
-        self.assertTrue(guard_float.check(0.018181818181818177))
-        self.assertFalse(guard_float.check(0.018181818191818184))
 
 
 if __name__ == "__main__":
