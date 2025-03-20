@@ -152,11 +152,6 @@ struct ArgSourceCtxImpl {
     return HasDirectOrIndirectUnaryDimExprSource(dim_expr);
   }
 
-  using Reciprocal = symbol::Reciprocal<symbol::DimExpr>;
-  bool HasDirectOrIndirectDimExprSourceImpl(const Reciprocal& dim_expr) const {
-    return HasDirectOrIndirectUnaryDimExprSource(dim_expr);
-  }
-
   template <typename T>
   bool HasDirectOrIndirectUnaryDimExprSource(const T& dim_expr) const {
     const auto& [operand] = *dim_expr;
@@ -171,6 +166,18 @@ struct ArgSourceCtxImpl {
   using Mul = symbol::Mul<symbol::DimExpr>;
   bool HasDirectOrIndirectDimExprSourceImpl(const Mul& dim_expr) const {
     return HasDirectOrIndirectVariadicDimExprSource(dim_expr);
+  }
+
+  using Div = symbol::Div<symbol::DimExpr>;
+  bool HasDirectOrIndirectDimExprSourceImpl(const Div& dim_expr) const {
+    const auto& operand_lhs = (*dim_expr).lhs;
+    const auto& operand_rhs = (*dim_expr).rhs;
+    for (const auto& operand : {operand_lhs, operand_rhs}) {
+      if (!HasDirectOrIndirectDimExprSource(operand)) {
+        return false;
+      }
+    }
+    return true;
   }
 
   using Max = symbol::Max<symbol::DimExpr>;

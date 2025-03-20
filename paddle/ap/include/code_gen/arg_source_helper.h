@@ -223,15 +223,6 @@ struct ArgSourceHelper {
 
   adt::Result<axpr::LetVar*> MakeGetterAnfExprByDimExprImpl(
       axpr::LetVar* dispatch_ctx,
-      const symbol::Reciprocal<symbol::DimExpr>& dim_expr) const {
-    return adt::errors::NotImplementedError{
-        "Dead code. Reciprocal dim_exprs have been handled in "
-        "MakeGetterAnfExprByDimExprImpl(dispatch_ctx, const "
-        "symbol::Mul<symbol::DimExpr>&)"};
-  }
-
-  adt::Result<axpr::LetVar*> MakeGetterAnfExprByDimExprImpl(
-      axpr::LetVar* dispatch_ctx,
       const symbol::Add<symbol::DimExpr>& dim_expr) const {
     const auto& [operands] = dim_expr;
     ADT_CHECK(operands->size() > 0);
@@ -275,22 +266,30 @@ struct ArgSourceHelper {
     for (int i = 1; i < operands->size(); ++i) {
       const auto& operand = operands->at(i);
       auto* tmp_var_ptr = &ctx->Var(ctx->NewTmpVarName());
-      if (operand.template Has<symbol::Reciprocal<symbol::DimExpr>>()) {
-        const auto& [operand_operand] =
-            *operand.template Get<symbol::Reciprocal<symbol::DimExpr>>();
-        ADT_LET_CONST_REF(
-            operand_operand_var_ptr,
-            MakeGetterAnfExprByDimExpr(dispatch_ctx, operand_operand));
-        *tmp_var_ptr = ctx->Call(
-            axpr::kBuiltinDiv(), *ret_var_ptr, *operand_operand_var_ptr);
-      } else {
-        ADT_LET_CONST_REF(operand_var_ptr,
-                          MakeGetterAnfExprByDimExpr(dispatch_ctx, operand));
-        *tmp_var_ptr =
-            ctx->Call(axpr::kBuiltinMul(), *ret_var_ptr, *operand_var_ptr);
-      }
+      ADT_LET_CONST_REF(operand_var_ptr,
+                        MakeGetterAnfExprByDimExpr(dispatch_ctx, operand));
+      *tmp_var_ptr =
+          ctx->Call(axpr::kBuiltinMul(), *ret_var_ptr, *operand_var_ptr);
       ret_var_ptr = tmp_var_ptr;
     }
+    return ret_var_ptr;
+  }
+
+  adt::Result<axpr::LetVar*> MakeGetterAnfExprByDimExprImpl(
+      axpr::LetVar* dispatch_ctx,
+      const symbol::Div<symbol::DimExpr>& dim_expr) const {
+    const auto& operand_lhs = (*dim_expr).lhs;
+    const auto& operand_rhs = (*dim_expr).rhs;
+    auto* ctx = dispatch_ctx->ctx();
+    ADT_LET_CONST_REF(init_var_ptr,
+                      MakeGetterAnfExprByDimExpr(dispatch_ctx, operand_lhs));
+    axpr::LetVar* ret_var_ptr = init_var_ptr;
+    auto* tmp_var_ptr = &ctx->Var(ctx->NewTmpVarName());
+    ADT_LET_CONST_REF(operand_var_ptr,
+                      MakeGetterAnfExprByDimExpr(dispatch_ctx, operand_rhs));
+    *tmp_var_ptr =
+        ctx->Call(axpr::kBuiltinDiv(), *ret_var_ptr, *operand_var_ptr);
+    ret_var_ptr = tmp_var_ptr;
     return ret_var_ptr;
   }
 
@@ -351,7 +350,7 @@ struct ArgSourceHelper {
       auto* tmp_var_ptr = &ctx->Var(ctx->NewTmpVarName());
       ADT_LET_CONST_REF(operand_var_ptr,
                         MakeGetterAnfExprByDimExpr(dispatch_ctx, operand));
-      *tmp_var_ptr = ctx->Call("max", *ret_var_ptr, *operand_var_ptr);
+      *tmp_var_ptr = ctx->Call("broadcast", *ret_var_ptr, *operand_var_ptr);
       ret_var_ptr = tmp_var_ptr;
     }
     return ret_var_ptr;
