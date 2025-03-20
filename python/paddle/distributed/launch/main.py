@@ -378,7 +378,7 @@ def launch() -> None:
         tuner_cfg["nodes"] = nnodes
         tuner_cfg["gpus_per_node"] = gpus_per_node
         tuner_cfg["num_gpus"] = gpus_per_node * tuner_cfg["nodes"]
-        tuner_cfg["num_gpus"] = 64
+
         if not tuner_cfg.get("search_algo", None):
             tuner_cfg["search_algo"] = {"name": "grid"}
         mode = tuner_cfg.get("mode", None)
