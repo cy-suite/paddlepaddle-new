@@ -204,8 +204,11 @@ TensorRTEngineInstruction::TensorRTEngineInstruction(
   trt_engine_->Deserialize(engine_data);
 
   size_t len = refit_param_names_.size();
-  if (!refit_params_path_.empty()) {
-    trt_engine_->SetScope(value_exec_info_->GetScope());
+  if (!refit_params_path_.empty() && len > 0) {
+    VLOG(6) << "Start refit process for TensorRT engine with " << len
+            << " parameters";
+    auto scope = value_exec_info_->GetScope();
+    trt_engine_->SetScope(scope);
     std::vector<std::string> param_names = refit_param_names_;
     std::sort(param_names.begin(), param_names.end());
 
