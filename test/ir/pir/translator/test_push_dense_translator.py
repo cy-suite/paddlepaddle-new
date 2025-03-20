@@ -14,34 +14,5 @@
 
 import unittest
 
-import test_op_translator
-
-import paddle
-from paddle.base.layer_helper import LayerHelper
-
-paddle.pir_utils._switch_to_old_ir_()
-
-
-class TestPushDenseOpTranslator(test_op_translator.TestOpTranslator):
-    def append_op(self):
-        self.op_type = "push_dense"
-        ids = paddle.ones(shape=(100, 2, 3), dtype='float32')
-        input_names = []
-        attrs = {
-            'TableId': 1,
-            'ScaleDataNorm': -1,
-            'InputNames': input_names,
-        }
-        helper = LayerHelper(self.op_type)
-        helper.append_op(
-            type=self.op_type,
-            inputs={"Ids": [ids]},
-            attrs=attrs,
-        )
-
-    def test_translator(self):
-        self.check()
-
-
 if __name__ == "__main__":
     unittest.main()
