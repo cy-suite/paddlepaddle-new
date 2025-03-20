@@ -27,6 +27,7 @@ import threading
 import traceback
 import warnings
 from collections.abc import Iterable
+from contextlib import contextmanager
 from types import FunctionType, MethodType
 from typing import TYPE_CHECKING, Callable, TypeVar, overload
 
@@ -198,6 +199,16 @@ def get_flags(flags: str | Sequence[str]) -> dict[str, bool | str | float]:
     else:
         raise TypeError("Flags in get_flags should be a list, tuple or string.")
     return flags_value
+
+
+@contextmanager
+def flag_guard(flag_name, flag_value):
+    old_value = paddle.get_flags(flag_name)[flag_name]
+    paddle.set_flags({flag_name: flag_value})
+    try:
+        yield
+    finally:
+        paddle.set_flags({flag_name: old_value})
 
 
 # use thread local to create thread save global variables.
@@ -432,8 +443,8 @@ def in_cinn_mode() -> bool:
         bool: Whether paddle runs in cinn mode.
 
     """
-    flag = str(os.environ.get("FLAGS_use_cinn")).lower()
-    return flag in ("true", "1")
+    CINN_FLAG_NAME = "FLAGS_use_cinn"
+    return paddle.get_flags(CINN_FLAG_NAME)[CINN_FLAG_NAME]
 
 
 global_ipu_index = -1
