@@ -59,6 +59,7 @@
 #include "paddle/phi/api/include/context_pool.h"
 #include "paddle/phi/api/include/tensor.h"
 #include "paddle/phi/backends/context_pool.h"
+#include "paddle/phi/backends/device_manager.h"
 #include "paddle/phi/common/backend.h"
 #include "paddle/phi/common/data_type.h"
 #include "paddle/phi/common/place.h"
@@ -108,6 +109,10 @@
 #include "paddle/pir/include/dialect/shape/utils/shape_analysis.h"
 #endif
 
+#ifdef PADDLE_WITH_DNNL
+#include "paddle/fluid/pir/dialect/operator/ir/op_onednn_dialect.h"
+#endif
+
 #include "paddle/common/flags.h"
 #include "paddle/fluid/ir_adaptor/translator/translate.h"
 #include "paddle/fluid/pir/dialect/operator/ir/pd_op.h"
@@ -123,9 +128,11 @@
 #include "paddle/fluid/pir/transforms/general/remove_shadow_feed_pass.h"
 #include "paddle/fluid/pir/transforms/general/replace_fetch_with_shadow_output_pass.h"
 #include "paddle/fluid/pir/transforms/general/transfer_layout_pass.h"
+#include "paddle/fluid/pir/transforms/gpu/matmul_add_act_fuse_pass.h"
 #include "paddle/fluid/pir/transforms/passes.h"
 #include "paddle/fluid/pir/transforms/pd_op_to_kernel_pass.h"
 #include "paddle/fluid/pir/utils/general_functions.h"
+#include "paddle/phi/kernels/sparse/gpu/conv_host_buffer.h"
 #include "paddle/pir/include/core/attribute.h"
 #include "paddle/pir/include/core/block_argument.h"
 #include "paddle/pir/include/core/builtin_attribute.h"
@@ -422,6 +429,19 @@ bool AnalysisPredictor::Init(
     const std::shared_ptr<framework::Scope> &parent_scope,
     const std::shared_ptr<framework::ProgramDesc> &program) {
   VLOG(3) << "Predictor::init()";
+
+#if defined(PADDLE_WITH_CUDA) && !defined(PADDLE_WITH_HIP)
+  phi::sparse::ConvHostBuffer &conv_buffer_instance =
+      phi::sparse::ConvHostBuffer::getInstance();
+  if (conv_buffer_instance.using_buffer()) {
+    int *h_buffer;
+    PADDLE_ENFORCE_GPU_SUCCESS(
+        cudaHostAlloc((void **)&h_buffer,  // NOLINT
+                      conv_buffer_instance.get_buffer_size() * sizeof(int),
+                      cudaHostAllocDefault));
+    conv_buffer_instance.set_host_buffer(h_buffer);
+  }
+#endif
 
   if (config_.with_profile_) {
     LOG(WARNING) << "Profiler is activated, which might affect the performance";
@@ -734,6 +754,10 @@ void AnalysisPredictor::InitDeviceContexts() {
           xpu_context->SetAllocator(instance.GetAllocator(place_).get());
           xpu_context->SetGenerator(
               phi::DefaultXPUGenerator(place_.GetDeviceId()).get());
+          xpu_context->SetPinnedAllocator(
+              memory::allocation::AllocatorFacade::Instance()
+                  .GetAllocator(phi::XPUPinnedPlace())
+                  .get());
           xpu_context->SetHostAllocator(
               instance.GetAllocator(phi::CPUPlace()).get());
           xpu_context->SetHostGenerator(phi::DefaultCPUGenerator().get());
@@ -927,6 +951,12 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
                 pir::PassRegistry::Instance().Get("transfer_layout_pass"));
           }
         }
+
+        auto matmul_add_act_fuse_pass = ::pir::CreateMatmulAddActFusePass();
+        matmul_add_act_fuse_pass->Set("use_cutlass",
+                                      new bool(config_.use_cutlass_));
+        fused_op_pm.AddPass(std::move(matmul_add_act_fuse_pass));
+
         fused_op_pm.Run(pir_program_.get());
       }
     }
@@ -981,9 +1011,27 @@ void AnalysisPredictor::OptimizeInferencePirProgram() {
       }
 #endif
 
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+    } else if (config_.use_custom_device()) {
+      // custom device
+      if (!config_.custom_pass_only_) {
+        auto kPirCustomDevicePasses =
+            phi::CustomDevicePassManager::Instance()->GetCustomDevicePass();
+        for (const auto &custom_device_pass : kPirCustomDevicePasses) {
+          if (std::find(config_.deleted_passes_.begin(),
+                        config_.deleted_passes_.end(),
+                        custom_device_pass) == config_.deleted_passes_.end()) {
+            pass_pm.AddPass(
+                pir::PassRegistry::Instance().Get(custom_device_pass));
+          }
+        }
+      }
+#endif
 #ifdef PADDLE_WITH_DNNL
     } else if (config_.mkldnn_enabled()) {
       // mkldnn
+      pir::IrContext *ctx = pir::IrContext::Instance();
+      ctx->GetOrRegisterDialect<paddle::dialect::OneDNNOperatorDialect>();
       if (!config_.custom_pass_only_) {
         for (const auto &mkldnn_pass : kPirMkldnnPasses) {
           if (std::find(config_.deleted_passes_.begin(),
@@ -2648,7 +2696,7 @@ bool AnalysisPredictor::ZeroCopyRun(bool switch_stream) {
     static std::once_flag set_output_holder_map;
     std::call_once(set_output_holder_map, [&]() {
       auto scope = executor_->GetScope();
-      VLOG(4) << "Set ouput tensor's holder.";
+      VLOG(4) << "Set output tensor's holder.";
       for (auto name : GetOutputNames()) {
         auto out_tensor = scope->FindVar(name)->GetMutable<phi::DenseTensor>();
 
@@ -3205,7 +3253,7 @@ void AnalysisPredictor::RegisterOutputHook(
               auto *var = scope->FindVar(var_name);
               if (!var || !var->IsType<phi::DenseTensor>()) continue;
               auto dense_tensor = var->Get<phi::DenseTensor>();
-              if (!dense_tensor.initialized()) continue;
+              if (!dense_tensor.has_allocation()) continue;
               auto tensor = paddle::Tensor(
                   std::make_shared<phi::DenseTensor>(dense_tensor), var_name);
               for (auto &hookfunc : this->output_hookfuncs_) {
@@ -3226,7 +3274,7 @@ void AnalysisPredictor::RegisterOutputHook(
                 auto *var = scope->FindVar(var_name);
                 if (!var || !var->IsType<phi::DenseTensor>()) continue;
                 auto dense_tensor = var->Get<phi::DenseTensor>();
-                if (!dense_tensor.initialized()) continue;
+                if (!dense_tensor.has_allocation()) continue;
                 auto tensor = paddle::Tensor(
                     std::make_shared<phi::DenseTensor>(dense_tensor), var_name);
                 for (auto &hookfunc : this->output_hookfuncs_) {
@@ -3252,7 +3300,7 @@ void AnalysisPredictor::RegisterInputHook(const InputTensorHookFunc &hookfunc) {
               auto *var = scope->FindVar(var_name);
               if (!var || !var->IsType<phi::DenseTensor>()) continue;
               auto dense_tensor = var->Get<phi::DenseTensor>();
-              if (!dense_tensor.initialized()) continue;
+              if (!dense_tensor.has_allocation()) continue;
               auto tensor = paddle::Tensor(
                   std::make_shared<phi::DenseTensor>(dense_tensor), var_name);
               for (auto &hookfunc : this->input_hookfuncs_) {
@@ -3273,7 +3321,7 @@ void AnalysisPredictor::RegisterInputHook(const InputTensorHookFunc &hookfunc) {
                 auto *var = scope->FindVar(var_name);
                 if (!var || !var->IsType<phi::DenseTensor>()) continue;
                 auto dense_tensor = var->Get<phi::DenseTensor>();
-                if (!dense_tensor.initialized()) continue;
+                if (!dense_tensor.has_allocation()) continue;
                 auto tensor = paddle::Tensor(
                     std::make_shared<phi::DenseTensor>(dense_tensor), var_name);
                 for (auto &hookfunc : this->input_hookfuncs_) {
@@ -3383,6 +3431,7 @@ USE_TRT_CONVERTER(multiclass_nms3);
 USE_TRT_CONVERTER(nearest_interp);
 USE_TRT_CONVERTER(nearest_interp_v2);
 USE_TRT_CONVERTER(bilinear_interp_v2);
+USE_TRT_CONVERTER(linear_interp_v2);
 USE_TRT_CONVERTER(reshape);
 USE_TRT_CONVERTER(reshape2);
 USE_TRT_CONVERTER(gather_nd);
@@ -3457,9 +3506,9 @@ USE_TRT_CONVERTER(preln_layernorm_shift_partition)
 USE_TRT_CONVERTER(merge_layernorm)
 USE_TRT_CONVERTER(trans_layernorm)
 USE_TRT_CONVERTER(skip_merge_layernorm)
-USE_TRT_CONVERTER(generic_plugin_creater)
-USE_TRT_CONVERTER(custom_plugin_creater)
-USE_TRT_CONVERTER(custom_generic_plugin_creater)
+USE_TRT_CONVERTER(generic_plugin_creator)
+USE_TRT_CONVERTER(custom_plugin_creater)  // typos: disable-line
+USE_TRT_CONVERTER(custom_generic_plugin_creator)
 USE_TRT_CONVERTER(fuse_eleadd_transpose)
 USE_TRT_CONVERTER(tanh_shrink)
 USE_TRT_CONVERTER(logsigmoid)

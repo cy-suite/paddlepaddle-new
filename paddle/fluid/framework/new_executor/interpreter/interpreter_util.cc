@@ -61,7 +61,7 @@ namespace paddle::framework::interpreter {
 
 using VariableIdMap = std::map<std::string, std::vector<int>>;
 
-// NOTE(Ruibiao): SingleStreamGuard make some multi-strem op (i.e.,
+// NOTE(Ruibiao): SingleStreamGuard make some multi-stream op (i.e.,
 // c_allreduce_sum) run in single stream. It is dedicated to BuildOpFuncList
 // which run kernel without stream synchronization.
 class SingleStreamGuard {
@@ -859,7 +859,7 @@ void BuildOpFuncList(const phi::Place& place,
                 op->Attr<bool>(kAllKernelsMustComputeRuntimeShape))) {
             RuntimeInferShapeContext infer_shape_ctx(*op, runtime_context);
             // TODO(Aurelius84): In case of control flow ops, they are NOT
-            // inheritted from OperatorWithKernel.
+            // inherited from OperatorWithKernel.
             op_with_kernel->Info().infer_shape_(&infer_shape_ctx);
           }
         }
@@ -1523,6 +1523,7 @@ std::unordered_map<std::string, std::set<std::string>> GetNoNeedBufferValues(
           no_need_buffer_vars.insert(name);
         } else {
           no_need_buffer_vars.erase(name);
+          break;
         }
       }
     }
@@ -1535,6 +1536,7 @@ std::unordered_map<std::string, std::set<std::string>> GetNoNeedBufferValues(
             no_need_buffer_vars.insert(name);
           } else {
             no_need_buffer_vars.erase(name);
+            break;
           }
         }
       }

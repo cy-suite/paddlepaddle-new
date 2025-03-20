@@ -232,16 +232,10 @@ if(WITH_ROCM)
     "gpu/affine_grid_grad_kernel.cu"
     "gpu/apply_per_channel_scale_kernel.cu"
     "gpu/calc_reduced_attn_kernel.cu"
-    "gpu/cholesky_solve_kernel.cu"
-    "gpu/eigh_kernel.cu"
     "gpu/eigvalsh_kernel.cu"
-    "gpu/lstsq_kernel.cu"
     "gpu/lu_kernel.cu"
     "gpu/matrix_rank_kernel.cu"
     "gpu/matrix_rank_tol_kernel.cu"
-    "gpu/put_along_axis_grad_kernel.cu"
-    "gpu/put_along_axis_kernel.cu"
-    "gpu/qr_kernel.cu"
     "gpu/svd_kernel.cu"
     "gpu/cuda_gemm_kernel.cu")
 endif()
@@ -294,6 +288,7 @@ file(
   "sparse/xpu/*.cc")
 
 if(WITH_GPU OR WITH_ROCM)
+  set(kernels_gpu_srcs "")
   collect_srcs(kernels_srcs SRCS ${kernel_cu})
   kernel_declare("${kernel_cu}")
   collect_srcs(kernels_gpu_srcs SRCS ${kernel_gpu})

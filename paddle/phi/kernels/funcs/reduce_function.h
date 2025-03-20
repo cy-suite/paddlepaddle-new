@@ -498,7 +498,7 @@ struct ReduceConfig {
   }
 
   // Set block and grid for launch kernel
-  // for ReduceHigherDim: if block is enough -> splite reduce_num
+  // for ReduceHigherDim: if block is enough -> split reduce_num
   //                     else init block(32, 1) grid(block_num, 1)
   // for others: block(block_num, 1) , grid(left_num, 1)
   void SetBlockDimForHigher(dim3* block_dim, dim3* grid_dim) {
@@ -1357,10 +1357,11 @@ void ReduceKernelImpl(const Context& dev_ctx,
                       const std::vector<int64_t>& dims,
                       bool keep_dim,
                       bool reduce_all) {
-  PADDLE_ENFORCE_GT(input.numel(),
+  PADDLE_ENFORCE_GE(input.numel(),
                     0,
                     common::errors::InvalidArgument(
-                        "Tensor need be reduced must not empty."));
+                        "The input size (numel) of reduce op should be larger "
+                        "than or equal to 0"));
 
   dev_ctx.template Alloc<OutT>(output);
 
