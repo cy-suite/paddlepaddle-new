@@ -1181,6 +1181,7 @@ void FusedMoeInferMeta(const MetaTensor& X,
 
 void MoeDispatchInferMeta(const MetaTensor& X,
                           const MetaTensor& gating_output,
+                          const MetaTensor& gating_correction_bias,
                           const int moe_topk,
                           const bool group_moe,
                           const bool topk_only_mode,
