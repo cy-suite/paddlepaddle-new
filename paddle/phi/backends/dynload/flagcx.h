@@ -43,6 +43,7 @@ extern void* flagcx_dso_handle;
 #define FLAGCX_RAND_ROUTINE_EACH(__macro) \
   __macro(flagcxGetUniqueId);             \
   __macro(flagcxCommInitRank);            \
+  __macro(flagcxGetVersion);              \
   __macro(flagcxCommAbort);               \
   __macro(flagcxCommDestroy);             \
   __macro(flagcxCommCount);               \
