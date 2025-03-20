@@ -30,7 +30,6 @@ paddle.enable_static()
 
 class TestEncoderMultiMicroBatchRun(unittest.TestCase):
     def setUp(self):
-        paddle.base.set_flags({'FLAGS_enable_pir_api': 1})
         self.place_desc = (
             paddle.CUDAPlace(0)
             if core.is_compiled_with_cuda()
