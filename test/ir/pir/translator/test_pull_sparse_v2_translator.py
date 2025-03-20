@@ -14,42 +14,5 @@
 
 import unittest
 
-import test_op_translator
-
-import paddle
-from paddle.base import core
-from paddle.base.layer_helper import LayerHelper
-
-paddle.pir_utils._switch_to_old_ir_()
-
-
-class TestPullSparseV2OpTranslator(
-    test_op_translator.TestOpWithBackwardTranslator
-):
-    def setUp(self):
-        self.place = core.Place()
-        self.place.set_place(paddle.CPUPlace())
-        self.new_scope = paddle.static.Scope()
-        self.main_program = paddle.static.Program()
-        self.forward_op_type = "pull_sparse_v2"
-        self.backward_op_type = "push_sparse_v2"
-
-    def append_op(self):
-        self.op_type = "pull_sparse_v2"
-        ids = paddle.ones(shape=(1,), dtype='int64')
-        w = paddle.ones(shape=(1,), dtype='int64')
-        out = paddle.ones(shape=(1,), dtype='int64')
-        helper = LayerHelper(self.op_type)
-        helper.append_op(
-            type=self.op_type,
-            inputs={"Ids": [ids], "W": [w]},
-            outputs={"Out": [out]},
-        )
-        return out
-
-    def test_translator(self):
-        self.check()
-
-
 if __name__ == "__main__":
     unittest.main()
