@@ -52,6 +52,9 @@ bool IsRootValueForSlice(
   if (!value || !value.type()) {
     return false;
   }
+  if (!value.dyn_cast<pir::OpResult>()) {
+    return false;
+  }
   pir::Operation* owner = value.defining_op();
   if (!owner->isa<paddle::dialect::SliceOp>()) {
     return false;
@@ -64,14 +67,14 @@ bool IsRootValueForSlice(
     return false;
   }
   const auto& slice_in = ShapeOrDataDimExprs4Value(owner->operand_source(0));
+  if (!slice_in.data().has_value()) {
+    return true;
+  }
   const auto& slice_start_data =
       ShapeOrDataDimExprs4Value(owner->operand_source(1)).data().value();
   const auto& slice_end_data =
       ShapeOrDataDimExprs4Value(owner->operand_source(2)).data().value();
 
-  if (!slice_in.data().has_value()) {
-    return true;
-  }
   bool starts_ends_all_int =
       std::all_of(slice_start_data.begin(),
                   slice_start_data.end(),
