@@ -269,23 +269,39 @@ struct Not {
 };
 
 struct HorizontalFusionConstrain {
+  bool IsAdjacentRelation(const LoopAxisMapping& lhs,
+                          const LoopAxisMapping& rhs) {
+    return AnyFirstInSecond(lhs.output_values, rhs.input_values) ||
+           AnyFirstInSecond(rhs.output_values, lhs.input_values);
+  }
+
+  bool IsLoopFrameworkEqual(const LoopAxisMapping& lhs,
+                            const LoopAxisMapping& rhs) {
+    if (lhs.loop.empty() || rhs.loop.empty()) return false;
+
+    const auto lhs_reduce_loop = SliceVector(
+        lhs.loop, lhs.loop.size() - lhs.reduce_axis_num, lhs.loop.size());
+    const auto rhs_reduce_loop = SliceVector(
+        rhs.loop, rhs.loop.size() - rhs.reduce_axis_num, rhs.loop.size());
+
+    // TODO(huangjiyi): support horizontal fusion without reduce dims equal.
+    bool reduce_euqal = lhs_reduce_loop.empty() || rhs_reduce_loop.empty() ||
+                        lhs_reduce_loop == rhs_reduce_loop;
+
+    return reduce_euqal && ShapeProductEqual(lhs.loop, rhs.loop);
+  }
+
   bool operator()(const PatternGraph& graph,
                   const PatternNodePtr& lhs,
                   const PatternNodePtr& rhs) {
-    if (!StmtPatternGraphMatcher<HorizontalFusionPattern>()(graph, lhs)) {
-      return false;
-    }
-    if (!StmtPatternGraphMatcher<HorizontalFusionPattern>()(graph, rhs)) {
-      return false;
-    }
-    const auto& lhs_pattern =
-        std::get<HorizontalFusionPattern>(lhs->stmt_pattern());
-    const auto& rhs_pattern =
-        std::get<HorizontalFusionPattern>(rhs->stmt_pattern());
-
-    return graph.policy_manager().GetPolicy<GeneralTopoPolicy>()->CanFuse(
+    return StmtPatternGraphMatcher<AnchorPattern>()(graph, lhs) &&
+           StmtPatternGraphMatcher<AnchorPattern>()(graph, rhs) &&
+           graph.policy_manager().GetPolicy<GeneralTopoPolicy>()->CanFuse(
                lhs, rhs) &&
-           IsLoopFrameworkEqual(lhs_pattern, rhs_pattern);
+           !IsAdjacentRelation(lhs->loop_axis_mapping(),
+                               rhs->loop_axis_mapping()) &&
+           IsLoopFrameworkEqual(lhs->loop_axis_mapping(),
+                                rhs->loop_axis_mapping());
   }
 };
 
