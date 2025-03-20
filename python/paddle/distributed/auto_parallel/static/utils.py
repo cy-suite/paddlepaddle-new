@@ -2374,8 +2374,8 @@ def get_sub_process_mesh_by_program(dist_program):
     all_ops = dist_program.global_block().ops
     process_meshes = []
 
-    for op in all_ops:
-        if "pd_op" in op.name():
+    for idx, op in enumerate(all_ops):
+        if "pd_op" in op.name() and op.dist_attr:
             process_mesh = op.dist_attr.process_mesh
             if process_mesh not in process_meshes:
                 process_meshes.append(process_mesh)
@@ -2691,14 +2691,14 @@ def split_param_func(
         [gate_weight, up_weight] => [gate_weight], [up_weight]
 
     Args:
-        fused_param (_type_): len(fused_param)=1, only one weight to be splitted
+        fused_param (_type_): len(fused_param)=1, only one weight to be split
         split_nums (int, optional): split_nums. Defaults to 2.
         is_qkv (bool, optional): for attention qkv weights. Defaults to False.
         num_heads (_type_, optional): query heads. Defaults to None.
         num_key_value_heads (_type_, optional): key and value heads. Defaults to None.
 
     Returns:
-        _type_: splitted weights
+        _type_: split weights
     """
     concat_fn = paddle.concat
     split_fn = paddle.split
@@ -2746,11 +2746,11 @@ def split_mesh(global_mesh: ProcessMesh, sub_mesh_dim: int):
         sub_mesh_dim += mesh_ndim
 
     process_ids = np.array(global_mesh.process_ids).reshape(mesh_shape)
-    splitted_process_ids = np.split(
+    split_process_ids = np.split(
         process_ids, mesh_shape[sub_mesh_dim], axis=sub_mesh_dim
     )
     sub_mesh_list = []
-    for sub_process_ids in splitted_process_ids:
+    for sub_process_ids in split_process_ids:
         sub_mesh_list.append(
             ProcessMesh(sub_process_ids, global_mesh.dim_names)
         )
@@ -2759,7 +2759,7 @@ def split_mesh(global_mesh: ProcessMesh, sub_mesh_dim: int):
 
 
 # Note: This function is intended for internal use within the PaddlePaddle framework for optimizing computational graphs.
-def update_pylayer_output(trival_value):
+def update_pylayer_output(trivial_value):
     """
     Update the subblock within a pylayer operation by modifying its output argument.
 
@@ -2785,14 +2785,14 @@ def update_pylayer_output(trival_value):
     Args:
         trivale_value(pir::Value): The output argument of the pylayer op to be updated.
     """
-    define_op = trival_value.get_defining_op()
+    define_op = trivial_value.get_defining_op()
     if define_op.get_parent_block().parent_op.name() != "pd_op.pylayer":
         return
     paddle.pir.set_insertion_point(define_op)
     fake_value = paddle.static.data(
         name="_fake_pylayer_out",
-        shape=trival_value.shape,
-        dtype=trival_value.dtype,
+        shape=trivial_value.shape,
+        dtype=trivial_value.dtype,
     )
-    fake_value.set_type(trival_value.type())
-    trival_value.replace_all_uses_with(fake_value)
+    fake_value.set_type(trivial_value.type())
+    trivial_value.replace_all_uses_with(fake_value)

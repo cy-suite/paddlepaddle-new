@@ -20,6 +20,8 @@
 #include <vector>
 #include "glog/logging.h"
 #include "paddle/cinn/operator_fusion/fusion_tracker/tracker.h"
+#include "paddle/cinn/operator_fusion/pir_graph_analyzing/loop_axis_mapping.h"
+#include "paddle/cinn/operator_fusion/pir_graph_analyzing/loop_transform_analysis.h"
 #include "paddle/cinn/operator_fusion/utils.h"
 #include "paddle/pir/include/core/operation.h"
 
@@ -31,8 +33,9 @@ enum class PatternType {
   ReduceTree,
   ReduceTreePlusTrivial,
   ItersPermutation,
+  Anchor,
   Horizontal,
-  Unsupport = -1,
+  Unsupported = -1,
 };
 
 struct PatternContent {
@@ -54,6 +57,11 @@ struct PatternBase {
   std::vector<pir::Operation*> ops() const { return ops_; }
   FusionTrackerPtr tracker_;
   void update_tracker() const {}
+  LoopAxisMapping loop_axis_mapping_;
+  LoopAxisMapping loop_axis_mapping() const { return loop_axis_mapping_; }
+  void set_loop_axis_mapping(const LoopAxisMapping& loop_axis_mapping) {
+    loop_axis_mapping_ = loop_axis_mapping;
+  }
 };
 
 #define DEFINE_PATTERN_STATIC_ATTR(pattern)                         \
@@ -82,28 +90,30 @@ struct ReducePattern : public PatternBase {
 };
 
 struct ReduceTreePattern : public PatternBase {
-  explicit ReduceTreePattern(const std::vector<ReduceTreePattern>& childs,
+  explicit ReduceTreePattern(const std::vector<ReduceTreePattern>& children,
                              const ReducePattern& root,
                              const FusionTrackerPtr& tracker)
-      : PatternBase(UniqueId(), tracker), childs_(childs), root_(root) {
+      : PatternBase(UniqueId(), tracker), children_(children), root_(root) {
     cur_id_ = id_;
   }
   DEFINE_PATTERN_STATIC_ATTR(ReduceTree);
 
   std::vector<pir::Operation*> ops() const {
     std::vector<pir::Operation*> result{root_.ops()};
-    for (const auto& child : childs_) {
+    for (const auto& child : children_) {
       result = UniqueConcatVector(result, child.ops());
     }
     return result;
   }
   const ReducePattern& GetRootPattern() const { return root_; }
-  const std::vector<ReduceTreePattern>& childs() const { return childs_; }
-  std::vector<ReduceTreePattern>& childs() { return childs_; }
-  void InsertChild(const ReduceTreePattern& child) { childs_.push_back(child); }
+  const std::vector<ReduceTreePattern>& children() const { return children_; }
+  std::vector<ReduceTreePattern>& children() { return children_; }
+  void InsertChild(const ReduceTreePattern& child) {
+    children_.push_back(child);
+  }
   std::vector<ReducePattern> FlattenReducePattern() const {
     std::vector<ReducePattern> result{root_};
-    for (const auto& child : childs_) {
+    for (const auto& child : children_) {
       result = ConcatVector(result, child.FlattenReducePattern());
     }
     return result;
@@ -128,7 +138,7 @@ struct ReduceTreePattern : public PatternBase {
                          std::vector<std::string>* names) const {
     // Apply a brunch of tracker to get a output_name of ReduceTreePattern.
     // names and trackers collect all the needed fusion nodes.
-    for (const auto& child : root.childs()) {
+    for (const auto& child : root.children()) {
       auto origin_child_id = child.cur_id();
       auto new_child_id = GetNewTmpId(origin_child_id);
       child.reset_cur_id(new_child_id);
@@ -145,7 +155,7 @@ struct ReduceTreePattern : public PatternBase {
   }
 
  private:
-  std::vector<ReduceTreePattern> childs_;
+  std::vector<ReduceTreePattern> children_;
   ReducePattern root_;
 };
 
@@ -200,6 +210,16 @@ struct ItersPermutationPattern : public PatternBase {
   LoopFramework loop_dims() const { return loop_dims_; }
 };
 
+struct AnchorPattern : public PatternBase {
+  explicit AnchorPattern(const std::vector<pir::Operation*>& ops,
+                         const FusionTrackerPtr& tracker,
+                         const LoopAxisMapping& loop_axis_mapping)
+      : PatternBase(UniqueId(), tracker, ops) {
+    set_loop_axis_mapping(loop_axis_mapping);
+  }
+  DEFINE_PATTERN_STATIC_ATTR(Anchor);
+};
+
 struct HorizontalFusionPattern : public PatternBase {
   struct PaddingStmtPattern;
   explicit HorizontalFusionPattern(
@@ -214,20 +234,21 @@ struct HorizontalFusionPattern : public PatternBase {
   void update_tracker() const;
 };
 
-struct UnsupportPattern : public PatternBase {
-  explicit UnsupportPattern(const std::vector<pir::Operation*>& ops,
-                            const FusionTrackerPtr& tracker)
+struct UnsupportedPattern : public PatternBase {
+  explicit UnsupportedPattern(const std::vector<pir::Operation*>& ops,
+                              const FusionTrackerPtr& tracker)
       : PatternBase(UniqueId(), tracker, ops) {}
-  DEFINE_PATTERN_STATIC_ATTR(Unsupport);
+  DEFINE_PATTERN_STATIC_ATTR(Unsupported);
 };
 
 using StmtPattern = std::variant<TrivialPattern,
                                  ReducePattern,
                                  ReduceTreePattern,
                                  ReduceTreePlusTrivialPattern,
+                                 ItersPermutationPattern,
+                                 AnchorPattern,
                                  HorizontalFusionPattern,
-                                 UnsupportPattern,
-                                 ItersPermutationPattern>;
+                                 UnsupportedPattern>;
 
 static std::string GetPatternId(const StmtPattern& s);
 static std::vector<pir::Operation*> GetOpsInPattern(const StmtPattern& pattern);
@@ -288,6 +309,11 @@ static std::vector<pir::Operation*> GetOpsInPattern(
   return std::visit([](const auto& impl) { return impl.ops(); }, pattern);
 }
 
+static LoopAxisMapping GetPatternLoopAxisMapping(const StmtPattern& s) {
+  return std::visit([](const auto& impl) { return impl.loop_axis_mapping(); },
+                    s);
+}
+
 static std::unordered_set<pir::Value> GetPatternInputValuesIncludeInner(
     const StmtPattern& A) {
   std::unordered_set<pir::Value> result;
@@ -323,4 +349,5 @@ static std::unordered_set<pir::Value> GetPatternInputValues(
 static void PatternUpdateTracker(const StmtPattern& pattern) {
   return std::visit([](const auto& impl) { impl.update_tracker(); }, pattern);
 }
+
 }  // namespace cinn::fusion

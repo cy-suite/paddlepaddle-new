@@ -52,7 +52,7 @@ if(NOT WITH_SETUP_INSTALL)
 
   if(WITH_OPENVINO)
     execute_process(
-      COMMAND git submodule update --init third_party/openvino
+      COMMAND git submodule update --init --depth=1 third_party/openvino
       WORKING_DIRECTORY ${PADDLE_SOURCE_DIR}
       RESULT_VARIABLE result_var)
     # List of modules to be deleted
@@ -691,6 +691,17 @@ endif()
 if(WITH_OPENVINO)
   include(external/openvino)
   list(APPEND third_party_deps extern_openvino)
+endif()
+
+string(FIND "${CUDA_ARCH_BIN}" "90" ARCH_BIN_CONTAINS_90)
+if(NOT WITH_GPU
+   OR NOT WITH_DISTRIBUTE
+   OR (ARCH_BIN_CONTAINS_90 EQUAL -1))
+  set(WITH_NVSHMEM OFF)
+endif()
+if(WITH_NVSHMEM)
+  include(external/nvshmem)
+  list(APPEND third_party_deps extern_nvshmem)
 endif()
 
 add_custom_target(third_party ALL DEPENDS ${third_party_deps})

@@ -20,14 +20,22 @@
 #include "paddle/fluid/framework/new_executor/instruction/instruction_base.h"
 #include "paddle/fluid/framework/new_executor/interpreter/interpreter_util.h"
 #include "paddle/phi/core/platform/device_context.h"
-#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
+#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || \
+    defined(PADDLE_WITH_XPU_BKCL)
 #include "paddle/common/flags.h"
 #include "paddle/phi/core/distributed/comm_context_manager.h"
-#include "paddle/phi/core/distributed/nccl_comm_context.h"
 #include "paddle/phi/core/platform/collective_helper.h"
 COMMON_DECLARE_bool(dynamic_static_unified_comm);
 #endif
 
+#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
+#include "paddle/phi/core/distributed/nccl_comm_context.h"
+COMMON_DECLARE_bool(dynamic_static_unified_comm);
+#endif
+#if defined(PADDLE_WITH_XPU_BKCL)
+#include "paddle/phi/core/distributed/bkcl_comm_context.h"
+COMMON_DECLARE_bool(dynamic_static_unified_comm);
+#endif
 namespace paddle::framework::interpreter {
 
 using DeviceContext = phi::DeviceContext;
@@ -148,7 +156,7 @@ void StreamAnalyzer::ConstructEvents(std::vector<Instruction>* instructions) {
                 "The program_force_events_to_wait_ had the event "
                 "that belongs to the operator : %s before the operator create "
                 "the event, "
-                "This is is werid.",
+                "This is is weird.",
                 instruction.OpBase()->Type().c_str()));
         std::shared_ptr<DeviceEvent> device_event =
             std::make_shared<DeviceEvent>(place,
@@ -197,7 +205,8 @@ DeviceContext* StreamAnalyzer::ParseDeviceContext(
 
   // only gpu need update. xpu not need, because xpu memcpy op kernel is
   // synchronous.
-  if (phi::is_gpu_place(place_) || phi::is_custom_place(place_)) {
+  if (phi::is_gpu_place(place_) || phi::is_custom_place(place_) ||
+      phi::is_xpu_place(place_)) {
     VLOG(6) << "Parse DeviceContext for " << op_type
             << ", execution stream = " << execution_stream;
     if (execution_stream != kDefaultStream) {
@@ -787,7 +796,7 @@ void PirStreamAnalyzer::ConstructEvents(
                 "The program_force_events_to_wait_ had the event "
                 "that belongs to the operator : %s before the operator create "
                 "the event, "
-                "This is is werid.",
+                "This is is weird.",
                 instr->Name()));
         std::shared_ptr<DeviceEvent> device_event =
             std::make_shared<DeviceEvent>(place,

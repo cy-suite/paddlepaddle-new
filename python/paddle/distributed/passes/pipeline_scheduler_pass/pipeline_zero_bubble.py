@@ -257,10 +257,10 @@ class PipelineZeroBubbleVirtualPipelinePass(PipelineZeroBubblePipelinePass):
             self._get_all_device_base_memory(pp_group)
         else:
             self.program_mem_usages = [
-                {type: 0 for type in types} for _ in pp_group
+                dict.fromkeys(types, 0) for _ in pp_group
             ]
             self.program_max_mem_usages = [
-                {type: 0 for type in types} for _ in pp_group
+                dict.fromkeys(types, 0) for _ in pp_group
             ]
             self.base_memory = [0 for _ in range(len(pp_group))]
 
@@ -604,11 +604,11 @@ class VScheduleCreator:
                         break
 
             # Step3: Insert forward jobs after backward_b
-            forword_insert_order = range(self.num_stage)
+            forward_insert_order = range(self.num_stage)
             if self.num_model_chunks % 2:
-                forword_insert_order = range(self.num_stage - 1, -1, -1)
+                forward_insert_order = range(self.num_stage - 1, -1, -1)
 
-            for stage_id in forword_insert_order:
+            for stage_id in forward_insert_order:
                 for chunk_id in range(self.num_model_chunks - 1, -1, -1):
                     if self._can_schedule_f_task(stage_id, chunk_id):
                         while (

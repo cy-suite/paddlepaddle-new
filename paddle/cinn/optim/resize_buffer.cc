@@ -15,13 +15,13 @@
 
 #include <unordered_map>
 
-#include "paddle/cinn/common/cas.h"
 #include "paddle/cinn/common/integer_set.h"
 #include "paddle/cinn/ir/ir.h"
 #include "paddle/cinn/ir/ir_mutator.h"
 #include "paddle/cinn/ir/ir_printer.h"
 #include "paddle/cinn/ir/op/ir_operators.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
+#include "paddle/cinn/optim/ir_simplify.h"
 #include "paddle/cinn/optim/replace_mod_to_max.h"
 #include "paddle/cinn/optim/replace_var_with_expr.h"
 #include "paddle/cinn/utils/string.h"
@@ -184,7 +184,7 @@ class AnalyzeLoopVarRange : public ir::IRMutator<> {
                         0,
                         ::common::errors::PreconditionNotMet(
                             "Cannot find the extent of var %s", var_name));
-      size = common::AutoSimplify(size * var_name_to_extent_.at(var_name));
+      size = optim::ArithSimplify(size * var_name_to_extent_.at(var_name));
     }
 
     return size;
@@ -215,7 +215,7 @@ class AnalyzeLoopVarRange : public ir::IRMutator<> {
       }
     }
     ir::Expr tmp = ir::Add::Make(copy, ir::Expr(1));
-    ir::Expr simplified = common::AutoSimplify(tmp);
+    ir::Expr simplified = optim::ArithSimplify(tmp);
     if (simplified.As<ir::Min>()) {
       ir::Expr lhs = simplified.As<ir::Min>()->a();
       ir::Expr rhs = simplified.As<ir::Min>()->b();

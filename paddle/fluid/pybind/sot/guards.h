@@ -117,18 +117,6 @@ class ValueMatchGuard : public GuardBase {
   PyTypeObject* expected_type_;
 };
 
-class FloatCloseGuard : public GuardBase {
- public:
-  explicit FloatCloseGuard(double value, double epsilon)
-      : expected_(value), epsilon_(epsilon) {}
-
-  bool check(PyObject* value);
-
- private:
-  double expected_;
-  double epsilon_;
-};
-
 class LengthMatchGuard : public GuardBase {
  public:
   explicit LengthMatchGuard(const Py_ssize_t& length) : expected_(length) {}
@@ -188,12 +176,9 @@ class AttributeMatchGuard : public GuardBase {
 
 class LayerMatchGuard : public GuardBase {
  public:
-  explicit LayerMatchGuard(PyObject* layer_ptr) : layer_ptr_(layer_ptr) {
-    training_ = PyObject_GetAttrString(layer_ptr, "training") == Py_True;
-  }
-
   explicit LayerMatchGuard(const py::object& layer_obj)
-      : layer_ptr_(layer_obj.ptr()), training_(layer_obj.attr("training")) {}
+      : layer_ptr_(layer_obj.ptr()),
+        training_(layer_obj.attr("training").cast<bool>()) {}
 
   bool check(PyObject* value);
 
