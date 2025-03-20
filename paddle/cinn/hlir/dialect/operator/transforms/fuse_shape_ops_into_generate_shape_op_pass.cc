@@ -92,6 +92,9 @@ std::vector<pir::Value> FindSourceDenseTensorOfDimTensor(
     pir::Value shape,
     const ShapeOrDataDimExprs4ValueT& ShapeOrDataDimExprs4Value) {
   std::vector<pir::Value> ret{};
+  if (IsRootValueForSlice(shape, ShapeOrDataDimExprs4Value)) {
+    return ret;
+  }
   const auto& Emplace = [&](pir::Value value) {
     if (std::find(ret.begin(), ret.end(), value) != ret.end()) return;
     ret.emplace_back(value);
