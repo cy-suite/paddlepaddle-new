@@ -313,8 +313,6 @@ jobs:
 
     - name: Upload coverage report
       uses: codecov/codecov-action@v5
-      with:
-        files: ./build/coverage-diff.info,./build/python-coverage-diff.info
 
     # - name: Terminate and delete the container
     #   if: always()
