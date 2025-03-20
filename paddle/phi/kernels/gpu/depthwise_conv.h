@@ -30,6 +30,7 @@ namespace cub = hipcub;
 #include "paddle/phi/backends/gpu/gpu_primitives.h"
 #include "paddle/phi/kernels/funcs/math_function.h"
 #include "paddle/phi/kernels/gpudnn/conv_gpudnn.h"
+#include "paddle/phi/kernels/impl/conv_cudnn_impl.h"
 
 namespace phi {
 // To determine use cudnn or not.
@@ -63,19 +64,21 @@ struct DWConvParams {
   }
 
   // Use cudnn for NHWC and NCHW FP16.
-  bool UseCudnnDepthwise(const DenseTensor& input,
+  template <typename Context>
+  bool UseCudnnDepthwise(const Context& dev_ctx,
+                         const DenseTensor& input,
                          const DenseTensor& filter) const {
     // No fuse supported yet.
     if (has_fuse_relu_) {
       return false;
     }
+    // Tensor Core introduced from Volta GPUs.
+    if (!IsVoltaOrLater(dev_ctx)) {
+      return false;
+    }
     // Cudnn enable
     if (!dynload::HasCUDNN()) {
       return false;
-    }
-    // Use cudnn depthwise conv for channel last format.
-    if (data_format_ == "NHWC") {
-      return true;
     }
     // Only support FP16.
     if (input.type() != phi::DataType::FLOAT16 &&
@@ -90,8 +93,10 @@ struct DWConvParams {
     if (is_dilated() || is_strided()) {
       return false;
     }
-    // Format here is NCHW, channel greater than 32, need benchmarks.
-    if (input.dims()[1] < 32) {
+    // TODO(Dmovic): Channel greater than 32, need benchmarks.
+    const int input_channels =
+        (data_format_ != "NHWC" ? input.dims()[1] : input.dims()[3]);
+    if (input_channels < 32) {
       return false;
     }
     return true;
@@ -1371,35 +1376,53 @@ __global__ void KernelDepthwiseConvFilterGradSp(const T* output_grad_data,
           dilate_width,
           filter_grad_data);
     } else {
-      auto kernel =
-          KernelDepthwiseConvFilterGradCFilterNHWC<T,
-                                                   c_filter,
-                                                   fuse_relu_before_conv>;
       if (output_channels < SMALL_THRESHOLD) {
-        kernel = KernelDepthwiseConvFilterGradCFilterSmallChannelNHWC<
+        KernelDepthwiseConvFilterGradCFilterSmallChannelNHWC<
             T,
             c_filter,
-            fuse_relu_before_conv>;
+            fuse_relu_before_conv>(output_grad_data,
+                                   input_data,
+                                   num,
+                                   output_channels,
+                                   output_height,
+                                   output_width,
+                                   input_channels,
+                                   input_height,
+                                   input_width,
+                                   final_filter_multiplier,
+                                   filter_height,
+                                   filter_width,
+                                   h_stride,
+                                   w_stride,
+                                   padding_height,
+                                   padding_width,
+                                   dilate_height,
+                                   dilate_width,
+                                   filter_grad_data);
+      } else {
+        KernelDepthwiseConvFilterGradCFilterNHWC<T,
+                                                 c_filter,
+                                                 fuse_relu_before_conv>(
+            output_grad_data,
+            input_data,
+            num,
+            output_channels,
+            output_height,
+            output_width,
+            input_channels,
+            input_height,
+            input_width,
+            final_filter_multiplier,
+            filter_height,
+            filter_width,
+            h_stride,
+            w_stride,
+            padding_height,
+            padding_width,
+            dilate_height,
+            dilate_width,
+            filter_grad_data);
       }
-      kernel(output_grad_data,
-             input_data,
-             num,
-             output_channels,
-             output_height,
-             output_width,
-             input_channels,
-             input_height,
-             input_width,
-             final_filter_multiplier,
-             filter_height,
-             filter_width,
-             h_stride,
-             w_stride,
-             padding_height,
-             padding_width,
-             dilate_height,
-             dilate_width,
-             filter_grad_data);
     }
   }
 }

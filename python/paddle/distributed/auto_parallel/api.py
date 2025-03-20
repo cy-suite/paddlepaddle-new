@@ -1933,6 +1933,17 @@ def shard_scaler(scaler: GradScaler) -> GradScaler:
                     temp_param_grads_half,
                     temp_scale,
                 )
+
+                # AllReduce for "bool" is not supported on XPU
+                if "xpu" in paddle.device.get_device():
+                    temp_param_grads_half = paddle.cast(
+                        temp_param_grads_half, "int32"
+                    )
+                    temp_param_grads_half = paddle.sum(temp_param_grads_half)
+                    temp_param_grads_half = paddle.cast(
+                        temp_param_grads_half, "bool"
+                    )
+
                 temp_found_inf = _C_ops.bitwise_or(
                     temp_found_inf, temp_found_inf_half
                 )
@@ -1941,6 +1952,17 @@ def shard_scaler(scaler: GradScaler) -> GradScaler:
                     temp_param_grads_fp32,
                     temp_scale,
                 )
+
+                # AllReduce for "bool" is not supported on XPU
+                if "xpu" in paddle.device.get_device():
+                    temp_found_inf_fp32 = paddle.cast(
+                        temp_found_inf_fp32, "int32"
+                    )
+                    temp_found_inf_fp32 = paddle.sum(temp_found_inf_fp32)
+                    temp_found_inf_fp32 = paddle.cast(
+                        temp_found_inf_fp32, "bool"
+                    )
+
                 temp_found_inf = _C_ops.bitwise_or(
                     temp_found_inf, temp_found_inf_fp32
                 )
@@ -3248,7 +3270,7 @@ class ShardDataloader:
     ShardDataloader converts a dataloader to a new dataloader which provided two capabilities:
     1. split dataloader by shard_dim to do data parallel.
     2. reshard the output of dataloader to distributed tensor.
-    if is_dataset_splitted is True, just need to do reshard.
+    if is_dataset_split is True, just need to do reshard.
 
     Args:
         dataloader (paddle.io.DataLoader): The dataloader to be sharded.
@@ -3262,30 +3284,13 @@ class ShardDataloader:
         shard_dims (list|tuple|str|int]): The mesh dimension to shard the dataloader.
             Users can specify the shard_dim of each mesh or specify a single shard_dim for all meshes.
             Default: None, which means the data loader will not be split, i.e. mp.
-        is_dataset_splitted (bool): Whether the dataset has been splitted.
-        dense_tensor_idx (list): A 2D list specifies the index of the dense_tensor in the output of dataloader.
+        is_dataset_split (bool): Whether the dataset has been splitted.
+        dense_tensor_idx (list): A paired 2D list specifies the index of the dense_tensor in the output of dataloader.
             It allows users to identify which elements within each output batch are dense_tensor.
-            Default: None, which means all the outputs are dist_tensors.
-            e.g.
-            1. If the collator function returns:
-                return {
-                    "input_ids": [
-                        features["input_ids"],
-                        features["attention_mask"],
-                        features["position_ids"],
-                    ],
-                    "image": features["image"],
-                    "labels": features["labels"],
-                }
-            2. If `dense_tensor_idx = [[1, 2], [0], []]`:
-                - For "input_ids":
-                    input_ids["input_ids"] is a dist_tensor
-                    input_ids["attention_mask"] is a dense_tensor
-                    input_ids["position_ids"] is a dense_tensor
-                - For "image":
-                    image is a dense_tensor
-                - For "labels":
-                    labels is a dist_tensor
+            first dense_tensor: the dense_tensor return by dataloader.
+            second dense_tensor: num_or_sections specifies how to split first tensor: evenly (if a number) or unevenly (if a list).
+            Default: None, meaning all outputs are dist_tensors.
+            Note: For dense_tensor_idx settings, the idx must be paired.
     """
 
     def __init__(
@@ -3294,13 +3299,13 @@ class ShardDataloader:
         meshes: ProcessMesh | list[ProcessMesh] | tuple[ProcessMesh],
         input_keys: list[str] | tuple[str] | None = None,
         shard_dims: list | tuple | str | int | None = None,
-        is_dataset_splitted: bool = False,
-        dense_tensor_idx: list | None = None,
+        is_dataset_split: bool = False,
+        dense_tensor_idx: list[list[int]] | None = None,
     ):
         # do some check
-        if is_dataset_splitted is True and shard_dims is None:
+        if is_dataset_split is True and shard_dims is None:
             raise ValueError(
-                "shard_dims must be set when is_dataset_splitted is True"
+                "shard_dims must be set when is_dataset_split is True"
             )
 
         self._meshes = to_list(meshes)
@@ -3327,7 +3332,7 @@ class ShardDataloader:
             dp_rank = mesh.get_rank_by_dim_and_process_id(shard_dim, process_id)
             dp_world_size = mesh.get_dim_size(shard_dim)
 
-        if is_dataset_splitted is True or shard_dims is None:
+        if is_dataset_split is True or shard_dims is None:
             self._dataloader = dataloader
             self.batch_size = dataloader.batch_sampler.batch_size
         else:
@@ -3583,15 +3588,15 @@ def shard_dataloader(
     meshes: ProcessMesh | Sequence[ProcessMesh],
     input_keys: Sequence[str] | None = None,
     shard_dims: Sequence[str] | Sequence[int] | str | int | None = None,
-    is_dataset_splitted: bool = False,
-    dense_tensor_idx: list | None = None,
+    is_dataset_split: bool = False,
+    dense_tensor_idx: list[list[int]] | None = None,
 ) -> ShardDataloader:
     """
     Convert the dataloader to a ShardDataloader which provided two capabilities:
     1. split dataloader by shard_dim to do data parallel if it it not None.
     2. reshard the output of dataloader to distributed tensor.
-    if is_dataset_splitted is True, it means that the dataset has been split by users, and just need to do reshard.
-    only if is_dataset_splitted is False and shard_dims is not None, it will do split.
+    if is_dataset_split is True, it means that the dataset has been split by users, and just need to do reshard.
+    only if is_dataset_split is False and shard_dims is not None, it will do split.
 
     Args:
         dataloader (paddle.io.DataLoader): The dataloader to be sharded. the output of dataloader
@@ -3608,30 +3613,13 @@ def shard_dataloader(
             The mesh dimension to shard the dataloader.
             Users can specify the shard_dim of each mesh or specify a single shard_dim for all meshes.
             Default: None, which means the data loader will not be split, i.e. mp.
-        is_dataset_splitted (bool): Whether the dataset has been splitted, Default: False.
-        dense_tensor_idx (list): A 2D list specifies the index of the dense_tensor in the output of dataloader.
+        is_dataset_split (bool): Whether the dataset has been splitted, Default: False.
+        dense_tensor_idx (list): A paired 2D list specifies the index of the dense_tensor in the output of dataloader.
             It allows users to identify which elements within each output batch are dense_tensor.
-            Default: None, which means all the outputs are dist_tensors.
-            e.g.
-            1. If the collator function returns:
-                return {
-                    "input_ids": [
-                        features["input_ids"],
-                        features["attention_mask"],
-                        features["position_ids"],
-                    ],
-                    "image": features["image"],
-                    "labels": features["labels"],
-                }
-            2. If `dense_tensor_idx = [[1, 2], [0], []]`:
-                - For "input_ids":
-                    input_ids["input_ids"] is a dist_tensor
-                    input_ids["attention_mask"] is a dense_tensor
-                    input_ids["position_ids"] is a dense_tensor
-                - For "image":
-                    image is a dense_tensor
-                - For "labels":
-                    labels is a dist_tensor
+            first dense_tensor: the dense_tensor return by dataloader.
+            second dense_tensor: num_or_sections specifies how to split first tensor: evenly (if a number) or unevenly (if a list).
+            Default: None, meaning all outputs are dist_tensors.
+            Note: For dense_tensor_idx settings, the idx must be paired.
     Returns:
         ShardDataloader: The sharded dataloader.
 
@@ -3795,7 +3783,7 @@ def shard_dataloader(
         meshes,
         input_keys,
         shard_dims,
-        is_dataset_splitted,
+        is_dataset_split,
         dense_tensor_idx,
     )
 

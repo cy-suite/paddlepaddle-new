@@ -76,7 +76,7 @@ void DepthwiseConvKernel(const Context& dev_ctx,
 #if defined(CUDNN_VERSION) && CUDNN_VERSION_MIN(8, 2, 0) && \
     !defined(PADDLE_WITH_HIP)
   DWConvParams params(has_fuse_relu, data_format, strides, dilations);
-  if (params.UseCudnnDepthwise(input, filter)) {
+  if (params.UseCudnnDepthwise<Context>(dev_ctx, input, filter)) {
     phi::DepthwiseConvCudnnKernel<T>(dev_ctx,
                                      input,
                                      filter,
