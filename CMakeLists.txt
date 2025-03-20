@@ -541,7 +541,7 @@ endif()
 
 if(WITH_FLAGCX)
   add_definitions("-DPADDLE_WITH_FLAGCX")
-  include(flagcx)
+  # include(flagcx)
 endif()
 
 if(WITH_HETERPS AND WITH_PSLIB)
