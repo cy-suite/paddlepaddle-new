@@ -88,6 +88,7 @@ from .extension import (
 )
 from .flash_attention import (
     flash_attn_qkvpacked,
+    flash_attn_v3,
     flash_attn_varlen_qkvpacked,
     flashmask_attention,
     scaled_dot_product_attention,
@@ -295,5 +296,6 @@ __all__ = [
     'flashmask_attention',
     'flash_attn_qkvpacked',
     'flash_attn_varlen_qkvpacked',
+    'flash_attn_v3',
     'group_norm',
 ]

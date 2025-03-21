@@ -726,6 +726,44 @@ void CalcReducedAttnScoresInferMeta(const MetaTensor& q,
   reduced_scores->set_dims({batch_size, num_heads, 1, seqlen_k});
 }
 
+void FlashAttnV3InferMeta(const MetaTensor& q,
+                          const MetaTensor& k,
+                          const MetaTensor& v,
+                          MetaTensor* out,
+                          MetaTensor* softmax_lse,
+                          MetaTensor* out_accum,
+                          MetaTensor* softmax_lse_accum) {
+  // TODO(umiswing): support predefined out_, support varlen_q
+  constexpr bool is_varlen_q = false;
+  auto const sizes = q.dims();
+  const int batch_size = sizes[0];
+  const int seqlen_q = sizes[1];
+  int num_heads = q.dims()[q.dims().size() - 2];
+  int const head_size_v = v.dims()[v.dims().size() - 1];
+  auto q_type = q.dtype();
+  auto out_type =
+      q_type == phi::DataType::FLOAT8_E4M3FN ? phi::DataType::BFLOAT16 : q_type;
+  if (!is_varlen_q) {
+    out->set_dims({batch_size, seqlen_q, num_heads, head_size_v});
+  } else {
+    // TODO(umiswing): support varlen_q
+  }
+
+  out->set_dtype(out_type);
+
+  if (!is_varlen_q) {
+    softmax_lse->set_dims({batch_size, num_heads, seqlen_q});
+  } else {
+    // TODO(umiswing): support varlen_q
+  }
+  softmax_lse->set_dtype(phi::DataType::FLOAT32);
+
+  // umiswing: no way to get out_accum dims in infermeta
+  out_accum->set_dtype(phi::DataType::FLOAT32);
+  // umiswing: no way to get softmax_lse_accum dims in infermeta
+  softmax_lse_accum->set_dtype(phi::DataType::FLOAT32);
+}
+
 void ArangeTensorInferMeta(const MetaTensor& start,
                            const MetaTensor& end,
                            const MetaTensor& step,
