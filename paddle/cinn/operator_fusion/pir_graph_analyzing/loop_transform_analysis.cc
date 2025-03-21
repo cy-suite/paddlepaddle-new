@@ -713,8 +713,11 @@ std::optional<AxisTransformRoute> GetValidAdjacentLoopTransform(
   const auto& loop_transform_route =
       upstream_is_anchor ? GetLoopLiftRoute(upstream, downstream)
                          : GetLoopSinkRoute(upstream, downstream);
+  auto result =
+      GetValidLoopTransformRoute(source, target, loop_transform_route);
 
-  if (source.reduce_axis_num == 0 && target.reduce_axis_num > 0) {
+  if (result.has_value() && source.reduce_axis_num == 0 &&
+      target.reduce_axis_num > 0) {
     // Check whether reduce trivial fusion with larger reduce dims.
     const auto& reduce_to_trivial_route =
         upstream_is_anchor ? GetLoopSinkRoute(target, source)
@@ -734,8 +737,7 @@ std::optional<AxisTransformRoute> GetValidAdjacentLoopTransform(
       }
     }
   }
-
-  return GetValidLoopTransformRoute(source, target, loop_transform_route);
+  return result;
 }
 
 bool HasSharedInputValues(const LoopAxisMapping& lhs,
