@@ -6,18 +6,19 @@ endif()
 
 set(FLAGCX_SOURCE_DIR "${PADDLE_SOURCE_DIR}/third_party/flagcx")
 set(FLAGCX_BINARY_DIR "${PADDLE_SOURCE_DIR}/build/third_party/flagcx")
-# set(FLAGCX_INCLUDE_DIR "${THIRD_PARTY_PATH}/flagcx/flagcx/include")
+set(THIRD_PARTY_DIR "${PADDLE_SOURCE_DIR}/build/third_party")
 set(FLAGCX_LIB_DIR "${PADDLE_SOURCE_DIR}/build/third_party/flagcx/build/lib")
 
-message(STATUS "Copying third-party source to build directory")
 # execute_process(
 #     COMMAND ${CMAKE_COMMAND} -E remove_directory ${FLAGCX_BINARY_DIR}
 #     COMMAND ${CMAKE_COMMAND} -E copy_directory ${FLAGCX_SOURCE_DIR} ${FLAGCX_BINARY_DIR}
 #     RESULT_VARIABLE COPY_RESULT
 # )
+file(REMOVE_RECURSE ${FLAGCX_BINARY_DIR})
+message(STATUS "removed old flagcx dir")
+message(STATUS "Copying third-party source to build directory")
 execute_process(
-    COMMAND rm -r ${FLAGCX_BINARY_DIR}
-    COMMAND cp -r ${FLAGCX_SOURCE_DIR} ${FLAGCX_BINARY_DIR}/..
+    COMMAND cp -r ${FLAGCX_SOURCE_DIR} ${THIRD_PARTY_DIR}
     RESULT_VARIABLE COPY_RESULT
 )
 
