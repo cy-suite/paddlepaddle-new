@@ -41,14 +41,14 @@ struct TypeDirectoryClassMethodClass {
       ADT_LET_CONST_REF(dentry, pair->at(0).template CastTo<std::string>())
           << adt::errors::TypeError{
                  std::string() + "the argument of " + std::to_string(i) +
-                 " Directory() only acepts list of [str, Project.Directory | "
+                 " Directory() only accepts list of [str, Project.Directory | "
                  "Project.FileContent | Project.SoftLink]"
                  ". but the first of pair is a " +
                  axpr::GetTypeName(pair->at(0))};
       ADT_LET_CONST_REF(file, File::CastFromAxprValue(pair->at(1)))
           << adt::errors::TypeError{
                  std::string() +
-                 "Directory() only acepts list of [str, Project.Directory | "
+                 "Directory() only accepts list of [str, Project.Directory | "
                  "Project.FileContent | Project.SoftLink]"
                  ", but the second of pair is a " +
                  axpr::GetTypeName(pair->at(1))};
