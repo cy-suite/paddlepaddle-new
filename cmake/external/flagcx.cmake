@@ -7,7 +7,9 @@ endif()
 set(FLAGCX_SOURCE_DIR "${PADDLE_SOURCE_DIR}/third_party/flagcx")
 set(FLAGCX_BINARY_DIR "${PADDLE_SOURCE_DIR}/build/third_party/flagcx")
 set(THIRD_PARTY_DIR "${PADDLE_SOURCE_DIR}/build/third_party")
-set(FLAGCX_LIB_DIR "${PADDLE_SOURCE_DIR}/build/third_party/flagcx/build/lib")
+set(FLAGCX_ROOT "/usr/local/flagcx")
+set(FLAGCX_LIB_DIR "/usr/local/flagcx/build/lib")
+set(USR_LOCAL_DIR "/usr/local")
 
 # execute_process(
 #     COMMAND ${CMAKE_COMMAND} -E remove_directory ${FLAGCX_BINARY_DIR}
@@ -34,9 +36,16 @@ execute_process(
     RESULT_VARIABLE BUILD_RESULT
 )
 
-if(NOT BUILD_RESULT EQUAL 0)
-    message(FATAL_ERROR "Failed to build third-party library")
+message(STATUS "copying flagcx so to /usr/local")
+execute_process(
+  COMMAND cp -r ${FLAGCX_BINARY_DIR} ${USR_LOCAL_DIR}
+  RESULT_VARIABLE COPY_LIB_RESULT
+)
+if(NOT COPY_LIB_RESULT EQUAL 0)
+    message(FATAL_ERROR "Failed to copy lib to /usr/local")
 endif()
+
+
 
 # set(FLAGCX_ROOT
 #       $ENV{FLAGCX_ROOT}
@@ -45,7 +54,7 @@ endif()
   # generate_dummy_static_lib(LIB_NAME "flagcx" GENERATOR "flagcx.cmake")
   find_path(
     FLAGCX_INCLUDE_DIR flagcx.h
-    PATHS ${FLAGCX_SOURCE_DIR}/flagcx/include
+    PATHS ${FLAGCX_ROOT}/flagcx/include
     NO_DEFAULT_PATH)
   
   message(STATUS "FLAGCX_INCLUDE_DIR is ${FLAGCX_INCLUDE_DIR}")
@@ -60,5 +69,7 @@ endif()
   PATHS ${FLAGCX_LIB_DIR}
   DOC "My custom library"
 )
+
+
 add_dependencies(flagcx FLAGCX_LIB)
   message(STATUS "FLAGCX_LIB is ${FLAGCX_LIB}")

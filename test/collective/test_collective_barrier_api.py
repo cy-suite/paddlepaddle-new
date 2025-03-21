@@ -33,6 +33,9 @@ class TestCollectiveBarrierAPI(TestDistBase):
             "collective_barrier_api.py", "barrier", "gloo", "5"
         )
 
+    def test_barrier_flagcx(self):
+        self.check_with_place("collective_barrier_api.py", "barrier", "flagcx")
+
 
 if __name__ == '__main__':
     unittest.main()
