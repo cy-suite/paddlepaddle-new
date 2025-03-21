@@ -1516,7 +1516,9 @@ class PirPrimHooker(PirPartialProgramLayerHook):
                 }
 
     def before_append_backward(self, forward_program, src_vars):
+        print(core._is_fwd_prim_enabled())
         with backend_guard(self.backend):
+            print(core._is_fwd_prim_enabled())
             if core._is_fwd_prim_enabled():
                 dst_vars = decomposition.decompose(
                     forward_program, src_vars, blacklist=self.custom_vjps
