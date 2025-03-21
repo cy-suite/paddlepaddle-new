@@ -166,7 +166,6 @@ void PatternGraph::HorizontalFusion() {
                       StmtPatternGraphMatcher<ReduceTreePlusTrivialPattern>,
                       StmtPatternGraphMatcher<ReducePattern>,
                       StmtPatternGraphMatcher<ReduceTreePattern>,
-                      StmtPatternGraphMatcher<ItersPermutationPattern>,
                       StmtPatternGraphMatcher<AnchorPattern>>,
                    LiftToHorizontalFusionPatternOperation>(this);
 

@@ -41,8 +41,6 @@ struct MergeTrivialPatternOperation {
               downstream->stmt_pattern()) ||
           std::holds_alternative<ReduceTreePlusTrivialPattern>(
               downstream->stmt_pattern()) ||
-          std::holds_alternative<ItersPermutationPattern>(
-              downstream->stmt_pattern()) ||
           std::holds_alternative<AnchorPattern>(downstream->stmt_pattern());
 
       if (can_fuse) {

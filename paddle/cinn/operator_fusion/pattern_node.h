@@ -16,7 +16,6 @@
 
 #include "paddle/cinn/operator_fusion/pattern.h"
 #include "paddle/cinn/operator_fusion/pattern_fuser.h"
-#include "paddle/cinn/operator_fusion/pir_graph_analyzing/fusion_iters.h"
 #include "paddle/cinn/operator_fusion/utils.h"
 
 namespace cinn::fusion {

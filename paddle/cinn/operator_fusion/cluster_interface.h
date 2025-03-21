@@ -62,9 +62,6 @@ inline std::vector<fusion::PatternNodePtr> ClusterOps(
   const auto& general_topo_policy =
       std::make_shared<fusion::GeneralTopoPolicy>();
 
-  auto iters_manager = std::make_shared<FusionItersManager>(
-      shape_analysis, &(relative_judge_policy->GetAxesInfoManager()));
-
   fusion::PolicyManager policy_manager;
 
   policy_manager.SetPolicy(relative_judge_policy);
