@@ -130,6 +130,10 @@ class TestVarError(unittest.TestCase):
 class TestVarAPIZeroSize(unittest.TestCase):
     def setUp(self):
         self.dtype = 'float64'
+        self.axis = None
+        self.unbiased = True
+        self.keepdim = False
+        self.set_attrs()
         self.place = (
             paddle.CUDAPlace(0)
             if paddle.base.core.is_compiled_with_cuda()
@@ -142,9 +146,8 @@ class TestVarAPIZeroSize(unittest.TestCase):
             'shape_2x0x4': np.array([], dtype=self.dtype).reshape([2, 0, 4]),
             'shape_3x0x2': np.array([], dtype=self.dtype).reshape([3, 0, 2]),
         }
-        self.set_dtype()
 
-    def set_dtype(self):
+    def set_attrs(self):
         pass
 
     def _run_var_test(self, x, axis=None, unbiased=True, keepdim=False):
@@ -173,72 +176,80 @@ class TestVarAPIZeroSize(unittest.TestCase):
         np.testing.assert_allclose(out_dy.numpy(), out_ref, equal_nan=True)
         np.testing.assert_allclose(res[0], out_ref, equal_nan=True)
 
-    def test_all(self):
-        params = {
-            'axis': [None, 0, -1, [0, 1]],
-            'unbiased': [True, False],
-            'keepdim': [True, False],
-        }
-
+    def test_zero_size_cases(self):
         for case_name, zero_input in self.zero_size_cases.items():
-            for axis in params['axis']:
-                for unbiased in params['unbiased']:
-                    for keepdim in params['keepdim']:
-                        # Normalize axis and check validity
-                        if axis is not None:
-                            axis_list = (
-                                [axis] if isinstance(axis, int) else axis
-                            )
-                            normalized_axis = [
-                                a + zero_input.ndim if a < 0 else a
-                                for a in axis_list
-                            ]
-                            if zero_input.ndim <= max(
-                                normalized_axis, default=-1
-                            ):
-                                continue
-                        with self.subTest(
-                            case=case_name,
-                            axis=axis,
-                            unbiased=unbiased,
-                            keepdim=keepdim,
-                        ):
-                            self._run_var_test(
-                                zero_input,
-                                axis=axis,
-                                unbiased=unbiased,
-                                keepdim=keepdim,
-                            )
+            # Normalize axis and check validity
+            if self.axis is not None:
+                axis_list = (
+                    [self.axis] if isinstance(self.axis, int) else self.axis
+                )
+                normalized_axis = [
+                    a + zero_input.ndim if a < 0 else a for a in axis_list
+                ]
+                if zero_input.ndim <= max(normalized_axis, default=-1):
+                    continue
+            with self.subTest(case=case_name):
+                self._run_var_test(
+                    zero_input,
+                    axis=self.axis,
+                    unbiased=self.unbiased,
+                    keepdim=self.keepdim,
+                )
 
 
 class TestVarAPIZeroSize_Float32(TestVarAPIZeroSize):
-    def set_dtype(self):
+    def set_attrs(self):
         self.dtype = 'float32'
 
 
 class TestVarAPIZeroSize_Float64(TestVarAPIZeroSize):
-    def set_dtype(self):
+    def set_attrs(self):
         self.dtype = 'float64'
 
 
 class TestVarAPIZeroSize_Int32(TestVarAPIZeroSize):
-    def set_dtype(self):
+    def set_attrs(self):
         self.dtype = 'int32'
 
 
 class TestVarAPIZeroSize_Int64(TestVarAPIZeroSize):
-    def set_dtype(self):
+    def set_attrs(self):
         self.dtype = 'int64'
 
 
 class TestVarAPIZeroSize_Complex64(TestVarAPIZeroSize):
-    def set_dtype(self):
+    def set_attrs(self):
         self.dtype = 'complex64'
 
 
 class TestVarAPIZeroSize_Complex128(TestVarAPIZeroSize):
-    def set_dtype(self):
+    def set_attrs(self):
         self.dtype = 'complex128'
+
+
+class TestVarAPIZeroSize_Axis_0(TestVarAPIZeroSize):
+    def set_attrs(self):
+        self.axis = 0
+
+
+class TestVarAPIZeroSize_Axis_Neg1(TestVarAPIZeroSize):
+    def set_attrs(self):
+        self.axis = -1
+
+
+class TestVarAPIZeroSize_Axis_List(TestVarAPIZeroSize):
+    def set_attrs(self):
+        self.axis = [0, 1]
+
+
+class TestVarAPIZeroSize_Unbiased_False(TestVarAPIZeroSize):
+    def set_attrs(self):
+        self.unbiased = False
+
+
+class TestVarAPIZeroSize_Keepdim_True(TestVarAPIZeroSize):
+    def set_attrs(self):
+        self.keepdim = True
 
 
 if __name__ == '__main__':
