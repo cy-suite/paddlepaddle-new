@@ -32,8 +32,10 @@ struct NonSinkNodeMatcher {
 
 struct IsOutputNodeMatcher {
   bool operator()(const PatternGraph& graph, const PatternNodePtr& node) {
-    bool res = IsAnyFirstInSecond(node->sink_op()->results(), graph.outputs());
-    return res;
+    for (auto op : node->ops()) {
+      if (graph.output_ops().count(op)) return true;
+    }
+    return false;
   }
 };
 
@@ -62,7 +64,7 @@ struct OnlyOneDownstreamMatcher {
  * the number is smaller than 512.
  */
 struct InputOutputMaximumConstrain {
-  const int MAX_INPUT_OUTPUT_NUMBER = 480;  // cuda only support 512
+  const int MAX_INPUT_OUTPUT_NUMBER = 384;  // cuda only support 512
   std::vector<pir::Value> GetInputValuesExceptMiddle(
       const std::vector<pir::Operation*>& ops) {
     return VectorDiff(GetInputsValue(ops), GetOutputsValue(ops));
@@ -243,6 +245,7 @@ struct RecomputeNodeMatcher {
     };
 
     return StmtPatternGraphMatcher<AnchorPattern>()(graph, node) &&
+           !IsOutputNodeMatcher()(graph, node) &&
            node->downstream().size() >= 1 && can_recompute_fn(node) &&
            input_output_nums_constraint(graph, node);
   }

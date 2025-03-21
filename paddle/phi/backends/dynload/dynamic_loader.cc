@@ -370,7 +370,7 @@ void* GetCublasDsoHandle() {
 #endif
   } else {
     std::string warning_msg(
-        "Your CUDA_VERSION is less than 11 or greater than 12, paddle "
+        "Your CUDA_VERSION is less than 11 or greater than 13, paddle "
         "temporarily no longer supports");
     return nullptr;
   }
@@ -389,7 +389,7 @@ void* GetCublasDsoHandle() {
 #endif
   } else {
     std::string warning_msg(
-        "Your CUDA_VERSION is less than 11 or greater than 12, paddle "
+        "Your CUDA_VERSION is less than 11 or greater than 13, paddle "
         "temporarily no longer supports");
     return nullptr;
   }
@@ -417,7 +417,7 @@ void* GetCublasLtDsoHandle() {
 #endif
   } else {
     std::string warning_msg(
-        "Your CUDA_VERSION is less than 11 or greater than 12, paddle "
+        "Your CUDA_VERSION is less than 11 or greater than 13, paddle "
         "temporarily no longer supports");
     return nullptr;
   }
@@ -533,7 +533,7 @@ void* GetCUPTIDsoHandle() {
 #endif
   } else {
     std::string warning_msg(
-        "Your CUDA_VERSION is less than 11 or greater than 12, paddle "
+        "Your CUDA_VERSION is less than 11 or greater than 13, paddle "
         "temporarily no longer supports");
     return nullptr;
   }
@@ -629,7 +629,7 @@ void* GetCusparseDsoHandle() {
 #endif
   } else {
     std::string warning_msg(
-        "Your CUDA_VERSION is less than 11 or greater than 12, paddle "
+        "Your CUDA_VERSION is less than 11 or greater than 13, paddle "
         "temporarily no longer supports");
     return nullptr;
   }
@@ -855,7 +855,7 @@ void* GetCUFFTDsoHandle() {
     return GetDsoHandleFromSearchPath(FLAGS_cuda_dir, "libcufft.so.11");
   } else {
     std::string warning_msg(
-        "Your CUDA_VERSION is less than 11 or greater than 12, paddle "
+        "Your CUDA_VERSION is less than 11 or greater than 13, paddle "
         "temporarily no longer.");
     return nullptr;
   }
@@ -876,7 +876,7 @@ void* GetCUFFTDsoHandle() {
 #endif
   } else {
     std::string warning_msg(
-        "Your CUDA_VERSION is less than 11 or greater than 12, paddle "
+        "Your CUDA_VERSION is less than 11 or greater than 13, paddle "
         "temporarily no longer supports");
     return nullptr;
   }
