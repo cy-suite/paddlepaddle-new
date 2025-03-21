@@ -26,6 +26,7 @@ import paddle
 from paddle.framework import core
 
 from ....infer_meta import (
+    DistInfo,
     MetaInfo,
     SymbolicBool,
     SymbolicFloat,
@@ -36,16 +37,23 @@ from ....symbolic.statement_ir import Symbol
 from ....utils import (
     ENV_SOT_ALLOW_DYNAMIC_SHAPE,
     BreakGraphError,
+    BuiltinFunctionBreak,
     ConstTypes,
+    DataDependencyDynamicShapeBreak,
+    DataDependencyOperationBreak,
     FallbackError,
     NameGenerator,
+    UnsupportedOperationBreak,
     get_tensor_methods,
     log,
     printable,
 )
 from ....utils.envs import ENV_SOT_BREAK_GRAPH_ON_GET_SYMBOLIC_VALUE
-from ....utils.exceptions import HasNoAttributeError, InnerError
-from ..dispatch_functions import tensor_numel
+from ....utils.exceptions import (
+    InnerError,
+    UnsupportedPaddleAPIBreak,
+)
+from ..dispatch_functions import tensor_dim
 from ..guard import (
     FasterStringifiedExpression,
     StringifiedExpression,
@@ -133,14 +141,6 @@ class ConstantVariable(VariableBase):
 
     def get_py_value(self, allow_tensor=False):
         return self.value
-
-    @property
-    def debug_name(self) -> str:
-        return f"{self.value}"
-
-    @debug_name.setter
-    def debug_name(self, name):
-        pass
 
     def _reconstruct(self, codegen: PyCodeGen):
         codegen.gen_load_const(self.value)
@@ -416,7 +416,9 @@ class TensorVariable(VariableBase):
     def __len__(self):
         if isinstance(self.meta.shape[0], SymbolicInt):
             raise BreakGraphError(
-                "length of tensor variable with first dimension is dynamic shape causes graph break."
+                DataDependencyDynamicShapeBreak(
+                    "length of tensor variable with first dimension is dynamic shape causes graph break."
+                )
             )
         return self.meta.shape[0]
 
@@ -439,7 +441,9 @@ class TensorVariable(VariableBase):
             return SotTensor(self.id)
 
         raise BreakGraphError(
-            "Called TensorVariable.get_py_value. Should not use Tensor's value in simulating."
+            DataDependencyOperationBreak(
+                "Called TensorVariable.get_py_value. Should not use Tensor's value in simulating."
+            )
         )
 
     def get_py_type(self):
@@ -479,7 +483,7 @@ class TensorVariable(VariableBase):
         # A quick check path for PIR, we don't need dtype conversion for AMP in PIR
         meta = self.origin_meta
         dtype_str, dtype_free_vars = stringify_pyobject(meta.dtype)
-        return [
+        guards = [
             # Check rank
             StringifiedExpression(
                 f"len({{}}.shape) == {len(meta.shape)}",
@@ -508,7 +512,68 @@ class TensorVariable(VariableBase):
                 [frame_value_tracer],
                 union_free_vars(frame_value_tracer.free_vars),
             ),
+            # Check whether this tensor is distributed
+            StringifiedExpression(
+                f"{{}}.is_dist() is {(self.meta.dist_info is not None)!r}",
+                [frame_value_tracer],
+                union_free_vars(frame_value_tracer.free_vars),
+            ),
         ]
+        if self.meta.dist_info is not None:
+            tensor_dist_info = self.meta.dist_info
+            guards.extend(
+                [
+                    # check mesh shape
+                    StringifiedExpression(
+                        f"DistInfo.from_tensor({{}}).mesh.shape == {tensor_dist_info.mesh.shape}",
+                        [frame_value_tracer],
+                        union_free_vars(
+                            frame_value_tracer.free_vars,
+                            {
+                                "paddle": paddle,
+                                "DistInfo": DistInfo,
+                            },
+                        ),
+                    ),
+                    # check mesh process ids
+                    StringifiedExpression(
+                        f"DistInfo.from_tensor({{}}).mesh.process_ids == {tensor_dist_info.mesh.process_ids}",
+                        [frame_value_tracer],
+                        union_free_vars(
+                            frame_value_tracer.free_vars,
+                            {
+                                "paddle": paddle,
+                                "DistInfo": DistInfo,
+                            },
+                        ),
+                    ),
+                    # check dims mapping
+                    StringifiedExpression(
+                        f"DistInfo.from_tensor({{}}).dims_mapping == {tensor_dist_info.dims_mapping}",
+                        [frame_value_tracer],
+                        union_free_vars(
+                            frame_value_tracer.free_vars,
+                            {
+                                "paddle": paddle,
+                                "DistInfo": DistInfo,
+                            },
+                        ),
+                    ),
+                    # check local shape
+                    StringifiedExpression(
+                        f"DistInfo.from_tensor({{}}).local_shape == {tensor_dist_info.local_shape}",
+                        [frame_value_tracer],
+                        union_free_vars(
+                            frame_value_tracer.free_vars,
+                            {
+                                "paddle": paddle,
+                                "DistInfo": DistInfo,
+                            },
+                        ),
+                    ),
+                ]
+            )
+        return guards
 
     def get_iter(self):
         from .iter import SequenceIterVariable
@@ -586,13 +651,24 @@ class TensorVariable(VariableBase):
         """
         Return a ConstantVariable object that represents the total number of elements in the wrapped value of this TensorVariable.
         """
-        # TODO: maybe break graph.
-        if self.meta.is_dynamic_shape():
-            raise BreakGraphError(
-                f"Getting size for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
+        from .callable import BuiltinVariable
+
+        if not self.meta.is_dynamic_shape():
+            n_elements = reduce(operator.mul, self.meta.shape, 1)
+            return ConstantVariable(
+                n_elements, self.graph, DummyTracker([self])
             )
-        elements = reduce(operator.mul, self.meta.shape, 1)
-        return ConstantVariable(elements, self.graph, DummyTracker([self]))
+        if not ENV_SOT_ALLOW_DYNAMIC_SHAPE.get():
+            raise BreakGraphError(
+                DataDependencyDynamicShapeBreak(
+                    f"Getting size for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
+                )
+            )
+        return reduce(
+            BuiltinVariable(operator.mul, self.graph, DanglingTracker()),
+            self.shape,
+            ConstantVariable.wrap_literal(1, self.graph),
+        )
 
     @tensor_property
     def shape(self):
@@ -601,26 +677,28 @@ class TensorVariable(VariableBase):
             and self.meta.is_dynamic_shape()
         ):
             raise BreakGraphError(
-                f"Getting shape for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
+                DataDependencyDynamicShapeBreak(
+                    f"Getting shape for a dynamic shape tensor causes graph break. shape = {self.meta.shape}"
+                )
             )
         from .container import ListVariable
 
         tracker = GetAttrTracker(self, "shape")
         return ListVariable(self.meta.shape, self.graph, tracker=tracker)
 
-    def numel(self):
-        return self.size
-
     def len(self):
         if len(self.meta.shape) == 0:
             raise InnerError("len() of a 0-D tensor is wrong")
         first_dim = self.meta.shape[0]
-        if isinstance(first_dim, SymbolicInt):
+        if not isinstance(first_dim, SymbolicInt):
+            return ConstantVariable(first_dim, self.graph, DummyTracker([self]))
+        if not ENV_SOT_ALLOW_DYNAMIC_SHAPE.get():
             raise BreakGraphError(
-                "Getting len() for a dynamic shape tensor causes graph break."
+                DataDependencyDynamicShapeBreak(
+                    "Getting len() for a dynamic shape tensor causes graph break."
+                )
             )
-
-        return ConstantVariable(first_dim, self.graph, DummyTracker([self]))
+        return self.shape[0]
 
     def is_tensor(self):
         return ConstantVariable(True, self.graph, DummyTracker([self]))
@@ -652,9 +730,8 @@ class TensorVariable(VariableBase):
                 "default argument for getattr is not implemented"
             )
         method_name_to_builtin_fn = {
-            "dim": paddle.rank,
-            "numel": tensor_numel,
-            "ndimension": paddle.rank,
+            "dim": tensor_dim,
+            "ndimension": tensor_dim,
             "is_tensor": paddle.is_tensor,
             "is_complex": paddle.is_complex,
             "is_integer": paddle.is_integer,
@@ -662,7 +739,9 @@ class TensorVariable(VariableBase):
         }
         if name in ["name", "place", "type"] and self.meta.is_inner_var():
             raise BreakGraphError(
-                f"{self.meta.name} is a middle tensor. get {name} property."
+                DataDependencyOperationBreak(
+                    f"{self.meta.name} is a middle tensor. Not support to get {name} property."
+                )
             )
         if name in [
             "dtype",
@@ -696,7 +775,9 @@ class TensorVariable(VariableBase):
             )
             return fn_var.bind(self, name)
         else:
-            raise HasNoAttributeError(f"Unknown Tensor attribute: {name}")
+            raise BreakGraphError(
+                UnsupportedPaddleAPIBreak(fn_name=f"Tensor.{name}")
+            )
 
     def setattr(self, key, val):
         # support tensor variable store attr, like:
@@ -709,7 +790,9 @@ class TensorVariable(VariableBase):
         )
 
     def delattr(self, key):
-        raise BreakGraphError("Don't support TensorVariable delattr")
+        raise BreakGraphError(
+            BuiltinFunctionBreak("Don't support TensorVariable delattr")
+        )
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
@@ -814,11 +897,15 @@ class SymbolicVariable(VariableBase):
 
     def get_py_value(self, allow_tensor: bool = False) -> bool | int | float:
         if ENV_SOT_BREAK_GRAPH_ON_GET_SYMBOLIC_VALUE.get():
-            raise BreakGraphError("get_py_value from SymbolicVariable")
+            raise BreakGraphError(
+                DataDependencyOperationBreak(
+                    "get_py_value from SymbolicVariable"
+                )
+            )
         self.need_guard_value = True
         log(
             3,
-            f"get_py_value from SymbolicVariable {self} caused value need guard",
+            f"get_py_value from SymbolicVariable {self} caused value need guard\n",
         )
         if isinstance(self.value, SymbolicValue):
             assert isinstance(
@@ -1051,20 +1138,6 @@ class SliceVariable(VariableBase):
         super().__init__(graph, tracker)
         self.value = slice_
 
-    @property
-    def debug_name(self) -> str:
-        return ":".join(
-            [
-                str(self.value.start) if self.value.start is not None else "",
-                str(self.value.stop) if self.value.stop is not None else "",
-                str(self.value.step) if self.value.step is not None else "",
-            ]
-        )
-
-    @debug_name.setter
-    def debug_name(self, name):
-        pass
-
     @cached_property
     def attr_proxy(self):
         return self.graph.side_effects.get_proxy(
@@ -1116,10 +1189,18 @@ class SliceVariable(VariableBase):
             super()._reconstruct(codegen)
 
     def setattr(self, key, val):
-        raise BreakGraphError("Don't support SliceVariable setattr")
+        raise BreakGraphError(
+            UnsupportedOperationBreak(
+                reason_str="Don't support SliceVariable setattr"
+            )
+        )
 
     def delattr(self, key):
-        raise BreakGraphError("Don't support SliceVariable delattr")
+        raise BreakGraphError(
+            UnsupportedOperationBreak(
+                reason_str="Don't support SliceVariable delattr"
+            )
+        )
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
@@ -1208,6 +1289,11 @@ class NumpyVariable(VariableBase):
 
     @staticmethod
     def format_dtype(dtype: np.dtype):
+        if (
+            np.lib.NumpyVersion(np.__version__) >= "1.20.0"
+            and dtype == np.bool_
+        ):
+            return "np.bool_"
         return f"np.{dtype}"
 
     @staticmethod
@@ -1219,18 +1305,31 @@ class NumpyVariable(VariableBase):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if isinstance(value, (np.number)):
-            return NumpyNumberVariable(value, graph, tracker)
         if isinstance(value, (np.ndarray)):
             return NumpyArrayVariable(value, graph, tracker)
         return None
 
 
 class NumpyNumberVariable(NumpyVariable):
+    def _reconstruct(self, codegen: PyCodeGen):
+        np_type = self.get_py_type()
+        type_id = f"___np_{np_type.__name__}"
+        codegen.gen_load_object(np_type, type_id)
+        codegen.gen_load_const(self.value.item())
+        codegen.gen_call_function(1)
+
+    def getattr(self, name: str, default=None):
+        from .callable import BuiltinVariable
+
+        if name != "item":
+            return super().getattr(name, default)
+        return BuiltinVariable(
+            np.number.item, self.graph, GetAttrTracker(self, name)
+        ).bind(self, name)
+
     @check_guard
     def make_stringified_guard(self) -> list[StringifiedExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
-        obj_free_var_name = f"__{self.id}"
 
         dtype_guard = StringifiedExpression(
             f"{{}}.dtype == {NumpyVariable.format_dtype(self.get_py_value().dtype)}",
@@ -1246,6 +1345,20 @@ class NumpyNumberVariable(NumpyVariable):
                 union_free_vars(frame_value_tracer.free_vars, {"np": np}),
             ),
         ]
+
+    @VariableFactory.register_from_value()
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
+        if isinstance(value, np.number):
+            return NumpyNumberVariable(value, graph, tracker)
+        return None
+
+
+class NumpyBoolVariable(NumpyNumberVariable):
+    @VariableFactory.register_from_value()
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
+        if isinstance(value, (np.bool_)):
+            return NumpyBoolVariable(value, graph, tracker)
+        return None
 
 
 class NumpyArrayVariable(NumpyVariable):

@@ -387,6 +387,9 @@ ExprSetFinder ChildIfThenElses =
     Collector([](const ir::Expr* e) { return e->As<ir::IfThenElse>(); },
               "ChildIfThenElses");
 
+ExprSetFinder ChildVars =
+    Collector([](const ir::Expr* e) { return e->as_var(); }, "ChildVars");
+
 ExprSetFinder FindFather(const ir::Expr& root) {
   const auto& f = [root](const auto& child) -> ExprSet {
     ExprSetFinder find_child =
@@ -777,13 +780,18 @@ ExprTransformer InsertForsTransformer(const std::vector<int32_t>& axis,
   return ExprTransformer(f);
 }
 
-ExprTransformer InsertIfForAppendVarsTransformer() {
+ExprTransformer InsertIfForAppendVarsTransformer(
+    const std::vector<ir::Var>& append_vars) {
   const auto& f = [=](const ir::Expr& root) -> ir::Expr {
+    std::function<std::string(ir::Var)> var2name =
+        [](const ir::Var& v) -> std::string { return v->name; };
+    std::set<std::string> var_names =
+        cinn::fusion::ToSet(cinn::fusion::MapVector(append_vars, var2name));
     const auto vars = GetNonReduceLoopVars(root);
     std::vector<std::vector<ir::Var>> neighbor_append_vars;
     bool last_var_is_append = false;
     for (const auto& var : vars) {
-      if (var->name.find("append") != std::string::npos &&
+      if (var_names.count(var->name) != 0 &&
           !(var->upper_bound.is_constant() &&
             var->upper_bound.as_int64() == 1)) {
         if (last_var_is_append) {
@@ -822,10 +830,66 @@ ExprTransformer InsertIfForAppendVarsTransformer() {
       }
       schedule_block.As<ir::ScheduleBlock>()->body = new_body;
     }
-
     return root;
   };
   return ExprTransformer(f);
+}
+
+ExprTransformer RemoveTargetIfTransformer(
+    const std::function<bool(const ir::Expr&)>& filter) {
+  const auto& f = [=](const ir::Expr& root) -> ir::Expr {
+    auto copied = root;
+    const auto& iters = GetAllLoopVars(copied);
+    // Find target if and replace with if body.
+    const std::vector<ir::Expr>& all_if =
+        ExprSetFinderUtils::ChildIfThenElses(copied);
+    const auto all_target_if = cinn::fusion::FilterVector(all_if, filter);
+    for (const auto& target_if : all_target_if) {
+      const ir::Expr& target_block =
+          ExprSetFinderUtils::DirectlyFather(copied).GetSingle(target_if);
+      const auto if_body = target_if.As<ir::IfThenElse>()->true_case;
+      const auto if_body_stmts = if_body.As<ir::Block>()->stmts;
+      if (target_block.As<ir::ScheduleBlockRealize>()) {
+        ir::Expr schedule_block =
+            target_block.As<ir::ScheduleBlockRealize>()->schedule_block;
+        if (if_body_stmts.size() == 1) {
+          schedule_block.As<ir::ScheduleBlock>()->body = if_body_stmts[0];
+        } else {
+          schedule_block.As<ir::ScheduleBlock>()->body = if_body;
+        }
+      } else {
+        ir::Expr to_replace_block = ir::Block::Make(if_body_stmts);
+        ComposeUtils::MappingTargetExprToDestExprMutator(
+            target_block, to_replace_block)(&copied);
+      }
+    }
+    return copied;
+  };
+  return ExprTransformer(f);
+}
+
+ExprTransformer RemoveAllAppendIfTransformer() {
+  const auto is_appeend_var_in_cond = [](const ir::Expr& if_expr) {
+    auto cond = if_expr.As<ir::IfThenElse>()->condition.As<ir::EQ>();
+    if (!cond) return false;
+    for (const auto& var : ExprSetFinderUtils::ChildVars(cond->a())) {
+      if (var.as_var()->name.find("append") != std::string::npos) return true;
+    }
+    return false;
+  };
+  return RemoveTargetIfTransformer(is_appeend_var_in_cond);
+}
+
+ExprTransformer EliminateUselessIfTransformer() {
+  const auto has_useless_cond = [](const ir::Expr& if_expr) {
+    auto cond = if_expr.As<ir::IfThenElse>()->condition.As<ir::EQ>();
+    if (!cond) return false;
+    for (const auto& var : ExprSetFinderUtils::ChildVars(cond->a())) {
+      if (!var.as_var()->is_symbolic_constant) return false;
+    }
+    return true;
+  };
+  return RemoveTargetIfTransformer(has_useless_cond);
 }
 
 int InplaceMutateSingleExpr(ir::Expr* root,
@@ -900,17 +964,6 @@ std::vector<ir::Var> AppendBound(const std::vector<ir::Var> vars,
                                  const ir::Expr& root) {
   return ExprSetFinderUtils::MapVector<ir::Var>(
       vars, [&](const auto& v) -> ir::Var {
-        VLOG(4) << "Start Append Bound for " << v;
-        VLOG(4) << "AppendBound for " << v << ", lower: "
-                << (ExprSetFinderUtils::ChildFors *
-                    ExprSetFinderUtils::IsForIterVar(v) *
-                    ExprSetFinderUtils::For2Min)
-                       .GetSingle(root)
-                << ", upper: "
-                << (ExprSetFinderUtils::ChildFors *
-                    ExprSetFinderUtils::IsForIterVar(v) *
-                    ExprSetFinderUtils::For2Max)
-                       .GetSingle(root);
         return ir::Var(
             (ExprSetFinderUtils::ChildFors *
              ExprSetFinderUtils::IsForIterVar(v) * ExprSetFinderUtils::For2Min)
@@ -1072,7 +1125,7 @@ void CheckLoopAlignment(const std::vector<ir::Expr>& roots) {
     }
     PADDLE_ENFORCE(fusion::VectorEqual(base_loop_vars, loop_vars, var_equal),
                    ::common::errors::PreconditionNotMet(
-                       "CheckLoopAlignment Failed, The loop vars are not euqal "
+                       "CheckLoopAlignment Failed, The loop vars are not equal "
                        "between FusionOps: \n%s\n%s",
                        roots[base_loop_idx],
                        roots[i]));
@@ -1087,10 +1140,89 @@ void CheckLoopAlignment(const std::vector<ir::Expr>& roots) {
       PADDLE_ENFORCE(
           fusion::VectorEqual(base_reduce_vars, reduce_vars, var_equal),
           ::common::errors::PreconditionNotMet(
-              "CheckLoopAlignment Failed, The reduce vars are not euqal "
+              "CheckLoopAlignment Failed, The reduce vars are not equal "
               "between FusionOps: \n%s\n%s",
               roots[base_reduce_idx],
               roots[i]));
+    }
+  }
+}
+
+ir::Tensor GetOutputTensor(const ir::Expr& root) {
+  return (ExprSetFinderUtils::ChildScheduleBlockRealizes *
+          ExprSetFinderUtils::ScheduleBlockRealizeIsNotInit *
+          ExprSetFinderUtils::ChildStores)
+      .GetSingle(root)
+      .As<ir::Store>()
+      ->tensor.as_tensor_ref();
+}
+
+ir::Expr GetComputeBody(const ir::Expr& root) {
+  const auto& compute_realize =
+      (ExprSetFinderUtils::ChildScheduleBlockRealizes *
+       ExprSetFinderUtils::ScheduleBlockRealizeIsNotInit)
+          .GetSingle(root);
+  const auto& compute_body =
+      (ExprSetFinderUtils::ChildStores * ExprSetFinderUtils::Store2Value)
+          .GetSingle(compute_realize);
+  return ExprTransformerUtils::SubstituteByScheduleBlockRealize(
+      compute_realize)(compute_body);
+}
+
+std::vector<ir::Var> GetOutputIters(const ir::Expr& root) {
+  ir::Expr block_realize =
+      ExprSetFinderUtils::ChildScheduleBlockRealizes(root).front();
+  const std::vector<Expr>& outer_iter_expr =
+      block_realize.As<ir::ScheduleBlockRealize>()->iter_values;
+  return ComposeUtils::ExprVec2VarVec(outer_iter_expr);
+}
+
+void InlineGlobalVarComputeImpl(const ir::Expr& global_root,
+                                const std::vector<ir::Expr>& roots) {
+  PADDLE_ENFORCE(!IsReducePattern(global_root),
+                 ::common::errors::InvalidArgument(
+                     "Can not inline global var compute for reduce pattern."));
+  auto store_indices = (ExprSetFinderUtils::ChildScheduleBlockRealizes *
+                        ExprSetFinderUtils::ScheduleBlockRealizeIsNotInit *
+                        ExprSetFinderUtils::ChildStores)
+                           .GetSingle(global_root)
+                           .As<ir::Store>()
+                           ->indices;
+  std::vector<int> var_indices_pos;
+  for (int i = 0; i < store_indices.size(); ++i) {
+    if (store_indices[i].is_var()) var_indices_pos.push_back(i);
+  }
+
+  auto target_tensor = GetOutputTensor(global_root);
+  auto target_compute_body = GetComputeBody(global_root);
+  auto target_iters = GetOutputIters(global_root);
+
+  for (auto root : roots) {
+    if (root == global_root) continue;
+    SequenceMutator(
+        ComposeUtils::GetEachTensorLoadExpr(root, target_tensor),
+        &root,
+        [&](const ir::Expr& load_expr, ir::Expr* compute_body) {
+          ComposeUtils::SubstituteTargetExprWithDestExpr(
+              load_expr,
+              ComposeUtils::SubstituteIndexVector(
+                  target_compute_body,
+                  target_iters,
+                  cinn::fusion::GatherVector(load_expr.As<ir::Load>()->indices,
+                                             var_indices_pos)),
+              compute_body);
+        });
+  }
+}
+
+void InlineGlobalVarCompute(const std::vector<ir::Expr>& roots,
+                            const std::set<std::string>& global_var_names) {
+  for (int i = 0; i < roots.size(); ++i) {
+    if (IsReducePattern(roots[i])) continue;
+    auto output_tensor_name = GetOutputTensor(roots[i])->name;
+    if (global_var_names.count(output_tensor_name)) {
+      VLOG(4) << "Inline compute of global var: " << output_tensor_name;
+      InlineGlobalVarComputeImpl(roots[i], roots);
     }
   }
 }

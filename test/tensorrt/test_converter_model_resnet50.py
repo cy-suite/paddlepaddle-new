@@ -60,6 +60,7 @@ class TestConverterResNet50(unittest.TestCase):
             optim_input_shape=(1, 3, 224, 224),
             max_input_shape=(4, 3, 224, 224),
             input_data_type='float32',
+            name='input',
         )
         _, input_optim_data, _ = input_config.generate_input_data()
 
@@ -103,7 +104,7 @@ class TestConverterResNet50(unittest.TestCase):
             np.random.rand(n, 3, 224, 224).astype(np.float32) for n in (1, 2, 4)
         )
         input_optim_data = input_data[1]
-        input_config = Input(input_data=input_data)
+        input_config = Input(warmup_data=input_data)
 
         # Create a TensorRTConfig with inputs as a required field.
         trt_config = TensorRTConfig(inputs=[input_config])

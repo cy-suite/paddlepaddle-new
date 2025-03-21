@@ -17,11 +17,10 @@
 
 from __future__ import annotations
 
-import builtins
 import inspect
 from collections import namedtuple
 from copy import deepcopy
-from functools import cached_property, reduce
+from functools import reduce
 from typing import TYPE_CHECKING, Any, Callable, Tuple, Union
 
 from typing_extensions import TypeAlias, TypeGuard
@@ -52,7 +51,12 @@ from ...utils import (
     map_if,
     switch_symbol_registry,
 )
-from ...utils.exceptions import BreakGraphError, SotExtraInfo
+from ...utils.exceptions import (
+    BreakGraphError,
+    DygraphInconsistentWithStaticBreak,
+    InferMetaBreak,
+    SotExtraInfo,
+)
 from ..instruction_utils import get_instructions
 from .guard import Guard, StringifiedExpression, make_guard
 from .mutable_data import MutationDel, MutationNew, MutationSet
@@ -67,7 +71,7 @@ from .side_effects import (
     SideEffectRestorer,
     SideEffects,
 )
-from .tracker import BuiltinTracker, DummyTracker, SymbolicOperationTracker
+from .tracker import DummyTracker, SymbolicOperationTracker
 from .variables import (
     DictVariable,
     GlobalVariable,
@@ -228,16 +232,6 @@ class FunctionGraph:
         self._print_variables = []
         self._inplace_tensors = OrderedSet()
         self._kwargs = kwargs
-
-    @cached_property
-    def _builtins(self):
-        builtins_ = {}
-        # prepare builtins
-        for name, value in builtins.__dict__.items():
-            builtins_[name] = VariableFactory.from_value(
-                value, self, BuiltinTracker(name), debug_name=name
-            )
-        return builtins_
 
     def add_print_variables(self, variable):
         """
@@ -671,7 +665,9 @@ class FunctionGraph:
                     ):
                         # TODO(zrr1999): maybe we can continue to fallback to all args are constant.
                         raise BreakGraphError(
-                            f"InferMeta encount {type(e)}, but all args are not symbolic."
+                            InferMetaBreak(
+                                f"InferMeta encount {type(e)}, but all args are not symbolic."
+                            )
                         )
 
                     args, kwargs = map_if(
@@ -698,7 +694,9 @@ class FunctionGraph:
                         for arg in flatten_vars
                     ):
                         raise BreakGraphError(
-                            f"InferMeta encount {type(e)}, but all args are not symbolic."
+                            InferMetaBreak(
+                                f"InferMeta encount {type(e)}, but all args are not symbolic."
+                            )
                         )
 
                     args, kwargs = map_structure(
@@ -712,7 +710,9 @@ class FunctionGraph:
             except Exception as e:
                 if SotExtraInfo.from_exception(e).need_breakgraph:
                     raise BreakGraphError(
-                        f"API {func} encountered a need break graph error {e}"
+                        DygraphInconsistentWithStaticBreak(
+                            f"API {func} encountered a need break graph error {e}"
+                        )
                     )
                 raise e
 
@@ -800,9 +800,9 @@ class FunctionGraph:
             return []
         current_executor = OpcodeExecutorBase.call_stack[-1]
         current_line = current_executor._current_line
-        filename = current_executor._code.co_filename
+        filename = current_executor.vframe.code.co_filename
         source_lines, start_line = inspect.getsourcelines(
-            current_executor._code
+            current_executor.vframe.code
         )
         # TODO(SigureMo): In 3.11, lineno maybe changed after multiple breakgraph,
         # We need to find a way to fix this.
@@ -810,7 +810,7 @@ class FunctionGraph:
         code_line = source_lines[line_idx]
         stack = []
         stack.append(
-            f'  File "{filename}", line {current_line}, in {current_executor._code.co_name}'
+            f'  File "{filename}", line {current_line}, in {current_executor.vframe.code.co_name}'
         )
         stack.append(f'    {code_line}')
         return stack
