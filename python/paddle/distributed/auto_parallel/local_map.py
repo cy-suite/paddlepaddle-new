@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import functools
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Callable, Union
+from typing import TYPE_CHECKING, Callable, Optional, Union
 
 import paddle
 import paddle.distributed as dist
@@ -26,18 +26,18 @@ if TYPE_CHECKING:
 
 __all__ = ["local_map"]
 
-PlacementType = Sequence[dist.Placement] | None
-InputPlacements = tuple[PlacementType, ...] | None
+PlacementType = Optional[Sequence[dist.Placement]]
+InputPlacements = Optional[tuple[PlacementType, ...]]
 OutputPlacements = Union[PlacementType, tuple[PlacementType, ...]]
 
 
 def local_map(
     func: Callable,
     out_placements: OutputPlacements,
-    in_placements: InputPlacements = None,
-    process_mesh: ProcessMesh | None = None,
+    in_placements: InputPlacements | None,
+    process_mesh: ProcessMesh | None,
     *,
-    redistribute_inputs: bool = False,
+    redistribute_inputs: bool | None,
 ):
     """
     :meth:`local_map` is an experimental API that allows users to pass dist_tensors
