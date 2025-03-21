@@ -558,10 +558,10 @@ void SubgraphDetector::SubgraphFusion() {
 
   VLOG(4) << "Merge non-related subgraphs";
   auto subgraph_list = GetSubgraphList();
-  for (int i = 0; i < subgraph_list.size(); ++i) {
+  for (size_t i = 0; i < subgraph_list.size(); ++i) {
     auto lhs = subgraph_list[i];
     if (!lhs->substitute) continue;
-    for (int j = i + 1; j < subgraph_list.size();) {
+    for (size_t j = i + 1; j < subgraph_list.size();) {
       auto rhs = subgraph_list[j];
       if (lhs == rhs || !rhs->substitute || HasRoute(lhs, rhs) ||
           HasRoute(rhs, lhs)) {
