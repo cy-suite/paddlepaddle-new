@@ -70,11 +70,14 @@ void GetGradXAndYOut(const GPUContext &dev_ctx,
 
   funcs::BroadcastKernel<T, decltype(func), 2>(dev_ctx, ins, &outs, func, axis);
 
-  if (dx->dims() != dout.dims() && dy->dims() == dout.dims()) {
+  if (dx->dims() != dout.dims() && dy->dims() == dout.dims() &&
+      dout.numel() != 0) {
     ReduceWrapper<T>(dev_ctx, axis, &tmp_dx, dx);
-  } else if (dx->dims() == dout.dims() && dy->dims() != dout.dims()) {
+  } else if (dx->dims() == dout.dims() && dy->dims() != dout.dims() &&
+             dout.numel() != 0) {
     ReduceWrapper<T>(dev_ctx, axis, &tmp_dy, dy);
-  } else if (dx->dims() != dout.dims() && dy->dims() != dout.dims()) {
+  } else if (dx->dims() != dout.dims() && dy->dims() != dout.dims() &&
+             dout.numel() != 0) {
     ReduceWrapper<T>(dev_ctx, axis, &tmp_dx, dx);
     ReduceWrapper<T>(dev_ctx, axis, &tmp_dy, dy);
   }
@@ -101,7 +104,7 @@ void GetGradXOrYOut(const GPUContext &dev_ctx,
   }
 
   funcs::BroadcastKernel<T>(dev_ctx, ins, &outs, func, axis);
-  if (dxy->dims() != dout.dims()) {
+  if (dxy->dims() != dout.dims() && dout.numel() != 0) {
     ReduceWrapper<T>(dev_ctx, axis, &tmp_dxy, dxy);
   }
 }
