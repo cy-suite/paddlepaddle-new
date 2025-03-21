@@ -163,16 +163,14 @@ class TestVarAPIZeroSize(unittest.TestCase):
                 res = exe.run(feed={'X': x}, fetch_list=[out_static])
 
         # Reference result (expecting nan for zero-size inputs)
-        out_ref = np.var(
-            x, axis=axis, ddof=1 if unbiased else 0, keepdims=keepdim
-        )
+        out_ref = ref_var(x, axis, unbiased, keepdim)
 
         # Verify results
         np.testing.assert_allclose(out_dy.numpy(), out_ref, equal_nan=True)
         np.testing.assert_allclose(res[0], out_ref, equal_nan=True)
 
     def test_basic_zero_size(self):
-        for name, zero_input in self.zero_size_cases.items():
+        for _, zero_input in self.zero_size_cases.items():
             self._run_var_test(zero_input)
 
     def test_axis_variations(self):
