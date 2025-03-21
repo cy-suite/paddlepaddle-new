@@ -58,9 +58,6 @@ class PatternGraph {
     return output_ops_;
   }
   const PolicyManager& policy_manager() const { return policy_manager_; }
-  std::shared_ptr<ItersFusionPolicy> iters_fusion_policy() {
-    return policy_manager_.template GetPolicy<ItersFusionPolicy>();
-  }
 
  private:
   std::unordered_set<pir::Operation*> output_ops_;
