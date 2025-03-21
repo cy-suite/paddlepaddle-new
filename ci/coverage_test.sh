@@ -23,7 +23,9 @@ function is_run_distribute_in_op_test() {
     for DISTRIBUTE_FILE in ${DISTRIBUTE_FILES[*]}; do
         DISTRIBUTE_CHANGE=`git diff --name-only upstream/$BRANCH | grep -F "${DISTRIBUTE_FILE}"|| true`
         if [ "${DISTRIBUTE_CHANGE}" ] && [ "${GIT_PR_ID}" != "" ]; then
+            export FLAGS_COVERAGE_RUN_AUTO_PARALLEL_IN_OP_TEST=1
             echo "FLAGS_COVERAGE_RUN_AUTO_PARALLEL_IN_OP_TEST=1" >> $1
+            echo "FLAGS_COVERAGE_RUN_AUTO_PARALLEL_IN_OP_TEST=1" >> "$HOME/.bashrc"
         fi
     done
     ALL_CHANGE_FILES=`git diff --numstat upstream/$BRANCH | awk '{print $3}' | grep ".py"|| true`
@@ -31,20 +33,28 @@ function is_run_distribute_in_op_test() {
     for CHANGE_FILE in ${ALL_CHANGE_FILES}; do
         ALL_OPTEST_BAN_AUTO_PARALLEL_TEST=`git diff -U0 upstream/$BRANCH ${PADDLE_ROOT}/${CHANGE_FILE} | grep "+" | grep "check_auto_parallel=" || true`
         if [ "${ALL_OPTEST_BAN_AUTO_PARALLEL_TEST}" != "" ] && [ "${GIT_PR_ID}" != "" ]; then
+            export FLAGS_COVERAGE_RUN_AUTO_PARALLEL_IN_OP_TEST=1
             echo "FLAGS_COVERAGE_RUN_AUTO_PARALLEL_IN_OP_TEST=1" >> $1
+            echo "FLAGS_COVERAGE_RUN_AUTO_PARALLEL_IN_OP_TEST=1" >> "$HOME/.bashrc"
         fi
     done
 }
 
-echo "::group::ldconfig"
+
+unset GREP_OPTIONS
+echo "alias grep='grep --color=auto'" >> "$HOME/.bashrc"
+
 ldconfig
-echo "::endgroup::"
+
 echo "export PATH=/usr/local/bin:\${PATH}" >> ~/.bashrc
 # echo "export LD_LIBRARY_PATH=/usr/local/cuda-12.0/compat:\$LD_LIBRARY_PATH" >> ~/.bashrc
 source ~/.bashrc
 ln -sf $(which python3.9) /usr/local/bin/python
 ln -sf $(which pip3.9) /usr/local/bin/pip
+
+echo "::group::Install zstd"
 apt install zstd -y
+echo "::endgroup::"
 pip config set global.cache-dir "/root/.cache/pip"
 pip install --upgrade pip
 echo "::group::Install dependencies"

@@ -65,6 +65,7 @@ EOF
         # github action env variable
         if [ -n "$2" ]; then
             echo "buildSize=${buildSize}" >> $2
+            echo "buildSize=${buildSize}" >> "$HOME/.bashrc"
         fi
 
         echo "Build Size: $buildSize"
@@ -706,6 +707,13 @@ function card_test() {
             fi
         done
         tmpfile=$tmp_dir/$tmpfile_rand"_"$i
+
+
+
+        nvidia-smi
+
+
+
         if [ ${TESTING_DEBUG_MODE:-OFF} == "ON" ] ; then
             if [[ $cardnumber == $CUDA_DEVICE_COUNT ]]; then
                 (ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} -V --timeout 120 -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &

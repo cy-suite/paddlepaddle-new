@@ -220,7 +220,8 @@ jobs:
         rm -rf * .[^.]*
         set -e
         echo "Downloading Paddle.tar.gz"
-        wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/coverage_paddle/${PR_ID}/${COMMIT_ID}/Paddle.tar.gz --no-check-certificate
+        # wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/coverage_paddle/${PR_ID}/${COMMIT_ID}/Paddle.tar.gz --no-check-certificate
+        wget -q --no-proxy https://paddle-github-action.bj.bcebos.com/PR/coverage_paddle/71611/f8833ef3eff510c1f7b138284a5aff79b31cd9a1/Paddle.tar.gz --no-check-certificate
         echo "Extracting Paddle.tar.gz"
         tar  --use-compress-program='pzstd -1' -xpf Paddle.tar.gz --strip-components=1
         rm Paddle.tar.gz
@@ -300,6 +301,11 @@ jobs:
     - name: Test
       run: |
         docker exec -t ${{ env.container_name }} /bin/bash -c '
+
+
+        nvidia-smi
+
+
         . ../../../proxy
         bash $ci_scripts/coverage_test.sh ${{ github.env }}
         '
