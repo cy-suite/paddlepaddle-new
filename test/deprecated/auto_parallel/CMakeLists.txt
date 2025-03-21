@@ -37,10 +37,6 @@ if(WITH_DISTRIBUTE AND WITH_GPU)
                   test_random_ctrl_deprecated)
   set_tests_properties(test_random_ctrl_deprecated
                        PROPERTIES LABELS "RUN_TYPE=EXCLUSIVE" TIMEOUT 50)
-  py_test_modules(test_pipeline_scheduler_vpp_deprecated MODULES
-                  test_pipeline_scheduler_vpp_deprecated)
-  set_tests_properties(test_pipeline_scheduler_vpp_deprecated
-                       PROPERTIES LABELS "RUN_TYPE=EXCLUSIVE" TIMEOUT 50)
   py_test_modules(test_pipeline_scheduler_zb_deprecated MODULES
                   test_pipeline_scheduler_zb_deprecated)
   set_tests_properties(test_pipeline_scheduler_zb_deprecated
@@ -153,10 +149,6 @@ if(WITH_DISTRIBUTE AND WITH_GPU)
                   test_dist_concat_deprecated)
   py_test_modules(test_dist_context_deprecated MODULES
                   test_dist_context_deprecated)
-  py_test_modules(test_pipeline_scheduler_zb_vpp_deprecated MODULES
-                  test_pipeline_scheduler_zb_vpp_deprecated)
-  set_tests_properties(test_pipeline_scheduler_zb_vpp_deprecated
-                       PROPERTIES LABELS "RUN_TYPE=EXCLUSIVE" TIMEOUT 100)
   py_test_modules(test_mp_allreduce_matmul_grad_overlapping_deprecated MODULES
                   test_mp_allreduce_matmul_grad_overlapping_deprecated)
   set_tests_properties(test_mp_allreduce_matmul_grad_overlapping_deprecated
