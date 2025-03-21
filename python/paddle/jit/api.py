@@ -18,7 +18,6 @@ from __future__ import annotations
 import inspect
 import os
 import pickle
-import platform
 import sys
 import threading
 import types
@@ -66,7 +65,6 @@ from paddle.framework import use_pir_api
 from paddle.nn import Layer
 from paddle.static.io import save_inference_model
 from paddle.utils.environments import (
-    BooleanEnvironmentVariable,
     EnvironmentVariableGuard,
 )
 
@@ -74,13 +72,16 @@ from .dy2static import logging_utils
 from .dy2static.convert_call_func import ConversionOptions, add_ignore_module
 from .dy2static.program_translator import (
     ASTStaticFunction,
-    Backend,
     ProgramTranslator,
     StaticFunction,
     SymbolicStaticFunction,
     unwrap_decorators,
 )
-from .dy2static.utils import cinn_is_enabled
+from .dy2static.utils import (
+    ENV_ENABLE_SOT,
+    Backend,
+    infer_use_cinn_backend,
+)
 from .pir_translated_layer import PIR_INFER_MODEL_SUFFIX, PirTranslatedLayer
 from .translated_layer import (
     INFER_MODEL_SUFFIX,
@@ -108,12 +109,6 @@ if TYPE_CHECKING:
     class _LoadOptions(TypedDict):
         model_filename: NotRequired[str]
         params_filename: NotRequired[str]
-
-
-ENV_ENABLE_SOT = BooleanEnvironmentVariable("ENABLE_FALL_BACK", True)
-ENV_ENABLE_CINN_IN_DY2ST = BooleanEnvironmentVariable(
-    "ENABLE_CINN_IN_DY2ST", True
-)
 
 
 _LayerT = TypeVar("_LayerT", bound=Layer)
@@ -173,30 +168,6 @@ def ignore_module(modules: list[ModuleType]) -> None:
 
     """
     add_ignore_module(modules)
-
-
-def _infer_use_cinn_backend(backend, build_strategy):
-    if not _cinn_is_available():
-        return False
-    if not ENV_ENABLE_CINN_IN_DY2ST.get():
-        return False
-    if not cinn_is_enabled(build_strategy, backend):
-        return False
-    return True
-
-
-def _cinn_is_available():
-    if not paddle.is_compiled_with_cinn():
-        return False
-    if not paddle.is_compiled_with_cuda():
-        return False
-    if not isinstance(
-        paddle.framework._current_expected_place_(), paddle.base.core.CUDAPlace
-    ):
-        return False
-    if platform.system() != "Linux":
-        return False
-    return True
 
 
 class _ToStaticOptions(TypedDict):
@@ -303,7 +274,7 @@ def to_static(
     property = kwargs.get("property", False)
     full_graph = kwargs.get("full_graph", None)
     backend = Backend.from_arg(backend)
-    if not _infer_use_cinn_backend(backend, build_strategy):
+    if not infer_use_cinn_backend(backend, build_strategy):
         backend = Backend.PHI
 
     build_strategy = build_strategy or BuildStrategy()

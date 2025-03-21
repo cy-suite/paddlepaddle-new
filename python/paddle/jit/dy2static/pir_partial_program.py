@@ -34,6 +34,7 @@ from paddle.pir import Value, fake_value, is_fake_value
 from .logging_utils import TranslatorLogger
 from .utils import (
     RETURN_NO_VALUE_MAGIC_NUM,
+    Backend,
     auto_layout_is_enabled,
     backend_guard,
     cse_is_enabled,
@@ -708,7 +709,7 @@ class PartialProgramLayer:
         # program_id -> list(scope)
         self._scope_cache = {}
         self._hookers = []
-        self._backend = kwargs['backend']
+        self._backend = kwargs.get('backend', Backend.PHI)
         self._grad_var_names = {}
 
     def __call__(self, inputs):

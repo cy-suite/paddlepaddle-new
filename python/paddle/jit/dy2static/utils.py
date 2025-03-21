@@ -20,6 +20,7 @@ import functools
 import importlib.util
 import inspect
 import os
+import platform
 import shutil
 import sys
 import tempfile
@@ -27,6 +28,7 @@ import textwrap
 import types
 import warnings
 from contextlib import contextmanager
+from enum import Enum, auto
 from importlib.machinery import SourceFileLoader
 from typing import TYPE_CHECKING, Any
 
@@ -40,6 +42,9 @@ from paddle.base.wrapped_decorator import signature_safe_contextmanager
 from paddle.framework import CUDAPinnedPlace
 from paddle.jit.utils import OrderedSet
 from paddle.utils import flatten, gast
+from paddle.utils.environments import (
+    BooleanEnvironmentVariable,
+)
 
 from .ast_utils import ast_to_source_code
 
@@ -73,6 +78,34 @@ NO_SHAPE_VAR_TYPE = [
     core.VarDesc.VarType.FEED_MINIBATCH,
     core.VarDesc.VarType.FETCH_LIST,
 ]
+
+ENV_ENABLE_SOT = BooleanEnvironmentVariable("ENABLE_FALL_BACK", True)
+ENV_ENABLE_CINN_IN_DY2ST = BooleanEnvironmentVariable(
+    "ENABLE_CINN_IN_DY2ST", True
+)
+
+
+class Backend(Enum):
+    CINN = auto()
+    PHI = auto()
+
+    @staticmethod
+    def from_arg(arg: str | Backend | None):
+        if isinstance(arg, Backend):
+            return arg
+        if arg is None:
+            return Backend.PHI
+        if arg.upper() == "CINN":
+            return Backend.CINN
+        raise ValueError(
+            f"Unknown backend {arg}. Only support 'CINN' or None for PHI."
+        )
+
+    def is_cinn(self):
+        return self == Backend.CINN
+
+    def is_phi(self):
+        return self == Backend.PHI
 
 
 def data_layer_not_check(name, shape, dtype='float32'):
@@ -669,6 +702,30 @@ def cinn_is_enabled(build_strategy, backend):
     if paddle.base.framework.in_cinn_mode():
         return True
     return False
+
+
+def infer_use_cinn_backend(backend, build_strategy):
+    if not cinn_is_available():
+        return False
+    if not ENV_ENABLE_CINN_IN_DY2ST.get():
+        return False
+    if not cinn_is_enabled(build_strategy, backend):
+        return False
+    return True
+
+
+def cinn_is_available():
+    if not paddle.is_compiled_with_cinn():
+        return False
+    if not paddle.is_compiled_with_cuda():
+        return False
+    if not isinstance(
+        paddle.framework._current_expected_place_(), paddle.base.core.CUDAPlace
+    ):
+        return False
+    if platform.system() != "Linux":
+        return False
+    return True
 
 
 def cse_is_enabled():
