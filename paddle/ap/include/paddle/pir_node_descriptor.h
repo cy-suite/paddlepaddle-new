@@ -15,6 +15,7 @@
 #pragma once
 
 #include <sstream>
+#include "paddle/ap/include/drr/drr_graph_descriptor.h"
 #include "paddle/ap/include/drr/node.h"
 #include "paddle/ap/include/drr/op_tensor_pattern_ctx_helper.h"
 #include "paddle/ap/include/drr/src_ptn_packed_ir_op_declare_data.h"
@@ -172,8 +173,44 @@ struct PirNodeDescriptor {
     return true;
   }
 
+  adt::Result<std::size_t> GetDrrNumInputs(
+      const drr::PackedIrOp<drr::Node>& drr_op) {
+    return ap::drr::DefaultDrrGraphDescriptor{}.GetNumInputs(drr_op);
+  }
+
+  adt::Result<std::size_t> GetDrrNumOutputs(
+      const drr::PackedIrOp<drr::Node>& drr_op) {
+    return ap::drr::DefaultDrrGraphDescriptor{}.GetNumOutputs(drr_op);
+  }
+
+  adt::Result<std::size_t> GetPirNumInputs(const PackedIrOp& pir_op) {
+    std::size_t size =
+        ap::paddle::GetUsedExternalValue(*pir_op.fusion_op).size();
+    return size;
+  }
+
+  adt::Result<std::size_t> GetPirNumOutputs(const PackedIrOp& pir_op) {
+    for (auto& op : *pir_op.fusion_op.block()) {
+      if (op.isa<pir::YieldOp>()) {
+        std::size_t size = op.num_operands();
+        return size;
+      }
+    }
+    return adt::errors::TypeError{"no cf.yield found in FusionOp"};
+  }
+
   adt::Result<bool> PackedOpAttrsSatisfy(
       const PackedIrOp& pir_op, const drr::PackedIrOp<drr::Node>& drr_op) {
+    ADT_LET_CONST_REF(drr_num_inputs, GetDrrNumInputs(drr_op));
+    ADT_LET_CONST_REF(pir_num_inputs, GetPirNumInputs(pir_op));
+    if (drr_num_inputs != pir_num_inputs) {
+      return false;
+    }
+    ADT_LET_CONST_REF(drr_num_outputs, GetDrrNumOutputs(drr_op));
+    ADT_LET_CONST_REF(pir_num_outputs, GetPirNumOutputs(pir_op));
+    if (drr_num_outputs != pir_num_outputs) {
+      return false;
+    }
     ADT_LET_CONST_REF(inner_source_pattern_satisfy,
                       PackedOpInnerSourcePatternSatisfy(pir_op, drr_op));
     if (!inner_source_pattern_satisfy) {
