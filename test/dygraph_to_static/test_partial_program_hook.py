@@ -67,7 +67,6 @@ class TestPrimHook(unittest.TestCase):
             program.forward_program,
             program.out_values,
         )
-        print(program.forward_program)
         self.assertNotIn(
             'pd_op.dropout',
             tuple(
