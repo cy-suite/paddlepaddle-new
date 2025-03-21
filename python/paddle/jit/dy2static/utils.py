@@ -797,6 +797,11 @@ def backend_guard(backend):
     if backend.is_cinn():
         guard_creators.append(lambda: prim_guard())
         guard_creators.append(
+            lambda: paddle.base.framework.flag_guard(
+                "FLAGS_prim_enable_dynamic", True
+            )
+        )
+        guard_creators.append(
             lambda: paddle.base.framework.flag_guard("FLAGS_use_cinn", True)
         )
 

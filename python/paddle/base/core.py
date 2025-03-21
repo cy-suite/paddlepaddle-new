@@ -560,11 +560,9 @@ def _enable_prim_skip_dynamic_shape():
 
 
 def _enable_prim_dynamic_shape():
-    flag = os.getenv("FLAGS_prim_enable_dynamic")
-    if flag and flag.lower() in ("1", "true"):
-        return True
-    else:
-        return False
+    from paddle.base.framework import get_flags
+
+    return get_flags("FLAGS_prim_enable_dynamic")["FLAGS_prim_enable_dynamic"]
 
 
 def _enable_dist_prim_all():
