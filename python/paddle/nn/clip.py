@@ -245,8 +245,10 @@ def _can_inplace_clip_grad(grad: Tensor, clip_input: Tensor):
         return False
 
     # 1. Inplace ops only support DistTensor and DenseTensor.
-    # 2. Inplace ops do not support 0-D tensor.
-    if (grad.is_dist() or grad.is_dense()) and len(grad.shape) != 0:
+    # 2. Inplace input should have the same shape after broadcast.
+    if (grad.is_dist() or grad.is_dense()) and paddle.broadcast_shape(
+        grad.shape, clip_input.shape
+    ) == grad.shape:
         return True
 
     return False
