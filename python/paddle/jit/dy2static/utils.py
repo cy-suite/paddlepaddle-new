@@ -694,7 +694,7 @@ def prim_or_cinn_is_enabled(build_strategy, backend):
 def cinn_is_enabled(build_strategy, backend):
     if backend.is_cinn():
         return True
-    if build_strategy is not None and build_strategy.build_cinn_pass:
+    if build_strategy.build_cinn_pass:
         warnings.warn(
             "Use `build_strategy.build_cinn_pass = True` to enable CINN is deprecated, please use `backend = 'CINN'` instead."
         )

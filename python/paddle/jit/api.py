@@ -273,15 +273,17 @@ def to_static(
     """
     property = kwargs.get("property", False)
     full_graph = kwargs.get("full_graph", None)
-    backend = Backend.from_arg(backend)
-    if not infer_use_cinn_backend(backend, build_strategy):
-        backend = Backend.PHI
-
     build_strategy = build_strategy or BuildStrategy()
     if not isinstance(build_strategy, BuildStrategy):
         raise TypeError(
             f"Required type(build_strategy) shall be `paddle.static.BuildStrategy`, but received {type(build_strategy).__name__}"
         )
+    backend = Backend.from_arg(backend)
+    backend = (
+        Backend.CINN
+        if infer_use_cinn_backend(backend, build_strategy)
+        else Backend.PHI
+    )
 
     def decorated(python_func):
         """
