@@ -26,7 +26,6 @@ from ..pass_base import register_pass
 from ..pass_utils import (
     _pir_program_for_vpp,
     _pir_split_matmul_grad_to_matmul,
-    split_matmul_grad_to_matmul,
 )
 from .pipeline_pass_base import PipelinePassBase
 
@@ -168,23 +167,6 @@ class PipelineVirtualPipelinePass(PipelinePassBase):
         opt_job = core.Job(OPT)
         job_list.append(opt_job)
         return job_list
-
-    def _split_matmul_grad_ops_to_matmul(self, program, dist_context):
-        for block in program.blocks:
-            matmul_grad_op_idx = []
-            ops = block.ops
-            for i, op_i in enumerate(ops):
-                if (
-                    op_i.type == "matmul_v2_grad"
-                    and not op_i.attr("trans_x")
-                    and not op_i.attr("trans_y")
-                ):
-                    matmul_grad_op_idx.append(i)
-
-            for matmul_grad_id in reversed(matmul_grad_op_idx):
-                split_matmul_grad_to_matmul(
-                    block, matmul_grad_id, dist_context=dist_context
-                )
 
     def _pir_split_matmul_grad_ops_to_matmul(self, program):
         for block in program.blocks:
