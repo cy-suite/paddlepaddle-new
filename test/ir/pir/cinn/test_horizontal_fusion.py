@@ -73,7 +73,7 @@ class TestHorizontalFusion(unittest.TestCase):
             y = paddle.rand((32, 1, 32, 128))
             return (x, y)
 
-        self.check_accuracy_and_kernel_num(init, func, kernel_num=1)
+        self.check_accuracy_and_kernel_num(init, func)
 
     def test_trivial_reduce_without_shared_inputs(self):
         def func(x, y):
@@ -86,7 +86,7 @@ class TestHorizontalFusion(unittest.TestCase):
             y = paddle.rand((128, 32, 16))
             return (x, y)
 
-        self.check_accuracy_and_kernel_num(init, func, kernel_num=1)
+        self.check_accuracy_and_kernel_num(init, func)
 
     def test_reduce_reduce_without_shared_inputs(self):
         def func(x, y):
@@ -99,7 +99,7 @@ class TestHorizontalFusion(unittest.TestCase):
             y = paddle.rand((128, 32, 16))
             return (x, y)
 
-        self.check_accuracy_and_kernel_num(init, func, kernel_num=1)
+        self.check_accuracy_and_kernel_num(init, func)
 
     def test_trivial_trivial_with_shared_inputs(self):
         def func(x):
