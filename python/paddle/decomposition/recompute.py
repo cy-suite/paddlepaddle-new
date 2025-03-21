@@ -503,6 +503,8 @@ def auto_recompute(
     def _ban_recomputation(value_node):
         recompute_level = os.getenv("FLAGS_recompute_level")
         if str(recompute_level).upper() in ("AGGRESSIVE"):
+            return value_node.get_defining_op().name() in random_ops
+        elif str(recompute_level).upper() in ("ENHANCED"):
             return value_node.get_defining_op().name() in unrecomputable_ops
         else:
             if value_node.get_defining_op().name() in tending_to_recompute_ops:
