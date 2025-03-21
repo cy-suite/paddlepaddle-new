@@ -171,42 +171,41 @@ jobs:
 
   #   - name: Upload coverage product
   #     if: steps.check-bypass.outputs.can_skip != 'true'
-    #   env:
-    #     home_path: ${{ github.workspace }}/..
-    #     bos_file: ${{ github.workspace }}/../bos/BosClient.py
-    #     paddle_whl: paddlepaddle_gpu-0.0.0-cp39-cp39-linux_x86_64.whl
-    #   working-directory: dist
-    #   run: |
-    #     docker exec -t ${{ env.container_name }} /bin/bash -c '
-    #     echo "==================================="
-    #     pwd
-    #     echo "::group::Install bce-python-sdk"
-    #     . ../../../proxy
-    #     python -m pip install bce-python-sdk==0.8.74
-    #     echo "::endgroup::"
-    #     export AK=paddle
-    #     export SK=paddle
-    #     if [ ! -f "${{ env.bos_file }}" ]; then
-    #       wget -q --no-proxy -O ${{ env.home_path }}/bos_new.tar.gz https://xly-devops.bj.bcebos.com/home/bos_new.tar.gz --no-check-certificate
-    #       mkdir ${{ env.home_path }}/bos
-    #       tar xf ${{ env.home_path }}/bos_new.tar.gz -C ${{ env.home_path }}/bos
-    #     fi
-    #     . ../../../unproxy
-    #     python ${{ env.bos_file }} coverage_build_size paddle-github-action/PR/coverage_build_size/${{ env.PR_ID }}/${{ env.COMMIT_ID }}
-    #     python ${{ env.bos_file }} ${{ env.paddle_whl }} paddle-github-action/PR/coverage_whl/${{ env.PR_ID }}/${{ env.COMMIT_ID }}
-    #     cd ${{ github.workspace }}/..
-    #     python ${{ env.bos_file }} Paddle.tar.gz paddle-github-action/PR/coverage_paddle/${{ env.PR_ID }}/${{ env.COMMIT_ID }}
-    #     rm Paddle.tar.gz
-    #     '
+  #     env:
+  #       home_path: ${{ github.workspace }}/..
+  #       bos_file: ${{ github.workspace }}/../bos/BosClient.py
+  #       paddle_whl: paddlepaddle_gpu-0.0.0-cp39-cp39-linux_x86_64.whl
+  #     working-directory: dist
+  #     run: |
+  #       docker exec -t ${{ env.container_name }} /bin/bash -c '
+  #       echo "==================================="
+  #       pwd
+  #       echo "::group::Install bce-python-sdk"
+  #       . ../../../proxy
+  #       python -m pip install bce-python-sdk==0.8.74
+  #       echo "::endgroup::"
+  #       export AK=paddle
+  #       export SK=paddle
+  #       if [ ! -f "${{ env.bos_file }}" ]; then
+  #         wget -q --no-proxy -O ${{ env.home_path }}/bos_new.tar.gz https://xly-devops.bj.bcebos.com/home/bos_new.tar.gz --no-check-certificate
+  #         mkdir ${{ env.home_path }}/bos
+  #         tar xf ${{ env.home_path }}/bos_new.tar.gz -C ${{ env.home_path }}/bos
+  #       fi
+  #       . ../../../unproxy
+  #       python ${{ env.bos_file }} coverage_build_size paddle-github-action/PR/coverage_build_size/${{ env.PR_ID }}/${{ env.COMMIT_ID }}
+  #       python ${{ env.bos_file }} ${{ env.paddle_whl }} paddle-github-action/PR/coverage_whl/${{ env.PR_ID }}/${{ env.COMMIT_ID }}
+  #       cd ${{ github.workspace }}/..
+  #       python ${{ env.bos_file }} Paddle.tar.gz paddle-github-action/PR/coverage_paddle/${{ env.PR_ID }}/${{ env.COMMIT_ID }}
+  #       rm Paddle.tar.gz
+  #       '
 
-    # - name: Terminate and delete the container
-    #   if: ${{ steps.check-bypass.outputs.can_skip != 'true' && always() }}
-    #   run: |
-    #     set +e
-    #     docker exec -t ${{ env.container_name }} /bin/bash -c 'rm -rf * .[^.]*'
-    #     docker stop ${{ env.container_name }}
-    #     docker rm ${{ env.container_name }}
-
+  #   - name: Terminate and delete the container
+  #     if: ${{ steps.check-bypass.outputs.can_skip != 'true' && always() }}
+  #     run: |
+  #       set +e
+  #       docker exec -t ${{ env.container_name }} /bin/bash -c 'rm -rf * .[^.]*'
+  #       docker stop ${{ env.container_name }}
+  #       docker rm ${{ env.container_name }
   test:
     name: Coverage test
     needs: build
