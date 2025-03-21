@@ -63,7 +63,6 @@ class TestPrimHook(unittest.TestCase):
     def test_before_append_backward(self):
         program = self.partial_program_layer.program
 
-        print(program.forward_program)
         self._hook.before_append_backward(
             program.forward_program,
             program.out_values,
