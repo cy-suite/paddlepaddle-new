@@ -20,6 +20,7 @@ import os
 import threading
 import warnings
 import weakref
+from enum import Enum, auto
 from typing import TYPE_CHECKING, Any, Callable, Generic, TypeVar
 
 from typing_extensions import ParamSpec, Self
@@ -87,6 +88,29 @@ __all__ = []
 MAX_TRACED_PROGRAM_COUNT = 10
 
 CONVERSION_OPTIONS = "__jst_not_to_static"
+
+
+class Backend(Enum):
+    CINN = auto()
+    PHI = auto()
+
+    @staticmethod
+    def from_arg(arg: str | Backend | None):
+        if isinstance(arg, Backend):
+            return arg
+        if arg is None:
+            return Backend.PHI
+        if arg.upper() == "CINN":
+            return Backend.CINN
+        raise ValueError(
+            f"Unknown backend {arg}. Only support 'CINN' or None for PHI."
+        )
+
+    def is_cinn(self):
+        return self == Backend.CINN
+
+    def is_phi(self):
+        return self == Backend.PHI
 
 
 def synchronized(func):
@@ -1665,8 +1689,8 @@ class ProgramCache:
                     partial_program.set_hooker(
                         PrimHooker(concrete_program.main_program, backend)
                     )
-        if use_pir_api() and core._enable_auto_recompute():
-            partial_program.add_hooker(PirAutoRecomputeHooker())
+            if use_pir_api() and core._enable_auto_recompute():
+                partial_program.add_hooker(PirAutoRecomputeHooker())
         return concrete_program, partial_program
 
     def __getitem__(self, item):

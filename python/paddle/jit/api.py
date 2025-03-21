@@ -18,6 +18,7 @@ from __future__ import annotations
 import inspect
 import os
 import pickle
+import platform
 import sys
 import threading
 import types
@@ -73,11 +74,13 @@ from .dy2static import logging_utils
 from .dy2static.convert_call_func import ConversionOptions, add_ignore_module
 from .dy2static.program_translator import (
     ASTStaticFunction,
+    Backend,
     ProgramTranslator,
     StaticFunction,
     SymbolicStaticFunction,
     unwrap_decorators,
 )
+from .dy2static.utils import cinn_is_enabled
 from .pir_translated_layer import PIR_INFER_MODEL_SUFFIX, PirTranslatedLayer
 from .translated_layer import (
     INFER_MODEL_SUFFIX,
@@ -108,6 +111,9 @@ if TYPE_CHECKING:
 
 
 ENV_ENABLE_SOT = BooleanEnvironmentVariable("ENABLE_FALL_BACK", True)
+ENV_ENABLE_CINN_IN_DY2ST = BooleanEnvironmentVariable(
+    "ENABLE_CINN_IN_DY2ST", True
+)
 
 
 _LayerT = TypeVar("_LayerT", bound=Layer)
@@ -169,17 +175,28 @@ def ignore_module(modules: list[ModuleType]) -> None:
     add_ignore_module(modules)
 
 
-def _check_and_set_backend(backend, build_strategy):
-    if build_strategy.build_cinn_pass:
-        warnings.warn(
-            "Use `build_strategy.build_cinn_pass` to enable CINN is deprecated, please use `backend` instead."
-        )
-    if backend not in ['CINN', None]:
-        raise ValueError(
-            f"The backend of to_static should be 'CINN' or None, but received {backend}."
-        )
-    if backend == 'CINN':
-        build_strategy.build_cinn_pass = True
+def _infer_use_cinn_backend(backend, build_strategy):
+    if not _cinn_is_available():
+        return False
+    if not ENV_ENABLE_CINN_IN_DY2ST.get():
+        return False
+    if not cinn_is_enabled(build_strategy, backend):
+        return False
+    return True
+
+
+def _cinn_is_available():
+    if not paddle.is_compiled_with_cinn():
+        return False
+    if not paddle.is_compiled_with_cuda():
+        return False
+    if not isinstance(
+        paddle.framework._current_expected_place_(), paddle.base.core.CUDAPlace
+    ):
+        return False
+    if platform.system() != "Linux":
+        return False
+    return True
 
 
 class _ToStaticOptions(TypedDict):
@@ -285,6 +302,15 @@ def to_static(
     """
     property = kwargs.get("property", False)
     full_graph = kwargs.get("full_graph", None)
+    backend = Backend.from_arg(backend)
+    if not _infer_use_cinn_backend(backend, build_strategy):
+        backend = Backend.PHI
+
+    build_strategy = build_strategy or BuildStrategy()
+    if not isinstance(build_strategy, BuildStrategy):
+        raise TypeError(
+            f"Required type(build_strategy) shall be `paddle.static.BuildStrategy`, but received {type(build_strategy).__name__}"
+        )
 
     def decorated(python_func):
         """
@@ -322,13 +348,6 @@ def to_static(
         )
 
         return static_layer
-
-    build_strategy = build_strategy or BuildStrategy()
-    if not isinstance(build_strategy, BuildStrategy):
-        raise TypeError(
-            f"Required type(build_strategy) shall be `paddle.static.BuildStrategy`, but received {type(build_strategy).__name__}"
-        )
-    _check_and_set_backend(backend, build_strategy)
 
     # for usage: `to_static(foo, ...)`
     if function is not None:

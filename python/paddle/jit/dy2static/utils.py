@@ -25,6 +25,7 @@ import sys
 import tempfile
 import textwrap
 import types
+import warnings
 from contextlib import contextmanager
 from importlib.machinery import SourceFileLoader
 from typing import TYPE_CHECKING, Any
@@ -658,9 +659,12 @@ def prim_or_cinn_is_enabled(build_strategy, backend):
 
 
 def cinn_is_enabled(build_strategy, backend):
-    if backend == 'CINN':
+    if backend.is_cinn():
         return True
     if build_strategy is not None and build_strategy.build_cinn_pass:
+        warnings.warn(
+            "Use `build_strategy.build_cinn_pass = True` to enable CINN is deprecated, please use `backend = 'CINN'` instead."
+        )
         return True
     if paddle.base.framework.in_cinn_mode():
         return True
@@ -705,19 +709,42 @@ def is_builtin(func, name=None):
         return False
 
 
-@signature_safe_contextmanager
-def backend_guard(backend):
-    core.check_and_set_prim_all_enabled()
+def compose_guards(*guard_creators):
+    @contextmanager
+    def composed_guard():
+        if not guard_creators:
+            yield
+            return
+        with guard_creators[0]():
+            with compose_guards(*guard_creators[1:])():
+                yield
+
+    return composed_guard
+
+
+@contextmanager
+def prim_guard():
     origin_fwd = core._is_fwd_prim_enabled()
     origin_bwd = core._is_bwd_prim_enabled()
-
-    if backend == 'CINN':
-        core._set_prim_all_enabled(True)
+    core._set_prim_all_enabled(True)
     try:
         yield
     finally:
         core._set_prim_forward_enabled(origin_fwd)
         core._set_prim_backward_enabled(origin_bwd)
+
+
+@contextmanager
+def backend_guard(backend):
+    guard_creators = []
+    if backend.is_cinn():
+        guard_creators.append(lambda: prim_guard())
+        guard_creators.append(
+            lambda: paddle.base.framework.flag_guard("FLAGS_use_cinn", True)
+        )
+
+    with compose_guards(*guard_creators)():
+        yield
 
 
 def construct_grad_names(grad_info_map, x_vars, param_vars, out_vars):

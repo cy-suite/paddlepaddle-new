@@ -36,7 +36,6 @@ from .utils import (
     RETURN_NO_VALUE_MAGIC_NUM,
     auto_layout_is_enabled,
     backend_guard,
-    cinn_is_enabled,
     cse_is_enabled,
 )
 
@@ -709,7 +708,7 @@ class PartialProgramLayer:
         # program_id -> list(scope)
         self._scope_cache = {}
         self._hookers = []
-        self._backend = kwargs.get('backend', None)
+        self._backend = kwargs['backend']
         self._grad_var_names = {}
 
     def __call__(self, inputs):
@@ -805,13 +804,11 @@ class PartialProgramLayer:
                 apply_general_passes(
                     forward_program,
                     enable_cse=cse_is_enabled(),
-                    enable_delete_assert_op=cinn_is_enabled(
-                        self._build_strategy, self._backend
-                    ),
+                    enable_delete_assert_op=self._backend.is_cinn(),
                 )
 
                 # if-else pass
-                if cinn_is_enabled(self._build_strategy, self._backend):
+                if self._backend.is_cinn():
                     paddle.base.libpaddle.pir.apply_cinn_pass(forward_program)
                 else:
                     paddle.base.libpaddle.pir.check_infer_symbolic_if_need(
@@ -898,18 +895,14 @@ class PartialProgramLayer:
                 apply_general_passes(
                     forward_program,
                     enable_cse=cse_is_enabled(),
-                    enable_delete_assert_op=cinn_is_enabled(
-                        self._build_strategy, self._backend
-                    ),
+                    enable_delete_assert_op=self._backend.is_cinn(),
                 )
                 apply_general_passes(
                     backward_program,
                     enable_cse=cse_is_enabled(),
-                    enable_delete_assert_op=cinn_is_enabled(
-                        self._build_strategy, self._backend
-                    ),
+                    enable_delete_assert_op=self._backend.is_cinn(),
                 )
-                if cinn_is_enabled(self._build_strategy, self._backend):
+                if self._backend.is_cinn():
                     paddle.base.libpaddle.pir.apply_cinn_pass(forward_program)
                     init_backward_program_shape_analysis(
                         forward_program, backward_program
@@ -955,11 +948,13 @@ class PartialProgramLayer:
 
     @cached_property
     def train_program(self) -> RunnableProgram:
-        return self._create_program()
+        with backend_guard(self._backend):
+            return self._create_program()
 
     @cached_property
     def infer_program(self) -> RunnableProgram:
-        return self._create_program(is_infer_mode=True)
+        with backend_guard(self._backend):
+            return self._create_program(is_infer_mode=True)
 
     def _verify_program(self, main_program, outputs):
         """
@@ -1085,13 +1080,13 @@ class PartialProgramLayer:
         )
 
         # construct a runnable program.
-        fused_bn_add_act_pass = FullGraphPreProcessPass(
+        full_graph_pre_process_pass = FullGraphPreProcessPass(
             [inputs, params, targets, x_grad_value, p_grad_value, o_grad_value],
-            cinn_is_enabled(self._build_strategy, self._backend),
+            self._backend.is_cinn(),
         )
         forward_index_pass = IndicesPreservePass(
             [forward_end_idx, backward_start_op_index, backward_end_op_index],
-            fused_bn_add_act_pass,
+            full_graph_pre_process_pass,
         )
 
         program = forward_index_pass(program)
@@ -1102,7 +1097,7 @@ class PartialProgramLayer:
             x_grad_value,
             p_grad_value,
             o_grad_value,
-        ) = fused_bn_add_act_pass.values
+        ) = full_graph_pre_process_pass.values
         (
             forward_end_idx,
             backward_start_op_index,
