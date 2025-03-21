@@ -15,7 +15,10 @@
 import tempfile
 import unittest
 
-import xpu.test_dist_base as test_base
+import xpu.test_dist_base_xpu as test_base
+
+import paddle
+from paddle import core
 
 
 class TestShardingParallelAPI(test_base.CommunicationTestDistBase):
@@ -50,6 +53,10 @@ class TestShardingParallelAPI(test_base.CommunicationTestDistBase):
             "FLAGS_auto_parallel_align_mode": ["1"],
         }
 
+    @unittest.skipIf(
+        not core.is_compiled_with_xpu() or paddle.device.xpu.device_count() < 2,
+        "run test when having at least 2 XPUs.",
+    )
     def test_simple_net_dp2(self):
         envs_list = test_base.gen_product_envs_list(
             self._default_envs, self._changeable_envs
@@ -99,6 +106,10 @@ class TestTensorParallelAPI(test_base.CommunicationTestDistBase):
             "FLAGS_auto_parallel_align_mode": ["1"],
         }
 
+    @unittest.skipIf(
+        not core.is_compiled_with_xpu() or paddle.device.xpu.device_count() < 2,
+        "run test when having at least 2 XPUs.",
+    )
     def test_simple_net_mp2(self):
         envs_list = test_base.gen_product_envs_list(
             self._default_envs, self._changeable_envs
@@ -117,7 +128,7 @@ class TestTensorParallelAPI(test_base.CommunicationTestDistBase):
             ckpt_path = tempfile.TemporaryDirectory()
             envs["ckpt_path"] = ckpt_path.name
             self.run_test_case(
-                "parallel_api.py",
+                "parallel_api_xpu.py",
                 user_defined_envs=envs,
             )
             ckpt_path.cleanup()
