@@ -46,6 +46,7 @@ class TensorRTBaseTest(unittest.TestCase):
         self.dynamic_shape_data = {}
         self.disable_passes = [
             "constant_folding_pass",
+            "dead_code_elimination_pass",
         ]
 
     def create_fake_program(self):

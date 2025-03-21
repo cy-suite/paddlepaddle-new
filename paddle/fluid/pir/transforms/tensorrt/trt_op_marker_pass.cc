@@ -126,6 +126,7 @@ DEFINE_GENERAL_PATTERN(Asin, paddle::dialect::AsinOp)
 DEFINE_GENERAL_PATTERN(Acos, paddle::dialect::AcosOp)
 DEFINE_GENERAL_PATTERN(Atan, paddle::dialect::AtanOp)
 DEFINE_GENERAL_PATTERN(ShuffleChannel, paddle::dialect::ShuffleChannelOp)
+DEFINE_GENERAL_PATTERN(Meshgrid, paddle::dialect::MeshgridOp)
 
 #undef DEFINE_GENERAL_PATTERN
 
@@ -3020,6 +3021,7 @@ class TrtOpMarkerPass : public pir::PatternRewritePass {
     ADD_PATTERN(Acos)
     ADD_PATTERN(Atan)
     ADD_PATTERN(ShuffleChannel)
+    ADD_PATTERN(Meshgrid)
 #if IS_TRT_VERSION_GE(8600)
     ADD_PATTERN(Layer_norm)
 #endif
