@@ -17,13 +17,13 @@ import sys
 
 import numpy as np
 
-sys.path.append("../")
-from auto_parallel.hybrid_strategy.parallel_api import (
+sys.path.append("../auto_parallel/hybrid_strategy")
+from parallel_api import (
     RandomDataset,
     TestParallelAPI,
     get_mesh,
 )
-from auto_parallel.hybrid_strategy.single_llama_model import (
+from single_llama_model import (
     LlamaForCausalLM,
     LlamaPretrainingCriterion,
 )
@@ -37,7 +37,7 @@ from paddle.io import BatchSampler, DataLoader
 class TestParallelOnXPU(TestParallelAPI):
     def __init__(self):
         self.test_name = os.getenv("test_name")
-        super.__init__()
+        TestParallelAPI.__init__(self)
 
     def check_loss(self, loss):
         pretrained_loss = {}

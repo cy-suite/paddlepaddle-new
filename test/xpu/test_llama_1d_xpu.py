@@ -65,7 +65,7 @@ class TestShardingParallelAPI(test_base.CommunicationTestDistBase):
             ckpt_path = tempfile.TemporaryDirectory()
             envs["ckpt_path"] = ckpt_path.name
             self.run_test_case(
-                "parallel_api.py",
+                "parallel_api_xpu.py",
                 user_defined_envs=envs,
             )
             ckpt_path.cleanup()
