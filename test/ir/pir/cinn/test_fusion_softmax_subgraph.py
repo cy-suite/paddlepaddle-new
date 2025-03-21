@@ -19,8 +19,6 @@ import numpy
 
 os.environ['FLAGS_prim_all'] = 'true'
 os.environ['FLAGS_prim_enable_dynamic'] = 'true'
-
-
 os.environ['FLAGS_use_cinn'] = '1'
 
 from utils import check_jit_kernel_number

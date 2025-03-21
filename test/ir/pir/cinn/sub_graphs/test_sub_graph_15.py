@@ -22,10 +22,7 @@ from base import *  # noqa: F403
 from paddle.static import InputSpec
 
 os.environ['FLAGS_prim_all'] = 'true'
-
-
 os.environ['FLAGS_use_cinn'] = '1'
-# os.environ['GLOG_vmodule'] = 'op_lowering_impl=4'
 
 
 class LayerCase(paddle.nn.Layer):

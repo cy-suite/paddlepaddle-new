@@ -19,10 +19,7 @@ from os.path import dirname
 
 os.environ['FLAGS_prim_all'] = 'true'
 os.environ['FLAGS_prim_enable_dynamic'] = 'true'
-#
-
 os.environ['FLAGS_prim_forward_blacklist'] = 'pd_op.embedding'
-
 os.environ['FLAGS_use_cinn'] = '1'
 os.environ['FLAGS_dist_prim_all'] = '1'
 os.environ['FLAGS_enable_auto_recompute'] = '1'

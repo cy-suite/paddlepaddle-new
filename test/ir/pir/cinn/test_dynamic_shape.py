@@ -20,8 +20,6 @@ import numpy
 
 os.environ['FLAGS_prim_all'] = 'true'
 os.environ['FLAGS_prim_enable_dynamic'] = 'true'
-
-
 os.environ['FLAGS_use_cinn'] = '1'
 os.environ['FLAGS_deny_cinn_ops'] = 'slice;'
 
