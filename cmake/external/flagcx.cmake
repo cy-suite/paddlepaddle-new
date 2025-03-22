@@ -45,6 +45,15 @@ if(NOT COPY_LIB_RESULT EQUAL 0)
     message(FATAL_ERROR "Failed to copy lib to /usr/local")
 endif()
 
+message(STATUS "copying flagcx so to /usr/lib/x86_64-linux-gnu")
+execute_process(
+  COMMAND cp -r ${FLAGCX_BINARY_DIR}/build/lib/libflagcx.so /usr/lib/x86_64-linux-gnu
+  RESULT_VARIABLE COPY_LIB_RESULT_2
+)
+if(NOT COPY_LIB_RESULT_2 EQUAL 0)
+    message(FATAL_ERROR "Failed to copy lib to /usr/lib/x86_64-linux-gnu")
+endif()
+
 
 
 # set(FLAGCX_ROOT
