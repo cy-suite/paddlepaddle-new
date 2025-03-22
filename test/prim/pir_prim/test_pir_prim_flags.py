@@ -142,6 +142,16 @@ class TestPrimFlags(unittest.TestCase):
             {},
             (True, True, True),
         )
+        # Check envs and apis
+        self.check_prim_flags_under_subprocess(
+            [
+                "paddle.base.core._set_prim_all_enabled(False)",
+            ],
+            {
+                "FLAGS_prim_all": "True",
+            },
+            (False, False, False),
+        )
 
 
 class TestPrimBlacklistFlags(unittest.TestCase):
