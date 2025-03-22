@@ -1043,6 +1043,55 @@ def _pir_get_backward_op_type(all_ops, op_idx):
     return ["backward_w"]
 
 
+def _add_dependency(recorder_op, waiter_op, name):
+    '''
+    Add the extra event dependency of the two operators.
+    This function mainly aims for the cross-programs in pipeline parallelism,
+    especial for the 'send_v2' 'recv_v2' etc.
+    '''
+    if not recorder_op.has_attr("force_record_event"):
+        recorder_op.set_bool_attr("force_record_event", True)
+    recorder_op.set_str_attr("event_to_record", name)
+    waiter_op.set_str_array_attr("events_to_wait", [name])
+
+
+def _add_dependency_if_necessary(
+    type_to_ops, cur_job_type, next_job_type, op_idx, rst_idx, var_name
+):
+    if not (
+        ("backward" in cur_job_type and "send_backward" in next_job_type)
+        or ("recv_forward" in cur_job_type and "forward" in next_job_type)
+    ):
+        return
+
+    first_used_idx = None
+    first_used_op = None
+    for used_op in (
+        type_to_ops[next_job_type][op_idx].result(rst_idx).all_used_ops()
+    ):
+        used_idx = type_to_ops[next_job_type].index(used_op)
+        if first_used_idx is None or used_idx < first_used_idx:
+            first_used_idx = used_idx
+            first_used_op = used_op
+
+    if first_used_op is not None:
+        _add_dependency(
+            type_to_ops[cur_job_type][op_idx], first_used_op, var_name
+        )
+
+
+def _create_program_and_ops(program, job_type, chunk_id=None):
+    if chunk_id is not None:
+        program_name = f"{job_type}{chunk_id}"
+    else:
+        program_name = job_type
+
+    cloned_program = program.clone()
+    ops = cloned_program.global_block().ops
+
+    return program_name, cloned_program, ops
+
+
 def _split_program_for_vpp(
     program, num_model_chunks, oprole_names, split_bw=False
 ):
@@ -1100,7 +1149,7 @@ def _split_program_for_vpp(
                             )
 
                 _add_dependency_if_necessary(
-                    program_type, type, op_idx, idx, var_name
+                    type_to_ops, program_type, type, op_idx, idx, var_name
                 )
 
                 program_block = type_to_program[type].global_block()
@@ -1116,75 +1165,35 @@ def _split_program_for_vpp(
         for type in following_program_types:
             type_to_ops[type][op_idx].erase()
 
-    def _add_dependency(recorder_op, waiter_op, name):
-        '''
-        Add the extra event dependency of the two operators.
-        This function mainly aims for the cross-programs in pipeline parallelism,
-        especial for the 'send_v2' 'recv_v2' etc.
-        '''
-        if not recorder_op.has_attr("force_record_event"):
-            recorder_op.set_bool_attr("force_record_event", True)
-        recorder_op.set_str_attr("event_to_record", name)
-        waiter_op.set_str_array_attr("events_to_wait", [name])
-
-    def _add_dependency_if_necessary(
-        cur_job_type, next_job_type, op_idx, rst_idx, var_name
-    ):
-        if not (
-            ("backward" in cur_job_type and "send_backward" in next_job_type)
-            or ("recv_forward" in cur_job_type and "forward" in next_job_type)
-        ):
-            return
-
-        first_used_idx = None
-        first_used_op = None
-        for used_op in (
-            type_to_ops[next_job_type][op_idx].result(rst_idx).all_used_ops()
-        ):
-            used_idx = type_to_ops[next_job_type].index(used_op)
-            if first_used_idx is None or used_idx < first_used_idx:
-                first_used_idx = used_idx
-                first_used_op = used_op
-
-        if first_used_op is not None:
-            _add_dependency(
-                type_to_ops[cur_job_type][op_idx], first_used_op, var_name
-            )
-
     type_to_program = OrderedDict()
     type_to_ops = OrderedDict()
 
     # Step1: create programs and ops for each type
     if not split_bw:
         chunk_ids = list(range(num_model_chunks))
-        # Forward process: the recv and forward of each chunk are put together
+
+        # Forward process
         for chunk_id in chunk_ids:
-            type_to_program[f"recv_forward{chunk_id}"] = program.clone()
-            type_to_ops[f"recv_forward{chunk_id}"] = (
-                type_to_program[f"recv_forward{chunk_id}"].global_block().ops
-            )
+            for job_type in ["recv_forward", "forward"]:
+                name, prog, ops = _create_program_and_ops(
+                    program, job_type, chunk_id
+                )
+                type_to_program[name] = prog
+                type_to_ops[name] = ops
 
-            type_to_program[f"forward{chunk_id}"] = program.clone()
-            type_to_ops[f"forward{chunk_id}"] = (
-                type_to_program[f"forward{chunk_id}"].global_block().ops
-            )
-
-        # Reverse process: the backward and send of each chunk are put together
+        # Backward process
         for chunk_id in reversed(chunk_ids):
-            type_to_program[f"backward{chunk_id}"] = program.clone()
-            type_to_ops[f"backward{chunk_id}"] = (
-                type_to_program[f"backward{chunk_id}"].global_block().ops
-            )
+            for job_type in ["backward", "send_backward"]:
+                name, prog, ops = _create_program_and_ops(
+                    program, job_type, chunk_id
+                )
+                type_to_program[name] = prog
+                type_to_ops[name] = ops
 
-            type_to_program[f"send_backward{chunk_id}"] = program.clone()
-            type_to_ops[f"send_backward{chunk_id}"] = (
-                type_to_program[f"send_backward{chunk_id}"].global_block().ops
-            )
-
-        type_to_program["optimizer"] = program.clone()
-        type_to_ops["optimizer"] = (
-            type_to_program["optimizer"].global_block().ops
-        )
+        # Optimizer
+        name, prog, ops = _create_program_and_ops(program, "optimizer")
+        type_to_program[name] = prog
+        type_to_ops[name] = ops
     else:
         for type in oprole_names:
             if type == "optimizer":
