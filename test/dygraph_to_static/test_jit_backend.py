@@ -25,6 +25,9 @@ PRIM_DYNAMIC_FLAG_NAME = "FLAGS_prim_enable_dynamic"
 
 class TestJitBackend(unittest.TestCase):
     def test_cinn_backend(self):
+        # skip check if not compiled with CINN
+        if not paddle.is_compiled_with_cinn():
+            return
         with backend_guard(Backend.CINN):
             # Check all prim enabled
             self.assertTrue(core._is_fwd_prim_enabled())
@@ -34,13 +37,8 @@ class TestJitBackend(unittest.TestCase):
             # Check auto recompute enabled
             self.assertTrue(core._enable_auto_recompute())
             # Check CINN mode enabled and C++ flag has been switched
-            if (
-                paddle.is_compiled_with_cinn()  # skip check if not compiled with CINN
-            ):
-                self.assertTrue(paddle.base.framework.in_cinn_mode())
-                self.assertTrue(
-                    paddle.get_flags(CINN_FLAG_NAME)[CINN_FLAG_NAME]
-                )
+            self.assertTrue(paddle.base.framework.in_cinn_mode())
+            self.assertTrue(paddle.get_flags(CINN_FLAG_NAME)[CINN_FLAG_NAME])
 
     def test_phi_backend(self):
         with backend_guard(Backend.PHI):
