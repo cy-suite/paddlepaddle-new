@@ -158,7 +158,6 @@ CUSTOM_VJP = [
     'stack_grad',
     'swish_grad',
     'elu_grad',
-    'clip_grad',
     'swiglu_grad',
     'p_norm_grad',
 ]  # custom vjp list of composite op

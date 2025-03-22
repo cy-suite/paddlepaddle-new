@@ -1336,17 +1336,19 @@ void clip_grad(const Tensor& x,
                Tensor* x_grad) {
   if (x_grad) {
     Tensor mask_shape = shape64<T>(x);
-    Tensor min = reshape<T>(min, mask_shape);
-    if (min.dtype() != x.dtype()) {
-      min = cast<T>(min, x.dtype());
+    Tensor min_tensor = reshape<T>(min, mask_shape);
+    Tensor max_tensor = reshape<T>(max, mask_shape);
+
+    if (min_tensor.dtype() != x.dtype()) {
+      min_tensor = cast<T>(min_tensor, x.dtype());
     }
-    auto mask_min = greater_than<T>(x, min);
-    Tensor max = reshape<T>(max, mask_shape);
-    if (max.dtype() != x.dtype()) {
-      max = cast<T>(max, x.dtype());
+    if (max_tensor.dtype() != x.dtype()) {
+      max_tensor = cast<T>(max_tensor, x.dtype());
     }
-    auto mask_max = less_than<T>(x, max);
-    auto mask = mask_min + mask_max;
+
+    auto mask_gt = greater_than<T>(x, min);
+    auto mask_lt = less_than<T>(x, max);
+    auto mask = backend::logical_and<T>(mask_gt, mask_lt);
     auto res = cast<T>(mask, out_grad.dtype()) * out_grad;
     if (out_grad.dtype() != x.dtype()) {
       res = cast<T>(res, x.dtype());

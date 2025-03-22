@@ -91,5 +91,12 @@ std::vector<std::vector<paddle::Tensor>> fused_gemm_epilogue_vjp(
     const std::string& activation,
     const std::vector<std::vector<bool>>& stop_gradients);
 
+std::vector<std::vector<paddle::Tensor>> clip_vjp(
+    const Tensor& x,
+    const Tensor& out_grad,
+    const Tensor& min,
+    const Tensor& max,
+    const std::vector<std::vector<bool>>& stop_gradients);
+
 }  // namespace primitive
 }  // namespace paddle

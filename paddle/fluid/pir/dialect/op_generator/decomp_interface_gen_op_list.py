@@ -97,7 +97,6 @@ GENERATE_IMPL_VJP = [
     'angle_grad',
     'bce_loss_grad',
     'cos_grad',
-    'clip_grad',
     'divide_grad',
     'elementwise_pow_grad',
     'erf_grad',
@@ -140,7 +139,7 @@ GENERATE_IMPL_VJP = [
 ]
 
 # declare belongs to codegen, but implementation not
-MANUAL_IMPL_VJP = ["concat_grad", "stack_grad", 'slice_grad']
+MANUAL_IMPL_VJP = ["concat_grad", "stack_grad", 'slice_grad', 'clip_grad']
 
 decomp_vjp_interface_declare_gen_op_list = GENERATE_IMPL_VJP + MANUAL_IMPL_VJP
 

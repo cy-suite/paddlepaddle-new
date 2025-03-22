@@ -206,5 +206,32 @@ std::vector<std::vector<paddle::Tensor>> fused_gemm_epilogue_vjp(
   vjp_res = ConstructVjpResultByStopGradients(vjp_res, stop_gradients);
   return vjp_res;
 }
+std::vector<std::vector<paddle::Tensor>> clip_vjp(
+    const Tensor& x,
+    const Tensor& out_grad,
+    const Tensor& min,
+    const Tensor& max,
+    const std::vector<std::vector<bool>>& stop_gradients) {
+  std::vector<std::vector<paddle::Tensor>> vjp_res;
+  for (auto arg : stop_gradients) {
+    vjp_res.push_back(std::vector<paddle::Tensor>(arg.size()));
+  }
+  std::string op_name = "clip_grad";
+  auto need_skip =
+      paddle::prim::StaticCompositeContext::Instance().CheckSkipCompOps(
+          op_name);
 
+  if (paddle::prim::StaticCompositeContext::Instance().IsBwdPrimEnabled() &&
+      !need_skip) {
+    FLAGS_tensor_operants_mode = "static";
+    VLOG(4) << "Call Pir Decomposed backward op clip_grad";
+    paddle::Tensor* x_grad = !stop_gradients[0][0] ? &vjp_res[0][0] : nullptr;
+    details::clip_grad<LazyTensor>(x, out_grad, min, max, x_grad);
+  } else {
+    auto op_res = backend::clip_grad<LazyTensor>(x, out_grad, min, max);
+    vjp_res[0][0] = op_res;
+    vjp_res = ConstructVjpResultByStopGradients(vjp_res, stop_gradients);
+  }
+  return vjp_res;
+}
 }  // namespace paddle::primitive

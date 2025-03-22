@@ -347,5 +347,53 @@ std::vector<std::vector<pir::Value>> SliceGradOp::DecompVjp(
   return res;
 }
 
+std::vector<std::vector<pir::Value>> ClipGradOp::DecompVjp(pir::Operation* op) {
+  VLOG(4) << "Decomp call clip_grad's decomp interface begin";
+
+  ClipGradOp op_obj = op->dyn_cast<ClipGradOp>();
+  (void)op_obj;
+
+  FLAGS_tensor_operants_mode = "static";
+
+  VLOG(6) << "Decomp Prepare inputs of clip_grad";
+
+  Tensor x(std::make_shared<primitive::LazyTensor>(op_obj.x()));
+  Tensor out_grad(std::make_shared<primitive::LazyTensor>(op_obj.out_grad()));
+  Tensor min(std::make_shared<primitive::LazyTensor>(op_obj.min()));
+  Tensor max(std::make_shared<primitive::LazyTensor>(op_obj.max()));
+
+  VLOG(6) << "Decomp call clip_grad's backward composite rule prepare";
+
+  std::vector<std::vector<bool>> stop_gradients = ConstructStopGradient(op);
+
+  std::vector<std::vector<paddle::Tensor>> tensor_res;
+  for (auto arg : stop_gradients) {
+    tensor_res.push_back(std::vector<paddle::Tensor>(arg.size()));
+  }
+  std::string op_name = "clip_grad";
+  FLAGS_tensor_operants_mode = "static";
+  VLOG(4) << "Call Pir Decomposed backward op clip_grad";
+
+  paddle::Tensor* x_grad = !stop_gradients[0][0] ? &tensor_res[0][0] : nullptr;
+
+  paddle::primitive::details::clip_grad<primitive::LazyTensor>(
+      x, out_grad, min, max, x_grad);
+  std::vector<std::vector<pir::Value>> res(tensor_res.size());
+
+  for (size_t i = 0; i < tensor_res.size(); ++i) {
+    res[i].resize(tensor_res[i].size());
+    for (size_t j = 0; j < tensor_res[i].size(); ++j) {
+      if (tensor_res[i][j].defined()) {
+        res[i][j] = std::static_pointer_cast<primitive::LazyTensor>(
+                        tensor_res[i][j].impl())
+                        ->value();
+      }
+    }
+  }
+
+  VLOG(4) << "Decomp call clip_grad's decomp interface end";
+  return res;
+}
+
 }  // namespace dialect
 }  // namespace paddle
