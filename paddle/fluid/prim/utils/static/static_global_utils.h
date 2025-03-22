@@ -27,8 +27,8 @@
 #include "paddle/fluid/framework/operator.h"
 #include "paddle/fluid/framework/type_defs.h"
 
-PHI_DECLARE_bool(prim_forward);
-PHI_DECLARE_bool(prim_backward);
+COMMON_DECLARE_bool(prim_forward);
+COMMON_DECLARE_bool(prim_backward);
 
 namespace paddle {
 namespace prim {
