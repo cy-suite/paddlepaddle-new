@@ -97,6 +97,7 @@ GENERATE_IMPL_VJP = [
     'angle_grad',
     'bce_loss_grad',
     'cos_grad',
+    'clip_grad',
     'divide_grad',
     'elementwise_pow_grad',
     'erf_grad',

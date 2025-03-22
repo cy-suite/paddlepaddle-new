@@ -112,7 +112,31 @@ void relu_grad(const Tensor& out, const Tensor& out_grad, Tensor* x_grad) {
     set_output<T>(res, x_grad);
   }
 }
-
+template <typename T>
+void clip_grad(const Tensor& x,
+               const Tensor& out_grad,
+               const Tensor& min,
+               const Tensor& max,
+               Tensor* x_grad) {
+  if (x_grad) {
+    Tensor min = reshape<T>(min, common::vectorize(x.dims()));
+    if (min.dtype() != x.dtype()) {
+      min = cast<T>(min, x.dtype());
+    }
+    auto mask_min = greater_than<T>(x, min);
+    Tensor max = reshape<T>(max, common::vectorize(x.dims()));
+    if (max.dtype() != x.dtype()) {
+      max = cast<T>(max, x.dtype());
+    }
+    auto mask_max = less_than<T>(x, max);
+    auto mask = mask_min + mask_max;
+    auto res = cast<T>(mask, out_grad.dtype()) * out_grad;
+    if (out_grad.dtype() != x.dtype()) {
+      res = cast<T>(res, x.dtype());
+    }
+    set_output<T>(res, x_grad);
+  }
+}
 template <typename T>
 void softmax_grad(const Tensor& out,
                   const Tensor& out_grad,
