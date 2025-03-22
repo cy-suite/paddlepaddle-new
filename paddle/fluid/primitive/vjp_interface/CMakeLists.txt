@@ -5,5 +5,5 @@ set(VJP_SRCS
 cc_library(
   primitive_vjp_experimental
   SRCS ${VJP_SRCS}
-  DEPS primitive_backend_static_experimental static_global_utils
+  DEPS primitive_backend_static_experimental static_global_utils common
        primitive_static_utils_experimental op_dialect)
