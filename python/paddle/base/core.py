@@ -552,26 +552,38 @@ def _set_prim_backward_blacklist(*args):
     _set_bwd_prim_blacklist(new_ops)
 
 
-def _set_prim_backward_enabled(value, print_flag=False):
-    __set_bwd_prim_enabled(bool(value))
+def _set_prim_backward_enabled(value: bool, print_flag: bool = False):
+    assert isinstance(
+        value, bool
+    ), f"value should be bool, but got {type(value)}"
+    __set_bwd_prim_enabled(value)
     if _prim_return_log() or print_flag:
         print("backward prim enabled: ", bool(_is_bwd_prim_enabled()))
 
 
-def _set_prim_forward_enabled(value, print_flag=False):
-    __set_fwd_prim_enabled(bool(value))
+def _set_prim_forward_enabled(value: bool, print_flag: bool = False):
+    assert isinstance(
+        value, bool
+    ), f"value should be bool, but got {type(value)}"
+    __set_fwd_prim_enabled(value)
     if _prim_return_log() or print_flag:
         print("forward prim enabled: ", bool(_is_fwd_prim_enabled()))
 
 
-def set_prim_eager_enabled(value):
-    __set_eager_prim_enabled(bool(value))
-    if _prim_return_log():
+def set_prim_eager_enabled(value: bool, print_flag: bool = False):
+    assert isinstance(
+        value, bool
+    ), f"value should be bool, but got {type(value)}"
+    __set_eager_prim_enabled(value)
+    if _prim_return_log() or print_flag:
         print("eager prim enabled: ", bool(_is_eager_prim_enabled()))
 
 
-def _set_prim_all_enabled(value, print_flag=False):
-    __set_all_prim_enabled(bool(value))
+def _set_prim_all_enabled(value: bool, print_flag: bool = False):
+    assert isinstance(
+        value, bool
+    ), f"value should be bool, but got {type(value)}"
+    __set_all_prim_enabled(value)
     if _prim_return_log() or print_flag:
         print(
             "all prim enabled: ",
