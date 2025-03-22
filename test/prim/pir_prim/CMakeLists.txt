@@ -69,6 +69,7 @@ py_test_modules(
 
 set_tests_properties(test_auto_recompute PROPERTIES TIMEOUT 40)
 set_tests_properties(test_auto_recompute_dy2static PROPERTIES TIMEOUT 40)
+set_tests_properties(test_pir_prim_flags PROPERTIES TIMEOUT 60)
 
 set(TEST_PRIM_PURE_PIR_CINN test_prim_rms_norm_st_shape
                             test_prim_flags_check_ops)

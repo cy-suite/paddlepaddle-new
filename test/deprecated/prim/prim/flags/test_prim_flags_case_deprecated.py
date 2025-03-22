@@ -54,7 +54,7 @@ class TestPrimForwardAndBackward(unittest.TestCase):
         os.environ["FLAGS_prim_forward"] = "False"
         if os.getenv("FLAGS_prim_all"):
             del os.environ["FLAGS_prim_all"]
-        core.check_and_set_prim_all_enabled()
+        core.__check_and_set_prim_all_enabled()
 
     def train(self, use_cinn):
         net = PrimeNet()
