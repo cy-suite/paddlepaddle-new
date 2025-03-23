@@ -24,7 +24,7 @@ namespace phi {
 namespace dynload {
 
 extern std::once_flag flashattnv3_dso_flag;
-extern void* flashattnv3_dso_handle;
+extern void *flashattnv3_dso_handle;
 
 #define DYNAMIC_LOAD_FLASHATTN_V3_WRAP(__name)                            \
   struct DynLoad__##__name {                                              \
@@ -34,7 +34,7 @@ extern void* flashattnv3_dso_handle;
       std::call_once(flashattnv3_dso_flag, []() {                         \
         flashattnv3_dso_handle = phi::dynload::GetFlashAttnV3DsoHandle(); \
       });                                                                 \
-      static void* p_##__name = dlsym(flashattnv3_dso_handle, #__name);   \
+      static void *p_##__name = dlsym(flashattnv3_dso_handle, #__name);   \
       return reinterpret_cast<flashattnFunc>(p_##__name)(args...);        \
     }                                                                     \
   };                                                                      \
@@ -47,17 +47,23 @@ extern void* flashattnv3_dso_handle;
 #define FLASHATTN_V3_ROUTINE_EACH(__macro) \
   __macro(fa3_create_params_handle);       \
   __macro(fa3_destroy_fwd_params_handle);  \
+  __macro(fa3_create_bwd_params_handle);   \
+  __macro(fa3_destroy_bwd_params_handle);  \
+  __macro(fa3_cast_to_fwd_params_handle);  \
   __macro(fa3_run_mha_fwd_combine);        \
   __macro(fa3_run_mha_fwd);                \
+  __macro(fa3_run_mha_bwd);                \
   __macro(fa3_get_pagedkv_tma);            \
   __macro(fa3_get_pack_gqa);               \
   __macro(fa3_get_num_splits);
 
 FLASHATTN_V3_ROUTINE_EACH(DECLARE_DYNAMIC_LOAD_FLASHATTN_V3_WRAP)
 
-#define FLASHATTN_V3_HANDLE_ROUTINE(member)                        \
-  DECLARE_DYNAMIC_LOAD_FLASHATTN_V3_WRAP(fa3_params_get_##member); \
-  DECLARE_DYNAMIC_LOAD_FLASHATTN_V3_WRAP(fa3_params_set_##member);
+#define FLASHATTN_V3_HANDLE_ROUTINE(member)                            \
+  DECLARE_DYNAMIC_LOAD_FLASHATTN_V3_WRAP(fa3_params_get_##member);     \
+  DECLARE_DYNAMIC_LOAD_FLASHATTN_V3_WRAP(fa3_params_set_##member);     \
+  DECLARE_DYNAMIC_LOAD_FLASHATTN_V3_WRAP(fa3_bwd_params_get_##member); \
+  DECLARE_DYNAMIC_LOAD_FLASHATTN_V3_WRAP(fa3_bwd_params_set_##member);
 
 // The QKV matrices.
 FLASHATTN_V3_HANDLE_ROUTINE(q_ptr)
@@ -208,6 +214,50 @@ FLASHATTN_V3_HANDLE_ROUTINE(skip_scheduler_metadata_computation)
 
 FLASHATTN_V3_HANDLE_ROUTINE(arch)
 FLASHATTN_V3_HANDLE_ROUTINE(num_sm)
+
+#define FLASHATTN_V3_BWD_HANDLE_ROUTINE(type, member)                  \
+  DECLARE_DYNAMIC_LOAD_FLASHATTN_V3_WRAP(fa3_bwd_params_get_##member); \
+  DECLARE_DYNAMIC_LOAD_FLASHATTN_V3_WRAP(fa3_bwd_params_set_##member);
+
+// The dO and dQKV matrices.
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(void *, do_ptr)
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(void *, dq_ptr)
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(void *, dk_ptr)
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(void *, dv_ptr)
+
+// To accumulate dQ
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(void *, dq_accum_ptr)
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(void *, dk_accum_ptr)
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(void *, dv_accum_ptr)
+
+// // To accumulate dK and dV in case we're splitting the bwd along seqlen_q
+// dimension void *__restrict__ dk_accum_ptr; void *__restrict__
+// dv_accum_ptr;
+
+// The stride between rows of the dO, dQ, dK and dV matrices.
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(int64_t, do_batch_stride)
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(int64_t, do_row_stride)
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(int64_t, do_head_stride)
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(int64_t, dq_batch_stride)
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(int64_t, dk_batch_stride)
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(int64_t, dv_batch_stride)
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(int64_t, dq_row_stride)
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(int64_t, dk_row_stride)
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(int64_t, dv_row_stride)
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(int64_t, dq_head_stride)
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(int64_t, dk_head_stride)
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(int64_t, dv_head_stride)
+
+// The pointer to the softmax d sum.
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(void *, dsoftmax_sum)
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(void *, softmax_lse_log2_ptr)
+
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(int *, dq_semaphore)
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(int *, dk_semaphore)
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(int *, dv_semaphore)
+
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(bool, deterministic)
+FLASHATTN_V3_BWD_HANDLE_ROUTINE(int64_t, dq_accum_split_stride)
 #endif
 
 #undef DYNAMIC_LOAD_FLASHATTN_V3_WRAP
