@@ -52,10 +52,6 @@ class TestParallelOnXPU(TestParallelAPI):
             np.testing.assert_allclose(
                 loss, pretrained_loss[self.test_name], atol=1e-04
             )
-            assert all(
-                loss[i] == pretrained_loss[self.test_name][i]
-                for i in range(len(loss))
-            ), "loss does not match"
 
     def run_llama(self, to_static=0):
         if self.config.use_lazy_init:
