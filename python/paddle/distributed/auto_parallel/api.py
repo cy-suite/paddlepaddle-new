@@ -1061,6 +1061,23 @@ def shard_layer(
         )
 
 
+def _is_distributed_tensor(tensor) -> bool:
+    """
+    Check if an input is a dist_tensor.
+
+    Args:
+        tensor: The input to check
+
+    Returns:
+        bool: True if the input is a dist_tensor, False otherwise
+    """
+    return (
+        isinstance(tensor, paddle.Tensor)
+        and hasattr(tensor, 'is_dist')
+        and tensor.is_dist()
+    )
+
+
 class _ShardOptimizer(Optimizer):
     def __init__(self, optimizer, shard_fn=None, gradient_accumulation_steps=1):
         assert (

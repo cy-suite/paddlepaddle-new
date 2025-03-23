@@ -14,8 +14,7 @@
 from __future__ import annotations
 
 import functools
-from collections.abc import Sequence
-from typing import TYPE_CHECKING, Callable, Optional, Union
+from typing import TYPE_CHECKING, Callable
 
 import paddle
 import paddle.distributed as dist
@@ -26,80 +25,59 @@ if TYPE_CHECKING:
 
 __all__ = ["local_map"]
 
-PlacementType = Optional[Sequence[dist.Placement]]
-InputPlacements = Optional[tuple[PlacementType, ...]]
-OutputPlacements = Union[PlacementType, tuple[PlacementType, ...]]
-
 
 def local_map(
     func: Callable,
-    out_placements: OutputPlacements,
-    in_placements: InputPlacements | None,
+    out_placements: list[list[dist.Placement]],
+    in_placements: list[list[dist.Placement]] | None,
     process_mesh: ProcessMesh | None,
-    *,
-    redistribute_inputs: bool | None,
 ):
     """
-    :meth:`local_map` is an experimental API that allows users to pass dist_tensors
-    to a function that is written to be applied on ``paddle.Tensor`` s. It works by extracting
-    the local components of dist_tensors, calling the function, and wrapping the outputs
-    as dist_tensors according to the ``out_placements``.
+    The `local_map` API allows users to pass dist_tensors to a function that is written
+    to be applied on ``paddle.Tensor`` s. It works by extracting the local components
+    of dist_tensors, calling the function, and wrapping the outputs as dist_tensors
+    according to the ``out_placements``.
 
     Args:
         func (Callable): The function to be applied on each local shard of dist_tensors.
-        out_placements (Union[`PlacementType`, Tuple[`PlacementType`, ...]]):
-            The desired placements of the dist_tensors in ``func``'s flattened output.
-            If the flattened ``output`` is a single value, the ``out_placements`` should be
-            of type `PlacementType`. Otherwise if the flattened ``output`` has multiple
-            values, the ``out_placements`` should be a tuple of `PlacementType` values 1:1
-            mapping to the flattened ``output``.
-            For tensor output, we use `PlacementType` as its placements (a sequence of
-            `Placement` values). For non-tensor output, the `PlacementType` should be `None`.
-            Note that when no dist_tensor argument is passed in, even if `out_placements`
-            is not `None`, the result function will ignore the desired placements because
-            the function is not running with dist_tensors.
 
-        in_placements (Tuple[`PlacementType`, ...], optional):
-            The required placements of the dist_tensors in the flattened inputs of ``func``.
-            If ``in_placements`` is specified, :meth:`local_map` will examine whether the
-            placements of each dist_tensor argument matches the required placements.
-            If the placements don't match and ``redistribute_inputs`` is ``False``, an
-            exception will be raised. If ``redistribute_inputs`` is ``True``, the argument
-            will be first redistributed to the required placements before passing its local
-            tensor to ``func``.
-            The only exception is when required placements are not ``None`` and the argument
-            is a regular ``paddle.Tensor``. In this case, the placements check will be
-            skipped and the argument will be directly passed to ``func``.
-            If ``in_placements`` is ``None``, no placements check will be performed.
-            Default: None
+        out_placements (list[list[dist.Placement]]):
+            The desired placements for each output tensor. Must be a list where each element
+            is a list of Placement objects specifying the distribution strategy for that
+            output tensor. The length of the outer list must match the number of outputs
+            from ``func``. For non-tensor outputs, the corresponding placement must be None.
+            When there are no dist_tensor inputs, process_mesh must be specified to use
+            non-None placements.
 
-        process_mesh (:class:`ProcessMesh`, optional):
+        in_placements (Optional[list[list[dist.Placement]]]):
+            The required placements for each input tensor. If specified, must be a list
+            where each element is a list of Placement objects defining the distribution
+            strategy for that input tensor. The length of the outer list must match the
+            number of input tensors.
+
+        process_mesh (ProcessMesh, optional):
             The process mesh that all dist_tensors are placed on. If not specified,
             this will be inferred from the input dist_tensors' process mesh.
             local_map requires all dist_tensors to be placed on the same process mesh.
+            Must be specified when there are no dist_tensor inputs but out_placements
+            contains non-None values.
             Default: None
-
-        redistribute_inputs (bool, optional):
-            Whether to redistribute the input dist_tensors when their placements
-            don't match the required input placements. If this value is ``False`` and
-            some dist_tensor input has different placements, an exception will
-            be raised. Default: False
 
     Returns:
         A ``Callable`` that applies ``func`` to each local shard of the input dist_tensors
-        and returns a dist_tensor constructed from the return value of ``func``.
+        and returns dist_tensors constructed from the return values of ``func``.
 
     Raises:
-        AssertionError: If the input dist_tensor is not placed on the same process
-            mesh, or if they are placed on a different process mesh than the ``process_mesh``
-            argument passed in.
+        AssertionError: If the number of output placements does not match the number
+            of function outputs.
 
-        AssertionError: For any non-tensor output, we require its corresponding output
-            placement in ``out_placements`` be None. An AssertionError will be raised if
-            this is not the case.
+        AssertionError: If a non-tensor output has a non-None placement specified.
 
-        ValueError: If ``redistribute_inputs=False`` but the input dist_tensor needs
-            a redistribution according to ``in_placements``.
+        AssertionError: If process_mesh is None and there are no dist_tensor inputs
+            but out_placements contains non-None values.
+
+        ValueError: If the input dist_tensor placements don't match the required
+            in_placements.
 
     Example:
         >>> from __future__ import annotations
@@ -158,123 +136,89 @@ def local_map(
 
     def wrapped(process_mesh: ProcessMesh | None, *args, **kwargs):
         # Process input arguments
-        flat_args = flatten(args)
+        flat_dist_args = flatten(args)
         if in_placements is not None:
-            assert len(in_placements) == len(flat_args), (
+            assert len(in_placements) == len(flat_dist_args), (
                 f"in_placements length {len(in_placements)} does not match "
-                f"number of input args {len(flat_args)}!"
+                f"number of input args {len(flat_dist_args)}!"
             )
 
-        # Assume all dist_tensors are on the same process mesh
         flat_local_args = []
         seen_dist_tensor = False
 
-        for idx, arg in enumerate(flat_args):
-            if _is_distributed_tensor(arg):
+        for idx, arg in enumerate(flat_dist_args):
+            if dist.auto_parallel.api._is_distributed_tensor(arg):
                 # TODO: the current code doesn't consider the uneven sharding case
                 # Need to think about what the consequence is when the input DTensor
                 # is uneven sharded.
+                dist_tensor = arg
                 if process_mesh is None:
-                    process_mesh = arg.process_mesh
+                    if paddle.in_dynamic_mode():
+                        process_mesh = dist_tensor.process_mesh
+                    else:
+                        process_mesh = dist_tensor.dist_attr().process_mesh
 
                 seen_dist_tensor = True
 
-                assert arg.process_mesh == process_mesh, (
-                    f"Mismatched process mesh for arg {arg}: "
-                    f"got {arg.process_mesh} but expected {process_mesh}!"
-                )
-
                 if in_placements is not None:
-                    spec = in_placements[idx]
-                    assert spec is not None, (
-                        f"Expected placements for dist_tensor input {arg} "
-                        f"but got {spec}!"
-                    )
-
-                    if not isinstance(spec, list):
-                        spec = [spec]
-
-                    if arg.placements != spec:
-                        if redistribute_inputs:
-                            # Redistribute to input placements
-                            arg = arg.redistribute(process_mesh, spec)
+                    in_placement = in_placements[idx]
+                    if in_placement is None:
+                        if paddle.in_dynamic_mode():
+                            in_placement = dist_tensor.placements
                         else:
-                            raise ValueError(
-                                f"Mismatched placements for arg {arg}: "
-                                f"got {arg.placements} but required {spec}! "
-                                "Set redistribute_inputs=True if redistribution "
-                                "is needed."
-                            )
-
-                local_arg = dist.auto_parallel.api.dtensor_to_local(
-                    arg, process_mesh, spec
+                            in_placement = dist_tensor.dist_attr().placements
+                local_tensor = dist.auto_parallel.api.dtensor_to_local(
+                    dist_tensor, process_mesh, in_placement
                 )
-                flat_local_args.append(local_arg)
+                flat_local_args.append(local_tensor)
             else:
-                if in_placements is not None and not isinstance(
-                    arg, paddle.Tensor
-                ):
-                    spec = in_placements[idx]
-                    assert spec is None, (
-                        f"Expected None placements for non-tensor input {arg} "
-                        f"but got {spec}!"
-                    )
                 flat_local_args.append(arg)
 
         local_args = pack_sequence_as(args, flat_local_args)
         out = func(*local_args, **kwargs)
-
+        original_out = out
         if seen_dist_tensor:
             flat_out = flatten(out)
-            out_placements_tuple = (
-                out_placements
-                if isinstance(out_placements, tuple)
-                else (out_placements,)
-            )
-
-            assert len(flat_out) == len(out_placements_tuple), (
+            assert len(flat_out) == len(out_placements), (
                 "local_map requires one PlacementType for each output value, "
-                f"got {len(out_placements_tuple)} placements but expected "
+                f"got {len(out_placements)} placements but expected "
                 f"{len(flat_out)}!"
             )
 
-            flat_dist_out = []
-            for out, spec in zip(flat_out, out_placements_tuple):
+            flat_dist_and_arg_out = []
+            for out, out_placement in zip(flat_out, out_placements):
                 if isinstance(out, paddle.Tensor):
-                    assert not _is_distributed_tensor(
+                    assert not dist.auto_parallel.api._is_distributed_tensor(
                         out
                     ), f"Expected dense tensor output but got {type(out)}: {out}"
 
-                    flat_dist_out.append(
+                    flat_dist_and_arg_out.append(
                         dist.auto_parallel.api.dtensor_from_local(
-                            out, process_mesh, spec
+                            out, process_mesh, out_placement
                         )
                     )
                 else:
-                    assert spec is None, (
+                    assert out_placement is None, (
                         f"Expected None placements for non-tensor output {out} "
-                        f"but got {spec}!"
+                        f"but got {out_placement}!"
                     )
-                    flat_dist_out.append(out)
-
-            return pack_sequence_as(out, flat_dist_out)
+                    flat_dist_and_arg_out.append(out)
+            return pack_sequence_as(original_out, flat_dist_and_arg_out)
         else:
-            return out
-
-    def _is_distributed_tensor(tensor) -> bool:
-        """
-        Check if an input is a dist_tensor.
-
-        Args:
-            tensor: The input to check
-
-        Returns:
-            bool: True if the input is a dist_tensor, False otherwise
-        """
-        return (
-            isinstance(tensor, paddle.Tensor)
-            and hasattr(tensor, 'is_dist')
-            and tensor.is_dist()
-        )
+            flat_out = flatten(out)
+            flat_dist_and_arg_out = []
+            for out, out_placement in zip(flat_out, out_placements):
+                if out_placement is not None:
+                    assert (
+                        process_mesh is not None
+                    ), "process_mesh must be specified when out_placements is not None"
+                    flat_dist_and_arg_out.append(
+                        dist.auto_parallel.api.dtensor_from_local(
+                            out, process_mesh, out_placement
+                        )
+                    )
+                else:
+                    flat_dist_and_arg_out.append(out)
+            return pack_sequence_as(original_out, flat_dist_and_arg_out)
 
     return functools.partial(wrapped, process_mesh)
