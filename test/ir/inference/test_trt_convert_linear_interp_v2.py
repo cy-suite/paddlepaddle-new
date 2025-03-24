@@ -52,13 +52,17 @@ class TrtConvertLinearInterpV2Test(TrtLayerAutoScanTest):
             for align_corners in [False, True]:
                 dics = [
                     {
+                        "OutSize": None,
+                        "SizeTensor": None,
+                        "Scale": None,
                         "data_layout": data_layout,
+                        "out_d": -1,
+                        "out_h": -1,
+                        "out_w": 288,
+                        "scale": [],
                         "interp_method": "linear",
                         "align_corners": align_corners,
                         "align_mode": 0,
-                        "scale": [],
-                        "out_h": -1,
-                        "out_w": -1,
                     }
                 ]
 
@@ -67,7 +71,6 @@ class TrtConvertLinearInterpV2Test(TrtLayerAutoScanTest):
                         "op_type": "linear_interp_v2",
                         "op_inputs": {
                             "X": ["input_data"],
-                            "Scale": ["input_scale"],
                         },
                         "op_outputs": {"Out": ["linear_interp_v2_output_data"]},
                         "op_attrs": dics[0],
@@ -77,11 +80,7 @@ class TrtConvertLinearInterpV2Test(TrtLayerAutoScanTest):
 
                 program_config = ProgramConfig(
                     ops=ops,
-                    weights={
-                        "input_scale": TensorConfig(
-                            data_gen=partial(generate_input2, dics)
-                        )
-                    },
+                    weights={},
                     inputs={
                         "input_data": TensorConfig(
                             data_gen=partial(generate_input1, dics)

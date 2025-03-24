@@ -69,6 +69,8 @@ class TrtConvertYoloBoxTest(TrtLayerAutoScanTest):
             [False, True],
             [0.5],
         ):
+            self.class_num = class_num
+            self.iou_aware = iou_aware
             dics = [
                 {
                     "class_num": class_num,
@@ -101,19 +103,19 @@ class TrtConvertYoloBoxTest(TrtLayerAutoScanTest):
                 ops=ops,
                 weights={},
                 inputs={
+                    "imgsize": TensorConfig(
+                        data_gen=partial(
+                            generate_input2,
+                            dics,
+                            batch,
+                        )
+                    ),
                     "yolo_box_input": TensorConfig(
                         data_gen=partial(
                             generate_input1,
                             dics,
                             batch,
                             class_num,
-                        )
-                    ),
-                    "imgsize": TensorConfig(
-                        data_gen=partial(
-                            generate_input2,
-                            dics,
-                            batch,
                         )
                     ),
                 },
@@ -123,29 +125,29 @@ class TrtConvertYoloBoxTest(TrtLayerAutoScanTest):
             yield program_config
 
     def generate_dynamic_shape(self, attrs):
-        if attrs[0]['iou_aware']:
-            channel = 3 * (attrs[0]['class_num'] + 6)
+        if self.iou_aware:
+            channel = 3 * (self.class_num + 6)
             self.dynamic_shape.min_input_shape = {
                 "yolo_box_input": [1, channel, 12, 12],
                 "imgsize": [1, 2],
             }
             self.dynamic_shape.max_input_shape = {
-                "yolo_box_input": [4, channel, 24, 24],
-                "imgsize": [4, 2],
+                "yolo_box_input": [1, channel, 24, 24],
+                "imgsize": [1, 2],
             }
             self.dynamic_shape.opt_input_shape = {
                 "yolo_box_input": [1, channel, 24, 24],
                 "imgsize": [1, 2],
             }
         else:
-            channel = 3 * (attrs[0]['class_num'] + 5)
+            channel = 3 * (self.class_num + 5)
             self.dynamic_shape.min_input_shape = {
                 "yolo_box_input": [1, channel, 12, 12],
                 "imgsize": [1, 2],
             }
             self.dynamic_shape.max_input_shape = {
-                "yolo_box_input": [4, channel, 24, 24],
-                "imgsize": [4, 2],
+                "yolo_box_input": [1, channel, 24, 24],
+                "imgsize": [1, 2],
             }
             self.dynamic_shape.opt_input_shape = {
                 "yolo_box_input": [1, channel, 24, 24],

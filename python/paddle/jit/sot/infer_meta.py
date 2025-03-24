@@ -222,8 +222,8 @@ class MetaInfo:
             value.stop_gradient,
             name,
             value.persistable,
-            value.type,
-            value.place,
+            None,  # type is not a unified attribute in dygraph and static mode.
+            None,  # We can't infer the right place in compile time.
             dist_info=dist_info,
         )
 
@@ -288,9 +288,8 @@ class VariableCreator(metaclass=Singleton):
         self.var_name_generator = UniqueNameGenerator(SOT_INFER_META_INNER_VAR)
 
     def gen_name(self, meta):
-        name = f"{meta.dtype}_{meta.stop_gradient}"
-        for l in meta.shape:
-            name += f"_{l}"
+        name = f"{meta.dtype}_{meta.stop_gradient}_"
+        name += "_".join(map(str, meta.shape))
         return name
 
     @property

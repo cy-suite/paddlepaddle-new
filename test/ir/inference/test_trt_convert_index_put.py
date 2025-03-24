@@ -80,14 +80,14 @@ class TrtConvertIndexPut(TrtLayerAutoScanTest):
                 ops=ops,
                 weights={},
                 inputs={
-                    "input_data1": TensorConfig(
-                        data_gen=partial(generate_input1)
+                    "input_data3": TensorConfig(
+                        data_gen=partial(generate_input3)
                     ),
                     "input_data2": TensorConfig(
                         data_gen=partial(generate_input2)
                     ),
-                    "input_data3": TensorConfig(
-                        data_gen=partial(generate_input3)
+                    "input_data1": TensorConfig(
+                        data_gen=partial(generate_input1)
                     ),
                 },
                 outputs=["output_data"],
@@ -103,8 +103,8 @@ class TrtConvertIndexPut(TrtLayerAutoScanTest):
                 "input_data3": [2],
             }
             self.dynamic_shape.max_input_shape = {
-                "input_data1": [1, 81, 2],
-                "input_data2": [1, 81],
+                "input_data1": [1, 80, 2],
+                "input_data2": [1, 80],
                 "input_data3": [2],
             }
             self.dynamic_shape.opt_input_shape = {

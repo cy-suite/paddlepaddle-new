@@ -193,7 +193,7 @@ class OpTestUtils:
 
         assert len(api_defaults) == len(
             api_params
-        ), "Error happens. contack xiongkun03 to solve."
+        ), "Error happens. contact xiongkun03 to solve."
         inputs_sig, attrs_sig, outputs_sig = kernel_sig
         inputs_and_attrs = inputs_sig + attrs_sig
         input_arguments = [
@@ -272,11 +272,14 @@ class OpTestUtils:
 
 
 def apply_to_static(net, use_cinn):
-    build_strategy = paddle.static.BuildStrategy()
-    build_strategy.build_cinn_pass = use_cinn
-    return paddle.jit.to_static(
-        net, build_strategy=build_strategy, full_graph=True
-    )
+    if not paddle.framework.use_pir_api():
+        build_strategy = paddle.static.BuildStrategy()
+        build_strategy.build_cinn_pass = use_cinn
+        return paddle.jit.to_static(
+            net, build_strategy=build_strategy, full_graph=True
+        )
+    backend = "CINN" if use_cinn else None
+    return paddle.jit.to_static(net, backend=backend, full_graph=True)
 
 
 class PrimNet(paddle.nn.Layer):
@@ -303,7 +306,7 @@ class PrimForwardChecker:
     def init_checker(self):
         assert hasattr(
             self.op_test, 'prim_op_type'
-        ), "if you want to test comp op, please set prim_op_type with 'prim' or 'comp' in setUp function."
+        ), "If you want to test comp op, please set prim_op_type with 'prim' or 'comp' in setUp function."
         assert self.op_test.prim_op_type in [
             "comp",
             "prim",
@@ -1119,7 +1122,15 @@ class PrimGradChecker(PrimForwardChecker):
                 if not in_pir_mode():
                     primapi.to_prim(main_program.blocks)
                 else:
-                    fw_outs = decompose(main_program, fw_outs)
+                    blacklist = set()
+                    for op in main_program.global_block().ops:
+                        if core.has_custom_vjp(op):
+                            blacklist.add(op.name())
+                    fw_outs = decompose(
+                        main_program,
+                        fw_outs,
+                        blacklist=blacklist,
+                    )
                 outputs_dict = self.get_output_dict(
                     self.outputs, fw_outs, outputs_sig
                 )

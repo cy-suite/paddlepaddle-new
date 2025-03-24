@@ -54,11 +54,6 @@ class TrtConvertGatherTest(TrtLayerAutoScanTest):
                     for overwrite in [True, False]:
                         for input in [
                             {"X": ["input_data"], "Index": ["index_data"]},
-                            {
-                                "X": ["input_data"],
-                                "Index": ["index_data"],
-                                "Axis": ["axis_data"],
-                            },
                         ]:
                             for index_type_int32 in [True, False]:
                                 self.shape = shape
@@ -81,11 +76,6 @@ class TrtConvertGatherTest(TrtLayerAutoScanTest):
                                     weights={},
                                     inputs=(
                                         {
-                                            "input_data": TensorConfig(
-                                                data_gen=partial(
-                                                    generate_input1, shape
-                                                )
-                                            ),
                                             "index_data": TensorConfig(
                                                 data_gen=partial(
                                                     (
@@ -96,22 +86,9 @@ class TrtConvertGatherTest(TrtLayerAutoScanTest):
                                                     index,
                                                 )
                                             ),
-                                        }
-                                        if len(input) == 2
-                                        else {
                                             "input_data": TensorConfig(
                                                 data_gen=partial(
                                                     generate_input1, shape
-                                                )
-                                            ),
-                                            "index_data": TensorConfig(
-                                                data_gen=partial(
-                                                    generate_input2, index
-                                                )
-                                            ),
-                                            "axis_data": TensorConfig(
-                                                data_gen=partial(
-                                                    generate_input3, axis
                                                 )
                                             ),
                                         }
@@ -124,12 +101,12 @@ class TrtConvertGatherTest(TrtLayerAutoScanTest):
     def generate_dynamic_shape(self):
         if len(self.shape) == 1:
             self.dynamic_shape.min_input_shape = {
-                "input_data": [4],
-                "index_data": [1],
+                "input_data": [1],
+                "index_data": [2],
             }
             self.dynamic_shape.max_input_shape = {
                 "input_data": [128],
-                "index_data": [4],
+                "index_data": [2],
             }
             self.dynamic_shape.opt_input_shape = {
                 "input_data": [16],
@@ -138,11 +115,11 @@ class TrtConvertGatherTest(TrtLayerAutoScanTest):
         elif len(self.shape) == 2:
             self.dynamic_shape.min_input_shape = {
                 "input_data": [2, 4],
-                "index_data": [1],
+                "index_data": [2],
             }
             self.dynamic_shape.max_input_shape = {
                 "input_data": [256, 256],
-                "index_data": [4],
+                "index_data": [2],
             }
             self.dynamic_shape.opt_input_shape = {
                 "input_data": [64, 32],
@@ -151,11 +128,11 @@ class TrtConvertGatherTest(TrtLayerAutoScanTest):
         elif len(self.shape) == 3:
             self.dynamic_shape.min_input_shape = {
                 "input_data": [2, 4, 4],
-                "index_data": [1],
+                "index_data": [2],
             }
             self.dynamic_shape.max_input_shape = {
                 "input_data": [128, 256, 256],
-                "index_data": [4],
+                "index_data": [2],
             }
             self.dynamic_shape.opt_input_shape = {
                 "input_data": [16, 64, 32],
@@ -163,12 +140,12 @@ class TrtConvertGatherTest(TrtLayerAutoScanTest):
             }
         elif len(self.shape) == 4:
             self.dynamic_shape.min_input_shape = {
-                "input_data": [2, 4, 4, 2],
-                "index_data": [1],
+                "input_data": [2, 4, 4, 4],
+                "index_data": [2],
             }
             self.dynamic_shape.max_input_shape = {
                 "input_data": [128, 256, 64, 128],
-                "index_data": [4],
+                "index_data": [2],
             }
             self.dynamic_shape.opt_input_shape = {
                 "input_data": [16, 64, 16, 32],

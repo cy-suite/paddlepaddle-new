@@ -127,8 +127,9 @@ class TrtConvertSoftmaxTest(TrtLayerAutoScanTest):
         attrs = [
             program_config.ops[i].attrs for i in range(len(program_config.ops))
         ]
+        # for static_shape
+        clear_dynamic_shape()
         if not run_pir:
-            # for static_shape
             if attrs[0]['axis'] == 0:
                 pass
             else:
@@ -144,7 +145,6 @@ class TrtConvertSoftmaxTest(TrtLayerAutoScanTest):
                 ), 1e-3
 
         # for dynamic_shape
-        clear_dynamic_shape()
         self.generate_dynamic_shape()
         self.trt_param.precision = paddle_infer.PrecisionType.Float32
         program_config.set_input_type(np.float32)

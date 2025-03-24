@@ -102,8 +102,8 @@ class TrtConvertGroupNormTest(TrtLayerAutoScanTest):
                         yield program_config
 
     def generate_dynamic_shape(self):
-        self.dynamic_shape.min_input_shape = {"input_data": [1, 16, 16, 16]}
-        self.dynamic_shape.max_input_shape = {"input_data": [4, 64, 128, 128]}
+        self.dynamic_shape.min_input_shape = {"input_data": [1, 32, 64, 64]}
+        self.dynamic_shape.max_input_shape = {"input_data": [4, 32, 64, 64]}
         self.dynamic_shape.opt_input_shape = {"input_data": [1, 32, 64, 64]}
         return self.dynamic_shape
 
@@ -143,13 +143,11 @@ class TrtConvertGroupNormTest(TrtLayerAutoScanTest):
         self.trt_param.workspace_size = 2013265920
 
         self.trt_param.precision = paddle_infer.PrecisionType.Half
-        program_config.set_input_type(np.float16)
         yield self.create_inference_config(), generate_trt_nodes_num(
             attrs, True
         ), 1e-2
 
         self.trt_param.precision = paddle_infer.PrecisionType.Float32
-        program_config.set_input_type(np.float32)
         yield self.create_inference_config(), generate_trt_nodes_num(
             attrs, True
         ), 1e-5

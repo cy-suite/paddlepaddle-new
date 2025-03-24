@@ -170,6 +170,10 @@ def ignore_module(modules: list[ModuleType]) -> None:
 
 
 def _check_and_set_backend(backend, build_strategy):
+    if build_strategy.build_cinn_pass:
+        warnings.warn(
+            "Use `build_strategy.build_cinn_pass` to enable CINN is deprecated, please use `backend` instead."
+        )
     if backend not in ['CINN', None]:
         raise ValueError(
             f"The backend of to_static should be 'CINN' or None, but received {backend}."
@@ -284,7 +288,7 @@ def to_static(
 
     def decorated(python_func):
         """
-        Decorates a python function into a ASTStaticFunction object.
+        Decorates a python function into a ASTStaticFunction or SymbolicStaticFunction object.
         """
 
         nonlocal full_graph
@@ -298,10 +302,9 @@ def to_static(
             )
             full_graph = True
 
-        StaticClass = {
-            False: SymbolicStaticFunction,
-            True: ASTStaticFunction,
-        }[full_graph]
+        StaticClass = (
+            ASTStaticFunction if full_graph else SymbolicStaticFunction
+        )
 
         # Step 1. unwrap the function if it is already decorated.
         _, python_func = unwrap_decorators(python_func)
@@ -752,14 +755,14 @@ def _build_load_path_and_config(path, config):
     directory_format_exist = os.path.isdir(path)
     if prefix_format_exist and directory_format_exist:
         raise ValueError(
-            f"The {path}.pdmodel and {path} directory exist at the same time, "
+            f"The {path}.pdmodel(json) and {path} directory exist at the same time, "
             "don't know which one to load, please make sure that the specified target "
             "of ``path`` is unique."
         )
     elif not prefix_format_exist and not directory_format_exist:
         raise ValueError(
             f"The ``path`` ({path}) to load model not exists. "
-            "Please make sure that *.pdmodel exists or "
+            "Please make sure that *.pdmodel(json) exists or "
             "don't using ``skip_forward=True`` to jit.save."
         )
     else:

@@ -37,6 +37,52 @@ class TrtConvertTakeAlongAxisTest(TrtLayerAutoScanTest):
 
         return True
 
+    def sample_program_configs(self):
+        def generate_input1(shape):
+            return np.random.random(shape).astype(np.float32)
+
+        def generate_input2(index):
+            return np.zeros(index).astype(np.int32)
+
+        def generate_input3(axis):
+            return np.array([axis]).astype(np.int32)
+
+        for shape in [[32], [3, 64], [1, 64, 16], [1, 64, 16, 32]]:
+            for index in [[1], [1, 1], [1, 1, 2], [1, 1, 1, 1]]:
+                for axis in [0, 1, 2, 3]:
+                    self.shape = shape
+                    self.axis = axis
+                    dics = [{"Axis": axis}]
+                    ops_config = [
+                        {
+                            "op_type": "take_along_axis",
+                            "op_inputs": {
+                                "Input": ["input_data"],
+                                "Index": ["index_data"],
+                            },
+                            "op_outputs": {"Result": ["output_data"]},
+                            "op_attrs": dics[0],
+                        }
+                    ]
+                    ops = self.generate_op_config(ops_config)
+
+                    program_config = ProgramConfig(
+                        ops=ops,
+                        weights={},
+                        inputs={
+                            "index_data": TensorConfig(
+                                data_gen=partial(generate_input2, index)
+                            ),
+                            "input_data": TensorConfig(
+                                data_gen=partial(generate_input1, shape)
+                            ),
+                        },
+                        outputs=["output_data"],
+                        no_cast_list=["index_data"],
+                    )
+
+                    yield program_config
+
     def generate_dynamic_shape(self):
         if len(self.shape) == 1:
             self.dynamic_shape.min_input_shape = {
@@ -91,52 +137,6 @@ class TrtConvertTakeAlongAxisTest(TrtLayerAutoScanTest):
                 "index_data": [1, 1, 1, 1],
             }
         return self.dynamic_shape
-
-    def sample_program_configs(self):
-        def generate_input1(shape):
-            return np.random.random(shape).astype(np.float32)
-
-        def generate_input2(index):
-            return np.zeros(index).astype(np.int32)
-
-        def generate_input3(axis):
-            return np.array([axis]).astype(np.int32)
-
-        for shape in [[32], [3, 64], [1, 64, 16], [1, 64, 16, 32]]:
-            for index in [[1], [1, 1], [1, 1, 2], [1, 1, 1, 1]]:
-                for axis in [0, 1, 2, 3]:
-                    self.shape = shape
-                    self.axis = axis
-                    dics = [{"Axis": axis}]
-                    ops_config = [
-                        {
-                            "op_type": "take_along_axis",
-                            "op_inputs": {
-                                "Input": ["input_data"],
-                                "Index": ["index_data"],
-                            },
-                            "op_outputs": {"Result": ["output_data"]},
-                            "op_attrs": dics[0],
-                        }
-                    ]
-                    ops = self.generate_op_config(ops_config)
-
-                    program_config = ProgramConfig(
-                        ops=ops,
-                        weights={},
-                        inputs={
-                            "input_data": TensorConfig(
-                                data_gen=partial(generate_input1, shape)
-                            ),
-                            "index_data": TensorConfig(
-                                data_gen=partial(generate_input2, index)
-                            ),
-                        },
-                        outputs=["output_data"],
-                        no_cast_list=["index_data"],
-                    )
-
-                    yield program_config
 
     def sample_predictor_configs(
         self, program_config, run_pir=False

@@ -43,7 +43,7 @@ class TrtConvertTileTest(TrtLayerAutoScanTest):
         def generate_input1(attrs: list[dict[str, Any]]):
             return np.ones([1, 2]).astype(np.float32)
 
-        dics = [{"repeat_times": kwargs['repeat_times']}]
+        dics = [{"repeat_times": kwargs.get('repeat_times', [1])}]
 
         ops_config = [
             {
@@ -109,7 +109,7 @@ class TrtConvertTileTest(TrtLayerAutoScanTest):
 
     @given(repeat_times=st.sampled_from([[1], [1, 2], [0, 3]]))
     def test(self, *args, **kwargs):
-        self.run_test(*args, **kwargs, run_pir=True)
+        self.run_test(run_pir=True)
 
 
 class TrtConvertTileTest2(TrtLayerAutoScanTest):

@@ -81,41 +81,41 @@ class TrtConvertLookupTableV2Test(TrtLayerAutoScanTest):
         if self.dims == 1:
             self.dynamic_shape.min_input_shape = {
                 "indices": [1],
-                "data": [64, 4],
+                # "data": [64, 4],
             }
             self.dynamic_shape.max_input_shape = {
                 "indices": [16],
-                "data": [64, 4],
+                # "data": [64, 4],
             }
             self.dynamic_shape.opt_input_shape = {
                 "indices": [8],
-                "data": [64, 4],
+                # "data": [64, 4],
             }
         elif self.dims == 2:
             self.dynamic_shape.min_input_shape = {
                 "indices": [1, 1],
-                "data": [64, 4],
+                # "data": [64, 4],
             }
             self.dynamic_shape.max_input_shape = {
                 "indices": [16, 32],
-                "data": [64, 4],
+                # "data": [64, 4],
             }
             self.dynamic_shape.opt_input_shape = {
                 "indices": [2, 16],
-                "data": [64, 4],
+                # "data": [64, 4],
             }
         else:
             self.dynamic_shape.min_input_shape = {
                 "indices": [1, 1, 1],
-                "data": [64, 4],
+                # "data": [64, 4],
             }
             self.dynamic_shape.max_input_shape = {
                 "indices": [16, 16, 16],
-                "data": [64, 4],
+                # "data": [64, 4],
             }
             self.dynamic_shape.opt_input_shape = {
                 "indices": [2, 8, 8],
-                "data": [64, 4],
+                # "data": [64, 4],
             }
         return self.dynamic_shape
 
@@ -133,12 +133,10 @@ class TrtConvertLookupTableV2Test(TrtLayerAutoScanTest):
         # for dynamic_shape mode
         self.generate_dynamic_shape()
         self.trt_param.precision = paddle_infer.PrecisionType.Float32
-        program_config.set_input_type(np.float32)
         yield self.create_inference_config(), generate_trt_nodes_num(
             attrs, True
         ), 1e-5
         self.trt_param.precision = paddle_infer.PrecisionType.Half
-        program_config.set_input_type(np.float16)
         yield self.create_inference_config(), generate_trt_nodes_num(
             attrs, True
         ), (1e-3, 1e-3)

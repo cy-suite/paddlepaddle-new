@@ -86,11 +86,11 @@ class TrtConvertSetValue(TrtLayerAutoScanTest):
                     ops=ops,
                     weights={},
                     inputs={
-                        "input_data": TensorConfig(
-                            data_gen=partial(generate_input1)
-                        ),
                         "update_data": TensorConfig(
                             data_gen=partial(generate_input2)
+                        ),
+                        "input_data": TensorConfig(
+                            data_gen=partial(generate_input1)
                         ),
                     },
                     outputs=["output_data"],

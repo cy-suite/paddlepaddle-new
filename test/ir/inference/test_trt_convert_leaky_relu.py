@@ -37,7 +37,7 @@ class TrtConvertLeakyReluTest(TrtLayerAutoScanTest):
             for shape in [[batch, 64], [batch, 32, 64], [batch, 8, 32, 32]]:
                 self.input_dim = len(shape)
                 for alpha in [0.02, 1.0, 100.0, -1.0, 0.0]:
-                    dics = [{"alpha": alpha}]
+                    dics = [{"negative_slope": alpha}]
                     ops_config = [
                         {
                             "op_type": "leaky_relu",

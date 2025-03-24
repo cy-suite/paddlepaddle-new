@@ -35,8 +35,8 @@ void FlashAttnGradKernelBase(const Context& ctx,
                              const paddle::optional<DenseTensor>& attn_mask,
                              const DenseTensor& dout,
                              const int batch_size,
-                             const int64_t max_seqlen_q,
-                             const int64_t max_seqlen_k,
+                             const Scalar& max_seqlen_q_,
+                             const Scalar& max_seqlen_k_,
                              const int num_heads,
                              const int num_heads_k,
                              const int head_size,
@@ -97,6 +97,9 @@ void FlashAttnGradKernelBase(const Context& ctx,
   XPUType* dk_data = reinterpret_cast<XPUType*>(dk->data<T>());
   XPUType* dv_data = reinterpret_cast<XPUType*>(dv->data<T>());
 
+  int64_t max_seqlen_q = max_seqlen_q_.to<int64_t>();
+  int64_t max_seqlen_k = max_seqlen_k_.to<int64_t>();
+
   // get seed offset
   const int64_t* seed_offset_data = seed_offset.data<int64_t>();
   int fa_tgemm = get_flash_attn_tgemm<XPUType>();
@@ -125,7 +128,13 @@ void FlashAttnGradKernelBase(const Context& ctx,
   // qkv_layout = AttnQKVLayout_t::ATTN_BLHD, const float* alibi_slopes =
   // nullptr, const std::vector<int64_t>& alibi_slopes_shape = {}, int
   // window_size_left = -1, int window_size_right = -1, int64_t v_head_dim =
-  // -1);
+  // -1, const int* downstart_row_indices_data = nullptr,
+  // const int* downend_row_indices_data = nullptr,
+  // const int* upstart_row_indices_data = nullptr,
+  // const int* upend_row_indices_data = nullptr,
+  // const int flash_mask_head_num = 0,
+  // int* flashmask_maxmin = nullptr,
+  // XPUStream side_stream = nullptr);
   int r = flash_attention_grad_kernel(
       ctx.x_context(),
       dout_data,                                  // dout
@@ -165,7 +174,14 @@ void FlashAttnGradKernelBase(const Context& ctx,
       {},                                         // alibi_slopes_shape
       -1,                                         // window_size_left
       -1,                                         // window_size_right
-      head_size_v                                 // v_head_dim
+      head_size_v,                                // v_head_dim
+      nullptr,                                    // downstart_row_indices_data
+      nullptr,                                    // downend_row_indices_data
+      nullptr,                                    // upstart_row_indices_data
+      nullptr,                                    // upend_row_indices_data
+      0,                                          // flash_mask_head_num
+      nullptr,                                    // flashmask_maxmin
+      nullptr                                     // side_stream
   );
   PADDLE_ENFORCE_XDNN_SUCCESS(r, "mha_varlen_bwd");
 }
@@ -183,8 +199,8 @@ void FlashAttnUnpaddedGradKernel(const Context& ctx,
                                  const DenseTensor& seed_offset,
                                  const paddle::optional<DenseTensor>& attn_mask,
                                  const DenseTensor& dout,
-                                 int64_t max_seqlen_q,
-                                 int64_t max_seqlen_k,
+                                 const Scalar& max_seqlen_q,
+                                 const Scalar& max_seqlen_k,
                                  float scale,
                                  float dropout,
                                  bool causal,

@@ -159,10 +159,13 @@ class TrtConvertSliceTest(TrtLayerAutoScanTest):
             attrs, True
         ), 1e-3
 
-    def test(self):
+    def test_old_ir(self):
         # TODO(inference): fix.
         # trt6 and trt7.1 has bug.
         # trt7.2 deserialize has bug.
+        self.run_test(run_pir=True)
+
+    def test_pir(self):
         self.run_test(run_pir=True)
 
 

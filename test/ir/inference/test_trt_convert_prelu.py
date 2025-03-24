@@ -89,6 +89,7 @@ class TrtConvertPreluTest(TrtLayerAutoScanTest):
             for dims in [0, 1, 2, 3, 4]:
                 for mode in ["all", "element", "channel"]:
                     for data_format in ["NCHW", "NHWC"]:
+                        self.data_format = data_format
                         if (mode == "element" or mode == "all") and dims == 0:
                             continue
                         if mode == "channel" and dims != 4:
@@ -141,18 +142,18 @@ class TrtConvertPreluTest(TrtLayerAutoScanTest):
             self.dynamic_shape.max_input_shape = {"input_data": [1, 3]}
             self.dynamic_shape.opt_input_shape = {"input_data": [1, 3]}
         elif self.dims == 3:
-            if attrs[0]["data_format"] == "NCHW":
+            if self.data_format == "NCHW":
                 self.dynamic_shape.min_input_shape = {"input_data": [1, 3, 16]}
                 self.dynamic_shape.max_input_shape = {"input_data": [4, 3, 16]}
                 self.dynamic_shape.opt_input_shape = {"input_data": [1, 3, 16]}
-            elif attrs[0]["data_format"] == "NHWC":
+            elif self.data_format == "NHWC":
                 self.dynamic_shape.min_input_shape = {"input_data": [1, 16, 3]}
                 self.dynamic_shape.max_input_shape = {"input_data": [4, 16, 3]}
                 self.dynamic_shape.opt_input_shape = {"input_data": [1, 16, 3]}
             else:
                 raise AssertionError
         else:
-            if attrs[0]["data_format"] == "NCHW":
+            if self.data_format == "NCHW":
                 self.dynamic_shape.min_input_shape = {
                     "input_data": [1, 3, 16, 32]
                 }
@@ -162,7 +163,7 @@ class TrtConvertPreluTest(TrtLayerAutoScanTest):
                 self.dynamic_shape.opt_input_shape = {
                     "input_data": [1, 3, 16, 32]
                 }
-            elif attrs[0]["data_format"] == "NHWC":
+            elif self.data_format == "NHWC":
                 self.dynamic_shape.min_input_shape = {
                     "input_data": [1, 16, 32, 3]
                 }
@@ -211,15 +212,13 @@ class TrtConvertPreluTest(TrtLayerAutoScanTest):
         # for dynamic_shape
         self.generate_dynamic_shape(attrs)
         self.trt_param.precision = paddle_infer.PrecisionType.Float32
-        program_config.set_input_type(np.float32)
         yield self.create_inference_config(), generate_trt_nodes_num(
             attrs, True
         ), 1e-5
-        # self.trt_param.precision = paddle_infer.PrecisionType.Half
-        # program_config.set_input_type(np.float16)
-        # yield self.create_inference_config(), generate_trt_nodes_num(
-        #     attrs, True
-        # ), (1e-3, 1e-3)
+        self.trt_param.precision = paddle_infer.PrecisionType.Half
+        yield self.create_inference_config(), generate_trt_nodes_num(
+            attrs, True
+        ), (1e-3, 1e-3)
 
     def test(self):
         self.run_test(run_pir=True)

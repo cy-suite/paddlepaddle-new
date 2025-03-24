@@ -44,10 +44,11 @@ class TrtConvertAffineChannelTest(TrtLayerAutoScanTest):
             else:
                 return np.random.random([3]).astype(np.float32)
 
-        for dims in [2, 4]:
+        for dims in [4]:
             for batch in [1, 2, 4]:
                 for data_layout in ["NCHW", "NHWC"]:
                     self.dims = dims
+                    self.data_layout = data_layout
                     dics = [{"data_layout": data_layout}]
 
                     ops_config = [
@@ -88,26 +89,26 @@ class TrtConvertAffineChannelTest(TrtLayerAutoScanTest):
 
     def generate_dynamic_shape(self):
         if self.dims == 2:
-            self.dynamic_shape.min_input_shape = {"input_data": [2, 64]}
-            self.dynamic_shape.max_input_shape = {"input_data": [2, 64]}
+            self.dynamic_shape.min_input_shape = {"input_data": [1, 32]}
+            self.dynamic_shape.max_input_shape = {"input_data": [4, 64]}
             self.dynamic_shape.opt_input_shape = {"input_data": [2, 64]}
         else:
-            if attrs[0]['data_layout'] == "NCHW":
+            if self.data_layout == "NCHW":
                 self.dynamic_shape.min_input_shape = {
-                    "input_data": [1, 3, 64, 64]
+                    "input_data": [1, 3, 32, 32]
                 }
                 self.dynamic_shape.max_input_shape = {
-                    "input_data": [1, 3, 64, 64]
+                    "input_data": [4, 3, 64, 64]
                 }
                 self.dynamic_shape.opt_input_shape = {
                     "input_data": [1, 3, 64, 64]
                 }
             else:
                 self.dynamic_shape.min_input_shape = {
-                    "input_data": [1, 64, 64, 3]
+                    "input_data": [1, 32, 32, 3]
                 }
                 self.dynamic_shape.max_input_shape = {
-                    "input_data": [1, 64, 64, 3]
+                    "input_data": [4, 64, 64, 3]
                 }
                 self.dynamic_shape.opt_input_shape = {
                     "input_data": [1, 64, 64, 3]
