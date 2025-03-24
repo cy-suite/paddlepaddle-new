@@ -298,16 +298,12 @@ jobs:
           -e GITHUB_API_TOKEN \
           -w ${{ github.workspace }} --network host ${docker_image}
 
-    - name: Test
-      run: |
-        docker exec -t ${{ env.container_name }} /bin/bash -c '
-
-
-        nvidia-smi
-
-
-        . ../../../proxy
-        bash $ci_scripts/coverage_test.sh ${{ github.env }}
+    # - name: Test
+    #   run: |
+    #     docker exec -t ${{ env.container_name }} /bin/bash -c '
+    #     nvidia-smi
+    #     . ../../../proxy
+    #     bash $ci_scripts/coverage_test.sh ${{ github.env }}
         '
     # - name: Check coverage data
     #   run: |

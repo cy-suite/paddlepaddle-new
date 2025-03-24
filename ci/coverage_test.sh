@@ -58,10 +58,13 @@ apt install zstd -y
 echo "::endgroup::"
 pip config set global.cache-dir "/root/.cache/pip"
 pip install --upgrade pip
+
 echo "::group::Install dependencies"
+
 pip install -r "${work_dir}/python/requirements.txt"
 pip install -r "${work_dir}/python/unittest_py/requirements.txt"
 pip install PyGithub
+
 echo "::endgroup::"
 
 is_run_distribute_in_op_test $1
