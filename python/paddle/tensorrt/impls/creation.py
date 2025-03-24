@@ -380,9 +380,7 @@ def meshgrid_converter(network, paddle_op, vec_inputs):
     outputs = []
 
     # get all input dims (all input is 1-dim)
-    input_dims = [
-        network.add_shape(inp).get_output(0) for inp in inputs
-    ]  # 动态维度
+    input_dims = [network.add_shape(inp).get_output(0) for inp in inputs]
 
     for k in range(n):
         # --------------------------------
