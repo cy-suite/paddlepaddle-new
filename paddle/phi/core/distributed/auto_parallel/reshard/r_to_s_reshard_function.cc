@@ -63,7 +63,6 @@ void RToSReshardFunction::Eval(phi::DeviceContext* dev_ctx,
           << ". Split will use axis " << mesh_axis << " of process_mesh."
           << " There will have " << num_of_process
           << " process participate in.";
-
   std::vector<int64_t> split_num_vec =
       BalancedSplit(in.dims()[split_axis], num_of_process);
   auto dtype = in_physical_tensor_cur_rank.dtype();
