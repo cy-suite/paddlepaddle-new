@@ -569,7 +569,7 @@ def sort_by_refined_recompute(all_cfgs):
 
     sorted_cfgs = []
     for key, cfg_list in grouped.items():
-        sorted(
+        cfg_list = sorted(
             cfg_list,
             key=lambda d: tuple(
                 d.get(k, 0) for k in d if k in __REFINED_RECOMPUTE_OPS__
