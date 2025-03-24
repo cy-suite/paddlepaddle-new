@@ -725,6 +725,8 @@ def cinn_is_available():
         return False
     if platform.system() != "Linux":
         return False
+    if not paddle.framework.use_pir_api():
+        return False
     return True
 
 
