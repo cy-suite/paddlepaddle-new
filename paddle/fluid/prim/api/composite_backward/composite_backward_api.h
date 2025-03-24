@@ -1435,7 +1435,7 @@ void maximum_grad(const Tensor& x,
       dx_res = cast<T>(dx_res, out_grad.dtype());
     }
 
-    if (out_grad.dims() != x.dims()) {
+    if (out_grad.dims() != x.dims() && out_grad.numel() != 0) {
       // Maybe need reduce here
       auto reduce_dim = get_reduce_dims(x.dims(), out_grad.dims());
       if (!reduce_dim.size()) {
@@ -1463,7 +1463,7 @@ void maximum_grad(const Tensor& x,
         out_grad.dtype() == phi::DataType::FLOAT16) {
       dy_res = cast<T>(dy_res, out_grad.dtype());
     }
-    if (out_grad.dims() != y.dims()) {
+    if (out_grad.dims() != y.dims() && out_grad.numel() != 0) {
       // Maybe need reduce here
       phi::DDim reduce_dim = get_reduce_dims(y.dims(), out_grad.dims());
       if (!reduce_dim.size()) {
@@ -1941,7 +1941,7 @@ void minimum_grad(const Tensor& x,
         out_grad.dtype() == phi::DataType::FLOAT16) {
       dx_res = cast<T>(dx_res, out_grad.dtype());
     }
-    if (out_grad.dims() != x.dims()) {
+    if (out_grad.dims() != x.dims() && out_grad.numel() != 0) {
       // Maybe need reduce here
       auto reduce_dim = get_reduce_dims(x.dims(), out_grad.dims());
       if (!reduce_dim.size()) {
@@ -1969,7 +1969,7 @@ void minimum_grad(const Tensor& x,
         out_grad.dtype() == phi::DataType::FLOAT16) {
       dy_res = cast<T>(dy_res, out_grad.dtype());
     }
-    if (out_grad.dims() != y.dims()) {
+    if (out_grad.dims() != y.dims() && out_grad.numel() != 0) {
       // Maybe need reduce here
       phi::DDim reduce_dim = get_reduce_dims(y.dims(), out_grad.dims());
       if (!reduce_dim.size()) {

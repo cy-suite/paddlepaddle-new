@@ -1238,8 +1238,9 @@ void maximum_grad(const Tensor& x,
         out_grad.dtype() == phi::DataType::FLOAT16) {
       dx_res = cast<T>(dx_res, out_grad.dtype());
     }
-    if (has_dynamic_shape(x.shape()) || has_dynamic_shape(out_grad.shape()) ||
-        out_grad.dims() != x.dims()) {
+    if ((has_dynamic_shape(x.shape()) || has_dynamic_shape(out_grad.shape()) ||
+         out_grad.dims() != x.dims()) &&
+        out_grad.numel() != 0) {
       auto dx_reduce_res = reduce_as<T>(dx_res, x);
       set_output<T>(dx_reduce_res, x_grad);
     } else {
@@ -1254,8 +1255,9 @@ void maximum_grad(const Tensor& x,
         out_grad.dtype() == phi::DataType::FLOAT16) {
       dy_res = cast<T>(dy_res, out_grad.dtype());
     }
-    if (has_dynamic_shape(y.shape()) || has_dynamic_shape(out_grad.shape()) ||
-        out_grad.dims() != y.dims()) {
+    if ((has_dynamic_shape(y.shape()) || has_dynamic_shape(out_grad.shape()) ||
+         out_grad.dims() != y.dims()) &&
+        out_grad.numel() != 0) {
       auto dy_reduce_res = reduce_as<T>(dy_res, y);
       set_output<T>(dy_reduce_res, y_grad);
     } else {
@@ -2286,8 +2288,9 @@ void minimum_grad(const Tensor& x,
         out_grad.dtype() == phi::DataType::FLOAT16) {
       dx_res = cast<T>(dx_res, out_grad.dtype());
     }
-    if (has_dynamic_shape(x.shape()) || has_dynamic_shape(out_grad.shape()) ||
-        out_grad.dims() != x.dims()) {
+    if ((has_dynamic_shape(x.shape()) || has_dynamic_shape(out_grad.shape()) ||
+         out_grad.dims() != x.dims()) &&
+        out_grad.numel() != 0) {
       auto dx_reduce_res = reduce_as<T>(dx_res, x);
       set_output<T>(dx_reduce_res, x_grad);
     } else {
@@ -2302,8 +2305,9 @@ void minimum_grad(const Tensor& x,
         out_grad.dtype() == phi::DataType::FLOAT16) {
       dy_res = cast<T>(dy_res, out_grad.dtype());
     }
-    if (has_dynamic_shape(y.shape()) || has_dynamic_shape(out_grad.shape()) ||
-        out_grad.dims() != y.dims()) {
+    if ((has_dynamic_shape(y.shape()) || has_dynamic_shape(out_grad.shape()) ||
+         out_grad.dims() != y.dims()) &&
+        out_grad.numel() != 0) {
       auto dy_reduce_res = reduce_as<T>(dy_res, y);
       set_output<T>(dy_reduce_res, y_grad);
     } else {
