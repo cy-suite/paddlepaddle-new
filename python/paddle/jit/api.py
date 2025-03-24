@@ -219,7 +219,7 @@ def to_static(
     function=None,
     input_spec=None,
     build_strategy=None,
-    backend=None,
+    backend="CINN",
     **kwargs,
 ):
     """
