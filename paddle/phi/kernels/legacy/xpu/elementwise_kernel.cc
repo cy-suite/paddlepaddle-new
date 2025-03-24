@@ -25,7 +25,7 @@ void MaximumRawKernel(const Context& dev_ctx,
                       const DenseTensor& y,
                       int axis,
                       DenseTensor* out) {
-  if (out->numel() == 0) {
+  if (out && out->numel() == 0) {
     dev_ctx.template Alloc<T>(out);
     return;
   }
@@ -49,7 +49,7 @@ void MinimumRawKernel(const Context& dev_ctx,
                       const DenseTensor& y,
                       int axis,
                       DenseTensor* out) {
-  if (out->numel() == 0) {
+  if (out && out->numel() == 0) {
     dev_ctx.template Alloc<T>(out);
     return;
   }

@@ -157,11 +157,11 @@ void MaximumGradKernel(const Context& dev_ctx,
                        const DenseTensor& dout,
                        DenseTensor* dx,
                        DenseTensor* dy) {
-  if (dx->numel() == 0) {
+  if (dx && dx->numel() == 0) {
     dev_ctx.template Alloc<T>(dx);
     dx = nullptr;
   }
-  if (dy->numel() == 0) {
+  if (dy && dy->numel() == 0) {
     dev_ctx.template Alloc<T>(dy);
     dy = nullptr;
   }
@@ -195,11 +195,11 @@ void MinimumGradKernel(const Context& dev_ctx,
                        const DenseTensor& dout,
                        DenseTensor* dx,
                        DenseTensor* dy) {
-  if (dx->numel() == 0) {
+  if (dx && dx->numel() == 0) {
     dev_ctx.template Alloc<T>(dx);
     dx = nullptr;
   }
-  if (dy->numel() == 0) {
+  if (dy && dy->numel() == 0) {
     dev_ctx.template Alloc<T>(dy);
     dy = nullptr;
   }
