@@ -48,9 +48,10 @@ class TestLocalMap(unittest.TestCase):
 
         wrapped_func = dist.local_map(
             custom_function,
-            out_placements=[dist.Partial(dist.ReduceType.kRedSum)],
-            in_placements=(dist.Shard(0),),
+            out_placements=[[dist.Partial(dist.ReduceType.kRedSum)]],
+            in_placements=[[dist.Shard(0)]],
             process_mesh=mesh,
+            reshard_inputs=True,
         )
         output_dist = wrapped_func(input_dist)
 
@@ -129,27 +130,155 @@ class TestLocalMap(unittest.TestCase):
         out4 = wrapped_func(input_dist, input_normal)
         self.assertTrue(dist.auto_parallel.api._is_distributed_tensor(out4))
 
-        # Case 5: Infer process_mesh from input
+        # Case 5: Test process_mesh inference in both dynamic and static modes
         def func5(x):
             return x * 2
 
+        # Test in dynamic mode
+        paddle.disable_static()
+
+        input_dist = dist.auto_parallel.api.dtensor_from_local(
+            paddle.ones([4]), mesh, [dist.Shard(0)]
+        )
         wrapped_func = dist.local_map(
             func5,
             out_placements=[[dist.Replicate()]],
             in_placements=[[dist.Shard(0)]],
-            process_mesh=None,  # Let local_map infer process_mesh
+            process_mesh=None,
         )
         out5 = wrapped_func(input_dist)
         self.assertTrue(dist.auto_parallel.api._is_distributed_tensor(out5))
+        self.assertEqual(out5.process_mesh, input_dist.process_mesh)
 
-        # Verify the inferred process_mesh matches input
-        if paddle.in_dynamic_mode():
-            self.assertEqual(out5.process_mesh, input_dist.process_mesh)
-        else:
-            self.assertEqual(
-                out5.dist_attr().process_mesh,
-                input_dist.dist_attr().process_mesh,
-            )
+        # Test in static mode
+        paddle.enable_static()
+
+        input_dist = dist.auto_parallel.api.dtensor_from_local(
+            paddle.ones([4]), mesh, [dist.Shard(0)]
+        )
+        wrapped_func = dist.local_map(
+            func5,
+            out_placements=[[dist.Replicate()]],
+            in_placements=[[dist.Shard(0)]],
+            process_mesh=None,
+        )
+        out5 = wrapped_func(input_dist)
+        self.assertTrue(dist.auto_parallel.api._is_distributed_tensor(out5))
+        self.assertEqual(
+            out5.dist_attr().process_mesh, input_dist.dist_attr().process_mesh
+        )
+
+        # Restore to dynamic mode
+        paddle.disable_static()
+
+        # Case 6: Test reshard_inputs parameter in both dynamic and static modes
+        def func6(x):
+            return x * 2
+
+        # Test in dynamic mode
+        paddle.disable_static()
+
+        input_dist = dist.auto_parallel.api.dtensor_from_local(
+            paddle.ones([4]), mesh, [dist.Shard(0)]
+        )
+        wrapped_func = dist.local_map(
+            func6,
+            out_placements=[[dist.Replicate()]],
+            in_placements=[[dist.Replicate()]],
+            process_mesh=mesh,
+            reshard_inputs=True,
+        )
+        out6_resharded = wrapped_func(input_dist)
+        self.assertTrue(
+            dist.auto_parallel.api._is_distributed_tensor(out6_resharded)
+        )
+        self.assertEqual(out6_resharded.placements, [dist.Replicate()])
+
+        # Test reshard_inputs=False
+        wrapped_func = dist.local_map(
+            func6,
+            out_placements=[[dist.Replicate()]],
+            in_placements=[[dist.Replicate()]],
+            process_mesh=mesh,
+            reshard_inputs=False,
+        )
+        with self.assertRaises(ValueError) as ctx:
+            _ = wrapped_func(input_dist)
+        self.assertIn("in_placement", str(ctx.exception))
+
+        # Test in static mode
+        paddle.enable_static()
+
+        input_dist = dist.auto_parallel.api.dtensor_from_local(
+            paddle.ones([4]), mesh, [dist.Shard(0)]
+        )
+        wrapped_func = dist.local_map(
+            func6,
+            out_placements=[[dist.Replicate()]],
+            in_placements=[[dist.Replicate()]],
+            process_mesh=mesh,
+            reshard_inputs=True,
+        )
+        out6_resharded = wrapped_func(input_dist)
+        self.assertTrue(
+            dist.auto_parallel.api._is_distributed_tensor(out6_resharded)
+        )
+        self.assertTrue(
+            isinstance(out6_resharded.dist_attr().placements[0], dist.Replicate)
+        )
+
+        # Test reshard_inputs=False in static mode
+        wrapped_func = dist.local_map(
+            func6,
+            out_placements=[[dist.Replicate()]],
+            in_placements=[[dist.Replicate()]],
+            process_mesh=mesh,
+            reshard_inputs=False,
+        )
+        with self.assertRaises(ValueError) as ctx:
+            _ = wrapped_func(input_dist)
+        self.assertIn("dist_tensor.dist_attr().placements", str(ctx.exception))
+
+        # Restore to dynamic mode
+        paddle.disable_static()
+
+        # Case 7: Test with in_placements=None and distributed tensor input
+        def func7(x):
+            return x * 2
+
+        # Test in dynamic mode
+        paddle.disable_static()
+
+        input_dist = dist.auto_parallel.api.dtensor_from_local(
+            paddle.ones([4]), mesh, [dist.Shard(0)]
+        )
+
+        wrapped_func = dist.local_map(
+            func7,
+            out_placements=[[dist.Replicate()]],
+            in_placements=[None],
+            process_mesh=mesh,
+        )
+        out7 = wrapped_func(input_dist)
+        self.assertTrue(dist.auto_parallel.api._is_distributed_tensor(out7))
+
+        # Test in static mode
+        paddle.enable_static()
+
+        input_dist = dist.auto_parallel.api.dtensor_from_local(
+            paddle.ones([4]), mesh, [dist.Shard(0)]
+        )
+
+        wrapped_func = dist.local_map(
+            func7,
+            out_placements=[[dist.Replicate()]],
+            in_placements=[None],
+            process_mesh=mesh,
+        )
+        out7 = wrapped_func(input_dist)
+        self.assertTrue(dist.auto_parallel.api._is_distributed_tensor(out7))
+        # Restore to dynamic mode
+        paddle.disable_static()
 
 
 if __name__ == "__main__":

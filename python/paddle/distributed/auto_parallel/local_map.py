@@ -1,4 +1,4 @@
-# Copyright (c) 2024 PaddlePaddle Authors. All Rights Reserved.
+# Copyright (c) 2025 PaddlePaddle Authors. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ def local_map(
     out_placements: list[list[dist.Placement]],
     in_placements: list[list[dist.Placement]] | None,
     process_mesh: ProcessMesh | None,
+    reshard_inputs: bool = False,
 ):
     """
     The `local_map` API allows users to pass dist_tensors to a function that is written
@@ -62,6 +63,12 @@ def local_map(
             Must be specified when there are no dist_tensor inputs but out_placements
             contains non-None values.
             Default: None
+
+        reshard_inputs (bool, optional):
+            the bool value indicating whether to reshard the input :dist_tensor` s when
+            their placements are different from the required input placements. If this
+            value is ``False`` and some :dist_tensor input has a different placement,
+            an exception will be raised. Default: False.
 
     Returns:
         A ``Callable`` that applies ``func`` to each local shard of the input dist_tensors
@@ -148,9 +155,6 @@ def local_map(
 
         for idx, arg in enumerate(flat_dist_args):
             if dist.auto_parallel.api._is_distributed_tensor(arg):
-                # TODO: the current code doesn't consider the uneven sharding case
-                # Need to think about what the consequence is when the input DTensor
-                # is uneven sharded.
                 dist_tensor = arg
                 if process_mesh is None:
                     if paddle.in_dynamic_mode():
@@ -167,6 +171,33 @@ def local_map(
                             in_placement = dist_tensor.placements
                         else:
                             in_placement = dist_tensor.dist_attr().placements
+                    else:
+                        if paddle.in_dynamic_mode():
+                            if in_placement != dist_tensor.placements:
+                                if reshard_inputs:
+                                    dist_tensor = dist.reshard(
+                                        dist_tensor, process_mesh, in_placement
+                                    )
+                                else:
+                                    raise ValueError(
+                                        f"in_placement {in_placement} does not match dist_tensor.placements {dist_tensor.placements}"
+                                    )
+
+                        else:
+                            if (
+                                in_placement
+                                != dist_tensor.dist_attr().placements
+                            ):
+                                if reshard_inputs:
+                                    dist_tensor = dist.reshard(
+                                        dist_tensor, process_mesh, in_placement
+                                    )
+                                else:
+                                    raise ValueError(
+                                        f"in_placement {in_placement} does not match dist_tensor.dist_attr().placements {dist_tensor.dist_attr().placements}"
+                                        "If reshard_inputs is wanted, set "
+                                        "reshard_inputs=True to local_map."
+                                    )
                 local_tensor = dist.auto_parallel.api.dtensor_to_local(
                     dist_tensor, process_mesh, in_placement
                 )
@@ -187,22 +218,40 @@ def local_map(
 
             flat_dist_and_arg_out = []
             for out, out_placement in zip(flat_out, out_placements):
-                if isinstance(out, paddle.Tensor):
-                    assert not dist.auto_parallel.api._is_distributed_tensor(
-                        out
-                    ), f"Expected dense tensor output but got {type(out)}: {out}"
+                if paddle.in_dynamic_mode():
+                    if isinstance(out, paddle.Tensor):
+                        assert not dist.auto_parallel.api._is_distributed_tensor(
+                            out
+                        ), f"Expected dense tensor output but got {type(out)}: {out}"
 
-                    flat_dist_and_arg_out.append(
-                        dist.auto_parallel.api.dtensor_from_local(
-                            out, process_mesh, out_placement
+                        flat_dist_and_arg_out.append(
+                            dist.auto_parallel.api.dtensor_from_local(
+                                out, process_mesh, out_placement
+                            )
                         )
-                    )
+                    else:
+                        assert out_placement is None, (
+                            f"Expected None placements for non-tensor output {out} "
+                            f"but got {out_placement}!"
+                        )
+                        flat_dist_and_arg_out.append(out)
                 else:
-                    assert out_placement is None, (
-                        f"Expected None placements for non-tensor output {out} "
-                        f"but got {out_placement}!"
-                    )
-                    flat_dist_and_arg_out.append(out)
+                    if isinstance(out, paddle.base.libpaddle.pir.Value):
+                        assert not dist.auto_parallel.api._is_distributed_tensor(
+                            out
+                        ), f"Expected dense tensor output but got {type(out)}: {out}"
+
+                        flat_dist_and_arg_out.append(
+                            dist.auto_parallel.api.dtensor_from_local(
+                                out, process_mesh, out_placement
+                            )
+                        )
+                    else:
+                        assert out_placement is None, (
+                            f"Expected None placements for non-tensor output {out} "
+                            f"but got {out_placement}!"
+                        )
+                        flat_dist_and_arg_out.append(out)
             return pack_sequence_as(original_out, flat_dist_and_arg_out)
         else:
             flat_out = flatten(out)

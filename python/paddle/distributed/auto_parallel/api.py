@@ -1063,7 +1063,7 @@ def shard_layer(
 
 def _is_distributed_tensor(tensor) -> bool:
     """
-    Check if an input is a dist_tensor.
+    Check if an input is a dist_tensor in both dynamic and static modes.
 
     Args:
         tensor: The input to check
@@ -1071,11 +1071,17 @@ def _is_distributed_tensor(tensor) -> bool:
     Returns:
         bool: True if the input is a dist_tensor, False otherwise
     """
-    return (
-        isinstance(tensor, paddle.Tensor)
-        and hasattr(tensor, 'is_dist')
-        and tensor.is_dist()
-    )
+    if paddle.in_dynamic_mode():
+        return (
+            isinstance(tensor, paddle.Tensor)
+            and hasattr(tensor, 'is_dist')
+            and tensor.is_dist()
+        )
+    else:
+        return (
+            isinstance(tensor, paddle.base.libpaddle.pir.Value)
+            and tensor.dist_attr() is not None
+        )
 
 
 class _ShardOptimizer(Optimizer):
