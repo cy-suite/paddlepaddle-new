@@ -391,6 +391,11 @@ def search_all(tuner_cfg):
     all_cfgs = []
     refined_recompute = tuner_cfg.get("refined_recompute", None)
 
+    if refined_recompute:
+        refined_recompute = sorted(
+            refined_recompute, key=__REFINED_RECOMPUTE_OPS__.index
+        )
+
     for valid_degree in valid_degrees:
         for other_dim_cfg in other_dim_cfgs:
             mp_degree, sharding_degree, pp_degree, dp_degree = valid_degree
