@@ -249,7 +249,11 @@ void SumRawKernel(const Context& dev_ctx,
       }
     }
     out->Resize(phi::make_ddim(out_dims));
-    dev_ctx.template Alloc(out, out->dtype());
+    if (x.dtype() == phi::DataType::BOOL || x.dtype() == phi::DataType::INT32) {
+      dev_ctx.template Alloc<int64_t>(out);
+    } else {
+      dev_ctx.template Alloc<T>(out);
+    }
 
     return;
   }
