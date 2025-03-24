@@ -206,6 +206,7 @@ jobs:
         docker exec -t ${{ env.container_name }} /bin/bash -c 'rm -rf * .[^.]*'
         docker stop ${{ env.container_name }}
         docker rm ${{ env.container_name }
+
   test:
     name: Coverage test
     needs: build
