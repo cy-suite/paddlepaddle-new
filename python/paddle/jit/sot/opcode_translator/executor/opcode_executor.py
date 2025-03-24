@@ -87,7 +87,6 @@ from .tracker import (
 )
 from .variables import (
     BuiltinVariable,
-    ClassVariable,
     ConstantVariable,
     ContainerVariable,
     DictVariable,
@@ -1146,20 +1145,15 @@ class OpcodeExecutorBase:
         )
 
     def handle_super_init_without_args(self, fn, args, kwargs):
-
         if (
             isinstance(fn, BuiltinVariable)
             and fn.value is super
-            and 0 == len(args)
+            and len(args) == 0
         ):
-
+            self_name = self.vframe.code.co_varnames[0]
             args = (
-                ClassVariable(
-                    self.vframe.locals['self'].value.__class__,
-                    self._graph,
-                    DummyTracker([]),
-                ),
-                self.vframe.locals['self'],
+                self.vframe.cells['__class__'].value,
+                self.vframe.locals[self_name],
             )
         return fn, args, kwargs
 

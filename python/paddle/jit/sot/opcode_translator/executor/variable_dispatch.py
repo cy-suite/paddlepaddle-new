@@ -240,21 +240,10 @@ Dispatcher.register(
 # super
 Dispatcher.register(
     super,
-    (),
-    lambda _cls, _obj: SuperVariable(
-        cls=_cls,
-        obj=_obj.value,
-        graph=Dispatcher.graph,
-        tracker=DummyTracker([]),
-    ),
-)
-
-Dispatcher.register(
-    super,
     ("ClassVariable", "VariableBase"),
-    lambda _cls, _obj: SuperVariable(
-        cls=_cls,
-        obj=_obj.value,
+    lambda cls, obj: SuperVariable(
+        cls=cls,
+        obj=obj,
         graph=Dispatcher.graph,
         tracker=DummyTracker([]),
     ),

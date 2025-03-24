@@ -43,6 +43,11 @@ class B(A):
     def test_super_both_add5(self, x):
         return super().add2(x) + super(B, self).add3(x)  # noqa: UP008
 
+    @check_no_breakgraph
+    def test_self_name(me, x):
+        # Test case where the instance is referred to as 'me' instead of 'self'
+        return super(B, me).add2(x)  # noqa: UP008
+
 
 class TestSingleInheritance(TestCaseBase):
     def setUp(self) -> None:
@@ -125,6 +130,25 @@ class TestMultipleInheritance(TestCaseBase):
         x = paddle.to_tensor(5.0)
         # Call order: Q -> Z -> X -> P -> Y
         self.assertEqual(x + 5, self._instance.add5_with_X(x))
+
+
+class A_ATTR:
+    a = 1
+
+
+class B_ATTR(A_ATTR):
+    @check_no_breakgraph
+    def foo(self):
+        return super().a
+
+
+class TestSuperAttr(TestCaseBase):
+    def setUp(self) -> None:
+        super().setUp()
+        self._instance = B_ATTR()
+
+    def test_attr_equal(self):
+        self.assertEqual(A_ATTR.a, self._instance.foo())
 
 
 if __name__ == "__main__":

@@ -81,7 +81,7 @@ from .base import VariableBase, VariableFactory
 if TYPE_CHECKING:
     from ..function_graph import FunctionGraph
     from ..pycode_generator import PyCodeGen
-    from .callable import FunctionVariable
+    from .callable import ClassVariable, FunctionVariable
 
 
 FP_DTYPE_ABBRS = {
@@ -1138,24 +1138,22 @@ class SuperVariable(VariableBase):
         tracker(Tracker): The Tracker object that tracks the information of this variable.
     """
 
-    def __init__(self, cls, obj, graph, tracker):
+    def __init__(self, cls: ClassVariable, obj: VariableBase, graph, tracker):
         super().__init__(graph, tracker)
-        # self.value = obj.__class__.__mro__
         self._cls = cls
         self._obj = obj
-        self._mro = obj.__class__.__mro__
-
-        self.graph = graph
-        self.tracker = tracker
+        self._mro = cls.get_py_value().__mro__
 
     @property
     def main_info(self) -> dict[str, Any]:
         if printable(self._obj):
-            return {"value": f"super({self._cls.__name__}, {self._obj})"}
-        return {"value": f"super({self._cls.__name__}, self)"}
+            return {
+                "value": f"super({self._cls.get_py_value().__name__}, {self._obj})"
+            }
+        return {"value": f"super({self._cls.get_py_value().__name__}, self)"}
 
     def get_py_value(self, allow_tensor=False) -> Any:
-        return super(self._cls, self._obj)
+        return super(self._cls.get_py_value(), self._obj.get_py_value())
 
     @check_guard
     def make_stringified_guard(self) -> list[StringifiedExpression]:
@@ -1168,19 +1166,18 @@ class SuperVariable(VariableBase):
         ]
 
     def getattr(self, name: str, default=None):
-        for _cls in self.mro:
+        for _cls in self._mro:
             if not hasattr(_cls, name):
                 continue
             attr = getattr(_cls, name)
-            # TODO(DrRyanHuang): Is there any cases that is not function?
             if inspect.isfunction(attr):
-                from .callable import UserDefinedFunctionVariable
-
-                return UserDefinedFunctionVariable(
-                    types.MethodType(attr, self.obj),
+                return VariableFactory.from_value(
+                    attr,
                     self.graph,
                     DummyTracker([]),
-                )
+                ).bind(self, name)
+
+            return attr
 
         raise HasNoAttributeError(
             f"{self._obj.__class__.__name__} {self} has no attribute {name}"
