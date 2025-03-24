@@ -1639,6 +1639,8 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
                              int num_experts,
                              bool async,
                              bool return_recv_hook) {
+  bool use_fp8 = (x.dtype() == phi::DataType::FLOAT8_E4M3FN ||
+                  x.dtype() == phi::DataType::FLOAT8_E5M2);
   EP_HOST_ASSERT(low_latency_mode);
 
   // Tensor checks
@@ -1679,7 +1681,7 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
       paddle::experimental::empty({num_local_experts,
                                    num_ranks * num_max_dispatch_tokens_per_rank,
                                    hidden},
-                                  phi::DataType::FLOAT8_E4M3FN,
+                                  x.dtype(),
                                   x.place()));
   auto packed_recv_src_info =
       ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
@@ -1695,8 +1697,6 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
           {num_local_experts}, phi::DataType::INT32, phi::GPUPlace(device_id)));
 
   // Allocate column-majored scales
-  EP_HOST_ASSERT((num_ranks * num_max_dispatch_tokens_per_rank) % 4 == 0 &&
-                 "TMA requires the number of tokens to be multiple of 4");
   auto packed_recv_x_scales =
       ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
           {num_local_experts,
@@ -1704,36 +1704,47 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
            num_ranks * num_max_dispatch_tokens_per_rank},
           phi::DataType::FLOAT32,
           phi::GPUPlace(device_id)));
-  packed_recv_x_scales =
-      ConvertPaddleTensorToDetailTensor(paddle::experimental::transpose(
-          ConvertDetailTensorToPaddleTensor(packed_recv_x_scales),
-          std::vector<int>{1, 2}));
+  if (use_fp8) {
+    EP_HOST_ASSERT((num_ranks * num_max_dispatch_tokens_per_rank) % 4 == 0 &&
+                   "TMA requires the number of tokens to be multiple of 4");
+
+    packed_recv_x_scales =
+        ConvertPaddleTensorToDetailTensor(paddle::experimental::transpose(
+            ConvertDetailTensorToPaddleTensor(packed_recv_x_scales),
+            std::vector<int>{1, 2}));
+  }
 
   // Kernel launch
   auto next_clean_meta = next_buffer.clean_meta();
   auto launcher = [=](int phases) {
-    internode_ll::dispatch(packed_recv_x.data_ptr(),
-                           packed_recv_x_scales.data_ptr<float>(),
-                           packed_recv_src_info.data_ptr<int>(),
-                           packed_recv_layout_range.data_ptr<int64_t>(),
-                           packed_recv_count.data_ptr<int>(),
-                           buffer.dispatch_rdma_recv_data_buffer,
-                           buffer.dispatch_rdma_recv_count_buffer,
-                           buffer.dispatch_rdma_send_buffer,
-                           x.data_ptr(),
-                           topk_idx.data_ptr<int64_t>(),
-                           next_clean_meta.first,
-                           next_clean_meta.second,
-                           num_tokens,
-                           hidden,
-                           num_max_dispatch_tokens_per_rank,
-                           num_topk,
-                           num_experts,
-                           rank,
-                           num_ranks,
-                           workspace,
-                           launch_stream,
-                           phases);
+    VLOG(1) << "use_fp8 " << use_fp8;
+    VLOG(1) << "hidden " << hidden;
+    VLOG(1) << "num_topk " << num_topk;
+    VLOG(1) << "num_experts " << num_experts;
+    internode_ll::dispatch(
+        packed_recv_x.data_ptr(),
+        use_fp8 ? packed_recv_x_scales.data_ptr<float>() : nullptr,
+        packed_recv_src_info.data_ptr<int>(),
+        packed_recv_layout_range.data_ptr<int64_t>(),
+        packed_recv_count.data_ptr<int>(),
+        buffer.dispatch_rdma_recv_data_buffer,
+        buffer.dispatch_rdma_recv_count_buffer,
+        buffer.dispatch_rdma_send_buffer,
+        x.data_ptr(),
+        topk_idx.data_ptr<int64_t>(),
+        next_clean_meta.first,
+        next_clean_meta.second,
+        num_tokens,
+        hidden,
+        num_max_dispatch_tokens_per_rank,
+        num_topk,
+        num_experts,
+        rank,
+        num_ranks,
+        use_fp8,
+        workspace,
+        launch_stream,
+        phases);
   };
   launcher(return_recv_hook
                ? LOW_LATENCY_SEND_PHASE
@@ -1753,6 +1764,9 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
   // Receiver callback
   std::optional<std::function<void()>> recv_hook = std::nullopt;
   if (return_recv_hook) recv_hook = [=]() { launcher(LOW_LATENCY_RECV_PHASE); };
+
+  PADDLE_ENFORCE_GPU_SUCCESS(cudaDeviceSynchronize());
+  VLOG(1) << "kernel end";
 
   // Return values
   return {packed_recv_x,
@@ -1829,6 +1843,8 @@ Buffer::low_latency_combine(const deep_ep::detail::Tensor& x,
   // Kernel launch
   auto next_clean_meta = next_buffer.clean_meta();
   auto launcher = [=](int phases) {
+    VLOG(1) << "num_combined_tokens " << num_combined_tokens;
+    VLOG(1) << "phases " << phases;
     internode_ll::combine(combined_x.data_ptr(),
                           buffer.combine_rdma_recv_data_buffer,
                           buffer.combine_rdma_recv_flag_buffer,
