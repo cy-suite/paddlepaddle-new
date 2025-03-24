@@ -1414,8 +1414,12 @@ void maximum_grad(const Tensor& x,
                   Tensor* x_grad,
                   Tensor* y_grad) {
   if (out_grad.numel() == 0) {
-    set_output<T>(full<T>(x.shape(), 0, x.dtype(), x.place()), x_grad);
-    set_output<T>(full<T>(y.shape(), 0, y.dtype(), y.place()), y_grad);
+    if (x_grad) {
+      set_output<T>(full<T>(x.shape(), 0, x.dtype(), x.place()), x_grad);
+    }
+    if (y_grad) {
+      set_output<T>(full<T>(y.shape(), 0, y.dtype(), y.place()), y_grad);
+    }
     return;
   }
   Tensor half_tensor;
@@ -1926,8 +1930,12 @@ void minimum_grad(const Tensor& x,
                   Tensor* x_grad,
                   Tensor* y_grad) {
   if (out_grad.numel() == 0) {
-    set_output<T>(full<T>(x.shape(), 0, x.dtype(), x.place()), x_grad);
-    set_output<T>(full<T>(y.shape(), 0, y.dtype(), y.place()), y_grad);
+    if (x_grad) {
+      set_output<T>(full<T>(x.shape(), 0, x.dtype(), x.place()), x_grad);
+    }
+    if (y_grad) {
+      set_output<T>(full<T>(y.shape(), 0, y.dtype(), y.place()), y_grad);
+    }
     return;
   }
   Tensor half_tensor;
