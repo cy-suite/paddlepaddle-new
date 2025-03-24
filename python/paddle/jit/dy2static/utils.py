@@ -662,9 +662,7 @@ def cinn_is_enabled(build_strategy, backend):
         return True
     if build_strategy is not None and build_strategy.build_cinn_pass:
         return True
-
-    value = os.getenv('FLAGS_use_cinn')
-    if value is not None and value.lower() in ['true', '1']:
+    if paddle.base.framework.in_cinn_mode():
         return True
     return False
 
@@ -676,7 +674,6 @@ def cse_is_enabled():
 
 
 def prim_is_enabled():
-    core.check_and_set_prim_all_enabled(True)
     return core._is_bwd_prim_enabled() or core._is_fwd_prim_enabled()
 
 
@@ -709,7 +706,6 @@ def is_builtin(func, name=None):
 
 @signature_safe_contextmanager
 def backend_guard(backend):
-    core.check_and_set_prim_all_enabled()
     origin_fwd = core._is_fwd_prim_enabled()
     origin_bwd = core._is_bwd_prim_enabled()
 
