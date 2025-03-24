@@ -176,7 +176,13 @@ void FlashAttnGradKernelBase(
   // qkv_layout = AttnQKVLayout_t::ATTN_BLHD, const float* alibi_slopes =
   // nullptr, const std::vector<int64_t>& alibi_slopes_shape = {}, int
   // window_size_left = -1, int window_size_right = -1, int64_t v_head_dim =
-  // -1);
+  // -1, const int* downstart_row_indices_data = nullptr,
+  // const int* downend_row_indices_data = nullptr,
+  // const int* upstart_row_indices_data = nullptr,
+  // const int* upend_row_indices_data = nullptr,
+  // const int flash_mask_head_num = 0,
+  // int* flashmask_maxmin = nullptr,
+  // XPUStream side_stream = nullptr);
   int r = flash_attention_grad_kernel(
       ctx.x_context(),
       dout_data,                                  // dout
