@@ -275,6 +275,42 @@ struct HorizontalFusionConstrain {
            AnyFirstInSecond(rhs.output_values, lhs.input_values);
   }
 
+  bool MemoryIncreaseConstraint(const LoopAxisMapping& lhs,
+                                const LoopAxisMapping& rhs) {
+    static const std::int64_t MEMORY_INCREASE_LIMIT =
+        8 * 1024 * 1024 * 64;  // 64 MB
+
+    const auto memory_size_of_input_values =
+        [](const std::vector<pir::Value>& values) -> std::int64_t {
+      std::int64_t memory_size = 0;
+      for (const auto& v : values) {
+        const auto shape_product =
+            GetShapeProduct(GetCompatibleValueAllDims(v));
+        if (shape_product.isa<std::int64_t>()) {
+          memory_size += shape_product.dyn_cast<std::int64_t>() * 32;
+        } else {
+          // Dynamic shape is not supported yet.
+          return -1;
+        }
+      }
+      return memory_size;
+    };
+
+    const auto& [_unused1, lhs_unique_input_values] =
+        SplitFirstWhetherInSecond(lhs.input_values, rhs.input_values);
+    const auto& [_unused2, rhs_unique_input_values] =
+        SplitFirstWhetherInSecond(rhs.input_values, lhs.input_values);
+    std::int64_t lhs_memory_size =
+        memory_size_of_input_values(lhs_unique_input_values);
+    std::int64_t rhs_memory_size =
+        memory_size_of_input_values(rhs_unique_input_values);
+    std::int64_t memory_increase_size =
+        (lhs_memory_size + rhs_memory_size) -
+        std::max(lhs_memory_size, rhs_memory_size);
+
+    return memory_increase_size < MEMORY_INCREASE_LIMIT;
+  }
+
   bool IsLoopFrameworkEqual(const LoopAxisMapping& lhs,
                             const LoopAxisMapping& rhs) {
     if (lhs.loop.empty() || rhs.loop.empty()) return false;
@@ -284,7 +320,6 @@ struct HorizontalFusionConstrain {
     const auto rhs_reduce_loop = SliceVector(
         rhs.loop, rhs.loop.size() - rhs.reduce_axis_num, rhs.loop.size());
 
-    // TODO(huangjiyi): support horizontal fusion without reduce dims equal.
     bool reduce_euqal = lhs_reduce_loop.empty() || rhs_reduce_loop.empty() ||
                         lhs_reduce_loop == rhs_reduce_loop;
 
@@ -298,6 +333,8 @@ struct HorizontalFusionConstrain {
            StmtPatternGraphMatcher<AnchorPattern>()(graph, rhs) &&
            graph.policy_manager().GetPolicy<GeneralTopoPolicy>()->CanFuse(
                lhs, rhs) &&
+           MemoryIncreaseConstraint(lhs->loop_axis_mapping(),
+                                    rhs->loop_axis_mapping()) &&
            !IsAdjacentRelation(lhs->loop_axis_mapping(),
                                rhs->loop_axis_mapping()) &&
            IsLoopFrameworkEqual(lhs->loop_axis_mapping(),
