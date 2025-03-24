@@ -61,13 +61,13 @@ set(NVSHMEM_PATCH_COMMAND
 
 set(NVSHMEM_LIB ${NVSHMEM_INSTALL_DIR}/lib/libnvshmem.a)
 set(NVSHMEM_BOOTSTRAP_UID_LIB
-    ${NVSHMEM_INSTALL_DIR}/lib/nvshmem_bootstrap_uid.so)
+    ${NVSHMEM_INSTALL_DIR}/lib/nvshmem_bootstrap_uid.so.3)
 set(NVSHMEM_BOOTSTRAP_MPI_LIB
-    ${NVSHMEM_INSTALL_DIR}/lib/nvshmem_bootstrap_mpi.so)
+    ${NVSHMEM_INSTALL_DIR}/lib/nvshmem_bootstrap_mpi.so.3)
 set(NVSHMEM_BOOTSTRAP_PMI_LIB
-    ${NVSHMEM_INSTALL_DIR}/lib/nvshmem_bootstrap_pmi.so)
+    ${NVSHMEM_INSTALL_DIR}/lib/nvshmem_bootstrap_pmi.so.3)
 set(NVSHMEM_BOOTSTRAP_PMI2_LIB
-    ${NVSHMEM_INSTALL_DIR}/lib/nvshmem_bootstrap_pmi2.so)
+    ${NVSHMEM_INSTALL_DIR}/lib/nvshmem_bootstrap_pmi2.so.3)
 set(NVSHMEM_TRANSPORT_IBRC_LIB
     ${NVSHMEM_INSTALL_DIR}/lib/nvshmem_transport_ibrc.so.3)
 set(NVSHMEM_TRANSPORT_IBGDA_LIB
