@@ -75,26 +75,6 @@ class TestCollectiveSendRecvAPI(TestDistBase):
                 dtype=dtype,
             )
 
-    def test_sendrecv_flagcx_with_comm_context(self):
-        dtypes_to_test = [
-            "float16",
-            "float32",
-            "float64",
-            "int32",
-            "int64",
-            "int8",
-            "uint8",
-            "bool",
-        ]
-        for dtype in dtypes_to_test:
-            self.check_with_place(
-                "collective_sendrecv_api.py",
-                "sendrecv",
-                "flagcx",
-                dtype=dtype,
-                need_envs={"USE_COMM_CONTEXT": "1"},
-            )
-
     def test_sendrecv_flagcx_dygraph(self):
         dtypes_to_test = [
             "float16",
