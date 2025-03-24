@@ -1689,7 +1689,6 @@
   kernel :
     func : flash_attn_unpadded
     data_type : q
-  intermediate : softmax_lse, seed_offset
   backward : flash_attn_unpadded_grad
 
 - op : flash_attn_varlen_qkvpacked
@@ -1702,7 +1701,6 @@
   kernel :
     func : flash_attn_varlen_qkvpacked
     data_type : qkv
-  intermediate : softmax_lse, seed_offset
   backward : flash_attn_varlen_qkvpacked_grad
 
 - op : flashmask_attention

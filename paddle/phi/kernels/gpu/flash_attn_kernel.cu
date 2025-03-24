@@ -101,6 +101,7 @@ void FlashAttnUnpaddedBaseKernel(
   const int64_t num_heads = dims[1];
   const int64_t head_size = dims[2];
   const int64_t num_heads_k = k.dims()[1];
+  const int64_t total_q = dims[0];
 
   // TODO(umiswing): add shape check
 
@@ -125,7 +126,9 @@ void FlashAttnUnpaddedBaseKernel(
                               nullptr,  // startend_row_indices
                               softmax,
                               softmax_lse,
-                              seed_offset);
+                              seed_offset,
+                              /*unpadded_lse*/ true,
+                              total_q);
 
   VLOG(10) << "FlashAttn fwd seed: " << params.seed
            << ", offset: " << params.offset;
@@ -172,7 +175,9 @@ void FlashAttnUnpaddedBaseKernel(
       max_seqlen_k * k.strides()[0],
       max_seqlen_k * v.strides()[0],
       max_seqlen_q * out->strides()[0],
-      varlen_padded);
+      varlen_padded,
+      params.unpadded_lse,
+      params.total_q);
   CheckFlashAttnStatus(succ);
 #else
   RaiseNotSupportedError();
@@ -372,27 +377,30 @@ void FlashAttnBaseKernel(
               (head_size == 64 || head_size == 128 || head_size == 256)
           ? FLAGS_flash_attn_version
           : 2;
-  FlashAttnFwdParamsV2<T> params = FlashAttnFwdParamsV2<T>(ctx,
-                                                           version,
-                                                           batch_size,
-                                                           seqlen_q,
-                                                           seqlen_k,
-                                                           num_heads,
-                                                           num_heads_k,
-                                                           head_size,
-                                                           dropout,
-                                                           softmax_scale,
-                                                           causal,
-                                                           return_softmax,
-                                                           q.dtype(),
-                                                           is_test,
-                                                           rng_name,
-                                                           fixed_seed_offset,
-                                                           attn_mask,
-                                                           startend_row_indices,
-                                                           softmax,
-                                                           softmax_lse,
-                                                           seed_offset);
+  FlashAttnFwdParamsV2<T> params =
+      FlashAttnFwdParamsV2<T>(ctx,
+                              version,
+                              batch_size,
+                              seqlen_q,
+                              seqlen_k,
+                              num_heads,
+                              num_heads_k,
+                              head_size,
+                              dropout,
+                              softmax_scale,
+                              causal,
+                              return_softmax,
+                              q.dtype(),
+                              is_test,
+                              rng_name,
+                              fixed_seed_offset,
+                              attn_mask,
+                              startend_row_indices,
+                              softmax,
+                              softmax_lse,
+                              seed_offset,
+                              /*unpadded_lse*/ false,
+                              /*total_q*/ 0);
 
   VLOG(10) << "[FlashAttn Forward" << version << "] q.shape=[" << q.dims()
            << "], k.shape=[" << k.dims() << "], v.shape=[" << v.dims() << "]";

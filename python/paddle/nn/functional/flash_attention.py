@@ -590,6 +590,8 @@ def flash_attn_unpadded(
         (
             result_attention,
             result_softmax,
+            result_softmax_lse,
+            result_seed_offset,
         ) = _C_ops.flash_attn_unpadded(
             query,
             key,
@@ -721,6 +723,8 @@ def flash_attn_varlen_qkvpacked(
         (
             result_attention,
             result_softmax,
+            result_softmax_lse,
+            result_seed_offset,
         ) = _C_ops.flash_attn_varlen_qkvpacked(
             qkv,
             cu_seqlens_q,
