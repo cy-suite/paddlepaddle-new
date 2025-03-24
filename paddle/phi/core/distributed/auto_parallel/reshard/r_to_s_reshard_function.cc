@@ -21,6 +21,7 @@
 #include "paddle/phi/core/distributed/auto_parallel/reshard/same_status_reshard_function.h"
 #include "paddle/phi/core/distributed/store/store_utils.h"
 #include "paddle/phi/kernels/split_kernel.h"
+#include "paddle/phi/kernels/slice_kernel.h"
 
 namespace phi::distributed {
 
@@ -68,21 +69,35 @@ void RToSReshardFunction::Eval(phi::DeviceContext* dev_ctx,
   std::vector<int64_t> split_num_vec =
       BalancedSplit(in.dims()[split_axis], num_of_process);
   IntArray sections(split_num_vec);
-
-  std::vector<DenseTensor> split_out_vec;
   auto dtype = in_physical_tensor_cur_rank.dtype();
-  RESHARD_FUNCTOR(dev_ctx,
-                  Split,
-                  dtype,
-                  in_physical_tensor_cur_rank,
-                  sections,
-                  split_axis,
-                  &split_out_vec);
 
-  VLOG(3) << "The current process will remain the idx "
+  if (split_axis == 0) {
+    DenseTensor dense_out;
+    int64_t cur_rank_id = GetCurGlobalRank();
+    int64_t start = split_num_vec[0] * cur_rank_id;
+    int64_t end = std::min(split_num_vec[0] * (cur_rank_id + 1), in_physical_tensor_cur_rank.dims()[split_axis]);
+    RESHARD_FUNCTOR(dev_ctx,
+                    Slice,
+                    dtype,
+                    in_physical_tensor_cur_rank,
+                    {split_axis},
+                    {start},
+                    {end},
+                    &dense_out);
+    SetValue(out, dense_out);
+  } else {
+    std::vector<DenseTensor> split_out_vec;
+    RESHARD_FUNCTOR(dev_ctx,
+                    Split,
+                    dtype,
+                    in_physical_tensor_cur_rank,
+                    sections,
+                    split_axis,
+                    &split_out_vec);
+    SetValue(out, split_out_vec[coord_in_mesh[mesh_axis]]);
+    VLOG(3) << "The current process will remain the idx "
           << coord_in_mesh[mesh_axis] << " piece of tensor";
-
-  SetValue(out, split_out_vec[coord_in_mesh[mesh_axis]]);
+  }
   SetDistProps(out, in.dims(), out_dist_attr);
 }
 
