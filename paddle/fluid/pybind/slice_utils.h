@@ -66,7 +66,7 @@ template <typename T>
 inline void CheckTensorIndexValue(const phi::DenseTensor* x,
                                   const int64_t dim_len) {
   T value = static_cast<T>(0);
-  int64_t x_dim_len = x->dims().size();
+  int64_t x_numel = x->numel();
   if (!(x->place().GetType() == phi::AllocationType::CPU)) {
     phi::DenseTensor cpu_x;
     framework::TensorCopy(*x, phi::CPUPlace(), &cpu_x);
@@ -75,41 +75,37 @@ inline void CheckTensorIndexValue(const phi::DenseTensor* x,
     const phi::DeviceContext* dev_ctx = pool.Get(x->place());
     dev_ctx->Wait();
 #endif
-    for (int i = 0; i < x_dim_len; i++) {
-      for (int j = 0; j < x->dims()[i]; j++) {
-        value = cpu_x.data<T>()[i * x_dim_len + j];
-        PADDLE_ENFORCE_EQ(
-            -dim_len <= value && value < dim_len,
-            true,
-            common::errors::OutOfRange(
-                "The index is out of bounds, "
-                "please check whether the dimensions of index and "
-                "input meet the requirements. It should "
-                "be less than [%ld] and greater than or equal to [%ld], but "
-                "received [%ld]",
-                dim_len,
-                -dim_len,
-                value));
-      }
+    for (int i = 0; i < x_numel; i++) {
+      value = cpu_x.data<T>()[i];
+      PADDLE_ENFORCE_EQ(
+          -dim_len <= value && value < dim_len,
+          true,
+          common::errors::OutOfRange(
+              "The index is out of bounds, "
+              "please check whether the dimensions of index and "
+              "input meet the requirements. It should "
+              "be less than [%ld] and greater than or equal to [%ld], but "
+              "received [%ld]",
+              dim_len,
+              -dim_len,
+              value));
     }
 
   } else {
-    for (int i = 0; i < x_dim_len; i++) {
-      for (int j = 0; j < x->dims()[i]; j++) {
-        value = x->data<T>()[i * x_dim_len + j];
-        PADDLE_ENFORCE_EQ(
-            -dim_len <= value && value < dim_len,
-            true,
-            common::errors::OutOfRange(
-                "The index is out of bounds, "
-                "please check whether the dimensions of index and "
-                "input meet the requirements. It should "
-                "be less than [%ld] and greater than or equal to [%ld], but "
-                "received [%ld]",
-                dim_len,
-                -dim_len,
-                value));
-      }
+    for (int i = 0; i < x_numel; i++) {
+      value = x->data<T>()[i];
+      PADDLE_ENFORCE_EQ(
+          -dim_len <= value && value < dim_len,
+          true,
+          common::errors::OutOfRange(
+              "The index is out of bounds, "
+              "please check whether the dimensions of index and "
+              "input meet the requirements. It should "
+              "be less than [%ld] and greater than or equal to [%ld], but "
+              "received [%ld]",
+              dim_len,
+              -dim_len,
+              value));
     }
   }
   return;
