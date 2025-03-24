@@ -235,6 +235,21 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
                 self.assert_results(dynamic_int_input_func1, a, i)
                 self.assertEqual(ctx.translate_count, 4)
 
+    def test_mixed_static_after_dynamic(self):
+        with allow_dynamic_shape_guard(
+            True
+        ), test_instruction_translator_cache_context() as ctx:
+            a = paddle.randn([4, 5, 6])
+            self.assert_results(dynamic_int_input_func1, a, 2)
+            self.assertEqual(ctx.translate_count, 1)
+            for i in range(3, 6):
+                self.assert_results(dynamic_int_input_func1, a, i)
+                self.assertEqual(ctx.translate_count, 2)
+            self.assert_results(dynamic_int_input_func1, a, 0)
+            self.assertEqual(ctx.translate_count, 3)
+            self.assert_results(dynamic_int_input_func1, a, 1)
+            self.assertEqual(ctx.translate_count, 4)
+
 
 if __name__ == '__main__':
     unittest.main()
