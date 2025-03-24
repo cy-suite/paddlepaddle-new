@@ -18,6 +18,9 @@ import unittest
 import paddle
 import paddle.nn.functional as F
 from paddle.base import core
+from paddle.base.core import (
+    __check_and_set_prim_all_enabled as check_and_set_prim_all_enabled,
+)
 
 
 def apply_to_static(net):
@@ -46,11 +49,13 @@ class TestPrimForwardAndBackward(unittest.TestCase):
         self.flag = None
 
     def reset_env_flag(self):
-        os.environ["FLAGS_prim_backward"] = "False"
-        os.environ["FLAGS_prim_forward"] = "False"
+        if os.getenv("FLAGS_prim_backward"):
+            del os.environ["FLAGS_prim_backward"]
+        if os.getenv("FLAGS_prim_forward"):
+            del os.environ["FLAGS_prim_forward"]
         if os.getenv("FLAGS_prim_all"):
             del os.environ["FLAGS_prim_all"]
-        core.check_and_set_prim_all_enabled()
+        core._set_prim_all_enabled(False)
 
     def train(self):
         net = PrimeNet()
@@ -86,6 +91,7 @@ class TestPrimForwardAndBackward(unittest.TestCase):
         """prim forward + prim backward"""
         self.reset_env_flag()
         os.environ["FLAGS_prim_all"] = "True"
+        check_and_set_prim_all_enabled()
         self.flag = "prim_all"
         _ = self.train()
 
@@ -93,6 +99,7 @@ class TestPrimForwardAndBackward(unittest.TestCase):
         """only prim forward"""
         self.reset_env_flag()
         os.environ["FLAGS_prim_forward"] = "True"
+        check_and_set_prim_all_enabled()
         self.flag = "prim_forward"
         _ = self.train()
 
@@ -100,6 +107,7 @@ class TestPrimForwardAndBackward(unittest.TestCase):
         """only prim backward"""
         self.reset_env_flag()
         os.environ["FLAGS_prim_backward"] = "True"
+        check_and_set_prim_all_enabled()
         self.flag = "prim_backward"
         _ = self.train()
 
