@@ -12,9 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/utils.sh
-init
-
 function is_run_distribute_in_op_test() {
     DISTRIBUTE_FILES=("python/paddle/distributed"
                       "python/phi/infermeta/spmd_rules"
@@ -49,6 +46,9 @@ echo "export PATH=/usr/local/bin:\${PATH}" >> ~/.bashrc
 echo "alias grep='grep --color=auto'" >> "$HOME/.bashrc"
 source ~/.bashrc
 unset GREP_OPTIONS
+
+source $(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/utils.sh
+init
 
 ln -sf $(which python3.9) /usr/local/bin/python
 ln -sf $(which pip3.9) /usr/local/bin/pip
