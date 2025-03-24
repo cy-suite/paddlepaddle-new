@@ -8,3 +8,4 @@ test_parallel_dygraph_mp_layers
 test_dygraph_recompute_for_eager
 test_dygraph_recompute
 test_parallel_dygraph_dataparallel
+test_dygraph_sharding_stage1_bf16
