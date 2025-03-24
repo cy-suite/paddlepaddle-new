@@ -304,7 +304,8 @@ jobs:
     #     nvidia-smi
     #     . ../../../proxy
     #     bash $ci_scripts/coverage_test.sh ${{ github.env }}
-        '
+    #     '
+
     # - name: Check coverage data
     #   run: |
     #     docker exec -t ${{ env.container_name }} /bin/bash -c '
