@@ -192,25 +192,31 @@ TEST(Simplify, SimplifyBc) {
   ASSERT_TRUE((SimplifyDimExpr(bc) == now_accept));
 }
 
-TEST(Simplify, FoldBroadcast) {
+TEST(Simplify, SimplifyMaxAndMinWithGe) {
   DimExpr sym0{"S0"};
   DimExpr sym1{"S1"};
   DimExpr mul{Mul<DimExpr>{{sym0, sym1}}};
+  // Broadcast(S1, Mul(S0, S1)) => Mul(S0, S1)
+  // because Mul(S0, S1) is greater than or equal to S1.
   DimExpr broadcast0{Broadcast<DimExpr>{{mul, sym0}}};
   DimExpr broadcast1{Broadcast<DimExpr>{{sym1, mul}}};
   DimExpr simplify_broadcast0 = SimplifyDimExpr(broadcast0);
   DimExpr simplify_broadcast1 = SimplifyDimExpr(broadcast1);
 
-  DimExpr add{Add<DimExpr>{{sym0, sym1}}};
-  DimExpr broadcast2{Broadcast<DimExpr>{{add, sym0}}};
-  DimExpr broadcast3{Broadcast<DimExpr>{{sym1, add}}};
+  DimExpr broadcast2{Broadcast<DimExpr>{{sym0, sym1, mul}}};
   DimExpr simplify_broadcast2 = SimplifyDimExpr(broadcast2);
+
+  // Broadcast(S1, Add(S0, S1)) => Broadcast(S1, Add(S0, S1))
+  // because  Add(S0, S1) is greater than S1.
+  // Simplify on SimplifyBroadcastForShapeOrData.
+  DimExpr add{Add<DimExpr>{{sym0, sym1}}};
+  DimExpr broadcast3{Broadcast<DimExpr>{{add, sym1}}};
   DimExpr simplify_broadcast3 = SimplifyDimExpr(broadcast3);
 
   ASSERT_TRUE(simplify_broadcast0 == mul);
   ASSERT_TRUE(simplify_broadcast1 == mul);
-  ASSERT_TRUE(simplify_broadcast2 == add);
-  ASSERT_TRUE(simplify_broadcast3 == add);
+  ASSERT_TRUE(simplify_broadcast2 == mul);
+  ASSERT_TRUE(simplify_broadcast3 == broadcast3);
 }
 
 TEST(Simplify, FoldRepetitiveSymbol) {
@@ -227,7 +233,7 @@ TEST(Simplify, FoldRepetitiveSymbol) {
   ASSERT_TRUE((simplify_min == Min<DimExpr>{{S0, S1}}));
 }
 
-TEST(Simplify, SimplifyMaxAndMinWithGE) {
+TEST(Simplify, SimplifyMaxAndMinWithGeOrGt) {
   DimExpr S0{"S0"};
   DimExpr S1{"S1"};
   DimExpr S2{"S2"};
