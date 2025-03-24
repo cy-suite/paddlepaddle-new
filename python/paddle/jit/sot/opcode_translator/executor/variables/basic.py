@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import inspect
 import operator
 import sys
 import types
@@ -50,6 +51,7 @@ from ....utils import (
 )
 from ....utils.envs import ENV_SOT_BREAK_GRAPH_ON_GET_SYMBOLIC_VALUE
 from ....utils.exceptions import (
+    HasNoAttributeError,
     InnerError,
     UnsupportedPaddleAPIBreak,
 )
@@ -1122,6 +1124,67 @@ class ObjectVariable(VariableBase):
 
     def get_py_value(self, allow_tensor=False) -> Any:
         return self.value
+
+
+class SuperVariable(VariableBase):
+    """
+    Enhanced support for `super()` calls in Python.
+    The `super()` function facilitates method delegation to parent classes
+    following the method resolution order (MRO).
+
+    Args:
+        obj(Any): The object to be wrapped.
+        graph(FunctionGraph): The FunctionGraph object that this variable is associated with.
+        tracker(Tracker): The Tracker object that tracks the information of this variable.
+    """
+
+    def __init__(self, cls, obj, graph, tracker):
+        super().__init__(graph, tracker)
+        # self.value = obj.__class__.__mro__
+        self._cls = cls
+        self._obj = obj
+        self._mro = obj.__class__.__mro__
+
+        self.graph = graph
+        self.tracker = tracker
+
+    @property
+    def main_info(self) -> dict[str, Any]:
+        if printable(self._obj):
+            return {"value": f"super({self._cls.__name__}, {self._obj})"}
+        return {"value": f"super({self._cls.__name__}, self)"}
+
+    def get_py_value(self, allow_tensor=False) -> Any:
+        return super(self._cls, self._obj)
+
+    @check_guard
+    def make_stringified_guard(self) -> list[StringifiedExpression]:
+        return [
+            StringifiedExpression(
+                f"Calling super({self._cls.__name__}, self) in class {self._obj.__class__.__name__}",
+                [],
+                {},
+            )
+        ]
+
+    def getattr(self, name: str, default=None):
+        for _cls in self.mro:
+            if not hasattr(_cls, name):
+                continue
+            attr = getattr(_cls, name)
+            # TODO(DrRyanHuang): Is there any cases that is not function?
+            if inspect.isfunction(attr):
+                from .callable import UserDefinedFunctionVariable
+
+                return UserDefinedFunctionVariable(
+                    types.MethodType(attr, self.obj),
+                    self.graph,
+                    DummyTracker([]),
+                )
+
+        raise HasNoAttributeError(
+            f"{self._obj.__class__.__name__} {self} has no attribute {name}"
+        )
 
 
 class SliceVariable(VariableBase):

@@ -65,6 +65,7 @@ from .variables import (
     NumpyVariable,
     RangeVariable,
     SliceVariable,
+    SuperVariable,
     SymbolicVariable,
     TupleVariable,
     VariableBase,
@@ -233,6 +234,30 @@ Dispatcher.register(
     dict,
     ("DictVariable",),
     lambda var: var.copy(),
+)
+
+
+# super
+Dispatcher.register(
+    super,
+    (),
+    lambda _cls, _obj: SuperVariable(
+        cls=_cls,
+        obj=_obj.value,
+        graph=Dispatcher.graph,
+        tracker=DummyTracker([]),
+    ),
+)
+
+Dispatcher.register(
+    super,
+    ("ClassVariable", "VariableBase"),
+    lambda _cls, _obj: SuperVariable(
+        cls=_cls,
+        obj=_obj.value,
+        graph=Dispatcher.graph,
+        tracker=DummyTracker([]),
+    ),
 )
 
 
@@ -1461,7 +1486,7 @@ for unary_fn in UNARY_OPS:
 
         @Dispatcher.register_decorator(unary_fn)
         def numpy_unary_dispatcher(var: NumpyArrayVariable):
-            raise FallbackError('Numpy operator need fallback to dygraph')
+            raise FallbackError("Numpy operator need fallback to dygraph")
 
 
 Dispatcher.register(
@@ -1476,7 +1501,7 @@ for binary_fn in BINARY_OPS:
 
         @Dispatcher.register_decorator(binary_fn)
         def numpy_binary_dispatcher(var: NumpyVariable, other: NumpyVariable):
-            raise FallbackError('Numpy operator need fallback to dygraph')
+            raise FallbackError("Numpy operator need fallback to dygraph")
 
 
 Dispatcher.register(

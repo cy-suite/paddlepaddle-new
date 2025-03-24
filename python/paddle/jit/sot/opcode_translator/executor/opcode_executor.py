@@ -87,6 +87,7 @@ from .tracker import (
 )
 from .variables import (
     BuiltinVariable,
+    ClassVariable,
     ConstantVariable,
     ContainerVariable,
     DictVariable,
@@ -1144,6 +1145,24 @@ class OpcodeExecutorBase:
             )
         )
 
+    def handle_super_init_without_args(self, fn, args, kwargs):
+
+        if (
+            isinstance(fn, BuiltinVariable)
+            and fn.value is super
+            and 0 == len(args)
+        ):
+
+            args = (
+                ClassVariable(
+                    self.vframe.locals['self'].value.__class__,
+                    self._graph,
+                    DummyTracker([]),
+                ),
+                self.vframe.locals['self'],
+            )
+        return fn, args, kwargs
+
     @call_break_graph_decorator(push_n=1)
     def PRECALL__CALL(self, instr: Instruction):
         """
@@ -1262,6 +1281,7 @@ class OpcodeExecutorBase:
         args = self.stack.pop_n(n_args)
         kwargs = {}
         fn = self.stack.pop()
+        fn, args, kwargs = self.handle_super_init_without_args(fn, args, kwargs)
         ret = fn(*args, **kwargs)
         self.stack.push(ret)
 
