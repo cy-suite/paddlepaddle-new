@@ -958,8 +958,8 @@ def prune_by_acc_steps(tuner_cfg, cur_cfg, pruned_cfgs=[]):
         if not divisible_acc_steps:
             return False
 
-        max_acc_step_divisible_by_pp_degree = max(divisible_acc_steps)
-        if acc_steps < max_acc_step_divisible_by_pp_degree:
+        max_acc_steps_divisible_by_pp_degree = max(divisible_acc_steps)
+        if acc_steps < max_acc_steps_divisible_by_pp_degree:
             return True
 
     return False

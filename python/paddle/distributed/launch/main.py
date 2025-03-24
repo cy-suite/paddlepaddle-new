@@ -993,14 +993,14 @@ def launch() -> None:
                     size = len(result)
                 mem_allnodes = [i[0].decode() for i in result]
 
-                for mem in mem_allnodes:
-                    if mem is None or cur_cfg["max_mem_usage"] is None:
+                for m in mem_allnodes:
+                    if m is None or cur_cfg["max_mem_usage"] is None:
                         continue
-                    if mem == "OOM":
-                        cur_cfg["max_mem_usage"] = mem
+                    if m == "OOM":
+                        cur_cfg["max_mem_usage"] = m
                         break
                     cur_cfg["max_mem_usage"] = max(
-                        int(float(mem)), int(float(cur_cfg["max_mem_usage"]))
+                        int(float(m)), int(float(cur_cfg["max_mem_usage"]))
                     )
 
             # Log the peak memory usage of all GPUs and the number of trainable parameters.
@@ -1027,7 +1027,14 @@ def launch() -> None:
                         )
                         size = len(result)
                     per_node_peek_memory_info = {
-                        i[1]: ast.literal_eval(i[0].decode()) for i in result
+                        i[1]
+                        .key.decode('latin-1')
+                        .split("/")[-1]: ast.literal_eval(i[0].decode())
+                        for i in result
+                    }
+                    per_node_peek_memory_info = {
+                        k: per_node_peek_memory_info[k]
+                        for k in sorted(per_node_peek_memory_info)
                     }
 
                 else:
@@ -1067,9 +1074,15 @@ def launch() -> None:
                         )
                         size = len(result)
                     per_node_trainable_params_info = {
-                        i[1]: ast.literal_eval(i[0].decode()) for i in result
+                        i[1]
+                        .key.decode('latin-1')
+                        .split("/")[-1]: ast.literal_eval(i[0].decode())
+                        for i in result
                     }
-
+                    per_node_trainable_params_info = {
+                        k: per_node_trainable_params_info[k]
+                        for k in sorted(per_node_trainable_params_info)
+                    }
                 else:
                     per_node_trainable_params_info["node0"] = (
                         num_trainable_params
@@ -1354,10 +1367,8 @@ def launch() -> None:
                     )
                     size = len(result)
                 status = [i[0].decode() for i in result]
-
                 if "error" in status:
                     break
-
         recorder.store_history(history_file_path)
 
         # get best config to run
