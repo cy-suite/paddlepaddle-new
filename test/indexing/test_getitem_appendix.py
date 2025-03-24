@@ -59,11 +59,10 @@ class TestGetitemDygraphBasicIndex(unittest.TestCase):
         self.accuracy_check(x[10:21:10], y[10:21:10])
         self.accuracy_check(x[0:0], y[0:0])
         # case 3:
-        # [7, 6, 5, 4]
+        # torch does not support negative step
         # print(x[3:-3:-1]) # []
         # print(x[-3:3:1]) # []
-        # print(y[-3:3:1])
-        # self.accuracy_check(x[-3:3:-1], y[3:-3:-1])  # torch不支持step为负数
+        # print(x[-3:3:-1])  # [7, 6, 5, 4]
         # case 4:
         # [5, 6, 7, 8, 9]
         self.accuracy_check(x[0:0], y[0:0])
@@ -71,16 +70,13 @@ class TestGetitemDygraphBasicIndex(unittest.TestCase):
         self.accuracy_check(x[5::2], y[5::2])
         # case 5:
         # [0, 1, 2, 3, 4, 5, 6, 7, 8]
-        # self.accuracy_check(x[:-1], y[:-1])
+        self.accuracy_check(x[:-1], y[:-1])
         # case 6:
         # [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
         self.accuracy_check(x[:], y[:])
         # case 7:
         # [1]
         self.accuracy_check(x[1:2], y[1:2])
-        # case 8:
-        # [9, 8, 7, 6, 5, 4, 3, 2, 1, 0]
-        # self.accuracy_check(x[::-1], y[::-1])
 
         x = np.arange(36).reshape(3, 6, 2)
         x = paddle.to_tensor(x)
@@ -145,10 +141,7 @@ class TestGetitemDygraphAdvancedIndex(unittest.TestCase):
         # case2:
         # [[ 1.],[-1.],[nan],[ 2.],[nan],[-3.],[ 2.]]
         self.accuracy_check(x[x != 0], y[y != 0])
-        # # case3:
-        # print(x[~paddle.isnan(x)]) # [ 0.,  1., -1.,  2.,  0.,  0., -3.,  2.]
-        # self.accuracy_check(x[~paddle.isnan(x)], y[~torch.isnan(y)])
-        # case4:
+        # case3:
         # [1.]
         self.accuracy_check(x[(x > 0) & (x < 2)], y[(y > 0) & (y < 2)])
 
@@ -184,13 +177,6 @@ class TestGetitemDygraphAdvancedIndex(unittest.TestCase):
         # case 4:
         # [3, 7, 4]
         self.accuracy_check(x[[0, 1, 0], [3, 2, 4]], y[[0, 1, 0], [3, 2, 4]])
-
-        # paddle and torch diff
-        # x = np.arange(5 * 6).reshape((6, 5))
-        # y = paddle.to_tensor(x)
-        # z = torch.tensor(x)
-        # index = [[2, 3, 4], [1, 2, 5]]
-        # self.accuracy_check(x[index], y[index])
 
     def test_tensor(self):
         x = np.arange(10).reshape(2, 5)
@@ -270,9 +256,6 @@ class Test0DTensorIndexing(unittest.TestCase):
         # case 4:
         self.accuracy_check(x[paddle.to_tensor(True)], y[torch.tensor(True)])
         self.accuracy_check(x[True], y[True])
-        # case 5:
-        # x.assign(paddle.to_tensor(99)) # setitem
-        # print(x) # 99
 
 
 class TestOSizeTensorIndexing(unittest.TestCase):
@@ -307,12 +290,8 @@ class TestOSizeTensorIndexing(unittest.TestCase):
         # case 7:
         mask_p = x > 1
         mask_t = y > 1
-        # [0, 3]
-        self.accuracy_check(mask_p, mask_t)
-        # mask_p = paddle.to_tensor([], dtype='bool')
-        # # [0, 3]
-        # mask_t = torch.tensor([], dtype=torch.bool)
-        # self.accuracy_check(x[mask_p], y[mask_t])
+        self.accuracy_check(mask_p, mask_t)  # [0, 3]
+        self.accuracy_check(x[True], y[True])
 
 
 class TestGetItemErrorCase(unittest.TestCase):
