@@ -72,7 +72,7 @@ void RToSReshardFunction::Eval(phi::DeviceContext* dev_ctx,
   int64_t cur_rank_id = GetCurGlobalRank();
   int64_t start = split_num_vec[0] * cur_rank_id;
   int64_t end = std::min(split_num_vec[0] * (cur_rank_id + 1),
-                          in_physical_tensor_cur_rank.dims()[split_axis]);
+                         in_physical_tensor_cur_rank.dims()[split_axis]);
   RESHARD_FUNCTOR(dev_ctx,
                   Slice,
                   dtype,
