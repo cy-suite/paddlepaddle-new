@@ -149,9 +149,9 @@ def dist_degree(mode, num_gpus, num_nodes, tuner_cfg=None):
             results = results.union(divisor(gbs, reverse=False))
         results = list(results)
         if tuner_cfg.get("schedule_mode", "memory") != "performance":
-            sorted(results, reverse=False)
+            results = sorted(results, reverse=False)
         else:
-            sorted(results, reverse=True)
+            results = sorted(results, reverse=True)
 
     elif mode == "vpp_degree":
         if tuner_cfg.get("schedule_mode", "memory") != "performance":
