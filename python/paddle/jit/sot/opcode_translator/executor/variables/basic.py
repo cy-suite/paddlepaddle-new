@@ -1010,6 +1010,7 @@ class SymbolicVariable(VariableBase):
                 union_free_vars(frame_value_tracer.free_vars),
             ),
         ]
+        # TODO: replace it with FasterStringifiedExpression
         if _type is int:
             guards.append(
                 StringifiedExpression(
