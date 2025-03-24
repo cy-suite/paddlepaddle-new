@@ -542,7 +542,7 @@ def sort_by_refined_recompute(all_cfgs):
     def group_by_excluding_keys(dict_list, excluding_keys):
         grouped = {}
         for d in dict_list:
-            key = tuple(d[k] for k in d if k not in excluding_keys)
+            key = tuple(d.get(k, 0) for k in d if k not in excluding_keys)
             if key not in grouped:
                 grouped[key] = []
             grouped[key].append(d)
@@ -572,7 +572,7 @@ def sort_by_refined_recompute(all_cfgs):
         sorted(
             cfg_list,
             key=lambda d: tuple(
-                d[k] for k in d if k in __REFINED_RECOMPUTE_OPS__
+                d.get(k, 0) for k in d if k in __REFINED_RECOMPUTE_OPS__
             ),
         )
         if len(cfg_list) < 6:
@@ -1178,7 +1178,7 @@ def gen_new_args(raw_args, cfg, tuner_cfg, run_best=False):
                 for op in __REFINED_RECOMPUTE_OPS__:
                     if op in cfg:
                         refined_recompute_config += (
-                            op + ':' + str(cfg[op])
+                            op + ':' + str(cfg.get(op, 0))
                         ) + ','
                 refined_recompute_config = refined_recompute_config[:-1]
                 cmd["refined_recompute"][1] = refined_recompute_config
