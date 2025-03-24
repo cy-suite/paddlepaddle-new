@@ -1001,6 +1001,17 @@ struct CBlas<phi::dtype::float16> {
       z[i] = x[i] + y[i];
     }
   }
+  template <typename... ARGS>
+  static void AXPY(ARGS... args) {
+    detail::axpy(args...);
+  }
+
+  template <typename... ARGS>
+  static void VCOPY(ARGS... args UNUSED) {
+    PADDLE_THROW(common::errors::Unimplemented(
+        "Blas VCOPY do not supported on CPU with bfloat16,"
+        " please check your code"));
+  }
 #ifdef PADDLE_WITH_MKLML
   static void GEMM_BATCH(...) {
     PADDLE_THROW(common::errors::Unimplemented(
