@@ -20,8 +20,8 @@
 #include "paddle/phi/core/distributed/auto_parallel/reshard/reshard_utils.h"
 #include "paddle/phi/core/distributed/auto_parallel/reshard/same_status_reshard_function.h"
 #include "paddle/phi/core/distributed/store/store_utils.h"
-#include "paddle/phi/kernels/split_kernel.h"
 #include "paddle/phi/kernels/slice_kernel.h"
+#include "paddle/phi/kernels/split_kernel.h"
 
 namespace phi::distributed {
 
@@ -75,7 +75,8 @@ void RToSReshardFunction::Eval(phi::DeviceContext* dev_ctx,
     DenseTensor dense_out;
     int64_t cur_rank_id = GetCurGlobalRank();
     int64_t start = split_num_vec[0] * cur_rank_id;
-    int64_t end = std::min(split_num_vec[0] * (cur_rank_id + 1), in_physical_tensor_cur_rank.dims()[split_axis]);
+    int64_t end = std::min(split_num_vec[0] * (cur_rank_id + 1),
+                           in_physical_tensor_cur_rank.dims()[split_axis]);
     RESHARD_FUNCTOR(dev_ctx,
                     Slice,
                     dtype,
@@ -96,7 +97,7 @@ void RToSReshardFunction::Eval(phi::DeviceContext* dev_ctx,
                     &split_out_vec);
     SetValue(out, split_out_vec[coord_in_mesh[mesh_axis]]);
     VLOG(3) << "The current process will remain the idx "
-          << coord_in_mesh[mesh_axis] << " piece of tensor";
+            << coord_in_mesh[mesh_axis] << " piece of tensor";
   }
   SetDistProps(out, in.dims(), out_dist_attr);
 }
