@@ -89,7 +89,6 @@ if(WIN32)
   list(REMOVE_ITEM TEST_OPS test_trainer_desc)
   list(REMOVE_ITEM TEST_OPS test_checkpoint_notify_op)
   list(REMOVE_ITEM TEST_OPS test_downpoursgd_deprecated)
-  list(REMOVE_ITEM TEST_OPS test_fleet_deprecated)
   list(REMOVE_ITEM TEST_OPS test_fleet_nocvm_1_deprecated)
   list(REMOVE_ITEM TEST_OPS test_fleet_rolemaker)
   list(REMOVE_ITEM TEST_OPS test_fleet_rolemaker_3)
@@ -174,7 +173,6 @@ endif()
 
 if(((NOT WITH_ROCM) AND (NOT WITH_GPU)) OR WIN32)
   list(REMOVE_ITEM TEST_OPS test_fused_gate_attention_op)
-  list(REMOVE_ITEM TEST_OPS test_boxps)
   list(REMOVE_ITEM TEST_OPS test_reducescatter_api)
 endif()
 list(REMOVE_ITEM TEST_OPS test_seq_concat_op)
@@ -393,7 +391,6 @@ function(parallel_bash_test_modules TARGET_NAME)
 endfunction()
 
 list(REMOVE_ITEM TEST_OPS test_feed_data_check_shape_type_deprecated)
-list(REMOVE_ITEM TEST_OPS test_data_norm_op_deprecated)
 list(REMOVE_ITEM TEST_OPS test_layers_deprecated)
 list(REMOVE_ITEM TEST_OPS test_basic_gru_api)
 list(REMOVE_ITEM TEST_OPS test_basic_gru_unit_op)
@@ -577,8 +574,6 @@ else()
                   test_feed_data_check_shape_type_deprecated)
 endif()
 
-py_test_modules(test_data_norm_op_deprecated MODULES
-                test_data_norm_op_deprecated)
 py_test_modules(
   test_fuse_bn_act_pass_deprecated
   MODULES
@@ -595,8 +590,8 @@ if(NOT WIN32)
 endif()
 
 set_tests_properties(
-  test_data_norm_op_deprecated test_dataloader_keep_order_deprecated
-  test_dataloader_unkeep_order_deprecated PROPERTIES LABELS "RUN_TYPE=DIST")
+  test_dataloader_keep_order_deprecated test_dataloader_unkeep_order_deprecated
+  PROPERTIES LABELS "RUN_TYPE=DIST")
 
 if(NOT WIN32)
   set_tests_properties(test_multiprocess_reader_exception_deprecated
