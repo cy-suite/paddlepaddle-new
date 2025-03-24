@@ -1711,7 +1711,7 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
     packed_recv_x_scales =
         ConvertPaddleTensorToDetailTensor(paddle::experimental::transpose(
             ConvertDetailTensorToPaddleTensor(packed_recv_x_scales),
-            std::vector<int>{1, 2}));
+            std::vector<int>{0, 2, 1}));
   }
 
   // Kernel launch
