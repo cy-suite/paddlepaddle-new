@@ -30,6 +30,14 @@ void MaximumGradKernel(const Context& dev_ctx,
                        const DenseTensor& dout,
                        DenseTensor* dx,
                        DenseTensor* dy) {
+  if (dx && dx->numel() == 0) {
+    dev_ctx.template Alloc<T>(dx);
+    dx = nullptr;
+  }
+  if (dy && dy->numel() == 0) {
+    dev_ctx.template Alloc<T>(dy);
+    dy = nullptr;
+  }
   funcs::ElementwiseGradPreProcess(dout, dx);
   int axis = -1;
   phi::funcs::ElemwiseGradCompute<Context, T, MaxGradDx<T>, MaxGradDy<T>>(
@@ -43,6 +51,14 @@ void MinimumGradKernel(const Context& dev_ctx,
                        const DenseTensor& dout,
                        DenseTensor* dx,
                        DenseTensor* dy) {
+  if (dx && dx->numel() == 0) {
+    dev_ctx.template Alloc<T>(dx);
+    dx = nullptr;
+  }
+  if (dy && dy->numel() == 0) {
+    dev_ctx.template Alloc<T>(dy);
+    dy = nullptr;
+  }
   funcs::ElementwiseGradPreProcess(dout, dx);
   int axis = -1;
   phi::funcs::ElemwiseGradCompute<Context, T, MinGradDx<T>, MinGradDy<T>>(
