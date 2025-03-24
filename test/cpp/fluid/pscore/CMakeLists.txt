@@ -53,16 +53,6 @@ set_source_files_properties(
 paddle_test(heter_server_test SRCS heter_server_test.cc)
 
 set_source_files_properties(
-  send_and_recv_op_cpu_test.cc PROPERTIES COMPILE_FLAGS
-                                          ${DISTRIBUTE_COMPILE_FLAGS})
-paddle_test(send_and_recv_cpu_test SRCS send_and_recv_op_cpu_test.cc)
-
-set_source_files_properties(
-  send_and_recv_op_gpu_test.cc PROPERTIES COMPILE_FLAGS
-                                          ${DISTRIBUTE_COMPILE_FLAGS})
-paddle_test(send_and_recv_gpu_test SRCS send_and_recv_op_gpu_test.cc)
-
-set_source_files_properties(
   heter_listen_and_server_test.cc PROPERTIES COMPILE_FLAGS
                                              ${DISTRIBUTE_COMPILE_FLAGS})
 paddle_test(heter_listen_and_server_test SRCS heter_listen_and_server_test.cc)
