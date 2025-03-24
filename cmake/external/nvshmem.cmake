@@ -37,26 +37,27 @@ set(NVSHMEM_INCLUDE_DIR
 
 include_directories(${NVSHMEM_INCLUDE_DIR})
 
+set(NVSHMEM_TAR_NAME "nvshmem_src_3.2.5-1.txz")
+
 if(NVSHMEM_SRC_TAR_PATH)
   set(NVSHMEM_DOWNLOAD_COMMAND
-      rm -rf extern_nvshmem nvshmem_src_3.1.7-1.txz && cp
-      ${NVSHMEM_SRC_TAR_PATH} . && tar xf nvshmem_src_3.1.7-1.txz && mv
-      nvshmem_src extern_nvshmem)
+      rm -rf extern_nvshmem ${NVSHMEM_TAR_NAME} && cp ${NVSHMEM_SRC_TAR_PATH} .
+      && tar xf ${NVSHMEM_TAR_NAME} && mv nvshmem_src extern_nvshmem)
 else()
   set(NVSHMEM_URL
-      "https://developer.download.nvidia.com/compute/redist/nvshmem/3.1.7/source/nvshmem_src_3.1.7-1.txz"
+      "https://developer.download.nvidia.com/compute/redist/nvshmem/3.2.5/source/${NVSHMEM_TAR_NAME}"
       CACHE STRING "" FORCE)
   set(NVSHMEM_DOWNLOAD_COMMAND
-      rm -rf extern_nvshmem nvshmem_src_3.1.7-1.txz && wget
-      --no-check-certificate -q ${NVSHMEM_URL} && tar xf
-      nvshmem_src_3.1.7-1.txz && mv nvshmem_src extern_nvshmem)
+      rm -rf extern_nvshmem ${NVSHMEM_TAR_NAME} && wget --no-check-certificate
+      -q ${NVSHMEM_URL} && tar xf ${NVSHMEM_TAR_NAME} && mv nvshmem_src
+      extern_nvshmem)
 endif()
 
 set(NVSHMEM_PATCH_PATH ${PADDLE_SOURCE_DIR}/patches/nvshmem/nvshmem.patch)
 set(NVSHMEM_PATCH_COMMAND
     git init && git config user.name "PaddlePaddle" && git config user.email
-    "paddle@baidu.com" && git config --add safe.directory . && git add . && git
-    commit -m "init" && git apply ${NVSHMEM_PATCH_PATH})
+    "paddle@baidu.com" && git config --add safe.directory ${NVSHMEM_SOURCE_DIR}
+    && git add . && git commit -m "init" && git apply ${NVSHMEM_PATCH_PATH})
 
 set(NVSHMEM_LIB ${NVSHMEM_INSTALL_DIR}/lib/libnvshmem.a)
 set(NVSHMEM_BOOTSTRAP_UID_LIB
