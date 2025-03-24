@@ -380,6 +380,8 @@ LoopAxisMapping HorizontalLoopAxisMappingMerge(const LoopAxisMapping& source,
   result.loop = target.loop;
   result.reduce_axis_num =
       std::max(source.reduce_axis_num, target.reduce_axis_num);
+  result.SimplifyForwardMapping();
+  result.SetReverseMapping();
   return result;
 }
 
