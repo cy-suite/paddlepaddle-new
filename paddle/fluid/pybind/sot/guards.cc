@@ -133,4 +133,16 @@ bool InstanceCheckGuard::check(PyObject* value) {
   return PyObject_IsInstance(value, expected_);
 }
 
+bool NumpyDtypeMatchGuard::check(PyObject* value) {
+  if (value == nullptr) {
+    return false;
+  }
+
+  if (py::isinstance<py::array>(value)) {
+    return py::cast<py::array>(value).dtype().is(expected_);
+  }
+
+  return expected_.equal(py::handle(value).get_type());
+}
+
 #endif
