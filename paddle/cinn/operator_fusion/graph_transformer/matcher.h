@@ -312,7 +312,7 @@ struct HorizontalFusionConstrain {
       return true;
     } else {
       VLOG(4) << "Can not horizontal fusion due to memory may increase "
-              << memory_increase_size / 1024 / 1024 / 8 << " MB, "
+              << memory_increase_size / 1024 / 1024 / 8 << " MB"
               << ", which exceeds the limit = 64 MB";
       return false;
     }
