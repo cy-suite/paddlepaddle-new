@@ -308,7 +308,14 @@ struct HorizontalFusionConstrain {
         (lhs_memory_size + rhs_memory_size) -
         std::max(lhs_memory_size, rhs_memory_size);
 
-    return memory_increase_size < MEMORY_INCREASE_LIMIT;
+    if (memory_increase_size < MEMORY_INCREASE_LIMIT) {
+      return true;
+    } else {
+      VLOG(4) << "Can not horizontal fusion due to memory may increase "
+              << memory_increase_size / 1024 / 1024 / 8 << " MB, "
+              << ", which exceeds the limit = 64 MB";
+      return false;
+    }
   }
 
   bool IsLoopFrameworkEqual(const LoopAxisMapping& lhs,
