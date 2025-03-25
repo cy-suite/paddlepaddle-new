@@ -1,9 +1,12 @@
 name: Check PR Template
 
 on:
-  pull_request:
-    branches: [develop]
+  pull_request_target:
     types: [opened, synchronize, reopened, edited]
+
+env:
+  AGILE_PULL_ID: ${{ github.event.pull_request.number }}
+  GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 jobs:
   check:
@@ -14,6 +17,9 @@ jobs:
     steps:
     - name: Clone paddle
       uses: actions/checkout@v4
+      with:
+        ref: refs/pull/${{ github.event.pull_request.number }}/merge
+        fetch-depth: 1000
 
     - name: Setup Python
       uses: actions/setup-python@v5
@@ -26,9 +32,6 @@ jobs:
         pip install httpx
 
     - name: Check PR Template
-      env:
-        AGILE_PULL_ID: ${{ github.event.pull_request.number }}
-        GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
         python tools/CheckPRTemplate.py; EXCODE=$?
         echo "EXCODE: $EXCODE"
@@ -42,3 +45,25 @@ jobs:
           echo -e "[ https://github.com/PaddlePaddle/Paddle/wiki/paddle_ci_manual ]"
           echo -e "######################################################"
         fi
+
+    - name: Icafe_log
+      env:
+        AGILE_COMPILE_BRANCH: ${{ github.event.pull_request.base.ref }}
+        method: check_pr
+        icafe_download_url: ${{ secrets.ICAFE_DOWNLOAD_URL }}
+        icafe_url: ${{ secrets.ICAFE_URL }}
+        icafe_user: ${{ secrets.ICAFE_USER }}
+        icafe_pwd: ${{ secrets.ICAFE_PWD }}
+        db_host: ${{ secrets.DB_HOST }}
+        db_port: ${{ secrets.DB_PORT }}
+        db_user: ${{ secrets.DB_USER }}
+        db_pd: ${{ secrets.DB_PD }}
+        db_name: ${{ secrets.DB_NAME }}
+        icafe_token: ${{ secrets.ICAFE_TOKEN }}
+        AGILE_CHECKIN_AUTHOR: ${{ github.event.pull_request.user.login }}
+        AGILE_REVISION: ${{ github.event.pull_request.head.sha }}
+      run: |
+        COMMIT_MESSAGE=$(git show -s --format='%s' $AGILE_REVISION)
+        AGILE_COMMENTS="[{\"Commit\":\"$AGILE_REVISION\",\"author\":\"$AGILE_CHECKIN_AUTHOR\",\"comment\":\"$COMMIT_MESSAGE\"}]"
+        wget -q --no-check-certificate  $icafe_download_url
+        python modify_icafe.py
