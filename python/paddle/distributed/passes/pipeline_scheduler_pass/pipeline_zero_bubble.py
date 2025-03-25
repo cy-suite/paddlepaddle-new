@@ -22,8 +22,6 @@ from ...utils.log_utils import get_logger
 from ..pass_base import register_pass
 from ..pass_utils import (
     PipelineMemoryEstimator,
-    _program_for_zero_bubble,
-    _program_for_zero_bubble_vpp,
     split_matmul_grad_to_matmul,
 )
 from .pipeline_pass_base import PipelinePassBase
@@ -138,13 +136,7 @@ class PipelineZeroBubblePipelinePass(PipelineZeroBubbleBase):
         return job_list
 
     def _partial_programs(self, program):
-        dist_context = self.get_attr("dist_context")
-        self._split_matmul_grad_ops_to_matmul(program, dist_context)
-        enable_send_recv_overlap = self.get_attr("enable_send_recv_overlap")
-        types, sub_program_list = _program_for_zero_bubble(
-            program, enable_send_recv_overlap
-        )
-        return types, sub_program_list
+        raise NotImplementedError("Not support old IR for ZeroBubble")
 
 
 @register_pass("pipeline_scheduler_ZBVPP")
@@ -231,40 +223,7 @@ class PipelineZeroBubbleVirtualPipelinePass(PipelineZeroBubblePipelinePass):
         return job_list
 
     def _partial_programs(self, program):
-        dist_context = self.get_attr("dist_context")
-        num_model_chunks = self.get_attr("vpp_degree")
-        memory_limit_times = self.get_attr("memory_limit_times")
-
-        self._split_matmul_grad_ops_to_matmul(program, dist_context)
-        enable_send_recv_overlap = self.get_attr("enable_send_recv_overlap")
-        types, sub_program_list = _program_for_zero_bubble_vpp(
-            program, num_model_chunks, dist_context, enable_send_recv_overlap
-        )
-
-        rank = paddle.distributed.get_rank()
-        pp_group = []
-        for process_mesh in dist_context.process_meshes:
-            if rank in process_mesh.process_ids:
-                pp_idx = process_mesh.process_ids.index(rank)
-                for process_mesh in dist_context.process_meshes:
-                    pp_group.append(process_mesh.process_ids[pp_idx])
-                break
-
-        if memory_limit_times > 0:
-            self._estimate_program_mem_usagess(
-                types, sub_program_list, dist_context, pp_group
-            )
-            self._get_all_device_base_memory(pp_group)
-        else:
-            self.program_mem_usages = [
-                {type: 0 for type in types} for _ in pp_group
-            ]
-            self.program_max_mem_usages = [
-                {type: 0 for type in types} for _ in pp_group
-            ]
-            self.base_memory = [0 for _ in range(len(pp_group))]
-
-        return types, sub_program_list
+        raise NotImplementedError("Not support old IR for ZeroBubbleVPP")
 
     def _estimate_program_mem_usagess(
         self, types, sub_program_list, dist_context, pp_group
