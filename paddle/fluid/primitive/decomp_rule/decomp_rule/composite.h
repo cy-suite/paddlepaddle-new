@@ -950,9 +950,9 @@ Tensor clip_decomp(const Tensor& x, const Tensor& min, const Tensor& max) {
   if (max_reshape.dtype() != x.dtype()) {
     max_reshape = cast<T>(max_reshape, x.dtype());
   }
-  auto ans = where<T>(x <= min_reshape,
-                      min_reshape,
-                      where<T>(x >= max_reshape, max_reshape, x));
+  auto ans = where<T>(x <= max_reshape,
+                      where<T>(x >= min_reshape, x, min_reshape),
+                      max_reshape);
   return ans;
 }
 
