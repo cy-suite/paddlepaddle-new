@@ -137,6 +137,7 @@ class TestBasicFasterGuard(unittest.TestCase):
         self.assertTrue(guard_numpy_dtype.check(np.int32()))
         self.assertFalse(guard_numpy_dtype.check(np.array(1, dtype=np.int64)))
         self.assertFalse(guard_numpy_dtype.check(np.float32()))
+        self.assertFalse(guard_numpy_dtype.check(np.bool_()))
 
 
 class TestFasterGuardGroup(unittest.TestCase):
