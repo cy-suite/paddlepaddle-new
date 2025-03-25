@@ -620,7 +620,7 @@ class OpTest(unittest.TestCase):
         for name, item in self.inputs.items():
             if isinstance(item, (list, tuple)):
                 for tup in item:
-                    if numel(tup[1].shape) == 0:
+                    if len(tup) > 1 and numel(tup[1].shape) == 0:
                         return True
             else:
                 if numel(item.shape) == 0:
