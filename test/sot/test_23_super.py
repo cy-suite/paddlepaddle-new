@@ -14,9 +14,13 @@
 
 import unittest
 
-from test_case_base import TestCaseBase
+from test_case_base import (
+    TestCaseBase,
+    test_instruction_translator_cache_context,
+)
 
 import paddle
+from paddle.jit.sot import symbolic_translate
 from paddle.jit.sot.psdb import check_no_breakgraph
 
 
@@ -70,6 +74,32 @@ class TestSingleInheritance(TestCaseBase):
     def test_super_self_name(self):
         self.assert_results(B().test_self_name_me, paddle.to_tensor(33))
         self.assert_results(B().test_self_name_this, paddle.to_tensor(33))
+
+    def test_guard_run(self):  # test guard
+        with test_instruction_translator_cache_context() as ctx:
+            self.assertEqual(ctx.translate_count, 0)
+            symbolic_translate(B().test_super_no_args_add2)(paddle.to_tensor(1))
+            symbolic_translate(B().test_super_no_args_add2)(paddle.to_tensor(2))
+            self.assertEqual(ctx.translate_count, 1)
+
+        with test_instruction_translator_cache_context() as ctx:
+            self.assertEqual(ctx.translate_count, 0)
+            symbolic_translate(B().test_super_no_args_add2)(paddle.to_tensor(1))
+            symbolic_translate(B().test_super_no_args_add2)(paddle.to_tensor(2))
+            self.assertEqual(ctx.translate_count, 1)
+            symbolic_translate(B().test_super_with_args_add3)(
+                paddle.to_tensor(3)
+            )
+            symbolic_translate(B().test_super_with_args_add3)(
+                paddle.to_tensor(4)
+            )
+            self.assertEqual(ctx.translate_count, 2)
+
+        with test_instruction_translator_cache_context() as ctx:
+            self.assertEqual(ctx.translate_count, 0)
+            symbolic_translate(B().test_super_both_add5)(paddle.to_tensor(5))
+            symbolic_translate(B().test_super_both_add5)(paddle.to_tensor(6))
+            self.assertEqual(ctx.translate_count, 1)
 
 
 # ---------------------- test multiple inheritance case ----------------------
@@ -126,9 +156,35 @@ class TestMultipleInheritance(TestCaseBase):
         self.assert_results(Q().addxP, x)
         self.assert_results(Q().addxZ, x)
 
+    def test_guard_run(self):  # test guard
+        with test_instruction_translator_cache_context() as ctx:
+            self.assertEqual(ctx.translate_count, 0)
+            symbolic_translate(Q().addx)(paddle.to_tensor(1))
+            symbolic_translate(Q().addx)(paddle.to_tensor(2))
+            symbolic_translate(Q().addx)(paddle.to_tensor(3))
+            self.assertEqual(ctx.translate_count, 1)
+
+        with test_instruction_translator_cache_context() as ctx:
+            self.assertEqual(ctx.translate_count, 0)
+            symbolic_translate(Q().addxP)(paddle.to_tensor(4))
+            symbolic_translate(Q().addxP)(paddle.to_tensor(5))
+            symbolic_translate(Q().addxP)(paddle.to_tensor(6))
+            self.assertEqual(ctx.translate_count, 1)
+
+        with test_instruction_translator_cache_context() as ctx:
+            self.assertEqual(ctx.translate_count, 0)
+            symbolic_translate(Q().addxZ)(paddle.to_tensor(7))
+            symbolic_translate(Q().addxZ)(paddle.to_tensor(8))
+            symbolic_translate(Q().addxZ)(paddle.to_tensor(9))
+            self.assertEqual(ctx.translate_count, 1)
+            symbolic_translate(Q().addxP)(paddle.to_tensor(4))
+            symbolic_translate(Q().addxP)(paddle.to_tensor(5))
+            symbolic_translate(Q().addxP)(paddle.to_tensor(6))
+            self.assertEqual(ctx.translate_count, 2)
+
 
 # ---------------------- test `super()` as input ----------------------
-class Cls_super_as_inp:
+class ClassSuperAsInput:
     @check_no_breakgraph
     def fn(self, x):
         return x + 1
@@ -139,24 +195,32 @@ def super_as_input(spr):
     return spr.fn(2)
 
 
-class TestSuperAsInput1(TestCaseBase, Cls_super_as_inp):
+class TestSuperAsInput1(TestCaseBase, ClassSuperAsInput):
     def test_super_as_input(self):
         self.assert_results(super_as_input, super())
 
+    def test_guard_run(self):  # test guard
+        with test_instruction_translator_cache_context() as ctx:
+            self.assertEqual(ctx.translate_count, 0)
+            symbolic_translate(super_as_input)(super())
+            symbolic_translate(super_as_input)(super())
+            symbolic_translate(super_as_input)(super())
+            self.assertEqual(ctx.translate_count, 1)
 
-class Cls_super_as_inp_A:
+
+class ClassSuperAsInputA:
     @check_no_breakgraph
     def test_fn(self, x):
         return x + 1
 
 
-class Cls_super_as_inp_B(Cls_super_as_inp_A):
+class ClassSuperAsInputB(ClassSuperAsInputA):
     @check_no_breakgraph
     def test_fn(self, x):
         return x + 4
 
 
-class Cls_super_as_inp_C(Cls_super_as_inp_B):
+class ClassSuperAsInputC(ClassSuperAsInputB):
     @check_no_breakgraph
     def super_as_input(self, spr, x):
         return spr.test_fn(x)
@@ -170,36 +234,65 @@ class TestSuperAsInput2(TestCaseBase):
     def test_super_as_input(self):
         x = paddle.to_tensor(3)
         self.assert_results(
-            Cls_super_as_inp_C().test_super_as_input, x, Cls_super_as_inp_C
+            ClassSuperAsInputC().test_super_as_input, x, ClassSuperAsInputC
         )
         self.assert_results(
-            Cls_super_as_inp_C().test_super_as_input, x, Cls_super_as_inp_B
+            ClassSuperAsInputC().test_super_as_input, x, ClassSuperAsInputB
         )
+
+    def test_guard_run(self):  # test guard
+        with test_instruction_translator_cache_context() as ctx:
+            self.assertEqual(ctx.translate_count, 0)
+            x = paddle.to_tensor(3)
+            symbolic_translate(ClassSuperAsInputC().test_super_as_input)(
+                x, ClassSuperAsInputC
+            )
+            symbolic_translate(ClassSuperAsInputC().test_super_as_input)(
+                x, ClassSuperAsInputC
+            )
+            self.assertEqual(ctx.translate_count, 1)
+            x = paddle.to_tensor(4)
+            symbolic_translate(ClassSuperAsInputC().test_super_as_input)(
+                x, ClassSuperAsInputB
+            )
+            symbolic_translate(ClassSuperAsInputC().test_super_as_input)(
+                x, ClassSuperAsInputB
+            )
+            self.assertEqual(ctx.translate_count, 2)
 
 
 # ---------------------- test case which has no functions ----------------------
-class A_attr:
+class ClassWithAttributionA:
     a = 1
 
 
-class B_attr(A_attr):
+class ClassWithAttributionB(ClassWithAttributionA):
     a = 111
 
 
-class C_attr(B_attr):
+class ClassWithAttributionC(ClassWithAttributionB):
     @check_no_breakgraph
     def foo(self, x):
         return (
             super().a + x,
-            super(C_attr, self).a + x,  # noqa: UP008
-            super(B_attr, self).a + x,
+            super(ClassWithAttributionC, self).a + x,  # noqa: UP008
+            super(ClassWithAttributionB, self).a + x,
         )
 
 
 class TestSuperAttr(TestCaseBase):
     def test_attr_equal(self):
         x = paddle.to_tensor([4.0])
-        self.assert_results(C_attr().foo, x)
+        self.assert_results(ClassWithAttributionC().foo, x)
+
+    def test_guard_run(self):  # test guard
+        x = paddle.to_tensor([4.0])
+        with test_instruction_translator_cache_context() as ctx:
+            self.assertEqual(ctx.translate_count, 0)
+            symbolic_translate(ClassWithAttributionC().foo)(x)
+            symbolic_translate(ClassWithAttributionC().foo)(x)
+            symbolic_translate(ClassWithAttributionC().foo)(x)
+            self.assertEqual(ctx.translate_count, 1)
 
 
 if __name__ == "__main__":
