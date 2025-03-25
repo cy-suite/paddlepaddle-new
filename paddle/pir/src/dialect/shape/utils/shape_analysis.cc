@@ -326,12 +326,15 @@ InferSymbolicShapeContext::SimplifyBroadcastForShapeOrData(
     // compare each other dim_expr
     for (size_t i = 0; i < dim_exprs->size() - 1; ++i) {
       for (size_t j = i + 1; j < dim_exprs->size(); ++j) {
-        const auto compare_result =
-            symbol::Compare(dim_exprs->at(i), dim_exprs->at(j));
-        if (compare_result == symbol::DimExprCompareResult::GT) {
+        const auto compare_i_j =
+            symbol::EasyCompareGtOrGe(dim_exprs->at(i), dim_exprs->at(j), true);
+        if (compare_i_j == symbol::DimExprCompareResult::GT) {
           AddEqualCstr(dim_exprs->at(j), symbol::DimExpr(1));
           return dim_exprs->at(i);
-        } else if (compare_result == symbol::DimExprCompareResult::LT) {
+        }
+        const auto compare_j_i =
+            symbol::EasyCompareGtOrGe(dim_exprs->at(j), dim_exprs->at(i), true);
+        if (compare_j_i == symbol::DimExprCompareResult::GT) {
           AddEqualCstr(dim_exprs->at(i), symbol::DimExpr(1));
           return dim_exprs->at(j);
         }
@@ -340,19 +343,62 @@ InferSymbolicShapeContext::SimplifyBroadcastForShapeOrData(
     return bc;
   };
 
+  std::function<symbol::DimExpr(const symbol::DimExpr&)> EvaluateDimExpr =
+      [&](const symbol::DimExpr& dim_expr) -> symbol::DimExpr {
+    auto DimExprVisit = common::Overloaded{
+        [&](std::int64_t expr) { return symbol::DimExpr{expr}; },
+        [&](const std::string& expr) { return symbol::DimExpr{expr}; },
+        [&](const symbol::Negative<symbol::DimExpr>& expr) {
+          return symbol::DimExpr{
+              symbol::Negative<symbol::DimExpr>(EvaluateDimExpr(expr->data))};
+        },
+        [&](const symbol::Add<symbol::DimExpr>& expr) {
+          symbol::List<symbol::DimExpr> new_operands;
+          for (const auto& operand : *expr.operands) {
+            new_operands->push_back(EvaluateDimExpr(operand));
+          }
+          return symbol::DimExpr{symbol::Add<symbol::DimExpr>{new_operands}};
+        },
+        [&](const symbol::Mul<symbol::DimExpr>& expr) {
+          symbol::List<symbol::DimExpr> new_operands;
+          for (const auto& operand : *expr.operands) {
+            new_operands->push_back(EvaluateDimExpr(operand));
+          }
+          return symbol::DimExpr{symbol::Mul<symbol::DimExpr>{new_operands}};
+        },
+        [&](const symbol::Div<symbol::DimExpr>& expr) {
+          auto lhs = EvaluateDimExpr(expr->lhs);
+          auto rhs = EvaluateDimExpr(expr->rhs);
+          return symbol::DimExpr{symbol::Div<symbol::DimExpr>(lhs, rhs)};
+        },
+        [&](const symbol::Max<symbol::DimExpr>& expr) {
+          symbol::List<symbol::DimExpr> new_operands;
+          for (const auto& operand : *expr.operands) {
+            new_operands->push_back(EvaluateDimExpr(operand));
+          }
+          return symbol::DimExpr{symbol::Max<symbol::DimExpr>{new_operands}};
+        },
+        [&](const symbol::Min<symbol::DimExpr>& expr) {
+          symbol::List<symbol::DimExpr> new_operands;
+          for (const auto& operand : *expr.operands) {
+            new_operands->push_back(EvaluateDimExpr(operand));
+          }
+          return symbol::DimExpr{symbol::Min<symbol::DimExpr>{new_operands}};
+        },
+        [&](const symbol::Broadcast<symbol::DimExpr>& expr) {
+          return SimplifyBroadcast(expr);
+        },
+    };
+    return symbol::SimplifyDimExpr(
+        std::visit(DimExprVisit, dim_expr.variant()));
+  };
+
   auto DimExprsVisitor =
       [&](const std::vector<symbol::DimExpr>& original_dim_expr)
       -> std::vector<symbol::DimExpr> {
     std::vector<symbol::DimExpr> simplified_dim_exprs{};
     for (const symbol::DimExpr& dim_expr : original_dim_expr) {
-      // TODO(jiawenxuan): recursively evaluate each dim expr
-      if (dim_expr.isa<symbol::Broadcast<symbol::DimExpr>>()) {
-        const auto& simplified_dim_expr = SimplifyBroadcast(
-            dim_expr.Get<symbol::Broadcast<symbol::DimExpr>>());
-        simplified_dim_exprs.push_back(simplified_dim_expr);
-      } else {
-        simplified_dim_exprs.push_back(dim_expr);
-      }
+      simplified_dim_exprs.push_back(EvaluateDimExpr(dim_expr));
     }
     return simplified_dim_exprs;
   };
