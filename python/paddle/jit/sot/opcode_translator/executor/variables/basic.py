@@ -1001,24 +1001,20 @@ class SymbolicVariable(VariableBase):
 
         if self.need_guard_value:
             return super().make_stringified_guard()
-        _type = self.get_py_type()
         guards = [
             FasterStringifiedExpression(
-                f"id(type({{}})) == {id(_type)}",
+                f"id(type({{}})) == {self.get_py_type()}",
                 paddle.core.TypeMatchGuard(self.get_py_type()),
                 [frame_value_tracer],
                 union_free_vars(frame_value_tracer.free_vars),
             ),
+            # TODO: replace it with FasterStringifiedExpression
+            StringifiedExpression(
+                "{} >= 2",
+                [frame_value_tracer],
+                union_free_vars(frame_value_tracer.free_vars),
+            ),
         ]
-        # TODO: replace it with FasterStringifiedExpression
-        if _type is int:
-            guards.append(
-                StringifiedExpression(
-                    "{} >= 2",
-                    [frame_value_tracer],
-                    union_free_vars(frame_value_tracer.free_vars),
-                )
-            )
         return guards
 
     @staticmethod
