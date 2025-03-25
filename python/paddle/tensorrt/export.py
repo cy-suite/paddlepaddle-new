@@ -262,7 +262,6 @@ class TensorRTConfig:
                 - PrecisionMode.BFP16: 16-bit Brain Floating Point precision. Only supported in TensorRT versions greater than 9.0.
             ops_run_float (str|list, optional):
                 A set of operation names that should be executed using FP32 precision regardless of the `tensorrt_precision_mode` setting.
-                The directory where the optimized model will be saved (default is None).
             optimization_level (int, optional):
                 Set TensorRT optimization level (default is 3). Only supported in TensorRT versions greater than 8.6.
             disable_passes : (str|list, optional):

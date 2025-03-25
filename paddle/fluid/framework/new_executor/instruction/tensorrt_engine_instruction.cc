@@ -58,6 +58,7 @@ TensorRTEngineInstruction::TensorRTEngineInstruction(
   for (size_t i = 0; i < output_names_attrs.size(); ++i) {
     auto output_name =
         output_names_attrs[i].dyn_cast<pir::StrAttribute>().AsString();
+
     if (output_name != "") {
       output_names_[i] = output_name;
     }
@@ -109,6 +110,7 @@ TensorRTEngineInstruction::TensorRTEngineInstruction(
 
   if (op_attributes.find("refit_param_names2trt_names") !=
       op_attributes.end()) {
+    // refit_param_names2trt_names:["batch_norm2d_0.b_0:CONSTANT:batch_norm2d_0.b_0","batch_norm2d_0.b_0:SHIFT:270_pd_op.batch_norm_->batch_norm_layer(269)"]
     auto refit_mapping_attrs = op_attributes.at("refit_param_names2trt_names")
                                    .dyn_cast<pir::ArrayAttribute>()
                                    .AsVector();

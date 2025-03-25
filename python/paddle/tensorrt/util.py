@@ -87,6 +87,7 @@ def run_pir_pass(program, disable_passes=[], scope=None, precision_mode=None):
 
     pm = pir.PassManager(opt_level=4)
     pm.enable_print_statistics()
+    pm.enable_ir_printing()
     if scope is None:
         scope = paddle.static.global_scope()
     place = paddle.CUDAPlace(0)
@@ -262,8 +263,6 @@ class TensorRTConstantManager:
         if not cls._instance:
             cls._instance = super().__new__(cls)
             cls._instance.constant_dict = {}
-            cls._instance.trt_weights_dict = {}
-            cls._instance.refit_param_names2trt_names = {}
         return cls._instance
 
     def set_constant_value(self, name, tensor_data, value):
@@ -385,9 +384,12 @@ def is_shape_tensor(value):
     return total_elements <= 8 and total_elements >= 1 and is_int_dtype
 
 
-def get_cache_path():
-    home_path = os.path.expanduser("~")
-    cache_path = os.path.join(home_path, ".pp_trt_cache")
+def get_cache_path(cache_path):
+    if cache_path is not None:
+        cache_path = cache_path
+    else:
+        home_path = os.path.expanduser("~")
+        cache_path = os.path.join(home_path, ".pp_trt_cache")
 
     if not os.path.exists(cache_path):
         os.makedirs(cache_path)
