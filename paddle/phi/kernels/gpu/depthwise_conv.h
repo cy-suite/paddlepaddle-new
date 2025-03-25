@@ -29,6 +29,81 @@ namespace cub = hipcub;
 #include "paddle/phi/backends/gpu/gpu_device_function.h"
 #include "paddle/phi/backends/gpu/gpu_primitives.h"
 #include "paddle/phi/kernels/funcs/math_function.h"
+#include "paddle/phi/kernels/gpudnn/conv_gpudnn.h"
+#include "paddle/phi/kernels/impl/conv_cudnn_impl.h"
+
+namespace phi {
+// To determine use cudnn or not.
+struct DWConvParams {
+  bool has_fuse_relu_;
+  std::string data_format_;
+  std::vector<int> strides_;
+  std::vector<int> dilations_;
+
+  DWConvParams(const bool has_fuse_relu,
+               const std::string& data_format,
+               const std::vector<int>& strides,
+               const std::vector<int>& dilations)
+      : has_fuse_relu_(has_fuse_relu),
+        data_format_(data_format),
+        strides_(strides),
+        dilations_(dilations) {}
+
+  bool is_strided() const {
+    for (const auto& stride : strides_) {
+      if (stride != 1) return true;
+    }
+    return false;
+  }
+
+  bool is_dilated() const {
+    for (const auto& dilation : dilations_) {
+      if (dilation != 1) return true;
+    }
+    return false;
+  }
+
+  // Use cudnn for NHWC and NCHW FP16.
+  template <typename Context>
+  bool UseCudnnDepthwise(const Context& dev_ctx,
+                         const DenseTensor& input,
+                         const DenseTensor& filter) const {
+    // No fuse supported yet.
+    if (has_fuse_relu_) {
+      return false;
+    }
+    // Tensor Core introduced from Volta GPUs.
+    if (!IsVoltaOrLater(dev_ctx)) {
+      return false;
+    }
+    // Cudnn enable
+    if (!dynload::HasCUDNN()) {
+      return false;
+    }
+    // Only support FP16.
+    if (input.type() != phi::DataType::FLOAT16 &&
+        filter.type() != phi::DataType::FLOAT16) {
+      return false;
+    }
+    // Only support depthwise 2D.
+    if (input.dims().size() != 4) {
+      return false;
+    }
+    // No dilation and stride.
+    if (is_dilated() || is_strided()) {
+      return false;
+    }
+    // TODO(Dmovic): Channel greater than 32, need benchmarks.
+    const int input_channels =
+        (data_format_ != "NHWC" ? input.dims()[1] : input.dims()[3]);
+    if (input_channels < 32) {
+      return false;
+    }
+    return true;
+  }
+};
+
+}  // namespace phi
 
 namespace paddle {
 namespace operators {
@@ -1301,35 +1376,53 @@ __global__ void KernelDepthwiseConvFilterGradSp(const T* output_grad_data,
           dilate_width,
           filter_grad_data);
     } else {
-      auto kernel =
-          KernelDepthwiseConvFilterGradCFilterNHWC<T,
-                                                   c_filter,
-                                                   fuse_relu_before_conv>;
       if (output_channels < SMALL_THRESHOLD) {
-        kernel = KernelDepthwiseConvFilterGradCFilterSmallChannelNHWC<
+        KernelDepthwiseConvFilterGradCFilterSmallChannelNHWC<
             T,
             c_filter,
-            fuse_relu_before_conv>;
+            fuse_relu_before_conv>(output_grad_data,
+                                   input_data,
+                                   num,
+                                   output_channels,
+                                   output_height,
+                                   output_width,
+                                   input_channels,
+                                   input_height,
+                                   input_width,
+                                   final_filter_multiplier,
+                                   filter_height,
+                                   filter_width,
+                                   h_stride,
+                                   w_stride,
+                                   padding_height,
+                                   padding_width,
+                                   dilate_height,
+                                   dilate_width,
+                                   filter_grad_data);
+      } else {
+        KernelDepthwiseConvFilterGradCFilterNHWC<T,
+                                                 c_filter,
+                                                 fuse_relu_before_conv>(
+            output_grad_data,
+            input_data,
+            num,
+            output_channels,
+            output_height,
+            output_width,
+            input_channels,
+            input_height,
+            input_width,
+            final_filter_multiplier,
+            filter_height,
+            filter_width,
+            h_stride,
+            w_stride,
+            padding_height,
+            padding_width,
+            dilate_height,
+            dilate_width,
+            filter_grad_data);
       }
-      kernel(output_grad_data,
-             input_data,
-             num,
-             output_channels,
-             output_height,
-             output_width,
-             input_channels,
-             input_height,
-             input_width,
-             final_filter_multiplier,
-             filter_height,
-             filter_width,
-             h_stride,
-             w_stride,
-             padding_height,
-             padding_width,
-             dilate_height,
-             dilate_width,
-             filter_grad_data);
     }
   }
 }
