@@ -723,17 +723,18 @@ class PartialProgramLayer:
         attrs = self._prepare_attributes(in_sot_mode=False)
         inputs = self._valid_vars(in_vars)
 
+        # AutoLayoutPass may change layout of bn to NHWC, if not enable `FLAGS_cudnn_batchnorm_spatial_persistent`, it will revert to NCHW. So if the user does not set this Flag, we set it to True.
         guard_creators = []
         if (
             auto_layout_is_enabled()
-            and paddle.is_compiled_with_cuda()
             and not self._backend.is_cinn()
+            and paddle.is_compiled_with_cuda()
+            and os.getenv("FLAGS_cudnn_batchnorm_spatial_persistent") is None
         ):
-            # AutoLayoutPass may change layout of bn to NHWC, if not enable `FLAGS_cudnn_batchnorm_spatial_persistent`, it will revert to NCHW. So if the user does not set this Flag, we set it to True.
             guard_creators.append(
                 lambda: paddle.base.framework.flag_guard(
                     "FLAGS_cudnn_batchnorm_spatial_persistent",
-                    os.getenv("FLAGS_cudnn_batchnorm_spatial_persistent", True),
+                    True,
                 )
             )
 
@@ -765,16 +766,18 @@ class PartialProgramLayer:
         inputs = self._valid_vars(inputs)
 
         guard_creators = []
+
+        # AutoLayoutPass may change layout of bn to NHWC, if not enable `FLAGS_cudnn_batchnorm_spatial_persistent`, it will revert to NCHW. So if the user does not set this Flag, we set it to True.
         if (
             auto_layout_is_enabled()
-            and paddle.is_compiled_with_cuda()
             and not self._backend.is_cinn()
+            and paddle.is_compiled_with_cuda()
+            and os.getenv("FLAGS_cudnn_batchnorm_spatial_persistent") is None
         ):
-            # AutoLayoutPass may change layout of bn to NHWC, if not enable `FLAGS_cudnn_batchnorm_spatial_persistent`, it will revert to NCHW. So if the user does not set this Flag, we set it to True.
             guard_creators.append(
                 lambda: paddle.base.framework.flag_guard(
                     "FLAGS_cudnn_batchnorm_spatial_persistent",
-                    os.getenv("FLAGS_cudnn_batchnorm_spatial_persistent", True),
+                    True,
                 )
             )
 
