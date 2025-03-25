@@ -35,9 +35,45 @@ bool IsReduceBool(const ir::Expr& lhs, const ir::Expr& rhs) {
   return lhs.type().is_bool() || rhs.type().is_bool();
 }
 
+// TODO(heqianyue): i64 should be supported
+inline ir::Expr PackArgIdxStructExpr(
+  ir::Tensor tensor, 
+  ir::Expr value, 
+  ir::Expr index, 
+  std::string suffix = "_i32"
+) {
+  return ir::Call::Make(tensor->type(),
+                "argidx" + Type2StrForArgReduce(tensor->type()) + "_i32", 
+                {value, reduce_axis[0]}, 
+                {}, 
+                ir::CallType::Intrinsic);
+}
+
+Expr ReplaceArgReduceInitialValue(
+  ir::Expr body, 
+  ir::Tensor tensor,
+  Expr init_val, 
+  const std::vector<ir::Var>& reduce_axis
+) {
+  ir::Reduce* reduce_node = body.As<ir::Reduce>();
+  if (!reduce_node) {
+    // TODO(heqianyue): actually, this is weird, why would this happen anyway?
+    return init_val;
+  }
+
+  if (reduce_node->reduce_type == ir::Reduce::kArgMax ||
+      reduce_node->reduce_type == ir::Reduce::kArgMin
+  ) {
+    return PackArgIdxStructExpr(tensor, init_val, reduce_axis[0]);
+  }
+  return init_val;      // fall through
+}
+
 StmtRef ConvertReduceBody(ir::Expr body,
                           ir::Tensor tensor,
-                          const std::vector<Expr>& axis_exprs) {
+                          const std::vector<Expr>& axis_exprs,
+                          const std::vector<ir::Var>& reduce_axis
+                          ) {
   ir::Reduce* reduce_node = body.As<ir::Reduce>();
   if (!reduce_node) {
     return Store(tensor, body, axis_exprs);
@@ -76,6 +112,39 @@ StmtRef ConvertReduceBody(ir::Expr body,
                                   {},
                                   ir::CallType::Intrinsic),
                    axis_exprs);
+    case ir::Reduce::kArgMax: {
+      PADDLE_ENFORCE_EQ(
+        reduce_axis.size(),
+        1,
+        ::common::errors::InvalidArgument("ArgMax only support one reduce axis"));
+
+      
+      // TODO(heqianyue): support i64 index tensor, this is a front-end problem
+      // create a argidx_xxx_i32(value, init_index) call
+      auto pack_argidx = PackArgIdxStructExpr(tensor, reduce_node->body, reduce_axis[0]);
+      return Store(tensor,
+                   ir::Call::Make(tensor->type(),
+                                  hlir::pe::kArgMaxFuncName,
+                                  {tensor(axis_exprs), pack_argidx},
+                                  {},
+                                  ir::CallType::Intrinsic),
+                   axis_exprs);
+    }
+    case ir::Reduce::kArgMin: {
+      PADDLE_ENFORCE_EQ(
+        reduce_axis.size(),
+        1,
+        ::common::errors::InvalidArgument("ArgMin only support one reduce axis"));
+      // create a argidx_xxx_i32(value, init_index) call
+      auto pack_argidx = PackArgIdxStructExpr(tensor, reduce_node->body, reduce_axis[0]);
+      return Store(tensor,
+                   ir::Call::Make(tensor->type(),
+                                  hlir::pe::kArgMinFuncName,
+                                  {tensor(axis_exprs), pack_argidx},
+                                  {},
+                                  ir::CallType::Intrinsic),
+                   axis_exprs);
+    }
     default:
       CINN_NOT_IMPLEMENTED
   }
@@ -108,6 +177,10 @@ StmtRef AstGen::Build(const ir::Tensor& tensor, TensorGroup* tensor_group) {
     tensor_group->Insert(init_tensor);
     tensor_group->MarkShareMemBuffer(tensor, init_tensor);
     tensor_group->CtrlDepend(tensor, init_tensor);
+    const std::vector<ir::Var>& reduce_axis = tensor->reduce_axis;
+    // replace initial value for argmax/argmin
+    // TODO(heqianyue): Welford variance can also replace initial value in here
+    init_value = ReplaceArgReduceInitialValue(tensor->body(), tensor, init_value, reduce_axis);
     StmtRef init_body = Store(init_tensor, init_value, axis_exprs);
     // create schedule block itervars, i0,i1...
     std::vector<ir::Var> block_vars;
@@ -115,7 +188,6 @@ StmtRef AstGen::Build(const ir::Tensor& tensor, TensorGroup* tensor_group) {
     // reduce body and reduce init schedule block should have different objects
     // for same axis so we re-create objects
     std::vector<Var> axis_vars = cinn::common::GenDefaultAxis(axis_len);
-    const std::vector<ir::Var>& reduce_axis = tensor->reduce_axis;
     VLOG(4) << "ast gen: tensor init_body is " << init_body;
     for (int i = 0; i < shape.size(); ++i) {
       block_vars.push_back(Var(Expr(0),
@@ -137,7 +209,7 @@ StmtRef AstGen::Build(const ir::Tensor& tensor, TensorGroup* tensor_group) {
                          BlockRef({init_body}));
 
     // For the remaining reduce axis, make reduce body
-    StmtRef reduce_body = ConvertReduceBody(tensor->body(), tensor, axis_exprs);
+    StmtRef reduce_body = ConvertReduceBody(tensor->body(), tensor, axis_exprs, reduce_axis);
 
     VLOG(4) << "ast gen: reduce body is " << reduce_body;
 
@@ -156,7 +228,7 @@ StmtRef AstGen::Build(const ir::Tensor& tensor, TensorGroup* tensor_group) {
       if (shape[i].type() == Int(64)) axis_vars[i]->set_type(Int(64));
       reduce_iter_values.push_back(axis_vars[i]);
     }
-    VLOG(4) << "ast gen: reduce body is after replace 0" << reduce_body;
+    VLOG(4) << "ast gen: reduce body is after replace :" << reduce_body;
     for (int i = 0; i < reduce_axis.size(); ++i) {
       int count = shape.size() + i;
       reduce_block_vars.push_back(
@@ -192,6 +264,7 @@ StmtRef AstGen::Build(const ir::Tensor& tensor, TensorGroup* tensor_group) {
       VLOG(4) << "reduce_axis[" << i << "] = " << reduce_axis[i];
     }
     VLOG(4) << "before replace body: " << reduce_body;
+    // reduce_xxx will be replaced by i_xxx
     for (int i = non_zero_axis_size; i < reduce_block_vars.size(); ++i) {
       optim::ReplaceVarWithExpr(reduce_body,
                                 reduce_axis[i - non_zero_axis_size],

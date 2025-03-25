@@ -353,10 +353,12 @@ class IRSchedule {
    * 1. get the rfactor block where the reduce loop k is transformed to the
    * serial loop with no accumulation and a new rfactor tensor is created. The
    * axis k will be placed in the rf_axis of the new rf_tensor. The rf_block is
-   * as follows: \code for (rf_k, 0, 30)      // rfactor loop k is transformed
-   * to the serial loop. for (i, 0, 10)       // serial loop for (j, 0, 20) //
-   * reduce loop rf_B_init[rf_k, i] = 0 for (j, 0, 20)     // reduce loop
-   *       rf_B[rf_k, i] = rf_B[rf_k, i] + A[i, j, rf_k]
+   * as follows: \code 
+   * for (rf_k, 0, 30)      // rfactor loop k is transformed to the serial loop. 
+   *    for (i, 0, 10)       // serial loop 
+   *      rf_B_init[rf_k, i] = 0 
+   *      for (j, 0, 20)     // reduce loop
+   *        rf_B[rf_k, i] = rf_B[rf_k, i] + A[i, j, rf_k]
    * \endcode
    * 2. do reduction of the rfactor loop k to get the final result block:
    * \code

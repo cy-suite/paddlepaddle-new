@@ -45,6 +45,8 @@ using lang::ReduceAll;
 using lang::ReduceAny;
 using lang::ReduceMax;
 using lang::ReduceMin;
+using lang::ReduceArgMin;
+using lang::ReduceArgMax;
 using lang::ReduceMul;
 using lang::ReduceSum;
 using optim::Optimize;

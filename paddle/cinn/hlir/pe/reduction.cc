@@ -107,6 +107,24 @@ std::string Type2StrForReduce(cinn::common::Type type) {
       ::common::errors::InvalidArgument("Reduce type not supported: %s", type));
 }
 
+std::string Type2StrForArgReduce(cinn::common::Type type) {
+  if (type.is_float(32)) {
+    return "_fp32";
+  } else if (type.is_float(64)) {
+    return "_fp64";
+  } else if (type.is_float16()) {
+    return "_fp16";
+  } else if (type.is_int(32)) {
+    return "_int32";
+  } else if (type.is_int(64)) {
+    return "_int64";
+  } else if (type.is_uint(8)) {
+    return "_u8";
+  }
+  PADDLE_THROW(
+      ::common::errors::InvalidArgument("Arg Reduce type not supported: %s", type));
+}
+
 /**
  * @brief Calculate the target reduced shape.
  *
@@ -291,6 +309,30 @@ Tensor ReduceMin(const Tensor& A,
   return Reduce(A,
                 axes,
                 lang::ReduceMin,
+                keep_dims,
+                lang::max_value(A->type()),
+                output_name);
+}
+
+Tensor ReduceArgMax(const Tensor& A,
+                 const std::vector<int>& axes,
+                 const bool keep_dims,
+                 const std::string& output_name) {
+  return Reduce(A,
+                axes,
+                lang::ReduceArgMax,
+                keep_dims,
+                lang::min_value(A->type()),
+                output_name);
+}
+
+Tensor ReduceArgMin(const Tensor& A,
+                 const std::vector<int>& axes,
+                 const bool keep_dims,
+                 const std::string& output_name) {
+  return Reduce(A,
+                axes,
+                lang::ReduceArgMin,
                 keep_dims,
                 lang::max_value(A->type()),
                 output_name);
