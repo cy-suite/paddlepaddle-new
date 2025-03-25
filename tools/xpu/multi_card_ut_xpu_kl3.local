@@ -19,3 +19,5 @@ test_collective_base_xpu
 test_collective_process_group_xpu
 test_collective_reduce_xpu
 test_collective_softmax_with_cross_entropy_xpu
+test_llama_1d_xpu
+test_dist_base_xpu
