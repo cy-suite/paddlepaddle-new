@@ -323,16 +323,19 @@ def insert_import_modules(filename: str):
         f.write(stub_file)
 
 
-def check_remove_syntax_error(filename):
+def check_remove_syntax_error(filename: str, limit: int = 10000):
     """
     Args:
         filename: xxx.pyi
+        limit: the max times try to check syntax error
     """
     pattern_check = re.compile(
         rf"File.*{re.escape(filename)}.*line (?P<lineno>\d+)"
     )
 
-    while True:
+    while limit > 0:
+
+        limit -= 1
 
         # check syntax error
         err = ""
