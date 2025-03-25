@@ -63,7 +63,16 @@ static std::vector<CutlassTileConfig> get_candidate_tiles(
       CutlassTileConfig::CtaShape32x128x64_WarpShape32x32x64,
       CutlassTileConfig::CtaShape64x128x64_WarpShape64x64x64,
       CutlassTileConfig::CtaShape128x128x64_WarpShape64x64x64,
+      CutlassTileConfig::CtaShape64x64x64_WarpShape32x32x64,
+      CutlassTileConfig::CtaShape64x128x64_WarpShape32x64x64,
+      CutlassTileConfig::CtaShape64x64x128_WarpShape32x64x64,
+      CutlassTileConfig::CtaShape64x128x64_WarpShape64x32x64,
+      CutlassTileConfig::CtaShape128x64x64_WarpShape64x32x64,
+      CutlassTileConfig::CtaShape128x128x64_WarpShape64x32x64,
+      CutlassTileConfig::CtaShape128x128x64_WarpShape128x32x64,
       CutlassTileConfig::CtaShape128x256x64_WarpShape64x64x64,
+      CutlassTileConfig::CtaShape256x128x64_WarpShape64x64x64,
+      CutlassTileConfig::CtaShape16x256x128_WarpShape16x64x128,
   };
   if (is_moe) {
     quant_B_configs_sm80.push_back(
@@ -77,7 +86,16 @@ static std::vector<CutlassTileConfig> get_candidate_tiles(
       CutlassTileConfig::CtaShape32x128x64_WarpShape32x32x64,
       CutlassTileConfig::CtaShape64x128x64_WarpShape64x64x64,
       CutlassTileConfig::CtaShape128x128x64_WarpShape64x64x64,
+      CutlassTileConfig::CtaShape64x64x64_WarpShape32x32x64,
+      CutlassTileConfig::CtaShape64x128x64_WarpShape32x64x64,
+      CutlassTileConfig::CtaShape64x64x128_WarpShape32x64x64,
+      CutlassTileConfig::CtaShape64x128x64_WarpShape64x32x64,
+      CutlassTileConfig::CtaShape128x64x64_WarpShape64x32x64,
+      CutlassTileConfig::CtaShape128x128x64_WarpShape64x32x64,
+      CutlassTileConfig::CtaShape128x128x64_WarpShape128x32x64,
+      CutlassTileConfig::CtaShape128x256x64_WarpShape64x64x64,
       CutlassTileConfig::CtaShape256x128x64_WarpShape64x64x64,
+      CutlassTileConfig::CtaShape16x256x128_WarpShape16x64x128,
   };
   std::vector<CutlassTileConfig> quant_B_configs;
   switch (sm) {
@@ -111,7 +129,7 @@ static std::vector<CutlassGemmConfig> get_candidate_configs(
   std::vector<CutlassGemmConfig> candidate_configs;
   int min_stages = 2;
   // Note(yuanlehome): max_stages must smaller than 5!
-  int max_stages = sm >= 80 ? 4 : 2;
+  int max_stages = sm >= 80 ? 5 : 2;
   if (is_moe) {
     max_stages = 5;
   }
