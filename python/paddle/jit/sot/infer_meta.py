@@ -34,6 +34,7 @@ from paddle.distributed.auto_parallel.static.utils import (
     convert_to_dims_mapping,
 )
 from paddle.framework import use_pir_api
+from paddle.static import InputSpec
 from paddle.utils import flatten, is_sequence
 
 from .utils import Cache, Singleton, map_if_extend, meta_str
@@ -125,6 +126,7 @@ class MetaInfo:
         self.dtype = dtype
         self.stop_gradient = stop_gradient
         self.dist_info = dist_info
+        self.spec_name = None
 
     def shape_with_special_symbol(
         self, dynamic_symbol: DynamicSymbolT = -1
@@ -134,7 +136,8 @@ class MetaInfo:
             for dim in self.shape
         ]
 
-    def with_dynamic_axes(self, dynamic_axes: list[int]) -> MetaInfo:
+    def with_dynamic_axes(self, name: str, dynamic_axes: list[int]) -> MetaInfo:
+        self.spec_name = name
         shape = [
             SymbolicInt() if i in dynamic_axes else dim
             for i, dim in enumerate(self.shape)
@@ -252,8 +255,12 @@ class MetaInfo:
                 local_shape=self.dist_info.local_shape,
             )
         else:
-            return paddle.static.InputSpec(
-                shape, dtype=self.dtype, stop_gradient=self.stop_gradient
+            return ConstrainedInputSpec(
+                self.dynamic_axes,
+                shape,
+                dtype=self.dtype,
+                name=self.spec_name,
+                stop_gradient=self.stop_gradient,
             )
 
     def guard_str(self):
@@ -561,3 +568,14 @@ class LayerInferMetaCache(Cache, metaclass=Singleton):
 
     def value_fn(self, layer, *args, **kwargs):
         return infer_meta_for_layer(layer, *args, **kwargs)
+
+
+class ConstrainedInputSpec(InputSpec):
+    def __init__(self, dynamic_axes: list[int], *args, **kwargs):
+        self.ranges: list[tuple[int, int | None, int | None]] = (
+            []
+        )  # (idx of dim, min, max)
+        super().__init__(*args, **kwargs)
+        for i in dynamic_axes:
+            self.ranges.append((i, 2, None))
+        self.ranges = self.ranges if len(self.ranges) else None

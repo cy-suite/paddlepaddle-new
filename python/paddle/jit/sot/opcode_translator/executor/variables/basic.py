@@ -379,10 +379,10 @@ class TensorVariable(VariableBase):
         dynamic_axes: list[int] = []
         if ENV_SOT_ALLOW_DYNAMIC_SHAPE.get() and self.tracker.is_traceable():
             dynamic_axes = self.analyse_dynamic_axes(tracker)
-        self.meta = self.meta.with_dynamic_axes(dynamic_axes)
-        self.origin_meta = self.meta
         self.var_name = TensorVariable.var_name_generator.next()
         self.graph.side_effects.record_mutable_variable(self)
+        self.meta = self.meta.with_dynamic_axes(self.var_name, dynamic_axes)
+        self.origin_meta = self.meta
 
     def analyse_dynamic_axes(self, tracker: Tracker):
         from ..executor_cache import OpcodeExecutorCache

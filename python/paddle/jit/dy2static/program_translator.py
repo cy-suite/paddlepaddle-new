@@ -1193,6 +1193,7 @@ class ConcreteProgram:
         "parameters",
         "function",
         'kwargs',
+        'constrained_inputs',
     ]
 
     def __init__(
@@ -1201,17 +1202,30 @@ class ConcreteProgram:
         outputs,
         parameters,
         function,
+        constrained_inputs,
         main_program,
         startup_program=None,
         **kwargs,
     ):
         self.inputs = inputs
         self.outputs = outputs
+        self.constrained_inputs = constrained_inputs
         self.main_program = main_program
         self.startup_program = startup_program
         self.parameters = parameters
         self.function = function
         self.kwargs = kwargs
+
+    @staticmethod
+    def extract_constraints(input_specs):
+        """
+        Extract constraints from input_specs
+        """
+        constraints = []
+        for input_spec in input_specs:
+            if len(input_spec.ranges):
+                constraints.append((input_spec.name, input_spec.ranges))
+        return constraints if len(constraints) else None
 
     @staticmethod
     @switch_to_static_graph
@@ -1313,11 +1327,13 @@ class ConcreteProgram:
         if not os.environ.get("stride_in_no_check_dy2st_diff", "0") == "1":
             check_view_api_used_by_inplace(main_program)
 
+        constraints = ConcreteProgram.extract_constraints(input_spec)
         return ConcreteProgram(
             inputs=program_inputs,
             outputs=outputs,
             parameters=all_parameters_and_buffers,
             function=dygraph_function,
+            constrained_inputs=constraints,
             main_program=main_program,
             startup_program=startup_program,
             **kwargs,
@@ -1418,6 +1434,7 @@ class ConcreteProgram:
             outputs=outputs,
             parameters=all_parameters_and_buffers,
             function=dygraph_function,
+            constrained_inputs=None,
             main_program=main_program,
             startup_program=startup_program,
             **kwargs,
