@@ -724,7 +724,11 @@ class PartialProgramLayer:
         inputs = self._valid_vars(in_vars)
 
         guard_creators = []
-        if auto_layout_is_enabled() and not self._backend.is_cinn():
+        if (
+            auto_layout_is_enabled()
+            and paddle.is_compiled_with_cuda()
+            and not self._backend.is_cinn()
+        ):
             # AutoLayoutPass may change layout of bn to NHWC, if not enable `FLAGS_cudnn_batchnorm_spatial_persistent`, it will revert to NCHW. So if the user does not set this Flag, we set it to True.
             guard_creators.append(
                 lambda: paddle.base.framework.flag_guard(
@@ -761,7 +765,11 @@ class PartialProgramLayer:
         inputs = self._valid_vars(inputs)
 
         guard_creators = []
-        if auto_layout_is_enabled() and not self._backend.is_cinn():
+        if (
+            auto_layout_is_enabled()
+            and paddle.is_compiled_with_cuda()
+            and not self._backend.is_cinn()
+        ):
             # AutoLayoutPass may change layout of bn to NHWC, if not enable `FLAGS_cudnn_batchnorm_spatial_persistent`, it will revert to NCHW. So if the user does not set this Flag, we set it to True.
             guard_creators.append(
                 lambda: paddle.base.framework.flag_guard(
