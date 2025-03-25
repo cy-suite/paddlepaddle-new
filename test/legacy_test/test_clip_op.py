@@ -67,7 +67,7 @@ class TestClipOp(OpTest):
 
     def test_check_grad_normal(self):
         paddle.enable_static()
-        self.check_grad(['X'], 'Out', check_pir=True)
+        self.check_grad(['X'], 'Out', check_pir=True, check_prim_pir=True)
         paddle.disable_static()
 
     def initTestCase(self):
@@ -128,8 +128,8 @@ class TestCase6(TestClipOp):
     def initTestCase(self):
         self.dtype = np.float32
         self.shape = (4, 8, 16)
-        self.max = 0.5
-        self.min = 1.0
+        self.max = 1.0
+        self.min = 0.5
 
     def generate_input(self):
         return np.random.choice([self.min, self.max], self.shape).astype(
@@ -183,8 +183,8 @@ class TestFP16Case6(TestClipOp):
     def initTestCase(self):
         self.dtype = np.float16
         self.shape = (4, 8, 16)
-        self.max = 0.5
-        self.min = 1.0
+        self.max = 1.0
+        self.min = 0.5
 
     def generate_input(self):
         return np.random.choice([self.min, self.max], self.shape).astype(
