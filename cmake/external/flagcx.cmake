@@ -8,7 +8,7 @@ set(FLAGCX_SOURCE_DIR "${PADDLE_SOURCE_DIR}/third_party/flagcx")
 set(FLAGCX_BINARY_DIR "${PADDLE_SOURCE_DIR}/build/third_party/flagcx")
 set(THIRD_PARTY_DIR "${PADDLE_SOURCE_DIR}/build/third_party")
 set(FLAGCX_ROOT "/usr/local/flagcx")
-set(FLAGCX_LIB_DIR "/usr/local/flagcx/build/lib")
+set(FLAGCX_LIB_DIR "${FLAGCX_BINARY_DIR}/build/lib")
 set(USR_LOCAL_DIR "/usr/local")
 
 # execute_process(
@@ -36,23 +36,23 @@ execute_process(
     RESULT_VARIABLE BUILD_RESULT
 )
 
-message(STATUS "copying flagcx so to /usr/local")
-execute_process(
-  COMMAND cp -r ${FLAGCX_BINARY_DIR} ${USR_LOCAL_DIR}
-  RESULT_VARIABLE COPY_LIB_RESULT
-)
-if(NOT COPY_LIB_RESULT EQUAL 0)
-    message(FATAL_ERROR "Failed to copy lib to /usr/local")
-endif()
+# message(STATUS "copying flagcx so to /usr/local")
+# execute_process(
+#   COMMAND cp -r ${FLAGCX_BINARY_DIR} ${USR_LOCAL_DIR}
+#   RESULT_VARIABLE COPY_LIB_RESULT
+# )
+# if(NOT COPY_LIB_RESULT EQUAL 0)
+#     message(FATAL_ERROR "Failed to copy lib to /usr/local")
+# endif()
 
-message(STATUS "copying flagcx so to /usr/lib/x86_64-linux-gnu")
-execute_process(
-  COMMAND cp -r ${FLAGCX_BINARY_DIR}/build/lib/libflagcx.so /usr/lib/x86_64-linux-gnu
-  RESULT_VARIABLE COPY_LIB_RESULT_2
-)
-if(NOT COPY_LIB_RESULT_2 EQUAL 0)
-    message(FATAL_ERROR "Failed to copy lib to /usr/lib/x86_64-linux-gnu")
-endif()
+# message(STATUS "copying flagcx so to /usr/lib/x86_64-linux-gnu")
+# execute_process(
+#   COMMAND cp -r ${FLAGCX_BINARY_DIR}/build/lib/libflagcx.so /usr/lib/x86_64-linux-gnu
+#   RESULT_VARIABLE COPY_LIB_RESULT_2
+# )
+# if(NOT COPY_LIB_RESULT_2 EQUAL 0)
+#     message(FATAL_ERROR "Failed to copy lib to /usr/lib/x86_64-linux-gnu")
+# endif()
 
 
 
@@ -63,7 +63,7 @@ endif()
   # generate_dummy_static_lib(LIB_NAME "flagcx" GENERATOR "flagcx.cmake")
   find_path(
     FLAGCX_INCLUDE_DIR flagcx.h
-    PATHS ${FLAGCX_ROOT}/flagcx/include
+    PATHS ${FLAGCX_SOURCE_DIR}/flagcx/include
     NO_DEFAULT_PATH)
   
   message(STATUS "FLAGCX_INCLUDE_DIR is ${FLAGCX_INCLUDE_DIR}")
