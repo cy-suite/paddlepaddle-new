@@ -38,6 +38,7 @@ from .utils import (
     Backend,
     auto_layout_is_enabled,
     backend_guard,
+    compose_guards,
     cse_is_enabled,
 )
 
@@ -722,29 +723,17 @@ class PartialProgramLayer:
         attrs = self._prepare_attributes(in_sot_mode=False)
         inputs = self._valid_vars(in_vars)
 
-        # AutoLayoutPass may change layout of bn to NHWC, if not enable `FLAGS_cudnn_batchnorm_spatial_persistent`, it will revert to NCHW. So if the user does not set this Flag, we set it to True.
-        user_bn_flag = os.getenv(
-            "FLAGS_cudnn_batchnorm_spatial_persistent", None
-        )
-
-        if (
-            user_bn_flag is None
-            and auto_layout_is_enabled()
-            and not self._backend.is_cinn()
-        ):
-            bn_flag = True
-        else:
-            bn_flag = (
-                user_bn_flag
-                if user_bn_flag is not None
-                else paddle.get_flags(
-                    "FLAGS_cudnn_batchnorm_spatial_persistent"
-                )["FLAGS_cudnn_batchnorm_spatial_persistent"]
+        guard_creators = []
+        if auto_layout_is_enabled() and not self._backend.is_cinn():
+            # AutoLayoutPass may change layout of bn to NHWC, if not enable `FLAGS_cudnn_batchnorm_spatial_persistent`, it will revert to NCHW. So if the user does not set this Flag, we set it to True.
+            guard_creators.append(
+                lambda: paddle.base.framework.flag_guard(
+                    "FLAGS_cudnn_batchnorm_spatial_persistent",
+                    os.getenv("FLAGS_cudnn_batchnorm_spatial_persistent", True),
+                )
             )
 
-        with paddle.base.framework.flag_guard(
-            "FLAGS_cudnn_batchnorm_spatial_persistent", bn_flag
-        ):
+        with compose_guards(*guard_creators)():
             _C_ops.run_program(
                 inputs,
                 self._valid_vars(self._params),
@@ -770,29 +759,18 @@ class PartialProgramLayer:
         out_vars = self._prepare_outputs()
         attrs = self._prepare_attributes(in_sot_mode=True)
         inputs = self._valid_vars(inputs)
-        # AutoLayoutPass may change layout of bn to NHWC, if not enable `FLAGS_cudnn_batchnorm_spatial_persistent`, it will revert to NCHW. So if the user does not set this Flag, we set it to True.
-        user_bn_flag = os.getenv(
-            "FLAGS_cudnn_batchnorm_spatial_persistent", None
-        )
 
-        if (
-            user_bn_flag is None
-            and auto_layout_is_enabled()
-            and not self._backend.is_cinn()
-        ):
-            bn_flag = True
-        else:
-            bn_flag = (
-                user_bn_flag
-                if user_bn_flag is not None
-                else paddle.get_flags(
-                    "FLAGS_cudnn_batchnorm_spatial_persistent"
-                )["FLAGS_cudnn_batchnorm_spatial_persistent"]
+        guard_creators = []
+        if auto_layout_is_enabled() and not self._backend.is_cinn():
+            # AutoLayoutPass may change layout of bn to NHWC, if not enable `FLAGS_cudnn_batchnorm_spatial_persistent`, it will revert to NCHW. So if the user does not set this Flag, we set it to True.
+            guard_creators.append(
+                lambda: paddle.base.framework.flag_guard(
+                    "FLAGS_cudnn_batchnorm_spatial_persistent",
+                    os.getenv("FLAGS_cudnn_batchnorm_spatial_persistent", True),
+                )
             )
 
-        with paddle.base.framework.flag_guard(
-            "FLAGS_cudnn_batchnorm_spatial_persistent", bn_flag
-        ):
+        with compose_guards(*guard_creators)():
             _C_ops.run_program(
                 inputs,
                 self._valid_vars(self._params),
