@@ -721,29 +721,45 @@ class PartialProgramLayer:
         out_vars = self._prepare_outputs()
         attrs = self._prepare_attributes(in_sot_mode=False)
         inputs = self._valid_vars(in_vars)
-        if auto_layout_is_enabled() and not self._backend.is_cinn():
-            # AutoLayoutPass may change layout of bn to NHWC, if not enable `FLAGS_cudnn_batchnorm_spatial_persistent`, it will revert to NCHW. So if the user does not set this Flag, we set it to True.
-            bn_flag = os.getenv(
-                "FLAGS_cudnn_batchnorm_spatial_persistent", True
+
+        # AutoLayoutPass may change layout of bn to NHWC, if not enable `FLAGS_cudnn_batchnorm_spatial_persistent`, it will revert to NCHW. So if the user does not set this Flag, we set it to True.
+        user_bn_flag = os.getenv(
+            "FLAGS_cudnn_batchnorm_spatial_persistent", None
+        )
+
+        if (
+            user_bn_flag is None
+            and auto_layout_is_enabled()
+            and not self._backend.is_cinn()
+        ):
+            bn_flag = True
+        else:
+            bn_flag = (
+                user_bn_flag
+                if user_bn_flag is not None
+                else paddle.get_flags(
+                    "FLAGS_cudnn_batchnorm_spatial_persistent"
+                )["FLAGS_cudnn_batchnorm_spatial_persistent"]
             )
-            with paddle.base.framework.flag_guard(
-                "FLAGS_cudnn_batchnorm_spatial_persistent", bn_flag
-            ):
-                _C_ops.run_program(
-                    inputs,
-                    self._valid_vars(self._params),
-                    self._valid_vars(out_vars),
-                    self._create_scope_vec(
-                        cache_key=(
-                            hash_with_seed(
-                                self.program_id,
-                                self._calc_input_places_hash(inputs),
-                            )
-                        ),
-                        use_scope_cache=True,
+
+        with paddle.base.framework.flag_guard(
+            "FLAGS_cudnn_batchnorm_spatial_persistent", bn_flag
+        ):
+            _C_ops.run_program(
+                inputs,
+                self._valid_vars(self._params),
+                self._valid_vars(out_vars),
+                self._create_scope_vec(
+                    cache_key=(
+                        hash_with_seed(
+                            self.program_id,
+                            self._calc_input_places_hash(inputs),
+                        )
                     ),
-                    *attrs,
-                )
+                    use_scope_cache=True,
+                ),
+                *attrs,
+            )
         restored_nest_out = self._restore_out(out_vars)
         return self._remove_no_value(restored_nest_out)
 
@@ -754,29 +770,44 @@ class PartialProgramLayer:
         out_vars = self._prepare_outputs()
         attrs = self._prepare_attributes(in_sot_mode=True)
         inputs = self._valid_vars(inputs)
-        if auto_layout_is_enabled() and not self._backend.is_cinn():
-            # AutoLayoutPass may change layout of bn to NHWC, if not enable `FLAGS_cudnn_batchnorm_spatial_persistent`, it will revert to NCHW. So if the user does not set this Flag, we set it to True.
-            bn_flag = os.getenv(
-                "FLAGS_cudnn_batchnorm_spatial_persistent", True
+        # AutoLayoutPass may change layout of bn to NHWC, if not enable `FLAGS_cudnn_batchnorm_spatial_persistent`, it will revert to NCHW. So if the user does not set this Flag, we set it to True.
+        user_bn_flag = os.getenv(
+            "FLAGS_cudnn_batchnorm_spatial_persistent", None
+        )
+
+        if (
+            user_bn_flag is None
+            and auto_layout_is_enabled()
+            and not self._backend.is_cinn()
+        ):
+            bn_flag = True
+        else:
+            bn_flag = (
+                user_bn_flag
+                if user_bn_flag is not None
+                else paddle.get_flags(
+                    "FLAGS_cudnn_batchnorm_spatial_persistent"
+                )["FLAGS_cudnn_batchnorm_spatial_persistent"]
             )
-            with paddle.base.framework.flag_guard(
-                "FLAGS_cudnn_batchnorm_spatial_persistent", bn_flag
-            ):
-                _C_ops.run_program(
-                    inputs,
-                    self._valid_vars(self._params),
-                    self._valid_vars(out_vars),
-                    self._create_scope_vec(
-                        cache_key=(
-                            hash_with_seed(
-                                self.program_id,
-                                self._calc_input_places_hash(inputs),
-                            )
-                        ),
-                        use_scope_cache=True,
+
+        with paddle.base.framework.flag_guard(
+            "FLAGS_cudnn_batchnorm_spatial_persistent", bn_flag
+        ):
+            _C_ops.run_program(
+                inputs,
+                self._valid_vars(self._params),
+                self._valid_vars(out_vars),
+                self._create_scope_vec(
+                    cache_key=(
+                        hash_with_seed(
+                            self.program_id,
+                            self._calc_input_places_hash(inputs),
+                        )
                     ),
-                    *attrs,
-                )
+                    use_scope_cache=True,
+                ),
+                *attrs,
+            )
         return self._outputs.quick_restore(out_vars)
 
     @cached_property
