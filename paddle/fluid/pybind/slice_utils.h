@@ -396,7 +396,11 @@ static void ParseIndex(const paddle::Tensor& tensor,
                   rank));
           auto ten =
               (*static_cast<phi::DenseTensor*>(slice_tensor.impl().get()));
-          CheckTensorIndexValue<int64_t>(&ten, dim_len);
+          if (slice_tensor.dtype() == phi::DataType::INT32) {
+            CheckTensorIndexValue<int32_t>(&ten, dim_len);
+          } else if (slice_tensor.dtype() == phi::DataType::INT64) {
+            CheckTensorIndexValue<int64_t>(&ten, dim_len);
+          }
         }
         *has_advanced_index = true;
         advanced_index->push_back(std::move(slice_tensor));

@@ -120,7 +120,7 @@ class TestSetitemDygraphBasicIndex(unittest.TestCase):
         # case 3:
         x[(slice(None, 1), slice(None, 3))] = np.array(
             [[0, 10, 20]]
-        )  # print(x[0:1,0:3])
+        )  # x[0:1,0:3]
         y[(slice(None, 1), slice(None, 3))] = paddle.to_tensor([[0, 10, 20]])
         self.accuracy_check(x, y)
         # case 4:
