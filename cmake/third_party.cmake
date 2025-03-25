@@ -469,7 +469,7 @@ if(WITH_TESTING OR WITH_DISTRIBUTE)
   include(external/gtest) # download, build, install gtest
   list(APPEND third_party_deps extern_gtest)
 endif()
-if (WITH_FLAGCX)
+if(WITH_FLAGCX)
   include(external/flagcx)
   list(APPEND third_party_deps flagcx)
 endif()

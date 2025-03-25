@@ -210,7 +210,7 @@ class TestCollectiveAllreduceAPI(TestDistBase):
                     dtype=dtype,
                     reduce_type=red_type,
                 )
-                
+
     def test_allreduce_flagcx_dygraph(self):
         dtypes_to_test = [
             "float16",
