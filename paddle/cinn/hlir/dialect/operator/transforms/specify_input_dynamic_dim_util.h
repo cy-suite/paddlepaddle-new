@@ -22,7 +22,8 @@ namespace dialect {
 namespace ir {
 void SpecifyInputDynamicDim(
     pir::Program* program,
-    const std::vector<pir::InputDynamicDimSpec>& input_dynamic_dim_spec);
+    const std::vector<pir::InputDynamicDimSpec>& input_dynamic_dim_spec,
+    bool to_append = false);
 void SpecifyInputDynamicDimFromFile(pir::Program* program,
                                     std::string filepath);
 }  // namespace ir

@@ -93,6 +93,7 @@
 #include "paddle/cinn/hlir/dialect/operator/transforms/check_infer_symbolic_util.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/pir_to_py_code_converter.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/reduce_as_to_sum_pass.h"
+#include "paddle/cinn/hlir/dialect/operator/transforms/specify_input_dynamic_dim_util.h"
 #include "paddle/cinn/hlir/framework/pir_compiler.h"
 #include "paddle/pir/include/dialect/shape/utils/shape_analysis.h"
 #endif
@@ -3287,6 +3288,9 @@ void BindShapeConstraintIRAnalysis(pybind11::module *m) {
            }
            return flag;
          });
+
+  m->def("specify_input_dynamic_dim_from_triplet",
+         &SpecifyInputDynamicDimFromTriplet);
 
   py::class_<pir::ShapeConstraintIRAnalysis,
              std::shared_ptr<pir::ShapeConstraintIRAnalysis>>

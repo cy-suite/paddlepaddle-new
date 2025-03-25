@@ -89,14 +89,56 @@ DeserializeInputDynamicDimSpecFromJsonFile(std::string file_path) {
   return DeserializeInputDynamicDimSpecFromJson(json);
 }
 
+struct Triplet {
+  int64_t dim_index;
+  std::optional<int64_t> range_min, range_max;
+};
+
+struct NamedTriplet {
+  std::string input_spec_name;
+  Triplet triplet;
+};
+
+std::vector<pir::InputDynamicDimSpec> GetDynamicDimSpecFromTriplet(
+    const std::vector<NamedTriplet>& constraints) {
+  std::vector<pir::InputDynamicDimSpec> res;
+  const std::string prefix = "dynamic_shape_spec_";
+  for (const auto& constraint : constraints) {
+    pir::InputDynamicDimSpec dim_spec;
+    dim_spec.dim_name = prefix + constraint.input_spec_name;
+    dim_spec.input_bind = {
+        {constraint.input_spec_name, constraint.triplet.dim_index}};
+    symbol::ConstraintsManager::Range range;
+    if (constraint.triplet.range_min.has_value()) {
+      range.min = constraint.triplet.range_min.value();
+    }
+    if (constraint.triplet.range_max.has_value()) {
+      range.max = constraint.triplet.range_max.value();
+    }
+    res.emplace_back(std::move(dim_spec));
+  }
+  return res;
+}
+
 }  // namespace
 
 void SpecifyInputDynamicDim(
     pir::Program* program,
-    const std::vector<pir::InputDynamicDimSpec>& input_dynamic_dim_spec) {
+    const std::vector<pir::InputDynamicDimSpec>& input_dynamic_dim_spec,
+    bool to_append = false) {
   pir::ShapeConstraintIRAnalysis& shape_analysis =
       pir::ShapeAnalysisManager::Instance().Get(program);
-  shape_analysis.SetInputDynamicDimSpec(input_dynamic_dim_spec);
+  if (!to_append) {
+    shape_analysis.SetInputDynamicDimSpec(input_dynamic_dim_spec);
+  } else {
+    shape_analysis.AppendInputDynamicDimSpec(input_dynamic_dim_spec);
+  }
+}
+
+void SpecifyInputDynamicDimFromTriplet(
+    pir::Program* program, const std::vector<NamedTriplet>& constraints) {
+  SpecifyInputDynamicDim(
+      program, GetDynamicDimSpecFromTriplet(constraints), true);
 }
 
 void SpecifyInputDynamicDimFromFile(pir::Program* program,
