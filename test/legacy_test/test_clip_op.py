@@ -186,8 +186,10 @@ class TestFP16Case6(TestClipOp):
         self.max = 0.5
         self.min = 1.0
 
-    def generate_input(self, shape, dtype):
-        return np.random.choice([self.min, self.max], shape).astype(dtype)
+    def generate_input(self):
+        return np.random.choice([self.min, self.max], self.shape).astype(
+            self.dtype
+        )
 
 
 @unittest.skipIf(
