@@ -1610,13 +1610,11 @@ function card_test() {
         tmpfile=$tmp_dir/$tmpfile_rand"_"$i
         if [ ${TESTING_DEBUG_MODE:-OFF} == "ON" ] ; then
             if [[ $cardnumber == $CUDA_DEVICE_COUNT ]]; then
-                echo "houjue debug: run ctest use all card"
                 (ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} -V --timeout 120 -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
             else
                 if [[ "$WITH_ROCM" == "ON" ]]; then
                     (env HIP_VISIBLE_DEVICES=$cuda_list ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} --timeout 120 -V -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
                 elif [[ "$WITH_XPU" == "ON" ]]; then
-                    echo "houjue debug: run ctest using cuda_list_str: $cuda_list_str"
                     (env XPU_VISIBLE_DEVICES=$cuda_list_str ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} --timeout 120 -V -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
                 else
                     (env CUDA_VISIBLE_DEVICES=$cuda_list ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} --timeout 120 -V -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
@@ -1624,13 +1622,11 @@ function card_test() {
             fi
         else
             if [[ $cardnumber == $CUDA_DEVICE_COUNT ]]; then
-                echo "houjue debug: run ctest use all card"
                 (ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} --timeout 120 --output-on-failure  -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
             else
                 if [[ "$WITH_ROCM" == "ON" ]]; then
                     (env HIP_VISIBLE_DEVICES=$cuda_list ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} --timeout 120 --output-on-failure  -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
                 elif [[ "$WITH_XPU" == "ON" ]]; then
-                    echo "houjue debug: run ctest using cuda_list_str: $cuda_list_str"
                     (env XPU_VISIBLE_DEVICES=$cuda_list_str ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} --timeout 120 --output-on-failure  -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
                 else
                     (env CUDA_VISIBLE_DEVICES=$cuda_list ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} --timeout 120 --output-on-failure  -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
@@ -2469,6 +2465,10 @@ set +x
         get_quickly_disable_ut||disable_ut_quickly='disable_ut'   # indicate whether the case was in quickly disable list
         get_multi_card_ut_list_for_xpu
         test_cases=$(ctest -N -V -E "$disable_ut_quickly|$multi_card_ut_list_for_xpu")        # cases list which would be run exclusively
+        echo "========================================="
+        echo "RAW test cases for XPU, already EXCLUDED disable_ut and multi_card:"
+        echo ${test_cases}
+        echo "========================================="
 
         single_card_test_num=0
         while read -r line; do
@@ -2497,10 +2497,25 @@ set +x
                 single_card_tests="$single_card_tests|^$testcase$"
             fi
         done <<< "$test_cases";
-        #card_test "$single_card_tests" 1 4
-        #card_test "$single_card_tests_1" 1 4
-        echo "houjue debug: call card_test multi_card_ut_list_for_xpu: $multi_card_ut_list_for_xpu"
-        card_test "$multi_card_ut_list_for_xpu" 2 1
+
+        echo "========================================="
+        echo "start to run XPU ut using single card, part 1:"
+        echo ${single_card_tests}
+        echo "========================================="
+        card_test "${single_card_tests}" 1 4
+
+        echo "========================================="
+        echo "start to run XPU ut using single card, part 2:"
+        echo ${single_card_tests_1}
+        echo "========================================="
+        card_test "${single_card_tests_1}" 1 4
+
+        echo "========================================="
+        echo "start to run XPU ut using multiple cards:"
+        echo ${multi_card_ut_list_for_xpu}
+        echo "========================================="
+        card_test "${multi_card_ut_list_for_xpu}" 2 1
+
         failed_test_lists=''
         collect_failed_tests
         xputest_error=0
