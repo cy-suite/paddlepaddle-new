@@ -918,16 +918,12 @@ std::shared_ptr<ProcessGroup::Task> ProcessGroupFlagcx::Collective(
   if (!use_calc_stream) {
     if (!is_coalescing_) {
       task->UpdateWaitChain(*comm_ctx);
-      // allocation_stream_pairs_.emplace_back(
-      //     tensor.Holder(), *reinterpret_cast<gpuStream_t*>(flagcx_stream));
       for (size_t i = 0; i < tensors.size(); ++i) {
         allocation_stream_pairs_.emplace_back(
             tensors[i].Holder(),
             *reinterpret_cast<gpuStream_t*>(flagcx_stream));
       }
     } else {
-      // coalescing_tensors_.emplace_back(
-      //     std::make_shared<phi::DenseTensor>(tensor));
       for (size_t i = 0; i < tensors.size(); ++i) {
         coalescing_tensors_.emplace_back(
             std::make_shared<phi::DenseTensor>(tensors[i]));
