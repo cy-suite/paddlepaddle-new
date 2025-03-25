@@ -64,6 +64,6 @@ jobs:
         AGILE_REVISION: ${{ github.event.pull_request.head.sha }}
       run: |
         COMMIT_MESSAGE=$(git show -s --format='%s' $AGILE_REVISION)
-        AGILE_COMMENTS="[{\"Commit\":\"$AGILE_REVISION\",\"author\":\"$AGILE_CHECKIN_AUTHOR\",\"comment\":\"$COMMIT_MESSAGE\"}]"
+        export AGILE_COMMENTS="[{\"Commit\":\"$AGILE_REVISION\",\"author\":\"$AGILE_CHECKIN_AUTHOR\",\"comment\":\"$COMMIT_MESSAGE\"}]"
         wget -q --no-check-certificate  $icafe_download_url
         python modify_icafe.py
