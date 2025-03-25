@@ -68,10 +68,16 @@ void RToSReshardFunction::Eval(phi::DeviceContext* dev_ctx,
   auto dtype = in_physical_tensor_cur_rank.dtype();
 
   DenseTensor dense_out;
-  int64_t cur_rank_id = GetCurGlobalRank();
-  int64_t start = split_num_vec[0] * cur_rank_id;
-  int64_t end = std::min(split_num_vec[0] * (cur_rank_id + 1),
-                         in_physical_tensor_cur_rank.dims()[split_axis]);
+  int64_t start = split_num_vec[0] * coord_in_mesh[mesh_axis];
+  int64_t end =
+      std::min(start + split_num_vec[0], in_physical_tensor_cur_rank.dims()[0]);
+  PADDLE_ENFORCE_LE(start,
+                    end,
+                    ::common::errors::InvalidArgument(
+                        "Slice Args 'start' should be less or qual to 'end', "
+                        "but got 'start' is %d, 'end' is %d.",
+                        start,
+                        end));
   RESHARD_FUNCTOR(dev_ctx,
                   Slice,
                   dtype,
