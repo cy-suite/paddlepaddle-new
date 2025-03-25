@@ -11,7 +11,6 @@ set(dist_ENVS http_proxy="" https_proxy="")
 ###### start ######
 list(REMOVE_ITEM TEST_OPS test_imperative_base)
 ###### end ######
-list(REMOVE_ITEM TEST_OPS test_fleet_util)
 
 file(
   GLOB DIST_TEST_OPS
@@ -33,12 +32,8 @@ set(MIXED_DIST_TEST_OPS ${DIST_TEST_OPS})
 list(APPEND MIXED_DIST_TEST_OPS test_simple_dist_transpiler)
 list(APPEND MIXED_DIST_TEST_OPS test_communicator_ps_gpu)
 list(APPEND MIXED_DIST_TEST_OPS test_communicator_geo_deprecated)
-list(APPEND MIXED_DIST_TEST_OPS test_fleet_launch_ascend)
 list(APPEND MIXED_DIST_TEST_OPS test_ascend_group)
-list(APPEND MIXED_DIST_TEST_OPS test_fleet_api_input)
 
-list(APPEND MIXED_DIST_TEST_OPS test_fleet_base)
-list(APPEND MIXED_DIST_TEST_OPS test_fleet_auto)
 list(APPEND MIXED_DIST_TEST_OPS test_auto_parallel_partitioner_deprecated)
 list(APPEND MIXED_DIST_TEST_OPS test_auto_parallel_partitioner_gpt_deprecated)
 list(APPEND MIXED_DIST_TEST_OPS test_auto_parallel_searcher_deprecated)
@@ -67,8 +62,6 @@ if(NOT WITH_GPU)
   list(REMOVE_ITEM TEST_OPS test_fused_attention_pass)
   list(REMOVE_ITEM TEST_OPS test_fused_comm_buffer)
   list(REMOVE_ITEM DIST_TEST_OPS "test_dist_hapi_model")
-  list(REMOVE_ITEM DIST_TEST_OPS "test_dist_fleet_spmt")
-  list(REMOVE_ITEM DIST_TEST_OPS "test_dist_fleet_minimize")
   list(REMOVE_ITEM TEST_OPS test_async_read_write)
 endif()
 
@@ -87,10 +80,6 @@ if(WIN32)
   list(REMOVE_ITEM TEST_OPS test_trainer_desc)
   list(REMOVE_ITEM TEST_OPS test_checkpoint_notify_op)
   list(REMOVE_ITEM TEST_OPS test_downpoursgd_deprecated)
-  list(REMOVE_ITEM TEST_OPS test_fleet_nocvm_1_deprecated)
-  list(REMOVE_ITEM TEST_OPS test_fleet_rolemaker)
-  list(REMOVE_ITEM TEST_OPS test_fleet_rolemaker_3)
-  list(REMOVE_ITEM TEST_OPS test_fleet_unitaccessor_deprecated)
   list(REMOVE_ITEM TEST_OPS test_ps_dispatcher)
   list(REMOVE_ITEM TEST_OPS test_ir_memory_optimize_nlp)
   list(REMOVE_ITEM TEST_OPS test_nvprof)
@@ -102,9 +91,6 @@ endif()
 if(NOT WITH_DISTRIBUTE OR WIN32)
   # DISTRIBUTE related
   list(REMOVE_ITEM TEST_OPS test_avoid_twice_initialization_deprecated)
-  list(REMOVE_ITEM TEST_OPS test_fleet_metric_deprecated)
-  list(REMOVE_ITEM TEST_OPS test_fleet_ps)
-  list(REMOVE_ITEM TEST_OPS test_fleet_rolemaker_2)
   list(REMOVE_ITEM TEST_OPS test_delete_c_identity_op_pass)
   # TODO: Fix these unittests failed on Windows
   list(REMOVE_ITEM TEST_OPS test_fake_init_op)
@@ -126,7 +112,6 @@ list(REMOVE_ITEM TEST_OPS test_checkpoint_saver)
 
 if(APPLE OR WIN32)
   list(REMOVE_ITEM TEST_OPS test_fs_interface)
-  list(REMOVE_ITEM TEST_OPS test_fleet_metric_deprecated)
 endif()
 
 list(REMOVE_ITEM TEST_OPS test_parallel_dygraph_hybrid_parallel)
@@ -145,7 +130,6 @@ if((NOT WITH_GPU) AND (NOT WITH_ROCM))
   list(REMOVE_ITEM TEST_OPS test_batch_fc_op)
   # TODO(shenliang03): batch_fc_op support CPU device in future
   # TODO(Yancey1989): parallel dygraph support CPU device in future
-  list(REMOVE_ITEM TEST_OPS test_fleet_base_single)
   list(REMOVE_ITEM TEST_OPS test_auto_parallel_partitioner_deprecated)
   list(REMOVE_ITEM TEST_OPS test_auto_parallel_partitioner_gpt_deprecated)
   list(REMOVE_ITEM TEST_OPS test_auto_parallel_searcher_deprecated)
@@ -202,8 +186,6 @@ if(NOT WITH_MKL OR NOT WITH_AVX)
   list(REMOVE_ITEM TEST_OPS test_match_matrix_tensor_op)
   list(REMOVE_ITEM TEST_OPS test_var_conv_2d)
 endif()
-
-list(REMOVE_ITEM TEST_OPS test_fleet_pyramid_hash)
 
 if((WITH_ROCM OR WITH_GPU) OR NOT WITH_MKLML)
   # matmul with multiple heads need MKL support
@@ -445,15 +427,10 @@ endforeach()
 if((NOT WITH_GPU)
    AND (NOT WITH_XPU)
    AND NOT (WITH_ASCEND OR WITH_ASCEND_CL))
-  list(REMOVE_ITEM TEST_OPS "test_fleet_graph_execution_meta_optimizer")
-  list(REMOVE_ITEM TEST_OPS "test_dist_fleet_grad_clip")
-  list(REMOVE_ITEM TEST_OPS "test_dist_fleet_heter_ctr")
-  list(REMOVE_ITEM TEST_OPS "test_dist_fleet_ps_gpu_ctr")
+
 endif()
 
 list(REMOVE_ITEM TEST_OPS "test_graph_reindex")
-list(REMOVE_ITEM DIST_TEST_OPS test_dist_fleet_geo_deprecated)
-list(REMOVE_ITEM TEST_OPS test_dist_fleet_geo_deprecated)
 if(WITH_COVERAGE)
   list(REMOVE_ITEM TEST_OPS test_cuda_graphed_layer)
   list(REMOVE_ITEM TEST_OPS test_cuda_graph_partial_graph_static_run)
@@ -483,7 +460,6 @@ if(WITH_DISTRIBUTE)
   list(REMOVE_ITEM DIST_TEST_OPS "test_dist_text_classification")
   list(REMOVE_ITEM DIST_TEST_OPS "test_dist_train")
   list(REMOVE_ITEM DIST_TEST_OPS "test_dist_word2vec")
-  list(REMOVE_ITEM DIST_TEST_OPS "test_dist_fleet_gloo")
 
   if(NOT WITH_HETERPS)
     list(REMOVE_ITEM DIST_TEST_OPS "test_communicator_ps_gpu")
@@ -492,8 +468,6 @@ if(WITH_DISTRIBUTE)
   py_test_modules(test_communicator_geo_deprecated MODULES
                   test_communicator_geo_deprecated ENVS ${dist_ENVS})
   if(NOT APPLE)
-    py_test_modules(test_fleet_base MODULES test_fleet_base ENVS ${dist_ENVS}
-                    FLAGS_enable_pir_api=0)
     if(NOT WIN32)
       py_test_modules(
         test_auto_parallel_partitioner_deprecated MODULES
@@ -527,9 +501,6 @@ if(WITH_DISTRIBUTE)
   if(NOT APPLE)
 
     if(WITH_ASCEND OR WITH_ASCEND_CL)
-      bash_test_modules(
-        test_fleet_launch_ascend START_BASH test_fleet_launch_ascend.sh ENVS
-        PADDLE_BINARY_DIR=${PADDLE_BINARY_DIR})
       bash_test_modules(test_ascend_group START_BASH test_ascend_group.sh ENVS
                         PADDLE_BINARY_DIR=${PADDLE_BINARY_DIR})
     endif()

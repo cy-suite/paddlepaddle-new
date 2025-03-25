@@ -39,18 +39,9 @@ set(MIXED_DIST_TEST_OPS ${DIST_TEST_OPS})
 
 list(APPEND MIXED_DIST_TEST_OPS test_simple_dist_transpiler)
 list(APPEND MIXED_DIST_TEST_OPS test_communicator_ps_gpu)
-list(APPEND MIXED_DIST_TEST_OPS test_fleet_launch_ps)
 list(APPEND MIXED_DIST_TEST_OPS test_launch_coverage)
-list(APPEND MIXED_DIST_TEST_OPS test_fleetrun)
-list(APPEND MIXED_DIST_TEST_OPS test_fleet_run_random_port)
-list(APPEND MIXED_DIST_TEST_OPS test_fleet_launch_async)
-list(APPEND MIXED_DIST_TEST_OPS test_fleet_launch_cloud)
-list(APPEND MIXED_DIST_TEST_OPS test_fleet_launch_ascend)
 list(APPEND MIXED_DIST_TEST_OPS test_ascend_group)
-list(APPEND MIXED_DIST_TEST_OPS test_fleet_launch_nproc)
-list(APPEND MIXED_DIST_TEST_OPS test_fleet_api_input)
 list(REMOVE_ITEM TEST_OPS test_fetch_lod_tensor_array)
-list(APPEND MIXED_DIST_TEST_OPS test_fleet_auto)
 list(APPEND MIXED_DIST_TEST_OPS test_dygraph_hybrid_dp)
 foreach(TEST_OP ${MIXED_DIST_TEST_OPS})
   list(REMOVE_ITEM TEST_OPS ${TEST_OP})
@@ -76,8 +67,6 @@ if(NOT WITH_GPU)
   list(REMOVE_ITEM TEST_OPS test_fused_layernorm_op)
   list(REMOVE_ITEM TEST_OPS test_fused_comm_buffer)
   list(REMOVE_ITEM DIST_TEST_OPS "test_dist_hapi_model")
-  list(REMOVE_ITEM DIST_TEST_OPS "test_dist_fleet_spmt")
-  list(REMOVE_ITEM DIST_TEST_OPS "test_dist_fleet_minimize")
   list(REMOVE_ITEM TEST_OPS test_async_read_write)
 endif()
 
@@ -91,7 +80,6 @@ list(REMOVE_ITEM TEST_OPS test_fuse_dot_product_attention_pass)
 if(((NOT WITH_ROCM) AND (NOT WITH_GPU)) OR WIN32)
   list(REMOVE_ITEM TEST_OPS test_c_embedding_op)
   list(REMOVE_ITEM TEST_OPS test_pipeline_parallel)
-  list(REMOVE_ITEM TEST_OPS test_fleet_perf_test)
   list(REMOVE_ITEM TEST_OPS test_memcpy_op)
   list(REMOVE_ITEM TEST_OPS test_raw_program_optimizer)
   list(REMOVE_ITEM TEST_OPS test_disable_signal_handler)
@@ -114,11 +102,6 @@ if(WIN32)
   list(REMOVE_ITEM TEST_OPS test_trainer_desc)
   list(REMOVE_ITEM TEST_OPS test_checkpoint_notify_op)
   list(REMOVE_ITEM TEST_OPS test_downpoursgd_deprecated)
-  list(REMOVE_ITEM TEST_OPS test_fleet)
-  list(REMOVE_ITEM TEST_OPS test_fleet_nocvm_1)
-  list(REMOVE_ITEM TEST_OPS test_fleet_rolemaker)
-  list(REMOVE_ITEM TEST_OPS test_fleet_rolemaker_3)
-  list(REMOVE_ITEM TEST_OPS test_fleet_unitaccessor)
   list(REMOVE_ITEM TEST_OPS test_ps_dispatcher)
   list(REMOVE_ITEM TEST_OPS test_ir_memory_optimize_nlp)
   list(REMOVE_ITEM TEST_OPS test_nvprof)
@@ -133,8 +116,6 @@ endif()
 if(NOT WITH_DISTRIBUTE OR WIN32)
   # DISTRIBUTE related
   list(REMOVE_ITEM TEST_OPS test_avoid_twice_initialization)
-  list(REMOVE_ITEM TEST_OPS test_fleet_ps)
-  list(REMOVE_ITEM TEST_OPS test_fleet_rolemaker_2)
   list(REMOVE_ITEM TEST_OPS test_delete_c_identity_op_pass)
   # TODO: Fix these unittests failed on Windows
   list(REMOVE_ITEM TEST_OPS test_fake_init_op)
@@ -187,7 +168,6 @@ if(NOT WITH_GLOO)
        test_parallel_dygraph_sparse_embedding_diff_length_gloo)
 endif()
 
-list(REMOVE_ITEM TEST_OPS test_fleet_base_single)
 if((NOT WITH_GPU) AND (NOT WITH_ROCM))
   list(REMOVE_ITEM TEST_OPS test_fused_conv2d_add_act_op)
   list(REMOVE_ITEM TEST_OPS test_rank_attention_op)
@@ -244,8 +224,6 @@ if(WITH_COVERAGE
    OR WITH_NV_JETSON)
   list(REMOVE_ITEM TEST_OPS test_pyramid_hash_op)
 endif()
-
-list(REMOVE_ITEM TEST_OPS test_fleet_pyramid_hash)
 
 if((WITH_ROCM OR WITH_GPU) OR NOT WITH_MKLML)
   # matmul with multiple heads need MKL support
@@ -509,15 +487,6 @@ foreach(TEST_OP ${TEST_EAGER_OPS})
   py_test_modules(${TEST_OP} MODULES ${TEST_OP} ENVS FLAGS_enable_eager_mode=1)
 endforeach()
 
-if((NOT WITH_GPU)
-   AND (NOT WITH_XPU)
-   AND NOT (WITH_ASCEND OR WITH_ASCEND_CL))
-  list(REMOVE_ITEM TEST_OPS "test_fleet_graph_execution_meta_optimizer")
-  list(REMOVE_ITEM TEST_OPS "test_dist_fleet_grad_clip")
-  list(REMOVE_ITEM TEST_OPS "test_dist_fleet_heter_ctr")
-  list(REMOVE_ITEM TEST_OPS "test_dist_fleet_ps_gpu_ctr")
-endif()
-
 list(REMOVE_ITEM TEST_OPS "test_stride")
 list(REMOVE_ITEM TEST_OPS "test_graph_reindex")
 if(WITH_COVERAGE)
@@ -615,7 +584,6 @@ if(WITH_DISTRIBUTE)
   list(REMOVE_ITEM DIST_TEST_OPS "test_dist_text_classification")
   list(REMOVE_ITEM DIST_TEST_OPS "test_dist_train")
   list(REMOVE_ITEM DIST_TEST_OPS "test_dist_word2vec")
-  list(REMOVE_ITEM DIST_TEST_OPS "test_dist_fleet_gloo")
 
   if(NOT WITH_HETERPS)
     list(REMOVE_ITEM DIST_TEST_OPS "test_communicator_ps_gpu")
@@ -626,29 +594,13 @@ if(WITH_DISTRIBUTE)
       py_test_modules(test_launch_coverage MODULES test_launch_coverage)
     endif()
 
-    bash_test_modules(test_fleetrun START_BASH test_fleetrun.sh ENVS
-                      PADDLE_BINARY_DIR=${PADDLE_BINARY_DIR})
     if(WITH_GPU
        OR WITH_XPU
        OR WITH_ASCEND
        OR WITH_ASCEND_CL)
-      bash_test_modules(
-        test_fleet_launch_nproc START_BASH test_fleet_launch_nproc.sh ENVS
-        PADDLE_BINARY_DIR=${PADDLE_BINARY_DIR})
-      bash_test_modules(
-        test_fleet_run_random_port START_BASH test_fleet_run_random_port.sh
-        ENVS PADDLE_BINARY_DIR=${PADDLE_BINARY_DIR})
-      bash_test_modules(
-        test_fleet_launch_async START_BASH test_fleet_launch_async.sh ENVS
-        PADDLE_BINARY_DIR=${PADDLE_BINARY_DIR})
-      bash_test_modules(
-        test_fleet_launch_cloud START_BASH test_fleet_launch_cloud.sh ENVS
-        PADDLE_BINARY_DIR=${PADDLE_BINARY_DIR})
+
     endif()
     if(WITH_ASCEND OR WITH_ASCEND_CL)
-      bash_test_modules(
-        test_fleet_launch_ascend START_BASH test_fleet_launch_ascend.sh ENVS
-        PADDLE_BINARY_DIR=${PADDLE_BINARY_DIR})
       bash_test_modules(test_ascend_group START_BASH test_ascend_group.sh ENVS
                         PADDLE_BINARY_DIR=${PADDLE_BINARY_DIR})
     endif()
@@ -671,15 +623,6 @@ if(WITH_DISTRIBUTE)
       endif()
     endforeach()
     # solve it later.
-    bash_test_modules(
-      test_fleet_launch_ps
-      START_BASH
-      test_fleet_launch_ps.sh
-      LABELS
-      "RUN_TYPE=EXCLUSIVE"
-      ENVS
-      "PADDLE_DIST_UT_PORT=${dist_ut_port}"
-      PADDLE_BINARY_DIR=${PADDLE_BINARY_DIR})
     if(WITH_GLOO)
       bash_test_modules(
         test_cpuonly_launch
@@ -734,9 +677,6 @@ if(NOT WIN32 AND NOT APPLE)
 endif()
 
 if(WITH_DISTRIBUTE)
-  set_tests_properties(test_dist_fleet_sparse_embedding_ctr PROPERTIES TIMEOUT
-                                                                       200)
-  set_tests_properties(test_dist_fleet_infer PROPERTIES TIMEOUT 200)
   set_tests_properties(test_dist_dygraph_apis PROPERTIES TIMEOUT 120)
 endif()
 
@@ -908,11 +848,9 @@ if((WITH_ROCM OR WITH_GPU) AND NOT WIN32)
   if(WITH_DISTRIBUTE)
     set_tests_properties(test_pipeline_parallel PROPERTIES LABELS
                                                            "RUN_TYPE=DIST")
-    set_tests_properties(test_fleet_perf_test PROPERTIES LABELS "RUN_TYPE=DIST")
   endif()
   set_tests_properties(test_paddle_multiprocessing PROPERTIES TIMEOUT 120)
   set_tests_properties(test_pipeline_parallel PROPERTIES TIMEOUT 120)
-  set_tests_properties(test_fleet_perf_test PROPERTIES TIMEOUT 120)
 endif()
 if(WITH_GPU OR WITH_ROCM)
   set_tests_properties(test_rank_attention_op PROPERTIES TIMEOUT 120)

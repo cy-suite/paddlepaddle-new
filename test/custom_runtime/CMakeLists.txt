@@ -16,20 +16,7 @@ if(WITH_CUSTOM_DEVICE AND NOT WITH_GPU)
            FLAGS_enable_pir_with_pt_in_dy2st=False)
   endforeach()
 
-  bash_test_modules(
-    test_fleet_launch_custom_device
-    START_BASH
-    test_fleet_launch_custom_device.sh
-    ENVS
-    PYTHONPATH=""
-    FLAGS_allocator_strategy=naive_best_fit
-    PADDLE_BINARY_DIR=${PADDLE_BINARY_DIR}
-    PLUGIN_URL=${PLUGIN_URL}
-    PLUGIN_TAG=${PLUGIN_TAG}
-    PYTHON_EXECUTABLE=${PYTHON_EXECUTABLE})
-
   set_tests_properties(test_custom_cpu_profiler_plugin PROPERTIES TIMEOUT 120)
-  set_tests_properties(test_fleet_launch_custom_device PROPERTIES TIMEOUT 120)
   set_tests_properties(test_custom_cpu_plugin PROPERTIES TIMEOUT 120)
   set_tests_properties(test_custom_cpu_to_static PROPERTIES TIMEOUT 180)
   set_tests_properties(test_custom_op_setup PROPERTIES TIMEOUT 120)

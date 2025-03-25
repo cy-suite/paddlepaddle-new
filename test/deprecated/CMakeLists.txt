@@ -159,7 +159,6 @@ if(WITH_TESTING)
 
   if(WITH_DISTRIBUTE)
     add_subdirectory(auto_parallel)
-    add_subdirectory(collective)
   endif()
   if(WITH_ONEDNN)
     add_subdirectory(mkldnn)
