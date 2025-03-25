@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-import inspect
 import operator
 import sys
 import types
@@ -1140,48 +1139,71 @@ class SuperVariable(VariableBase):
 
     def __init__(self, cls: ClassVariable, obj: VariableBase, graph, tracker):
         super().__init__(graph, tracker)
-        self._cls = cls
-        self._obj = obj
-        self._mro = cls.get_py_value().__mro__
+        self.cls = cls
+        self.obj = obj
 
     @property
     def main_info(self) -> dict[str, Any]:
-        if printable(self._obj):
+        if printable(self.obj):
             return {
-                "value": f"super({self._cls.get_py_value().__name__}, {self._obj})"
+                "value": f"super({self.cls.get_py_value().__name__}, {self.obj})"
             }
-        return {"value": f"super({self._cls.get_py_value().__name__}, self)"}
+        return {"value": f"super({self.cls.get_py_value().__name__}, self)"}
 
     def get_py_value(self, allow_tensor=False) -> Any:
-        return super(self._cls.get_py_value(), self._obj.get_py_value())
+        cls = self.cls.get_py_value()
+        obj = self.obj.get_py_value()
+        # `super(cls, super(...))` is not supported.
+        while isinstance(obj, super):
+            obj = obj.__self__
+        return super(cls, obj)
 
     @check_guard
     def make_stringified_guard(self) -> list[StringifiedExpression]:
-        return [
-            StringifiedExpression(
-                f"Calling super({self._cls.__name__}, self) in class {self._obj.__class__.__name__}",
-                [],
-                {},
-            )
-        ]
+        guards = []
+        if self.cls.tracker.need_guard():
+            guards.extend(self.cls.make_stringified_guard())
+        if self.obj.tracker.need_guard():
+            guards.extend(self.obj.make_stringified_guard())
+        return guards
 
-    def getattr(self, name: str, default=None):
-        for _cls in self._mro:
-            if not hasattr(_cls, name):
+    def getattr(self, name: str, default=None) -> VariableBase:
+        from .callable import FunctionVariable
+
+        mro = VariableFactory.from_value(
+            self.cls.get_py_value().__mro__,
+            self.graph,
+            GetAttrTracker(self.cls, "__mro__"),
+        )
+        # `__mro__` contains currently class, so remove it
+        super_mro = mro.get_wrapped_items()[1:]
+
+        for super_cls in super_mro:
+            if not super_cls.hasattr(name):
                 continue
-            attr = getattr(_cls, name)
-            if inspect.isfunction(attr):
-                return VariableFactory.from_value(
-                    attr,
-                    self.graph,
-                    DummyTracker([]),
-                ).bind(self, name)
-
+            attr = super_cls.getattr(name)
+            if isinstance(attr, FunctionVariable):
+                attr = attr.bind(self, name)
             return attr
 
         raise HasNoAttributeError(
-            f"{self._obj.__class__.__name__} {self} has no attribute {name}"
+            f"{self.obj.__class__.__name__} {self} has no attribute {name}"
         )
+
+    @VariableFactory.register_from_value()
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
+        if not isinstance(value, super):
+            return None
+        cls = VariableFactory.from_value(
+            value.__thisclass__, graph, DanglingTracker()
+        )
+        obj = VariableFactory.from_value(
+            value.__self__, graph, DanglingTracker()
+        )
+        super_var = SuperVariable(cls, obj, graph, tracker)
+        cls.tracker = GetAttrTracker(super_var, "__thisclass__")
+        obj.tracker = GetAttrTracker(super_var, "__self__")
+        return super_var
 
 
 class SliceVariable(VariableBase):
