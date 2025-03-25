@@ -858,10 +858,6 @@ class PartialProgramLayer:
             infer_program = self.origin_runnable_program.clone()
             # TODO(liujinnan) When CINN can perfectly handle Layout conversion, remove the judgment of whether to enable CINN.
             if auto_layout_is_enabled() and not self._backend.is_cinn():
-                # AutoLayoutPass may change layout of bn to NHWC, if not enable `FLAGS_cudnn_batchnorm_spatial_persistent`, it will revert it back to NCHW.
-                paddle.set_flags(
-                    {"FLAGS_cudnn_batchnorm_spatial_persistent": True}
-                )
                 pm = paddle.pir.PassManager(2)
                 pm.add_pass("auto_layout_pass", {})
                 pm.run(infer_program.program)
