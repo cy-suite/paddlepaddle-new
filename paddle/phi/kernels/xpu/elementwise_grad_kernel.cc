@@ -27,14 +27,6 @@ void MaximumGradKernel(const Context& dev_ctx,
                        const DenseTensor& dout,
                        DenseTensor* dx,
                        DenseTensor* dy) {
-  if (dx && dx->numel() == 0) {
-    dev_ctx.template Alloc<T>(dx);
-    dx = nullptr;
-  }
-  if (dy && dy->numel() == 0) {
-    dev_ctx.template Alloc<T>(dy);
-    dy = nullptr;
-  }
   using XPUType = typename XPUTypeTrait<T>::Type;
   int axis = -1;
   auto f = [](xpu::Context* ctx,
@@ -60,14 +52,6 @@ void MinimumGradKernel(const Context& dev_ctx,
                        const DenseTensor& dout,
                        DenseTensor* dx,
                        DenseTensor* dy) {
-  if (dx && dx->numel() == 0) {
-    dev_ctx.template Alloc<T>(dx);
-    dx = nullptr;
-  }
-  if (dy && dy->numel() == 0) {
-    dev_ctx.template Alloc<T>(dy);
-    dy = nullptr;
-  }
   using XPUType = typename XPUTypeTrait<T>::Type;
   int axis = -1;
   auto f = [](xpu::Context* ctx,
