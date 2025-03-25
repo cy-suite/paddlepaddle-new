@@ -1049,6 +1049,10 @@ void ReduceKernel(const KPDevice& dev_ctx,
                   phi::DenseTensor* y,
                   const TransformOp& transform,
                   const std::vector<int>& origin_reduce_dims) {
+  PADDLE_ENFORCE_GT(x.numel(),
+                    0,
+                    common::errors::InvalidArgument(
+                        "Tensor need be reduced must not empty."));
 #ifdef PADDLE_WITH_XPU_KP
   auto stream = dev_ctx.x_context()->xpu_stream;
 #else
