@@ -225,7 +225,6 @@ class PipelineZeroBubbleVirtualPipelinePass(PipelineZeroBubblePipelinePass):
     def _partial_programs(self, program):
         raise NotImplementedError("Not support old IR for ZeroBubbleVPP")
 
-
     def _estimate_program_mem_usagess(
         self, types, sub_program_list, dist_context, pp_group
     ):
