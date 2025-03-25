@@ -69,8 +69,8 @@ void RToSReshardFunction::Eval(phi::DeviceContext* dev_ctx,
 
   DenseTensor dense_out;
   int64_t start = split_num_vec[0] * coord_in_mesh[mesh_axis];
-  int64_t end =
-      std::min(start + split_num_vec[0], in_physical_tensor_cur_rank.dims()[0]);
+  int64_t end = std::min(start + split_num_vec[0],
+                         in_physical_tensor_cur_rank.dims()[split_axis]);
   PADDLE_ENFORCE_LE(start,
                     end,
                     ::common::errors::InvalidArgument(
