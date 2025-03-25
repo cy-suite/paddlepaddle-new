@@ -25,7 +25,7 @@ void MeanAllKernel(const Context& dev_ctx,
                    const DenseTensor& x,
                    DenseTensor* out) {
   if (x.numel() == 0) {
-    phi::Full<float, Context>(
+    phi::Full<T, Context>(
         dev_ctx, phi::IntArray(common::vectorize(out->dims())), NAN, out);
     return;
   }

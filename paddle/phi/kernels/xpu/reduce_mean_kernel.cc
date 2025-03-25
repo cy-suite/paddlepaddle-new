@@ -35,7 +35,7 @@ void MeanRawKernel(const Context& dev_ctx,
   }
 
   if (x.numel() == 0 && out && out->dims().size() == 0) {
-    phi::Full<float, Context>(
+    phi::Full<T, Context>(
         dev_ctx, phi::IntArray(common::vectorize(out->dims())), NAN, out);
     return;
   }
