@@ -578,4 +578,3 @@ class ConstrainedInputSpec(InputSpec):
         super().__init__(*args, **kwargs)
         for i in dynamic_axes:
             self.ranges.append((i, 2, None))
-        self.ranges = self.ranges if len(self.ranges) else None

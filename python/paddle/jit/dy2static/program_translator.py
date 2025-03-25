@@ -1225,7 +1225,7 @@ class ConcreteProgram:
         for input_spec in input_specs:
             if len(input_spec.ranges):
                 constraints.append((input_spec.name, input_spec.ranges))
-        return constraints if len(constraints) else None
+        return constraints
 
     @staticmethod
     @switch_to_static_graph
