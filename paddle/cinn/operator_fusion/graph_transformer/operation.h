@@ -251,7 +251,7 @@ struct HorizontalFusionOperation {
     } else {
       auto lhs_to_rhs_transform = GetValidHorizontalLoopTransform(
           lhs->loop_axis_mapping(), rhs->loop_axis_mapping());
-      if (!lhs_to_rhs_transform.has_value()) return lhs;
+      if (!lhs_to_rhs_transform.has_value()) return nullptr;
       lhs_is_anchor = false;
       loop_transform = lhs_to_rhs_transform.value();
     }
