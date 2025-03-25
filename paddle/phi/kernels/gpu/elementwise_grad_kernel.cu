@@ -163,7 +163,7 @@ void MaximumGradKernel(const Context& dev_ctx,
       if (dx->numel() == 0) {
         dev_ctx.template Alloc<T>(dx);
       } else {
-        phi::Full<float, Context>(
+        phi::Full<T, Context>(
             dev_ctx, phi::IntArray(common::vectorize(dx->dims())), 0, dx);
       }
     }
@@ -171,7 +171,7 @@ void MaximumGradKernel(const Context& dev_ctx,
       if (dy->numel() == 0) {
         dev_ctx.template Alloc<T>(dy);
       } else {
-        phi::Full<float, Context>(
+        phi::Full<T, Context>(
             dev_ctx, phi::IntArray(common::vectorize(dy->dims())), 0, dy);
       }
     }
@@ -212,7 +212,7 @@ void MinimumGradKernel(const Context& dev_ctx,
       if (dx->numel() == 0) {
         dev_ctx.template Alloc<T>(dx);
       } else {
-        phi::Full<float, Context>(
+        phi::Full<T, Context>(
             dev_ctx, phi::IntArray(common::vectorize(dx->dims())), 0, dx);
       }
     }
@@ -220,7 +220,7 @@ void MinimumGradKernel(const Context& dev_ctx,
       if (dy->numel() == 0) {
         dev_ctx.template Alloc<T>(dy);
       } else {
-        phi::Full<float, Context>(
+        phi::Full<T, Context>(
             dev_ctx, phi::IntArray(common::vectorize(dy->dims())), 0, dy);
       }
     }
