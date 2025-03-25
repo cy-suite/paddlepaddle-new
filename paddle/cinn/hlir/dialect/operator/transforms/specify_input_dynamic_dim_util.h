@@ -26,6 +26,9 @@ void SpecifyInputDynamicDim(
     bool to_append = false);
 void SpecifyInputDynamicDimFromFile(pir::Program* program,
                                     std::string filepath);
+
+void SpecifyInputDynamicDimFromTriplet(
+    pir::Program* program, const std::vector<NamedTriplet>& constraints);
 }  // namespace ir
 }  // namespace dialect
 }  // namespace cinn

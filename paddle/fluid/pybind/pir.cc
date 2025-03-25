@@ -3290,7 +3290,7 @@ void BindShapeConstraintIRAnalysis(pybind11::module *m) {
          });
 
   m->def("specify_input_dynamic_dim_from_triplet",
-         &SpecifyInputDynamicDimFromTriplet);
+         &::cinn::dialect::ir::SpecifyInputDynamicDimFromTriplet);
 
   py::class_<pir::ShapeConstraintIRAnalysis,
              std::shared_ptr<pir::ShapeConstraintIRAnalysis>>
