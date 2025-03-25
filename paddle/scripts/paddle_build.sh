@@ -1610,6 +1610,7 @@ function card_test() {
         tmpfile=$tmp_dir/$tmpfile_rand"_"$i
         if [ ${TESTING_DEBUG_MODE:-OFF} == "ON" ] ; then
             if [[ $cardnumber == $CUDA_DEVICE_COUNT ]]; then
+                echo "houjue debug: run ctest use all card"
                 (ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} -V --timeout 120 -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
             else
                 if [[ "$WITH_ROCM" == "ON" ]]; then
@@ -1623,6 +1624,7 @@ function card_test() {
             fi
         else
             if [[ $cardnumber == $CUDA_DEVICE_COUNT ]]; then
+                echo "houjue debug: run ctest use all card"
                 (ctest -I $i,,$NUM_PROC -R "($testcases)" -E "($disable_ut_quickly)" ${run_label_mode} --timeout 120 --output-on-failure  -j $parallel_job | tee $tmpfile; test ${PIPESTATUS[0]} -eq 0) &
             else
                 if [[ "$WITH_ROCM" == "ON" ]]; then
@@ -2462,7 +2464,6 @@ EOF
 
 set +x
         echo "Starting running xpu tests"
-        set -x
         export XPU_OP_LIST_DIR=$tmp_dir
         ut_startTime_s=`date +%s`
         get_quickly_disable_ut||disable_ut_quickly='disable_ut'   # indicate whether the case was in quickly disable list
@@ -2496,15 +2497,9 @@ set +x
                 single_card_tests="$single_card_tests|^$testcase$"
             fi
         done <<< "$test_cases";
-
-        # houjue debug
-        set -x
-        export
-        #xpu-smi
-        ls -l /dev
-
         #card_test "$single_card_tests" 1 4
         #card_test "$single_card_tests_1" 1 4
+        echo "houjue debug: call card_test multi_card_ut_list_for_xpu: $multi_card_ut_list_for_xpu"
         card_test "$multi_card_ut_list_for_xpu" 2 1
         failed_test_lists=''
         collect_failed_tests
