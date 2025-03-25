@@ -1329,6 +1329,21 @@ void dispatch_blha_gqa_kernel(const Block_AttN_params<T> &params,
                            stream,
                            load_func,
                            store_func)
+  } else if (params.gqa_num_per_partitions == 4) {
+    constexpr int THDS_PER_BLOCK = 1024;
+    BLHA_LAUNCH_GQA_KERNEL(T,
+                           Dh,
+                           Dh_MAX,
+                           THREADS_PER_KEY,
+                           THREADS_PER_VALUE,
+                           THDS_PER_BLOCK,
+                           BlockSize,
+                           CACHE_TYPE,
+                           4,
+                           4,
+                           stream,
+                           load_func,
+                           store_func)
   } else if (params.gqa_num_per_partitions == 8) {
     constexpr int THDS_PER_BLOCK = 1024;
     BLHA_LAUNCH_GQA_KERNEL(T,
