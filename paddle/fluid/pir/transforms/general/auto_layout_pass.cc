@@ -125,8 +125,8 @@ class AutoLayoutPass : public pir::Pass {
   // Due to the current transpose performance issues, our single explicit
   // transpose does not perform better than cudnn, and there are interruptions
   // in the network due to operators that do not support NHWC. So we set the
-  // scale to 1.2 temporarily.
-  float transpose_scale_ = 1.2;
+  // scale to 1.3 temporarily.
+  float transpose_scale_ = 1.3;
 };
 }  // namespace
 namespace pir {
