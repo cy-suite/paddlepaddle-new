@@ -3289,8 +3289,52 @@ void BindShapeConstraintIRAnalysis(pybind11::module *m) {
            return flag;
          });
 
-  m->def("specify_input_dynamic_dim_from_triplet",
-         &::cinn::dialect::ir::SpecifyInputDynamicDimFromTriplet);
+  m->def(
+      "bind_symbolic_constraints",
+      [](pir::Program *program, const py::handle &constraints) -> void {
+        if (!py::isinstance<py::sequence>(constraints)) {
+          throw py::type_error(
+              "The input constraints for bind_symbolic_constraints must be a "
+              "sequence.");
+        }
+        if (!py::len(constraints)) {
+          return;
+        }
+
+        // from type 'list[tuple[str, tuple[int, int|None, int|None]]]' in
+        // python
+        std::vector<
+            std::tuple<std::string,
+                       std::tuple<int, std::optional<int>, std::optional<int>>>>
+            raw_constraints;
+        try {
+          for (const auto &constraint : constraints) {
+            std::string input_spec_name =
+                constraint[py::cast(0)].cast<std::string>();
+            auto triplet = constraint[py::cast(1)].cast<py::tuple>();
+
+            auto convert_optional =
+                [](const py::handle &h) -> std::optional<int> {
+              return h.is_none() ? std::nullopt
+                                 : std::make_optional(h.cast<int>());
+            };
+            raw_constraints.emplace_back(
+                std::move(input_spec_name),
+                std::make_tuple(triplet[0].cast<int>(),
+                                convert_optional(triplet[1]),
+                                convert_optional(triplet[2])));
+          }
+        } catch (const py::cast_error &e) {
+          throw py::type_error(
+              "The input type is not what we want for "
+              "bind_symbolic_constraints.\n" +
+              std::string(e.what()));
+        }
+        ::cinn::dialect::ir::SpecifyInputDynamicDimFromPython(program,
+                                                              raw_constraints);
+      },
+      py::arg("program"),
+      py::arg("constraints").noconvert());
 
   py::class_<pir::ShapeConstraintIRAnalysis,
              std::shared_ptr<pir::ShapeConstraintIRAnalysis>>

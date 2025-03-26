@@ -89,37 +89,41 @@ DeserializeInputDynamicDimSpecFromJsonFile(std::string file_path) {
   return DeserializeInputDynamicDimSpecFromJson(json);
 }
 
-struct Triplet {
-  int64_t dim_index;
-  std::optional<int64_t> range_min, range_max;
-};
-
-struct NamedTriplet {
-  std::string input_spec_name;
-  Triplet triplet;
-};
-
-std::vector<pir::InputDynamicDimSpec> GetDynamicDimSpecFromTriplet(
-    const std::vector<NamedTriplet>& constraints) {
+std::vector<pir::InputDynamicDimSpec> ConvertRawConstraints(
+    std::vector<
+        std::tuple<std::string,
+                   std::tuple<int, std::optional<int>, std::optional<int>>>>
+        raw_constraints) {
   std::vector<pir::InputDynamicDimSpec> res;
-  const std::string prefix = "dynamic_shape_spec_";
-  for (const auto& constraint : constraints) {
+  const std::string prefix_constraint_name = "symbolic_constraint_";
+  for (const auto& raw_constraint : raw_constraints) {
     pir::InputDynamicDimSpec dim_spec;
-    dim_spec.dim_name = prefix + constraint.input_spec_name;
-    dim_spec.input_bind = {
-        {constraint.input_spec_name, constraint.triplet.dim_index}};
-    symbol::ConstraintsManager::Range range;
-    if (constraint.triplet.range_min.has_value()) {
-      range.min = constraint.triplet.range_min.value();
-    }
-    if (constraint.triplet.range_max.has_value()) {
-      range.max = constraint.triplet.range_max.value();
-    }
+    const std::string& input_spec_name = std::get<0>(raw_constraint);
+    std::cout << "DEBUG___________ " << input_spec_name << " ";
+    dim_spec.dim_name = prefix_constraint_name + input_spec_name;
+    dim_spec.input_bind = [&]() {
+      std::vector<std::pair<std::string, int>> res;
+      const int& constrained_dim = std::get<0>(std::get<1>(raw_constraint));
+      std::cout << constrained_dim << " ";
+      res.emplace_back(std::make_pair(input_spec_name, constrained_dim));
+      return res;
+    }();
+    dim_spec.range = [&]() {
+      symbol::ConstraintsManager::Range range;
+      const auto& range_info = std::get<1>(raw_constraint);
+      if (std::get<1>(range_info).has_value()) {
+        range.min = std::get<1>(range_info).value();
+      }
+      if (std::get<2>(range_info).has_value()) {
+        range.max = std::get<2>(range_info).value();
+      }
+      std::cout << range.min << " " << range.max << std::endl;
+      return range;
+    }();
     res.emplace_back(std::move(dim_spec));
   }
   return res;
 }
-
 }  // namespace
 
 void SpecifyInputDynamicDim(
@@ -135,16 +139,21 @@ void SpecifyInputDynamicDim(
   }
 }
 
-void SpecifyInputDynamicDimFromTriplet(
-    pir::Program* program, const std::vector<NamedTriplet>& constraints) {
-  SpecifyInputDynamicDim(
-      program, GetDynamicDimSpecFromTriplet(constraints), true);
-}
-
 void SpecifyInputDynamicDimFromFile(pir::Program* program,
                                     std::string filepath) {
   SpecifyInputDynamicDim(program,
                          DeserializeInputDynamicDimSpecFromJsonFile(filepath));
+}
+
+void SpecifyInputDynamicDimFromPython(
+    pir::Program* program,
+    std::vector<
+        std::tuple<std::string,
+                   std::tuple<int, std::optional<int>, std::optional<int>>>>
+        raw_constraints) {
+  std::vector<pir::InputDynamicDimSpec> ConvertedConstraints =
+      ConvertRawConstraints(raw_constraints);
+  SpecifyInputDynamicDim(program, ConvertedConstraints, true);
 }
 
 }  // namespace ir

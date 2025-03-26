@@ -1221,6 +1221,7 @@ class ConcreteProgram:
         """
         Extract constraints from input_specs
         """
+        input_specs = flatten(input_specs)
         constraints = []
         for input_spec in input_specs:
             if len(input_spec.ranges):
