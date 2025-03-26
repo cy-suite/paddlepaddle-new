@@ -220,7 +220,6 @@ class Pipeline1F1BPass(PipelinePassBase):
             self.OPT,
         ]
 
-        # 克隆程序
         programs = {}
         for job_type in job_types:
             programs[job_type] = program.clone()
@@ -233,7 +232,6 @@ class Pipeline1F1BPass(PipelinePassBase):
             key: prog.global_block() for key, prog in programs.items()
         }
 
-        # 分割逻辑
         region = "opt"
         for op_idx in range(len(complete_ops) - 1, -1, -1):
             op = complete_ops[op_idx]
@@ -245,7 +243,6 @@ class Pipeline1F1BPass(PipelinePassBase):
                 elif op.op_role == 2:
                     region = "opt"
 
-            # 根据region和op类型进行分割
             if region == "opt":
                 self._erase_op_from_other_programs(
                     op_idx, self.OPT, ops_dict, job_types
@@ -341,7 +338,6 @@ class Pipeline1F1BPass(PipelinePassBase):
         ops_dict,
         blocks_dict,
     ):
-        """处理单个op的分割逻辑"""
         for idx in range(complete_ops[op_idx].num_results()):
             if self._result_is_used(suffixed_job_types, op_idx, idx, ops_dict):
                 var_name = self._get_or_create_var_name(
