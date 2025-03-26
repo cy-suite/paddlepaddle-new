@@ -13,7 +13,11 @@
 // limitations under the License.
 
 #include "paddle/pir/include/dialect/shape/utils/dim_expr_util.h"
+// #include <cctype>
+// #include <cstddef>
+// #include <functional>
 #include <numeric>
+// #include <string>
 
 namespace symbol {
 
@@ -1774,6 +1778,123 @@ std::unordered_set<std::string> CollectDimExprSymbols(const DimExpr& dim_expr) {
   // clang-format on
   std::visit(lambdas, dim_expr.variant());
   return symbols;
+}
+
+DimExpr ParseDimExprFromStr(std::string dim_expr_str,
+                            bool need_simplify = false) {
+  // remove all spaces
+  dim_expr_str.earse(std::remove_if(dim_expr_str.begin(),
+                                    dim_expr_str.end(),
+                                    [](char c) { return std::isspace(c); }),
+                     dim_expr_str.end());
+
+  if (dim_expr_str.empty()) {
+    return DimExpr{0};
+  }
+
+  std::function<DimExpr(const std::string&, size_t&)> parse_expr;
+
+  auto parse_args = [&parse_expr](const std::string& str,
+                                  size_t& pos) -> List<DimExpr> {
+    List<DimExpr> args{};
+    if (str[pos] == ")") {
+      return args;
+    }
+
+    while (true) {
+      args->push_back(parse_expr(str, pos));
+      if (str[pos] == ")") {
+        break;
+      }
+      PADDLE_ENFORCE_EQ(
+          str[pos],
+          ',',
+          common::errors::InvalidArgument(
+              "Expected ',' or ')' at position %d, got '%c'", pos, str[pos]));
+      ++pos;
+    }
+    return args;
+  };
+
+  parse_expr = [&parse_args](const std::string& str, size_t& pos) -> DimExpr {
+    if (pos >= str.size()) {
+      PADDLE_THROW(common::errors::InvalidArgument(
+          "Unexpected end of string while parsing dimension expression"));
+    }
+
+    if (str[pos] == "-") {
+      ++pos;
+      return Negative<DimExpr>(parse_expr(str, pos));
+    }
+
+    if (std::isdigit(str[pos])) {
+      size_t end_pos;
+      int64_t value = std::stoll(str.substr(pos), &end_pos);
+      pos += end_pos;
+      return value;
+    }
+
+    if (std::isalpha(str[pos])) {
+      size_t start_pos = pos;
+      while (pos < str.size() && (std::isalnum(str[pos]) || str[pos] == "_")) {
+        ++pos;
+      }
+      std::string name = str.substr(start_pos, pos - start_pos);
+
+      if (pos >= str.size() || str[pos] != "(") {
+        return name;
+      }
+
+      ++pos;
+      if (name == "Add") {
+        List<DimExpr> args = parse_args(str, pos);
+        ++pos;
+        return Add<DimExpr>{args};
+      } else if (name == "Mul") {
+        List<DimExpr> args = parse_args(str, pos);
+        ++pos;
+        return Mul<DimExpr>{args};
+      } else if (name == "Div") {
+        List<DimExpr> args = parse_args(str, pos);
+        ++pos;
+        PADDLE_ENFORCE_EQ(args->size(),
+                          2,
+                          common::errors::InvalidArgument(
+                              "Div operator expects exactly 2 arguments"));
+        return Div<DimExpr>{args->at(0), args->at(1)};
+      } else if (name == "Max") {
+        List<DimExpr> args = parse_args(str, pos);
+        ++pos;
+        return Max<DimExpr>{args};
+      } else if (name == "Min") {
+        List<DimExpr> args = parse_args(str, pos);
+        ++pos;
+        return Min<DimExpr>{args};
+      } else if (name == "Broadcast") {
+        List<DimExpr> args = parse_args(str, pos);
+        ++pos;
+        return Broadcast<DimExpr>{args};
+      } else {
+        PADDLE_THROW(common::errors::InvalidArgument("Unknown operator '%s'",
+                                                     name.c_str()));
+      }
+    }
+    PADDLE_THROW(common::errors::InvalidArgument(
+        "Unexpected character '%c' at position %d", str[pos], pos));
+  };
+
+  size_t pos = 0;
+  DimExpr res = parse_expr(dim_expr_str, pos);
+  PADDLE_ENFORCE_EQ(pos,
+                    dim_expr_str.size(),
+                    common::errors::InvalidArgument(
+                        "Extra characters found at position %d: '%s'",
+                        pos,
+                        dim_expr_str.substr(pos).c_str()));
+  if (need_simplify) {
+    return SimplifyDimExpr(res);
+  }
+  return res;
 }
 
 }  // namespace symbol
