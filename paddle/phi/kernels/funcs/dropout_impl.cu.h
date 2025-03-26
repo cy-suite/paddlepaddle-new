@@ -377,10 +377,10 @@ void DropoutFwGPUKernelDriver(
             }
           };
 
-      phi::backends::gpu::CUDAGraphNodeLauncher::gpuKernelCallback_t
-          cudaKernelCallback = [=](unsigned int id) {
-            void* functionPtr =
-                reinterpret_cast<void*>(&(VectorizedRandomGenerator<T>));
+      phi::backends::gpu::CUDAGraphNodeLauncher::gpuKernelCallback_t 
+          cudaKernelCallback = [=](unsigned int id) -> cudaFunction_t {
+            void* functionPtr = 
+            reinterpret_cast<void*>(&(VectorizedRandomGenerator<T>));
 #ifdef PADDLE_WITH_HIP
             hipFunction_t cudaFunc =
                 reinterpret_cast<hipFunction_t>(functionPtr);
@@ -392,17 +392,40 @@ void DropoutFwGPUKernelDriver(
             VLOG(10) << "[cudaKernelCallback] cudaFunc = " << cudaFunc
                      << " functionPtr = " << functionPtr;
 
-            VectorizedRandomGenerator<T>
-                <<<grid_size, block_size, 0, stream>>>(id,
-                                                       size,
-                                                       seed_data,
-                                                       dropout_prob,
-                                                       x_data,
-                                                       mask_data,
-                                                       y_data,
-                                                       upscale_in_train,
-                                                       increment,
-                                                       main_offset);
+            int supportsCoop = 0;
+            PADDLE_ENFORCE_GPU_SUCCESS(cudaDeviceGetAttribute(&supportsCoop, cudaDevAttrCooperativeLaunch, 0));
+            if (supportsCoop == 1) {
+              void* args[] = {
+                const_cast<void*>(reinterpret_cast<const void*>(&id)),
+                const_cast<void*>(reinterpret_cast<const void*>(&size)),
+                const_cast<void*>(reinterpret_cast<const void*>(&seed_data)),
+                const_cast<void*>(reinterpret_cast<const void*>(&dropout_prob)),
+                const_cast<void*>(reinterpret_cast<const void*>(x_data)),
+                const_cast<void*>(reinterpret_cast<const void*>(mask_data)),
+                const_cast<void*>(reinterpret_cast<const void*>(y_data)),
+                const_cast<void*>(reinterpret_cast<const void*>(&upscale_in_train)),
+                const_cast<void*>(reinterpret_cast<const void*>(&increment)),
+                const_cast<void*>(reinterpret_cast<const void*>(&main_offset))
+              };
+              PADDLE_ENFORCE_GPU_SUCCESS(cudaLaunchCooperativeKernel(cudaFunc,
+                                             dim3(grid_size),
+                                             dim3(block_size),
+                                             args,
+                                             0,
+                                             stream));
+            } else {
+              VectorizedRandomGenerator<T>
+                  <<<grid_size, block_size, 0, stream>>>(id,
+                                                         size,
+                                                         seed_data,
+                                                         dropout_prob,
+                                                         x_data,
+                                                         mask_data,
+                                                         y_data,
+                                                         upscale_in_train,
+                                                         increment,
+                                                         main_offset);
+            }
             return cudaFunc;
           };
       phi::backends::gpu::CUDAGraphNodeLauncher::Instance().KernelNodeLaunch(

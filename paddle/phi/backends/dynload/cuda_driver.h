@@ -54,6 +54,7 @@ extern bool HasCUDADriver();
   __macro(cuModuleUnload);                              \
   __macro(cuOccupancyMaxActiveBlocksPerMultiprocessor); \
   __macro(cuLaunchKernel);                              \
+  __macro(cuLaunchCooperativeKernel);                   \
   __macro(cuCtxCreate);                                 \
   __macro(cuCtxGetCurrent);                             \
   __macro(cuDeviceGetCount);                            \

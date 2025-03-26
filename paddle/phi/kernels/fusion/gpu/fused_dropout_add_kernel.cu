@@ -221,8 +221,8 @@ void FusedDropoutAddKernel(const Context& dev_ctx,
             seed_offset_data[1] = static_cast<int64_t>(increment);
           }
         };
-    phi::backends::gpu::CUDAGraphNodeLauncher::gpuKernelCallback_t
-        cudaKernelCallback = [=](unsigned int id) {
+    phi::backends::gpu::CUDAGraphNodeLauncher::gpuKernelCallback_t cudaKernelCallback =
+        [=](unsigned int id) -> cudaFunction_t {
           void* functionPtr = reinterpret_cast<void*>(
               &(VectorizedDropoutForward<T, NoMaskFwFunctor<T, float>>));
 #ifdef PADDLE_WITH_HIP
@@ -235,16 +235,39 @@ void FusedDropoutAddKernel(const Context& dev_ctx,
           VLOG(10) << "[cudaKernelCallback] cudaFunc = " << cudaFunc
                    << " functionPtr = " << functionPtr;
 
-          VectorizedDropoutForward<T, NoMaskFwFunctor<T, float>>
-              <<<grid_size, block_size, 0, stream>>>(id,
-                                                     numel,
-                                                     seed_data,  // need save
-                                                     x_data,
-                                                     y_data,
-                                                     out_data,
-                                                     increment,  // need save
-                                                     main_offset,
-                                                     dst_functor);
+          int supportsCoop = 0;
+          PADDLE_ENFORCE_GPU_SUCCESS(cudaDeviceGetAttribute(&supportsCoop, cudaDevAttrCooperativeLaunch, 0));
+          if (supportsCoop == 1) {
+            void* args[] = {
+                const_cast<void*>(reinterpret_cast<const void*>(&id)),
+                const_cast<void*>(reinterpret_cast<const void*>(&numel)),
+                const_cast<void*>(reinterpret_cast<const void*>(&seed_data)),
+                const_cast<void*>(reinterpret_cast<const void*>(x_data)),
+                const_cast<void*>(reinterpret_cast<const void*>(y_data)),
+                const_cast<void*>(reinterpret_cast<const void*>(out_data)),
+                const_cast<void*>(reinterpret_cast<const void*>(&increment)),
+                const_cast<void*>(reinterpret_cast<const void*>(&main_offset)),
+                const_cast<void*>(reinterpret_cast<const void*>(&dst_functor))
+            };
+            PADDLE_ENFORCE_GPU_SUCCESS(cudaLaunchCooperativeKernel(
+                cudaFunc,
+                dim3(grid_size),
+                dim3(block_size),
+                args,
+                0,
+                stream));
+          } else {
+            VectorizedDropoutForward<T, NoMaskFwFunctor<T, float>>
+                <<<grid_size, block_size, 0, stream>>>(id,
+                                                       numel,
+                                                       seed_data,  // need save
+                                                       x_data,
+                                                       y_data,
+                                                       out_data,
+                                                       increment,  // need save
+                                                       main_offset,
+                                                       dst_functor);
+          }
           return cudaFunc;
         };
     phi::backends::gpu::CUDAGraphNodeLauncher::Instance().KernelNodeLaunch(

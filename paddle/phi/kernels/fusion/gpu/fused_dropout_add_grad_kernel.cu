@@ -218,7 +218,7 @@ void FusedDropoutAddGradKernel(const Context& dev_ctx,
     };
 
     phi::backends::gpu::CUDAGraphNodeLauncher::gpuKernelCallback_t
-        cudaKernelCallback = [=](unsigned int id) {
+        cudaKernelCallback = [=](unsigned int id) -> cudaFunction_t {
           void* functionPtr = reinterpret_cast<void*>(
               &(VectorizedDropoutBackward<T, NoMaskBwFunctor<T, float>>));
 #ifdef PADDLE_WITH_HIP
@@ -231,17 +231,41 @@ void FusedDropoutAddGradKernel(const Context& dev_ctx,
           VLOG(10) << "[cudaKernelCallback] cudaFunc = " << cudaFunc
                    << " functionPtr = " << functionPtr;
 
-          VectorizedDropoutBackward<T, NoMaskBwFunctor<T, float>>
-              <<<grid_size, block_size, 0, stream>>>(
-                  id,
-                  numel,
-                  seed_data,  //  idx: 2 need save
-                  x_grad_data,
-                  y_grad_data,
-                  out_grad_data,
-                  increment,  //  idx: 6 need save
-                  main_offset,
-                  functor);
+          int supportsCoop = 0;
+          PADDLE_ENFORCE_GPU_SUCCESS(
+              cudaDeviceGetAttribute(&supportsCoop, cudaDevAttrCooperativeLaunch, 0));
+          if (supportsCoop == 1) {
+            void* args[] = {
+                const_cast<void*>(reinterpret_cast<const void*>(&id)),
+                const_cast<void*>(reinterpret_cast<const void*>(&numel)),
+                const_cast<void*>(reinterpret_cast<const void*>(&seed_data)),
+                const_cast<void*>(reinterpret_cast<const void*>(x_grad_data)),
+                const_cast<void*>(reinterpret_cast<const void*>(y_grad_data)),
+                const_cast<void*>(reinterpret_cast<const void*>(out_grad_data)),
+                const_cast<void*>(reinterpret_cast<const void*>(&increment)),
+                const_cast<void*>(reinterpret_cast<const void*>(&main_offset)),
+                const_cast<void*>(reinterpret_cast<const void*>(&functor))
+            };
+            PADDLE_ENFORCE_GPU_SUCCESS(cudaLaunchCooperativeKernel(
+                cudaFunc,
+                dim3(grid_size),
+                dim3(block_size),
+                args,
+                0,
+                stream));
+          } else {
+            VectorizedDropoutBackward<T, NoMaskBwFunctor<T, float>>
+                <<<grid_size, block_size, 0, stream>>>(
+                    id,
+                    numel,
+                    seed_data,
+                    x_grad_data,
+                    y_grad_data,
+                    out_grad_data,
+                    increment,
+                    main_offset,
+                    functor);
+          }
           return cudaFunc;
         };
     phi::backends::gpu::CUDAGraphNodeLauncher::Instance().KernelNodeLaunch(
