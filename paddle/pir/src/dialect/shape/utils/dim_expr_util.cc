@@ -13,7 +13,6 @@
 // limitations under the License.
 
 #include "paddle/pir/include/dialect/shape/utils/dim_expr_util.h"
-#include <cstdlib>
 #include <numeric>
 
 namespace symbol {
@@ -21,43 +20,6 @@ namespace symbol {
 CacheMaxOrMin& CacheMaxOrMin::Instance() {
   static CacheMaxOrMin instance;
   return instance;
-}
-
-DimExprCollection& DimExprCollection::Instance() {
-  static DimExprCollection instance;
-  return instance;
-}
-void DimExprCollection::AddSimplifyItem(const DimExpr& expr,
-                                        const DimExpr& simplified_expr) {
-  if (FilterItem(expr, simplified_expr)) {
-    return;
-  }
-  simplified_result_[expr] = simplified_expr;
-}
-
-bool DimExprCollection::FilterItem(const DimExpr& lhs, const DimExpr& rhs) {
-  if (lhs.isa<std::int64_t>() || lhs.isa<std::string>()) {
-    return true;
-  }
-  if (lhs.isa<Add<DimExpr>>()) {
-    const auto& [lhs_operands] = lhs.Get<Add<DimExpr>>();
-    for (const auto& lhs_operand : *lhs_operands) {
-      if (!lhs_operand.isa<std::int64_t>() && !lhs_operand.isa<std::string>()) {
-        return false;
-      }
-    }
-    return true;
-  }
-  if (lhs.isa<Mul<DimExpr>>()) {
-    const auto& [lhs_operands] = lhs.Get<Mul<DimExpr>>();
-    for (const auto& lhs_operand : *lhs_operands) {
-      if (!lhs_operand.isa<std::int64_t>() && !lhs_operand.isa<std::string>()) {
-        return false;
-      }
-    }
-    return true;
-  }
-  return false;
 }
 
 namespace {
@@ -1192,19 +1154,15 @@ DimExprCompareResult EasyCompareGtOrGe(const DimExpr& lhs,
   if (sub_compare != DimExprCompareResult::UNKNOWN) {
     return sub_compare;
   }
-  if (rhs != symbol::DimExpr{0}) {
-    if (!is_broadcast && !EasyIsGtWithZero(rhs)) {
-      // assume operands in broadcast is always positive.
-      return DimExprCompareResult::UNKNOWN;
-    }
-    DimExpr simplified_result_div =
-        SimplifyDimExpr(DimExpr{lhs} / DimExpr{rhs});
-    auto div_compare =
-        std::visit(CompareDivResult, simplified_result_div.variant());
-    return div_compare;
-  } else {
+
+  if (!is_broadcast && !EasyIsGtWithZero(rhs)) {
+    // assume operands in broadcast is always positive.
     return DimExprCompareResult::UNKNOWN;
   }
+  DimExpr simplified_result_div = SimplifyDimExpr(DimExpr{lhs} / DimExpr{rhs});
+  auto div_compare =
+      std::visit(CompareDivResult, simplified_result_div.variant());
+  return div_compare;
 }
 
 struct SimplifyMaxWithGE {
@@ -1547,10 +1505,6 @@ DimExpr Simplify(const DimExpr& expr) {
     DoPass<SimplifyMaxWithGE>(&keep_rewrite, &ret);
     DoPass<SimplifyDiv>(&keep_rewrite, &ret);
     if (expr_before_run_pipeline == ret) break;
-  }
-  if (std::getenv("CollectionSimplify") != nullptr &&
-      std::string(std::getenv("CollectionSimplify")) == "1") {
-    DimExprCollection::Instance().AddSimplifyItem(expr, ret);
   }
   return ret;
 }

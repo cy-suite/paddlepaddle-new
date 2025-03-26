@@ -85,7 +85,6 @@
 #include "paddle/pir/include/pass/pass.h"
 #include "paddle/pir/include/pass/pass_manager.h"
 #include "paddle/pir/include/pass/pass_registry.h"
-#include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
 
 #ifdef PADDLE_WITH_CINN
@@ -95,7 +94,6 @@
 #include "paddle/cinn/hlir/dialect/operator/transforms/pir_to_py_code_converter.h"
 #include "paddle/cinn/hlir/dialect/operator/transforms/reduce_as_to_sum_pass.h"
 #include "paddle/cinn/hlir/framework/pir_compiler.h"
-#include "paddle/pir/include/dialect/shape/utils/dim_expr_util.h"
 #include "paddle/pir/include/dialect/shape/utils/shape_analysis.h"
 #endif
 
@@ -3267,12 +3265,6 @@ void BindShapeOrDataDimExprs(pybind11::module *m) {
           });
 }
 
-void DumpDimExprCollection() { symbol::DimExprCollection::Instance().Dump(); }
-
-void BindDimExprCollection(pybind11::module *m) {
-  m->def("dump", &DumpDimExprCollection);
-}
-
 void BindShapeConstraintIRAnalysis(pybind11::module *m) {
   m->def(
       "get_shape_constraint_ir_analysis",
@@ -3331,7 +3323,6 @@ void BindPir(pybind11::module *module) {
   BindControlFlowApi(&ir_module);
   BindShapeOrDataDimExprs(&ir_module);
   BindShapeConstraintIRAnalysis(&ir_module);
-  BindDimExprCollection(&ir_module);
   auto ops_modules = ir_module.def_submodule("ops");
   BindOpsAPI(&ops_modules);
   BindDrrPatternContext(&ir_module);

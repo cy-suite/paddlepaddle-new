@@ -15,7 +15,6 @@
 from __future__ import annotations
 
 import itertools
-import os
 from functools import cached_property
 from typing import TYPE_CHECKING
 
@@ -830,8 +829,6 @@ class PartialProgramLayer:
             for hooker in self._hookers:
                 hooker.after_infer(infer_program)
             infer_program.apply_pir_program_pass(pass_fn)
-            if os.getenv("CollectionSimplify") == "1":
-                paddle.base.libpaddle.pir.dump()
             return infer_program
         else:
             train_program: RunnableProgram = (
@@ -925,8 +922,6 @@ class PartialProgramLayer:
                 return forward_program, backward_program
 
             train_program.apply_pir_program_pass(pass_fn)
-            if os.getenv("CollectionSimplify") == "1":
-                paddle.base.libpaddle.pir.dump()
             return train_program
 
     @cached_property

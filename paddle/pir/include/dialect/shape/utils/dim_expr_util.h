@@ -14,8 +14,6 @@
 
 #pragma once
 
-#include <cstdlib>
-#include <sstream>
 #include <unordered_map>
 #include <unordered_set>
 
@@ -70,33 +68,6 @@ class CacheMaxOrMin {
  private:
   std::unordered_set<DimExpr> cache_set_;
   CacheMaxOrMin() {}
-};
-
-class DimExprCollection {
- public:
-  static DimExprCollection& Instance();
-  DimExprCollection(const DimExprCollection&) = delete;
-  DimExprCollection(DimExprCollection&&) = delete;
-  DimExprCollection& operator=(const DimExprCollection&) = delete;
-
-  void AddSimplifyItem(const DimExpr& expr, const DimExpr& simplified_expr);
-
-  void Dump() {
-    std::stringstream ss;
-    ss << "============= Dump Simplify Result: " << simplified_result_.size()
-       << " =============" << std::endl;
-    for (const auto& [expr, simplified_expr] : simplified_result_) {
-      ss << expr << " => " << simplified_expr << std::endl;
-    }
-    ss << "============= Dump Simplify Result: End =============\n";
-    std::cout << ss.str() << std::flush;
-  }
-
-  bool FilterItem(const DimExpr& lhs, const DimExpr& rhs);
-
- private:
-  std::unordered_map<DimExpr, DimExpr> simplified_result_;
-  DimExprCollection() {}
 };
 
 }  // namespace symbol
