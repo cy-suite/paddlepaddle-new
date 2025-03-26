@@ -205,13 +205,12 @@ class InstanceCheckGuard : public GuardBase {
 
 class NumpyDtypeMatchGuard : public GuardBase {
  public:
-  explicit NumpyDtypeMatchGuard(const py::dtype& dtype)
-      : expected_(std::make_unique<py::dtype>(dtype)) {}
+  explicit NumpyDtypeMatchGuard(const py::dtype& dtype) : expected_(dtype) {}
 
   bool check(PyObject* value) override;
 
  private:
-  std::unique_ptr<py::dtype> expected_;
+  py::dtype expected_;
 };
 
 #endif

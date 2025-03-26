@@ -139,10 +139,10 @@ bool NumpyDtypeMatchGuard::check(PyObject* value) {
   }
 
   if (py::isinstance<py::array>(value)) {
-    return py::cast<py::array>(value).dtype().is(*expected_);
+    return py::cast<py::array>(value).dtype().is(expected_);
   }
 
-  return expected_->equal(py::handle(value).get_type());
+  return expected_.equal(py::handle(value).get_type());
 }
 
 #endif
