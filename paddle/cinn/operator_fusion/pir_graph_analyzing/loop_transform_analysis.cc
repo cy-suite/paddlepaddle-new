@@ -512,9 +512,9 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
       }
     }
     new_axis_ids = ConcatVector(
-        new_axis_ids, SliceVector(axis_ids, cur_axis_size, axis_ids.size()));
+        new_axis_ids, SliceVector(axis_ids, in_shape.size(), axis_ids.size()));
     axis_ids = new_axis_ids;
-    cur_axis_size = out_shape.size();
+    cur_axis_size = cur_axis_size - in_shape.size() + out_shape.size();
     result.push_back(transform);
   };
 
@@ -624,11 +624,6 @@ std::optional<AxisTransformRoute> GetValidLoopTransformRoute(
   }
   if (result.empty()) result.push_back(IdentityTransform::InstancePtr());
   result = SimplifyTransformRoute(result, source.loop);
-  if (HasReshapeTransform(result)) {
-    // Temporarily disable reshape transform because of accuracy issue.
-    VLOG(4) << "Can not find valid loop transform because of reshape.";
-    return std::nullopt;
-  }
   VLOG(4) << "Found loop transform: " << result;
   return result;
 }

@@ -134,17 +134,6 @@ static StmtPattern MergePatternImpl(
 }
 
 static StmtPattern MergePatternImpl(const TrivialPattern& first,
-                                    const ItersPermutationPattern& second) {
-  auto result = ItersPermutationPattern(
-      UniqueConcatVector(GetOpsInPattern(first), GetOpsInPattern(second)),
-      std::make_shared<FusionTracker>(first.tracker_, second.tracker_),
-      second.loop_dims());
-  result.set_loop_axis_mapping(TrivialSinkLoopAxisMappingMerge(
-      first.loop_axis_mapping(), second.loop_axis_mapping()));
-  return result;
-}
-
-static StmtPattern MergePatternImpl(const TrivialPattern& first,
                                     const AnchorPattern& second) {
   return AnchorPattern(
       UniqueConcatVector(GetOpsInPattern(first), GetOpsInPattern(second)),
@@ -295,12 +284,6 @@ struct LoopValueDimsVisitor {
     PADDLE_ENFORCE(false, "Not support GetLoopRange.");
   }
 
-  std::vector<LoopValueDims> operator()(
-      const ItersPermutationPattern& pattern) {
-    PADDLE_THROW(::common::errors::Unimplemented(
-        "Can't get loop value dims for ItersPermutationPattern Currently."));
-  }
-
   std::vector<LoopValueDims> operator()(const AnchorPattern& pattern) {
     PADDLE_THROW(::common::errors::Unimplemented(
         "Can't get loop value dims for AnchorPattern Currently."));
@@ -365,6 +348,7 @@ static bool IsLoopFrameworkEqual(const StmtPattern& lhs,
   const auto& rhs_loops = GetLoopFramework(rhs);
   VLOG(4) << "lhs " << lhs_loops.DebugStr();
   VLOG(4) << "rhs " << rhs_loops.DebugStr();
+  if (lhs_loops.loop.empty() || rhs_loops.loop.empty()) return false;
 
   // TODO(huangjiyi): support horizontal fusion without reduce dims equal.
   const auto get_reduce_loop = [](const MaybeLoopFramework& loop) {
@@ -462,11 +446,6 @@ struct LoopFrameworkVisitor {
         ::common::errors::Unimplemented("Unsupported for GetLoopRange."));
   }
 
-  MaybeLoopFramework operator()(const ItersPermutationPattern& pattern) {
-    const auto loop_dims = pattern.loop_dims();
-    return {loop_dims.first, loop_dims.second};
-  }
-
   MaybeLoopFramework operator()(const AnchorPattern& pattern) {
     MaybeLoopFramework result;
     result.loop = pattern.loop_axis_mapping().loop;
@@ -554,9 +533,6 @@ static StmtPattern MergePattern(const StmtPattern& first,
         return MergePatternImpl(lhs, rhs);
       },
       [&](const TrivialPattern& lhs, const ReduceTreePlusTrivialPattern& rhs) {
-        return MergePatternImpl(lhs, rhs);
-      },
-      [&](const TrivialPattern& lhs, const ItersPermutationPattern& rhs) {
         return MergePatternImpl(lhs, rhs);
       },
       [&](const TrivialPattern& lhs, const AnchorPattern& rhs) {
