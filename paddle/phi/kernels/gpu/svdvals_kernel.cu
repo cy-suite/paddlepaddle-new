@@ -12,11 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "paddle/phi/kernels/svdvals_kernel.h"
 #include "paddle/phi/backends/dynload/cusolver.h"
 #include "paddle/phi/common/memory_utils.h"
 #include "paddle/phi/core/kernel_registry.h"
+#include "paddle/phi/kernels/empty_kernel.h"
+#include "paddle/phi/kernels/funcs/complex_functors.h"
 
 namespace phi {
+
 template <class T>
 static void GesvdjBatchedSvdvals(const phi::GPUContext& dev_ctx,
                                  int batchSize,
