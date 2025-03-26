@@ -94,11 +94,9 @@ class TestSvdvalsAPI(unittest.TestCase):
     def setUp(self):
         np.random.seed(1024)
         self.x_np = np.random.uniform(-3, 3, [10, 12]).astype('float32')
-        self.place = (
-            paddle.CUDAPlace(0)
-            if paddle.is_compiled_with_cuda()
-            else paddle.CPUPlace()
-        )
+        self.place = [paddle.CPUPlace()]
+        if paddle.is_compiled_with_cuda():
+            self.place.append(paddle.CUDAPlace(0))
 
     def test_dygraph_api(self):
         with dygraph_guard():
