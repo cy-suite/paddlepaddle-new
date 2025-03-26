@@ -1529,63 +1529,9 @@ DimExprCompareResult Compare(const DimExpr& lhs, const DimExpr& rhs) {
   return std::visit(CompareFunc, lhs.variant(), rhs.variant());
 }
 
-}  // namespace symbol
-
-namespace symbol {
-namespace {
-
-void CollectUnaryDimExprSymbolsImpl(const DimExpr& dim_expr,
-                                    std::unordered_set<std::string>* ret) {
-  std::unordered_set<std::string> symbols = CollectDimExprSymbols(dim_expr);
-  ret->insert(symbols.begin(), symbols.end());
-}
-
-void CollectListDimExprSymbolsImpl(const List<DimExpr>& dim_exprs,
-                                   std::unordered_set<std::string>* ret) {
-  for (const auto& dim_expr : *dim_exprs) {
-    std::unordered_set<std::string> symbols = CollectDimExprSymbols(dim_expr);
-    ret->insert(symbols.begin(), symbols.end());
-  }
-}
-}  // namespace
-
-std::unordered_set<std::string> CollectDimExprSymbols(const DimExpr& dim_expr) {
-  std::unordered_set<std::string> symbols;
-  // clang-format off
-  auto lambdas = common::Overloaded{
-      [&](std::int64_t dim_expr) { return; },
-      [&](const std::string& dim_expr) { symbols.insert(dim_expr); },
-      [&](const Negative<DimExpr>& dim_expr) {
-        CollectUnaryDimExprSymbolsImpl(dim_expr->data, &symbols);
-      },
-      [&](const Add<DimExpr>& dim_expr) {
-        CollectListDimExprSymbolsImpl(dim_expr.operands, &symbols);
-      },
-      [&](const Mul<DimExpr>& dim_expr) {
-        CollectListDimExprSymbolsImpl(dim_expr.operands, &symbols);
-      },
-      [&](const Div<DimExpr>& dim_expr) {
-        CollectUnaryDimExprSymbolsImpl(dim_expr->lhs, &symbols);
-        CollectUnaryDimExprSymbolsImpl(dim_expr->rhs, &symbols);
-      },
-      [&](const Max<DimExpr>& dim_expr) {
-        CollectListDimExprSymbolsImpl(dim_expr.operands, &symbols);
-      },
-      [&](const Min<DimExpr>& dim_expr) {
-        CollectListDimExprSymbolsImpl(dim_expr.operands, &symbols);
-      },
-      [&](const Broadcast<DimExpr>& dim_expr) {
-        CollectListDimExprSymbolsImpl(dim_expr.operands, &symbols);
-      }};
-  // clang-format on
-  std::visit(lambdas, dim_expr.variant());
-  return symbols;
-}
-
-DimExpr ParseDimExprFromStr(std::string dim_expr_str,
-                            bool need_simplify = false) {
+DimExpr ParseDimExprFromStr(std::string dim_expr_str, bool need_simplify) {
   // remove all spaces
-  dim_expr_str.earse(std::remove_if(dim_expr_str.begin(),
+  dim_expr_str.erase(std::remove_if(dim_expr_str.begin(),
                                     dim_expr_str.end(),
                                     [](char c) { return std::isspace(c); }),
                      dim_expr_str.end());
@@ -1599,13 +1545,13 @@ DimExpr ParseDimExprFromStr(std::string dim_expr_str,
   auto parse_args = [&parse_expr](const std::string& str,
                                   size_t& pos) -> List<DimExpr> {
     List<DimExpr> args{};
-    if (str[pos] == ")") {
+    if (str[pos] == ')') {
       return args;
     }
 
     while (true) {
       args->push_back(parse_expr(str, pos));
-      if (str[pos] == ")") {
+      if (str[pos] == ')') {
         break;
       }
       PADDLE_ENFORCE_EQ(
@@ -1618,13 +1564,14 @@ DimExpr ParseDimExprFromStr(std::string dim_expr_str,
     return args;
   };
 
-  parse_expr = [&parse_args](const std::string& str, size_t& pos) -> DimExpr {
+  parse_expr = [&parse_args, &parse_expr](const std::string& str,
+                                          size_t& pos) -> DimExpr {
     if (pos >= str.size()) {
       PADDLE_THROW(common::errors::InvalidArgument(
           "Unexpected end of string while parsing dimension expression"));
     }
 
-    if (str[pos] == "-") {
+    if (str[pos] == '-') {
       ++pos;
       return Negative<DimExpr>(parse_expr(str, pos));
     }
@@ -1638,12 +1585,12 @@ DimExpr ParseDimExprFromStr(std::string dim_expr_str,
 
     if (std::isalpha(str[pos])) {
       size_t start_pos = pos;
-      while (pos < str.size() && (std::isalnum(str[pos]) || str[pos] == "_")) {
+      while (pos < str.size() && std::isalnum(str[pos])) {
         ++pos;
       }
       std::string name = str.substr(start_pos, pos - start_pos);
 
-      if (pos >= str.size() || str[pos] != "(") {
+      if (pos >= str.size() || str[pos] != '(') {
         return name;
       }
 
@@ -1697,6 +1644,59 @@ DimExpr ParseDimExprFromStr(std::string dim_expr_str,
     return SimplifyDimExpr(res);
   }
   return res;
+}
+
+}  // namespace symbol
+
+namespace symbol {
+namespace {
+
+void CollectUnaryDimExprSymbolsImpl(const DimExpr& dim_expr,
+                                    std::unordered_set<std::string>* ret) {
+  std::unordered_set<std::string> symbols = CollectDimExprSymbols(dim_expr);
+  ret->insert(symbols.begin(), symbols.end());
+}
+
+void CollectListDimExprSymbolsImpl(const List<DimExpr>& dim_exprs,
+                                   std::unordered_set<std::string>* ret) {
+  for (const auto& dim_expr : *dim_exprs) {
+    std::unordered_set<std::string> symbols = CollectDimExprSymbols(dim_expr);
+    ret->insert(symbols.begin(), symbols.end());
+  }
+}
+}  // namespace
+
+std::unordered_set<std::string> CollectDimExprSymbols(const DimExpr& dim_expr) {
+  std::unordered_set<std::string> symbols;
+  // clang-format off
+  auto lambdas = common::Overloaded{
+      [&](std::int64_t dim_expr) { return; },
+      [&](const std::string& dim_expr) { symbols.insert(dim_expr); },
+      [&](const Negative<DimExpr>& dim_expr) {
+        CollectUnaryDimExprSymbolsImpl(dim_expr->data, &symbols);
+      },
+      [&](const Add<DimExpr>& dim_expr) {
+        CollectListDimExprSymbolsImpl(dim_expr.operands, &symbols);
+      },
+      [&](const Mul<DimExpr>& dim_expr) {
+        CollectListDimExprSymbolsImpl(dim_expr.operands, &symbols);
+      },
+      [&](const Div<DimExpr>& dim_expr) {
+        CollectUnaryDimExprSymbolsImpl(dim_expr->lhs, &symbols);
+        CollectUnaryDimExprSymbolsImpl(dim_expr->rhs, &symbols);
+      },
+      [&](const Max<DimExpr>& dim_expr) {
+        CollectListDimExprSymbolsImpl(dim_expr.operands, &symbols);
+      },
+      [&](const Min<DimExpr>& dim_expr) {
+        CollectListDimExprSymbolsImpl(dim_expr.operands, &symbols);
+      },
+      [&](const Broadcast<DimExpr>& dim_expr) {
+        CollectListDimExprSymbolsImpl(dim_expr.operands, &symbols);
+      }};
+  // clang-format on
+  std::visit(lambdas, dim_expr.variant());
+  return symbols;
 }
 
 }  // namespace symbol

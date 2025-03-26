@@ -49,6 +49,6 @@ IR_API std::unordered_set<std::string> CollectDimExprSymbols(
     const DimExpr& dim_expr);
 
 IR_API DimExpr ParseDimExprFromStr(std::string dim_expr_str,
-                                   bool need_simplify);
+                                   bool need_simplify = false);
 
 }  // namespace symbol
