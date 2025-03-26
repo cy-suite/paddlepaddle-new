@@ -32,12 +32,6 @@ from ..pass_utils import (
 )
 from .pipeline_pass_base import PipelinePassBase
 
-RECV_FORWARD = "recv_forward"
-FORWARD = "forward"
-BACKWARD = "backward"
-SEND_BACKWARD = "send_backward"
-OPT = "optimizer"
-
 logger = get_logger(logging.INFO)
 
 
@@ -46,12 +40,12 @@ class Pipeline1F1BPass(PipelinePassBase):
 
     def __init__(self):
         super().__init__()
-        self.jobs_in_stable_phase = [BACKWARD, FORWARD]
+        self.jobs_in_stable_phase = [self.BACKWARD, self.FORWARD]
         self.jobs_in_stable_phase_in_pir = [
-            BACKWARD,
-            RECV_FORWARD,
-            SEND_BACKWARD,
-            FORWARD,
+            self.BACKWARD,
+            self.RECV_FORWARD,
+            self.SEND_BACKWARD,
+            self.FORWARD,
         ]
         self.set_attr("enable_backward_forward_overlap", 0)
 
@@ -78,11 +72,11 @@ class Pipeline1F1BPass(PipelinePassBase):
 
         forward_micro_batch_id = 0
         for i in range(micro_batch_in_warmup):
-            recv_fwd_job = core.Job(RECV_FORWARD)
+            recv_fwd_job = core.Job(self.RECV_FORWARD)
             recv_fwd_job.set_micro_batch_id(forward_micro_batch_id)
             job_list.append(recv_fwd_job)
 
-            forward_job = core.Job(FORWARD)
+            forward_job = core.Job(self.FORWARD)
             forward_job.set_micro_batch_id(forward_micro_batch_id)
             job_list.append(forward_job)
             forward_micro_batch_id += 1
@@ -93,8 +87,8 @@ class Pipeline1F1BPass(PipelinePassBase):
                 job = core.Job(job_type)
                 micro_batch_id = (
                     forward_micro_batch_id
-                    if job_type.startswith(FORWARD)
-                    or job_type.startswith(RECV_FORWARD)
+                    if job_type.startswith(self.FORWARD)
+                    or job_type.startswith(self.RECV_FORWARD)
                     else backward_micro_batch_id
                 )
                 job.set_micro_batch_id(micro_batch_id)
@@ -103,17 +97,17 @@ class Pipeline1F1BPass(PipelinePassBase):
             backward_micro_batch_id += 1
 
         for i in range(micro_batch_in_warmup):
-            backward_job = core.Job(BACKWARD)
+            backward_job = core.Job(self.BACKWARD)
             backward_job.set_micro_batch_id(backward_micro_batch_id)
             job_list.append(backward_job)
 
-            send_bwd_job = core.Job(SEND_BACKWARD)
+            send_bwd_job = core.Job(self.SEND_BACKWARD)
             send_bwd_job.set_micro_batch_id(backward_micro_batch_id)
             job_list.append(send_bwd_job)
 
             backward_micro_batch_id += 1
 
-        opt_job = core.Job(OPT)
+        opt_job = core.Job(self.OPT)
         opt_job.set_micro_batch_id(0)
         job_list.append(opt_job)
         return job_list
@@ -216,8 +210,22 @@ class Pipeline1F1BPass(PipelinePassBase):
             not enable_send_recv_overlap
         ), "PIR does not support 1F1B with enable_send_recv_overlap yet."
 
-        types = [RECV_FORWARD, FORWARD, BACKWARD, SEND_BACKWARD, OPT]
-        prog_splitter = ProgramSplitter(program, types)
+        types = [
+            self.RECV_FORWARD,
+            self.FORWARD,
+            self.BACKWARD,
+            self.SEND_BACKWARD,
+            self.OPT,
+        ]
+        prog_splitter = ProgramSplitter(
+            program,
+            types,
+            self.RECV_FORWARD,
+            self.FORWARD,
+            self.BACKWARD,
+            self.SEND_BACKWARD,
+            self.OPT,
+        )
         sub_program_list = prog_splitter.split_programs()
 
         for i in range(len(types)):
@@ -231,9 +239,9 @@ class Pipeline1F1BPass(PipelinePassBase):
 
     def _split_program_for_overlapping(self, job_type, program, split_points):
         assert job_type in [
-            FORWARD,
-            BACKWARD,
-        ], f"job_type should be one of {[FORWARD, BACKWARD]}"
+            self.FORWARD,
+            self.BACKWARD,
+        ], f"job_type should be one of {[self.FORWARD, self.BACKWARD]}"
 
         split_programs, __, __ = split_program(program, split_points)
 
@@ -253,13 +261,27 @@ class Pipeline1F1BPass(PipelinePassBase):
 
 
 class ProgramSplitter:
-    def __init__(self, main_program, job_types):
+    def __init__(
+        self,
+        main_program,
+        job_types,
+        RECV_FORWARD,
+        FORWARD,
+        BACKWARD,
+        SEND_BACKWARD,
+        OPT,
+    ):
+        self.RECV_FORWARD = RECV_FORWARD
+        self.FORWARD = FORWARD
+        self.BACKWARD = BACKWARD
+        self.SEND_BACKWARD = SEND_BACKWARD
+        self.OPT = OPT
         assert job_types == [
-            RECV_FORWARD,
-            FORWARD,
-            BACKWARD,
-            SEND_BACKWARD,
-            OPT,
+            self.RECV_FORWARD,
+            self.FORWARD,
+            self.BACKWARD,
+            self.SEND_BACKWARD,
+            self.OPT,
         ]
         self._overlap_send_recv(main_program)
         forward_complete_op_role(main_program)
@@ -320,19 +342,21 @@ class ProgramSplitter:
                     region = "opt"
 
             if region == "opt":
-                self._erase_op_from_other_programs(op_idx, OPT)
+                self._erase_op_from_other_programs(op_idx, self.OPT)
             elif region == "bwd" and op.name() == "pd_op.send_v2":
-                self._handle_func(op_idx, SEND_BACKWARD, self.job_types[4:])
-                self._erase_op_from_other_programs(op_idx, SEND_BACKWARD)
+                self._handle_func(
+                    op_idx, self.SEND_BACKWARD, self.job_types[4:]
+                )
+                self._erase_op_from_other_programs(op_idx, self.SEND_BACKWARD)
             elif region == "bwd" and op.name() != "pd_op.send_v2":
-                self._handle_func(op_idx, BACKWARD, self.job_types[3:])
-                self._erase_op_from_other_programs(op_idx, BACKWARD)
+                self._handle_func(op_idx, self.BACKWARD, self.job_types[3:])
+                self._erase_op_from_other_programs(op_idx, self.BACKWARD)
             elif region == "fwd" and op.name() != "pd_op.recv_v2":
-                self._handle_func(op_idx, FORWARD, self.job_types[2:])
-                self._erase_op_from_other_programs(op_idx, FORWARD)
+                self._handle_func(op_idx, self.FORWARD, self.job_types[2:])
+                self._erase_op_from_other_programs(op_idx, self.FORWARD)
             elif region == "fwd" and op.name() == "pd_op.recv_v2":
-                self._handle_func(op_idx, RECV_FORWARD, self.job_types[1:])
-                self._erase_op_from_other_programs(op_idx, RECV_FORWARD)
+                self._handle_func(op_idx, self.RECV_FORWARD, self.job_types[1:])
+                self._erase_op_from_other_programs(op_idx, self.RECV_FORWARD)
         progs = []
         for job_type in self.job_types:
             progs.append(self.programs[job_type])
