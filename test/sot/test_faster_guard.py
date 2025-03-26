@@ -139,6 +139,15 @@ class TestBasicFasterGuard(unittest.TestCase):
         self.assertFalse(guard_numpy_dtype.check(np.float32()))
         self.assertFalse(guard_numpy_dtype.check(np.bool_()))
 
+        np_bool = np.bool_(1)
+        guard_numpy_bool_dtype = paddle.framework.core.NumpyDtypeMatchGuard(
+            np_bool.dtype
+        )
+        self.assertTrue(guard_numpy_bool_dtype.check(np.bool_()))
+        self.assertTrue(
+            guard_numpy_bool_dtype.check(np.array(1, dtype=np.bool_))
+        )
+
 
 class TestFasterGuardGroup(unittest.TestCase):
     def test_guard_group(self):
