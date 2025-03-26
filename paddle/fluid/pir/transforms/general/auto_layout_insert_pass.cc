@@ -268,7 +268,8 @@ class AutoLayoutInsertPass : public pir::Pass {
     builder.set_insertion_point(op);
     // For conv2d, only transpose the input.
     if (op->isa<paddle::dialect::Conv2dOp>() ||
-        op->isa<paddle::dialect::Conv2dTransposeOp>()) {
+        op->isa<paddle::dialect::Conv2dTransposeOp>() ||
+        op->isa<paddle::dialect::DepthwiseConv2dOp>()) {
       auto inp = op->operand(0);
       if (!JudgeValue(inp.source())) return;
       InsertTranspose(&inp);
