@@ -27,8 +27,11 @@ class TestCommunicationStreamAllToAllSingleAPI(
             "dtype": "float32",
             "seeds": str(self._seeds),
         }
+        backend_list = ["nccl"]
+        if paddle.base.core.is_compiled_with_flagcx():
+            backend_list.append("flagcx")
         self._changeable_envs = {
-            "backend": ["nccl", "flagcx"],
+            "backend": backend_list,
             "sync_op": ["True", "False"],
             "use_calc_stream": ["True", "False"],
         }

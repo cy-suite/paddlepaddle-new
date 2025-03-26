@@ -43,6 +43,9 @@ class TestCollectiveIsendIrecvAPI(test_base.TestDistBase):
                 dtype=dtype,
             )
 
+    @unittest.skipIf(
+            not paddle.base.core.is_compiled_with_flagcx(), "core is not compiled with flagcx"
+    )
     def test_isend_irecv_flagcx_dygraph(self):
         dtypes_to_test = [
             "float16",

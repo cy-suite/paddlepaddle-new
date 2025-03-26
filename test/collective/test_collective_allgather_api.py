@@ -44,6 +44,9 @@ class TestCollectiveAllgatherAPI(TestDistBase):
                 dtype=dtype,
             )
 
+    @unittest.skipIf(
+            not paddle.base.core.is_compiled_with_flagcx(), "core is not compiled with flagcx"
+    )
     def test_allgather_flagcx(self):
         dtypes_to_test = [
             "float16",
@@ -105,6 +108,9 @@ class TestCollectiveAllgatherAPI(TestDistBase):
                 dtype=dtype,
             )
 
+    @unittest.skipIf(
+            not paddle.base.core.is_compiled_with_flagcx(), "core is not compiled with flagcx"
+    )
     def test_allgather_flagcx_dygraph(self):
         dtypes_to_test = [
             "float16",

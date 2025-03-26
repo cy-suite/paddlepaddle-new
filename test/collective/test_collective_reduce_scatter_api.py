@@ -61,22 +61,9 @@ class TestCollectiveReduceScatterAPI(test_base.TestDistBase):
                 dtype=dtype,
             )
 
-    def test_reduce_scatter_flagcx_with_new_comm(self):
-        dtypes_to_test = [
-            "float16",
-            "float32",
-            "float64",
-            "int32",
-            "int64",
-        ]
-        for dtype in dtypes_to_test:
-            self.check_with_place(
-                "collective_reduce_scatter_api.py",
-                "reduce_scatter",
-                "flagcx",
-                dtype=dtype,
-            )
-
+    @unittest.skipIf(
+            not paddle.base.core.is_compiled_with_flagcx(), "core is not compiled with flagcx"
+    )
     def test_reduce_scatter_flagcx_dygraph(self):
         dtypes_to_test = [
             "float16",

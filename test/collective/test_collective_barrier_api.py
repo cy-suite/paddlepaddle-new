@@ -33,6 +33,9 @@ class TestCollectiveBarrierAPI(TestDistBase):
             "collective_barrier_api.py", "barrier", "gloo", "5"
         )
 
+    @unittest.skipIf(
+            not paddle.base.core.is_compiled_with_flagcx(), "core is not compiled with flagcx"
+    )
     def test_barrier_flagcx(self):
         self.check_with_place(
             "collective_barrier_api.py", "barrier", "flagcx", static_mode="0"
