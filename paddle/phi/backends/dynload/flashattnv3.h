@@ -45,9 +45,11 @@ extern void *flashattnv3_dso_handle;
 
 #ifdef PADDLE_WITH_CUDA
 #define FLASHATTN_V3_ROUTINE_EACH(__macro) \
-  __macro(fa3_create_params_handle);       \
+  __macro(fa3_create_fwd_params_handle);   \
+  __macro(fa3_clear_fwd_params_handle);    \
   __macro(fa3_destroy_fwd_params_handle);  \
   __macro(fa3_create_bwd_params_handle);   \
+  __macro(fa3_clear_bwd_params_handle);    \
   __macro(fa3_destroy_bwd_params_handle);  \
   __macro(fa3_cast_to_fwd_params_handle);  \
   __macro(fa3_run_mha_fwd_combine);        \
@@ -60,8 +62,8 @@ extern void *flashattnv3_dso_handle;
 FLASHATTN_V3_ROUTINE_EACH(DECLARE_DYNAMIC_LOAD_FLASHATTN_V3_WRAP)
 
 #define FLASHATTN_V3_HANDLE_ROUTINE(member)                            \
-  DECLARE_DYNAMIC_LOAD_FLASHATTN_V3_WRAP(fa3_params_get_##member);     \
-  DECLARE_DYNAMIC_LOAD_FLASHATTN_V3_WRAP(fa3_params_set_##member);     \
+  DECLARE_DYNAMIC_LOAD_FLASHATTN_V3_WRAP(fa3_fwd_params_get_##member); \
+  DECLARE_DYNAMIC_LOAD_FLASHATTN_V3_WRAP(fa3_fwd_params_set_##member); \
   DECLARE_DYNAMIC_LOAD_FLASHATTN_V3_WRAP(fa3_bwd_params_get_##member); \
   DECLARE_DYNAMIC_LOAD_FLASHATTN_V3_WRAP(fa3_bwd_params_set_##member);
 

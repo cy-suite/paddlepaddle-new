@@ -22,9 +22,11 @@
 #include "paddle/phi/core/tensor_utils.h"
 #include "paddle/phi/kernels/empty_kernel.h"
 #include "paddle/phi/kernels/funcs/math_function.h"
+#include "paddle/phi/kernels/gpu/flash_attn_utils.h"
 #include "paddle/phi/kernels/gpu/flash_attn_v3_utils.h"
 
 #include "paddle/phi/kernels/concat_kernel.h"
+#include "paddle/phi/kernels/gpu/flash_attn_v3_grad_kernel.h"
 #include "paddle/phi/kernels/slice_kernel.h"
 
 COMMON_DECLARE_bool(cudnn_deterministic);
@@ -83,6 +85,7 @@ void FlashAttnV3GradBaseKernel(
     DenseTensor *dq_accum,
     DenseTensor *dk_accum,
     DenseTensor *dv_accum) {
+#ifdef PADDLE_WITH_FLASHATTN_V3
 #ifdef FLASHATTENTION_DISABLE_BACKWARD
   PADDLE_ENFORCE(false,
                  "This flash attention build does not support backward.");
@@ -411,6 +414,7 @@ void FlashAttnV3GradBaseKernel(
   }
 
   Flash_bwd_params *params_handle = dynload::fa3_create_bwd_params_handle();
+  dynload::fa3_clear_bwd_params_handle(params_handle);
   set_params_dgrad(
       params_handle,
       batch_size,
@@ -512,7 +516,9 @@ void FlashAttnV3GradBaseKernel(
       set_zero_fp32(ctx, softmax_d, float{0});
     }
   }
-  dynload::fa3_destroy_bwd_params_handle(params_handle);
+#else
+  RaiseNotSupportedError();
+#endif
 }
 
 template <typename T, typename Context>
@@ -539,6 +545,7 @@ void FlashAttnV3GradKernel(
     DenseTensor *dq,
     DenseTensor *dk,
     DenseTensor *dv) {
+#ifdef PADDLE_WITH_FLASHATTN_V3
   // TODO(umiswing): fix me
   DenseTensor softmax_d;
   DenseTensor softmax_lse_log2;
@@ -615,6 +622,9 @@ void FlashAttnV3GradKernel(
   } else {
     *dv = dv_padded;
   }
+#else
+  RaiseNotSupportedError();
+#endif
 }
 }  // namespace phi
 

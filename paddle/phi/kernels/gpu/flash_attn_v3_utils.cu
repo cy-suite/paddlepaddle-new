@@ -43,86 +43,92 @@ void set_params_fprop(Flash_fwd_params *params_handle,
                       const gpuDeviceProp &dprops,
                       const float softcap,
                       const int sm_margin) {
-  dynload::fa3_params_set_is_bf16(params_handle,
-                                  q.dtype() == phi::DataType::BFLOAT16);
-  dynload::fa3_params_set_is_e4m3(params_handle,
-                                  q.dtype() == phi::DataType::FLOAT8_E4M3FN);
+  dynload::fa3_fwd_params_set_is_bf16(params_handle,
+                                      q.dtype() == phi::DataType::BFLOAT16);
+  dynload::fa3_fwd_params_set_is_e4m3(
+      params_handle, q.dtype() == phi::DataType::FLOAT8_E4M3FN);
 
   // Set the pointers and strides.
-  dynload::fa3_params_set_q_ptr(params_handle, const_cast<void *>(q.data()));
-  dynload::fa3_params_set_k_ptr(params_handle, const_cast<void *>(k.data()));
-  dynload::fa3_params_set_v_ptr(params_handle, const_cast<void *>(v.data()));
+  dynload::fa3_fwd_params_set_q_ptr(params_handle,
+                                    const_cast<void *>(q.data()));
+  dynload::fa3_fwd_params_set_k_ptr(params_handle,
+                                    const_cast<void *>(k.data()));
+  dynload::fa3_fwd_params_set_v_ptr(params_handle,
+                                    const_cast<void *>(v.data()));
   // All stride are in elements, not bytes.
-  dynload::fa3_params_set_q_row_stride(params_handle,
-                                       q.strides()[q.strides().size() - 3]);
-  dynload::fa3_params_set_k_row_stride(params_handle,
-                                       k.strides()[k.strides().size() - 3]);
-  dynload::fa3_params_set_v_row_stride(params_handle,
-                                       v.strides()[v.strides().size() - 3]);
-  dynload::fa3_params_set_q_head_stride(params_handle,
-                                        q.strides()[q.strides().size() - 2]);
-  dynload::fa3_params_set_k_head_stride(params_handle,
-                                        k.strides()[k.strides().size() - 2]);
-  dynload::fa3_params_set_v_head_stride(params_handle,
-                                        v.strides()[v.strides().size() - 2]);
-  dynload::fa3_params_set_v_dim_stride(params_handle,
-                                       v.strides()[v.strides().size() - 1]);
-  dynload::fa3_params_set_o_ptr(params_handle, const_cast<void *>(out->data()));
-  dynload::fa3_params_set_o_row_stride(
+  dynload::fa3_fwd_params_set_q_row_stride(params_handle,
+                                           q.strides()[q.strides().size() - 3]);
+  dynload::fa3_fwd_params_set_k_row_stride(params_handle,
+                                           k.strides()[k.strides().size() - 3]);
+  dynload::fa3_fwd_params_set_v_row_stride(params_handle,
+                                           v.strides()[v.strides().size() - 3]);
+  dynload::fa3_fwd_params_set_q_head_stride(
+      params_handle, q.strides()[q.strides().size() - 2]);
+  dynload::fa3_fwd_params_set_k_head_stride(
+      params_handle, k.strides()[k.strides().size() - 2]);
+  dynload::fa3_fwd_params_set_v_head_stride(
+      params_handle, v.strides()[v.strides().size() - 2]);
+  dynload::fa3_fwd_params_set_v_dim_stride(params_handle,
+                                           v.strides()[v.strides().size() - 1]);
+  dynload::fa3_fwd_params_set_o_ptr(params_handle,
+                                    const_cast<void *>(out->data()));
+  dynload::fa3_fwd_params_set_o_row_stride(
       params_handle, out->strides()[out->strides().size() - 3]);
-  dynload::fa3_params_set_o_head_stride(
+  dynload::fa3_fwd_params_set_o_head_stride(
       params_handle, out->strides()[out->strides().size() - 2]);
 
   if (cu_seqlens_q_d == nullptr) {
-    dynload::fa3_params_set_q_batch_stride(params_handle, q.strides()[0]);
-    dynload::fa3_params_set_o_batch_stride(params_handle, out->strides()[0]);
+    dynload::fa3_fwd_params_set_q_batch_stride(params_handle, q.strides()[0]);
+    dynload::fa3_fwd_params_set_o_batch_stride(params_handle,
+                                               out->strides()[0]);
   }
   if (cu_seqlens_k_d == nullptr) {
-    dynload::fa3_params_set_k_batch_stride(params_handle, k.strides()[0]);
-    dynload::fa3_params_set_v_batch_stride(params_handle, v.strides()[0]);
+    dynload::fa3_fwd_params_set_k_batch_stride(params_handle, k.strides()[0]);
+    dynload::fa3_fwd_params_set_v_batch_stride(params_handle, v.strides()[0]);
   }
 
-  dynload::fa3_params_set_cu_seqlens_q(params_handle,
-                                       static_cast<int *>(cu_seqlens_q_d));
-  dynload::fa3_params_set_cu_seqlens_k(params_handle,
-                                       static_cast<int *>(cu_seqlens_k_d));
-  dynload::fa3_params_set_seqused_q(params_handle,
-                                    static_cast<int *>(seqused_q));
-  dynload::fa3_params_set_seqused_k(params_handle,
-                                    static_cast<int *>(seqused_k));
+  dynload::fa3_fwd_params_set_cu_seqlens_q(params_handle,
+                                           static_cast<int *>(cu_seqlens_q_d));
+  dynload::fa3_fwd_params_set_cu_seqlens_k(params_handle,
+                                           static_cast<int *>(cu_seqlens_k_d));
+  dynload::fa3_fwd_params_set_seqused_q(params_handle,
+                                        static_cast<int *>(seqused_q));
+  dynload::fa3_fwd_params_set_seqused_k(params_handle,
+                                        static_cast<int *>(seqused_k));
 
   // Softmax sum
-  dynload::fa3_params_set_softmax_lse_ptr(params_handle, softmax_lse_d);
+  dynload::fa3_fwd_params_set_softmax_lse_ptr(params_handle, softmax_lse_d);
 
   // Set the dimensions.
-  dynload::fa3_params_set_b(params_handle, b);
-  dynload::fa3_params_set_h(params_handle, h);
-  dynload::fa3_params_set_h_k(params_handle, h_k);
-  dynload::fa3_params_set_seqlen_q(params_handle, seqlen_q);
-  dynload::fa3_params_set_seqlen_k(params_handle, seqlen_k);
-  dynload::fa3_params_set_seqlen_q_rounded(params_handle, seqlen_q_rounded);
-  dynload::fa3_params_set_seqlen_k_rounded(params_handle, seqlen_k_rounded);
-  dynload::fa3_params_set_d(params_handle, d);
-  dynload::fa3_params_set_d_rounded(params_handle, d_rounded);
+  dynload::fa3_fwd_params_set_b(params_handle, b);
+  dynload::fa3_fwd_params_set_h(params_handle, h);
+  dynload::fa3_fwd_params_set_h_k(params_handle, h_k);
+  dynload::fa3_fwd_params_set_seqlen_q(params_handle, seqlen_q);
+  dynload::fa3_fwd_params_set_seqlen_k(params_handle, seqlen_k);
+  dynload::fa3_fwd_params_set_seqlen_q_rounded(params_handle, seqlen_q_rounded);
+  dynload::fa3_fwd_params_set_seqlen_k_rounded(params_handle, seqlen_k_rounded);
+  dynload::fa3_fwd_params_set_d(params_handle, d);
+  dynload::fa3_fwd_params_set_d_rounded(params_handle, d_rounded);
 
   // Set the different scale values.
-  dynload::fa3_params_set_scale_softmax(params_handle, softmax_scale);
-  dynload::fa3_params_set_softcap(params_handle, softcap);
+  dynload::fa3_fwd_params_set_scale_softmax(params_handle, softmax_scale);
+  dynload::fa3_fwd_params_set_softcap(params_handle, softcap);
 
   // Set this to probability of keeping an element to simplify things.
-  dynload::fa3_params_set_p_dropout(params_handle, 1.f - p_dropout);
+  dynload::fa3_fwd_params_set_p_dropout(params_handle, 1.f - p_dropout);
   // Convert p from float to int so we don't have to convert the random uint to
   // float to compare. [Minor] We want to round down since when we do the
   // comparison we use <= instead of < params.p_dropout_in_uint =
   // uint32_t(std::floor(params.p_dropout * 4294967295.0));
   // params.p_dropout_in_uint16_t = uint16_t(std::floor(params.p_dropout *
   // 65535.0));
-  dynload::fa3_params_set_p_dropout_in_uint8_t(
+  dynload::fa3_fwd_params_set_p_dropout_in_uint8_t(
       params_handle,
-      uint8_t(std::floor(dynload::fa3_params_get_p_dropout(params_handle) *
+      uint8_t(std::floor(dynload::fa3_fwd_params_get_p_dropout(params_handle) *
                          255.0)));
-  dynload::fa3_params_set_rp_dropout(
-      params_handle, 1.f / dynload::fa3_params_get_p_dropout(params_handle));
+  dynload::fa3_fwd_params_set_rp_dropout(
+      params_handle,
+      1.f / dynload::fa3_fwd_params_get_p_dropout(params_handle));
   PADDLE_ENFORCE_LT(p_dropout, 1.f, "p_dropout must less than 1");
 #ifdef FLASHATTENTION_DISABLE_DROPOUT
   PADDLE_ENFORCE_EQ(
@@ -132,12 +138,12 @@ void set_params_fprop(Flash_fwd_params *params_handle,
   // Causal is the special case where window_size_right == 0 and
   // window_size_left < 0. Local is the more general case where
   // window_size_right >= 0 or window_size_left >= 0.
-  dynload::fa3_params_set_is_causal(
+  dynload::fa3_fwd_params_set_is_causal(
       params_handle, window_size_left < 0 && window_size_right == 0);
-  dynload::fa3_params_set_is_local(
+  dynload::fa3_fwd_params_set_is_local(
       params_handle,
       (window_size_left >= 0 || window_size_right >= 0) &&
-          !dynload::fa3_params_get_is_causal(params_handle));
+          !dynload::fa3_fwd_params_get_is_causal(params_handle));
 
   // TODO(tridao): check this
   if (window_size_left < 0 && window_size_right >= 0) {
@@ -146,18 +152,19 @@ void set_params_fprop(Flash_fwd_params *params_handle,
   if (window_size_left >= 0 && window_size_right < 0) {
     window_size_right = seqlen_q - 1;
   }
-  dynload::fa3_params_set_window_size_left(params_handle, window_size_left);
-  dynload::fa3_params_set_window_size_right(params_handle, window_size_right);
+  dynload::fa3_fwd_params_set_window_size_left(params_handle, window_size_left);
+  dynload::fa3_fwd_params_set_window_size_right(params_handle,
+                                                window_size_right);
 
   int arch = dprops.major * 10 + dprops.minor;
   int num_sm = dprops.multiProcessorCount - sm_margin;
 
-  dynload::fa3_params_set_arch(params_handle, arch);
-  dynload::fa3_params_set_num_sm(params_handle, num_sm);
+  dynload::fa3_fwd_params_set_arch(params_handle, arch);
+  dynload::fa3_fwd_params_set_num_sm(params_handle, num_sm);
 
 #ifdef FLASHATTENTION_DISABLE_LOCAL
   PADDLE_ENFORCE_EQ(
-      !dynload::fa3_params_get_is_local(params_handle),
+      !dynload::fa3_fwd_params_get_is_local(params_handle),
       true,
       "This flash attention build does not support local attention.");
 #endif

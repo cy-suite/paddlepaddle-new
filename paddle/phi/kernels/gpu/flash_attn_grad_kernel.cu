@@ -26,6 +26,9 @@
 #include "paddle/phi/kernels/gpu/flash_attn_utils.h"
 #include "paddle/phi/kernels/reduce_sum_kernel.h"
 #include "paddle/phi/kernels/slice_kernel.h"
+#ifdef PADDLE_WITH_FLASHATTN_V3
+#include "paddle/phi/kernels/gpu/flash_attn_v3_grad_kernel.h"
+#endif
 
 COMMON_DECLARE_bool(cudnn_deterministic);
 COMMON_DECLARE_int32(flash_attn_version);
@@ -778,8 +781,37 @@ void FlashAttnGradBaseKernel(
   int arch =
       backends::gpu::GetGPUComputeCapability(ctx.GetPlace().GetDeviceId());
 
-  if (arch == 90 && version == 3) {
+  if (arch == 80 && version == 3) {
     RaiseNotSupportedError(3);
+  }
+
+  if (arch == 90 && version == 3) {
+#ifdef PADDLE_WITH_FLASHATTN_V3
+    if (is_flashmask || params.attn_mask_tensor) {
+      PADDLE_THROW(common::errors::Unimplemented(
+          "FlashMask or Dense Mask is unsupported in FlashAttention V3"));
+    }
+
+    FlashAttnV3GradKernel<T, Context>(ctx,
+                                      q,
+                                      k,
+                                      v,
+                                      out,
+                                      softmax_lse,
+                                      dout,
+                                      params.softmax_scale,
+                                      causal,
+                                      -1,   // window_size_left
+                                      -1,   // window_size_right
+                                      0.f,  // softcap
+                                      0,    // sm_margin
+                                      dq,
+                                      dk,
+                                      dv);
+    succ = true;  // umiswing: no return status in fa3
+#else
+    RaiseNotSupportedError(3);
+#endif
   } else {
     succ = phi::dynload::flash_attn_bwd(
         dout.data(),
