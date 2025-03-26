@@ -446,8 +446,7 @@ bool IfOp::InferSymbolicShape(pir::InferSymbolicShapeContext *infer_context) {
         infer_context->SetShapeOrDataForValue(
             result(rst_idx), symbol::ShapeOrDataDimExprs{result_list});
       } else if (false_shape_data.isa<symbol::NullShapeOrDataDimExpr>()) {
-        infer_context->SetShapeOrDataForValue(
-            result(rst_idx),
+        infer_context->SetShapeOrDataForValue(result(rst_idx), true_shape_data);
       } else if (true_shape_data.isa<symbol::NullShapeOrDataDimExpr>()) {
         infer_context->SetShapeOrDataForValue(result(rst_idx),
                                               false_shape_data);
