@@ -37,10 +37,6 @@ if(WITH_DISTRIBUTE AND WITH_GPU)
                   test_random_ctrl_deprecated)
   set_tests_properties(test_random_ctrl_deprecated
                        PROPERTIES LABELS "RUN_TYPE=EXCLUSIVE" TIMEOUT 50)
-  py_test_modules(test_pipeline_scheduler_zb_deprecated MODULES
-                  test_pipeline_scheduler_zb_deprecated)
-  set_tests_properties(test_pipeline_scheduler_zb_deprecated
-                       PROPERTIES LABELS "RUN_TYPE=EXCLUSIVE" TIMEOUT 50)
   py_test_modules(test_selective_recompute_deprecated MODULES
                   test_selective_recompute_deprecated)
   set_tests_properties(test_selective_recompute_deprecated PROPERTIES TIMEOUT
