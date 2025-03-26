@@ -67,16 +67,7 @@ function(install_py_pybind11_stubgen)
     ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
 
   if(_pybind11_stubgen_status EQUAL 0)
-    # check version
-    execute_process(
-      COMMAND ${PYTHON_EXECUTABLE} "-c"
-              "import pybind11_stubgen; print(pybind11_stubgen.__version__)"
-      OUTPUT_VARIABLE _pybind11_stubgen_version
-      ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
-
-    if(_pybind11_stubgen_version)
-      return()
-    endif()
+    return()
   endif()
 
   execute_process(COMMAND ${PYTHON_EXECUTABLE} -m pip install -U
