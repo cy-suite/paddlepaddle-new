@@ -90,9 +90,6 @@ class TestCollectiveScatterAPI(TestDistBase):
                 dtype=dtype,
             )
 
-    @unittest.skipIf(
-            not paddle.base.core.is_compiled_with_flagcx(), "core is not compiled with flagcx"
-    )
     def test_scatter_flagcx(self):
         dtypes_to_test = [
             "float16",
@@ -101,17 +98,15 @@ class TestCollectiveScatterAPI(TestDistBase):
             "int32",
             "int64",
         ]
-        for dtype in dtypes_to_test:
-            self.check_with_place(
-                "collective_scatter_api.py",
-                "scatter",
-                "flagcx",
-                dtype=dtype,
-            )
+        if paddle.base.core.is_compiled_with_flagcx():
+            for dtype in dtypes_to_test:
+                self.check_with_place(
+                    "collective_scatter_api.py",
+                    "scatter",
+                    "flagcx",
+                    dtype=dtype,
+                )
 
-    @unittest.skipIf(
-            not paddle.base.core.is_compiled_with_flagcx(), "core is not compiled with flagcx"
-    )
     def test_scatter_flagcx_dygraph(self):
         dtypes_to_test = [
             "float16",
@@ -123,14 +118,15 @@ class TestCollectiveScatterAPI(TestDistBase):
             "uint8",
             "bool",
         ]
-        for dtype in dtypes_to_test:
-            self.check_with_place(
-                "collective_scatter_api_dygraph.py",
-                "scatter",
-                "flagcx",
-                static_mode="0",
-                dtype=dtype,
-            )
+        if paddle.base.core.is_compiled_with_flagcx():
+            for dtype in dtypes_to_test:
+                self.check_with_place(
+                    "collective_scatter_api_dygraph.py",
+                    "scatter",
+                    "flagcx",
+                    static_mode="0",
+                    dtype=dtype,
+                )
 
 
 if __name__ == "__main__":

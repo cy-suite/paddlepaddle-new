@@ -105,9 +105,6 @@ class TestCollectiveAllToAllAPI(TestDistBase):
                 dtype=dtype,
             )
 
-    @unittest.skipIf(
-            not paddle.base.core.is_compiled_with_flagcx(), "core is not compiled with flagcx"
-    )
     def test_alltoall_flagcx_dygraph(self):
         dtypes_to_test = [
             "float16",
@@ -119,14 +116,15 @@ class TestCollectiveAllToAllAPI(TestDistBase):
             "uint8",
             "bool",
         ]
-        for dtype in dtypes_to_test:
-            self.check_with_place(
-                "collective_alltoall_api_dygraph.py",
-                "alltoall",
-                "flagcx",
-                static_mode="0",
-                dtype=dtype,
-            )
+        if paddle.base.core.is_compiled_with_flagcx():
+            for dtype in dtypes_to_test:
+                self.check_with_place(
+                    "collective_alltoall_api_dygraph.py",
+                    "alltoall",
+                    "flagcx",
+                    static_mode="0",
+                    dtype=dtype,
+                )
 
 
 if __name__ == "__main__":

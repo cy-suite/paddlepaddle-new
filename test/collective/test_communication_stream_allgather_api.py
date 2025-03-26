@@ -16,6 +16,8 @@ import unittest
 
 import test_communication_api_base as test_base
 
+import paddle
+
 
 class TestCommunicationStreamAllgatherAPI(test_base.CommunicationTestDistBase):
     def setUp(self):

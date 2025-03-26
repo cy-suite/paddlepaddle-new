@@ -44,9 +44,6 @@ class TestCollectiveAllgatherAPI(TestDistBase):
                 dtype=dtype,
             )
 
-    @unittest.skipIf(
-            not paddle.base.core.is_compiled_with_flagcx(), "core is not compiled with flagcx"
-    )
     def test_allgather_flagcx(self):
         dtypes_to_test = [
             "float16",
@@ -58,13 +55,14 @@ class TestCollectiveAllgatherAPI(TestDistBase):
             "uint8",
             "bool",
         ]
-        for dtype in dtypes_to_test:
-            self.check_with_place(
-                "collective_allgather_api.py",
-                "allgather",
-                "flagcx",
-                dtype=dtype,
-            )
+        if paddle.base.core.is_compiled_with_flagcx():
+            for dtype in dtypes_to_test:
+                self.check_with_place(
+                    "collective_allgather_api.py",
+                    "allgather",
+                    "flagcx",
+                    dtype=dtype,
+                )
 
     def test_allgather_gloo(self):
         dtypes_to_test = [
@@ -108,9 +106,6 @@ class TestCollectiveAllgatherAPI(TestDistBase):
                 dtype=dtype,
             )
 
-    @unittest.skipIf(
-            not paddle.base.core.is_compiled_with_flagcx(), "core is not compiled with flagcx"
-    )
     def test_allgather_flagcx_dygraph(self):
         dtypes_to_test = [
             "float16",
@@ -122,14 +117,15 @@ class TestCollectiveAllgatherAPI(TestDistBase):
             "uint8",
             "bool",
         ]
-        for dtype in dtypes_to_test:
-            self.check_with_place(
-                "collective_allgather_api_dygraph.py",
-                "allgather",
-                "flagcx",
-                static_mode="0",
-                dtype=dtype,
-            )
+        if paddle.base.core.is_compiled_with_flagcx():
+            for dtype in dtypes_to_test:
+                self.check_with_place(
+                    "collective_allgather_api_dygraph.py",
+                    "allgather",
+                    "flagcx",
+                    static_mode="0",
+                    dtype=dtype,
+                )
 
     def test_allgather_nccl_dygraph_with_trace_hang(self):
         dtypes_to_test = [

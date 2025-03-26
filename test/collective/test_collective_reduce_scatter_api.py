@@ -16,6 +16,8 @@ import unittest
 
 import legacy_test.test_collective_api_base as test_base
 
+import paddle
+
 
 class TestCollectiveReduceScatterAPI(test_base.TestDistBase):
     def _setup_config(self):
@@ -61,9 +63,6 @@ class TestCollectiveReduceScatterAPI(test_base.TestDistBase):
                 dtype=dtype,
             )
 
-    @unittest.skipIf(
-            not paddle.base.core.is_compiled_with_flagcx(), "core is not compiled with flagcx"
-    )
     def test_reduce_scatter_flagcx_dygraph(self):
         dtypes_to_test = [
             "float16",
@@ -75,14 +74,15 @@ class TestCollectiveReduceScatterAPI(test_base.TestDistBase):
             "uint8",
             "bool",
         ]
-        for dtype in dtypes_to_test:
-            self.check_with_place(
-                "collective_reduce_scatter_api_dygraph.py",
-                "reduce_scatter",
-                "flagcx",
-                static_mode="0",
-                dtype=dtype,
-            )
+        if paddle.base.core.is_compiled_with_flagcx():
+            for dtype in dtypes_to_test:
+                self.check_with_place(
+                    "collective_reduce_scatter_api_dygraph.py",
+                    "reduce_scatter",
+                    "flagcx",
+                    static_mode="0",
+                    dtype=dtype,
+                )
 
 
 if __name__ == "__main__":

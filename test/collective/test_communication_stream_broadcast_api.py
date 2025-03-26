@@ -18,6 +18,7 @@ import unittest
 sys.path.append("../legacy_test")
 
 import test_communication_api_base as test_base
+import paddle
 
 
 class TestCommunicationStreamBroadcastAPI(test_base.CommunicationTestDistBase):

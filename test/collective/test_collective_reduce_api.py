@@ -167,9 +167,6 @@ class TestCollectiveReduceAPI(TestDistBase):
     def test_reduce_flagcx(self):
         self.check_with_place("collective_reduce_api.py", "reduce", "flagcx")
 
-    @unittest.skipIf(
-            not paddle.base.core.is_compiled_with_flagcx(), "core is not compiled with flagcx"
-    )
     def test_reduce_flagcx_dygraph(self):
         dtypes_to_test = [
             "float16",
@@ -181,14 +178,15 @@ class TestCollectiveReduceAPI(TestDistBase):
             "uint8",
             "bool",
         ]
-        for dtype in dtypes_to_test:
-            self.check_with_place(
-                "collective_reduce_api_dygraph.py",
-                "reduce",
-                "flagcx",
-                static_mode="0",
-                dtype=dtype,
-            )
+        if paddle.base.core.is_compiled_with_flagcx():
+            for dtype in dtypes_to_test:
+                self.check_with_place(
+                    "collective_reduce_api_dygraph.py",
+                    "reduce",
+                    "flagcx",
+                    static_mode="0",
+                    dtype=dtype,
+                )
 
 
 if __name__ == "__main__":

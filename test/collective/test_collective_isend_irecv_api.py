@@ -16,6 +16,8 @@ import unittest
 
 import legacy_test.test_collective_api_base as test_base
 
+import paddle
+
 
 class TestCollectiveIsendIrecvAPI(test_base.TestDistBase):
     def _setup_config(self):
@@ -43,9 +45,6 @@ class TestCollectiveIsendIrecvAPI(test_base.TestDistBase):
                 dtype=dtype,
             )
 
-    @unittest.skipIf(
-            not paddle.base.core.is_compiled_with_flagcx(), "core is not compiled with flagcx"
-    )
     def test_isend_irecv_flagcx_dygraph(self):
         dtypes_to_test = [
             "float16",
@@ -57,14 +56,15 @@ class TestCollectiveIsendIrecvAPI(test_base.TestDistBase):
             "uint8",
             "bool",
         ]
-        for dtype in dtypes_to_test:
-            self.check_with_place(
-                "collective_isend_irecv_api_dygraph.py",
-                "sendrecv",
-                "flagcx",
-                static_mode="0",
-                dtype=dtype,
-            )
+        if paddle.base.core.is_compiled_with_flagcx():
+            for dtype in dtypes_to_test:
+                self.check_with_place(
+                    "collective_isend_irecv_api_dygraph.py",
+                    "sendrecv",
+                    "flagcx",
+                    static_mode="0",
+                    dtype=dtype,
+                )
 
 
 if __name__ == "__main__":

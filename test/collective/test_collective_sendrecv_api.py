@@ -75,9 +75,6 @@ class TestCollectiveSendRecvAPI(TestDistBase):
                 dtype=dtype,
             )
 
-    @unittest.skipIf(
-            not paddle.base.core.is_compiled_with_flagcx(), "core is not compiled with flagcx"
-    )
     def test_sendrecv_flagcx_dygraph(self):
         dtypes_to_test = [
             "float16",
@@ -89,14 +86,15 @@ class TestCollectiveSendRecvAPI(TestDistBase):
             "uint8",
             "bool",
         ]
-        for dtype in dtypes_to_test:
-            self.check_with_place(
-                "collective_sendrecv_api_dygraph.py",
-                "sendrecv",
-                "flagcx",
-                static_mode="0",
-                dtype=dtype,
-            )
+        if paddle.base.core.is_compiled_with_flagcx():
+            for dtype in dtypes_to_test:
+                self.check_with_place(
+                    "collective_sendrecv_api_dygraph.py",
+                    "sendrecv",
+                    "flagcx",
+                    static_mode="0",
+                    dtype=dtype,
+                )
 
 
 if __name__ == "__main__":

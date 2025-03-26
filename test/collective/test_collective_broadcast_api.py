@@ -132,9 +132,6 @@ class TestCollectiveBroadcastAPI(TestDistBase):
             "flagcx",
         )
 
-    @unittest.skipIf(
-            not paddle.base.core.is_compiled_with_flagcx(), "core is not compiled with flagcx"
-    )
     def test_broadcast_flagcx_dygraph(self):
         dtypes_to_test = [
             "float16",
@@ -146,14 +143,15 @@ class TestCollectiveBroadcastAPI(TestDistBase):
             "uint8",
             "bool",
         ]
-        for dtype in dtypes_to_test:
-            self.check_with_place(
-                "collective_broadcast_api_dygraph.py",
-                "broadcast",
-                "flagcx",
-                static_mode="0",
-                dtype=dtype,
-            )
+        if paddle.base.core.is_compiled_with_flagcx():
+            for dtype in dtypes_to_test:
+                self.check_with_place(
+                    "collective_broadcast_api_dygraph.py",
+                    "broadcast",
+                    "flagcx",
+                    static_mode="0",
+                    dtype=dtype,
+                )
 
 
 if __name__ == "__main__":
