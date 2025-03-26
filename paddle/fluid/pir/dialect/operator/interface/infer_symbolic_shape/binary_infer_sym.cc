@@ -44,7 +44,7 @@ inline void UpdatePaddingAndDilation(
     symbol::DimExprBuilder builder;
     for (size_t i = 0; i < data_dims.size(); ++i) {
       symbol::DimExpr out_size = (data_dims[i] + strides[i] - 1) / strides[i];
-      if (strides[i] == symbol::DimExpr{2} && ksize[i] == symbol::DimExpr{3}) {
+      if (strides[i] == 2 && ksize[i] == symbol::DimExpr{3}) {
         symbol::DimExpr pad_sum =
             (out_size - one) * strides[i] + ksize[i] - data_dims[i];
       } else {
