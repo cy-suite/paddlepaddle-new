@@ -24,6 +24,10 @@
 #include "paddle/phi/core/enforce.h"
 #include "paddle/phi/core/utils/data_type.h"
 
+#ifdef PADDLE_WITH_FLAGCX
+#include <flagcx.h>
+#endif
+
 namespace phi::distributed {
 
 // set this flag to `true` and recompile to enable dynamic checks

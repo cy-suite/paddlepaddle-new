@@ -20,6 +20,10 @@ limitations under the License. */
 
 #include "paddle/phi/common/data_type.h"
 #include "paddle/phi/core/enforce.h"
+
+#ifdef PADDLE_WITH_FLAGCX
+#include <flagcx.h>
+#endif
 namespace phi {
 
 #define _PhiForEachDataTypeHelper_(callback, cpp_type, data_type) \
