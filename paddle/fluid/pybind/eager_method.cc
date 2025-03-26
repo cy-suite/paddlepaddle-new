@@ -3449,6 +3449,22 @@ static PyObject* tensor_method__set_impl(TensorObject* self,
   EAGER_CATCH_AND_THROW_RETURN_NULL
 }
 
+static PyObject* tensor_method__record_stream(TensorObject* self,
+                                              PyObject* args,
+                                              PyObject* kwargs) {
+  EAGER_TRY
+  VLOG(4)
+      << "Running in tensor_method__record_stream: record stream for Tensor.";
+  auto* tensor = static_cast<phi::DenseTensor*>(self->tensor.impl().get());
+  if (tensor) {
+    const auto& device_id = paddle::platform::GetCurrentDeviceId();
+    auto stream = paddle::platform::get_current_stream(device_id)->raw_stream();
+    memory::RecordStream(tensor->Holder(), stream);
+  }
+  RETURN_PY_NONE
+  EAGER_CATCH_AND_THROW_RETURN_NULL
+}
+
 #if defined(PADDLE_WITH_CUDA)
 static PyObject* tensor_method__uva(TensorObject* self,
                                     PyObject* args,
@@ -3781,6 +3797,10 @@ PyMethodDef variable_methods[] = {  // NOLINT
      tensor_get_strides__doc__},
     {"_set_impl",
      (PyCFunction)(void (*)())tensor_method__set_impl,
+     METH_VARARGS | METH_KEYWORDS,
+     nullptr},
+    {"_record_stream",
+     (PyCFunction)(void (*)())tensor_method__record_stream,
      METH_VARARGS | METH_KEYWORDS,
      nullptr},
 #if defined(PADDLE_WITH_CUDA)
