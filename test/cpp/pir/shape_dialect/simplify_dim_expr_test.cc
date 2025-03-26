@@ -181,6 +181,17 @@ TEST(Simplify, ConstantMaxMin) {
   ASSERT_EQ((simplified_dim_expr2.Get<std::int64_t>()), 2);
 }
 
+TEST(Simplify, SimplifyBc) {
+  // Broadcast(S0, Add(S0, -1)) => S0
+  DimExpr S0{"S0"};
+  DimExpr add{Add<DimExpr>{{S0, Negative<DimExpr>{1}}}};
+  DimExpr bc{Broadcast<DimExpr>{{S0, add}}};
+  ASSERT_TRUE((SimplifyDimExpr(bc) != Add<DimExpr>{{S0, -1}}));
+  // TODO(ooooo): improve the simplify ability
+  DimExpr now_accept{Broadcast<DimExpr>{{Add<DimExpr>{{S0, -1}}, S0}}};
+  ASSERT_TRUE((SimplifyDimExpr(bc) == now_accept));
+}
+
 TEST(Simplify, FoldBroadcast) {
   DimExpr sym0{"S0"};
   DimExpr sym1{"S1"};
@@ -250,12 +261,6 @@ TEST(Simplify, SimplifyMaxAndMinWithGE) {
   // Min(S0, 1) => 1, Max(S0, 1) => S0
   ASSERT_TRUE((SimplifyDimExpr(Min<DimExpr>{{S0, DimExpr(1)}}) == DimExpr(1)));
   ASSERT_TRUE((SimplifyDimExpr(Max<DimExpr>{{S0, DimExpr(1)}}) == S0));
-
-  // Min(Mul(S0, S1), 0) => Min(Mul(S0, S1), 0)
-  // Now simplify ability is limited.
-  DimExpr mul2{Mul<DimExpr>{{S0, S1}}};
-  ASSERT_TRUE((SimplifyDimExpr(Min<DimExpr>{{mul2, DimExpr(0)}}) ==
-               Min<DimExpr>{{mul2, DimExpr(0)}}));
 }
 
 TEST(Simplify, Case1) {

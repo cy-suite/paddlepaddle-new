@@ -1479,8 +1479,6 @@ DimExpr Simplify(const DimExpr& expr) {
     DoPass<SimplifyOperands<Mul>>(&keep_rewrite, &ret);
     DoPass<SimplifyOperands<Div>>(&keep_rewrite, &ret);
     DoPass<SimplifyOperands<Broadcast>>(&keep_rewrite, &ret);
-    DoPass<SimplifyOperands<Min>>(&keep_rewrite, &ret);
-    DoPass<SimplifyOperands<Max>>(&keep_rewrite, &ret);
     DoPass<SortOperands<Add>>(&keep_rewrite, &ret);
     DoPass<SortOperands<Mul>>(&keep_rewrite, &ret);
     DoPass<SortOperands<Broadcast>>(&keep_rewrite, &ret);
