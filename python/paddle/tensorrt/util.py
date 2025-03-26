@@ -87,7 +87,6 @@ def run_pir_pass(program, disable_passes=[], scope=None, precision_mode=None):
 
     pm = pir.PassManager(opt_level=4)
     pm.enable_print_statistics()
-    pm.enable_ir_printing()
     if scope is None:
         scope = paddle.static.global_scope()
     place = paddle.CUDAPlace(0)

@@ -287,10 +287,15 @@ def fused_bias_dropout_residual_layer_norm_converter(
     network, paddle_op, inputs
 ):
     input1, input2, ele_bias, scale, bias = inputs
-    refit_manager = RefitManager
-    ele_bias = refit_manager.get_trt_weight_tensor(ele_bias.name)
-    scale = refit_manager.get_trt_weight_tensor(scale.name)
-    bias = refit_manager.get_trt_weight_tensor(bias.name)
+    if isinstance(ele_bias, trt.ITensor):
+        refit_manager = RefitManager
+        ele_bias = refit_manager.get_trt_weight_tensor(ele_bias.name)
+        scale = refit_manager.get_trt_weight_tensor(scale.name)
+        bias = refit_manager.get_trt_weight_tensor(bias.name)
+    else:
+        ele_bias = ele_bias
+        scale = scale
+        bias = bias
     has_bias = ele_bias is not None
     bias_size = bias.size
     scale_size = scale.size
