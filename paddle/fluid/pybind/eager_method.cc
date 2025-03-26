@@ -252,7 +252,8 @@ static PyObject* tensor_method_numpy(TensorObject* self,
   phi::DenseTensor cpu_tensor;
   phi::CPUPlace cpu_place;
 
-  if (self->tensor.is_cpu() || self->tensor.is_gpu_pinned()) {
+  if (self->tensor.is_cpu() || self->tensor.is_gpu_pinned() ||
+      self->tensor.is_xpu_pinned()) {
     eager_gil_scoped_release guard;
     phi::CPUPlace place;
     if (self->tensor.is_selected_rows()) {
@@ -398,6 +399,31 @@ static PyObject* tensor_method_numpy(TensorObject* self,
                            dense_tensor->place(),
                            dense_tensor->Holder()->ptr(),
                            dense_tensor->Holder()->size());
+    } else if (self->tensor.is_dist_tensor()) {
+#ifdef PADDLE_WITH_DISTRIBUTE
+      VLOG(6) << "Getting DistTensor's numpy value";
+      auto* dist_tensor =
+          static_cast<phi::distributed::DistTensor*>(self->tensor.impl().get());
+      auto dense_tensor = ReshardXToReplicated(dist_tensor);
+
+      cpu_tensor.set_meta(dense_tensor.meta());
+      auto tmp_allocation_ptr =
+          memory::Alloc(cpu_place, dense_tensor.Holder()->size());
+      cpu_tensor.ResetHolder(std::shared_ptr<phi::Allocation>(
+          tmp_allocation_ptr.release(), tmp_allocation_ptr.get_deleter()));
+      paddle::memory::Copy(place,
+                           cpu_tensor.Holder()->ptr(),
+                           dense_tensor.place(),
+                           dense_tensor.Holder()->ptr(),
+                           dense_tensor.Holder()->size());
+#else
+      PADDLE_THROW(
+          common::errors::Unavailable("The `numpy()` method of (Dist)Tensor "
+                                      "is not supported in the current "
+                                      "PaddlePaddle, please recompile and "
+                                      "installPaddlePaddle with the option "
+                                      "of `WITH_DISTRIBUTE=ON`."));
+#endif
     } else {
       VLOG(6) << "Getting DenseTensor's numpy value";
       auto dense_tensor =
