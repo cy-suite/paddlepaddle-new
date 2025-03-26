@@ -13,11 +13,7 @@
 // limitations under the License.
 
 #include "paddle/pir/include/dialect/shape/utils/dim_expr_util.h"
-// #include <cctype>
-// #include <cstddef>
-// #include <functional>
 #include <numeric>
-// #include <string>
 
 namespace symbol {
 
