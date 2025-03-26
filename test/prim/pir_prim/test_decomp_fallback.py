@@ -38,7 +38,9 @@ class TestDropOutFallBack(TestFallBackBase):
         self.p = paddle.to_tensor(0.0, dtype=self.dtype)
 
     def test_fallback(self):
-        static_func = paddle.jit.to_static(self.func_api, full_graph=True)
+        static_func = paddle.jit.to_static(
+            self.func_api, full_graph=True, backend=None
+        )
         dynamic_func = self.func_api
 
         out = static_func(self.x, self.p)
