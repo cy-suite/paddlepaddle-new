@@ -30,7 +30,7 @@ class ApiMinimumTest(unittest.TestCase):
         self.input_x = np.random.rand(10, 15).astype("float32")
         self.input_y = np.random.rand(10, 15).astype("float32")
         self.input_z = np.random.rand(15).astype("float32")
-        self.input_a = np.array([0, np.nan, np.nan]).astype('int64')
+        self.input_a = np.array([0, np.nan, np.nan]).astype('float32')
         self.input_b = np.array([2, np.inf, -np.inf]).astype('int64')
         self.input_c = np.array([4, 1, 3]).astype('int64')
 
@@ -70,7 +70,7 @@ class ApiMinimumTest(unittest.TestCase):
         with paddle.static.program_guard(
             paddle.static.Program(), paddle.static.Program()
         ):
-            data_a = paddle.static.data("a", shape=[3], dtype="int64")
+            data_a = paddle.static.data("a", shape=[3], dtype="float32")
             data_c = paddle.static.data("c", shape=[3], dtype="int64")
             result_max = paddle.minimum(data_a, data_c)
             exe = paddle.static.Executor(self.place)

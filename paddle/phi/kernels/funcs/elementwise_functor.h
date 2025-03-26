@@ -473,10 +473,10 @@ struct MaximumFunctor {
     if constexpr ((std::is_floating_point_v<T>)&&(
                       !(std::is_same_v<T, int32_t> ||
                         std::is_same_v<T, int64_t>))) {
-      if (isnan(a)) {
+      if (std::isnan(a)) {
         return a;
       }
-      if (isnan(b)) {
+      if (std::isnan(b)) {
         return b;
       }
     }
@@ -525,10 +525,10 @@ struct MinimumFunctor {
     if constexpr (std::is_floating_point_v<T> &&
                   (!(std::is_same_v<T, int32_t> ||
                      std::is_same_v<T, int64_t>))) {
-      if (isnan(a)) {
+      if (std::isnan(a)) {
         return a;
       }
-      if (isnan(b)) {
+      if (std::isnan(b)) {
         return b;
       }
     }
