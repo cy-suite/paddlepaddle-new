@@ -1,4 +1,4 @@
-name: Check PR  Template
+name: Check pr template
 
 on:
   pull_request_target:
