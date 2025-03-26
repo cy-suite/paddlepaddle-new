@@ -2305,7 +2305,9 @@ Please run 'pip install -r python/requirements.txt' to make sure you have all th
         python_dependencies_module.append(
             re.sub("_|-", '', re.sub(r"==.*|>=.*|<=.*", '', dependency))
         )
-    reqs = subprocess.check_output([sys.executable, '-m', 'pip', 'freeze'])
+    reqs = subprocess.check_output(
+        [sys.executable, '-m', 'pip', 'freeze', '--all']
+    )
 
     for r in reqs.split():
         installed_packages.append(
