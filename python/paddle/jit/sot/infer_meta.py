@@ -36,7 +36,13 @@ from paddle.distributed.auto_parallel.static.utils import (
 from paddle.framework import use_pir_api
 from paddle.utils import flatten, is_sequence
 
-from .utils import Cache, Singleton, map_if_extend, meta_str
+from .utils import (
+    Cache,
+    Singleton,
+    map_if_extend,
+    meta_str,
+    update_list_inplace,
+)
 
 DynamicSymbolT = TypeVar("DynamicSymbolT")
 SOT_INFER_META_INNER_VAR = "___SOT_INFER_META_INNER_VAR"
@@ -142,8 +148,7 @@ class MetaInfo:
         # NOTE(SigureMo): Ensure output meta.shape is same list object as
         # self.shape to avoid create two different data proxy for tensor.shape.
         # It will caused create a new SymbolicVariable when it's a dynamic dim.
-        self.shape.clear()
-        self.shape.extend(shape)
+        self.shape = update_list_inplace(self.shape, shape)
         return MetaInfo(
             self.shape,
             self.dtype,
