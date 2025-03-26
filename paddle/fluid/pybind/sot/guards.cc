@@ -19,6 +19,7 @@ limitations under the License. */
 
 #include <Python.h>
 #include <frameobject.h>
+#include "pybind11/numpy.h"
 
 #if !defined(PyObject_CallOneArg) && !PY_3_9_PLUS
 static inline PyObject* PyObject_CallOneArg(PyObject* func, PyObject* arg) {
@@ -137,12 +138,13 @@ bool NumpyDtypeMatchGuard::check(PyObject* value) {
   if (value == nullptr) {
     return false;
   }
+  py::dtype expected_dtype = py::cast<py::dtype>(expected_);
 
   if (py::isinstance<py::array>(value)) {
-    return py::cast<py::array>(value).dtype().is(expected_);
+    return py::cast<py::array>(value).dtype().is(expected_dtype);
   }
 
-  return expected_.equal(py::handle(value).get_type());
+  return expected_dtype.equal(py::handle(value).get_type());
 }
 
 #endif

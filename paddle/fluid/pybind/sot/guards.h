@@ -18,20 +18,11 @@ limitations under the License. */
 #include "paddle/fluid/pybind/sot/macros.h"
 #include "paddle/phi/core/utils/data_type.h"
 #include "paddle/utils/pybind.h"
-#include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
 
 namespace py = pybind11;
 #define PYBIND11_DETAILED_ERROR_MESSAGES
 #if SOT_IS_SUPPORTED
-
-// The visibility attribute is to avoid a warning about storing a field in the
-// struct that has a different visibility (from pybind) than the struct.
-#ifdef _WIN32
-#define VISIBILITY_HIDDEN
-#else
-#define VISIBILITY_HIDDEN __attribute__((visibility("hidden")))
-#endif
 
 class GuardBase {
  public:
@@ -213,12 +204,15 @@ class InstanceCheckGuard : public GuardBase {
 
 class NumpyDtypeMatchGuard : public GuardBase {
  public:
-  explicit NumpyDtypeMatchGuard(const py::dtype& dtype) : expected_(dtype) {}
+  explicit NumpyDtypeMatchGuard(const py::object& dtype)
+      : expected_(dtype.ptr()) {
+    Py_INCREF(expected_);
+  }
 
   bool check(PyObject* value) override;
 
  private:
-  py::dtype expected_;
+  PyObject* expected_;
 };
 
 #endif
