@@ -139,8 +139,13 @@ class MetaInfo:
             SymbolicInt() if i in dynamic_axes else dim
             for i, dim in enumerate(self.shape)
         ]
+        # NOTE(SigureMo): Ensure output meta.shape is same list object as
+        # self.shape to avoid create two different data proxy for tensor.shape.
+        # It will caused create a new SymbolicVariable when it's a dynamic dim.
+        self.shape.clear()
+        self.shape.extend(shape)
         return MetaInfo(
-            shape,
+            self.shape,
             self.dtype,
             self.stop_gradient,
             self.name,
