@@ -14,12 +14,7 @@
 
 import logging
 
-import paddle.distributed as dist
 from paddle.base import core
-from paddle.distributed.auto_parallel.static.operators.common import (
-    is_data_parallel_reduce_op,
-    is_data_parallel_scale_op,
-)
 
 from ...utils.log_utils import get_logger
 from ..pass_base import register_pass
@@ -182,105 +177,6 @@ class PipelineVirtualPipelinePass(PipelinePassBase):
 
             for matmul_grad_id in reversed(matmul_grad_op_idx):
                 _pir_split_matmul_grad_to_matmul(block, matmul_grad_id)
-
-    def _move_sharding_comm_to_backward(
-        self, types, sub_programs, global_grads
-    ):
-        def _get_sharding_comm_op(op, idx, ops):
-            if is_data_parallel_reduce_op(op):
-                op_input_names = op.desc.input_arg_names()
-                op_output_names = op.desc.output_arg_names()
-                if (
-                    op_input_names[0] == op_output_names[0]
-                    and op_input_names[0] in global_grads
-                ):
-                    global_grad_to_comm_op[op_input_names[0]] = [op]
-                    remove_op_ids.append(idx)
-
-                if op.type == "c_allreduce_sum" or (
-                    op.type == "reduce"
-                    and op.desc.attr('reduce_type') == dist.ReduceOp.SUM
-                ):
-                    scale_index = idx + 1
-                    if scale_index < len(len(ops)):
-                        if is_data_parallel_scale_op(ops[scale_index]):
-                            global_grad_to_comm_op[op_input_names[0]].append(op)
-                            remove_op_ids.append(scale_index)
-
-        def _get_scale_op(op, idx):
-            if is_data_parallel_scale_op(op):
-                return
-            if op.type == 'scale':
-                op_input_names = op.desc.input_arg_names()
-                op_output_names = op.desc.output_arg_names()
-                if (
-                    op_input_names[0] == op_output_names[0]
-                    and op_input_names[0] in global_grads
-                ):
-                    global_grad_to_scale_op[op_input_names[0]] = op
-                    remove_op_ids.append(idx)
-
-        # 1 get the all sharding_avg in optimizer
-        type_programs = dict(zip(types, sub_programs))
-        opt_program = type_programs["optimizer"]
-        global_grad_to_comm_op = {}
-        global_grad_to_scale_op = {}
-        all_remove_op_ids = []
-        for cur_block in opt_program.blocks:
-            remove_op_ids = []
-            for idx, op in enumerate(cur_block.ops):
-                _get_scale_op(op, idx)
-                _get_sharding_comm_op(op, idx, cur_block.ops)
-            all_remove_op_ids.append(remove_op_ids)
-        if len(global_grad_to_comm_op) == 0:  # no need to overlap sharding comm
-            return False
-
-        # 2 create the new backward(w) with the sharding_comm
-        new_types = []
-        new_programs = []
-        for type, sub_program in type_programs.items():
-            if "backward_w" in type:
-                new_program = sub_program.clone()
-                cur_block = new_program.global_block()
-                cur_block_scale_op = []
-                for idx, op in reversed(list(enumerate(cur_block.ops))):
-                    if op.type == "elementwise_add":
-                        input_arg_names = op.input_arg_names
-                        output_arg_names = op.output_arg_names
-                        if (
-                            input_arg_names[0] == output_arg_names[0]
-                            and input_arg_names[0] in global_grad_to_comm_op
-                        ):
-                            for origin_op in reversed(
-                                global_grad_to_comm_op[input_arg_names[0]]
-                            ):
-                                new_op = cur_block._insert_op_without_sync(
-                                    index=idx + 1, type="nop"
-                                )
-                                new_op.desc.copy_from(origin_op.desc)
-                            del global_grad_to_comm_op[input_arg_names[0]]
-                            cur_block_scale_op.append(
-                                global_grad_to_scale_op[input_arg_names[0]]
-                            )
-                for origin_op in cur_block_scale_op:
-                    new_op = cur_block.append_op(type="nop")
-                    new_op.desc.copy_from(origin_op.desc)
-                cur_block._sync_with_cpp()
-                new_types.append(type + self.reduce_comm_suffix)
-                new_programs.append(new_program)
-        assert (
-            len(global_grad_to_comm_op) == 0
-        ), f"global_grad_to_comm_op must be used up, but left: {global_grad_to_comm_op}"
-
-        types.extend(new_types)
-        sub_programs.extend(new_programs)
-
-        for id, cur_block in enumerate(opt_program.blocks):
-            for op_id in reversed(all_remove_op_ids[id]):
-                cur_block._remove_op(op_id)
-            cur_block._sync_with_cpp()
-
-        return True
 
     def _partial_programs(self, program):
         raise RuntimeError("Not support old IR for VPP")
