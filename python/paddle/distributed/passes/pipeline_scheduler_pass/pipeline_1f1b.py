@@ -17,7 +17,6 @@ import logging
 import paddle
 from paddle.base import core
 from paddle.distributed.auto_parallel.static.cost import calc_time_by_cost_model
-from paddle.distributed.passes.pass_utils import _add_dependency_if_necessary
 from paddle.framework import (
     _current_expected_place_ as _get_device,
 )
@@ -375,7 +374,7 @@ class ProgramSplitter:
                 )
             for job_type in suffixed_job_types:
                 if self._result_is_used([job_type], op_idx, idx):
-                    _add_dependency_if_necessary(
+                    self._add_dependency_if_necessary(
                         self.ops_dict,
                         cur_job_type,
                         job_type,
