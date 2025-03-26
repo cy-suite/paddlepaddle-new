@@ -445,6 +445,12 @@ bool IfOp::InferSymbolicShape(pir::InferSymbolicShapeContext *infer_context) {
         }
         infer_context->SetShapeOrDataForValue(
             result(rst_idx), symbol::ShapeOrDataDimExprs{result_list});
+      } else if (false_shape_data.isa<symbol::NullShapeOrDataDimExpr>()) {
+        infer_context->SetShapeOrDataForValue(
+            result(rst_idx),
+      } else if (true_shape_data.isa<symbol::NullShapeOrDataDimExpr>()) {
+        infer_context->SetShapeOrDataForValue(result(rst_idx),
+                                              false_shape_data);
       } else {
         PADDLE_THROW(common::errors::Unimplemented(
             "IfOp::InferSymbolicShape: now only support "
