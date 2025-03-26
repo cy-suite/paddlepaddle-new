@@ -10,7 +10,7 @@ env:
 
 jobs:
   check:
-    name: Check
+    name: Check PR template
     runs-on: ubuntu-latest
     permissions:
       contents: read
