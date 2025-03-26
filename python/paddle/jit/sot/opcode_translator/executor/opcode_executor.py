@@ -1206,6 +1206,7 @@ class OpcodeExecutorBase:
         if not is_method:
             # pop the NULL variable
             self.stack.pop()
+        fn, args, kwargs = self.handle_super_init_without_args(fn, args, kwargs)
         self.stack.push(fn(*args, **kwargs))
         self._call_shape = None
 
