@@ -18,13 +18,9 @@ import unittest
 import numpy
 import utils
 
-os.environ['FLAGS_cinn_new_group_scheduler'] = '1'
 os.environ['FLAGS_prim_all'] = 'true'
 os.environ['FLAGS_prim_enable_dynamic'] = 'true'
-os.environ['FLAGS_print_ir'] = '1'
-os.environ['FLAGS_enable_pir_api'] = '1'
 os.environ['FLAGS_use_cinn'] = '1'
-os.environ['FLAGS_cinn_new_cluster_op_method'] = '1'
 
 import paddle
 
@@ -281,7 +277,7 @@ class TestAnchorFusion(unittest.TestCase):
             x = paddle.rand((1, 3, 1, 16, 1, 32, 1))
             return (x,)
 
-        self.check_accuracy_and_kernel_num(init, func, kernel_num=2)
+        self.check_accuracy_and_kernel_num(init, func, kernel_num=1)
 
     def test_0d_fusion(self):
         def func(x):
