@@ -57,26 +57,8 @@ function(install_py_jinja2)
   execute_process(COMMAND ${PYTHON_EXECUTABLE} -m pip install -U jinja2)
 endfunction()
 
-function(install_py_pybind11_stubgen)
-  # check install
-  execute_process(
-    COMMAND
-      ${PYTHON_EXECUTABLE} "-c"
-      "import re, pybind11_stubgen; print(re.compile('/__init__.py.*').sub('',pybind11_stubgen.__file__))"
-    RESULT_VARIABLE _pybind11_stubgen_status
-    ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE)
-
-  if(_pybind11_stubgen_status EQUAL 0)
-    return()
-  endif()
-
-  execute_process(COMMAND ${PYTHON_EXECUTABLE} -m pip install -U
-                          pybind11-stubgen)
-endfunction()
-
 install_py_pyyaml()
 install_py_jinja2()
-install_py_pybind11_stubgen()
 
 # parse ops
 set(parsed_op_dir ${CMAKE_BINARY_DIR}/paddle/phi/ops/yaml)
