@@ -767,14 +767,14 @@ class TensorVariable(VariableBase):
 
             return BuiltinVariable(
                 builtin_fn, self.graph, DanglingTracker()
-            ).bind(self, name)
+            ).bind_dangling_fn(self, name)
         elif name in get_tensor_methods():
             from .callable import TensorFunctionVariable
 
             fn_var = TensorFunctionVariable(
                 name, graph=self.graph, tracker=DanglingTracker()
             )
-            return fn_var.bind(self, name)
+            return fn_var.bind_dangling_fn(self, name)
         else:
             raise BreakGraphError(
                 UnsupportedPaddleAPIBreak(fn_name=f"Tensor.{name}")
@@ -1153,9 +1153,6 @@ class SuperVariable(VariableBase):
     def get_py_value(self, allow_tensor=False) -> Any:
         cls = self.cls.get_py_value()
         obj = self.obj.get_py_value()
-        # `super(cls, super(...))` is not supported.
-        while isinstance(obj, super):
-            obj = obj.__self__
         return super(cls, obj)
 
     @check_guard
@@ -1183,7 +1180,7 @@ class SuperVariable(VariableBase):
                 continue
             attr = super_cls.getattr(name)
             if isinstance(attr, FunctionVariable):
-                attr = attr.bind(self, name)
+                attr = attr.bind(self.obj, name)
             return attr
 
         raise HasNoAttributeError(
