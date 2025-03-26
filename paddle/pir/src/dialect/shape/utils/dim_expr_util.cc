@@ -18,6 +18,11 @@
 
 namespace symbol {
 
+CacheMaxOrMin& CacheMaxOrMin::Instance() {
+  static CacheMaxOrMin instance;
+  return instance;
+}
+
 DimExprCollection& DimExprCollection::Instance() {
   static DimExprCollection instance;
   return instance;
@@ -1172,6 +1177,14 @@ DimExprCompareResult EasyCompareGtOrGe(const DimExpr& lhs,
     return DimExprCompareResult::UNKNOWN;
   }
 
+  if (rhs == DimExpr{0}) {
+    if (EasyIsGtWithZero(lhs)) {
+      return DimExprCompareResult::GT;
+    } else {
+      return DimExprCompareResult::UNKNOWN;
+    }
+  }
+
   // check with Sub
   DimExpr simplified_result_sub = SimplifyDimExpr(DimExpr{lhs} - DimExpr{rhs});
   auto sub_compare =
@@ -1219,13 +1232,18 @@ struct SimplifyMaxWithGE {
   }
 
   DimExpr Rewrite(const DimExpr& expr) {
+    if (CacheMaxOrMin::Instance().IsCached(expr)) {
+      return expr;
+    }
     const auto [operands] = expr.Get<Max<DimExpr>>();
     List<DimExpr> simplified_operands = SearchErasable(operands);
 
     if (simplified_operands->size() == 1) {
       return simplified_operands->at(0);
     } else {
-      return Max<DimExpr>{simplified_operands};
+      auto res = Max<DimExpr>{simplified_operands};
+      CacheMaxOrMin::Instance().AddCacheItem(res);
+      return res;
     }
   }
 };
@@ -1259,13 +1277,18 @@ struct SimplifyMinWithGE {
   }
 
   DimExpr Rewrite(const DimExpr& expr) {
+    if (CacheMaxOrMin::Instance().IsCached(expr)) {
+      return expr;
+    }
     const auto [operands] = expr.Get<Min<DimExpr>>();
     List<DimExpr> simplified_operands = SearchErasable(operands);
 
     if (simplified_operands->size() == 1) {
       return simplified_operands->at(0);
     } else {
-      return Min<DimExpr>{simplified_operands};
+      auto res = Min<DimExpr>{simplified_operands};
+      CacheMaxOrMin::Instance().AddCacheItem(res);
+      return res;
     }
   }
 };

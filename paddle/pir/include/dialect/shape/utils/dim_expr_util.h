@@ -52,6 +52,26 @@ IR_API DimExprCompareResult Compare(const DimExpr& lhs, const DimExpr& rhs);
 IR_API std::unordered_set<std::string> CollectDimExprSymbols(
     const DimExpr& dim_expr);
 
+class CacheMaxOrMin {
+ public:
+  static CacheMaxOrMin& Instance();
+  CacheMaxOrMin(const CacheMaxOrMin&) = delete;
+  CacheMaxOrMin(CacheMaxOrMin&&) = delete;
+  CacheMaxOrMin& operator=(const CacheMaxOrMin&) = delete;
+
+  void AddCacheItem(const DimExpr& expr) {
+    if (cache_set_.count(expr) == 0) {
+      cache_set_.insert(expr);
+    }
+  }
+
+  bool IsCached(const DimExpr& expr) { return cache_set_.count(expr) > 0; }
+
+ private:
+  std::unordered_set<DimExpr> cache_set_;
+  CacheMaxOrMin() {}
+};
+
 class DimExprCollection {
  public:
   static DimExprCollection& Instance();
