@@ -85,7 +85,7 @@ struct SearchAlgorithm<NodePairPattern, GraphMatcher, GraphOperation> {
                   << rhs->id() << ")";
           auto merged = GraphOperation()(graph_, lhs, rhs);
           if (merged == nullptr) continue;
-          nodes[i] = merged;
+          lhs = nodes[i] = merged;
           nodes.erase(nodes.begin() + j);
           --j;
         }
