@@ -378,13 +378,8 @@ class TensorFunctionVariable(FunctionVariable):
             )
         return self.graph.call_tensor_method(self.method_name, *args, **kwargs)
 
-    def bind(self, instance: VariableBase, name: str):
-        method_var = MethodVariable(
-            instance,
-            self,
-            graph=self.graph,
-            tracker=GetAttrTracker(instance, name),
-        )
+    def bind_dangling_fn(self, instance: VariableBase, name: str):
+        method_var = self.bind(instance, name)
         class_var = VariableFactory.from_value(
             instance.get_py_type(),
             graph=self.graph,
