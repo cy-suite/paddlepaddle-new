@@ -18,6 +18,7 @@ import tensorrt as trt
 from paddle.tensorrt.converter_utils import (
     WithFp16,
     get_trt_plugin,
+    set_layer_name,
     unary_op_converter,
 )
 from paddle.tensorrt.register import converter_registry
@@ -91,7 +92,8 @@ def roi_align_converter(network, paddle_op, inputs):
         ),
         trt.PluginField(
             "aligned",
-            np.array(aligned, dtype=np.bool),
+            np.array(aligned, dtype=np.bool_),
+            trt.PluginFieldType.INT32,
         ),
     ]
     plugin_field_collection = trt.PluginFieldCollection(plugin_fields)
@@ -102,6 +104,7 @@ def roi_align_converter(network, paddle_op, inputs):
     )
     roi_align_inputs = [x, rois]
     roi_align_layer = network.add_plugin_v2(roi_align_inputs, plugin)
+    set_layer_name(roi_align_layer, paddle_op)
     return roi_align_layer.get_output(0)
 
 
@@ -117,9 +120,7 @@ def YoloBoxOpConverter(network, paddle_op, inputs):
     iou_aware = paddle_op.attrs().get("iou_aware")
     iou_aware_factor = paddle_op.attrs().get("iou_aware_factor")
     type_id = int(WithFp16())
-    input_dim = x.shape
-    input_h = input_dim[2]
-    input_w = input_dim[3]
+    anchors = np.array(anchors, dtype=np.int32)
     plugin_fields = [
         trt.PluginField(
             "type_id",
@@ -128,7 +129,7 @@ def YoloBoxOpConverter(network, paddle_op, inputs):
         ),
         trt.PluginField(
             "anchors",
-            np.array(anchors, dtype=np.int32),
+            anchors,
             trt.PluginFieldType.INT32,
         ),
         trt.PluginField(
@@ -166,19 +167,9 @@ def YoloBoxOpConverter(network, paddle_op, inputs):
             np.array(iou_aware_factor, dtype=np.float32),
             trt.PluginFieldType.FLOAT32,
         ),
-        trt.PluginField(
-            "h",
-            np.array(input_h, dtype=np.int32),
-            trt.PluginFieldType.INT32,
-        ),
-        trt.PluginField(
-            "w",
-            np.array(input_w, dtype=np.int32),
-            trt.PluginFieldType.INT32,
-        ),
     ]
     plugin_field_collection = trt.PluginFieldCollection(plugin_fields)
-    plugin_name = "pir_yolo_box_plugin"
+    plugin_name = "yolo_box_plugin_dynamic"
     plugin_version = "1"
     plugin = get_trt_plugin(
         plugin_name, plugin_field_collection, plugin_version
@@ -186,6 +177,7 @@ def YoloBoxOpConverter(network, paddle_op, inputs):
 
     yolo_box_inputs = [x, imgSize]
     yolo_box_layer = network.add_plugin_v2(yolo_box_inputs, plugin)
+    set_layer_name(yolo_box_layer, paddle_op)
     out0 = yolo_box_layer.get_output(0)
     out1 = yolo_box_layer.get_output(1)
     return (out0, out1)
@@ -266,4 +258,5 @@ def deformable_conv_converter(network, paddle_op, inputs):
     deformable_conv_layer = network.add_plugin_v2(
         [inputs[0], inputs[1], inputs[3]], plugin
     )
+    set_layer_name(deformable_conv_layer, paddle_op)
     return deformable_conv_layer.get_output(0)

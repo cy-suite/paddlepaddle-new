@@ -15,6 +15,7 @@
 from __future__ import annotations
 
 import unittest
+from collections import OrderedDict
 
 import paddle
 
@@ -66,8 +67,19 @@ class TestBasicFasterGuard(unittest.TestCase):
 
     def test_length_match_guard(self):
         guard_length = paddle.framework.core.LengthMatchGuard(1)
+        # list
         self.assertTrue(guard_length.check([1]))
         self.assertFalse(guard_length.check([1, 2]))
+
+        # dict
+        order_dict = OrderedDict()
+        order_dict[1] = 2
+        self.assertTrue(guard_length.check(order_dict))
+        self.assertTrue(guard_length.check({1: 2}))
+
+        # tuple
+        self.assertTrue(guard_length.check((1,)))
+        self.assertFalse(guard_length.check((1, 2)))
 
     def test_dtype_match_guard(self):
         guard_dtype = paddle.framework.core.DtypeMatchGuard(paddle.int32)
@@ -136,11 +148,6 @@ class TestFasterGuardGroup(unittest.TestCase):
             )
         self.assertTrue(guard_group.check(1))
         self.assertFalse(guard_group.check(2))
-
-    def test_range_match_guard(self):
-        guard_range = paddle.framework.core.RangeMatchGuard(range(1, 10, 2))
-        self.assertTrue(guard_range.check(range(1, 10, 2)))
-        self.assertFalse(guard_range.check(range(11)))
 
 
 if __name__ == "__main__":

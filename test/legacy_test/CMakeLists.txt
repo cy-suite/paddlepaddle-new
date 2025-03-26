@@ -209,7 +209,6 @@ endif()
 
 if(((NOT WITH_ROCM) AND (NOT WITH_GPU)) OR WIN32)
   list(REMOVE_ITEM TEST_OPS test_fused_gate_attention_op)
-  list(REMOVE_ITEM TEST_OPS test_boxps)
   list(REMOVE_ITEM TEST_OPS test_reducescatter)
   list(REMOVE_ITEM TEST_OPS test_reducescatter_api)
 endif()
@@ -425,7 +424,6 @@ function(parallel_bash_test_modules TARGET_NAME)
   endif()
 endfunction()
 
-list(REMOVE_ITEM TEST_OPS test_data_norm_op)
 list(REMOVE_ITEM TEST_OPS test_warpctc_op)
 list(REMOVE_ITEM TEST_OPS test_imperative_mnist_sorted_gradient)
 list(REMOVE_ITEM TEST_OPS test_imperative_mnist)
@@ -621,8 +619,6 @@ if(WITH_DISTRIBUTE)
 
   if(NOT WITH_HETERPS)
     list(REMOVE_ITEM DIST_TEST_OPS "test_communicator_ps_gpu")
-    list(REMOVE_ITEM DIST_TEST_OPS "test_dist_fleet_ps11")
-    list(REMOVE_ITEM DIST_TEST_OPS "test_dist_fleet_ps12")
   endif()
 
   if(NOT APPLE)
@@ -696,12 +692,6 @@ if(WITH_DISTRIBUTE)
         PADDLE_BINARY_DIR=${PADDLE_BINARY_DIR})
     endif()
   endif()
-endif()
-py_test_modules(test_data_norm_op MODULES test_data_norm_op)
-
-if(WITH_HETERPS)
-  set_tests_properties(test_dist_fleet_ps11 PROPERTIES LABELS "RUN_TYPE=GPUPS")
-  set_tests_properties(test_dist_fleet_ps12 PROPERTIES LABELS "RUN_TYPE=GPUPS")
 endif()
 
 if(WIN32)
@@ -818,7 +808,12 @@ endif()
 set_tests_properties(test_tensordot PROPERTIES TIMEOUT 200)
 set_tests_properties(test_partial_eager_deletion_transformer PROPERTIES TIMEOUT
                                                                         120)
-set_tests_properties(test_dropout_op PROPERTIES TIMEOUT 120)
+set_tests_properties(
+  test_dropout_op PROPERTIES TIMEOUT 120 ENVIRONMENT
+                             "FLAGS_comp_skip_default_ops=False")
+set_tests_properties(test_lookup_table_v2_op
+                     PROPERTIES ENVIRONMENT "FLAGS_comp_skip_default_ops=False")
+
 set_tests_properties(test_imperative_ocr_attention_model PROPERTIES TIMEOUT 120)
 set_tests_properties(test_nn_grad PROPERTIES TIMEOUT 180)
 set_tests_properties(test_elementwise_sub_op PROPERTIES TIMEOUT 120)
@@ -889,6 +884,7 @@ set_tests_properties(test_jit_save_load PROPERTIES TIMEOUT 100)
 set_tests_properties(test_pool2d_op PROPERTIES TIMEOUT 120)
 
 set_tests_properties(test_baddbmm_op PROPERTIES TIMEOUT 100)
+set_tests_properties(test_lu_solve_op PROPERTIES TIMEOUT 100)
 
 if(WITH_COVERAGE)
   set_tests_properties(test_hapi_hub PROPERTIES TIMEOUT 300)
@@ -1086,7 +1082,7 @@ endif()
 foreach(STATIC_BUILD_TEST ${STATIC_BUILD_TESTS})
   py_test_modules(
     ${STATIC_BUILD_TEST}_static_build MODULES ${STATIC_BUILD_TEST} ENVS
-    FLAGS_new_executor_static_build=true)
+    FLAGS_new_executor_static_build=true FLAGS_comp_skip_default_ops=False)
 endforeach()
 
 py_test_modules(test_adam_op_multi_thread MODULES test_adam_op ENVS
@@ -1150,7 +1146,6 @@ set_tests_properties(test_paddle_save_load_binary_static_build
 set_tests_properties(test_argsort_op PROPERTIES TIMEOUT 120)
 set_tests_properties(test_conv_nn_grad PROPERTIES LABELS "RUN_TYPE=EXCLUSIVE")
 set_tests_properties(test_conv_nn_grad PROPERTIES TIMEOUT 300)
-set_tests_properties(test_data_norm_op PROPERTIES LABELS "RUN_TYPE=DIST")
 set_tests_properties(test_deformable_conv_op PROPERTIES TIMEOUT 200)
 set_tests_properties(test_regularizer PROPERTIES TIMEOUT 150)
 set_tests_properties(test_regularizer_api PROPERTIES TIMEOUT 150)

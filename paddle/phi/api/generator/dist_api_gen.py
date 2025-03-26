@@ -19,12 +19,12 @@ import re
 import yaml
 from api_base import PREFIX_TENSOR_NAME
 from api_gen import (
+    BackwardAPI,
     ForwardAPI,
     api_namespace,
     backward_api_black_list,
     declare_extension_api,
     header_include,
-    manual_impl,
     source_include,
 )
 
@@ -90,11 +90,17 @@ NCCL_COMMCONTEXT_INIT = """
     auto store = phi::distributed::CreateOrGetGlobalTCPStore();
     CREATE_COMM_CONTEXT(store, std::to_string(ring_id), rank, nranks);
   }}
+#elif defined(PADDLE_WITH_CUSTOM_DEVICE)
+  const auto & comm_context_manager_ = phi::distributed::CommContextManager::GetInstance();
+  if (nranks > 1 && !comm_context_manager_.Has(std::to_string(ring_id))) {{
+    auto store = phi::distributed::CreateOrGetGlobalTCPStore();
+    CREATE_COMM_CONTEXT(store, std::to_string(ring_id), phi::distributed::GetDefaultPlace(), rank, nranks);
+  }}
 #endif
 """
 
 SET_NCCL_COMMCONTEXT = """
-#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || defined(PADDLE_WITH_XPU_BKCL)
+#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || defined(PADDLE_WITH_XPU_BKCL) || defined(PADDLE_WITH_CUSTOM_DEVICE)
   const auto & comm_context_manager = phi::distributed::CommContextManager::GetInstance();
   COMM_CONTEXT* comm_context = nullptr;
   if (comm_context_manager.Has(std::to_string(ring_id))) {{
@@ -107,8 +113,19 @@ SET_NCCL_COMMCONTEXT = """
             "NCCLCommContext is nullptr, collective op should "
             "has ring_id(%d) attr.",
             std::to_string(ring_id)));
-    if (!comm_context->GetDevContext() || !comm_context->GetDevContext()->GetCommContext())
-    {{
+    #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || defined(PADDLE_WITH_XPU_BKCL)
+        if (!comm_context->GetDevContext() || !comm_context->GetDevContext()->GetCommContext())
+        {{
+            auto kernel_res = phi::KernelFactory::Instance().SelectKernelOrThrowError(
+            "{}", {{kernel_backend, kernel_layout, kernel_data_type}}, true);
+            if (FLAGS_low_precision_op_list) {{
+            phi::KernelFactory::Instance().AddToLowPrecisionKernelList("{}", kernel_data_type);
+            }}
+            Backend act_kernel_backend = kernel_res.has_fallback_cpu ? Backend::CPU : kernel_backend;
+            auto* dev_context = GetDeviceContextByBackend(act_kernel_backend);
+            dev_context->SetCommContext(comm_context);
+        }}
+    #elif defined(PADDLE_WITH_CUSTOM_DEVICE)
         auto kernel_res = phi::KernelFactory::Instance().SelectKernelOrThrowError(
             "{}", {{kernel_backend, kernel_layout, kernel_data_type}}, true);
         if (FLAGS_low_precision_op_list) {{
@@ -117,7 +134,7 @@ SET_NCCL_COMMCONTEXT = """
         Backend act_kernel_backend = kernel_res.has_fallback_cpu ? Backend::CPU : kernel_backend;
         auto* dev_context = GetDeviceContextByBackend(act_kernel_backend);
         dev_context->SetCommContext(comm_context);
-    }}
+    #endif
   }}
 #endif
 """
@@ -1384,7 +1401,9 @@ class DistForwardAPI(ForwardAPI):
         return NCCL_COMMCONTEXT_INIT.format(self.kernel['func'][0])
 
     def generate_set_nccl_commcontext_code(self) -> str:
-        return SET_NCCL_COMMCONTEXT.format(self.kernel['func'][0], self.api)
+        return SET_NCCL_COMMCONTEXT.format(
+            self.kernel['func'][0], self.api, self.kernel['func'][0], self.api
+        )
 
     def generate_reshard_input_code(self) -> str:
         input_reshard_code = ""
@@ -2073,6 +2092,18 @@ class DistForwardAPI(ForwardAPI):
             )
 
 
+class DistBackwardAPI(DistForwardAPI):
+
+    def gene_base_api_code(self, inplace_flag=False):
+        return BackwardAPI.gene_base_api_code(self, inplace_flag)
+
+    def gene_api_code(self):
+        return BackwardAPI.gene_api_code(self)
+
+    def gene_api_declaration(self):
+        return BackwardAPI.gene_api_declaration(self)
+
+
 def generate_api(
     api_yaml_path,
     is_fused_ops_yaml,
@@ -2097,11 +2128,20 @@ def generate_api(
     header_file.write(header_include())
     header_file.write(namespace[0])
 
-    include_header_file = (
-        "paddle/phi/api/include/fused_api.h"
-        if is_fused_ops_yaml is True
-        else "paddle/phi/api/include/api.h"
-    )
+    if not grad_flag:
+        include_header_file = (
+            '#include "paddle/phi/api/include/fused_api.h"'
+            if is_fused_ops_yaml is True
+            else '#include "paddle/phi/api/include/api.h"'
+        )
+    else:
+        include_header_file = (
+            '#include "paddle/phi/api/backward/fused_backward_api.h" \n'
+            '#include "paddle/phi/api/backward/fused_backward_api_base.h" '
+            if is_fused_ops_yaml is True
+            else '#include "paddle/phi/api/backward/backward_api.h" \n'
+            '#include "paddle/phi/api/backward/backward_api_base.h" '
+        )
     # not all fused ops support dygraph
     if is_fused_ops_yaml is True:
         new_apis = [
@@ -2116,7 +2156,11 @@ def generate_api(
     source_file.write(namespace[0])
 
     for api in apis:
-        dist_forward_api = DistForwardAPI(api)
+        if not grad_flag:
+            dist_forward_api = DistForwardAPI(api)
+        else:
+            dist_forward_api = DistBackwardAPI(api)
+
         if dist_forward_api.api in backward_api_black_list:
             continue
         if dist_forward_api.is_dygraph_api and not is_fused_ops_yaml:
@@ -2129,10 +2173,7 @@ def generate_api(
             dist_forward_api.is_dygraph_api = True
 
         header_file.write(dist_forward_api.gene_api_declaration())
-        if dist_forward_api.api not in ["embedding_grad", "cudnn_lstm_grad"]:
-            source_file.write(dist_forward_api.gene_api_code())
-    if not is_fused_ops_yaml and grad_flag:
-        source_file.write(manual_impl)
+        source_file.write(dist_forward_api.gene_api_code())
 
     header_file.write(namespace[1])
     source_file.write(namespace[1])
