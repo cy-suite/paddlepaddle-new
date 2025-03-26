@@ -74,15 +74,6 @@ ir::Expr GetRightOperand(const ir::Expr& expr) {
       ::common::errors::InvalidArgument("Not a supported reduce op: %s", expr));
 }
 
-void RemoveGridReduceAxisFromIfCondition(ir::Expr* expr) {
-  std::vector<ir::Expr> if_exprs = ir::ir_utils::CollectIRNodesInOrder(
-      *expr, [](const ir::Expr* x) { return x->As<ir::IfThenElse>(); });
-  for (auto& if_expr : if_exprs) {
-    auto& condition = if_expr.As<ir::IfThenElse>()->condition;
-    optim::ReplaceVarWithExpr(&condition, ir::Var("blockIdx.y"), ir::Expr(0));
-  }
-}
-
 struct BaseMutator : public ir::IRMutator<> {
   using ir::IRMutator<>::Visit;
   void operator()(ir::LoweredFunc fn) { Visit(fn.As<ir::_LoweredFunc_>()); }
@@ -259,18 +250,6 @@ struct CrossBlockReductionReplacer : public BaseMutator {
     }
     func_node->temp_bufs = local_bufs;
   }
-
-  ir::Tensor CreateLastBlockDoneTensor() {
-    if (is_done_tensor_.defined()) {
-      return is_done_tensor_;
-    }
-    const std::string name = "is_last_block_done";
-    const std::vector<ir::Expr> shape = {};
-    is_done_tensor_ = ir::_Tensor_::Make(name, common::Bool(), shape, shape);
-    is_done_tensor_->WithBuffer("local", "_" + name + "_temp_buffer");
-    return is_done_tensor_;
-  }
-
   ir::Expr GetBlockBindedSpatialLoopExtend(
       const ir::ScheduleBlockRealize* block_realize) {
     const std::unordered_set<std::string> reduce_var_names =
@@ -312,23 +291,9 @@ struct CrossBlockReductionReplacer : public BaseMutator {
     return loop_extends[0];
   }
 
-  ir::Expr CreateSemaphoreUpdateStmt(
-      const std::vector<ir::Expr>& semaphore_shape) {
-    const std::string name = "semaphore";
-    ir::Tensor semaphore = ir::_Tensor_::Make(
-        name, common::Int(32), semaphore_shape, semaphore_shape);
-    semaphore->WithBuffer("global", "_" + name);
-    semaphore_buffer_ = semaphore->buffer;
-    ir::Expr update_semaphore =
-        lang::CallExtern("cinn_grid_reduce_update_semaphore", {semaphore});
-    ir::Tensor is_done = CreateLastBlockDoneTensor();
-    return ir::Store::Make(is_done, update_semaphore, /* indices= */ {});
-  }
-
-  ir::Expr WrapInLastBlockDone(ir::Expr* op) {
-    ir::Tensor is_done = CreateLastBlockDoneTensor();
-    ir::Expr load_is_done = ir::Load::Make(is_done, /* indices= */ {});
-    return ir::IfThenElse::Make(load_is_done, *op);
+  ir::Expr CreateCoogroupUpdateStmt() {
+    ir::Expr update_semaphore =lang::CallExtern("cooperative_groups_sync", {});
+    return update_semaphore;
   }
 
   void ReplaceByGridReduceExternCall(const ir::ScheduleBlock* schedule_block,
@@ -391,8 +356,6 @@ struct CrossBlockReductionReplacer : public BaseMutator {
     }
 
     ConvertHeapBuffersToFuncArgs(fn);
-    InsertTempSpaceToFuncArgs(fn, semaphore_buffer_, true);
-    fn->temp_bufs.push_back(is_done_tensor_->buffer);
   }
 
   void Visit(const ir::ScheduleBlockRealize* expr, ir::Expr* op) override {
@@ -406,33 +369,19 @@ struct CrossBlockReductionReplacer : public BaseMutator {
 
     if (!IsGridReduce(expr)) {
       if (is_after_grid_reduce_) {
-        // For trivial ops that are after grid reduce, we need to remove the
-        // `blockIdx.y` axis from their if conditions, otherwise they may not
-        // be executed in the last done block.
-        // TODO(liangshuhao): we won't need to remove `blockIdx.y` when we
-        // switch to use cooperative groups.
         ir::Expr root_compute_body = cur_loops_[0]->body;
-        RemoveGridReduceAxisFromIfCondition(&root_compute_body);
-        *op = WrapInLastBlockDone(op);
       }
       return;
     }
 
-    // Create the `is_last_block_done = update_semaphore()` statement if we
-    // are at the first grid reduce. Later schedule blocks will use the same
-    // `is_last_block_done` value.
     if (!is_after_grid_reduce_) {
-      ir::Expr num_spatial_blocks = GetBlockBindedSpatialLoopExtend(expr);
-      ir::Expr semaphore_update_stmt =
-          CreateSemaphoreUpdateStmt({num_spatial_blocks});
-      cur_parent_block_stmts_.push_back(semaphore_update_stmt);
+      ir::Expr cooperative_groups_sync_stmt =CreateCoogroupUpdateStmt();
+      cur_parent_block_stmts_.push_back(cooperative_groups_sync_stmt);
       is_after_grid_reduce_ = true;
     }
 
     ir::Expr num_spatial_threads = GetThreadBindedSpatialLoopExtend(expr);
     ReplaceByGridReduceExternCall(schedule_block, num_spatial_threads);
-
-    *op = WrapInLastBlockDone(op);
   }
 
   void Visit(const ir::Block* block, ir::Expr* op) override {
@@ -451,8 +400,6 @@ struct CrossBlockReductionReplacer : public BaseMutator {
  private:
   std::vector<ir::Expr> cur_parent_block_stmts_;
   std::unordered_set<std::string> func_arg_buffer_names_;
-  ir::Tensor is_done_tensor_;
-  ir::Buffer semaphore_buffer_;
   bool is_after_grid_reduce_{false};
 };
 
