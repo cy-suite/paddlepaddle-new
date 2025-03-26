@@ -209,20 +209,6 @@ class Pipeline1F1BPass(PipelinePassBase):
             not enable_send_recv_overlap
         ), "PIR does not support 1F1B with enable_send_recv_overlap yet."
 
-        types = [
-            self.RECV_FORWARD,
-            self.FORWARD,
-            self.BACKWARD,
-            self.SEND_BACKWARD,
-            self.OPT,
-        ]
-
-    def _partial_pir_programs(self, program):
-        enable_send_recv_overlap = self.get_attr("enable_send_recv_overlap")
-        assert (
-            not enable_send_recv_overlap
-        ), "PIR does not support 1F1B with enable_send_recv_overlap yet."
-
         self._overlap_send_recv(program)
         forward_complete_op_role(program)
 
@@ -323,6 +309,28 @@ class Pipeline1F1BPass(PipelinePassBase):
             f"jobs_in_stable_phase = {self.jobs_in_stable_phase_in_pir}"
         )
         return job_types, sub_program_list
+
+    def _split_program_for_overlapping(self, job_type, program, split_points):
+        assert job_type in [
+            self.FORWARD,
+            self.BACKWARD,
+        ], f"job_type should be one of {[self.FORWARD, self.BACKWARD]}"
+
+        split_programs, __, __ = split_program(program, split_points)
+
+        split_job_types = []
+        num_split_programs = len(split_programs)
+        for idx in range(num_split_programs):
+            split_job_types.append(f"{job_type}(chunk{idx})")
+
+        return split_job_types, split_programs
+
+    def is_comm_op_valid_to_overlap(self, op):
+        return (
+            op.type == "c_allreduce_sum"
+            and op.dist_attr.execution_stream
+            == AutoParallelStreamType.CALC_STREAM.value
+        )
 
     def _handle_func(
         self,
@@ -426,25 +434,3 @@ class Pipeline1F1BPass(PipelinePassBase):
         cur_place = paddle.base.libpaddle.Place()
         cur_place.set_place(place)
         return cur_place
-
-    def _split_program_for_overlapping(self, job_type, program, split_points):
-        assert job_type in [
-            self.FORWARD,
-            self.BACKWARD,
-        ], f"job_type should be one of {[self.FORWARD, self.BACKWARD]}"
-
-        split_programs, __, __ = split_program(program, split_points)
-
-        split_job_types = []
-        num_split_programs = len(split_programs)
-        for idx in range(num_split_programs):
-            split_job_types.append(f"{job_type}(chunk{idx})")
-
-        return split_job_types, split_programs
-
-    def is_comm_op_valid_to_overlap(self, op):
-        return (
-            op.type == "c_allreduce_sum"
-            and op.dist_attr.execution_stream
-            == AutoParallelStreamType.CALC_STREAM.value
-        )
