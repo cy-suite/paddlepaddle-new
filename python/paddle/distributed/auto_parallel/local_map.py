@@ -23,8 +23,6 @@ from paddle.utils import flatten, pack_sequence_as
 if TYPE_CHECKING:
     from paddle.distributed import ProcessMesh
 
-__all__ = ["local_map"]
-
 
 def local_map(
     func: Callable,
@@ -154,7 +152,7 @@ def local_map(
         seen_dist_tensor = False
 
         for idx, arg in enumerate(flat_dist_args):
-            if dist.auto_parallel.api._is_distributed_tensor(arg):
+            if dist.auto_parallel.api.is_dist_tensor(arg):
                 dist_tensor = arg
                 if process_mesh is None:
                     if paddle.in_dynamic_mode():
@@ -220,7 +218,7 @@ def local_map(
             for out, out_placement in zip(flat_out, out_placements):
                 if paddle.in_dynamic_mode():
                     if isinstance(out, paddle.Tensor):
-                        assert not dist.auto_parallel.api._is_distributed_tensor(
+                        assert not dist.auto_parallel.api.is_dist_tensor(
                             out
                         ), f"Expected dense tensor output but got {type(out)}: {out}"
 
@@ -237,7 +235,7 @@ def local_map(
                         flat_dist_and_arg_out.append(out)
                 else:
                     if isinstance(out, paddle.base.libpaddle.pir.Value):
-                        assert not dist.auto_parallel.api._is_distributed_tensor(
+                        assert not dist.auto_parallel.api.is_dist_tensor(
                             out
                         ), f"Expected dense tensor output but got {type(out)}: {out}"
 

@@ -1061,7 +1061,7 @@ def shard_layer(
         )
 
 
-def _is_distributed_tensor(tensor) -> bool:
+def is_dist_tensor(tensor) -> bool:
     """
     Check if an input is a dist_tensor in both dynamic and static modes.
 
