@@ -35,7 +35,6 @@ from ...utils import (
     ENV_MIN_GRAPH_SIZE,
     ENV_SOT_FORCE_FALLBACK_SIR_IDS,
     BreakGraphError,
-    BuiltinFunctionBreak,
     FallbackError,
     InnerError,
     SotUndefinedVar,
@@ -800,8 +799,31 @@ class OpcodeExecutorBase:
     def LOAD_SUPER_ATTR(self, instr: Instruction):
         # This bytecode is for Python 3.12+, and it will break graph in Python 3.11-.
         # We align it's behavior with Python 3.11-.
-        raise BreakGraphError(
-            BuiltinFunctionBreak(reason_str="call super is not supported")
+
+        assert isinstance(instr.arg, int)
+
+        name_idx = instr.arg >> 2  # Name index in co_names
+        is_method = bool(instr.arg & 1)  # Method binding flag
+
+        args = self.stack.pop_n(2)
+        super_func = self.stack.pop()
+        self.stack.push(super_func(*args))
+
+        attr_name = self.vframe.code.co_names[name_idx]
+
+        if is_method:
+            # Handle method binding
+            self.load_method(attr_name)
+            return
+
+        # Handle attribute lookup
+        attr_name_var = ConstantVariable.wrap_literal(attr_name, self._graph)
+        obj = self.stack.pop()
+
+        self.stack.push(
+            BuiltinVariable(
+                getattr, graph=self._graph, tracker=DanglingTracker()
+            )(obj, attr_name_var)
         )
 
     def LOAD_CONST(self, instr: Instruction):
