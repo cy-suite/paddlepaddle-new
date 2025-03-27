@@ -491,6 +491,7 @@ class DataParallelOptimizationPass(PassBase):
 
             allreduce_op = block.ops[group.allreduce_op_idx]
             assert allreduce_op.type in [
+                'all_reduce',
                 'c_allreduce_avg',
                 'c_allreduce_sum',
             ], f"should found c_allreduce_avg or c_allreduce_sum op but found {allreduce_op}"
