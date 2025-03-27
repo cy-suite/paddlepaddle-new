@@ -230,73 +230,73 @@ jobs:
     #     echo "Pull upstream develop"
     #     git pull upstream develop --no-edit
 
-    # - name: Check docker image and run container
-    #   env:
-    #     CACHE_DIR: "/root/.cache/coverage"
-    #     CCACHE_DIR: "/root/.ccache/coverage"
-    #     FLAGS_fraction_of_gpu_memory_to_use: 0.15
-    #     CTEST_PARALLEL_LEVEL: 2
-    #     WITH_GPU: "ON"
-    #     CUDA_ARCH_NAME: Volta
-    #     WITH_AVX: "ON"
-    #     WITH_COVERAGE: "ON"
-    #     COVERALLS_UPLOAD: "ON"
-    #     PADDLE_VERSION: 0.0.0
-    #     WITH_DISTRIBUTE: "ON"
-    #     PRECISION_TEST: "ON"
-    #     WITH_UNITY_BUILD: "ON"
-    #     PY_VERSION: 3.9
-    #     WITH_SHARED_PHI: "ON"
-    #     WITH_CINN: "ON"
-    #     INFERENCE_DEMO_INSTALL_DIR: /root/.cache/coverage
-    #     CCACHE_MAXSIZE: 200G
-    #     CCACHE_LIMIT_MULTIPLE: 0.8
-    #     FLAGS_PIR_OPTEST: "TRUE"
-    #     ON_INFER: "ON"
-    #     COVERAGE_FILE: ${PADDLE_ROOT}/build/python-coverage.data
-    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    #     GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    #   run: |
-    #     container_name=${TASK}-test-$(date +%s)
-    #     echo "container_name=${container_name}" >> ${{ github.env }}
-    #     docker run -d -t --gpus all --name ${container_name} \
-    #       -v "/home/data/cfs:/home/data/cfs" \
-    #       -v "/home/data/cfs/.cache:/root/.cache" \
-    #       -v "/home/data/cfs/.ccache:/root/.ccache" \
-    #       -v "/dev/shm:/dev/shm" \
-    #       -v "${{ github.workspace }}/../../../..:${{ github.workspace }}/../../../.." \
-    #       -e BRANCH \
-    #       -e PR_ID \
-    #       -e COMMIT_ID \
-    #       -e work_dir \
-    #       -e PADDLE_ROOT \
-    #       -e GIT_PR_ID \
-    #       -e CACHE_DIR \
-    #       -e CCACHE_DIR \
-    #       -e ci_scripts \
-    #       -e FLAGS_fraction_of_gpu_memory_to_use \
-    #       -e CTEST_PARALLEL_LEVEL \
-    #       -e WITH_GPU \
-    #       -e CUDA_ARCH_NAME \
-    #       -e WITH_AVX \
-    #       -e WITH_COVERAGE \
-    #       -e COVERALLS_UPLOAD \
-    #       -e PADDLE_VERSION \
-    #       -e WITH_DISTRIBUTE \
-    #       -e PRECISION_TEST \
-    #       -e WITH_UNITY_BUILD \
-    #       -e PY_VERSION \
-    #       -e WITH_SHARED_PHI \
-    #       -e WITH_CINN \
-    #       -e INFERENCE_DEMO_INSTALL_DIR \
-    #       -e CCACHE_MAXSIZE \
-    #       -e CCACHE_LIMIT_MULTIPLE \
-    #       -e FLAGS_PIR_OPTEST \
-    #       -e ON_INFER \
-    #       -e COVERAGE_FILE \
-    #       -e GITHUB_TOKEN \
-    #       -e GITHUB_API_TOKEN \
-    #       -w ${{ github.workspace }} --network host ${docker_image}
+    - name: Check docker image and run container
+      env:
+        CACHE_DIR: "/root/.cache/coverage"
+        CCACHE_DIR: "/root/.ccache/coverage"
+        FLAGS_fraction_of_gpu_memory_to_use: 0.15
+        CTEST_PARALLEL_LEVEL: 2
+        WITH_GPU: "ON"
+        CUDA_ARCH_NAME: Volta
+        WITH_AVX: "ON"
+        WITH_COVERAGE: "ON"
+        COVERALLS_UPLOAD: "ON"
+        PADDLE_VERSION: 0.0.0
+        WITH_DISTRIBUTE: "ON"
+        PRECISION_TEST: "ON"
+        WITH_UNITY_BUILD: "ON"
+        PY_VERSION: 3.9
+        WITH_SHARED_PHI: "ON"
+        WITH_CINN: "ON"
+        INFERENCE_DEMO_INSTALL_DIR: /root/.cache/coverage
+        CCACHE_MAXSIZE: 200G
+        CCACHE_LIMIT_MULTIPLE: 0.8
+        FLAGS_PIR_OPTEST: "TRUE"
+        ON_INFER: "ON"
+        COVERAGE_FILE: ${PADDLE_ROOT}/build/python-coverage.data
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        container_name=${TASK}-test-$(date +%s)
+        echo "container_name=${container_name}" >> ${{ github.env }}
+        docker run -d -t --gpus all --name ${container_name} \
+          -v "/home/data/cfs:/home/data/cfs" \
+          -v "/home/data/cfs/.cache:/root/.cache" \
+          -v "/home/data/cfs/.ccache:/root/.ccache" \
+          -v "/dev/shm:/dev/shm" \
+          -v "${{ github.workspace }}/../../../..:${{ github.workspace }}/../../../.." \
+          -e BRANCH \
+          -e PR_ID \
+          -e COMMIT_ID \
+          -e work_dir \
+          -e PADDLE_ROOT \
+          -e GIT_PR_ID \
+          -e CACHE_DIR \
+          -e CCACHE_DIR \
+          -e ci_scripts \
+          -e FLAGS_fraction_of_gpu_memory_to_use \
+          -e CTEST_PARALLEL_LEVEL \
+          -e WITH_GPU \
+          -e CUDA_ARCH_NAME \
+          -e WITH_AVX \
+          -e WITH_COVERAGE \
+          -e COVERALLS_UPLOAD \
+          -e PADDLE_VERSION \
+          -e WITH_DISTRIBUTE \
+          -e PRECISION_TEST \
+          -e WITH_UNITY_BUILD \
+          -e PY_VERSION \
+          -e WITH_SHARED_PHI \
+          -e WITH_CINN \
+          -e INFERENCE_DEMO_INSTALL_DIR \
+          -e CCACHE_MAXSIZE \
+          -e CCACHE_LIMIT_MULTIPLE \
+          -e FLAGS_PIR_OPTEST \
+          -e ON_INFER \
+          -e COVERAGE_FILE \
+          -e GITHUB_TOKEN \
+          -e GITHUB_API_TOKEN \
+          -w ${{ github.workspace }} --network host ${docker_image}
 
     # - name: Test
     #   run: |
@@ -308,7 +308,7 @@ jobs:
 
     - name: Check coverage data
       run: |
-        docker exec -t paddle-CI-71611-coverage-test-1742957347 /bin/bash -c '
+        docker exec -t ${{ env.container_name }} /bin/bash -c '
         . ../../../proxy
         source ${ci_scripts}/utils.sh; check_coverage
         EXIT_CODE=$?
@@ -329,6 +329,6 @@ jobs:
     #   if: always()
     #   run: |
     #     set +e
-    #     docker exec -t ${{ env.container_name }} /bin/bash -c 'rm -rf * .[^.]*'
+    #     docker exec -t ${{ env.container_name }} /bin/bash -c 'rm -rf * .[^.]*; rm -rf $(ls |grep ^actions_github_pages)'
     #     docker stop ${{ env.container_name }}
     #     docker rm ${{ env.container_name }}
