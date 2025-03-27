@@ -14,6 +14,7 @@
 
 #include "paddle/cinn/optim/customized_reduce_pass.h"
 #include "paddle/cinn/hlir/pe/reduction.h"
+#include "paddle/cinn/ir/ir_printer.h"
 #include "paddle/cinn/ir/ir_mutator.h"
 #include "paddle/cinn/ir/stmt_visitors.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
@@ -39,6 +40,11 @@ enum CustomizedReduceType {
   Invalid = 0x0,
   Welford = 0x1,
   ArgIdx  = 0x2,         // index type i32
+  NumReduceType
+};
+
+constexpr std::array<const char*, NumReduceType> REDUCE_TYPE_NAMES_ = {
+  "Unsupported", "Welford Variance", "Arg Reduce"
 };
 
 CustomizedReduceType GetCustomizedReduceType(const ir::Expr& expr) {
@@ -76,7 +82,7 @@ CustomizedReduceType DetermineReduceType(const BlockRef& body) {
   // the blockref can only have one unique reduce type
   // TODO(heqianyue): check what would happen if var and arg reduce is fused
   const auto VisitFn = [&rtype](const StmtRef& stmt) {
-    if (rtype != CustomizedReduceType::Invalid && !stmt.isa<Store>()) return;
+    if (rtype != CustomizedReduceType::Invalid || !stmt.isa<Store>()) return;
     Store store_stmt = stmt.as<Store>();
     auto type = GetCustomizedReduceType(store_stmt->value());
     if (type != CustomizedReduceType::Invalid) {
@@ -121,8 +127,8 @@ Type GetCustomizedType(
     case CustomizedReduceType::ArgIdx: {
       type_bits = elem_type.bits() + aux_type.bits();
       rtype_name = "argidx" + 
-                hlir::pe::Type2StrForReduce(elem_type) +
-                hlir::pe::Type2StrForReduce(aux_type);
+                hlir::pe::Type2StrForArgReduce(elem_type) +
+                hlir::pe::Type2StrForArgReduce(aux_type);
       break;
     }
   default:
@@ -300,9 +306,12 @@ void SetBufferType(ir::LoweredFunc func,
                    ) {
   // Make a map from the buffers to their element types, otherwise it's hard to
   // know a buffer's original type.
+
+  VLOG(4) << "Setting buffer type. Reduce type: " << REDUCE_TYPE_NAMES_[(int)reduce_type];
   std::map<ir::Buffer, ir::Type> buffer2type;
   for (auto& buffer : buffers) {
     buffer2type.emplace(buffer, buffer->dtype);
+    VLOG(4) << "customized buffer: " << buffer->name << ", type: " << buffer->dtype;
   }
 
   // Set function's temp_bufs type
@@ -319,6 +328,7 @@ void SetBufferType(ir::LoweredFunc func,
     auto* tensor = store_stmt->tensor().as_tensor();
     auto& buffer = tensor->buffer;
 
+    VLOG(4) << "Buffer: " << buffer->name << ", tensor: " << tensor->name;
     // Set store buffer type
     auto it = buffer2type.find(buffer);
     if (it != buffer2type.end()) {
@@ -331,17 +341,26 @@ void SetBufferType(ir::LoweredFunc func,
       // For reduce_init, also wrap the init value in the Welford type.
       // Only Welford reduce needs this step, the arg reduce init value is
       // already in set in the ast_gen.cc
-      if (ir::IsReduceInitTensorName(tensor->name) &&
-          reduce_type == CustomizedReduceType::Welford
-      ) {
+      if (ir::IsReduceInitTensorName(tensor->name)) {
         ir::Expr init_value = store_stmt->value();
-        store_stmt->set_value(
-            ir::Call::Make(new_type,
-                           new_type.customized_type(),
-                           {init_value, init_value, init_value},
-                           {},
-                           ir::CallType::Intrinsic)
-        );
+        if (reduce_type == CustomizedReduceType::Welford) {
+          store_stmt->set_value(
+              ir::Call::Make(new_type,
+                            new_type.customized_type(),
+                            {init_value, init_value, init_value},
+                            {},
+                            ir::CallType::Intrinsic)
+          );
+        } else if (reduce_type == CustomizedReduceType::ArgIdx) {
+          store_stmt->set_value(
+              ir::Call::Make(new_type,
+                            new_type.customized_type(),
+                            {init_value, ir::Expr(INT_MAX)},
+                            {},
+                            ir::CallType::Intrinsic)
+          );
+        }
+        // TODO(heqianyue): consider all branches
       }
     }
 
@@ -365,11 +384,11 @@ struct ReduceExternCallMutator : public ir::IRMutator<> {
     if (reduce_type_ == CustomizedReduceType::Invalid) return;
     ir::Expr lhs = op->read_args[0];
     ir::Expr rhs = op->read_args[1];
+    if (lhs.type() != rhs.type()) {
+      rhs = ir::Cast::Make(lhs.type(), rhs);
+    }
     if (reduce_type_ == CustomizedReduceType::Welford) {
       // replace cinn_reduce_variance to operator+
-      if (lhs.type() != rhs.type()) {
-        rhs = ir::Cast::Make(lhs.type(), rhs);
-      }
       *expr = ir::Add::Make(lhs, rhs);
     } else if (reduce_type_ == CustomizedReduceType::ArgIdx) {
       // replace cinn_argmxx_iyy to max or min (overloaded) 
@@ -397,6 +416,7 @@ void ReplaceReduceExternCall(const BlockRef& body) {
 }  // namespace
 
 LogicalResult CustomizedReducePass::Run(ir::LoweredFunc func) {
+  VLOG(4) << "In function CustomizedReducePass::Run";
   BlockRef body = func->body_block;
 
   // Step 1. Create a staging buffer for customized reduction result if it is
@@ -408,18 +428,27 @@ LogicalResult CustomizedReducePass::Run(ir::LoweredFunc func) {
   //   current CINN frontend cannot guarantee this, so we need to do staging by
   //   ourself if the expected yield_store is missing.
   StageReduceResultMutator mutator(func);
+  VLOG(4) << "\t[CustomizedReducePass] Staging Reduce mutator, starts...";
   mutator(body);
+  VLOG(4) << "\t[CustomizedReducePass] Staging Reduce mutator, completed. Reduce body: " << body;
 
   auto reduce_type = DetermineReduceType(body);
+  VLOG(4) << "\t[CustomizedReducePass] Reduce type determined. Reduce type: " << REDUCE_TYPE_NAMES_[(int)reduce_type];
   // Step 2. Collect buffers that are used for reduce computation.
   std::set<ir::Buffer> buffers = CollectReduceBuffers(body);
+
+  VLOG(4) << "\t[CustomizedReducePass] Reduce Buffer collected.";
 
   // Step 3. Change the data type of buffers to the corresponding type.
   SetBufferType(func, buffers, reduce_type);
 
+  VLOG(4) << "\t[CustomizedReducePass] Buffer type set.";
+
   // Step 4. Replace the `cinn_reduce_variance` calls to `operator+` in order to
   //   reuse the cross-thread/block reduction templates.
   ReplaceReduceExternCall(body);
+
+  VLOG(4) << "\t[CustomizedReducePass] ExternCalls replaced.";
 
   return LogicalResult::success();
 }

@@ -352,11 +352,11 @@ STRATEGY_FOR_REDUCE(reduce_prod,
                     pe::TwoStepBlockReduceProd,
                     pe::BlockShuffleReduceProd,
                     pe::ReduceProd);
-STRATEGY_FOR_REDUCE(reduce_max,
-                    ReduceMax,
-                    pe::TwoStepBlockReduceMax,
-                    pe::BlockShuffleReduceMax,
-                    pe::ReduceMax);
+// STRATEGY_FOR_REDUCE(reduce_max,
+//                     ReduceMax,
+//                     pe::TwoStepBlockReduceMax,
+//                     pe::BlockShuffleReduceMax,
+//                     pe::ReduceMax);
 STRATEGY_FOR_REDUCE(reduce_min,
                     ReduceMin,
                     pe::TwoStepBlockReduceMin,
@@ -373,7 +373,7 @@ STRATEGY_FOR_REDUCE(reduce_any,
                     pe::BlockShuffleReduceAny,
                     pe::ReduceAny);
 STRATEGY_FOR_REDUCE(variance, Variance, nullptr, nullptr, pe::Variance);
-STRATEGY_FOR_REDUCE(reduce_argmax, ReduceArgMax, nullptr, nullptr, pe::ReduceArgMax);
+STRATEGY_FOR_REDUCE(reduce_max, ReduceArgMax, nullptr, nullptr, pe::ReduceArgMax);
 STRATEGY_FOR_REDUCE(reduce_argmin, ReduceArgMin, nullptr, nullptr, pe::ReduceArgMin);
 
 STRATEGY_FOR_REDUCE_SYMBOLIC(reduce_sum,
@@ -386,11 +386,11 @@ STRATEGY_FOR_REDUCE_SYMBOLIC(reduce_prod,
                              pe::TwoStepBlockReduceProd,
                              pe::BlockShuffleReduceProd,
                              pe::ReduceProd);
-STRATEGY_FOR_REDUCE_SYMBOLIC(reduce_max,
-                             ReduceMax,
-                             pe::TwoStepBlockReduceMax,
-                             pe::BlockShuffleReduceMax,
-                             pe::ReduceMax);
+// STRATEGY_FOR_REDUCE_SYMBOLIC(reduce_max,
+//                              ReduceMax,
+//                              pe::TwoStepBlockReduceMax,
+//                              pe::BlockShuffleReduceMax,
+//                              pe::ReduceMax);
 STRATEGY_FOR_REDUCE_SYMBOLIC(reduce_min,
                              ReduceMin,
                              pe::TwoStepBlockReduceMin,
@@ -409,7 +409,7 @@ STRATEGY_FOR_REDUCE_SYMBOLIC(reduce_any,
 STRATEGY_FOR_REDUCE_SYMBOLIC(
     variance, Variance, nullptr, nullptr, pe::Variance);
 STRATEGY_FOR_REDUCE_SYMBOLIC(
-    reduce_argmax, ReduceArgMax, nullptr, nullptr, pe::ReduceArgMin);
+    reduce_max, ReduceArgMax, nullptr, nullptr, pe::ReduceArgMax);
 STRATEGY_FOR_REDUCE_SYMBOLIC(
     reduce_argmin, ReduceArgMin, nullptr, nullptr, pe::ReduceArgMin);
 
@@ -441,9 +441,9 @@ CINN_REGISTER_HELPER(reduce_ops) {
   CINN_REGISTER_REDUCTION(reduce_sum, ReduceSum);
   CINN_REGISTER_REDUCTION(reduce_prod, ReduceProd);
   CINN_REGISTER_REDUCTION(variance, Variance);
-  CINN_REGISTER_REDUCTION(reduce_argmax, ReduceArgMax);
+  CINN_REGISTER_REDUCTION(reduce_max, ReduceArgMax);
   CINN_REGISTER_REDUCTION(reduce_argmin, ReduceArgMin);
-  CINN_REGISTER_REDUCTION(reduce_max, ReduceMax);
+  // CINN_REGISTER_REDUCTION(reduce_max, ReduceMax);
   CINN_REGISTER_REDUCTION(reduce_min, ReduceMin);
 
 #undef CINN_REGISTER_REDUCTION

@@ -75,6 +75,7 @@ ir::LoweredFunc Optimize(ir::LoweredFunc fn,
     FuncPassManager func_pass_manager;
     func_pass_manager.AddPass(CreateCustomizedReducePass());
     func_pass_manager.AddPass(CreateReindexTransposeBufferPass());
+    VLOG(4) << "CustomizedReducePass is added.";
     func_pass_manager.Run(copied);
     VLOG(4) << "After Optimize CustomizedReduce and ReindexTransposeBuffer: "
             << copied;

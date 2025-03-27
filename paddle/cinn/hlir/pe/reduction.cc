@@ -115,9 +115,9 @@ std::string Type2StrForArgReduce(cinn::common::Type type) {
   } else if (type.is_float16()) {
     return "_fp16";
   } else if (type.is_int(32)) {
-    return "_int32";
+    return "_i32";
   } else if (type.is_int(64)) {
-    return "_int64";
+    return "_i64";
   } else if (type.is_uint(8)) {
     return "_u8";
   }
