@@ -210,7 +210,7 @@ def batch_norm_converter(network, paddle_op, inputs):
         assert (
             input_tensor.shape[1] != -1
         ), "Channel dim can't be dynamic for batch norm."
-    # For BatchNorm1d ,reshape 1d to 2d
+
     output_shape = input_tensor_shape
 
     if not network.has_implicit_batch_dimension and len(input_tensor_shape) < 4:
@@ -234,16 +234,18 @@ def batch_norm_converter(network, paddle_op, inputs):
             )
         set_layer_name(reshape_layer, paddle_op)
         input_tensor = reshape_layer.get_output(0)
-    # (self: tensorrt.tensorrt.INetworkDefinition, input: tensorrt.tensorrt.ITensor, mode: tensorrt.tensorrt.ScaleMode, shift: tensorrt.tensorrt.Weights = None, scale: tensorrt.tensorrt.Weights = None, power: tensorrt.tensorrt.Weights = None) -> tensorrt.tensorrt.IScaleLayer
+
     batch_norm_layer = network.add_scale(
         input_tensor, trt.ScaleMode.CHANNEL, bias, scale, power
     )
-    # For BatchNorm1d,reshape output back to 1d
     set_layer_name(batch_norm_layer, paddle_op)
-    refit_manager.set_mapping(bias_name, batch_norm_layer.name, RefitRole.SHIFT)
-    refit_manager.set_mapping(
-        scale_name, batch_norm_layer.name, RefitRole.SCALE
-    )
+    if isinstance(mean, trt.ITensor):
+        refit_manager.set_mapping(
+            bias_name, batch_norm_layer.name, RefitRole.SHIFT
+        )
+        refit_manager.set_mapping(
+            scale_name, batch_norm_layer.name, RefitRole.SCALE
+        )
 
     if not network.has_implicit_batch_dimension and len(output_shape) < 4:
         reshape_output_layer = network.add_shuffle(
