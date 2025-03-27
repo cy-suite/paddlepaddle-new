@@ -14,7 +14,9 @@
 
 #pragma once
 
+#ifdef PADDLE_WITH_FLASHATTN_V3
 #include "paddle/phi/backends/dynload/flashattnv3.h"
+#endif
 #include "paddle/phi/core/dense_tensor.h"
 #include "paddle/phi/core/platform/device_context.h"
 
