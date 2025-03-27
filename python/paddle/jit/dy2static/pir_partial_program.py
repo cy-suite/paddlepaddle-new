@@ -814,11 +814,10 @@ class PartialProgramLayer:
                     enable_cse=cse_is_enabled(),
                     enable_delete_assert_op=self._backend.is_cinn(),
                 )
-
                 # if-else pass
                 if self._backend.is_cinn():
                     paddle.base.libpaddle.pir.apply_cinn_pass(forward_program)
-                    paddle.base.libpaddle.pir.specify_input_dynamic_dim_from_triplet(
+                    paddle.base.libpaddle.pir.bind_symbolic_constraints(
                         forward_program, self._constraints
                     )
                 else:
@@ -915,14 +914,14 @@ class PartialProgramLayer:
                 )
                 if self._backend.is_cinn():
                     paddle.base.libpaddle.pir.apply_cinn_pass(forward_program)
-                    paddle.base.libpaddle.pir.specify_input_dynamic_dim_from_triplet(
+                    paddle.base.libpaddle.pir.bind_symbolic_constraints(
                         forward_program, self._constraints
                     )
                     init_backward_program_shape_analysis(
                         forward_program, backward_program
                     )
                     paddle.base.libpaddle.pir.apply_cinn_pass(backward_program)
-                    paddle.base.libpaddle.pir.specify_input_dynamic_dim_from_triplet(
+                    paddle.base.libpaddle.pir.bind_symbolic_constraints(
                         backward_program, self._constraints
                     )
                 else:

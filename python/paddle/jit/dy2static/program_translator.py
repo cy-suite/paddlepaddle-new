@@ -1225,7 +1225,8 @@ class ConcreteProgram:
         constraints = []
         for input_spec in input_specs:
             if len(input_spec.ranges):
-                constraints.append((input_spec.name, input_spec.ranges))
+                for range in input_spec.ranges:
+                    constraints.append((input_spec.name, range))
         return constraints
 
     @staticmethod

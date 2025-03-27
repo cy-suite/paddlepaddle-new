@@ -113,6 +113,7 @@ class MetaInfo:
         persistable,
         type,
         place,
+        spec_name=None,
         dist_info=None,
     ):
         assert (
@@ -126,7 +127,7 @@ class MetaInfo:
         self.dtype = dtype
         self.stop_gradient = stop_gradient
         self.dist_info = dist_info
-        self.spec_name = None
+        self.spec_name = spec_name
 
     def shape_with_special_symbol(
         self, dynamic_symbol: DynamicSymbolT = -1
@@ -137,7 +138,6 @@ class MetaInfo:
         ]
 
     def with_dynamic_axes(self, name: str, dynamic_axes: list[int]) -> MetaInfo:
-        self.spec_name = name
         shape = [
             SymbolicInt() if i in dynamic_axes else dim
             for i, dim in enumerate(self.shape)
@@ -150,6 +150,7 @@ class MetaInfo:
             self.persistable,
             self.type,
             self.place,
+            spec_name="MetaInfo_" + name,
             dist_info=self.dist_info,
         )
 

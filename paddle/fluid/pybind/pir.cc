@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/fluid/pybind/pir.h"
-#include "paddle/fluid/pybind/pir_utils.h"
-
 #include <Python.h>
 #include <algorithm>
 #include <iterator>
@@ -24,6 +21,10 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
+
+#include "paddle/common/errors.h"
+#include "paddle/fluid/pybind/pir.h"
+#include "paddle/fluid/pybind/pir_utils.h"
 
 #include "paddle/common/enforce.h"
 #include "paddle/common/flags.h"
@@ -3292,44 +3293,117 @@ void BindShapeConstraintIRAnalysis(pybind11::module *m) {
   m->def(
       "bind_symbolic_constraints",
       [](pir::Program *program, const py::handle &constraints) -> void {
+        // Check input is sequence
         if (!py::isinstance<py::sequence>(constraints)) {
-          throw py::type_error(
-              "The input constraints for bind_symbolic_constraints must be a "
-              "sequence.");
-        }
-        if (!py::len(constraints)) {
+          PADDLE_THROW(common::errors::InvalidArgument(
+              "constraints for SOT symbolic variables must be a sequence."));
           return;
         }
 
-        // from type 'list[tuple[str, tuple[int, int|None, int|None]]]' in
-        // python
+        const py::sequence constraints_seq =
+            py::cast<py::sequence>(constraints);
+        if (py::len(constraints_seq) == 0) {
+          return;
+        }
+
+        // Process constraints
         std::vector<
             std::tuple<std::string,
                        std::tuple<int, std::optional<int>, std::optional<int>>>>
             raw_constraints;
-        try {
-          for (const auto &constraint : constraints) {
-            std::string input_spec_name =
-                constraint[py::cast(0)].cast<std::string>();
-            auto triplet = constraint[py::cast(1)].cast<py::tuple>();
 
-            auto convert_optional =
-                [](const py::handle &h) -> std::optional<int> {
-              return h.is_none() ? std::nullopt
-                                 : std::make_optional(h.cast<int>());
-            };
-            raw_constraints.emplace_back(
-                std::move(input_spec_name),
-                std::make_tuple(triplet[0].cast<int>(),
-                                convert_optional(triplet[1]),
-                                convert_optional(triplet[2])));
+        for (size_t idx = 0; idx < constraints_seq.size(); ++idx) {
+          const auto &constraint = constraints_seq[idx];
+
+          // Check constraint item is tuple
+          if (!py::isinstance<py::tuple>(constraint)) {
+            PADDLE_THROW(common::errors::InvalidArgument(
+                "Constraint[%zu] must be a tuple of (name, dimension_triplet).",
+                idx));
+            return;
           }
-        } catch (const py::cast_error &e) {
-          throw py::type_error(
-              "The input type is not what we want for "
-              "bind_symbolic_constraints.\n" +
-              std::string(e.what()));
+
+          const py::tuple constraint_tuple = py::cast<py::tuple>(constraint);
+
+          // Check tuple has 2 elements
+          if (constraint_tuple.size() != 2) {
+            PADDLE_THROW(common::errors::InvalidArgument(
+                "Constraint[%zu] must have exactly 2 elements (got %zu).",
+                idx,
+                constraint_tuple.size()));
+            return;
+          }
+
+          // Check and get input spec name
+          const py::handle name_handle = constraint_tuple[0];
+          if (!py::isinstance<py::str>(name_handle)) {
+            std::string type_name =
+                py::str(name_handle.get_type()).cast<std::string>();
+            PADDLE_THROW(common::errors::InvalidArgument(
+                "Constraint[%zu][0] must be a string (got %s)",
+                idx,
+                type_name.c_str()));
+            return;
+          }
+          const std::string input_spec_name =
+              py::cast<std::string>(name_handle);
+
+          // Check and get dimension triplet
+          const py::handle triplet_handle = constraint_tuple[1];
+          if (!py::isinstance<py::tuple>(triplet_handle)) {
+            PADDLE_THROW(common::errors::InvalidArgument(
+                "Constraint[%zu][1] must be a tuple.", idx));
+            return;
+          }
+
+          const py::tuple triplet = py::cast<py::tuple>(triplet_handle);
+          if (triplet.size() != 3) {
+            PADDLE_THROW(common::errors::InvalidArgument(
+                "Constraint[%zu][1] must have 3 elements (got %zu).",
+                idx,
+                triplet.size()));
+            return;
+          }
+
+          // Validate and convert elements
+          auto convert_optional = [idx](const py::handle &h,
+                                        int pos) -> std::optional<int> {
+            if (h.is_none()) return std::nullopt;
+
+            if (!py::isinstance<py::int_>(h)) {
+              std::string type_name = py::str(h.get_type()).cast<std::string>();
+              PADDLE_THROW(common::errors::InvalidArgument(
+                  "Constraint[%zu][1][%d] must be int or None (got %s).",
+                  idx,
+                  pos,
+                  type_name.c_str()));
+              return std::nullopt;
+            }
+            return py::cast<int>(h);
+          };
+
+          // Check dim_idx
+          if (!py::isinstance<py::int_>(triplet[0])) {
+            std::string type_name =
+                py::str(triplet[0].get_type()).cast<std::string>();
+            PADDLE_THROW(common::errors::InvalidArgument(
+                "Constraint[%zu][1][0] (dim_idx) must be int (got %s).",
+                idx,
+                type_name.c_str()));
+            return;
+          }
+          const int dim_idx = py::cast<int>(triplet[0]);
+
+          // Convert min/max with position info
+          std::optional<int> min_val = convert_optional(triplet[1], 1);
+          std::optional<int> max_val = convert_optional(triplet[2], 2);
+
+          // Add to constraints
+          raw_constraints.emplace_back(
+              std::move(input_spec_name),
+              std::make_tuple(dim_idx, min_val, max_val));
         }
+
         ::cinn::dialect::ir::SpecifyInputDynamicDimFromPython(program,
                                                               raw_constraints);
       },

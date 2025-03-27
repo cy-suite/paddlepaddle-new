@@ -99,12 +99,10 @@ std::vector<pir::InputDynamicDimSpec> ConvertRawConstraints(
   for (const auto& raw_constraint : raw_constraints) {
     pir::InputDynamicDimSpec dim_spec;
     const std::string& input_spec_name = std::get<0>(raw_constraint);
-    std::cout << "DEBUG___________ " << input_spec_name << " ";
     dim_spec.dim_name = prefix_constraint_name + input_spec_name;
     dim_spec.input_bind = [&]() {
       std::vector<std::pair<std::string, int>> res;
       const int& constrained_dim = std::get<0>(std::get<1>(raw_constraint));
-      std::cout << constrained_dim << " ";
       res.emplace_back(std::make_pair(input_spec_name, constrained_dim));
       return res;
     }();
@@ -117,7 +115,6 @@ std::vector<pir::InputDynamicDimSpec> ConvertRawConstraints(
       if (std::get<2>(range_info).has_value()) {
         range.max = std::get<2>(range_info).value();
       }
-      std::cout << range.min << " " << range.max << std::endl;
       return range;
     }();
     res.emplace_back(std::move(dim_spec));
