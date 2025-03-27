@@ -20,6 +20,7 @@
 #include "paddle/phi/core/distributed/auto_parallel/reshard/reshard_utils.h"
 #include "paddle/phi/core/distributed/auto_parallel/reshard/same_status_reshard_function.h"
 #include "paddle/phi/core/distributed/store/store_utils.h"
+#include "paddle/phi/kernels/slice_kernel.h"
 #include "paddle/phi/kernels/split_kernel.h"
 
 namespace phi::distributed {
@@ -52,37 +53,47 @@ void RToSReshardFunction::Eval(phi::DeviceContext* dev_ctx,
 
   DenseTensor out_physical_tensor_cur_rank;
 
-  std::map<int, int64_t> split_axis_to_mesh_axis =
+  std::map<int, int64_t> slice_axis_to_mesh_axis =
       GetSplitAxisWithDimsMapping(out_dims_mapping);
   std::vector<int64_t> coord_in_mesh = GetCurRankCoordInMesh(out_process_mesh);
 
-  int split_axis = split_axis_to_mesh_axis.begin()->first;
-  int64_t mesh_axis = split_axis_to_mesh_axis.begin()->second;
-
+  int slice_axis = slice_axis_to_mesh_axis.begin()->first;
+  int64_t mesh_axis = slice_axis_to_mesh_axis.begin()->second;
   int64_t num_of_process = out_process_mesh.shape()[mesh_axis];
-  VLOG(3) << "RToSReshard: Tensor will be split on axis " << split_axis
-          << ". Split will use axis " << mesh_axis << " of process_mesh."
-          << " There will have " << num_of_process
-          << " process participate in.";
 
   std::vector<int64_t> split_num_vec =
-      BalancedSplit(in.dims()[split_axis], num_of_process);
+      BalancedSplit(in.dims()[slice_axis], num_of_process);
   IntArray sections(split_num_vec);
-
-  std::vector<DenseTensor> split_out_vec;
+  int64_t start_idx = 0;
+  for (int64_t i = 0; i < coord_in_mesh[mesh_axis]; ++i) {
+    start_idx = start_idx + split_num_vec[i];
+  }
+  int64_t end_idx = start_idx + split_num_vec[coord_in_mesh[mesh_axis]];
   auto dtype = in_physical_tensor_cur_rank.dtype();
+  std::vector<int64_t> axes(1, slice_axis);
+  std::vector<int64_t> starts_vec(1, start_idx);
+  std::vector<int64_t> ends_vec(1, end_idx);
+  IntArray starts(starts_vec);
+  IntArray ends(ends_vec);
+  VLOG(3) << "RToSReshard: Tensor will be sliced on axis " << slice_axis
+          << ". start " << start_idx << " end " << end_idx
+          << ". Slice will use axis " << mesh_axis << " of process_mesh."
+          << " There will have " << num_of_process
+          << " process participate in.";
+  DenseTensor slice_out;
   RESHARD_FUNCTOR(dev_ctx,
-                  Split,
+                  Slice,
                   dtype,
                   in_physical_tensor_cur_rank,
-                  sections,
-                  split_axis,
-                  &split_out_vec);
+                  axes,
+                  starts,
+                  ends,
+                  &slice_out);
 
   VLOG(3) << "The current process will remain the idx "
           << coord_in_mesh[mesh_axis] << " piece of tensor";
 
-  SetValue(out, split_out_vec[coord_in_mesh[mesh_axis]]);
+  SetValue(out, slice_out);
   SetDistProps(out, in.dims(), out_dist_attr);
 }
 

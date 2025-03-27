@@ -61,14 +61,24 @@ DenseTensor Slice(const Context& ctx,
                   const IntArray& starts,
                   const IntArray& ends) {
   DenseTensor dense_out;
-  MetaTensor meta_out(&dense_out);
+  Slice<T, Context>(ctx, input, axes, starts, ends, &dense_out);
+  return dense_out;
+}
+
+template <typename T, typename Context>
+void Slice(const Context& ctx,
+           const DenseTensor& input,
+           const std::vector<int64_t>& axes,
+           const IntArray& starts,
+           const IntArray& ends,
+           DenseTensor* dense_out) {
+  MetaTensor meta_out(dense_out);
   std::vector<int64_t> infer_flags = {1};
   std::vector<int64_t> decrease_axis = {};
   SliceRawInferMeta(
       input, axes, starts, ends, infer_flags, decrease_axis, &meta_out);
   SliceKernel<T, Context>(
-      ctx, input, axes, starts, ends, infer_flags, decrease_axis, &dense_out);
-  return dense_out;
+      ctx, input, axes, starts, ends, infer_flags, decrease_axis, dense_out);
 }
 
 }  // namespace phi
