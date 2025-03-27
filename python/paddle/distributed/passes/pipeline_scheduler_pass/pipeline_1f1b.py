@@ -134,7 +134,7 @@ class Pipeline1F1BPass(PipelinePassBase):
             f"jobs_in_stable_phase = {self.jobs_in_stable_phase_in_pir}"
         )
         return types, sub_program_list
-
+      
 
 class ProgramSplitter:
     def __init__(self, main_program, job_types):
