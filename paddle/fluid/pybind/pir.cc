@@ -3289,7 +3289,7 @@ void BindShapeConstraintIRAnalysis(pybind11::module *m) {
            }
            return flag;
          });
-#ifdef WITH_CINN
+#ifdef PADDLE_WITH_CINN
   m->def(
       "bind_symbolic_constraints",
       [](pir::Program *program, const py::handle &constraints) -> void {

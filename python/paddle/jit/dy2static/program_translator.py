@@ -1227,6 +1227,8 @@ class ConcreteProgram:
         input_specs = flatten(input_specs)
         constraints = []
         for input_spec in input_specs:
+            if not hasattr(input_spec, "ranges"):
+                return []
             if len(input_spec.ranges):
                 for range in input_spec.ranges:
                     constraints.append((input_spec.name, range))
