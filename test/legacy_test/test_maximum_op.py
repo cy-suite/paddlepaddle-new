@@ -100,6 +100,7 @@ class ApiMaximumTest(unittest.TestCase):
         ):
             data_a = paddle.static.data("a", shape=[3], dtype="float32")
             data_b = paddle.static.data("b", shape=[3], dtype="float32")
+            result_max = paddle.maximum(data_a, data_b)
             exe = paddle.static.Executor(self.place)
             (res,) = exe.run(
                 feed={"a": self.input_nan_a, "b": self.input_nan_b},
