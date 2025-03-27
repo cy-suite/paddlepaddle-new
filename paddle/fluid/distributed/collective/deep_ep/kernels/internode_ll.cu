@@ -92,9 +92,7 @@ __global__ __launch_bounds__(
                      int num_ranks,
                      int phases) {
   const auto sm_id = static_cast<int>(blockIdx.x);
-  if (threadIdx.x == 0) {
-    printf("sm_id %d\n", sm_id);
-  }
+
   const auto thread_id = static_cast<int>(threadIdx.x);
   const auto warp_id = thread_id / 32, lane_id = get_lane_id();
   const auto num_sms = static_cast<int>(gridDim.x);
@@ -324,7 +322,6 @@ __global__ __launch_bounds__(
     if (dst_rank == 0) packed_recv_count[dst_expert_local_idx] = 0;
   }
   __syncwarp();
-  if (threadIdx.x == 0) printf("finish send phase\m");
 // Receiving phase
 LOW_LATENCY_DISPATCH_RECV:
   if ((phases & LOW_LATENCY_RECV_PHASE) == 0) return;
@@ -669,10 +666,11 @@ LOW_LATENCY_COMBINE_RECV:
   cg::this_grid().sync();
 
   // Reduce tokens with FP8 cast
-  EP_DEVICE_ASSERT(num_topk <= 32 && hidden_bf16_int4 <= num_threads);
+  // EP_DEVICE_ASSERT(num_topk <= 32 && hidden_bf16_int4 <= num_threads);
   EP_STATIC_ASSERT(kHidden % (32 * kNumElemsPerInt4) == 0,
                    "Invalid vectorization");
-  if (thread_id < hidden_bf16_int4) {
+  // if (thread_id < hidden_bf16_int4) {
+  for (int eid = thread_id; eid < hidden_bf16_int4; eid += num_threads) {
     for (int token_idx = sm_id; token_idx < num_combined_tokens;
          token_idx += num_sms) {
       // Read top-k indices and weights
@@ -699,7 +697,7 @@ LOW_LATENCY_COMBINE_RECV:
 
           // Reduce
           auto x_vec = ld_nc_global(
-              reinterpret_cast<const int4*>(rdma_buffer_row) + thread_id);
+              reinterpret_cast<const int4*>(rdma_buffer_row) + eid);
           const auto x_bf16 = reinterpret_cast<nv_bfloat16*>(&x_vec);
 #pragma unroll
           for (int j = 0; j < kNumElemsPerInt4; ++j)
@@ -714,7 +712,7 @@ LOW_LATENCY_COMBINE_RECV:
       for (int j = 0; j < kNumElemsPerInt4; ++j)
         combined_bf16[j] = static_cast<nv_bfloat16>(combined_values[j]);
       (reinterpret_cast<int4*>(combined_x) +
-       token_idx * hidden_bf16_int4)[thread_id] = combined_int4;
+       token_idx * hidden_bf16_int4)[eid] = combined_int4;
     }
   }
 }
