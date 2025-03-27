@@ -56,7 +56,6 @@ def support_constant_folding_pass(program):
     for op in program.global_block().ops:
         if op.name() == "pd_op.while" or op.name() == "pd_op.if":
             return False
-    _logger.info("All ops convert to trt.")
     return True
 
 
