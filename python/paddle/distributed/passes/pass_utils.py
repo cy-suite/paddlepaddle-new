@@ -515,7 +515,6 @@ def _pir_overlap_send_recv(program):
         2. 'p_send' operator uses 'dist_attr.execution_stream' to set stream of its own.
         3. 'p_recv' operator uses 'dist_attr.execution_stream' to set stream of its own.
     """
-    # pass
     for block in program.blocks:
         for op in block.ops:
             if op.name() == "pd_op.p_send":
@@ -525,7 +524,6 @@ def _pir_overlap_send_recv(program):
                 op.set_scheduling_priority(0)
             elif op.name() == "pd_op.p_recv":
                 op.set_bool_attr("dynamic_shape", False)
-                ring_id = op.attrs()["ring_id"]
                 op.set_execution_stream("recv_stream")
                 op.set_scheduling_priority(0)
 
@@ -647,7 +645,6 @@ def _overlap_send_recv(program):
         2. 'p_send' operator uses 'dist_attr.execution_stream' to set stream of its own.
         3. 'p_recv' operator uses 'dist_attr.execution_stream' to set stream of its own.
     """
-    print("xxx enter _overlap_send_recv ")
     for block in program.blocks:
         for op in block.ops:
             if op.type == 'p_send':
@@ -655,12 +652,10 @@ def _overlap_send_recv(program):
                 ring_id = op.attr("ring_id")
                 op.dist_attr.execution_stream = "send_stream_" + str(ring_id)
                 op.dist_attr.stream_priority = 0
-                print("xxx old send overlap : ", op)
             elif op.type == 'p_recv':
                 op._set_attr("dynamic_shape", False)
                 op.dist_attr.execution_stream = "recv_stream"
                 op.dist_attr.stream_priority = 0
-                print("xxx old recv overlap : ", op)
             else:
                 pass
 
@@ -988,6 +983,7 @@ def _split_program_into_forward_backward_optimize(
                     )
             opt_ops[op_idx].erase()
             bwd_ops[op_idx].erase()
+
     return fwd_program, bwd_program, opt_program
 
 
@@ -1292,6 +1288,7 @@ def _program_for_vpp_split_bwk(
     for prog in type_to_program.values():
         prog._sync_with_cpp()
         prog._roll_to_global_block()
+
     return list(type_to_program.keys()), list(type_to_program.values())
 
 
