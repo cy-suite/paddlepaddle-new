@@ -1271,6 +1271,23 @@ PHI_DEFINE_EXPORTED_bool(benchmark_nccl,
                          "enable nccl debug mode to synchronize nccl comm");
 #endif
 
+/**
+ * ProcessGroupNCCL/ProcessGroupBKCL related FLAG
+ * Name: enable_nccl_dynamic_check/enable_bkcl_dynamic_check
+ * Since Version:
+ * Value Range: bool, default=false
+ */
+
+#if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
+PHI_DEFINE_EXPORTED_bool(enable_nccl_dynamic_check,
+                         false,
+                         "enable nccl dynamic checks");
+#elif (defined(PADDLE_WITH_XPU) && defined(PADDLE_WITH_XPU_BKCL))
+PHI_DEFINE_EXPORTED_bool(enable_bkcl_dynamic_check,
+                         false,
+                         "enable bkcl dynamic checks");
+#endif
+
 PHI_DEFINE_EXPORTED_bool(
     benchmark,
     false,
@@ -1675,6 +1692,8 @@ PHI_DEFINE_EXPORTED_string(
     prim_forward_blacklist,
     "",
     "It controls the forward blacklist ops not to be decomposed.");
+PHI_DEFINE_EXPORTED_bool(prim_forward, false, "enable prim_forward or not");
+PHI_DEFINE_EXPORTED_bool(prim_backward, false, "enable prim_backward or not");
 
 /**
  * Remove some redundant information when printing the pir program
@@ -1688,23 +1707,6 @@ PHI_DEFINE_EXPORTED_string(
     disable_logging_op_attr_list,
     "",
     "Remove some redundant information when printing the pir program");
-
-#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL) || \
-    defined(PADDLE_WITH_XPU_BKCL) || defined(PADDLE_WITH_CUSTOM_DEVICE)
-/**
- * Communication library related FLAG
- * Name: FLAGS_dynamic_static_unified_comm
- * Since Version: 2.5
- * Value Range: bool, default=true
- * Example:
- * Note: Whether to use new communication library in auto parallel and static
- * mode. If true, it will use unified CommContextManager for communication.
- */
-PHI_DEFINE_EXPORTED_bool(dynamic_static_unified_comm,
-                         true,
-                         "Whether to use new communication library in auto "
-                         "parallel and static mode.");
-#endif  // FLAGS_dynamic_static_unified_comm
 
 /**
  * ProcessGroupNCCL related FLAG
