@@ -151,7 +151,7 @@ def filter_all_collective_op_indices(block):
         "c_allreduce_sum",
         "c_allreduce_prod",
         "c_allreduce_max",
-        "c_allreduce_min",
+        "all_reduce",
         "c_allgather",
         "c_broadcast",
         "broadcast",
