@@ -77,8 +77,12 @@ static const std::string cinn_cuda_runtime_source_header =  // NOLINT
 JitSafeHeaderGenerator::JitSafeHeaderGenerator() {
   const auto& headers_map = ::jitify::detail::get_jitsafe_headers_map();
   for (auto& pair : headers_map) {
-    include_names_.emplace_back(pair.first.data());
-    headers_.emplace_back(pair.second.data());
+    if (pair.first == "cstdint" || pair.first == "stdint.h" ||
+        pair.first == "climits" || pair.first == "stddef.h" ||
+        pair.first == "stdlib.h") {
+      include_names_.emplace_back(pair.first.data());
+      headers_.emplace_back(pair.second.data());
+    }
   }
 #ifdef CINN_WITH_CUDA
   include_names_.emplace_back("float16_h");
