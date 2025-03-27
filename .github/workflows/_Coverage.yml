@@ -308,7 +308,7 @@ jobs:
 
     - name: Check coverage data
       run: |
-        docker exec -t ${{ env.container_name }} /bin/bash -c '
+        docker exec -t paddle-CI-71611-coverage-test-1742957347 /bin/bash -c '
         . ../../../proxy
         source ${ci_scripts}/utils.sh; check_coverage
         EXIT_CODE=$?
