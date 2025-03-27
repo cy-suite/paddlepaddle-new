@@ -22,7 +22,7 @@
 #include "paddle/phi/kernels/fusion/gpu/mmha_util.cu.h"
 
 COMMON_DECLARE_bool(use_xqa_optim);
-COMMON_DECLARE_bool(use_fp32_qk_sum);
+COMMON_DECLARE_bool(blha_use_fp32_qk_sum);
 
 #ifdef PADDLE_WITH_HIP
 #define GPU(str) hip##str
@@ -1432,7 +1432,7 @@ void dispatch_blha_gqa_kernel(const Block_AttN_params<T> &params,
                                 CACHE_TYPE>(
           params, stream, load_func, store_func);
     };
-    if (FLAGS_use_fp32_qk_sum) {
+    if (FLAGS_blha_use_fp32_qk_sum) {
       if constexpr (std::is_same_v<T, float16>) {
         dispatch_blha_kernel(float16{}, float{});
       } else {

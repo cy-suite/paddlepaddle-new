@@ -1881,17 +1881,17 @@ PHI_DEFINE_EXPORTED_bool(
 
 /**
  * Whether to use FP32 for accumulation of QK output in
- * block_multihead_attention kernel
- * Name: use_fp32_qk_sum Since Version: 3.0.0
+ * block_multihead_attention kernel(fp16)
+ * Name: blha_use_fp32_qk_sum Since Version: 3.0.0
  * Value Range: bool, default=false
  * Example:
  * Note: If TRUE, FP32 will be used for accumulation of the QK output
- * in block_multihead_attention kernel .
+ * in block_multihead_attention kernel(fp16) .
  */
-PHI_DEFINE_EXPORTED_bool(use_fp32_qk_sum,
+PHI_DEFINE_EXPORTED_bool(blha_use_fp32_qk_sum,
                          false,
                          "use FP32 for accumulation of QK output in "
-                         "block_multihead_attention kernel.");
+                         "block_multihead_attention kernel(fp16).");
 
 PHI_DEFINE_EXPORTED_bool(cuda_core_int8_gemm,
                          false,
