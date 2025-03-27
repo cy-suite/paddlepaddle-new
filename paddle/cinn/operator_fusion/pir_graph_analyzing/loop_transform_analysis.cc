@@ -763,11 +763,11 @@ std::optional<AxisTransformRoute> GetValidHorizontalLoopTransform(
     }
   }
   if (!reduce_dims_product.isa<std::int64_t>()) {
-    int shared_input_value_nums =
-        AnyFirstInSecond(source.input_values, target.input_values).size();
+    const auto [shared_inputs, _unused] =
+        SplitFirstWhetherInSecond(source.input_values, target.input_values);
     int input_nums = source.input_values.size() + target.input_values.size();
-    if (static_cast<float>(shared_input_value_nums) / input_nums < 1. / 6 &&
-        input_nums - shared_input_value_nums > 4) {
+    if (static_cast<float>(shared_inputs.size()) / input_nums < 1. / 6 &&
+        input_nums - shared_inputs.size() > 4) {
       // Disable horizontal fusion with dynamic shape when shared input values
       // are less than 1/3 per input while non shared input nums more than 4.
       VLOG(4) << "Can not fuse with dynamic shape when shared inputs are few. ";
