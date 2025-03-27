@@ -483,6 +483,7 @@ class TensorVariable(VariableBase):
                     expr_node, "stop_gradient"
                 ),
             ),
+            # TODO(zrr1999): add dist_info check
         ]
 
     @check_guard

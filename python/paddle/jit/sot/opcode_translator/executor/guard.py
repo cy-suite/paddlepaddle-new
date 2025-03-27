@@ -232,6 +232,7 @@ def support_weak_ref(obj):
     return False
 
 
+# TODO(zrr1999): unify check_guard and check_faster_guard
 def check_guard(
     fn: Callable[[CheckGuardInputT], list[StringifiedExpression]],
 ) -> Callable[[CheckGuardInputT], list[StringifiedExpression]]:
@@ -265,7 +266,7 @@ def check_faster_guard(
         def guard_log():
             frame_value_tracer = self.tracker.trace_value_from_frame()
             print(
-                f"[Guard]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.registered_expr}"
+                f"[Guard Tree]: guard_fn for {self}, tracker={self.tracker.__class__.__name__}, value={frame_value_tracer.registered_expr}"
             )
 
         log_do(4, guard_log)

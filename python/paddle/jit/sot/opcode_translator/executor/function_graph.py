@@ -41,7 +41,6 @@ from ...symbolic.statement_ir import Reference, StatementIR, Symbol
 from ...symbolic.symbolic_context import SymbolicTraceContext
 from ...utils import (
     ENV_SOT_ALLOW_DYNAMIC_SHAPE,
-    ENV_SOT_ENABLE_FASTER_GUARD,
     ENV_SOT_ENABLE_GUARD_TREE,
     NameGenerator,
     SotUndefinedVar,
@@ -318,17 +317,13 @@ class FunctionGraph:
     @property
     @event_register("guard_fn")
     def guard_fn(self) -> Guard:
-        if (
-            ENV_SOT_ENABLE_FASTER_GUARD.get()
-            and ENV_SOT_ENABLE_GUARD_TREE.get()
-        ):
+        if ENV_SOT_ENABLE_GUARD_TREE.get():
             guard_nodes: list[paddle.framework.core.GuardNode] = []
             with EventGuard("guard_fn: find vars and make faster guard"):
                 for variable in find_traceable_vars(
                     self.input_variables + list(self._global_guarded_variables)
                 ):
                     guard_nodes.extend(variable.make_faster_guard())
-
             return make_faster_guard(guard_nodes)
 
         with switch_symbol_registry():
