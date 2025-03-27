@@ -306,18 +306,24 @@ jobs:
     #     bash $ci_scripts/coverage_test.sh ${{ github.env }}
     #     '
 
-    # - name: Check coverage data
-    #   run: |
-    #     docker exec -t ${{ env.container_name }} /bin/bash -c '
-    #     . ../../../proxy
-    #     source ${ci_scripts}/utils.sh; check_coverage
-    #     EXIT_CODE=$?
-    #     '
+    - name: Check coverage data
+      run: |
+        docker exec -t ${{ env.container_name }} /bin/bash -c '
+        . ../../../proxy
+        source ${ci_scripts}/utils.sh; check_coverage
+        EXIT_CODE=$?
+        '
 
-    - name: Upload coverage report
-      uses: codecov/codecov-action@v4
-      # env:
-      #   CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+    - name: Deploy coverage reports to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: .build/coverage
+
+    # - name: Upload coverage report
+    #   uses: codecov/codecov-action@v4
+    #   env:
+    #     CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
     # - name: Terminate and delete the container
     #   if: always()
