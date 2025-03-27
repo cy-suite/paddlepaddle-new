@@ -62,6 +62,8 @@ Expr Cast::Make(Type t, Expr v) {
     return Expr(static_cast<type__>(i->value)); \
   } else if (auto *u = v.As<ir::UIntImm>()) {   \
     return Expr(static_cast<type__>(u->value)); \
+  } else if (auto *f = v.As<ir::FloatImm>()) {  \
+    return Expr(static_cast<type__>(f->value)); \
   }
 
   if (v.is_constant()) {
@@ -81,6 +83,10 @@ Expr Cast::Make(Type t, Expr v) {
       __CAST_TO_TYPE(uint32_t)
     } else if (t == type_of<uint64_t>()) {
       __CAST_TO_TYPE(uint64_t)
+    } else if (t == type_of<float>()) {
+      __CAST_TO_TYPE(float)
+    } else if (t == type_of<double>()) {
+      __CAST_TO_TYPE(double)
     }
   }
 #undef __CAST_TO_TYPE

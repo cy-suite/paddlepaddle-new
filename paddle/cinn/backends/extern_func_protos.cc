@@ -25,6 +25,8 @@ ExternFunctionProtoRegistry::ExternFunctionProtoRegistry() {
       "exp",  "erf",   "sigmoid", "sqrt", "log",   "log2", "log10", "floor",
       "ceil", "round", "trunc",   "cos",  "cosh",  "tan",  "tanh",  "sin",
       "sinh", "acos",  "acosh",   "asin", "asinh", "atan", "atanh", "fabs"};
+  static const std::vector<std::string> extern_funcs_fp64_unary = {
+      "atan"};
   static const std::vector<std::string> extern_funcs_float_bool_unary = {
       "isnan", "isfinite", "isinf"};
   static const std::vector<std::string> extern_funcs_int_binary = {
@@ -39,6 +41,12 @@ ExternFunctionProtoRegistry::ExternFunctionProtoRegistry() {
   for (int i = 0; i < extern_funcs_fp32_unary.size(); ++i) {
     auto* proto =
         new FunctionProto(extern_funcs_fp32_unary[i], {Float(32)}, Float(32));
+    Register(proto->name, proto);
+  }
+  for (int i = 0; i < extern_funcs_fp64_unary.size(); ++i) {
+    std::string func_name = extern_funcs_fp64_unary[i] + "fp64";
+    auto* proto =
+        new FunctionProto(func_name, {Float(64)}, Float(64));
     Register(proto->name, proto);
   }
   for (int i = 0; i < extern_funcs_float_bool_unary.size(); ++i) {
