@@ -93,7 +93,7 @@ class TestLocalMap(unittest.TestCase):
             process_mesh=mesh,
         )
         out2 = wrapped_func(input_normal)
-        self.assertTrue(dist.auto_parallel.api._is_distributed_tensor(out2))
+        self.assertTrue(dist.auto_parallel.api.is_dist_tensor(out2))
 
         # Case 3: Mixed tensor and non-tensor outputs
         def func3(x):
@@ -109,9 +109,7 @@ class TestLocalMap(unittest.TestCase):
             process_mesh=mesh,
         )
         out3_tensor, out3_str = wrapped_func(input_dist)
-        self.assertTrue(
-            dist.auto_parallel.api._is_distributed_tensor(out3_tensor)
-        )
+        self.assertTrue(dist.auto_parallel.api.is_dist_tensor(out3_tensor))
         self.assertIsInstance(out3_str, str)
 
         # Case 4: Mixed distributed and normal tensor inputs
@@ -128,7 +126,7 @@ class TestLocalMap(unittest.TestCase):
             process_mesh=mesh,
         )
         out4 = wrapped_func(input_dist, input_normal)
-        self.assertTrue(dist.auto_parallel.api._is_distributed_tensor(out4))
+        self.assertTrue(dist.auto_parallel.api.is_dist_tensor(out4))
 
         # Case 5: Test process_mesh inference in both dynamic and static modes
         def func5(x):
@@ -147,7 +145,7 @@ class TestLocalMap(unittest.TestCase):
             process_mesh=None,
         )
         out5 = wrapped_func(input_dist)
-        self.assertTrue(dist.auto_parallel.api._is_distributed_tensor(out5))
+        self.assertTrue(dist.auto_parallel.api.is_dist_tensor(out5))
         self.assertEqual(out5.process_mesh, input_dist.process_mesh)
 
         # Test in static mode
@@ -163,7 +161,7 @@ class TestLocalMap(unittest.TestCase):
             process_mesh=None,
         )
         out5 = wrapped_func(input_dist)
-        self.assertTrue(dist.auto_parallel.api._is_distributed_tensor(out5))
+        self.assertTrue(dist.auto_parallel.api.is_dist_tensor(out5))
         self.assertEqual(
             out5.dist_attr().process_mesh, input_dist.dist_attr().process_mesh
         )
@@ -189,9 +187,7 @@ class TestLocalMap(unittest.TestCase):
             reshard_inputs=True,
         )
         out6_resharded = wrapped_func(input_dist)
-        self.assertTrue(
-            dist.auto_parallel.api._is_distributed_tensor(out6_resharded)
-        )
+        self.assertTrue(dist.auto_parallel.api.is_dist_tensor(out6_resharded))
         self.assertEqual(out6_resharded.placements, [dist.Replicate()])
 
         # Test reshard_inputs=False
@@ -220,9 +216,7 @@ class TestLocalMap(unittest.TestCase):
             reshard_inputs=True,
         )
         out6_resharded = wrapped_func(input_dist)
-        self.assertTrue(
-            dist.auto_parallel.api._is_distributed_tensor(out6_resharded)
-        )
+        self.assertTrue(dist.auto_parallel.api.is_dist_tensor(out6_resharded))
         self.assertTrue(
             isinstance(out6_resharded.dist_attr().placements[0], dist.Replicate)
         )
@@ -260,7 +254,7 @@ class TestLocalMap(unittest.TestCase):
             process_mesh=mesh,
         )
         out7 = wrapped_func(input_dist)
-        self.assertTrue(dist.auto_parallel.api._is_distributed_tensor(out7))
+        self.assertTrue(dist.auto_parallel.api.is_dist_tensor(out7))
 
         # Test in static mode
         paddle.enable_static()
@@ -276,7 +270,7 @@ class TestLocalMap(unittest.TestCase):
             process_mesh=mesh,
         )
         out7 = wrapped_func(input_dist)
-        self.assertTrue(dist.auto_parallel.api._is_distributed_tensor(out7))
+        self.assertTrue(dist.auto_parallel.api.is_dist_tensor(out7))
         # Restore to dynamic mode
         paddle.disable_static()
 
