@@ -47,9 +47,8 @@ enum class DimExprCompareResult {
 };
 IR_API DimExprCompareResult Compare(const DimExpr& lhs, const DimExpr& rhs);
 
-IR_API DimExprCompareResult CompareLhsWithRhsForGtOrGe(const DimExpr& lhs,
-                                                       const DimExpr& rhs,
-                                                       bool is_broadcast);
+IR_API DimExprCompareResult CompareLhsWithRhsForGtOrGe(
+    const DimExpr& lhs, const DimExpr& rhs, bool is_broadcast = false);
 
 IR_API std::unordered_set<std::string> CollectDimExprSymbols(
     const DimExpr& dim_expr);

@@ -76,7 +76,7 @@ bool EasyIsGtWithZero(const DimExpr& expr) {
 
 DimExprCompareResult CompareLhsWithRhsForGtOrGe(const DimExpr& lhs,
                                                 const DimExpr& rhs,
-                                                bool is_broadcast = false) {
+                                                bool is_broadcast) {
   // TODO(ooooo): not perfect but ensures accuracy now.Such as:
   // S0 < Add(S0, Mul(S1, S2)), S2 also can be Add(S4, S5, -1)
   // range info may be used.
