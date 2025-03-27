@@ -384,8 +384,7 @@ void FlashAttnV3Kernel(
   }
   ctx.template Alloc<float>(softmax_lse);
 
-  static Flash_fwd_params *params_handle =
-      phi::dynload::fa3_create_fwd_params_handle();
+  Flash_fwd_params *params_handle = get_flash_fwd_params_handle();
   dynload::fa3_clear_fwd_params_handle(params_handle);
   set_params_fprop(
       params_handle,

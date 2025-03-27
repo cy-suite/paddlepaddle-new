@@ -413,7 +413,7 @@ void FlashAttnV3GradBaseKernel(
     }
   }
 
-  Flash_bwd_params *params_handle = dynload::fa3_create_bwd_params_handle();
+  Flash_bwd_params *params_handle = get_flash_bwd_params_handle();
   dynload::fa3_clear_bwd_params_handle(params_handle);
   set_params_dgrad(
       params_handle,

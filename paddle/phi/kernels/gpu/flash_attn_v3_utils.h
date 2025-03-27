@@ -31,6 +31,10 @@ namespace phi {
 #define CHECK_CONTIGUOUS(x) \
   PADDLE_ENFORCE_EQ(x.meta().is_contiguous(), true, #x " must be contiguous")
 
+Flash_fwd_params *get_flash_fwd_params_handle();
+
+Flash_bwd_params *get_flash_bwd_params_handle();
+
 inline int get_max_headdim() {
 #ifndef FLASHATTENTION_DISABLE_HDIM256
   return 256;

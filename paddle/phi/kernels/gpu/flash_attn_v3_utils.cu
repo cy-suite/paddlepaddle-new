@@ -15,6 +15,33 @@
 #include "paddle/phi/kernels/gpu/flash_attn_v3_utils.h"
 #include "paddle/phi/common/bfloat16.h"
 namespace phi {
+
+void destroy_flash_fwd_params_handle(Flash_fwd_params *params_handle) {
+  phi::dynload::fa3_destroy_fwd_params_handle(params_handle);
+}
+
+void destroy_flash_bwd_params_handle(Flash_bwd_params *params_handle) {
+  phi::dynload::fa3_destroy_bwd_params_handle(params_handle);
+}
+
+Flash_fwd_params *get_flash_fwd_params_handle() {
+  static std::unique_ptr<Flash_fwd_params,
+                         decltype(&destroy_flash_fwd_params_handle)>
+      params_handle(phi::dynload::fa3_create_fwd_params_handle(),
+                    &destroy_flash_fwd_params_handle);
+
+  return params_handle.get();
+}
+
+Flash_bwd_params *get_flash_bwd_params_handle() {
+  static std::unique_ptr<Flash_bwd_params,
+                         decltype(&destroy_flash_bwd_params_handle)>
+      params_handle(phi::dynload::fa3_create_bwd_params_handle(),
+                    &destroy_flash_bwd_params_handle);
+
+  return params_handle.get();
+}
+
 void set_params_fprop(Flash_fwd_params *params_handle,
                       // sizes
                       const size_t b,
