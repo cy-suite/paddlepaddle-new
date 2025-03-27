@@ -1022,7 +1022,7 @@ class TestMeanOp_ZeroSize3(OpTest):
         pass
 
     def init_prim_type(self):
-        self.prim_op_type = "comp"
+        self.prim_op_type = "prim"
 
     def test_check_output(self):
         self.check_output(check_pir=True, equal_nan=True)
