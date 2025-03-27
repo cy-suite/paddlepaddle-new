@@ -346,7 +346,7 @@ class TestCustomSuper(TestCaseBase):
         )
 
     def test_super_function_as_input(self):
-        if sys.version_info >= (3, 11):
+        if sys.version_info >= (3, 12):
             self.assert_exceptions(
                 RuntimeError,
                 r"super\(\): __class__ cell not found",
@@ -354,7 +354,7 @@ class TestCustomSuper(TestCaseBase):
                 super,
                 paddle.to_tensor(3.0),
             )
-        if sys.version_info < (3, 11):
+        if sys.version_info < (3, 12):
             self.assert_exceptions(
                 InnerError,
                 "KeyError: '__class__'",
