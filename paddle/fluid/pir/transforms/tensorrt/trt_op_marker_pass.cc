@@ -1651,9 +1651,7 @@ class ArgsortOpPattern
       axis += x_shape.size();
     }
     if (x_shape[axis] > 3840) {
-      VLOG(3)
-          << "In pd_op.argsort,the axis dim of input should be less than 3840";
-      return false;
+      op->set_attribute("use_generic_plugin", rewriter.bool_attr(true));
     }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
     return true;
@@ -2550,8 +2548,7 @@ class Pad3dOpPattern : public pir::OpRewritePattern<paddle::dialect::Pad3dOp> {
       auto data_format =
           op->attribute<pir::StrAttribute>("data_format").AsString();
       if (data_format != "NCDHW") {
-        VLOG(3) << "The pad3d layer of TRT only support NCDHW data format.";
-        return false;
+        op->set_attribute("use_generic_plugin", rewriter.bool_attr(true));
       }
     }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));

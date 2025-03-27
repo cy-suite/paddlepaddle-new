@@ -16,16 +16,26 @@
 
 #include <pybind11/pybind11.h>
 #include "paddle/phi/common/data_type.h"
+#include "paddle/phi/core/attribute.h"
 #include "paddle/phi/core/ddim.h"
+#include "paddle/pir/include/core/operation.h"
 #include "paddle/pir/include/core/value.h"
 
 namespace paddle {
 
 namespace pybind {
+
+namespace py = pybind11;
 using pir::Value;
-void BindPir(pybind11::module *m);
-const phi::DDim &GetValueDims(Value value);
-bool GetValueBoolAttr(Value value, const std::string &attr_name);
+void BindPir(pybind11::module* m);
+const phi::DDim& GetValueDims(Value value);
+bool GetValueBoolAttr(Value value, const std::string& attr_name);
+std::string GetAttrsMapJson(pir::Operation* op);
+std::string GetAttrsMapJson(py::dict attrs);
+pir::AttributeMap ConvertAttrsToAttributeMap(py::dict attrs);
+std::string GetTypeJson(pir::Operation* op, bool is_input);
+std::string GetInputsTypeJson(pir::Operation* op);
+std::string GetOutputsTypeJson(pir::Operation* op);
 
 }  // namespace pybind
 }  // namespace paddle

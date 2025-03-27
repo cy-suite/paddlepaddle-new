@@ -215,11 +215,13 @@ class TestArgsortCase4TRTPattern(TensorRTBaseTest):
             "axis": 1,
         }
         self.program_config = {"feed_list": ["x"]}
-        self.target_marker_op = "pd_op.argsort"
+        self.min_shape = {"x": [1, 4000]}
+        self.opt_shape = {"x": [2, 4000]}
+        self.max_shape = {"x": [3, 4000]}
 
     def test_trt_result(self):
         # test axis attr
-        self.check_marker(expected_result=False)
+        self.check_trt_result()
 
 
 class TestWhereTRTPatternCase2(TensorRTBaseTest):

@@ -21,6 +21,7 @@ from paddle.tensorrt.converter_utils import (
     build_start_tensor,
     cast_tensor,
     fix_negative_indices,
+    generic_plugin_converter,
     get_axes_for_reduce_op,
     get_input_constant_value,
     get_shape_tensor_element,
@@ -1386,6 +1387,21 @@ def pad_converter(network, paddle_op, inputs):
 
 @converter_registry.register("pd_op.pad3d", trt_version="8.x")
 def pad3d_converter(network, paddle_op, inputs):
+    use_generic_plugin = paddle_op.attrs().get("use_generic_plugin", False)
+    if use_generic_plugin:
+        attrs = paddle_op.attrs()
+        padddings_value = paddle_op.operand_source(1)
+        full_op = padddings_value.get_defining_op()
+        if full_op.name() == "pd_op.full_int_array":
+            value_attr = full_op.attrs()["value"]
+            attrs["paddings"] = value_attr
+        layer = generic_plugin_converter(network, paddle_op, inputs, attrs)
+        return layer.get_output(0)
+    else:
+        return original_pad3d_converter(network, paddle_op, inputs)
+
+
+def original_pad3d_converter(network, paddle_op, inputs):
     input_tensor, paddings = inputs
 
     value = paddle_op.attrs().get("pad_value", 0.0)

@@ -24,7 +24,7 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
-
+#include "nlohmann/json.hpp"
 #include "paddle/common/enforce.h"
 #include "paddle/common/flags.h"
 #include "paddle/fluid/framework/executor.h"
@@ -53,6 +53,7 @@
 #include "paddle/fluid/pir/dialect/operator/utils/shape_analysis_utils.h"
 #include "paddle/fluid/pir/dialect/operator/utils/utils.h"
 #include "paddle/fluid/pir/drr/include/drr_pattern_base.h"
+#include "paddle/fluid/pir/serialize_deserialize/include/ir_serialize.h"
 #include "paddle/fluid/pir/transforms/general/common_subexpression_elimination_pass.h"
 #include "paddle/fluid/pir/transforms/general/dead_code_elimination_pass.h"
 #include "paddle/fluid/pir/transforms/gpu/fused_bn_add_act_pass.h"
@@ -72,6 +73,7 @@
 #include "paddle/pir/include/core/builtin_op.h"
 #include "paddle/pir/include/core/ir_mapping.h"
 #include "paddle/pir/include/core/ir_printer.h"
+#include "paddle/pir/include/core/operation.h"
 #include "paddle/pir/include/core/program.h"
 #include "paddle/pir/include/core/type.h"
 #include "paddle/pir/include/core/value.h"
@@ -145,16 +147,17 @@ namespace paddle {
 namespace pybind {
 
 PyTypeObject *g_ir_value_pytype = nullptr;
+namespace py = pybind11;
 
 void BindOpsAPI(pybind11::module *module);
 
 pir::Value FakeValue() {
-  // create a fake value to simplify `ForwardBackwardSplit`.
+  // create a fake value to simplify ForwardBackwardSplit.
   return pir::Value(nullptr);
 }
 
 bool IsFakeValue(const pir::Value &value) {
-  // create a fake value to simplify `ForwardBackwardSplit`.
+  // create a fake value to simplify ForwardBackwardSplit.
   return value.impl() == nullptr || !value.type();
 }
 
@@ -413,7 +416,7 @@ void BindProgram(py::module *m) {
     graphs.
 
     A set of Program usually contains startup program and main program.
-    A startup program is set to contain some initial work, eg. initialize the ``Parameter``, and the main
+    A startup program is set to contain some initial work, eg. initialize the `Parameter, and the main
     program will contain the network structure and vars for train.
 
     A set of Program can be used for test or train, in train program ,
@@ -422,9 +425,9 @@ void BindProgram(py::module *m) {
     backward ops and vars.
 
     **Notes**:
-        **we have** :ref:`api_paddle_static_default_startup_program` **and** :ref:`api_paddle_static_default_main_program`
-        **by default, a pair of them will shared the parameters. The** :ref:`api_paddle_static_default_startup_program` **only run once to initialize parameters,**
-        :ref:`api_paddle_static_default_main_program` **run in every mini batch and adjust the weights.**
+        **we have** :ref:api_paddle_static_default_startup_program **and** :ref:api_paddle_static_default_main_program
+        **by default, a pair of them will shared the parameters. The** :ref:api_paddle_static_default_startup_program **only run once to initialize parameters,**
+        :ref:api_paddle_static_default_main_program **run in every mini batch and adjust the weights.**
 
     Returns:
         Program: An empty Program.
@@ -707,7 +710,7 @@ void BindBlock(py::module *m) {
 
     Notes:
         The constructor of Block should not be invoked directly. You can
-        use `Program.block()` to get a block.
+        use Program.block() to get a block.
   )DOC");
   block.def("empty", &Block::empty)
       .def(
@@ -996,6 +999,7 @@ void BindOperation(py::module *m) {
              }
              return attrs_dict;
            })
+
       .def("copy_attrs_from",
            [](Operation &self, Operation &other) {
              for (auto &pair : other.attributes()) {
@@ -1152,7 +1156,7 @@ void BindOperation(py::module *m) {
                     OpCreationCallstackAttrName());
             PADDLE_ENFORCE(op_callstack.isa<pir::ArrayAttribute>(),
                            common::errors::PreconditionNotMet(
-                               "The callstack of operation `%s` should be an "
+                               "The callstack of operation %s should be an "
                                "array attribute.",
                                self.name()));
             auto op_callstack_array_attr =
@@ -1161,7 +1165,7 @@ void BindOperation(py::module *m) {
               PADDLE_ENFORCE(
                   op_callstack_array_attr.at(i).isa<StrAttribute>(),
                   common::errors::PreconditionNotMet(
-                      "The callstack info of operation `%s` should be array of "
+                      "The callstack info of operation %s should be array of "
                       "string attribute.",
                       self.name()));
               callstack_list.append(op_callstack_array_attr.at(i)
@@ -1677,6 +1681,99 @@ void BindOpOperand(py::module *m) {
 bool GetValueBoolAttr(Value value, const std::string &attr_name) {
   auto bool_attr = value.attribute<BoolAttribute>(attr_name);
   return !bool_attr || bool_attr.data();
+}
+
+std::string GetAttrsMapJson(pir::Operation *op) {
+  if (!op) {
+    throw std::invalid_argument("Operation pointer cannot be nullptr");
+  }
+  auto attributes = op->attributes();
+  ::pir::ProgramWriter writer(1, false);
+  auto attrs_map_info = writer.GetAttributesMapJson(op->attributes()).dump();
+  return attrs_map_info;
+}
+
+std::string GetAttrsMapJson(py::dict attrs) {
+  pir::AttributeMap attrs_map = ConvertAttrsToAttributeMap(attrs);
+  ::pir::ProgramWriter writer(1, false);
+  return writer.GetAttributesMapJson(attrs_map).dump();
+}
+
+// 实现 ConvertAttrsToAttributeMap
+pir::AttributeMap ConvertAttrsToAttributeMap(py::dict attrs) {
+  pir::IrContext *ctx = pir::IrContext::Instance();
+  pir::AttributeMap attrs_map;
+
+  for (auto item : attrs) {
+    std::string key = py::cast<std::string>(item.first);
+    LOG(INFO) << "key " << key;
+    py::handle value = item.second;
+
+    if (py::isinstance<py::bool_>(value)) {
+      attrs_map[key] = pir::BoolAttribute::get(ctx, py::cast<bool>(value));
+    } else if (py::isinstance<py::float_>(value)) {
+      attrs_map[key] = pir::FloatAttribute::get(ctx, py::cast<float>(value));
+    } else if (py::isinstance<py::str>(value)) {
+      attrs_map[key] =
+          pir::StrAttribute::get(ctx, py::cast<std::string>(value));
+    } else if (py::isinstance<py::list>(value)) {
+      py::list list_value = py::cast<py::list>(value);
+      std::vector<pir::Attribute> attr_list;
+      if (list_value.size() > 0) {
+        auto first_elem = list_value[0];
+        if (py::isinstance<py::bool_>(first_elem)) {
+          for (auto elem : list_value) {
+            attr_list.push_back(
+                pir::BoolAttribute::get(ctx, py::cast<bool>(elem)));
+          }
+        } else if (py::isinstance<py::str>(first_elem)) {
+          for (auto elem : list_value) {
+            attr_list.push_back(
+                pir::StrAttribute::get(ctx, py::cast<std::string>(elem)));
+          }
+        } else if (py::isinstance<py::int_>(first_elem)) {
+          for (auto elem : list_value) {
+            int64_t val = py::cast<int64_t>(elem);
+            attr_list.push_back(pir::Int64Attribute::get(ctx, val));
+          }
+        } else {
+          throw std::invalid_argument("不支持的列表元素类型，键：" + key);
+        }
+      }
+      attrs_map[key] = pir::ArrayAttribute::get(ctx, attr_list);
+    } else {
+      throw std::invalid_argument("不支持的属性类型，键：" + key);
+    }
+  }
+  return attrs_map;
+}
+
+std::string GetTypeJson(pir::Operation *op, bool is_input) {
+  if (!op) {
+    throw std::invalid_argument("Operation pointer cannot be nullptr");
+  }
+  ::pir::ProgramWriter writer(1, false);
+  std::stringstream type_info_ss;
+  if (is_input) {
+    for (auto operand : op->operands_source()) {
+      type_info_ss << (writer.GetTypeJson(operand.type()).dump())
+                   << '\n';  // use '\n' as separator
+    }
+  } else {
+    for (auto result : op->results()) {
+      type_info_ss << (writer.GetTypeJson(result.type()).dump())
+                   << '\n';  // use '\n' as separator
+    }
+  }
+  return type_info_ss.str();
+}
+
+std::string GetInputsTypeJson(pir::Operation *op) {
+  return GetTypeJson(op, true);
+}
+
+std::string GetOutputsTypeJson(pir::Operation *op) {
+  return GetTypeJson(op, false);
 }
 
 void BindType(py::module *m) {
@@ -2631,6 +2728,18 @@ void BindUtils(pybind11::module *m) {
     return cinn::hlir::framework::CompilationCache::Instance().Size();
 #endif
   });
+  m->def("get_attrs_map_json",
+         py::overload_cast<pir::Operation *>(&GetAttrsMapJson),
+         py::arg("op"));
+  m->def("get_attrs_map_json",
+         py::overload_cast<py::dict>(&GetAttrsMapJson),
+         py::arg("attrs"));
+  m->def("get_inputs_type_json",
+         &GetInputsTypeJson,
+         "Get operation input types as JSON string.");
+  m->def("get_outputs_type_json",
+         &GetOutputsTypeJson,
+         "Get operation output types as JSON string.");
 }
 
 namespace {
