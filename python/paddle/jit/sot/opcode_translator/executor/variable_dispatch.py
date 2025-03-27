@@ -245,7 +245,7 @@ Dispatcher.register(
         cls=cls,
         obj=obj,
         graph=Dispatcher.graph,
-        tracker=DummyTracker([]),
+        tracker=DummyTracker([cls, obj]),
     ),
 )
 

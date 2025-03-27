@@ -20,7 +20,6 @@ from test_case_base import (
 )
 
 import paddle
-from paddle.jit.sot import symbolic_translate
 from paddle.jit.sot.psdb import check_no_breakgraph
 
 
@@ -78,27 +77,35 @@ class TestSingleInheritance(TestCaseBase):
     def test_guard_run(self):  # test guard
         with test_instruction_translator_cache_context() as ctx:
             self.assertEqual(ctx.translate_count, 0)
-            symbolic_translate(B().test_super_no_args_add2)(paddle.to_tensor(1))
-            symbolic_translate(B().test_super_no_args_add2)(paddle.to_tensor(2))
+            self.assert_results(
+                B().test_super_no_args_add2, paddle.to_tensor(1)
+            )
+            self.assert_results(
+                B().test_super_no_args_add2, paddle.to_tensor(2)
+            )
             self.assertEqual(ctx.translate_count, 1)
 
         with test_instruction_translator_cache_context() as ctx:
             self.assertEqual(ctx.translate_count, 0)
-            symbolic_translate(B().test_super_no_args_add2)(paddle.to_tensor(1))
-            symbolic_translate(B().test_super_no_args_add2)(paddle.to_tensor(2))
-            self.assertEqual(ctx.translate_count, 1)
-            symbolic_translate(B().test_super_with_args_add3)(
-                paddle.to_tensor(3)
+            self.assert_results(
+                B().test_super_no_args_add2, paddle.to_tensor(1)
             )
-            symbolic_translate(B().test_super_with_args_add3)(
-                paddle.to_tensor(4)
+            self.assert_results(
+                B().test_super_no_args_add2, paddle.to_tensor(2)
+            )
+            self.assertEqual(ctx.translate_count, 1)
+            self.assert_results(
+                B().test_super_with_args_add3, paddle.to_tensor(3)
+            )
+            self.assert_results(
+                B().test_super_with_args_add3, paddle.to_tensor(4)
             )
             self.assertEqual(ctx.translate_count, 2)
 
         with test_instruction_translator_cache_context() as ctx:
             self.assertEqual(ctx.translate_count, 0)
-            symbolic_translate(B().test_super_both_add5)(paddle.to_tensor(5))
-            symbolic_translate(B().test_super_both_add5)(paddle.to_tensor(6))
+            self.assert_results(B().test_super_both_add5, paddle.to_tensor(5))
+            self.assert_results(B().test_super_both_add5, paddle.to_tensor(6))
             self.assertEqual(ctx.translate_count, 1)
 
 
@@ -159,27 +166,27 @@ class TestMultipleInheritance(TestCaseBase):
     def test_guard_run(self):  # test guard
         with test_instruction_translator_cache_context() as ctx:
             self.assertEqual(ctx.translate_count, 0)
-            symbolic_translate(Q().addx)(paddle.to_tensor(1))
-            symbolic_translate(Q().addx)(paddle.to_tensor(2))
-            symbolic_translate(Q().addx)(paddle.to_tensor(3))
+            self.assert_results(Q().addx, paddle.to_tensor(1))
+            self.assert_results(Q().addx, paddle.to_tensor(2))
+            self.assert_results(Q().addx, paddle.to_tensor(3))
             self.assertEqual(ctx.translate_count, 1)
 
         with test_instruction_translator_cache_context() as ctx:
             self.assertEqual(ctx.translate_count, 0)
-            symbolic_translate(Q().addxP)(paddle.to_tensor(4))
-            symbolic_translate(Q().addxP)(paddle.to_tensor(5))
-            symbolic_translate(Q().addxP)(paddle.to_tensor(6))
+            self.assert_results(Q().addxP, paddle.to_tensor(4))
+            self.assert_results(Q().addxP, paddle.to_tensor(5))
+            self.assert_results(Q().addxP, paddle.to_tensor(6))
             self.assertEqual(ctx.translate_count, 1)
 
         with test_instruction_translator_cache_context() as ctx:
             self.assertEqual(ctx.translate_count, 0)
-            symbolic_translate(Q().addxZ)(paddle.to_tensor(7))
-            symbolic_translate(Q().addxZ)(paddle.to_tensor(8))
-            symbolic_translate(Q().addxZ)(paddle.to_tensor(9))
+            self.assert_results(Q().addxZ, paddle.to_tensor(7))
+            self.assert_results(Q().addxZ, paddle.to_tensor(8))
+            self.assert_results(Q().addxZ, paddle.to_tensor(9))
             self.assertEqual(ctx.translate_count, 1)
-            symbolic_translate(Q().addxP)(paddle.to_tensor(4))
-            symbolic_translate(Q().addxP)(paddle.to_tensor(5))
-            symbolic_translate(Q().addxP)(paddle.to_tensor(6))
+            self.assert_results(Q().addxP, paddle.to_tensor(4))
+            self.assert_results(Q().addxP, paddle.to_tensor(5))
+            self.assert_results(Q().addxP, paddle.to_tensor(6))
             self.assertEqual(ctx.translate_count, 2)
 
 
@@ -202,9 +209,9 @@ class TestSuperAsInput1(TestCaseBase, ClassSuperAsInput):
     def test_guard_run(self):  # test guard
         with test_instruction_translator_cache_context() as ctx:
             self.assertEqual(ctx.translate_count, 0)
-            symbolic_translate(super_as_input)(super())
-            symbolic_translate(super_as_input)(super())
-            symbolic_translate(super_as_input)(super())
+            self.assert_results(super_as_input, super())
+            self.assert_results(super_as_input, super())
+            self.assert_results(super_as_input, super())
             self.assertEqual(ctx.translate_count, 1)
 
 
@@ -244,19 +251,19 @@ class TestSuperAsInput2(TestCaseBase):
         with test_instruction_translator_cache_context() as ctx:
             self.assertEqual(ctx.translate_count, 0)
             x = paddle.to_tensor(3)
-            symbolic_translate(ClassSuperAsInputC().test_super_as_input)(
-                x, ClassSuperAsInputC
+            self.assert_results(
+                ClassSuperAsInputC().test_super_as_input, x, ClassSuperAsInputC
             )
-            symbolic_translate(ClassSuperAsInputC().test_super_as_input)(
-                x, ClassSuperAsInputC
+            self.assert_results(
+                ClassSuperAsInputC().test_super_as_input, x, ClassSuperAsInputC
             )
             self.assertEqual(ctx.translate_count, 1)
             x = paddle.to_tensor(4)
-            symbolic_translate(ClassSuperAsInputC().test_super_as_input)(
-                x, ClassSuperAsInputB
+            self.assert_results(
+                ClassSuperAsInputC().test_super_as_input, x, ClassSuperAsInputB
             )
-            symbolic_translate(ClassSuperAsInputC().test_super_as_input)(
-                x, ClassSuperAsInputB
+            self.assert_results(
+                ClassSuperAsInputC().test_super_as_input, x, ClassSuperAsInputB
             )
             self.assertEqual(ctx.translate_count, 2)
 
@@ -289,9 +296,9 @@ class TestSuperAttr(TestCaseBase):
         x = paddle.to_tensor([4.0])
         with test_instruction_translator_cache_context() as ctx:
             self.assertEqual(ctx.translate_count, 0)
-            symbolic_translate(ClassWithAttributionC().foo)(x)
-            symbolic_translate(ClassWithAttributionC().foo)(x)
-            symbolic_translate(ClassWithAttributionC().foo)(x)
+            self.assert_results(ClassWithAttributionC().foo, x)
+            self.assert_results(ClassWithAttributionC().foo, x)
+            self.assert_results(ClassWithAttributionC().foo, x)
             self.assertEqual(ctx.translate_count, 1)
 
 
@@ -318,21 +325,23 @@ class FakeSuperClass(FakeSuperBase):
 
 
 # We create a fake `super` and inject it to `__globals__` of the function
-new_globals = FakeSuperClass.fake_super.__globals__.copy()
+new_globals = FakeSuperClass.fake_super_function.__globals__.copy()
 new_globals["super"] = lambda x, y: Toy()
 
-FakeSuperClass.fake_super = types.FunctionType(
-    FakeSuperClass.fake_super.__code__,
+FakeSuperClass.fake_super_function = types.FunctionType(
+    FakeSuperClass.fake_super_function.__code__,
     new_globals,
-    name=FakeSuperClass.fake_super.__name__,
-    argdefs=FakeSuperClass.fake_super.__defaults__,
-    closure=FakeSuperClass.fake_super.__closure__,
+    name=FakeSuperClass.fake_super_function.__name__,
+    argdefs=FakeSuperClass.fake_super_function.__defaults__,
+    closure=FakeSuperClass.fake_super_function.__closure__,
 )
 
 
 class TestCustomSuper(TestCaseBase):
     def test_fake_super(self):
-        self.assert_results(FakeSuperClass().fake_super, paddle.to_tensor(3.0))
+        self.assert_results(
+            FakeSuperClass().fake_super_function, paddle.to_tensor(3.0)
+        )
 
     def test_super_function_as_input(self):
         self.assert_exceptions(
