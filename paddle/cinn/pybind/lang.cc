@@ -271,6 +271,8 @@ void BindBuiltin(py::module *m) {
   m->def("reduce_mul", &lang::ReduceMul);
   m->def("reduce_max", &lang::ReduceMax);
   m->def("reduce_min", &lang::ReduceMin);
+  m->def("reduce_argmax", &lang::ReduceArgMax);
+  m->def("reduce_argmin", &lang::ReduceArgMin);
   m->def("reduce_all", &lang::ReduceAll);
   m->def("reduce_any", &lang::ReduceAny);
 }

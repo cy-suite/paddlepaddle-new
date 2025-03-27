@@ -39,12 +39,12 @@ bool IsReduceBool(const ir::Expr& lhs, const ir::Expr& rhs) {
 inline ir::Expr PackArgIdxStructExpr(
   ir::Tensor tensor, 
   ir::Expr value, 
-  ir::Expr index, 
+  const ir::Var& reduce_axis,
   std::string suffix = "_i32"
 ) {
   return ir::Call::Make(tensor->type(),
-                "argidx" + Type2StrForArgReduce(tensor->type()) + "_i32", 
-                {value, reduce_axis[0]}, 
+                "argidx" + hlir::pe::Type2StrForArgReduce(tensor->type()) + "_i32", 
+                {value, reduce_axis}, 
                 {}, 
                 ir::CallType::Intrinsic);
 }

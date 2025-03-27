@@ -119,10 +119,10 @@ ir::Tensor ReduceMin(const ir::Tensor& A,
  *
  * @return The result Tensor.
  */
-Tensor ReduceArgMax(const Tensor& A,
+ir::Tensor ReduceArgMax(const ir::Tensor& A,
                      const std::vector<int>& axis,
                      const bool keep_dims = false,
-                     const std::string& output_name = "T_Reduce_ArgMax_out")
+                     const std::string& output_name = "T_Reduce_ArgMax_out");
 
 /**
  * @brief find the index to the minimum of array elements over a given axis
@@ -139,10 +139,10 @@ Tensor ReduceArgMax(const Tensor& A,
  *
  * @return The result Tensor.
  */
-Tensor ReduceArgMin(const Tensor& A,
+ir::Tensor ReduceArgMin(const ir::Tensor& A,
                      const std::vector<int>& axis,
                      const bool keep_dims = false,
-                     const std::string& output_name = "T_Reduce_ArgMin_out")
+                     const std::string& output_name = "T_Reduce_ArgMin_out");
 
 /**
  * @brief find the logic and of array elements over a given axis
@@ -541,8 +541,8 @@ std::vector<ir::Tensor> TwoStepBlockReduceAny(
     const std::string& output_name = "T_Reduce_Any_out");
 
 constexpr char* kVarianceFuncName = "cinn_reduce_variance";
-constexpr char* kArgMaxFuncName = "max";
-constexpr char* kArgMinFuncName = "min";
+constexpr char* kArgMaxFuncName = "cinn_argmax";
+constexpr char* kArgMinFuncName = "cinn_argmin";
 
 std::string CrossThreadReduceExternalFuncName(const ir::Expr& op,
                                               const ir::Expr& tensor);
