@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 #ifndef PADDLE_WITH_HIP
 // HIP not support cusolver
 
@@ -192,8 +193,6 @@ void SvdvalsKernel(const Context& dev_ctx,
   auto& dims = X.dims();
   int rows = static_cast<int>(dims[dims.size() - 2]);
   int cols = static_cast<int>(dims[dims.size() - 1]);
-  int k = std::min(rows, cols);
-  int batches = static_cast<int>(X.numel() / (rows * cols));
   PADDLE_ENFORCE_GT(
       rows,
       0,
@@ -202,6 +201,8 @@ void SvdvalsKernel(const Context& dev_ctx,
       cols,
       0,
       common::errors::InvalidArgument("Cols of X must be greater than 0."));
+  int k = std::min(rows, cols);
+  int batches = static_cast<int>(X.numel() / (rows * cols));
   PADDLE_ENFORCE_GT(
       batches,
       0,
