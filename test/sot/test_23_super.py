@@ -22,6 +22,7 @@ from test_case_base import (
 
 import paddle
 from paddle.jit.sot.psdb import check_no_breakgraph
+from paddle.jit.sot.utils.exceptions import InnerError
 
 
 # ---------------------- test single inheritance case ----------------------
@@ -355,8 +356,8 @@ class TestCustomSuper(TestCaseBase):
             )
         if sys.version_info < (3, 11):
             self.assert_exceptions(
-                KeyError,
-                r"__class__",
+                InnerError,
+                "KeyError: '__class__'",
                 FakeSuperClass().super_function_as_input,
                 super,
                 paddle.to_tensor(3.0),
