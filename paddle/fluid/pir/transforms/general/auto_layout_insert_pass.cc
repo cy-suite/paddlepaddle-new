@@ -228,6 +228,20 @@ class AutoLayoutInsertPass : public pir::Pass {
         }
       } else if (!kOpsNchw.count(op_name) && !kOpsWithAxis.count(op_name) &&
                  IsInsertTransposeOpBefore(op)) {
+        // TODO(liujinnan):
+        // 1. Hide the special judgment method in PreferLayout of
+        // LayoutTransformationInterface.
+        // 2. Here we should do detailed experiments (`NHWC` vs `T
+        // + NCHW + T`) to determine whether to change the layout of pool2d. For
+        // example, when `hw` is large, it tends to be NCHW, and when `c` is
+        // large, it tends to be NHWC. Here, a temporary solution is to keep
+        // nchw when the pool type is maxpool.
+        if (auto pool2d_op = op->dyn_cast<paddle::dialect::Pool2dOp>()) {
+          if (pool2d_op.attribute("pooling_type")
+                  .dyn_cast<pir::StrAttribute>()
+                  .AsString() == "max")
+            continue;
+        }
         VLOG(4) << "enter NCHW op: " << op_name;
         DoTransposeOpOperand(op, builder);
         if (auto transpose_op = op->dyn_cast<paddle::dialect::TransposeOp>()) {
@@ -308,7 +322,7 @@ const std::set<std::string> kOpsNchw = {"pd_op.max_pool2d_with_index",
                                         "pd_op.fractional_max_pool2d",
                                         "pd_op.unpool3d",
                                         "pd_op.unpool",
-                                        "pd_op.pool2d",
+                                        // "pd_op.pool2d",
                                         "pd_op.correlation",
                                         "pd_op.depthwise_conv2d",
                                         "pd_op.grid_sample",
