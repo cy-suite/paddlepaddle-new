@@ -19,6 +19,8 @@ from op_test import OpTest
 from utils import dygraph_guard, static_guard
 
 import paddle
+from paddle import base
+from paddle.base import core
 
 
 class TestSvdvalsOp(OpTest):
@@ -94,9 +96,9 @@ class TestSvdvalsAPI(unittest.TestCase):
     def setUp(self):
         np.random.seed(1024)
         self.x_np = np.random.uniform(-3, 3, [10, 12]).astype('float32')
-        self.place = [paddle.CPUPlace()]
-        if paddle.is_compiled_with_cuda():
-            self.place.append(paddle.CUDAPlace(0))
+        self.place = [base.CPUPlace()]
+        if core.is_compiled_with_cuda():
+            self.place.append(base.CUDAPlace(0))
 
     def test_dygraph_api(self):
         with dygraph_guard():
