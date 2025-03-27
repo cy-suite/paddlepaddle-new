@@ -15,19 +15,19 @@ env:
   COMMIT_ID: ${{ github.event.pull_request.head.sha }}
 
 jobs:
-  # clone:
-  #   name: Clone-linux
-  #   uses: ./.github/workflows/_Clone-linux.yml
+  clone:
+    name: Clone-linux
+    uses: ./.github/workflows/_Clone-linux.yml
 
-  # sot:
-  #   name: PR-CI-SOT
-  #   uses: ./.github/workflows/_SOT.yml
-  #   needs: clone
+  sot:
+    name: PR-CI-SOT
+    uses: ./.github/workflows/_SOT.yml
+    needs: clone
 
   coverage:
     name: PR-CI-Coverage
     uses: ./.github/workflows/_Coverage.yml
-    # needs: clone
+    needs: clone
 
   # Py3:
   #   uses: ./.github/workflows/_Py3.yml
