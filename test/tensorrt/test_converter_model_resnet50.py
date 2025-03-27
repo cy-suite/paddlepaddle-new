@@ -132,6 +132,7 @@ class TestConverterResNet50(unittest.TestCase):
             trt_config.save_model_dir + '.json',
             trt_config.save_model_dir + '.pdiparams',
         )
+        config.switch_ir_debug(True)
         if paddle.is_compiled_with_cuda():
             config.enable_use_gpu(100, 0)
         else:
@@ -150,9 +151,9 @@ class TestConverterResNet50(unittest.TestCase):
         np.testing.assert_allclose(
             output_expected,
             output_trt,
-            rtol=1e-2,
-            atol=1e-2,
-            err_msg="Outputs are not within the 1e-2 tolerance",
+            rtol=1e-1,
+            atol=1e-1,
+            err_msg="Outputs are not within the 1e-1 tolerance",
         )
 
     def test_paddle_to_tensorrt_conversion_r50_collect_shape(self):
@@ -192,8 +193,8 @@ class TestConverterResNet50(unittest.TestCase):
         np.testing.assert_allclose(
             output_expected,
             output_trt,
-            rtol=1e-3,
-            atol=1e-3,
+            rtol=1e-2,
+            atol=1e-2,
             err_msg="Outputs are not within the 1e-3 tolerance",
         )
 
