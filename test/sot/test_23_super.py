@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import sys
 import types
 import unittest
 
@@ -346,22 +345,13 @@ class TestCustomSuper(TestCaseBase):
         )
 
     def test_super_function_as_input(self):
-        if sys.version_info >= (3, 12):
-            self.assert_exceptions(
-                RuntimeError,
-                r"super\(\): __class__ cell not found",
-                FakeSuperClass().super_function_as_input,
-                super,
-                paddle.to_tensor(3.0),
-            )
-        if sys.version_info < (3, 12):
-            self.assert_exceptions(
-                InnerError,
-                "KeyError: '__class__'",
-                FakeSuperClass().super_function_as_input,
-                super,
-                paddle.to_tensor(3.0),
-            )
+        self.assert_exceptions(
+            InnerError,
+            "KeyError: '__class__'",
+            FakeSuperClass().super_function_as_input,
+            super,
+            paddle.to_tensor(3.0),
+        )
 
 
 if __name__ == "__main__":
