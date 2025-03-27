@@ -209,6 +209,8 @@ class NumpyDtypeMatchGuard : public GuardBase {
     Py_INCREF(expected_);
   }
 
+  ~NumpyDtypeMatchGuard() override { Py_DECREF(expected_); }
+
   bool check(PyObject* value) override;
 
  private:

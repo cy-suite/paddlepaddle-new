@@ -138,6 +138,9 @@ bool NumpyDtypeMatchGuard::check(PyObject* value) {
   if (value == nullptr) {
     return false;
   }
+
+  // TODO(dev): encountered a compilation error: "declared with greater
+  // visibility than the type of its field", so had to put the conversion here
   py::dtype expected_dtype = py::cast<py::dtype>(expected_);
 
   if (py::isinstance<py::array>(value)) {
