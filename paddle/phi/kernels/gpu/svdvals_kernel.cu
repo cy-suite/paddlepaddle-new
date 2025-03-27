@@ -28,8 +28,6 @@ static void GesvdjBatchedSvdvals(const phi::GPUContext& dev_ctx,
                                  int n,
                                  int k,
                                  T* A,
-                                 T* U,
-                                 T* V,
                                  T* S,
                                  int* info,
                                  int thin_UV = 0  // only compute UV
@@ -207,7 +205,6 @@ void SvdvalsKernel(const Context& dev_ctx,
       0,
       common::errors::InvalidArgument("Batch size must be greater than 0."));
 
-  auto* S_out = dev_ctx.template Alloc<phi::dtype::Real<T>>(S);
   DDim S_dims;
   if (dims.size() <= 2) {
     S_dims = {k};
