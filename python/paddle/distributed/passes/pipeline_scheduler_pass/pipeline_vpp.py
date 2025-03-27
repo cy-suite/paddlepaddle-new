@@ -177,7 +177,7 @@ class PipelineVirtualPipelinePass(PipelinePassBase):
 
             for matmul_grad_id in reversed(matmul_grad_op_idx):
                 _pir_split_matmul_grad_to_matmul(block, matmul_grad_id)
-      
+
     def _partial_programs(self, program):
         raise RuntimeError("Not support old IR for VPP")
 
