@@ -797,8 +797,7 @@ class OpcodeExecutorBase:
 
     @call_break_graph_decorator(push_n=1)
     def LOAD_SUPER_ATTR(self, instr: Instruction):
-        # This bytecode is for Python 3.12+, and it will break graph in Python 3.11-.
-        # We align it's behavior with Python 3.11-.
+        # Handle LOAD_SUPER_ATTR bytecode (introduced in Python 3.12+) by simulating its execution
 
         assert isinstance(instr.arg, int)
 

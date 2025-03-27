@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import types
 import unittest
 
 from test_case_base import (
@@ -293,6 +293,55 @@ class TestSuperAttr(TestCaseBase):
             symbolic_translate(ClassWithAttributionC().foo)(x)
             symbolic_translate(ClassWithAttributionC().foo)(x)
             self.assertEqual(ctx.translate_count, 1)
+
+
+# ---------------------- test case which has fake super ----------------------
+class Toy:
+    @check_no_breakgraph
+    def get(self, x):
+        return x + 1
+
+
+class FakeSuperBase:
+    @check_no_breakgraph
+    def put(self, x):
+        return x + 1
+
+
+class FakeSuperClass(FakeSuperBase):
+    @check_no_breakgraph
+    def fake_super_function(self, x):
+        return super(1, 2).get(x)
+
+    def super_function_as_input(self, fn, x):
+        return fn().put(x)
+
+
+# We create a fake `super` and inject it to `__globals__` of the function
+new_globals = FakeSuperClass.fake_super.__globals__.copy()
+new_globals["super"] = lambda x, y: Toy()
+
+FakeSuperClass.fake_super = types.FunctionType(
+    FakeSuperClass.fake_super.__code__,
+    new_globals,
+    name=FakeSuperClass.fake_super.__name__,
+    argdefs=FakeSuperClass.fake_super.__defaults__,
+    closure=FakeSuperClass.fake_super.__closure__,
+)
+
+
+class TestCustomSuper(TestCaseBase):
+    def test_fake_super(self):
+        self.assert_results(FakeSuperClass().fake_super, paddle.to_tensor(3.0))
+
+    def test_super_function_as_input(self):
+        self.assert_exceptions(
+            (RuntimeError,),  # paddle.jit.sot.utils.exceptions.InnerError
+            r"super\(\): __class__ cell not found",
+            FakeSuperClass().super_function_as_input,
+            super,
+            paddle.to_tensor(3.0),
+        )
 
 
 if __name__ == "__main__":
