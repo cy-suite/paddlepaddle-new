@@ -770,6 +770,7 @@ std::optional<AxisTransformRoute> GetValidHorizontalLoopTransform(
         input_nums - shared_input_value_nums > 4) {
       // Disable horizontal fusion with dynamic shape when shared input values
       // are less than 1/3 per input while non shared input nums more than 4.
+      VLOG(4) << "Can not fuse with dynamic shape when shared inputs are few. ";
       return std::nullopt;
     }
   }
