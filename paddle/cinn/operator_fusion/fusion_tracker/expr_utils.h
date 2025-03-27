@@ -30,19 +30,20 @@ struct FusibleOp2Expr {
   }
 };
 
-struct ApplyItersTransform {
-  explicit ApplyItersTransform(const ir::Expr& expr,
-                               const ir::Expr& aligned_expr)
-      : expr_(expr), aligned_expr_(aligned_expr) {}
-  ir::Expr operator()(const IdentityItersTransform& trans) { return expr_; }
-  ir::Expr operator()(const RemoveOnesTransform& trans);
-  ir::Expr operator()(const TransposeItersTransform& trans);
-  ir::Expr operator()(const AppendItersTransform& trans);
-  ir::Expr operator()(const ReuseItersTransform& trans) { return expr_; }
+struct ApplyAxisTransform {
+  explicit ApplyAxisTransform(const ir::Expr& expr) : expr_(expr) {}
+  ir::Expr operator()(const IdentityTransformPtr& trans) { return expr_; }
+  ir::Expr operator()(const TransposeTransformPtr& trans);
+  ir::Expr operator()(const AppendAxisTransformPtr& trans);
+  ir::Expr operator()(const DeleteAxisTransformPtr& trans);
+  ir::Expr operator()(const ReshapeTransformPtr& trans);
+  ir::Expr operator()(const UnsupportedTransformPtr& trans) {
+    PADDLE_THROW(
+        ::common::errors::Unavailable("Cannot apply UnsupportedTransform!"));
+  }
 
  private:
   ir::Expr expr_;
-  ir::Expr aligned_expr_;
 };
 
 std::vector<ir::Expr> GetFusibleOpsExpr(std::vector<FusibleOp> fusion_ops);

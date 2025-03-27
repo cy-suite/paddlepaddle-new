@@ -419,17 +419,8 @@ def _c_softmax_with_cross_entropy(
         )
 
     if in_dynamic_mode():
-        softmax, loss = _legacy_C_ops.c_softmax_with_cross_entropy(
-            logits,
-            label,
-            'ring_id',
-            ring_id,
-            'rank',
-            rank,
-            'nranks',
-            nranks,
-            'ignore_index',
-            ignore_index,
+        softmax, loss = _C_ops.c_softmax_with_cross_entropy(
+            logits, label, ignore_index, ring_id, rank, nranks
         )
         if not return_softmax:
             return loss
@@ -833,7 +824,7 @@ def split(
             :align: center
 
         Row Parallel Linear is shown as below. As the name suggests, Row Parallel Linear splits the weight matrix W into
-        [[W_row1], [W_row2]] along the row. And accordingly the input is splitted along the column into [X_col1, X_col2] and multiply their
+        [[W_row1], [W_row2]] along the row. And accordingly the input is split along the column into [X_col1, X_col2] and multiply their
         respective weight matrices. Finally apply AllReduce on the output from each card to get the final output.
 
         .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/api/paddle/distributed/img/split_row.png
@@ -848,7 +839,7 @@ def split(
 
         The linear layer put on single card has been illustrated on case 2 and Column Parallel Linear
         is shown as below. The Column Parallel Linear splits the weight matrix W into [W_col1, W_col2] along the column and
-        these splitted matrices respectively multiply the input. Finally apply AllGather on the output from each card to get the final output.
+        these split matrices respectively multiply the input. Finally apply AllGather on the output from each card to get the final output.
 
         .. image:: https://githubraw.cdn.bcebos.com/PaddlePaddle/docs/develop/docs/api/paddle/distributed/img/split_col.png
             :width: 800

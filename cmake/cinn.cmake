@@ -107,6 +107,7 @@ endif()
 if(WITH_ROCM)
   message(STATUS "CINN Compile with ROCM support")
   add_definitions(-DCINN_WITH_HIP)
+  link_libraries(${ROCM_HIPRTC_LIB})
 endif()
 
 if(CINN_WITH_SYCL)
@@ -169,7 +170,6 @@ cinn_cc_library(
   glog
   ${llvm_libs}
   param_proto
-  auto_schedule_proto
   schedule_desc_proto
   tile_config_proto
   absl
@@ -178,6 +178,7 @@ cinn_cc_library(
   op_fusion
   cinn_op_dialect
   ${jitify_deps})
+
 add_dependencies(cinnapi GEN_LLVM_RUNTIME_IR_HEADER ZLIB::ZLIB)
 add_dependencies(cinnapi GEN_LLVM_RUNTIME_IR_HEADER ${core_deps})
 target_link_libraries(cinnapi op_dialect pir phi)
@@ -227,7 +228,6 @@ function(gen_cinncore LINKTYPE)
     glog
     ${llvm_libs}
     param_proto
-    auto_schedule_proto
     schedule_desc_proto
     tile_config_proto
     absl
@@ -320,10 +320,6 @@ if(PUBLISH_LIBS)
     COMMAND
       cmake -E copy ${CMAKE_BINARY_DIR}/paddle/cinn/hlir/pe/libparam_proto.a
       ${CMAKE_BINARY_DIR}/dist/cinn/lib/libparam_proto.a
-    COMMAND
-      cmake -E copy
-      ${CMAKE_BINARY_DIR}/paddle/cinn/auto_schedule/libauto_schedule_proto.a
-      ${CMAKE_BINARY_DIR}/dist/cinn/lib/libauto_schedule_proto.a
     COMMAND
       cmake -E copy
       ${CMAKE_BINARY_DIR}/paddle/cinn/ir/schedule/libschedule_desc_proto.a

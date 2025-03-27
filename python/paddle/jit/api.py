@@ -65,7 +65,6 @@ from paddle.framework import use_pir_api
 from paddle.nn import Layer
 from paddle.static.io import save_inference_model
 from paddle.utils.environments import (
-    BooleanEnvironmentVariable,
     EnvironmentVariableGuard,
 )
 
@@ -77,6 +76,11 @@ from .dy2static.program_translator import (
     StaticFunction,
     SymbolicStaticFunction,
     unwrap_decorators,
+)
+from .dy2static.utils import (
+    ENV_ENABLE_SOT,
+    Backend,
+    infer_use_cinn_backend,
 )
 from .pir_translated_layer import PIR_INFER_MODEL_SUFFIX, PirTranslatedLayer
 from .translated_layer import (
@@ -105,9 +109,6 @@ if TYPE_CHECKING:
     class _LoadOptions(TypedDict):
         model_filename: NotRequired[str]
         params_filename: NotRequired[str]
-
-
-ENV_ENABLE_SOT = BooleanEnvironmentVariable("ENABLE_FALL_BACK", True)
 
 
 _LayerT = TypeVar("_LayerT", bound=Layer)
@@ -167,15 +168,6 @@ def ignore_module(modules: list[ModuleType]) -> None:
 
     """
     add_ignore_module(modules)
-
-
-def _check_and_set_backend(backend, build_strategy):
-    if backend not in ['CINN', None]:
-        raise ValueError(
-            f"The backend of to_static should be 'CINN' or None, but received {backend}."
-        )
-    if backend == 'CINN':
-        build_strategy.build_cinn_pass = True
 
 
 class _ToStaticOptions(TypedDict):
@@ -281,10 +273,21 @@ def to_static(
     """
     property = kwargs.get("property", False)
     full_graph = kwargs.get("full_graph", None)
+    build_strategy = build_strategy or BuildStrategy()
+    if not isinstance(build_strategy, BuildStrategy):
+        raise TypeError(
+            f"Required type(build_strategy) shall be `paddle.static.BuildStrategy`, but received {type(build_strategy).__name__}"
+        )
+    backend = Backend.from_arg(backend)
+    backend = (
+        Backend.CINN
+        if infer_use_cinn_backend(backend, build_strategy)
+        else Backend.PHI
+    )
 
     def decorated(python_func):
         """
-        Decorates a python function into a ASTStaticFunction object.
+        Decorates a python function into a ASTStaticFunction or SymbolicStaticFunction object.
         """
 
         nonlocal full_graph
@@ -298,10 +301,9 @@ def to_static(
             )
             full_graph = True
 
-        StaticClass = {
-            False: SymbolicStaticFunction,
-            True: ASTStaticFunction,
-        }[full_graph]
+        StaticClass = (
+            ASTStaticFunction if full_graph else SymbolicStaticFunction
+        )
 
         # Step 1. unwrap the function if it is already decorated.
         _, python_func = unwrap_decorators(python_func)
@@ -319,13 +321,6 @@ def to_static(
         )
 
         return static_layer
-
-    build_strategy = build_strategy or BuildStrategy()
-    if not isinstance(build_strategy, BuildStrategy):
-        raise TypeError(
-            f"Required type(build_strategy) shall be `paddle.static.BuildStrategy`, but received {type(build_strategy).__name__}"
-        )
-    _check_and_set_backend(backend, build_strategy)
 
     # for usage: `to_static(foo, ...)`
     if function is not None:
@@ -615,7 +610,6 @@ def _get_input_var_and_names(inputs, input_spec, input_names_after_prune):
             elif spec.name not in input_var_names:
                 warnings.warn(name_no_exists_error % spec.name)
             else:
-                # do nothing
                 pass
     else:
         # prune
@@ -753,14 +747,14 @@ def _build_load_path_and_config(path, config):
     directory_format_exist = os.path.isdir(path)
     if prefix_format_exist and directory_format_exist:
         raise ValueError(
-            f"The {path}.pdmodel and {path} directory exist at the same time, "
+            f"The {path}.pdmodel(json) and {path} directory exist at the same time, "
             "don't know which one to load, please make sure that the specified target "
             "of ``path`` is unique."
         )
     elif not prefix_format_exist and not directory_format_exist:
         raise ValueError(
             f"The ``path`` ({path}) to load model not exists. "
-            "Please make sure that *.pdmodel exists or "
+            "Please make sure that *.pdmodel(json) exists or "
             "don't using ``skip_forward=True`` to jit.save."
         )
     else:

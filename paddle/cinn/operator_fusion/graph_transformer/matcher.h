@@ -32,8 +32,10 @@ struct NonSinkNodeMatcher {
 
 struct IsOutputNodeMatcher {
   bool operator()(const PatternGraph& graph, const PatternNodePtr& node) {
-    bool res = IsAnyFirstInSecond(node->sink_op()->results(), graph.outputs());
-    return res;
+    for (auto op : node->ops()) {
+      if (graph.output_ops().count(op)) return true;
+    }
+    return false;
   }
 };
 
@@ -54,6 +56,36 @@ struct DownstreamGreaterThan {
 struct OnlyOneDownstreamMatcher {
   bool operator()(const PatternGraph& graph, const PatternNodePtr& node) {
     return node->downstream().size() == 1;
+  }
+};
+
+/*
+ * We must limit the output + input + shape_info number and make sure
+ * the number is smaller than 512.
+ */
+struct InputOutputMaximumConstrain {
+  const int MAX_INPUT_OUTPUT_NUMBER = 384;  // cuda only support 512
+  std::vector<pir::Value> GetInputValuesExceptMiddle(
+      const std::vector<pir::Operation*>& ops) {
+    return VectorDiff(GetInputsValue(ops), GetOutputsValue(ops));
+  }
+  std::vector<pir::Value> GetOutputValuesExceptMiddle(
+      const std::vector<pir::Operation*>& ops) {
+    return VectorDiff(GetOutputsValue(ops), GetInputsValue(ops));
+  }
+  std::vector<pir::Operation*> GetAllOps(const PatternNodePtr& lhs,
+                                         const PatternNodePtr& rhs) {
+    return UniqueVectorBySet(
+        ConcatVector(GetOpsInPattern(lhs->stmt_pattern()),
+                     GetOpsInPattern(rhs->stmt_pattern())));
+  }
+  bool operator()(const PatternGraph& graph,
+                  const PatternNodePtr& lhs,
+                  const PatternNodePtr& rhs) {
+    const auto& all_ops = GetAllOps(lhs, rhs);
+    int input_number = GetInputValuesExceptMiddle(all_ops).size();
+    int output_number = GetOutputValuesExceptMiddle(all_ops).size();
+    return input_number + output_number < MAX_INPUT_OUTPUT_NUMBER;
   }
 };
 
@@ -104,60 +136,15 @@ struct CanFuseReduceTreeAndTrivialMatcher {
   }
 };
 
-struct CanFuseTrivialAndReduce {
-  bool operator()(PatternGraph graph,  // NOLINT
+struct CanAnchorFusionMatcher {
+  bool operator()(const PatternGraph& graph,
                   const PatternNodePtr& upstream,
                   const PatternNodePtr& downstream) {
-    PatternNodePtr reduce_node;
-    if (upstream->fusion_iters().reduce_iter_nums &&
-        !downstream->fusion_iters().reduce_iter_nums) {
-      reduce_node = upstream;
-    } else if (!upstream->fusion_iters().reduce_iter_nums &&
-               downstream->fusion_iters().reduce_iter_nums) {
-      reduce_node = downstream;
-    } else {
-      return true;
-    }
-    auto reduce_dims_product =
-        graph.iters_fusion_policy()->iters_manager()->GetReduceDimsProduct(
-            reduce_node->fusion_iters());
-    if (reduce_dims_product.isa<std::int64_t>()) {
-      return reduce_dims_product.dyn_cast<std::int64_t>() <= 1024 * 10;
-    } else {
-      return true;
-    }
-  }
-};
-
-struct DownstreamHasItersRelationMatcher {
-  bool operator()(PatternGraph graph, const PatternNodePtr& node) {  // NOLINT
-    return std::any_of(
-        node->downstream().begin(),
-        node->downstream().end(),
-        [&graph, &node](const PatternNodePtr& downstream) {
-          return !graph.iters_fusion_policy()->CheckItersRelation(node,
-                                                                  downstream);
-        });
-  }
-};
-
-struct CanFuseItersPermutationMatcher {
-  bool operator()(PatternGraph graph,  // NOLINT
-                  const PatternNodePtr& upstream,
-                  const PatternNodePtr& downstream) {
-    return StmtPatternGraphMatcher<ItersPermutationPattern>()(graph,
-                                                              upstream) &&
-           StmtPatternGraphMatcher<ItersPermutationPattern>()(graph,
-                                                              downstream) &&
+    return StmtPatternGraphMatcher<AnchorPattern>()(graph, upstream) &&
+           StmtPatternGraphMatcher<AnchorPattern>()(graph, downstream) &&
            graph.policy_manager()
                .template GetPolicy<GeneralTopoPolicy>()
-               ->CanFuse(upstream, downstream) &&
-           graph.iters_fusion_policy()->CheckItersRelation(upstream,
-                                                           downstream) &&
-           (graph.iters_fusion_policy()->CanFuseSource2Target(downstream,
-                                                              upstream) ||
-            graph.iters_fusion_policy()->CanFuseSource2Target(upstream,
-                                                              downstream));
+               ->CanFuse(upstream, downstream);
   }
 };
 
@@ -169,7 +156,7 @@ struct RecomputeNodeMatcher {
       // 1. It didn't go through any pattern merging during prior fusions,
       // which means it only has one output value.
       // 2. It only contains trivial ops.
-      if (node->fusion_iters().output_values.size() > 1) {
+      if (node->loop_axis_mapping().output_values.size() > 1) {
         return false;
       }
       bool has_combine_fusion =
@@ -190,72 +177,26 @@ struct RecomputeNodeMatcher {
       return true;
     };
 
-    return StmtPatternGraphMatcher<ItersPermutationPattern>()(graph, node) &&
-           node->downstream().size() >= 1 && can_recompute_fn(node);
+    const auto input_output_nums_constraint = [](const PatternGraph& graph,
+                                                 const PatternNodePtr& node) {
+      return std::all_of(node->downstream().begin(),
+                         node->downstream().end(),
+                         [&](const PatternNodePtr& downstream) {
+                           return InputOutputMaximumConstrain()(
+                               graph, node, downstream);
+                         });
+    };
+
+    return StmtPatternGraphMatcher<AnchorPattern>()(graph, node) &&
+           !IsOutputNodeMatcher()(graph, node) &&
+           node->downstream().size() >= 1 && can_recompute_fn(node) &&
+           input_output_nums_constraint(graph, node);
   }
 };
 
 struct TransposeOpMatcher {
   bool operator()(const PatternGraph& graph, const PatternNodePtr& node) {
     return (node->sink_op()->name() == "pd_op.transpose");
-  }
-};
-
-struct ReshapeOpMatcher {
-  bool operator()(const PatternGraph& graph, const PatternNodePtr& node) {
-    auto has_dynamic_shape = [](const PatternNodePtr& node) {
-      const auto in_value = node->sink_op()->operand_source(0);
-      const auto out_value = node->sink_op()->result(0);
-      const auto in_shape = GetDimExprsFromValue(in_value);
-      const auto out_shape = GetDimExprsFromValue(out_value);
-      return GetShapeProduct(in_shape, 0, in_shape.size())
-                 .isa<std::int64_t>() &&
-             GetShapeProduct(out_shape, 0, out_shape.size())
-                 .isa<std::int64_t>();
-    };
-    return node->ops().size() == 1 &&
-           node->sink_op()->name() == "cinn_op.reshape" &&
-           has_dynamic_shape(node);
-  }
-};
-
-struct ReshapeConnectionMatcher {
-  bool operator()(const PatternGraph& graph, const PatternNodePtr& node) {
-    bool upstream_match = node->downstream().size() == 1 &&
-                          ReshapeOpMatcher()(graph, node->downstream()[0]) &&
-                          node->downstream()[0]->downstream().size() == 1;
-    bool downstream_match =
-        ReshapeOpMatcher()(graph, node) && node->downstream().size() == 1;
-    return upstream_match || downstream_match;
-  }
-};
-
-struct LeafReshapeConnectionMatcher {
-  bool operator()(const PatternGraph& graph, const PatternNodePtr& node) {
-    const auto match_upstream = [&graph](const PatternNodePtr& upstream) {
-      return StmtPatternGraphMatcher<TrivialPattern>()(graph, upstream) &&
-             upstream->downstream().size() == 1 &&
-             !upstream->upstream().empty() &&
-             std::any_of(upstream->upstream().begin(),
-                         upstream->upstream().end(),
-                         [&graph](const PatternNodePtr& node) {
-                           return DownstreamGreaterThan<1>()(graph, node);
-                         });
-    };
-    const auto match_downstream = [&graph](const PatternNodePtr& downstream) {
-      return ReshapeOpMatcher()(graph, downstream) &&
-             downstream->downstream().size() == 1 &&
-             downstream->downstream()[0]->downstream().empty() &&
-             downstream->fusion_iters().loop_iters ==
-                 downstream->downstream()[0]->fusion_iters().loop_iters;
-    };
-    bool upstream_match = match_upstream(node) &&
-                          node->downstream().size() == 1 &&
-                          match_downstream(node->downstream()[0]);
-    bool downstream_match = match_downstream(node) &&
-                            node->upstream().size() == 1 &&
-                            match_upstream(node->upstream()[0]);
-    return upstream_match || downstream_match;
   }
 };
 
@@ -328,53 +269,83 @@ struct Not {
 };
 
 struct HorizontalFusionConstrain {
+  bool IsAdjacentRelation(const LoopAxisMapping& lhs,
+                          const LoopAxisMapping& rhs) {
+    return AnyFirstInSecond(lhs.output_values, rhs.input_values) ||
+           AnyFirstInSecond(rhs.output_values, lhs.input_values);
+  }
+
+  bool MemoryIncreaseConstraint(const LoopAxisMapping& lhs,
+                                const LoopAxisMapping& rhs) {
+    static const std::int64_t MEMORY_INCREASE_LIMIT =
+        8 * 1024 * 1024 * 64;  // 64 MB
+
+    const auto memory_size_of_input_values =
+        [](const std::vector<pir::Value>& values) -> std::int64_t {
+      std::int64_t memory_size = 0;
+      for (const auto& v : values) {
+        const auto shape_product =
+            GetShapeProduct(GetCompatibleValueAllDims(v));
+        if (shape_product.isa<std::int64_t>()) {
+          memory_size += shape_product.dyn_cast<std::int64_t>() * 32;
+        } else {
+          // Dynamic shape is not supported yet.
+          return -1;
+        }
+      }
+      return memory_size;
+    };
+
+    const auto& [_unused1, lhs_unique_input_values] =
+        SplitFirstWhetherInSecond(lhs.input_values, rhs.input_values);
+    const auto& [_unused2, rhs_unique_input_values] =
+        SplitFirstWhetherInSecond(rhs.input_values, lhs.input_values);
+    std::int64_t lhs_memory_size =
+        memory_size_of_input_values(lhs_unique_input_values);
+    std::int64_t rhs_memory_size =
+        memory_size_of_input_values(rhs_unique_input_values);
+    std::int64_t memory_increase_size =
+        (lhs_memory_size + rhs_memory_size) -
+        std::max(lhs_memory_size, rhs_memory_size);
+
+    if (memory_increase_size < MEMORY_INCREASE_LIMIT) {
+      return true;
+    } else {
+      VLOG(4) << "Can not horizontal fusion due to memory may increase "
+              << memory_increase_size / 1024 / 1024 / 8 << " MB"
+              << ", which exceeds the limit = 64 MB";
+      return false;
+    }
+  }
+
+  bool IsLoopFrameworkEqual(const LoopAxisMapping& lhs,
+                            const LoopAxisMapping& rhs) {
+    if (lhs.loop.empty() || rhs.loop.empty()) return false;
+
+    const auto lhs_reduce_loop = SliceVector(
+        lhs.loop, lhs.loop.size() - lhs.reduce_axis_num, lhs.loop.size());
+    const auto rhs_reduce_loop = SliceVector(
+        rhs.loop, rhs.loop.size() - rhs.reduce_axis_num, rhs.loop.size());
+
+    bool reduce_euqal = lhs_reduce_loop.empty() || rhs_reduce_loop.empty() ||
+                        lhs_reduce_loop == rhs_reduce_loop;
+
+    return reduce_euqal && ShapeProductEqual(lhs.loop, rhs.loop);
+  }
+
   bool operator()(const PatternGraph& graph,
                   const PatternNodePtr& lhs,
                   const PatternNodePtr& rhs) {
-    if (!StmtPatternGraphMatcher<HorizontalFusionPattern>()(graph, lhs)) {
-      return false;
-    }
-    if (!StmtPatternGraphMatcher<HorizontalFusionPattern>()(graph, rhs)) {
-      return false;
-    }
-    const auto& lhs_pattern =
-        std::get<HorizontalFusionPattern>(lhs->stmt_pattern());
-    const auto& rhs_pattern =
-        std::get<HorizontalFusionPattern>(rhs->stmt_pattern());
-
-    return graph.policy_manager().GetPolicy<GeneralTopoPolicy>()->CanFuse(
+    return StmtPatternGraphMatcher<AnchorPattern>()(graph, lhs) &&
+           StmtPatternGraphMatcher<AnchorPattern>()(graph, rhs) &&
+           graph.policy_manager().GetPolicy<GeneralTopoPolicy>()->CanFuse(
                lhs, rhs) &&
-           IsLoopFrameworkEqual(lhs_pattern, rhs_pattern);
-  }
-};
-
-/*
- * We must limit the output + input + shape_info number and make sure
- * the number is smaller than 512.
- */
-struct InputOutputMaximumConstrain {
-  const int MAX_INPUT_OUTPUT_NUMBER = 480;  // cuda only support 512
-  std::vector<pir::Value> GetInputValuesExceptMiddle(
-      const std::vector<pir::Operation*>& ops) {
-    return VectorDiff(GetInputsValue(ops), GetOutputsValue(ops));
-  }
-  std::vector<pir::Value> GetOutputValuesExceptMiddle(
-      const std::vector<pir::Operation*>& ops) {
-    return VectorDiff(GetOutputsValue(ops), GetInputsValue(ops));
-  }
-  std::vector<pir::Operation*> GetAllOps(const PatternNodePtr& lhs,
-                                         const PatternNodePtr& rhs) {
-    return UniqueVectorBySet(
-        ConcatVector(GetOpsInPattern(lhs->stmt_pattern()),
-                     GetOpsInPattern(rhs->stmt_pattern())));
-  }
-  bool operator()(const PatternGraph& graph,
-                  const PatternNodePtr& lhs,
-                  const PatternNodePtr& rhs) {
-    const auto& all_ops = GetAllOps(lhs, rhs);
-    int input_number = GetInputValuesExceptMiddle(all_ops).size();
-    int output_number = GetOutputValuesExceptMiddle(all_ops).size();
-    return input_number + output_number < MAX_INPUT_OUTPUT_NUMBER;
+           MemoryIncreaseConstraint(lhs->loop_axis_mapping(),
+                                    rhs->loop_axis_mapping()) &&
+           !IsAdjacentRelation(lhs->loop_axis_mapping(),
+                               rhs->loop_axis_mapping()) &&
+           IsLoopFrameworkEqual(lhs->loop_axis_mapping(),
+                                rhs->loop_axis_mapping());
   }
 };
 

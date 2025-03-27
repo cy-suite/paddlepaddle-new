@@ -1546,7 +1546,7 @@ class Executor:
         Prune operators and variables which are not needed to generate
         :code:`fetch_list` and optimize operators.
         Prune operators and variables which are needed
-        to generate variables to be feeded.
+        to generate variables to be fed.
 
         Notes: This is a very low level API. Users should not use this API
         directly.
@@ -2042,7 +2042,7 @@ class Executor:
                             value = value.lower()
                             value = True if value == 'true' else False
                         stored_flag[flag] = bool(value)
-                    set_flags({f: True for f in schedule_flag})
+                    set_flags(dict.fromkeys(schedule_flag, True))
 
             program, new_exe = self._executor_cache.get_program_and_executor(
                 program,

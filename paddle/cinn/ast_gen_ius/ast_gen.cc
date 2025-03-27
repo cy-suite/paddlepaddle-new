@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "paddle/cinn/ast_gen_ius/ast_gen.h"
+#include "paddle/cinn/hlir/pe/reduction.h"
 #include "paddle/cinn/ir/ir.h"
 #include "paddle/cinn/ir/ir_base.h"
 #include "paddle/cinn/ir/ir_printer.h"
@@ -67,6 +68,14 @@ StmtRef ConvertReduceBody(ir::Expr body,
       return Store(tensor, tensor(axis_exprs) && reduce_node->body, axis_exprs);
     case ir::Reduce::kAny:
       return Store(tensor, tensor(axis_exprs) || reduce_node->body, axis_exprs);
+    case ir::Reduce::kVariance:
+      return Store(tensor,
+                   ir::Call::Make(tensor->type(),
+                                  hlir::pe::kVarianceFuncName,
+                                  {tensor(axis_exprs), reduce_node->body},
+                                  {},
+                                  ir::CallType::Intrinsic),
+                   axis_exprs);
     default:
       CINN_NOT_IMPLEMENTED
   }
@@ -115,8 +124,8 @@ StmtRef AstGen::Build(const ir::Tensor& tensor, TensorGroup* tensor_group) {
                                /*is_reduce = */ false));
       optim::ReplaceVarWithExpr(init_body, axis[i], block_vars.back());
       axis_vars[i]->is_reduce_axis = false;
+      if (shape[i].type() == Int(64)) axis_vars[i]->set_type(Int(64));
       iter_values.push_back(axis_vars[i]);
-      ir::TryElevateInt32ToInt64({ir::Expr(axis_vars[i]), shape[i]});
     }
     VLOG(4) << "iter_value.size() and block_vars.size() is "
             << iter_values.size() << " " << block_vars.size();
@@ -144,8 +153,8 @@ StmtRef AstGen::Build(const ir::Tensor& tensor, TensorGroup* tensor_group) {
                                       cinn::UniqName("i" + std::to_string(i)),
                                       /*is_reduce = */ false));
       reduce_axis_vars[i]->is_reduce_axis = false;
+      if (shape[i].type() == Int(64)) axis_vars[i]->set_type(Int(64));
       reduce_iter_values.push_back(axis_vars[i]);
-      ir::TryElevateInt32ToInt64({ir::Expr(axis_vars[i]), shape[i]});
     }
     VLOG(4) << "ast gen: reduce body is after replace 0" << reduce_body;
     for (int i = 0; i < reduce_axis.size(); ++i) {
@@ -196,9 +205,6 @@ StmtRef AstGen::Build(const ir::Tensor& tensor, TensorGroup* tensor_group) {
                            tensor->name,
                            BlockRef({reduce_body}));
     for (int i = static_cast<int>(reduce_axis.size()) - 1; i >= 0; --i) {
-      ir::TryElevateInt32ToInt64({reduce_axis[i],
-                                  reduce_axis[i]->lower_bound,
-                                  reduce_axis[i]->upper_bound});
       reduce_body = For(reduce_axis[i],
                         reduce_axis[i]->lower_bound,
                         reduce_axis[i]->upper_bound,
