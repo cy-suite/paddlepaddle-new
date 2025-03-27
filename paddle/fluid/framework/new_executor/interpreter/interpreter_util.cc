@@ -888,6 +888,16 @@ void BuildOpFuncList(const phi::Place& place,
               if (comm_context_manager.Has(std::to_string(ring_id))) {
                 auto comm_context =
                     comm_context_manager.Get(std::to_string(ring_id));
+#ifdef PADDLE_WITH_CUSTOM_DEVICE
+                auto original_stream =
+                    static_cast<phi::CustomContext*>(dev_ctx)->GetStream();
+                dev_ctx = static_cast<phi::distributed::XCCLCommContext*>(
+                              comm_context)
+                              ->GetDevContext();
+                dev_ctx->SetCommContext(comm_context);
+                static_cast<phi::CustomContext*>(dev_ctx)->SetStream(
+                    original_stream);
+#else
                 auto original_stream =
                     static_cast<phi::GPUContext*>(dev_ctx)->cuda_stream();
                 dev_ctx = static_cast<phi::distributed::NCCLCommContext*>(
@@ -905,6 +915,7 @@ void BuildOpFuncList(const phi::Place& place,
                             place,
                             static_cast<phi::GPUContext*>(dev_ctx)->stream())
                         .get());
+#endif
               }
             } else if (map->has(ring_id)) {
 #ifdef PADDLE_WITH_CUSTOM_DEVICE
