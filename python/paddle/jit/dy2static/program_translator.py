@@ -1202,14 +1202,17 @@ class ConcreteProgram:
         outputs,
         parameters,
         function,
-        constrained_inputs,
         main_program,
         startup_program=None,
+        constrained_inputs=None,
         **kwargs,
     ):
         self.inputs = inputs
         self.outputs = outputs
-        self.constrained_inputs = constrained_inputs
+        # Avoid mutable default argument pitfall (new list per instance)
+        self.constrained_inputs = (
+            constrained_inputs if constrained_inputs is not None else []
+        )
         self.main_program = main_program
         self.startup_program = startup_program
         self.parameters = parameters
@@ -1335,9 +1338,9 @@ class ConcreteProgram:
             outputs=outputs,
             parameters=all_parameters_and_buffers,
             function=dygraph_function,
-            constrained_inputs=constraints,
             main_program=main_program,
             startup_program=startup_program,
+            constrained_inputs=constraints,
             **kwargs,
         )
 
@@ -1436,7 +1439,6 @@ class ConcreteProgram:
             outputs=outputs,
             parameters=all_parameters_and_buffers,
             function=dygraph_function,
-            constrained_inputs=None,
             main_program=main_program,
             startup_program=startup_program,
             **kwargs,

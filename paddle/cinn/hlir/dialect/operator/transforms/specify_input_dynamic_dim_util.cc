@@ -121,6 +121,7 @@ std::vector<pir::InputDynamicDimSpec> ConvertRawConstraints(
   }
   return res;
 }
+
 }  // namespace
 
 void SpecifyInputDynamicDim(

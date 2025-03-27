@@ -674,14 +674,17 @@ class PartialProgramLayer:
         main_program,
         inputs,
         outputs,
-        constrained_inputs,
+        constrained_inputs=None,
         parameters=None,
         **kwargs,
     ):
         super().__init__()
         self._inputs = NestSequence(inputs)
         self._outputs = NestSequence(outputs)
-        self._constraints = constrained_inputs
+        # Avoid mutable default argument pitfall (new list per instance)
+        self._constraints = (
+            constrained_inputs if constrained_inputs is not None else []
+        )
         self._params, self._param_values = (
             parameters if parameters is not None else ([], [])
         )
