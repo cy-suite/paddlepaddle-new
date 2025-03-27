@@ -576,8 +576,6 @@ void FlashAttnBaseKernel(
                                   softmax_lse,
                                   &out_accum,
                                   &softmax_lse_accum);
-
-    succ = true;  // umiswing: no return status in fa3
 #else
     RaiseNotSupportedError(3);
 #endif
@@ -630,7 +628,9 @@ void FlashAttnBaseKernel(
         out->strides()[0]);
   }
 #endif
-  CheckFlashAttnStatus(succ);
+  if (version != 3) {
+    CheckFlashAttnStatus(succ);  // umiswing: no return status in fa3
+  }
 #else
   RaiseNotSupportedError();
 #endif

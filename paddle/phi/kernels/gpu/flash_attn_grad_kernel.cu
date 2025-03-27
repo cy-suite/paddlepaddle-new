@@ -808,7 +808,6 @@ void FlashAttnGradBaseKernel(
                                       dq,
                                       dk,
                                       dv);
-    succ = true;  // umiswing: no return status in fa3
 #else
     RaiseNotSupportedError(3);
 #endif
@@ -878,20 +877,22 @@ void FlashAttnGradBaseKernel(
         dout.strides()[0]);
   }
 #endif
-  CheckFlashAttnStatus(succ);
-  if (!is_mha) {
-    if (dk) {
-      if (dk->meta().is_contiguous())
-        phi::SumKernel<T, Context>(ctx, dk_tmp, {3}, dk->type(), false, dk);
-      else
-        kvReduceBatchedForGQA<T, Context>(ctx, dk_tmp, dk);
-    }
+  if (version != 3) {
+    CheckFlashAttnStatus(succ);  // umiswing: no return status in fa3
+    if (!is_mha) {
+      if (dk) {
+        if (dk->meta().is_contiguous())
+          phi::SumKernel<T, Context>(ctx, dk_tmp, {3}, dk->type(), false, dk);
+        else
+          kvReduceBatchedForGQA<T, Context>(ctx, dk_tmp, dk);
+      }
 
-    if (dv) {
-      if (dv->meta().is_contiguous())
-        phi::SumKernel<T, Context>(ctx, dv_tmp, {3}, dv->type(), false, dv);
-      else
-        kvReduceBatchedForGQA<T, Context>(ctx, dv_tmp, dv);
+      if (dv) {
+        if (dv->meta().is_contiguous())
+          phi::SumKernel<T, Context>(ctx, dv_tmp, {3}, dv->type(), false, dv);
+        else
+          kvReduceBatchedForGQA<T, Context>(ctx, dv_tmp, dv);
+      }
     }
   }
 #else
