@@ -17,7 +17,6 @@ gather_srcs(
   ir_util.cc
   test_helper.cc
   # cuda_test_helper.cc
-  cas.cc
   union_find.cc
   python_interpreter_guard.cc
   nvgpu_dev_info.cc
@@ -25,4 +24,5 @@ gather_srcs(
   dim_expr_converter.cc
   broadcast_tree.cc
   iter_simplify.cc
-  simplify_special_pattern.cc)
+  simplify_special_pattern.cc
+  shape_constraint.cc)

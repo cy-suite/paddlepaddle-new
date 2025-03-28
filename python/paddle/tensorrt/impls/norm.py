@@ -36,6 +36,8 @@ from paddle.tensorrt.register import converter_registry
     "pd_op.layer_norm", trt_version="trt_version_ge=8.6"
 )
 def layernorm_converter(network, paddle_op, inputs):
+    from paddle.tensorrt.util import support_fp32_mix_precision
+
     input_a, scale, bias = inputs
 
     begin_norm_axis = paddle_op.attrs().get("begin_norm_axis", 0)
@@ -75,7 +77,7 @@ def layernorm_converter(network, paddle_op, inputs):
     layer_norm.epsilon = epsilon
     layer_norm.compute_precision = trt.float32
     set_layer_name(layer_norm, paddle_op)
-
+    support_fp32_mix_precision(paddle_op.name(), layer_norm)
     return layer_norm.get_output(0)
 
 
@@ -166,6 +168,7 @@ def instance_norm_converter(network, paddle_op, inputs):
         plugin_name, plugin_field_collection, plugin_version
     )
     instance_norm_layer = network.add_plugin_v2(instance_norm_inputs, plugin)
+    set_layer_name(instance_norm_layer, paddle_op)
     return instance_norm_layer.get_output(0)
 
 
@@ -237,6 +240,7 @@ def fused_bias_dropout_residual_layer_norm_converter(
     )
     plugin_inputs = [input1, input2]
     layer = network.add_plugin_v2(plugin_inputs, plugin)
+    set_layer_name(layer, paddle_op)
     return layer.get_output(0)
 
 
@@ -257,20 +261,49 @@ def group_norm_converter(network, paddle_op, inputs):
     for d in range(2, rank_x):
         axes_mask |= 1 << d
 
-    weight_one = add_1D_constant_layer(network, 1.0, np.float32)
-    bias_zero = add_1D_constant_layer(network, 0.0, np.float32)
-    fake_shape = add_1D_constant_layer(network, fake_shape, np.int32)
-    weight_one = trt_expand(network, weight_one, 1, fake_shape, rank_x)
-    bias_zero = trt_expand(network, bias_zero, 1, fake_shape, rank_x)
+    weight_one = add_1D_constant_layer(
+        network, 1.0, np.float32, name=[paddle_op.name(), 'weight_one']
+    )
+    bias_zero = add_1D_constant_layer(
+        network, 0.0, np.float32, name=[paddle_op.name(), 'bias_zero']
+    )
+    fake_shape = add_1D_constant_layer(
+        network, fake_shape, np.int32, name=[paddle_op.name(), 'fake_shape']
+    )
+    weight_one = trt_expand(
+        network,
+        weight_one,
+        1,
+        fake_shape,
+        rank_x,
+        name=[paddle_op.name(), 'weight_one'],
+    )
+    bias_zero = trt_expand(
+        network,
+        bias_zero,
+        1,
+        fake_shape,
+        rank_x,
+        name=[paddle_op.name(), 'bias_zero'],
+    )
     layer = network.add_normalization(x, weight_one, bias_zero, axes_mask)
     layer.num_groups = groups
     layer.epsilon = eps
+    set_layer_name(layer, paddle_op)
     output = layer.get_output(0)
     if scale is not None:
-        scale = trt_reshape(network, scale, broadcast_shape)
-        output = trt_prod(network, output, scale)
+        scale = trt_reshape(
+            network, scale, broadcast_shape, name=[paddle_op.name(), 'scale']
+        )
+        output = trt_prod(
+            network, output, scale, name=[paddle_op.name(), 'output']
+        )
     if bias is not None:
-        bias = trt_reshape(network, bias, broadcast_shape)
-        output = trt_sum(network, output, bias)
+        bias = trt_reshape(
+            network, bias, broadcast_shape, name=[paddle_op.name(), 'bias']
+        )
+        output = trt_sum(
+            network, output, bias, name=[paddle_op.name(), 'output']
+        )
 
     return output
