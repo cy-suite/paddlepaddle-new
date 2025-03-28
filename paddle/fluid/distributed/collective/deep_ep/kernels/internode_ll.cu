@@ -74,7 +74,7 @@ __global__ __launch_bounds__(
                      float* packed_recv_x_scales,
                      int* packed_recv_src_info,
                      int64_t* packed_recv_layout_range,
-                     int* packed_recv_count,
+                     int64_t* packed_recv_count,
                      void* rdma_recv_x,
                      int* rdma_recv_count,
                      void* rdma_x,
@@ -330,6 +330,9 @@ LOW_LATENCY_DISPATCH_RECV:
   // `packed_recv_count` visible
   if (phases & LOW_LATENCY_SEND_PHASE) cg::this_grid().sync();
 
+  unsigned long long int* unsigned_packed_recv_count =               // NOLINT
+      reinterpret_cast<unsigned long long int*>(packed_recv_count);  // NOLINT
+
   // Receiving and packing
   if (responsible_expert_idx < num_experts) {
     const auto src_rank = responsible_expert_idx / num_local_experts;
@@ -368,7 +371,8 @@ LOW_LATENCY_DISPATCH_RECV:
       }
       num_recv_tokens = -num_recv_tokens - 1;
       recv_token_begin_idx =
-          atomicAdd(packed_recv_count + local_expert_idx, num_recv_tokens);
+          atomicAdd(unsigned_packed_recv_count + local_expert_idx,
+                    (unsigned long long int)num_recv_tokens);  // NOLINT
       shared_num_recv_tokens[warp_group_id] = num_recv_tokens;
       shared_recv_token_begin_idx[warp_group_id] = recv_token_begin_idx;
       recv_range[src_rank] =
@@ -425,11 +429,22 @@ LOW_LATENCY_DISPATCH_RECV:
   }
 }
 
+__global__ void CumSumKernel(int64_t* x, const int num) {
+  if (threadIdx.x == 0) {
+    int64_t sum = x[0];
+    for (int i = 1; i < num; i++) {
+      auto tmp = x[i];
+      x[i] += sum;
+      sum += tmp;
+    }
+  }
+}
+
 void dispatch(void* packed_recv_x,
               float* packed_recv_x_scales,
               int* packed_recv_src_info,
               int64_t* packed_recv_layout_range,
-              int* packed_recv_count,
+              int64_t* packed_recv_count,
               void* rdma_recv_x,
               int* rdma_recv_count,
               void* rdma_x,
@@ -498,8 +513,13 @@ void dispatch(void* packed_recv_x,
   break
 
   SETUP_LAUNCH_CONFIG(num_sms, num_warps * 32, stream);
+  cfg.dynamicSmemBytes = sizeof(int64_t) * num_experts / num_ranks;
   SWITCH_HIDDEN(DISPATCH_LAUNCH_CASE);
 #undef DISPATCH_LAUNCH_CASE
+  if (phases & LOW_LATENCY_RECV_PHASE) {
+    CumSumKernel<<<1, 32, 0, stream>>>(packed_recv_count,
+                                       num_experts / num_ranks);
+  }
 }
 
 template <int kNumWarpGroups,
@@ -517,6 +537,7 @@ __global__ __launch_bounds__(
                     const float* topk_weights,
                     const int* src_info,
                     const int64_t* layout_range,
+                    const int64_t* token_nums_per_expert,
                     int* next_clean,
                     int num_next_clean_int,
                     int* atomic_clean_flag,
@@ -569,11 +590,14 @@ __global__ __launch_bounds__(
     const auto local_expert_idx = responsible_expert_idx % num_local_experts;
     const auto global_expert_idx = rank * num_local_experts + local_expert_idx;
     const auto layout =
-        __ldg(layout_range + local_expert_idx * num_ranks + dst_rank);
-    const auto local_x = reinterpret_cast<const int4*>(x) +
-                         local_expert_idx * num_ranks *
-                             num_max_dispatch_tokens_per_rank *
-                             hidden_bf16_int4;
+        __ldg(layout_range + local_expert_idx * num_ranks +
+              dst_rank);  // num_recv_tokens, recv_token_begin_idx
+
+    const auto start_token_idx =
+        local_expert_idx == 0 ? 0 : token_nums_per_expert[local_expert_idx - 1];
+
+    const auto local_x =
+        reinterpret_cast<const int4*>(x) + start_token_idx * hidden_bf16_int4;
     const auto local_src_info = src_info + local_expert_idx * num_ranks *
                                                num_max_dispatch_tokens_per_rank;
     const auto rdma_send_x_vec = reinterpret_cast<uint8_t*>(rdma_send_x) +
@@ -726,6 +750,7 @@ void combine(void* combined_x,
              const float* topk_weights,
              const int* src_info,
              const int64_t* layout_range,
+             const int64_t* token_nums_per_expert,
              int* next_clean,
              int num_next_clean_int,
              int num_combined_tokens,
@@ -765,6 +790,7 @@ void combine(void* combined_x,
                   topk_weights,                                          \
                   src_info,                                              \
                   layout_range,                                          \
+                  token_nums_per_expert,                                 \
                   next_clean,                                            \
                   num_next_clean_int,                                    \
                   atomic_clean_flag,                                     \

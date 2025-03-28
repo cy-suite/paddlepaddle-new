@@ -1694,7 +1694,7 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
                                   phi::GPUPlace(device_id)));
   auto packed_recv_count =
       ConvertPaddleTensorToDetailTensor(paddle::experimental::empty(
-          {num_local_experts}, phi::DataType::INT32, phi::GPUPlace(device_id)));
+          {num_local_experts}, phi::DataType::INT64, phi::GPUPlace(device_id)));
 
   // Allocate column-majored scales
   auto packed_recv_x_scales =
@@ -1726,7 +1726,7 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
         use_fp8 ? packed_recv_x_scales.data_ptr<float>() : nullptr,
         packed_recv_src_info.data_ptr<int>(),
         packed_recv_layout_range.data_ptr<int64_t>(),
-        packed_recv_count.data_ptr<int>(),
+        packed_recv_count.data_ptr<int64_t>(),
         buffer.dispatch_rdma_recv_data_buffer,
         buffer.dispatch_rdma_recv_count_buffer,
         buffer.dispatch_rdma_send_buffer,
@@ -1781,23 +1781,25 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
 std::tuple<deep_ep::detail::Tensor,
            std::optional<EventHandle>,
            std::optional<std::function<void()>>>
-Buffer::low_latency_combine(const deep_ep::detail::Tensor& x,
-                            const deep_ep::detail::Tensor& topk_idx,
-                            const deep_ep::detail::Tensor& topk_weights,
-                            const deep_ep::detail::Tensor& src_info,
-                            const deep_ep::detail::Tensor& layout_range,
-                            int num_max_dispatch_tokens_per_rank,
-                            int num_experts,
-                            bool async,
-                            bool return_recv_hook) {
+Buffer::low_latency_combine(
+    const deep_ep::detail::Tensor& x,  // [num_moe_tokens, hidden]
+    const deep_ep::detail::Tensor& topk_idx,
+    const deep_ep::detail::Tensor& topk_weights,
+    const deep_ep::detail::Tensor& src_info,
+    const deep_ep::detail::Tensor& layout_range,
+    const deep_ep::detail::Tensor& token_nums_per_expert,
+    int num_max_dispatch_tokens_per_rank,
+    int num_experts,
+    bool async,
+    bool return_recv_hook) {
   EP_HOST_ASSERT(low_latency_mode);
 
   // Tensor checks
-  EP_HOST_ASSERT(x.dim() == 3 && x.is_contiguous() &&
+  EP_HOST_ASSERT(x.dim() == 2 && x.is_contiguous() &&
                  x.scalar_type() == deep_ep::detail::kBFloat16);
-  EP_HOST_ASSERT(x.size(0) == num_experts / num_ranks);
-  EP_HOST_ASSERT(x.size(1) == num_ranks * num_max_dispatch_tokens_per_rank);
-  EP_HOST_ASSERT(x.size(2) % sizeof(int4) == 0 && x.size(2) % 128 == 0);
+  // EP_HOST_ASSERT(x.size(0) == num_experts / num_ranks);
+  // EP_HOST_ASSERT(x.size(1) == num_ranks * num_max_dispatch_tokens_per_rank);
+  EP_HOST_ASSERT(x.size(1) % sizeof(int4) == 0 && x.size(1) % 128 == 0);
   EP_HOST_ASSERT(topk_idx.dim() == 2 && topk_idx.is_contiguous());
   EP_HOST_ASSERT(topk_idx.size(0) == topk_weights.size(0) &&
                  topk_idx.size(1) == topk_weights.size(1));
@@ -1806,13 +1808,13 @@ Buffer::low_latency_combine(const deep_ep::detail::Tensor& x,
   EP_HOST_ASSERT(topk_weights.size(0) <= num_max_dispatch_tokens_per_rank);
   EP_HOST_ASSERT(topk_weights.scalar_type() == deep_ep::detail::kFloat32);
   EP_HOST_ASSERT(src_info.dim() == 2 && src_info.is_contiguous());
-  EP_HOST_ASSERT(src_info.scalar_type() == deep_ep::detail::kInt32 &&
-                 x.size(0) == src_info.size(0));
+  // EP_HOST_ASSERT(src_info.scalar_type() == deep_ep::detail::kInt32 &&
+  //                x.size(0) == src_info.size(0));
   EP_HOST_ASSERT(layout_range.dim() == 2 && layout_range.is_contiguous());
   EP_HOST_ASSERT(layout_range.scalar_type() == deep_ep::detail::kInt64);
   EP_HOST_ASSERT(layout_range.size(0) == num_experts / num_ranks &&
                  layout_range.size(1) == num_ranks);
-  auto hidden = static_cast<int>(x.size(2));
+  auto hidden = static_cast<int>(x.size(1));
   auto num_local_experts = num_experts / num_ranks,
        num_topk = static_cast<int>(topk_weights.size(1));
   (void)num_local_experts;
@@ -1854,6 +1856,7 @@ Buffer::low_latency_combine(const deep_ep::detail::Tensor& x,
                           topk_weights.data_ptr<float>(),
                           src_info.data_ptr<int>(),
                           layout_range.data_ptr<int64_t>(),
+                          token_nums_per_expert.data_ptr<int64_t>(),
                           next_clean_meta.first,
                           next_clean_meta.second,
                           num_combined_tokens,
@@ -2165,6 +2168,7 @@ Buffer::low_latency_combine_api(const paddle::Tensor& x,
                                 const paddle::Tensor& topk_weights,
                                 const paddle::Tensor& src_info,
                                 const paddle::Tensor& layout_range,
+                                const paddle::Tensor& token_nums_per_expert,
                                 int num_max_dispatch_tokens_per_rank,
                                 int num_experts,
                                 bool async,
@@ -2175,12 +2179,15 @@ Buffer::low_latency_combine_api(const paddle::Tensor& x,
   const auto& topk_weights_ = ConvertPaddleTensorToDetailTensor(topk_weights);
   const auto& src_info_ = ConvertPaddleTensorToDetailTensor(src_info);
   const auto& layout_range_ = ConvertPaddleTensorToDetailTensor(layout_range);
+  const auto& token_nums_per_expert_ =
+      ConvertPaddleTensorToDetailTensor(token_nums_per_expert);
 
   auto res = low_latency_combine(x_,
                                  topk_idx_,
                                  topk_weights_,
                                  src_info_,
                                  layout_range_,
+                                 token_nums_per_expert_,
                                  num_max_dispatch_tokens_per_rank,
                                  num_experts,
                                  async,
