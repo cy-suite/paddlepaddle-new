@@ -140,7 +140,7 @@ void ReduceMeanGradKernel(const Context& dev_ctx,
       funcs::details::GetReduceDim(dims.GetData(), dim_size, reduce_all);
 
   auto update_dims = common::vectorize(x.dims());
-  int reduce_num = 1;
+  int64_t reduce_num = 1;
   for (auto i : reduce_dims) {
     reduce_num *= (x.dims())[i];
     update_dims[i] = 1;
