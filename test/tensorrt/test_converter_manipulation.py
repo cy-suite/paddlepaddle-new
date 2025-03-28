@@ -1077,9 +1077,13 @@ class TestUnsqueezeTRTPattern(TensorRTBaseTest):
         self.check_marker(expected_result=False)
 
 
+def unsqueeze_inplace_wrapper(x, axis):
+    return _C_ops.unsqueeze_(x, axis)
+
+
 class TestUnsqueeze_TRTPattern(TensorRTBaseTest):
     def setUp(self):
-        self.python_api = paddle.unsqueeze_
+        self.python_api = unsqueeze_inplace_wrapper
         self.api_args = {
             "x": np.random.random([5, 10]).astype("float32"),
             "axis": 0,
