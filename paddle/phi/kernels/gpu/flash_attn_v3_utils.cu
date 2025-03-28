@@ -24,6 +24,9 @@ void destroy_flash_bwd_params_handle(Flash_bwd_params *params_handle) {
   phi::dynload::fa3_destroy_bwd_params_handle(params_handle);
 }
 
+// umiswing: no singleton, the details of Flash_fwd_params and Flash_bwd_params
+// are encapsulated within libflashattnv3.so to ensure abi compatibility, only
+// opaque pointers are exposed to phi
 Flash_fwd_params *get_flash_fwd_params_handle() {
   static std::unique_ptr<Flash_fwd_params,
                          decltype(&destroy_flash_fwd_params_handle)>
