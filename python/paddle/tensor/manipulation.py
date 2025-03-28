@@ -1614,10 +1614,6 @@ def broadcast_tensors(
                 ],
                 'broadcast_tensors',
             )
-            if x.dtype != input[0].dtype:
-                raise TypeError(
-                    "All the Tensors in the input must have the same data type."
-                )
 
         # Check bcast semantics
         output_shape_r_last_tensor_index = []
@@ -1653,15 +1649,11 @@ def broadcast_tensors(
             j += 1  # while j < len(input)
 
         helper = LayerHelper('broadcast_tensors', **locals())
-        i = 0
         out = []
-        while i < num_inputs:
+        for tensor in input:
             out.append(
-                helper.create_variable_for_type_inference(
-                    dtype=helper.input_dtype()
-                )
+                helper.create_variable_for_type_inference(dtype=tensor.dtype)
             )
-            i += 1
 
         inputs = {'X': input}
         helper.append_op(
