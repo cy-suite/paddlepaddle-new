@@ -15,6 +15,7 @@
 #include "paddle/phi/kernels/gpu/flash_attn_v3_utils.h"
 #include "paddle/phi/common/bfloat16.h"
 namespace phi {
+#ifdef PADDLE_WITH_FLASHATTN_V3
 
 void destroy_flash_fwd_params_handle(Flash_fwd_params *params_handle) {
   phi::dynload::fa3_destroy_fwd_params_handle(params_handle);
@@ -308,4 +309,5 @@ void set_params_dgrad(Flash_bwd_params *params_handle,
   dynload::fa3_bwd_params_set_deterministic(params_handle, deterministic);
 }
 
+#endif
 }  // namespace phi

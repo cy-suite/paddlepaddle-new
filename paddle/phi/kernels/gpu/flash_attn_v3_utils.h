@@ -21,6 +21,8 @@
 #include "paddle/phi/core/platform/device_context.h"
 
 namespace phi {
+#ifdef PADDLE_WITH_FLASHATTN_V3
+
 #define CHECK_DEVICE(x) \
   PADDLE_ENFORCE_EQ(    \
       x.place().GetType(), phi::AllocationType::GPU, #x " must be on CUDA")
@@ -149,5 +151,6 @@ void set_params_dgrad(Flash_bwd_params *params_handle,
                       const float softcap = 0.f,
                       bool deterministic = false,
                       int const sm_margin = 0);
+#endif
 
 }  // namespace phi
