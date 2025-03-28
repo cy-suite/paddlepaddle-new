@@ -20,8 +20,8 @@ limitations under the License. */
 
 #include <Python.h>
 #include <frameobject.h>
-#include "pybind11/numpy.h"
 #include <object.h>
+#include "pybind11/numpy.h"
 
 #if !defined(PyObject_CallOneArg) && !PY_3_9_PLUS
 static inline PyObject* PyObject_CallOneArg(PyObject* func, PyObject* arg) {
