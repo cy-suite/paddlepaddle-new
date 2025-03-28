@@ -51,16 +51,17 @@ namespace thread {
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
-__forceinline__ __device__ float copysignf_pos(float a, float b) {
+__forceinline__ __device__ float copysignf_pos_wo(float a, float b) {
   float r;
   r = __int_as_float(__float_as_int(a) | (__float_as_int(b) & 0x80000000));
   return r;
 }
 
-__forceinline__ __device__ float tanh_opt(float x) {
+__forceinline__ __device__ float tanh_opt_wo(float x) {
 #if (__CUDACC_VER_MAJOR__ < 11) || (__CUDA_ARCH__ < 750)
   const float exp_val = -1.f * fabs(2 * x);
-  return copysignf_pos((1.0f - __expf(exp_val)) / (__expf(exp_val) + 1.0f), x);
+  return copysignf_pos_wo((1.0f - __expf(exp_val)) / (__expf(exp_val) + 1.0f),
+                          x);
 #else
   return fast_tanh(x);
 #endif
@@ -78,7 +79,8 @@ struct GELU_taylor<float> {
     return static_cast<float>(
         cutlass::constants::half<float>() * z *
         (cutlass::constants::one<float>() +
-         tanh_opt(k0 * z * (cutlass::constants::one<float>() + k1 * z * z))));
+         tanh_opt_wo(k0 * z *
+                     (cutlass::constants::one<float>() + k1 * z * z))));
   }
 
   using Params = LinearCombinationGenericParams<float>;

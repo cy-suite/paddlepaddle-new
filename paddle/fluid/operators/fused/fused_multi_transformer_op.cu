@@ -174,8 +174,13 @@ class FusedMultiTransformerOpKernel : public framework::OpKernel<T> {
     bool compute_bias = qkv_biases.size() > 0;
     bool compute_ln_bias = ln_biases.size() > 0;
 
-    auto qkv_compute = phi::fusion::GEMMHelper<T>(
-        dev_ctx, token_num, output_size, input_size, "None", trans_qkvw);
+    auto qkv_compute = phi::fusion::GEMMHelper<T>(dev_ctx,
+                                                  token_num,
+                                                  output_size,
+                                                  input_size,
+                                                  "None",
+                                                  nullptr,
+                                                  trans_qkvw);
 
     phi::DenseTensor qkv_out;
     if (gqa_group_size > 0) {
@@ -322,7 +327,7 @@ class FusedMultiTransformerOpKernel : public framework::OpKernel<T> {
     // (transA, transB, compute_bias) = (false, false, false)
 
     auto out_linear_compute = phi::fusion::GEMMHelper<T>(
-        dev_ctx, token_num, dim_embed, hidden_size, "None", false);
+        dev_ctx, token_num, dim_embed, hidden_size, "None", nullptr, false);
 
     // 5. ln(residual + bias)
     auto ffn_ln_scales = ctx.MultiInput<phi::DenseTensor>("FFNLnScale");
@@ -373,7 +378,7 @@ class FusedMultiTransformerOpKernel : public framework::OpKernel<T> {
     auto ffn2_weights = ctx.MultiInput<phi::DenseTensor>("FFN2Weight");
     auto ffn2_biases = ctx.MultiInput<phi::DenseTensor>("FFN2Bias");
     auto ffn2_linear_compute = phi::fusion::GEMMHelper<T>(
-        dev_ctx, token_num, dim_embed, tmp_dim_ffn, "None", false);
+        dev_ctx, token_num, dim_embed, tmp_dim_ffn, "None", nullptr, false);
 
     // 9. ffn2 residual bias
     phi::fusion::DropoutParam ffn2_dropout_param(

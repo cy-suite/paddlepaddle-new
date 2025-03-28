@@ -14,14 +14,17 @@
 
 # isort: skip_file
 
+from __future__ import annotations
+from typing import TYPE_CHECKING, Any
 import os
 import copy
+import concurrent
 import re
-
 import setuptools
 from setuptools.command.easy_install import easy_install
 from setuptools.command.build_ext import build_ext
 from distutils.command.build import build
+
 
 from .extension_utils import (
     add_compile_flag,
@@ -60,6 +63,13 @@ from .extension_utils import (
 from .extension_utils import CLANG_COMPILE_FLAGS, CLANG_LINK_FLAGS
 
 from ...base import core
+from concurrent.futures import ThreadPoolExecutor
+
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from types import ModuleType
 
 # Note(zhouwei): On windows, it will export function 'PyInit_[name]' by default,
 # The solution is: 1.User add function PyInit_[name] 2. set not to export
@@ -205,9 +215,7 @@ def setup(**attr):
     ext_modules = attr.get('ext_modules', [])
     if not isinstance(ext_modules, list):
         ext_modules = [ext_modules]
-    assert (
-        len(ext_modules) == 1
-    ), f"Required only one Extension, but received {len(ext_modules)}. If you want to compile multi operators, you can include all necessary source files in one Extension."
+    assert len(ext_modules) == 1, "Required only one Extension"
     # replace Extension.name with attr['name] to keep consistent with Package name.
     for ext_module in ext_modules:
         ext_module.name = attr['name']
@@ -234,7 +242,9 @@ def setup(**attr):
         setuptools.setup(**attr)
 
 
-def CppExtension(sources, *args, **kwargs):
+def CppExtension(
+    sources: Sequence[str], *args: Any, **kwargs: Any
+) -> setuptools.Extension:
     """
     The interface is used to config source files of customized operators and complies
     Op Kernel only supporting CPU device. Please use ``CUDAExtension`` if you want to
@@ -284,7 +294,9 @@ def CppExtension(sources, *args, **kwargs):
     return setuptools.Extension(name, sources, *args, **kwargs)
 
 
-def CUDAExtension(sources, *args, **kwargs):
+def CUDAExtension(
+    sources: Sequence[str], *args: Any, **kwargs: Any
+) -> setuptools.Extension:
     """
     The interface is used to config source files of customized operators and complies
     Op Kernel supporting both CPU and GPU devices. Please use ``CppExtension`` if you want to
@@ -359,7 +371,7 @@ class BuildExtension(build_ext):
     """
 
     @classmethod
-    def with_options(cls, **options):
+    def with_options(cls, **options: Any) -> type[BuildExtension]:
         """
         Returns a BuildExtension subclass containing use-defined options.
         """
@@ -371,7 +383,7 @@ class BuildExtension(build_ext):
 
         return cls_with_options
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         """
         Attributes is initialized with following order:
 
@@ -388,10 +400,10 @@ class BuildExtension(build_ext):
         # whether containing cuda source file in Extensions
         self.contain_cuda_file = False
 
-    def initialize_options(self):
+    def initialize_options(self) -> None:
         super().initialize_options()
 
-    def finalize_options(self):
+    def finalize_options(self) -> None:
         super().finalize_options()
         # NOTE(Aurelius84): Set location of compiled shared library.
         # Carefully to modify this because `setup.py build/install`
@@ -399,11 +411,12 @@ class BuildExtension(build_ext):
         if self.output_dir is not None:
             self.build_lib = self.output_dir
 
-    def build_extensions(self):
+    def build_extensions(self) -> None:
         if OS_NAME.startswith("darwin"):
             self._valid_clang_compiler()
 
         self._check_abi()
+        current_extension_builder = self
 
         # Note(Aurelius84): If already compiling source before, we should check whether
         # cflags have changed and delete the built shared library to re-compile the source
@@ -420,11 +433,9 @@ class BuildExtension(build_ext):
             self.compiler._cpp_extensions += ['.cu', '.cuh']
             original_compile = self.compiler.compile
             original_spawn = self.compiler.spawn
-        else:
-            original_compile = self.compiler._compile
 
-        def unix_custom_single_compiler(
-            obj, src, ext, cc_args, extra_postargs, pp_opts
+        def unix_custom_compile_single_file(
+            self, obj, src, ext, cc_args, extra_postargs, pp_opts
         ):
             """
             Monkey patch mechanism to replace inner compiler to custom compile process on Unix platform.
@@ -434,7 +445,7 @@ class BuildExtension(build_ext):
             src = os.path.abspath(src)
             cflags = copy.deepcopy(extra_postargs)
             try:
-                original_compiler = self.compiler.compiler_so
+                original_compiler = self.compiler_so
                 # nvcc or hipcc compile CUDA source
                 if is_cuda_file(src):
                     if core.is_compiled_with_rocm():
@@ -444,7 +455,7 @@ class BuildExtension(build_ext):
                             please use `export ROCM_PATH= XXX` to specify it."
 
                         hipcc_cmd = os.path.join(ROCM_HOME, 'bin', 'hipcc')
-                        self.compiler.set_executable('compiler_so', hipcc_cmd)
+                        self.set_executable('compiler_so', hipcc_cmd)
                         # {'nvcc': {}, 'cxx: {}}
                         if isinstance(cflags, dict):
                             cflags = cflags['hipcc']
@@ -455,7 +466,7 @@ class BuildExtension(build_ext):
                             please use `export CUDA_HOME= XXX` to specify it."
 
                         nvcc_cmd = os.path.join(CUDA_HOME, 'bin', 'nvcc')
-                        self.compiler.set_executable('compiler_so', nvcc_cmd)
+                        self.set_executable('compiler_so', nvcc_cmd)
                         # {'nvcc': {}, 'cxx: {}}
                         if isinstance(cflags, dict):
                             cflags = cflags['nvcc']
@@ -468,7 +479,7 @@ class BuildExtension(build_ext):
                 # Note(qili93): HIP require some additional flags for CMAKE_C_FLAGS
                 if core.is_compiled_with_rocm():
                     cflags.append('-D__HIP_PLATFORM_HCC__')
-                    cflags.append('-D__HIP_NO_HALF_CONVERSIONS__=1')
+                    # cflags.append('-D__HIP_NO_HALF_CONVERSIONS__=1')
                     cflags.append(
                         '-DTHRUST_DEVICE_SYSTEM=THRUST_DEVICE_SYSTEM_HIP'
                     )
@@ -479,19 +490,81 @@ class BuildExtension(build_ext):
                 # See https://stackoverflow.com/questions/34571583/understanding-gcc-5s-glibcxx-use-cxx11-abi-or-the-new-abi
                 add_compile_flag(cflags, ['-D_GLIBCXX_USE_CXX11_ABI=1'])
                 # Append this macro only when jointly compiling .cc with .cu
-                if not is_cuda_file(src) and self.contain_cuda_file:
+                if (
+                    not is_cuda_file(src)
+                    and current_extension_builder.contain_cuda_file
+                ):
                     if core.is_compiled_with_rocm():
                         cflags.append('-DPADDLE_WITH_HIP')
                     else:
                         cflags.append('-DPADDLE_WITH_CUDA')
 
                 add_std_without_repeat(
-                    cflags, self.compiler.compiler_type, use_std17=True
+                    cflags, self.compiler_type, use_std17=True
                 )
-                original_compile(obj, src, ext, cc_args, cflags, pp_opts)
+                self._compile(obj, src, ext, cc_args, cflags, pp_opts)
+            except Exception as e:
+                print(f'{src} compile failed, {e}')
             finally:
                 # restore original_compiler
-                self.compiler.set_executable('compiler_so', original_compiler)
+                self.set_executable('compiler_so', original_compiler)
+
+        def unix_custom_single_compiler(
+            self,
+            sources,
+            output_dir=None,
+            macros=None,
+            include_dirs=None,
+            debug=False,
+            extra_preargs=None,
+            extra_postargs=None,
+            depends=None,
+        ):
+            # A concrete compiler class can either override this method
+            # entirely or implement _compile().
+            (
+                macros,
+                objects,
+                extra_postargs,
+                pp_opts,
+                build,
+            ) = self._setup_compile(
+                output_dir,
+                macros,
+                include_dirs,
+                sources,
+                depends,
+                extra_postargs,
+            )
+            cc_args = self._get_cc_args(pp_opts, debug, extra_preargs)
+            # Create a thread pool
+            worke_number = min(os.cpu_count(), len(objects))
+            with ThreadPoolExecutor(max_workers=worke_number) as executor:
+                # Submit all compilation tasks to the thread pool.
+                futures = {
+                    executor.submit(
+                        unix_custom_compile_single_file,
+                        copy.copy(self),
+                        obj,
+                        build[obj][0],
+                        build[obj][1],
+                        cc_args,
+                        extra_postargs,
+                        pp_opts,
+                    ): obj
+                    for obj in objects
+                }
+
+                for future in concurrent.futures.as_completed(futures):
+                    obj = futures[future]
+                    try:
+                        future.result()
+                    except Exception as exc:
+                        print(f'{obj!r} generated an exception: {exc}')
+                    else:
+                        print(f'{obj} is compiled')
+            # Return *all* object filenames, not just the ones we just built.
+            return objects
 
         def win_custom_single_compiler(
             sources,
@@ -554,12 +627,18 @@ class BuildExtension(build_ext):
                     else:
                         cflags = []
 
-                    cflags = prepare_win_cudaflags(cflags) + ['--use-local-env']
+                    cflags = [*prepare_win_cudaflags(cflags), '--use-local-env']
                     for flag in MSVC_COMPILE_FLAGS:
-                        cflags = ['-Xcompiler', flag] + cflags
-                    cmd = (
-                        [nvcc_cmd, '-c', src, '-o', obj] + include_list + cflags
-                    )
+                        cflags = ['-Xcompiler', flag, *cflags]
+                    cmd = [
+                        nvcc_cmd,
+                        '-c',
+                        src,
+                        '-o',
+                        obj,
+                        *include_list,
+                        *cflags,
+                    ]
                 elif isinstance(self.cflags, dict):
                     cflags = MSVC_COMPILE_FLAGS + self.cflags['cxx']
                     cmd += cflags
@@ -624,9 +703,11 @@ class BuildExtension(build_ext):
 
         # customized compile process
         if self.compiler.compiler_type == 'msvc':
+            original_compile = self.compiler.compile
             self.compiler.compile = win_custom_single_compiler
         else:
-            self.compiler._compile = unix_custom_single_compiler
+            original_compile = self.compiler.__class__.compile
+            self.compiler.__class__.compile = unix_custom_single_compiler
 
         self.compiler.object_filenames = object_filenames_with_cuda(
             self.compiler.object_filenames, self.build_lib
@@ -636,11 +717,16 @@ class BuildExtension(build_ext):
         print("Compiling user custom op, it will cost a few seconds.....")
         build_ext.build_extensions(self)
 
+        if self.compiler.compiler_type == 'msvc':
+            self.compiler.compile = original_compile
+        else:
+            self.compiler.__class__.compile = original_compile
+
         # Reset runtime library path on MacOS platform
         so_path = self.get_ext_fullpath(self.extensions[0]._full_name)
         _reset_so_rpath(so_path)
 
-    def get_ext_filename(self, fullname):
+    def get_ext_filename(self, fullname: str) -> str:
         # for example: customized_extension.cpython-37m-x86_64-linux-gnu.so
         ext_name = super().get_ext_filename(fullname)
         split_str = '.'
@@ -658,12 +744,12 @@ class BuildExtension(build_ext):
             ext_name = split_str.join(name_items)
         return ext_name
 
-    def _valid_clang_compiler(self):
+    def _valid_clang_compiler(self) -> None:
         """
         Make sure to use Clang as compiler on Mac platform
         """
-        compiler_infos = ['clang'] + CLANG_COMPILE_FLAGS
-        linker_infos = ['clang'] + CLANG_LINK_FLAGS
+        compiler_infos = ['clang', *CLANG_COMPILE_FLAGS]
+        linker_infos = ['clang', *CLANG_LINK_FLAGS]
         self.compiler.set_executables(
             compiler=compiler_infos,
             compiler_so=compiler_infos,
@@ -672,7 +758,7 @@ class BuildExtension(build_ext):
             linker_so=linker_infos,
         )
 
-    def _check_abi(self):
+    def _check_abi(self) -> None:
         """
         Check ABI Compatibility.
         """
@@ -697,7 +783,7 @@ class BuildExtension(build_ext):
             )
             raise UserWarning(msg)
 
-    def _record_op_info(self):
+    def _record_op_info(self) -> None:
         """
         Record custom op information.
         """
@@ -729,11 +815,11 @@ class EasyInstallCommand(easy_install):
                     library file after extracting egg-info into site-packages.
     """
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
 
     # NOTE(Aurelius84): Add args and kwargs to make compatible with PY2/PY3
-    def run(self, *args, **kwargs):
+    def run(self, *args: Any, **kwargs: Any) -> None:
         super().run(*args, **kwargs)
         # NOTE: To avoid failing import .so file instead of
         # python file because they have same name, we rename
@@ -751,7 +837,7 @@ class EasyInstallCommand(easy_install):
             if will_rename:
                 new_so_path = filename + "_pd_" + ext
                 if not os.path.exists(new_so_path):
-                    os.rename(r'%s' % egg_file, r'%s' % new_so_path)
+                    os.rename(rf'{egg_file}', rf'{new_so_path}')
                 assert os.path.exists(new_so_path)
 
 
@@ -764,7 +850,7 @@ class BuildCommand(build):
     """
 
     @classmethod
-    def with_options(cls, **options):
+    def with_options(cls, **options: Any) -> type[BuildCommand]:
         """
         Returns a BuildCommand subclass containing use-defined options.
         """
@@ -776,13 +862,13 @@ class BuildCommand(build):
 
         return cls_with_options
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         # Note: shall put before super()
         self._specified_build_base = kwargs.get('build_base', None)
 
         super().__init__(*args, **kwargs)
 
-    def initialize_options(self):
+    def initialize_options(self) -> None:
         """
         build_base is root directory for all sub-command, such as
         build_lib, build_temp. See `distutils.command.build` for details.
@@ -793,95 +879,20 @@ class BuildCommand(build):
 
 
 def load(
-    name,
-    sources,
-    extra_cxx_cflags=None,
-    extra_cuda_cflags=None,
-    extra_ldflags=None,
-    extra_include_paths=None,
-    extra_library_paths=None,
-    build_directory=None,
-    verbose=False,
-):
+    name: str,
+    sources: Sequence[str],
+    extra_cxx_cflags: Sequence[str] | None = None,
+    extra_cuda_cflags: Sequence[str] | None = None,
+    extra_ldflags: Sequence[str] | None = None,
+    extra_include_paths: Sequence[str] | None = None,
+    extra_library_paths: Sequence[str] | None = None,
+    build_directory: str | None = None,
+    verbose: bool = False,
+) -> ModuleType:
     """
     An Interface to automatically compile C++/CUDA source files Just-In-Time
     and return callable python function as other Paddle layers API. It will
     append user defined custom operators in background while building models.
-
-    It will perform compiling, linking, Python API generation and module loading
-    processes under a individual subprocess. It does not require CMake or Ninja
-    environment. On Linux platform, it requires GCC compiler whose version is
-    greater than 5.4 and it should be soft linked to ``/usr/bin/cc`` . On Windows
-    platform, it requires Visual Studio whose version is greater than 2017.
-    On MacOS, clang++ is requited. In addition, if compiling Operators supporting
-    GPU device, please make sure ``nvcc`` compiler is installed in local environment.
-
-    Moreover, `ABI compatibility <https://gcc.gnu.org/onlinedocs/libstdc++/manual/abi.html>`_
-    will be checked to ensure that compiler version from ``cc(Linux)`` , ``cl.exe(Windows)``
-    on local machine is compatible with pre-installed Paddle whl in python site-packages.
-
-    For Linux, GCC version will be checked . For example if Paddle with CUDA 10.1 is built with GCC 8.2,
-    then the version of user's local machine should satisfy GCC >= 8.2.
-    For Windows, Visual Studio version will be checked, and it should be greater than or equal to that of
-    PaddlePaddle (Visual Studio 2017).
-    If the above conditions are not met, the corresponding warning will be printed, and a fatal error may
-    occur because of ABI compatibility.
-
-    Compared with ``setup`` interface, it doesn't need extra ``setup.py`` and execute
-    ``python setup.py install`` command. The interface contains all compiling and installing
-    process underground.
-
-    Note:
-
-        1. Currently we support Linux, MacOS and Windows platform.
-        2. On Linux platform, we recommend to use GCC 8.2 as soft linking candidate of ``/usr/bin/cc`` .
-           Then, Use ``which cc`` to ensure location of ``cc`` and using ``cc --version`` to ensure linking
-           GCC version.
-        3. On Windows platform, we recommend to install `` Visual Studio`` (>=2017).
-
-
-    **A simple example:**
-
-    .. code-block:: text
-
-        import paddle
-        from paddle.utils.cpp_extension import load
-
-        custom_op_module = load(
-            name="op_shared_library_name",                # name of shared library
-            sources=['relu_op.cc', 'relu_op.cu'],        # source files of customized op
-            extra_cxx_cflags=['-g', '-w'],               # optional, specify extra flags to compile .cc/.cpp file
-            extra_cuda_cflags=['-O2'],                   # optional, specify extra flags to compile .cu file
-            verbose=True                                 # optional, specify to output log information
-        )
-
-        x = paddle.randn([4, 10], dtype='float32')
-        out = custom_op_module.relu(x)
-
-
-    Args:
-        name(str): Specify the name of generated shared library file name, not including ``.so`` and ``.dll`` suffix.
-        sources(list[str]): Specify source files name of customized operators.  Supporting ``.cc`` , ``.cpp`` for CPP file
-                            and ``.cu`` for CUDA file.
-        extra_cxx_cflags(list[str], optional): Specify additional flags used to compile CPP files. By default
-                               all basic and framework related flags have been included.
-        extra_cuda_cflags(list[str], optional): Specify additional flags used to compile CUDA files. By default
-                               all basic and framework related flags have been included.
-                               See `Cuda Compiler Driver NVCC <https://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html>`_
-                               for details. Default is None.
-        extra_ldflags(list[str], optional): Specify additional flags used to link shared library. See
-                                `GCC Link Options <https://gcc.gnu.org/onlinedocs/gcc/Link-Options.html>`_ for details.
-                                Default is None.
-        extra_include_paths(list[str], optional): Specify additional include path used to search header files. By default
-                                all basic headers are included implicitly from ``site-package/paddle/include`` .
-                                Default is None.
-        extra_library_paths(list[str], optional): Specify additional library path used to search library files. By default
-                                all basic libraries are included implicitly from ``site-packages/paddle/libs`` .
-                                Default is None.
-        build_directory(str, optional): Specify root directory path to put shared library file. If set None,
-                            it will use ``PADDLE_EXTENSION_DIR`` from os.environ. Use
-                            ``paddle.utils.cpp_extension.get_build_directory()`` to see the location. Default is None.
-        verbose(bool, optional): whether to verbose compiled log information. Default is False.
 
     Returns:
         Module: A callable python module contains all CustomOp Layer APIs.

@@ -1689,10 +1689,10 @@ void WeightOnlyLinearGradInferMeta(const MetaTensor& x,
                                    const int32_t group_size,
                                    MetaTensor* x_grad) {
   PADDLE_ENFORCE_EQ(
-      ((arch == 80) || (arch == 86)),
+      arch >= 80,
       true,
       phi::errors::InvalidArgument(
-          "Currently weightonly linear grad only support arch = 80 or 86. "));
+          "Currently weightonly linear grad only support arch >= 80. "));
   PADDLE_ENFORCE_EQ(
       group_size,
       -1,

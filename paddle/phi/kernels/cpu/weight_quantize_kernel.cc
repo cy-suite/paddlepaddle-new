@@ -35,10 +35,11 @@ void quant_compute(const DeviceContext& dev_ctx,
                    const int32_t arch,
                    const int32_t group_size) {
   PADDLE_ENFORCE_EQ(
-      ((arch == 80) || (arch == 86) || (arch == 75) || (arch == 70)),
+      arch >= 70,
       true,
-      phi::errors::InvalidArgument(
-          "Currently, arch only support 70, 75, 80, 86."));
+      phi::errors::Unimplemented("Currently, WeightQuantize only support arch "
+                                 ">= 70, but got arch is %d.",
+                                 arch));
 
   const auto x_dims = x.dims();
   PADDLE_ENFORCE_EQ(
@@ -56,8 +57,7 @@ void quant_compute(const DeviceContext& dev_ctx,
 
   DenseTensor x_int(out->type());
 
-  if ((arch == 80) || (arch == 75) || (arch == 86) || (arch == 89) ||
-      (arch == 90)) {
+  if (arch >= 75) {
     x_int.Resize({static_cast<int64_t>(m), static_cast<int64_t>(n)});
   } else {
     // phi::Copy may change tensor meta info, here we transpose the quanted
@@ -104,7 +104,7 @@ void quant_compute(const DeviceContext& dev_ctx,
       for (int i = 0; i < out->numel(); ++i) {
         out_data[i] = x_int_data[i];
       }
-    } else if ((arch == 80) || (arch == 75) || (arch == 86)) {
+    } else {
       permute_B_rows_for_mixed_gemm<bits>(
           int_processed_data, x_int_data, std::vector<size_t>{m, n});
       subbyte_transpose_impl<bits>(

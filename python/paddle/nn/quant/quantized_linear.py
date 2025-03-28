@@ -69,8 +69,8 @@ def weight_quantize(x, algo="weight_only_int8", arch=None, group_size=-1):
         arch = _get_arch_info()
 
     assert (
-        arch == 70 or arch == 80 or arch == 86 or arch == 75
-    ), f"Currently weight_quantize only support SM70/75/80/86. but got {arch} "
+        arch >= 70
+    ), f"Currently weight_quantize only support SM >= 70. but got {arch} "
 
     assert (
         group_size == -1 or group_size == 64 or group_size == 128
@@ -193,8 +193,8 @@ def weight_only_linear(
         arch = _get_arch_info()
 
     assert (
-        arch == 70 or arch == 80 or arch == 86 or arch == 75
-    ), f"Currently weight_quantize only support SM70/75/80/86. but got {arch} "
+        arch >= 70
+    ), f"Currently weight_quantize only support SM >= 70. but got {arch} "
     assert (
         group_size == -1 or group_size == 64 or group_size == 128
     ), f"Currently weight_quantize only support group size of -1, 64 or 128. but got {group_size} "

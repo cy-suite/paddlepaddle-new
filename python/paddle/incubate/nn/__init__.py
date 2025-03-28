@@ -21,6 +21,7 @@ from .layer.fused_transformer import (
     FusedFeedForward,
     FusedMultiHeadAttention,
     FusedMultiTransformer,
+    FusedMultiTransformerDybatch,
     FusedTransformerEncoderLayer,
 )
 
@@ -29,6 +30,7 @@ __all__ = [
     'FusedFeedForward',
     'FusedTransformerEncoderLayer',
     'FusedMultiTransformer',
+    'FusedMultiTransformerDybatch',
     'FusedLinear',
     'FusedBiasDropoutResidualLayerNorm',
     'FusedEcMoe',

@@ -37,7 +37,8 @@ file(
   "sparse/gpu/*.cu"
   "strings/gpu/*.cu"
   "fusion/fp8_gemm/fp8_gemm_with_cublasLt/*.cu"
-  "fusion/gpu/*.cu")
+  "fusion/gpu/*.cu"
+  "fusion/gpu/append_attention/*.cu")
 
 file(
   GLOB kernel_gpu
