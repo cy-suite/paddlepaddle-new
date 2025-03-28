@@ -467,8 +467,8 @@ void Pool2dDirectCUDAFunctor<PoolProcess, T>::operator()(
   const int stride_width = strides[1];
   const int padding_height = paddings[0];
   const int padding_width = paddings[1];
-  int64_t nthreads =
-      batch_size * output_channels * output_height * output_width;
+  int64_t nthreads = static_cast<int64_t>(batch_size) * output_channels *
+                     output_height * output_width;
   auto pool_divmods =
       FastDivModForPooling(input_channels, output_width, output_height);
   if (adaptive) {
@@ -567,8 +567,8 @@ class Pool2dFunctor<phi::GPUContext, PoolProcess, T> {
     const T* input_data = input.data<T>();
     T* output_data = context.template Alloc<T>(output);
 
-    int64_t nthreads =
-        batch_size * output_channels * output_height * output_width;
+    int64_t nthreads = static_cast<int64_t>(batch_size) * output_channels *
+                       output_height * output_width;
     auto pool_divmods =
         FastDivModForPooling(input_channels, output_width, output_height);
     if (adaptive) {
@@ -665,8 +665,8 @@ class Pool2dFunctor<phi::GPUContext, PoolProcess, T> {
     const T* input_data = input.data<T>();
     T* output_data = context.template Alloc<T>(output);
 
-    int64_t nthreads =
-        batch_size * output_channels * output_height * output_width;
+    int64_t nthreads = static_cast<int64_t>(batch_size) * output_channels *
+                       output_height * output_width;
     auto pool_divmods =
         FastDivModForPooling(input_channels, output_width, output_height);
     if (adaptive) {
@@ -2171,8 +2171,8 @@ class MaxPool2dWithIndexFunctor<phi::GPUContext, T1, T2> {
     T1* output_data = context.template Alloc<T1>(output);
     T2* mask_data = context.template Alloc<T2>(mask);
 
-    int64_t nthreads =
-        batch_size * output_channels * output_height * output_width;
+    int64_t nthreads = static_cast<int64_t>(batch_size) * output_channels *
+                       output_height * output_width;
     auto pool_divmods =
         FastDivModForPooling(input_channels, output_width, output_height);
     if (adaptive && output_height > 1 && output_width > 1) {
