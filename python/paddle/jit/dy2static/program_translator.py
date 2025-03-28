@@ -1193,7 +1193,7 @@ class ConcreteProgram:
         "parameters",
         "function",
         'kwargs',
-        'constrained_inputs',
+        'constraints',
     ]
 
     def __init__(
@@ -1204,15 +1204,13 @@ class ConcreteProgram:
         function,
         main_program,
         startup_program=None,
-        constrained_inputs=None,
+        constraints=None,
         **kwargs,
     ):
         self.inputs = inputs
         self.outputs = outputs
         # Avoid mutable default argument pitfall (new list per instance)
-        self.constrained_inputs = (
-            constrained_inputs if constrained_inputs is not None else []
-        )
+        self.constraints = constraints if constraints is not None else []
         self.main_program = main_program
         self.startup_program = startup_program
         self.parameters = parameters
@@ -1342,7 +1340,7 @@ class ConcreteProgram:
             function=dygraph_function,
             main_program=main_program,
             startup_program=startup_program,
-            constrained_inputs=constraints,
+            constraints=constraints,
             **kwargs,
         )
 

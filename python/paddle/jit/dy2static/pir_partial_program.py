@@ -1306,6 +1306,6 @@ def partial_program_from(
         inputs,
         concrete_program.outputs,
         concrete_program.parameters,
-        concrete_program.constrained_inputs,
+        concrete_program.constraints,
         **concrete_program.kwargs,
     )
