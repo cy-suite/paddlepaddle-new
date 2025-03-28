@@ -424,7 +424,8 @@ void AutoMixedPrecisionPass::GetOpPrecision() const {
         auto enable_int8 = op_node->Op()->GetAttrIfExists<bool>("enable_int8");
         auto low_precision_io =
             op_node->Op()->GetAttrIfExists<bool>("enable_low_precision_io");
-        support_low_precision = enable_fp16 && !enable_int8 && low_precision_io;
+        // support_low_precision = enable_fp16 && !enable_int8 && low_precision_io;
+        support_low_precision = false;
       } else {
         support_low_precision = OpSupportPrecision(GetOpOriginalType(op_type),
                                                    backend_,
