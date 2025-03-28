@@ -1204,6 +1204,7 @@ class ConcreteProgram:
         function,
         main_program,
         startup_program=None,
+        *,
         constraints=None,
         **kwargs,
     ):

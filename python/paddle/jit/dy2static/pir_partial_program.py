@@ -664,6 +664,7 @@ class PartialProgramLayer:
         inputs(list[Variable]): The input list of the decorated function by `@to_static`.
         outputs(list[Variable]): The output list of the decorated function by `@to_static`.
         parameters(list[Tensor]|None): All trainable parameters included in the program. Default None.
+        constraints(list[tuple[str, int|None, int|None]]): A list to specify the constraints of the program. Default None.
 
     Returns:
         Layer: A Layer object that run all ops internally in static graph mode.
@@ -675,6 +676,7 @@ class PartialProgramLayer:
         inputs,
         outputs,
         parameters=None,
+        *,
         constraints=None,
         **kwargs,
     ):
@@ -1306,6 +1308,6 @@ def partial_program_from(
         inputs,
         concrete_program.outputs,
         concrete_program.parameters,
-        concrete_program.constraints,
+        constraints=concrete_program.constraints,
         **concrete_program.kwargs,
     )
