@@ -61,11 +61,10 @@ jobs:
         db_name: ${{ secrets.DB_NAME }}
         icafe_token: ${{ secrets.ICAFE_TOKEN }}
         AGILE_CHECKIN_AUTHOR: ${{ github.event.pull_request.user.login }}
+        AGILE_TRIGGER_USER: ${{ github.event.pull_request.user.login }}
         AGILE_REVISION: ${{ github.event.pull_request.head.sha }}
       run: |
         set +e
-        COMMIT_MESSAGE=$(git show -s --format='%s' $AGILE_REVISION)
-        export AGILE_COMMENTS="[{\"Commit\":\"$AGILE_REVISION\",\"author\":\"$AGILE_CHECKIN_AUTHOR\",\"comment\":\"$COMMIT_MESSAGE\"}]"
         wget -q --no-check-certificate  $icafe_download_url
         python modify_icafe.py
         exit 0
