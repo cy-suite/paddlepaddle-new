@@ -1367,39 +1367,6 @@ PHI_DEFINE_EXPORTED_bool(enable_fusion_result_check,
                          "Whether enable fusion result check in cinn.");
 
 /**
- * CINN TransposeItesr transform fusion FLAG
- * Name: FLAGS_enable_transpose_iters_in_fusion
- * Since Version: 3.0 beta
- * Value Range: bool, default=true
- */
-PHI_DEFINE_EXPORTED_bool(
-    enable_transpose_iters_in_fusion,
-    true,
-    "Whether enable use transpose iters transform in cinn fusion.");
-
-/**
- * CINN ReuseIters transform fusion FLAG
- * Name: FLAGS_enable_reuse_iters_in_fusion
- * Since Version: 3.0 beta
- * Value Range: bool, default=true
- */
-PHI_DEFINE_EXPORTED_bool(
-    enable_reuse_iters_in_fusion,
-    true,
-    "Whether enable use reuse iters transform in cinn fusion.");
-
-/**
- * CINN AppendIters transform fusion FLAG
- * Name: FLAGS_enable_append_iters_in_fusion
- * Since Version: 3.0 beta
- * Value Range: bool, default=true
- */
-PHI_DEFINE_EXPORTED_bool(
-    enable_append_iters_in_fusion,
-    true,
-    "Whether enable use append iters transform in cinn fusion.");
-
-/**
  * Conv Search cache max number related FLAG
  * Name: FLAGS_search_cache_max_number
  * Since Version: 2.3.0
@@ -1878,6 +1845,20 @@ PHI_DEFINE_EXPORTED_bool(
     use_xqa_optim,
     false,
     "Enable xqa optim in block_multihead_attention kernel (GQA).");
+
+/**
+ * Whether to use FP32 for accumulation of QK output in
+ * block_multihead_attention kernel(fp16)
+ * Name: blha_use_fp32_qk_sum Since Version: 3.0.0
+ * Value Range: bool, default=false
+ * Example:
+ * Note: If TRUE, FP32 will be used for accumulation of the QK output
+ * in block_multihead_attention kernel(fp16) .
+ */
+PHI_DEFINE_EXPORTED_bool(blha_use_fp32_qk_sum,
+                         false,
+                         "use FP32 for accumulation of QK output in "
+                         "block_multihead_attention kernel(fp16).");
 
 PHI_DEFINE_EXPORTED_bool(cuda_core_int8_gemm,
                          false,
