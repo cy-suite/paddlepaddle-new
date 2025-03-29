@@ -36,6 +36,7 @@
 #endif
 
 COMMON_DECLARE_int32(flash_attn_version);
+COMMON_DECLARE_bool(cudnn_deterministic);
 
 namespace phi {
 template <typename OutT>
@@ -377,7 +378,7 @@ void FlashAttnBaseKernel(
   const float softmax_unscale = std::sqrt(head_size);
 
   int version =
-      FLAGS_flash_attn_version == 3 &&
+      FLAGS_flash_attn_version == 3 && !FLAGS_cudnn_deterministic &&
               (head_size == 64 || head_size == 128 || head_size == 256)
           ? FLAGS_flash_attn_version
           : 2;
@@ -536,46 +537,25 @@ void FlashAttnBaseKernel(
           "FlashMask or Dense Mask is unsupported in FlashAttention V3"));
     }
 
-    DenseTensor out_accum;
-    DenseTensor softmax_lse_accum;
     FlashAttnV3Kernel<T, Context>(ctx,
                                   q,
                                   k,
                                   v,
-                                  paddle::none,  // k_new_
-                                  paddle::none,  // v_new_
                                   paddle::none,  // q_v_
-                                  paddle::none,  // out_
-                                  paddle::none,  // cu_seqlens_q_
-                                  paddle::none,  // cu_seqlens_k_
-                                  paddle::none,  // cu_seqlens_k_new_
-                                  paddle::none,  // seqused_q_
-                                  paddle::none,  // seqused_k_
-                                  paddle::none,  // page_table_
-                                  paddle::none,  // kv_batch_idx_
-                                  paddle::none,  // leftpad_k_
-                                  paddle::none,  // rotary_cos_
-                                  paddle::none,  // rotary_sin_
                                   paddle::none,  // q_descale_
                                   paddle::none,  // k_descale_
                                   paddle::none,  // v_descale_
-                                  paddle::none,  // scheduler_metadata_
-                                  0,             // max_seqlen_q_
-                                  0,             // max_seqlen_k_
                                   params.softmax_scale,
                                   params.causal,
                                   -1,     // window_size_left
                                   -1,     // window_size_right
                                   0.f,    // softcap
-                                  true,   // is_rotary_interleaved
                                   1,      // num_splits
                                   false,  // manual_set_pack_gqa
                                   false,  // pack_gqa_
                                   0,      // sm_margin
                                   out,
-                                  softmax_lse,
-                                  &out_accum,
-                                  &softmax_lse_accum);
+                                  softmax_lse);
 #else
     RaiseNotSupportedError(3);
 #endif

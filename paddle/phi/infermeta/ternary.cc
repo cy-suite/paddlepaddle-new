@@ -730,10 +730,8 @@ void FlashAttnV3InferMeta(const MetaTensor& q,
                           const MetaTensor& k,
                           const MetaTensor& v,
                           MetaTensor* out,
-                          MetaTensor* softmax_lse,
-                          MetaTensor* out_accum,
-                          MetaTensor* softmax_lse_accum) {
-  // TODO(umiswing): support predefined out_, support varlen_q
+                          MetaTensor* softmax_lse) {
+  // TODO(umiswing): support varlen
   constexpr bool is_varlen_q = false;
   auto const sizes = q.dims();
   const int batch_size = sizes[0];
@@ -746,7 +744,7 @@ void FlashAttnV3InferMeta(const MetaTensor& q,
   if (!is_varlen_q) {
     out->set_dims({batch_size, seqlen_q, num_heads, head_size_v});
   } else {
-    // TODO(umiswing): support varlen_q
+    // TODO(umiswing): support varlen
   }
 
   out->set_dtype(out_type);
@@ -754,14 +752,9 @@ void FlashAttnV3InferMeta(const MetaTensor& q,
   if (!is_varlen_q) {
     softmax_lse->set_dims({batch_size, num_heads, seqlen_q});
   } else {
-    // TODO(umiswing): support varlen_q
+    // TODO(umiswing): support varlen
   }
   softmax_lse->set_dtype(phi::DataType::FLOAT32);
-
-  // umiswing: no way to get out_accum dims in infermeta
-  out_accum->set_dtype(phi::DataType::FLOAT32);
-  // umiswing: no way to get softmax_lse_accum dims in infermeta
-  softmax_lse_accum->set_dtype(phi::DataType::FLOAT32);
 }
 
 void ArangeTensorInferMeta(const MetaTensor& start,

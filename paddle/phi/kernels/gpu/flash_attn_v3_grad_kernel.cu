@@ -522,37 +522,46 @@ void FlashAttnV3GradBaseKernel(
 }
 
 template <typename T, typename Context>
-void FlashAttnV3GradKernel(
-    const Context &ctx,
-    const DenseTensor
-        &q,  // (b, s_q, h, d) or (total_q, h, d) if there is cu_seqlens_q
-    const DenseTensor
-        &k,  // (b, s_k, h_k, d) or (total_k, h_k, d) if there is cu_seqlens_k
-    const DenseTensor
-        &v,  // (b, s_k, h_k, d) or (total_k, h_k, d) if there is cu_seqlens_k
-    const DenseTensor
-        &out,  // (b, s_q, h, d) or (total_q, h, d) if there is cu_seqlens_q
-    const DenseTensor
-        &softmax_lse,  // (b, h, s_q) or (h, total_q) if there is cu_seqlens_q
-    const DenseTensor &
-        out_grad,  // (b, s_q, h, d) or (total_q, h, d) if there is cu_seqlens_q
-    float const softmax_scale,
-    bool is_causal,
-    int window_size_left,
-    int window_size_right,
-    float const softcap,
-    int const sm_margin,
-    DenseTensor *dq,
-    DenseTensor *dk,
-    DenseTensor *dv) {
+void FlashAttnV3GradKernel(const Context &ctx,
+                           const DenseTensor &q,
+                           const DenseTensor &k,
+                           const DenseTensor &v,
+                           const DenseTensor &out,
+                           const DenseTensor &softmax_lse,
+                           const DenseTensor &out_grad,
+                           float const softmax_scale,
+                           bool is_causal,
+                           int window_size_left,
+                           int window_size_right,
+                           float const softcap,
+                           int const sm_margin,
+                           DenseTensor *dq,
+                           DenseTensor *dk,
+                           DenseTensor *dv) {
 #ifdef PADDLE_WITH_FLASHATTN_V3
-  // TODO(umiswing): fix me
+  PADDLE_ENFORCE_EQ(
+      window_size_left,
+      -1,
+      "window_size is not supported, please set window_size_left/right to -1");
+  PADDLE_ENFORCE_EQ(
+      window_size_right,
+      -1,
+      "window_size is not supported, please set window_size_left/right to -1");
+  PADDLE_ENFORCE_EQ(
+      softcap, 0, "softcap is not supported, please set softcap to 0");
+  PADDLE_ENFORCE_EQ(
+      sm_margin, 0, "sm_margin is not supported, please set sm_margin to 0");
+  PADDLE_ENFORCE_EQ(FLAGS_cudnn_deterministic,
+                    false,
+                    "deterministic is not supported in flash attention 3, "
+                    "please set FLAGS_cudnn_deterministic to false");
+  // umiswing: fake grad tensor for FlashAttnV3GradBaseKernel
   DenseTensor softmax_d;
   DenseTensor softmax_lse_log2;
   DenseTensor dq_accum;
   DenseTensor dk_accum;
   DenseTensor dv_accum;
-  // TODO(umiswing): support real bwd mla and remove padding
+  // TODO(umiswing): remove padding in mla
   DenseTensor v_padded;
   DenseTensor out_padded;
   DenseTensor out_grad_padded;
@@ -626,6 +635,7 @@ void FlashAttnV3GradKernel(
   RaiseNotSupportedError();
 #endif
 }
+
 }  // namespace phi
 
 PD_REGISTER_KERNEL(flash_attn_v3_grad,

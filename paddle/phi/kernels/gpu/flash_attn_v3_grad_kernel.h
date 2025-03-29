@@ -14,7 +14,6 @@
 
 #pragma once
 namespace phi {
-#ifdef PADDLE_WITH_FLASHATTN_V3
 template <typename T, typename Context>
 void FlashAttnV3GradKernel(
     const Context &ctx,
@@ -39,5 +38,4 @@ void FlashAttnV3GradKernel(
     DenseTensor *dq,
     DenseTensor *dk,
     DenseTensor *dv);
-#endif
 }  // namespace phi

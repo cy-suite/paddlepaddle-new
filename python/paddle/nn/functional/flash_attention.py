@@ -414,6 +414,7 @@ def flash_attention(
     rng_name="",
     training=True,
     name=None,
+    softmax_scale=None,
 ):
     r"""
     The equation is:
@@ -484,20 +485,81 @@ def flash_attention(
     sdp_func_name = _select_sdp(head_dim)
 
     if sdp_func_name == "flash_attn":
+        if paddle.get_flags(["FLAGS_cudnn_deterministic"])[
+            "FLAGS_cudnn_deterministic"
+        ]:
+            fa_version = 2
+        else:
+            fa_version = paddle.base.framework.get_flags(
+                ["FLAGS_flash_attn_version"]
+            )["FLAGS_flash_attn_version"]
+        assert (
+            in_dynamic_or_pir_mode() or fa_version == 2
+        ), "flash attention 3 only support dynamic or pir mode"
+        assert (
+            dropout == 0.0 or fa_version == 2
+        ), "flash attention 3 does not support dropout"
+        assert (
+            not return_softmax or fa_version == 2
+        ), "flash attention 3 does not support return softmax"
+        assert (
+            fixed_seed_offset is None or fa_version == 2
+        ), "flash attention 3 does not support return softmax"
+        assert (
+            rng_name is None or fa_version == 2
+        ), "flash attention 3 does not support setting rng_name"
+        assert (
+            training or fa_version == 2
+        ), "flash attention 3 does not support setting training"
+        assert (
+            name is None or fa_version == 2
+        ), "flash attention 3 does not support setting name"
+        assert (
+            softmax_scale is None or fa_version == 3
+        ), "flash attention 2 does not support setting softmax_scale"
         if in_dynamic_or_pir_mode():
-            (result_attention, result_softmax, _, _) = _C_ops.flash_attn(
-                query,
-                key,
-                value,
-                fixed_seed_offset,
-                None,
-                dropout,
-                causal,
-                return_softmax,
-                not training,
-                rng_name,
-            )
-            return result_attention, result_softmax if return_softmax else None
+            if fa_version == 2:
+                (result_attention, result_softmax, _, _) = _C_ops.flash_attn(
+                    query,
+                    key,
+                    value,
+                    fixed_seed_offset,
+                    None,
+                    dropout,
+                    causal,
+                    return_softmax,
+                    not training,
+                    rng_name,
+                )
+                return result_attention, (
+                    result_softmax if return_softmax else None
+                )
+            elif fa_version == 3:
+                out, softmax_lse, out_accum, softmax_lse_accum = (
+                    _C_ops.flash_attn_v3(
+                        query,
+                        key,
+                        value,
+                        None,  # q_v_
+                        None,  # q_descale_
+                        None,  # k_descale_
+                        None,  # v_descale_
+                        softmax_scale,
+                        causal,
+                        -1,  # window_size_left
+                        -1,  # window_size_right
+                        0.0,  # softcap
+                        0,  # num_splits
+                        False,  # manual_set_pack_gqa
+                        False,  # pack_gqa_
+                        0,  # sm_margin
+                    )
+                )
+                return out
+            else:
+                raise ValueError(
+                    f"Invalid flash attention version: {fa_version}"
+                )
 
         helper = LayerHelper('flash_attn', **locals())
         dtype = helper.input_dtype(input_param_name='q')
@@ -2127,109 +2189,3 @@ def calc_reduced_attention_scores(
         outputs=outputs,
     )
     return reduced_scores
-
-
-def flash_attn_v3(
-    q,
-    k,
-    v,
-    softmax_scale=None,
-    causal=False,
-    qv=None,
-    q_descale=None,
-    k_descale=None,
-    v_descale=None,
-    window_size=(-1, -1),
-    softcap=0.0,
-    num_splits=1,
-    manual_set_pack_gqa=False,
-    pack_gqa=False,
-    deterministic=False,
-    sm_margin=0,
-):
-    """dropout_p should be set to 0.0 during evaluation
-    Supports multi-query and grouped-query attention (MQA/GQA) by passing in KV with fewer heads
-    than Q. Note that the number of heads in Q must be divisible by the number of heads in KV.
-    For example, if Q has 6 heads and K, V have 2 heads, head 0, 1, 2 of Q will attention to head
-    0 of K, V, and head 3, 4, 5 of Q will attention to head 1 of K, V.
-
-    If causal=True, the causal mask is aligned to the bottom right corner of the attention matrix.
-    For example, if seqlen_q = 2 and seqlen_k = 5, the causal mask (1 = keep, 0 = masked out) is:
-        1 1 1 1 0
-        1 1 1 1 1
-    If seqlen_q = 5 and seqlen_k = 2, the causal mask is:
-        0 0
-        0 0
-        0 0
-        1 0
-        1 1
-    If the row of the mask is all zero, the output will be zero.
-
-    If window_size != (-1, -1), implements sliding window local attention. Query at position i
-    will only attend to keys between
-    [i + seqlen_k - seqlen_q - window_size[0], i + seqlen_k - seqlen_q + window_size[1]] inclusive.
-
-    Arguments:
-        q: (batch_size, seqlen, nheads, headdim)
-        k: (batch_size, seqlen, nheads_k, headdim)
-        v: (batch_size, seqlen, nheads_k, headdim)
-        dropout_p: float. Dropout probability.
-        softmax_scale: float. The scaling of QK^T before applying softmax.
-            Default to 1 / sqrt(headdim).
-        causal: bool. Whether to apply causal attention mask (e.g., for auto-regressive modeling).
-        window_size: (left, right). If not (-1, -1), implements sliding window local attention.
-        alibi_slopes: (nheads,) or (batch_size, nheads), fp32. A bias of
-            (-alibi_slope * |i + seqlen_k - seqlen_q - j|)
-            is added to the attention score of query i and key j.
-        deterministic: bool. Whether to use the deterministic implementation of the backward pass,
-            which is slightly slower and uses more memory. The forward pass is always deterministic.
-        return_attn_probs: bool. Whether to return the attention probabilities. This option is for
-           testing only. The returned probabilities are not guaranteed to be correct
-           (they might not have the right scaling).
-    Return:
-        out: (batch_size, seqlen, nheads, headdim).
-        softmax_lse [optional, if return_attn_probs=True]: (batch_size, nheads, seqlen). The
-            logsumexp of each row of the matrix QK^T * scaling (e.g., log of the softmax
-            normalization factor).
-    """
-    if softmax_scale is None:
-        softmax_scale = (
-            q.shape[-1] + (qv.shape[-1] if qv is not None else 0)
-        ) ** (-0.5)
-    # out, q, k, v, out_padded, softmax_lse = _flash_attn_forward(
-    out, softmax_lse, out_accum, softmax_lse_accum = _C_ops.flash_attn_v3(
-        q,
-        k,
-        v,
-        None,
-        None,  # k_new, v_new
-        qv,  # qv
-        None,  # out
-        None,
-        None,
-        None,  # cu_seqlens_q/k/k_new
-        None,
-        None,  # seqused_q/k
-        None,
-        None,
-        None,  # page_table, kv_batch_idx, leftpad_k,
-        None,
-        None,  # rotary_cos/sin
-        q_descale,
-        k_descale,
-        v_descale,
-        None,  # scheduler_metadata
-        0,
-        0,  # max_seqlen_q/k
-        softmax_scale,
-        causal,
-        window_size[0],
-        window_size[1],  # window_size_left/right
-        softcap,
-        True,  # is_rotary_interleaved
-        num_splits,
-        manual_set_pack_gqa,
-        pack_gqa,
-        sm_margin,
-    )
-    return out, softmax_lse

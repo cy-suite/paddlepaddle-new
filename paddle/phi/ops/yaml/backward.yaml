@@ -1147,7 +1147,7 @@
     data_type: q
 
 - backward_op : flash_attn_v3_grad
-  forward : flash_attn_v3 (Tensor q, Tensor k, Tensor v, Tensor k_new_, Tensor v_new_, Tensor q_v_, Tensor out_, Tensor cu_seqlens_q_, Tensor cu_seqlens_k_, Tensor cu_seqlens_k_new_, Tensor seqused_q_, Tensor seqused_k_, Tensor page_table_, Tensor kv_batch_idx_, Tensor leftpad_k_, Tensor rotary_cos_, Tensor rotary_sin_, Tensor q_descale_, Tensor k_descale_, Tensor v_descale_, Tensor scheduler_metadata_, int max_seqlen_q_, int max_seqlen_k_, float softmax_scale, bool is_causal, int window_size_left, int window_size_right, float softcap, bool is_rotary_interleaved, int num_splits, bool manual_set_pack_gqa, bool pack_gqa_, int sm_margin) -> Tensor(out), Tensor(softmax_lse), Tensor(out_accum), Tensor(softmax_lse_accum)
+  forward : flash_attn_v3 (Tensor q, Tensor k, Tensor v, Tensor q_v_, Tensor q_descale_, Tensor k_descale_, Tensor v_descale_, float softmax_scale, bool is_causal, int window_size_left, int window_size_right, float softcap, int num_splits, bool manual_set_pack_gqa, bool pack_gqa_, int sm_margin) -> Tensor(out), Tensor(softmax_lse)
   args : (Tensor q, Tensor k, Tensor v, Tensor out, Tensor softmax_lse, Tensor out_grad, float softmax_scale, bool is_causal, int window_size_left, int window_size_right, float softcap, int sm_margin)
   output : Tensor(q_grad), Tensor(k_grad), Tensor(v_grad)
   infer_meta :

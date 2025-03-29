@@ -1981,9 +1981,9 @@
   backward : flash_attn_unpadded_grad
 
 - op : flash_attn_v3
-  args : (Tensor q, Tensor k, Tensor v, Tensor k_new_, Tensor v_new_, Tensor q_v_, Tensor out_, Tensor cu_seqlens_q_, Tensor cu_seqlens_k_, Tensor cu_seqlens_k_new_, Tensor seqused_q_, Tensor seqused_k_, Tensor page_table_, Tensor kv_batch_idx_, Tensor leftpad_k_, Tensor rotary_cos_, Tensor rotary_sin_, Tensor q_descale_, Tensor k_descale_, Tensor v_descale_, Tensor scheduler_metadata_, int max_seqlen_q_, int max_seqlen_k_, float softmax_scale, bool is_causal, int window_size_left, int window_size_right, float softcap, bool is_rotary_interleaved, int num_splits, bool manual_set_pack_gqa, bool pack_gqa_, int sm_margin)
-  output : Tensor(out), Tensor(softmax_lse), Tensor(out_accum), Tensor(softmax_lse_accum)
-  optional : k_new_, v_new_, q_v_, out_, cu_seqlens_q_, cu_seqlens_k_, cu_seqlens_k_new_, seqused_q_, seqused_k_, page_table_, kv_batch_idx_, leftpad_k_, rotary_cos_, rotary_sin_, q_descale_, k_descale_, v_descale_, scheduler_metadata_
+  args : (Tensor q, Tensor k, Tensor v, Tensor q_v_, Tensor q_descale_, Tensor k_descale_, Tensor v_descale_, float softmax_scale, bool is_causal, int window_size_left, int window_size_right, float softcap, int num_splits, bool manual_set_pack_gqa, bool pack_gqa_, int sm_margin)
+  output : Tensor(out), Tensor(softmax_lse)
+  optional : q_v_, q_descale_, k_descale_, v_descale_
   infer_meta :
     func : FlashAttnV3InferMeta
     param : [q, k, v]
