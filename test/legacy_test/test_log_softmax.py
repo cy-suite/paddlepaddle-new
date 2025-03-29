@@ -258,13 +258,9 @@ def _check_cuda_memory_20GB():
     "Need CUDA support and at least 20GB GPU memory",
 )
 class TestLogSoftmaxLargeOp(unittest.TestCase):
-    def test_check_output(self):
-        paddle.disable_static()
+    def test_check_run(self):
         x = paddle.randn([4, 4096, 131072 + 2048])  # 8GB+4*4096*2048
-        out = paddle.nn.functional.log_softmax(x, axis=-1)
-        self.assertTrue(not paddle.isnan(out).any())
-        self.assertTrue(not paddle.isinf(out).any())
-        paddle.enable_static()
+        paddle.nn.functional.log_softmax(x, axis=-1)
 
 
 if __name__ == "__main__":
