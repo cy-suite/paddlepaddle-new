@@ -97,7 +97,7 @@ class TestGuardTree(unittest.TestCase):
                     [node_guard_1_eq_1],
                 ]
             )
-            self.assertEqual(guard_tree.check(frame), target)
+            self.assertEqual(guard_tree.lookup(frame), target)
             return CustomCode(frame.f_code, False)
 
         global z
