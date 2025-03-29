@@ -127,17 +127,15 @@ void BindGuard(pybind11::module *m) {
 
 void BindGuardTree(pybind11::module *m) {
 #if SOT_IS_SUPPORTED
-#if PY_3_11_PLUS
   py::class_<GuardTree, std::shared_ptr<GuardTree>>(
       *m, "GuardTree", R"DOC(GuardTree Class.)DOC")
       .def(py::init<
                const std::vector<std::vector<std::shared_ptr<GuardNode>>> &>(),
            py::arg("guard_nodes_list"))
       .def(
-          "check",
+          "lookup",
           [](GuardTree &self, py::object frame) {
-            return self.check(
-                reinterpret_cast<PyInterpreterFrameProxy *>(frame.ptr()));
+            return self.lookup(reinterpret_cast<FrameProxy *>(frame.ptr()));
           },
           py::arg("frame"));
 
@@ -156,10 +154,9 @@ void BindGuardTree(pybind11::module *m) {
           [](GuardNode &self) { return self.return_cache_index; },
           [](GuardNode &self, int index) { self.return_cache_index = index; })
       .def(
-          "check",
+          "lookup",
           [](GuardNode &self, py::object frame) {
-            return self.check(
-                reinterpret_cast<PyInterpreterFrameProxy *>(frame.ptr()));
+            return self.lookup(reinterpret_cast<FrameProxy *>(frame.ptr()));
           },
           py::arg("frame"));
 
@@ -168,8 +165,7 @@ void BindGuardTree(pybind11::module *m) {
       .def(
           "eval",
           [](ExprNode &self, py::object frame) {
-            return self.eval(
-                reinterpret_cast<PyInterpreterFrameProxy *>(frame.ptr()));
+            return self.eval(reinterpret_cast<FrameProxy *>(frame.ptr()));
           },
           py::arg("frame"));
 
@@ -196,7 +192,6 @@ void BindGuardTree(pybind11::module *m) {
       .def(py::init<std::shared_ptr<ExprNode>, std::shared_ptr<ExprNode>>(),
            py::arg("var_expr"),
            py::arg("key_expr"));
-#endif
 #endif
 }
 
@@ -265,9 +260,7 @@ void BindSot(pybind11::module *m) {
       },
       py::arg("py_codes"));
   BindGuard(m);
-#if PY_3_11_PLUS
   BindGuardTree(m);
-#endif
 #endif
 }
 

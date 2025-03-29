@@ -220,8 +220,6 @@ class NumpyDtypeMatchGuard : public GuardBase {
   PyObject* expected_;
 };
 
-#if PY_3_11_PLUS
-
 class GuardTreeNode {};
 
 class AttributeExprNode;
@@ -229,7 +227,7 @@ class ItemExprNode;
 class ExprNode : public GuardTreeNode,
                  public std::enable_shared_from_this<ExprNode> {
  public:
-  virtual PyObject* eval(PyInterpreterFrameProxy* frame) = 0;
+  virtual PyObject* eval(FrameProxy* frame) = 0;
 };
 class ConstantExprNode : public ExprNode {
  public:
@@ -239,7 +237,7 @@ class ConstantExprNode : public ExprNode {
     Py_INCREF(value_ptr_);
   }
   ~ConstantExprNode() { Py_DECREF(value_ptr_); }
-  PyObject* eval(PyInterpreterFrameProxy* frame);
+  PyObject* eval(FrameProxy* frame);
 
  private:
   PyObject* value_ptr_;
@@ -250,7 +248,7 @@ class LocalVarExprNode : public ExprNode {
   explicit LocalVarExprNode(const std::string& var_name)
       : var_name_(var_name) {}
 
-  PyObject* eval(PyInterpreterFrameProxy* frame);
+  PyObject* eval(FrameProxy* frame);
 
  private:
   std::string var_name_;
@@ -260,7 +258,7 @@ class GlobalVarExprNode : public ExprNode {
   explicit GlobalVarExprNode(const std::string& var_name)
       : var_name_(var_name) {}
 
-  PyObject* eval(PyInterpreterFrameProxy* frame);
+  PyObject* eval(FrameProxy* frame);
 
  private:
   std::string var_name_;
@@ -271,7 +269,7 @@ class AttributeExprNode : public ExprNode {
                              const std::string& attr_name)
       : var_expr_(var_expr), attr_name_(attr_name) {}
 
-  PyObject* eval(PyInterpreterFrameProxy* frame);
+  PyObject* eval(FrameProxy* frame);
 
  private:
   std::shared_ptr<ExprNode> var_expr_;
@@ -283,7 +281,7 @@ class ItemExprNode : public ExprNode {
                         std::shared_ptr<ExprNode> key_expr)
       : var_expr_(var_expr), key_expr_(key_expr) {}
 
-  PyObject* eval(PyInterpreterFrameProxy* frame);
+  PyObject* eval(FrameProxy* frame);
 
  private:
   std::shared_ptr<ExprNode> var_expr_;
@@ -306,7 +304,7 @@ class GuardNode : public GuardTreeNode {
         next_guard_nodes(next_guard_nodes),
         return_cache_index(return_cache_index) {}
 
-  std::optional<int> check(PyInterpreterFrameProxy* frame);
+  std::optional<int> lookup(FrameProxy* frame);
 };
 
 class GuardTree {
@@ -323,13 +321,11 @@ class GuardTree {
     }
   }
 
-  std::optional<int> check(PyInterpreterFrameProxy* frame);
+  std::optional<int> lookup(FrameProxy* frame);
 
  private:
   std::vector<std::shared_ptr<GuardNode>> guard_nodes_;
 };
 
 std::string guard_tree_to_str(const GuardTree& guard_tree);
-#endif
-
 #endif

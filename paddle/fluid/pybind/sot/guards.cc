@@ -152,39 +152,42 @@ bool NumpyDtypeMatchGuard::check(PyObject* value) {
   return expected_dtype.equal(py::handle(value).get_type());
 }
 
-#if PY_3_11_PLUS
-PyObject* ConstantExprNode::eval(PyInterpreterFrameProxy* frame) {
-  return value_ptr_;
-}
+PyObject* ConstantExprNode::eval(FrameProxy* frame) { return value_ptr_; }
 
-PyObject* LocalVarExprNode::eval(PyInterpreterFrameProxy* frame) {
+PyObject* LocalVarExprNode::eval(FrameProxy* frame) {
 #if PY_3_13_PLUS
   return PyDict_GetItemString(frame->locals, var_name_.c_str());
-#else
+#elif PY_3_11_PLUS
   return PyDict_GetItemString(frame->frame->f_locals, var_name_.c_str());
+#else
+  return PyDict_GetItemString(frame->f_locals, var_name_.c_str());
 #endif
 }
-PyObject* GlobalVarExprNode::eval(PyInterpreterFrameProxy* frame) {
+PyObject* GlobalVarExprNode::eval(FrameProxy* frame) {
+#if PY_3_11_PLUS
   return PyDict_GetItemString(frame->frame->f_globals, var_name_.c_str());
+#else
+  return PyDict_GetItemString(frame->f_globals, var_name_.c_str());
+#endif
 }
-PyObject* AttributeExprNode::eval(PyInterpreterFrameProxy* frame) {
+PyObject* AttributeExprNode::eval(FrameProxy* frame) {
   PyObject* var = var_expr_->eval(frame);
   return PyObject_GetAttrString(var, attr_name_.c_str());
 }
-PyObject* ItemExprNode::eval(PyInterpreterFrameProxy* frame) {
+PyObject* ItemExprNode::eval(FrameProxy* frame) {
   PyObject* var = var_expr_->eval(frame);
   PyObject* key = key_expr_->eval(frame);
   return PyObject_GetItem(var, key);
 }
 
-std::optional<int> GuardNode::check(PyInterpreterFrameProxy* frame) {
+std::optional<int> GuardNode::lookup(FrameProxy* frame) {
   auto value = expr->eval(frame);
   if (guard->check(value)) {
     if (return_cache_index.has_value()) {
       return return_cache_index.value();
     }
     for (auto& next_guard_node : next_guard_nodes) {
-      auto ret = next_guard_node->check(frame);
+      auto ret = next_guard_node->lookup(frame);
       if (ret.has_value()) {
         return ret.value();
       }
@@ -193,9 +196,9 @@ std::optional<int> GuardNode::check(PyInterpreterFrameProxy* frame) {
   return std::nullopt;
 }
 
-std::optional<int> GuardTree::check(PyInterpreterFrameProxy* frame) {
+std::optional<int> GuardTree::lookup(FrameProxy* frame) {
   for (auto& guard_node : guard_nodes_) {
-    auto ret = guard_node->check(frame);
+    auto ret = guard_node->lookup(frame);
     if (ret.has_value()) {
       return ret.value();
     }
@@ -203,5 +206,4 @@ std::optional<int> GuardTree::check(PyInterpreterFrameProxy* frame) {
   return std::nullopt;
 }
 
-#endif
 #endif

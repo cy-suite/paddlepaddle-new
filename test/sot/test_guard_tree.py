@@ -14,7 +14,6 @@
 
 from __future__ import annotations
 
-import sys
 import unittest
 from typing import TYPE_CHECKING, Callable
 
@@ -43,10 +42,6 @@ def guard_tree(
     return inner
 
 
-@unittest.skipIf(
-    sys.version_info < (3, 11),
-    reason="Guard tree is only supported in python 3.11+.",
-)
 class TestGuardTree(unittest.TestCase):
     def test_guard_tree(self):
         def callback(frame, **kwargs):
