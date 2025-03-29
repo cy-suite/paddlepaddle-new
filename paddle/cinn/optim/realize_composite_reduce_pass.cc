@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/cinn/optim/customized_reduce_pass.h"
+#include "paddle/cinn/optim/realize_composite_reduce_pass.h"
 #include "paddle/cinn/hlir/pe/reduction.h"
 #include "paddle/cinn/ir/ir_printer.h"
 #include "paddle/cinn/ir/ir_mutator.h"
@@ -36,38 +36,116 @@ using ir::stmt::Store;
 
 namespace {
 
-enum CustomizedReduceType {
-  Invalid = 0x0,
+enum CompositeReduceType {
+  None = 0x0,
   Welford = 0x1,
   ArgIdx  = 0x2,         // index type i32
   NumReduceType
 };
 
 constexpr std::array<const char*, NumReduceType> REDUCE_TYPE_NAMES_ = {
-  "Unsupported", "Welford Variance", "Arg Reduce"
+  "None", "Welford Variance", "Arg Reduce"
 };
 
-CustomizedReduceType GetCustomizedReduceType(const ir::Expr& expr) {
+CompositeReduceType GetReduceType(const ir::Expr& expr) {
   if (auto it = expr.As<ir::Call>()) {
     if (it->name == hlir::pe::kVarianceFuncName) {
-      return CustomizedReduceType::Welford;
+      return CompositeReduceType::Welford;
     } else if (it->name == hlir::pe::kArgMaxFuncName ||
                it->name == hlir::pe::kArgMinFuncName
     ) {
-      return CustomizedReduceType::ArgIdx;
+      return CompositeReduceType::ArgIdx;
     }
   }
-  return CustomizedReduceType::Invalid;
+  return CompositeReduceType::None;
 }
 
+struct CompositeTypes: public std::vector<common::Type> {
+  CompositeReduceType type = None;
+  CompositeTypes(CompositeReduceType _type = None): type(_type) {
+    this->reserve(2);
+  }
+
+  void print() const {
+    VLOG(4) << "[CompositeTypes]: ";
+    for (auto _t: *this) {
+      VLOG(4) << _t;
+    }
+  }
+};
+
+CompositeTypes GetArgReduceUnderlyingType(const ir::Expr& expr) {
+  if (auto it = expr.As<ir::Call>()) {
+    if (it->name == hlir::pe::kArgMaxFuncName ||
+        it->name == hlir::pe::kArgMinFuncName
+    ) {
+      // for cinn_argxxx func, the arg1 is the argidx
+      // we need to check the type of the input
+      auto argidx_call = it->read_args[1].As<ir::Call>();
+      if (argidx_call != nullptr && 
+          argidx_call->name.find("argidx_") == 0
+      ) {
+        CompositeTypes comp_types(ArgIdx);
+        comp_types.push_back(argidx_call->read_args[0]->type());
+        comp_types.push_back(expr->type());
+        return comp_types;
+      }
+    } else if (it->name == hlir::pe::kVarianceFuncName) {
+      return CompositeTypes(Welford);
+    }
+  }
+  return CompositeTypes();
+}
+
+void SetInitValue(
+  Store store_stmt, 
+  common::Type new_type,
+  const CompositeTypes& comp_type
+) {
+  ir::Expr init_value = store_stmt->value();
+  if (comp_type.type == CompositeReduceType::Welford) {
+    store_stmt->set_value(
+        ir::Call::Make(new_type,
+                      new_type.customized_type(),
+                      {init_value, init_value, init_value},
+                      {},
+                      ir::CallType::Intrinsic)
+    );
+  } else if (comp_type.type == CompositeReduceType::ArgIdx) {
+    ir::Expr index_init = ir::Expr(INT_MAX);
+    index_init->set_type(common::Int(32));
+    if (comp_type.at(1).is_int(64)) {
+      index_init = ir::Expr(INT64_MAX);
+      index_init->set_type(common::Int(64));
+    }
+    store_stmt->set_value(
+        ir::Call::Make(new_type,
+                      new_type.customized_type(),
+                      {init_value, index_init},
+                      {},
+                      ir::CallType::Intrinsic)
+    );
+  } else {
+    PADDLE_THROW(
+        ::common::errors::Unimplemented("reduce_type '%s' not allowed.",
+          REDUCE_TYPE_NAMES_[(int)comp_type.type])
+    );
+  }
+}
+
+template <typename StmtType>
 std::set<ir::Buffer> CollectReduceBuffers(const BlockRef& body) {
   std::set<ir::Buffer> buffers;
 
   const auto VisitFn = [&](const StmtRef& stmt) {
-    if (!stmt.isa<Store>()) return;
-    Store store_stmt = stmt.as<Store>();
-    if (GetCustomizedReduceType(store_stmt->value()) != 
-        CustomizedReduceType::Invalid) {
+    if (!stmt.isa<StmtType>()) {
+      // VLOG(4) << "[!] stmt:" << stmt << ", type is: " << stmt->type();
+      return;
+    }
+    // VLOG(4) << "[yes] stmt:" << stmt << ", type is: " << stmt->type();
+    StmtType store_stmt = stmt.as<StmtType>();
+    if (GetReduceType(store_stmt->value()) != 
+        CompositeReduceType::None) {
       buffers.insert(store_stmt->tensor().as_tensor()->buffer);
     }
   };
@@ -76,22 +154,22 @@ std::set<ir::Buffer> CollectReduceBuffers(const BlockRef& body) {
   return buffers;
 }
 
-CustomizedReduceType DetermineReduceType(const BlockRef& body) {
-  CustomizedReduceType rtype;
+CompositeTypes DetermineReduceType(const BlockRef& body) {
+  CompositeTypes composite_reduce;
 
   // the blockref can only have one unique reduce type
-  // TODO(heqianyue): check what would happen if var and arg reduce is fused
-  const auto VisitFn = [&rtype](const StmtRef& stmt) {
-    if (rtype != CustomizedReduceType::Invalid || !stmt.isa<Store>()) return;
+  const auto VisitFn = [&composite_reduce](const StmtRef& stmt) {
+    // to stop recursive visit: (1) rtype is defined
+    // (2) stmt is not a Store stmt
+    if (composite_reduce.type != CompositeReduceType::None || 
+        !stmt.isa<Store>()
+    ) return;
     Store store_stmt = stmt.as<Store>();
-    auto type = GetCustomizedReduceType(store_stmt->value());
-    if (type != CustomizedReduceType::Invalid) {
-      rtype = type;
-    }
+    composite_reduce = GetArgReduceUnderlyingType(store_stmt->value());
   };
 
   ir::stmt::Visit(body, VisitFn, [](auto) {});
-  return rtype;
+  return composite_reduce;
 }
 
 Store GetStoreOfSchedule(const Schedule& stmt) {
@@ -110,30 +188,34 @@ Store GetStoreOfSchedule(const Schedule& stmt) {
   return store_stmt;
 }
 
-Type GetCustomizedType(
+Type GetCompositeReduceType(
   const Type& elem_type,
-  CustomizedReduceType rtype,
-  Type aux_type = Int(32)
+  const CompositeTypes& composite_reduce
 ) {
   int type_bits = 0;
   std::string rtype_name = "";
-  switch (rtype) {
-    case CustomizedReduceType::Welford: {
+  switch (composite_reduce.type) {
+    case CompositeReduceType::Welford: {
       type_bits = elem_type.bits() * 3;
       rtype_name = "welford" + 
                 hlir::pe::Type2StrForReduce(elem_type);
       break;
     }
-    case CustomizedReduceType::ArgIdx: {
-      type_bits = elem_type.bits() + aux_type.bits();
+    case CompositeReduceType::ArgIdx: {
+      PADDLE_ENFORCE_GT(composite_reduce.size(), 1, 
+        ::common::errors::InvalidArgument("CompositeTypes for arg reduce "
+                                          "must have at least two types"
+      ));
+      type_bits = composite_reduce[0].bits() + composite_reduce[1].bits();
       rtype_name = "argidx" + 
-                hlir::pe::Type2StrForArgReduce(elem_type) +
-                hlir::pe::Type2StrForArgReduce(aux_type);
+                hlir::pe::Type2StrForArgReduce(composite_reduce[0]) +
+                hlir::pe::Type2StrForArgReduce(composite_reduce[1]);
       break;
     }
   default:
     PADDLE_THROW(
-      ::common::errors::InvalidArgument("Unsupported customized reduce type: %s", rtype));
+      ::common::errors::InvalidArgument("Unsupported composite reduce type: %s", 
+        REDUCE_TYPE_NAMES_[(int)composite_reduce.type]));
   }
   Type customized_type(ir::Type::type_t::Customized,
                     /* bits = */ type_bits,
@@ -160,7 +242,7 @@ struct StageReduceResultMutator : public ir::stmt::StmtMutator<> {
     }
     Store store_stmt = GetStoreOfSchedule(stmt.as<Schedule>());
     auto* store_tensor = store_stmt->tensor().as_tensor();
-    if (GetCustomizedReduceType(store_stmt->value()) == CustomizedReduceType::Invalid) return;
+    if (GetReduceType(store_stmt->value()) == CompositeReduceType::None) return;
     if (arg_buffers_.count(store_tensor->buffer) == 0) return;
 
     // Create the staging buffer.
@@ -186,7 +268,7 @@ struct StageReduceResultMutator : public ir::stmt::StmtMutator<> {
                               stmt->reduce_method());
     sibling_stmts_.push_back(staging_schedule);
 
-    // Replace all uses of the customized reduce buffer with the staging buffer.
+    // Replace all uses of the composite reduce buffer with the staging buffer.
     Store staging_store = GetStoreOfSchedule(staging_schedule);
     staging_store->set_tensor(staging_tensor);
     staging_store->set_indices(indices);
@@ -248,8 +330,10 @@ struct StageReduceResultMutator : public ir::stmt::StmtMutator<> {
 };
 
 struct LoadTypeMutator : public ir::IRMutator<> {
-  explicit LoadTypeMutator(const std::map<ir::Buffer, ir::Type>& buffer2type, CustomizedReduceType rtype)
-      : buffer2type_(buffer2type), reduce_type_(rtype) {}
+  explicit LoadTypeMutator(
+      const std::map<ir::Buffer, ir::Type>& buffer2type, 
+      const CompositeTypes& ctype)
+      : buffer2type_(buffer2type), comp_type_(ctype) {}
 
   void operator()(ir::Expr* expr) { ir::IRMutator<>::Visit(expr, expr); }
 
@@ -258,12 +342,11 @@ struct LoadTypeMutator : public ir::IRMutator<> {
     ir::IRMutator<>::Visit(op, expr);
     auto* node = expr->As<ir::Load>();
     auto& buffer = node->tensor.as_tensor()->buffer;
+    // VLOG(4) << "[Customized reduce] old type is: " << node->tensor.as_tensor()->type() << ", tensor: " << node->tensor.as_tensor()->name;
     auto it = buffer2type_.find(buffer);
     if (it != buffer2type_.end()) {
-      // TODO(heqianyue): support i64 index, this can be easily done
-      // by adding a suffix to the cinn_argmax (like i64) in ast gen phase
-      // and judging by it in GetCustomizedReduceType(...)
-      ir::Type new_type = GetCustomizedType(it->second, reduce_type_);
+      
+      ir::Type new_type = GetCompositeReduceType(it->second, comp_type_);
       node->tensor.as_tensor()->set_type(new_type);
       buffer->dtype = new_type;
       *expr = ir::Cast::Make(it->second, *expr);
@@ -281,15 +364,15 @@ struct LoadTypeMutator : public ir::IRMutator<> {
   }
 
   void Visit(const ir::Call* op, ir::Expr* expr) override {
-    // this function will cast the buffer from customized type
+    // this function will cast the buffer from composite type
     // to an underlying type, for example welford_fp32 -> float
     // uncast will undo this process
     ir::IRMutator<>::Visit(op, expr);
     // By default, all tensors are casted back to their element type
-    // before doing other computation. However, for the customized reduction 
+    // before doing other computation. However, for the composite reduction 
     // calls, we shouldn't cast the arguments back because they hold the 
     // intermediate status.
-    if (GetCustomizedReduceType(*expr) != CustomizedReduceType::Invalid) {
+    if (GetReduceType(*expr) != CompositeReduceType::None) {
       auto* node = expr->As<ir::Call>();
       UncastType(&(node->read_args[0]));
       UncastType(&(node->read_args[1]));
@@ -297,28 +380,26 @@ struct LoadTypeMutator : public ir::IRMutator<> {
   }
 
   const std::map<ir::Buffer, ir::Type>& buffer2type_;
-  const CustomizedReduceType reduce_type_;
+  const CompositeTypes& comp_type_;
 };
 
 void SetBufferType(ir::LoweredFunc func,
                    const std::set<ir::Buffer>& buffers,
-                   CustomizedReduceType reduce_type
+                   const CompositeTypes& composite_type
                    ) {
   // Make a map from the buffers to their element types, otherwise it's hard to
   // know a buffer's original type.
 
-  VLOG(4) << "Setting buffer type. Reduce type: " << REDUCE_TYPE_NAMES_[(int)reduce_type];
   std::map<ir::Buffer, ir::Type> buffer2type;
   for (auto& buffer : buffers) {
     buffer2type.emplace(buffer, buffer->dtype);
-    VLOG(4) << "customized buffer: " << buffer->name << ", type: " << buffer->dtype;
   }
 
   // Set function's temp_bufs type
   for (auto& buffer : func->temp_bufs) {
     auto it = buffer2type.find(buffer);
     if (it != buffer2type.end()) {
-      buffer->dtype = GetCustomizedType(it->second, reduce_type);
+      buffer->dtype = GetCompositeReduceType(it->second, composite_type);
     }
   }
 
@@ -333,40 +414,19 @@ void SetBufferType(ir::LoweredFunc func,
     auto it = buffer2type.find(buffer);
     if (it != buffer2type.end()) {
       ir::Expr new_tensor = ir::ir_utils::IRCopy(store_stmt->tensor());
-      ir::Type new_type = GetCustomizedType(it->second, reduce_type);
+      ir::Type new_type = GetCompositeReduceType(it->second, composite_type);
       new_tensor.as_tensor()->set_type(new_type);
       new_tensor.as_tensor()->buffer->dtype = new_type;
       store_stmt->set_tensor(new_tensor);
 
-      // For reduce_init, also wrap the init value in the Welford type.
-      // Only Welford reduce needs this step, the arg reduce init value is
-      // already in set in the ast_gen.cc
       if (ir::IsReduceInitTensorName(tensor->name)) {
-        ir::Expr init_value = store_stmt->value();
-        if (reduce_type == CustomizedReduceType::Welford) {
-          store_stmt->set_value(
-              ir::Call::Make(new_type,
-                            new_type.customized_type(),
-                            {init_value, init_value, init_value},
-                            {},
-                            ir::CallType::Intrinsic)
-          );
-        } else if (reduce_type == CustomizedReduceType::ArgIdx) {
-          store_stmt->set_value(
-              ir::Call::Make(new_type,
-                            new_type.customized_type(),
-                            {init_value, ir::Expr(INT_MAX)},
-                            {},
-                            ir::CallType::Intrinsic)
-          );
-        }
-        // TODO(heqianyue): consider all branches
+        SetInitValue(store_stmt, new_type, composite_type);
       }
     }
 
     // Set load buffer type
     ir::Expr new_value = ir::ir_utils::IRCopy(store_stmt->value());
-    LoadTypeMutator load_type_mutator(buffer2type, reduce_type);
+    LoadTypeMutator load_type_mutator(buffer2type, composite_type);
     load_type_mutator(&new_value);
     store_stmt->set_value(new_value);
   };
@@ -380,17 +440,24 @@ struct ReduceExternCallMutator : public ir::IRMutator<> {
  private:
   void Visit(const ir::Call* op, ir::Expr* expr) override {
     ir::IRMutator<>::Visit(op, expr);
-    auto reduce_type_ = GetCustomizedReduceType(*expr);
-    if (reduce_type_ == CustomizedReduceType::Invalid) return;
+    auto reduce_type_ = GetReduceType(*expr);
+    if (reduce_type_ == CompositeReduceType::None) return;
     ir::Expr lhs = op->read_args[0];
     ir::Expr rhs = op->read_args[1];
     if (lhs.type() != rhs.type()) {
-      rhs = ir::Cast::Make(lhs.type(), rhs);
+      if (auto call_op = rhs.As<ir::Call>()) {
+        // for argidx type, avoid redundant type casting, but this is ugly
+        if (call_op->name.find("argidx") != std::string::npos) {
+          rhs->set_type(lhs.type());
+        }
+      } else {
+        rhs = ir::Cast::Make(lhs.type(), rhs);
+      }
     }
-    if (reduce_type_ == CustomizedReduceType::Welford) {
+    if (reduce_type_ == CompositeReduceType::Welford) {
       // replace cinn_reduce_variance to operator+
       *expr = ir::Add::Make(lhs, rhs);
-    } else if (reduce_type_ == CustomizedReduceType::ArgIdx) {
+    } else if (reduce_type_ == CompositeReduceType::ArgIdx) {
       // replace cinn_argmxx_iyy to max or min (overloaded) 
       if (op->name.find("argmax") != std::string::npos) {
         *expr = ir::Max::Make(lhs, rhs);
@@ -415,11 +482,11 @@ void ReplaceReduceExternCall(const BlockRef& body) {
 
 }  // namespace
 
-LogicalResult CustomizedReducePass::Run(ir::LoweredFunc func) {
-  VLOG(4) << "In function CustomizedReducePass::Run";
+LogicalResult RealizeCompositeReducePass::Run(ir::LoweredFunc func) {
+  VLOG(4) << "In function RealizeCompositeReducePass::Run";
   BlockRef body = func->body_block;
 
-  // Step 1. Create a staging buffer for customized reduction result if it is
+  // Step 1. Create a staging buffer for composite reduction result if it is
   //   directly written to the function's argument. This is because the
   //   result and the argument have different data types, and we need a staging
   //   buffer to do casting properly.
@@ -428,33 +495,37 @@ LogicalResult CustomizedReducePass::Run(ir::LoweredFunc func) {
   //   current CINN frontend cannot guarantee this, so we need to do staging by
   //   ourself if the expected yield_store is missing.
   StageReduceResultMutator mutator(func);
-  VLOG(4) << "\t[CustomizedReducePass] Staging Reduce mutator, starts...";
+  VLOG(4) << "\t[CompositeReducePass] Staging Reduce mutator, starts...";
   mutator(body);
-  VLOG(4) << "\t[CustomizedReducePass] Staging Reduce mutator, completed. Reduce body: " << body;
+  VLOG(4) << "\t[CompositeReducePass] Staging Reduce mutator, completed. Reduce body: " << body;
 
-  auto reduce_type = DetermineReduceType(body);
-  VLOG(4) << "\t[CustomizedReducePass] Reduce type determined. Reduce type: " << REDUCE_TYPE_NAMES_[(int)reduce_type];
+  auto composite_type = DetermineReduceType(body);
+  if (composite_type.type == CompositeReduceType::None) {
+    return LogicalResult::success();
+  }
+  composite_type.print();
+  
   // Step 2. Collect buffers that are used for reduce computation.
-  std::set<ir::Buffer> buffers = CollectReduceBuffers(body);
+  std::set<ir::Buffer> buffers = CollectReduceBuffers<Store>(body);
 
-  VLOG(4) << "\t[CustomizedReducePass] Reduce Buffer collected.";
+  VLOG(4) << "\t[CompositeReducePass] Reduce Buffer collected.";
 
   // Step 3. Change the data type of buffers to the corresponding type.
-  SetBufferType(func, buffers, reduce_type);
+  SetBufferType(func, buffers, composite_type);
 
-  VLOG(4) << "\t[CustomizedReducePass] Buffer type set.";
+  VLOG(4) << "\t[CompositeReducePass] Buffer type set." << body;
 
   // Step 4. Replace the `cinn_reduce_variance` calls to `operator+` in order to
   //   reuse the cross-thread/block reduction templates.
   ReplaceReduceExternCall(body);
 
-  VLOG(4) << "\t[CustomizedReducePass] ExternCalls replaced.";
+  VLOG(4) << "\t[CompositeReducePass] ExternCalls replaced.";
 
   return LogicalResult::success();
 }
 
-std::unique_ptr<FuncPass> CreateCustomizedReducePass() {
-  return std::make_unique<CustomizedReducePass>();
+std::unique_ptr<FuncPass> CreateRealizeCompositeReducePass() {
+  return std::make_unique<RealizeCompositeReducePass>();
 }
 
 }  // namespace optim

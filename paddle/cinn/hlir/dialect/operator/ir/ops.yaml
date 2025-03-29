@@ -1,3 +1,25 @@
+- op : argmax
+  args : (Tensor x, int64_t[] axis, bool keepdim, DataType dtype=DataType::UNDEFINED)
+  output : Tensor(out)
+  infer_meta :
+    func : ReduceSumInferMeta
+    param : [x, axis, keepdim, dtype]
+  kernel :
+    func : frobenius_norm
+    param : [x, axis, keepdim]
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
+
+- op : argmin
+  args : (Tensor x, int64_t[] axis, bool keepdim, DataType dtype=DataType::UNDEFINED)
+  output : Tensor(out)
+  infer_meta :
+    func : ReduceSumInferMeta
+    param : [x, axis, keepdim, dtype]
+  kernel :
+    func : frobenius_norm
+    param : [x, axis, keepdim]
+  interfaces : paddle::dialect::InferSymbolicShapeInterface
+
 - op : broadcast
   args : (Tensor x, int64_t[] broadcast_axes,  int64_t[] out_shape)
   output : Tensor(out)

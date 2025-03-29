@@ -73,13 +73,13 @@ namespace optim {
  * 3) Add casts at the beginning of reduce computation (casting `var_0` to
  *    `welford_fp32`) and at the end (casting `var_1` to `target type`).
  */
-class CustomizedReducePass : public FuncPass {
+class RealizeCompositeReducePass : public FuncPass {
  public:
-  CustomizedReducePass() : FuncPass("customized_reduce") {}
+  RealizeCompositeReducePass() : FuncPass("realize_composite_reduce") {}
   LogicalResult Run(ir::LoweredFunc func) override;
 };
 
-std::unique_ptr<FuncPass> CreateCustomizedReducePass();
+std::unique_ptr<FuncPass> CreateRealizeCompositeReducePass();
 
 }  // namespace optim
 }  // namespace cinn

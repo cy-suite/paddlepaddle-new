@@ -52,6 +52,7 @@ using ReduceFunc = std::function<ir::Tensor(const ir::Tensor &,
                                             const bool,
                                             const std::string &)>;
 
+template <bool customized_output_type>
 std::shared_ptr<OpStrategy> StrategyForReduce(
     const framework::NodeAttr &attrs,
     const std::vector<ir::Tensor> &inputs,
@@ -164,6 +165,14 @@ std::shared_ptr<OpStrategy> StrategyForReduce(
       VLOG(3) << "Do Reduce Compute!";
       auto out = common_reduce_func(x, reduce_axes, keepdim, tensor_name);
 
+      if constexpr (customized_output_type) {
+        PADDLE_ENFORCE_GT(out_type.size(), 0, ::common::errors::InvalidArgument(
+          "Out type vector is empty, this is invalid for arg reduce op"
+        ));
+        out->set_type(out_type[0]);
+        VLOG(4) << "Arg Reduce: out type: " << out->type();
+      }
+
       std::vector<CINNValue> cinn_values{CINNValue(out)};
       *ret = CINNValuePack{cinn_values};
     };
@@ -183,6 +192,7 @@ std::shared_ptr<OpStrategy> StrategyForReduce(
   return strategy;
 }
 
+template <bool customized_output_type>
 std::shared_ptr<OpStrategy> StrategyForReduceSymbolic(
     const framework::NodeAttr &attrs,
     const std::vector<ir::Tensor> &inputs,
@@ -287,7 +297,15 @@ std::shared_ptr<OpStrategy> StrategyForReduceSymbolic(
 
     VLOG(3) << "Do Reduce Compute!";
     auto out = common_reduce_func(x, reduce_axes, keepdim, tensor_name);
+    if constexpr (customized_output_type) {
+      PADDLE_ENFORCE_GT(out_type.size(), 0, ::common::errors::InvalidArgument(
+        "Out type vector is empty, this is invalid for arg reduce op"
+      ));
+      out->set_type(out_type[0]);
+      VLOG(4) << "Arg Reduce: out type: " << out->type();
+    }
 
+    VLOG(4) << "Reduce compute: out tensor: " << out->name << ", type: " << out->type();
     std::vector<CINNValue> cinn_values{CINNValue(out)};
     *ret = CINNValuePack{cinn_values};
   });
@@ -302,14 +320,15 @@ std::shared_ptr<OpStrategy> StrategyForReduceSymbolic(
                             reduce_op_,                         \
                             gpu_reduce_with_last_axis_func,     \
                             gpu_reduce_without_last_axis_func,  \
-                            common_reduce_func)                 \
+                            common_reduce_func,                 \
+                            customized_output_type)             \
   std::shared_ptr<OpStrategy> StrategyFor##reduce_op_(          \
       const framework::NodeAttr &attrs,                         \
       const std::vector<ir::Tensor> &inputs,                    \
       const std::vector<Type> &out_type,                        \
       const std::vector<std::vector<int>> &output_shapes,       \
       const Target &target) {                                   \
-    return StrategyForReduce(attrs,                             \
+    return StrategyForReduce<customized_output_type>(attrs,     \
                              inputs,                            \
                              out_type,                          \
                              output_shapes,                     \
@@ -324,14 +343,15 @@ std::shared_ptr<OpStrategy> StrategyForReduceSymbolic(
                                      reduce_op_,                        \
                                      gpu_reduce_with_last_axis_func,    \
                                      gpu_reduce_without_last_axis_func, \
-                                     common_reduce_func)                \
+                                     common_reduce_func,                \
+                                     customized_output_type)            \
   std::shared_ptr<OpStrategy> StrategyFor##reduce_op_##Symbolic(        \
       const framework::NodeAttr &attrs,                                 \
       const std::vector<ir::Tensor> &inputs,                            \
       const std::vector<Type> &out_type,                                \
       const std::vector<std::vector<ir::Dim>> &output_shapes,           \
       const Target &target) {                                           \
-    return StrategyForReduceSymbolic(attrs,                             \
+    return StrategyForReduceSymbolic<customized_output_type>(attrs,     \
                                      inputs,                            \
                                      out_type,                          \
                                      output_shapes,                     \
@@ -341,77 +361,90 @@ std::shared_ptr<OpStrategy> StrategyForReduceSymbolic(
                                      gpu_reduce_without_last_axis_func, \
                                      common_reduce_func);               \
   }
-
+#define ARG_REDUCE_FLAG true
+#define NORMAL_REDUCE_FLAG false
 STRATEGY_FOR_REDUCE(reduce_sum,
                     ReduceSum,
                     pe::TwoStepBlockReduceSum,
                     pe::BlockShuffleReduceSum,
-                    pe::ReduceSum);
+                    pe::ReduceSum,
+                    NORMAL_REDUCE_FLAG);
 STRATEGY_FOR_REDUCE(reduce_prod,
                     ReduceProd,
                     pe::TwoStepBlockReduceProd,
                     pe::BlockShuffleReduceProd,
-                    pe::ReduceProd);
-// STRATEGY_FOR_REDUCE(reduce_max,
-//                     ReduceMax,
-//                     pe::TwoStepBlockReduceMax,
-//                     pe::BlockShuffleReduceMax,
-//                     pe::ReduceMax);
+                    pe::ReduceProd,
+                    NORMAL_REDUCE_FLAG);
+STRATEGY_FOR_REDUCE(reduce_max,
+                    ReduceMax,
+                    pe::TwoStepBlockReduceMax,
+                    pe::BlockShuffleReduceMax,
+                    pe::ReduceMax,
+                    NORMAL_REDUCE_FLAG);
 STRATEGY_FOR_REDUCE(reduce_min,
                     ReduceMin,
                     pe::TwoStepBlockReduceMin,
                     pe::BlockShuffleReduceMin,
-                    pe::ReduceMin);
+                    pe::ReduceMin,
+                    NORMAL_REDUCE_FLAG);
 STRATEGY_FOR_REDUCE(reduce_all,
                     ReduceAll,
                     pe::TwoStepBlockReduceAll,
                     pe::BlockShuffleReduceAll,
-                    pe::ReduceAll);
+                    pe::ReduceAll,
+                    NORMAL_REDUCE_FLAG);
 STRATEGY_FOR_REDUCE(reduce_any,
                     ReduceAny,
                     pe::TwoStepBlockReduceAny,
                     pe::BlockShuffleReduceAny,
-                    pe::ReduceAny);
-STRATEGY_FOR_REDUCE(variance, Variance, nullptr, nullptr, pe::Variance);
-STRATEGY_FOR_REDUCE(reduce_max, ReduceArgMax, nullptr, nullptr, pe::ReduceArgMax);
-STRATEGY_FOR_REDUCE(reduce_argmin, ReduceArgMin, nullptr, nullptr, pe::ReduceArgMin);
+                    pe::ReduceAny,
+                    NORMAL_REDUCE_FLAG);
+STRATEGY_FOR_REDUCE(variance, Variance, nullptr, nullptr, pe::Variance, NORMAL_REDUCE_FLAG);
+STRATEGY_FOR_REDUCE(argmax, Argmax, nullptr, nullptr, pe::ReduceArgMax, ARG_REDUCE_FLAG);
+STRATEGY_FOR_REDUCE(argmin, Argmin, nullptr, nullptr, pe::ReduceArgMin, ARG_REDUCE_FLAG);
 
 STRATEGY_FOR_REDUCE_SYMBOLIC(reduce_sum,
                              ReduceSum,
                              pe::TwoStepBlockReduceSum,
                              pe::BlockShuffleReduceSum,
-                             pe::ReduceSum);
+                             pe::ReduceSum,
+                             NORMAL_REDUCE_FLAG);
 STRATEGY_FOR_REDUCE_SYMBOLIC(reduce_prod,
                              ReduceProd,
                              pe::TwoStepBlockReduceProd,
                              pe::BlockShuffleReduceProd,
-                             pe::ReduceProd);
-// STRATEGY_FOR_REDUCE_SYMBOLIC(reduce_max,
-//                              ReduceMax,
-//                              pe::TwoStepBlockReduceMax,
-//                              pe::BlockShuffleReduceMax,
-//                              pe::ReduceMax);
+                             pe::ReduceProd,
+                             NORMAL_REDUCE_FLAG);
+STRATEGY_FOR_REDUCE_SYMBOLIC(reduce_max,
+                             ReduceMax,
+                             pe::TwoStepBlockReduceMax,
+                             pe::BlockShuffleReduceMax,
+                             pe::ReduceMax,
+                             NORMAL_REDUCE_FLAG);
 STRATEGY_FOR_REDUCE_SYMBOLIC(reduce_min,
                              ReduceMin,
                              pe::TwoStepBlockReduceMin,
                              pe::BlockShuffleReduceMin,
-                             pe::ReduceMin);
+                             pe::ReduceMin,
+                             NORMAL_REDUCE_FLAG);
 STRATEGY_FOR_REDUCE_SYMBOLIC(reduce_all,
                              ReduceAll,
                              pe::TwoStepBlockReduceAll,
                              pe::BlockShuffleReduceAll,
-                             pe::ReduceAll);
+                             pe::ReduceAll,
+                             NORMAL_REDUCE_FLAG);
 STRATEGY_FOR_REDUCE_SYMBOLIC(reduce_any,
                              ReduceAny,
                              pe::TwoStepBlockReduceAny,
                              pe::BlockShuffleReduceAny,
-                             pe::ReduceAny);
+                             pe::ReduceAny,
+                             NORMAL_REDUCE_FLAG);
 STRATEGY_FOR_REDUCE_SYMBOLIC(
-    variance, Variance, nullptr, nullptr, pe::Variance);
+    variance, Variance, nullptr, nullptr, pe::Variance, NORMAL_REDUCE_FLAG);
 STRATEGY_FOR_REDUCE_SYMBOLIC(
-    reduce_max, ReduceArgMax, nullptr, nullptr, pe::ReduceArgMax);
+    argmax, Argmax, nullptr, nullptr, pe::ReduceArgMax, ARG_REDUCE_FLAG);
 STRATEGY_FOR_REDUCE_SYMBOLIC(
-    reduce_argmin, ReduceArgMin, nullptr, nullptr, pe::ReduceArgMin);
+    argmin, Argmin, nullptr, nullptr, pe::ReduceArgMin, ARG_REDUCE_FLAG);
 
 #undef STRATEGY_FOR_REDUCE
 #undef STRATEGY_FOR_REDUCE_SYMBOLIC
@@ -441,9 +474,9 @@ CINN_REGISTER_HELPER(reduce_ops) {
   CINN_REGISTER_REDUCTION(reduce_sum, ReduceSum);
   CINN_REGISTER_REDUCTION(reduce_prod, ReduceProd);
   CINN_REGISTER_REDUCTION(variance, Variance);
-  CINN_REGISTER_REDUCTION(reduce_max, ReduceArgMax);
-  CINN_REGISTER_REDUCTION(reduce_argmin, ReduceArgMin);
-  // CINN_REGISTER_REDUCTION(reduce_max, ReduceMax);
+  CINN_REGISTER_REDUCTION(argmax, Argmax);
+  CINN_REGISTER_REDUCTION(argmin, Argmin);
+  CINN_REGISTER_REDUCTION(reduce_max, ReduceMax);
   CINN_REGISTER_REDUCTION(reduce_min, ReduceMin);
 
 #undef CINN_REGISTER_REDUCTION
@@ -452,6 +485,10 @@ CINN_REGISTER_HELPER(reduce_ops) {
   CINN_REGISTER_REDUCTION_WITH_DTYPE(reduce_any, ReduceAny, Bool);
 
 #undef CINN_REGISTER_REDUCTION_WITH_DTYPE
-
+  VLOG(4) << "Reduction registration.";
   return true;
 }
+
+// these are retained due to some legacy code dependency
+bool __cinn__argmax_ops__registrar() { return true; }
+bool __cinn__argmin_ops__registrar() { return true; }

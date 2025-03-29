@@ -35,15 +35,15 @@ bool IsReduceBool(const ir::Expr& lhs, const ir::Expr& rhs) {
   return lhs.type().is_bool() || rhs.type().is_bool();
 }
 
-// TODO(heqianyue): i64 should be supported
 inline ir::Expr PackArgIdxStructExpr(
   ir::Tensor tensor, 
   ir::Expr value, 
-  const ir::Var& reduce_axis,
-  std::string suffix = "_i32"
+  const ir::Var& reduce_axis
 ) {
   return ir::Call::Make(tensor->type(),
-                "argidx" + hlir::pe::Type2StrForArgReduce(tensor->type()) + "_i32", 
+                "argidx" + 
+                      hlir::pe::Type2StrForArgReduce(value.type()) + 
+                      hlir::pe::Type2StrForArgReduce(tensor->type()),
                 {value, reduce_axis}, 
                 {}, 
                 ir::CallType::Intrinsic);
