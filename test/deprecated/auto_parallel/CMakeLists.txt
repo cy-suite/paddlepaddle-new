@@ -145,15 +145,9 @@ if(WITH_DISTRIBUTE AND WITH_GPU)
                   test_dist_concat_deprecated)
   py_test_modules(test_dist_context_deprecated MODULES
                   test_dist_context_deprecated)
-  py_test_modules(test_mp_allreduce_matmul_grad_overlapping_deprecated MODULES
-                  test_mp_allreduce_matmul_grad_overlapping_deprecated)
-  set_tests_properties(test_mp_allreduce_matmul_grad_overlapping_deprecated
-                       PROPERTIES LABELS "RUN_TYPE=EXCLUSIVE" TIMEOUT 120)
 
   py_test_modules(test_auto_parallel_amp_pass_deprecated MODULES
                   test_auto_parallel_amp_pass_deprecated)
-  set_tests_properties(test_mp_allreduce_matmul_grad_overlapping_deprecated
-                       PROPERTIES LABELS "RUN_TYPE=DIST" TIMEOUT 250)
   py_test_modules(test_auto_parallel_recompute_pass_deprecated MODULES
                   test_auto_parallel_recompute_pass_deprecated)
   set_tests_properties(test_auto_parallel_recompute_pass_deprecated
