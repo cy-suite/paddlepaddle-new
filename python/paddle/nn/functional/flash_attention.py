@@ -538,25 +538,23 @@ def flash_attention(
                 if softmax_scale is None:
                     softmax_scale = query.shape[-1] ** (-0.5)
 
-                out, softmax_lse, out_accum, softmax_lse_accum = (
-                    _C_ops.flash_attn_v3(
-                        query,
-                        key,
-                        value,
-                        None,  # q_v_
-                        None,  # q_descale_
-                        None,  # k_descale_
-                        None,  # v_descale_
-                        softmax_scale,
-                        causal,
-                        -1,  # window_size_left
-                        -1,  # window_size_right
-                        0.0,  # softcap
-                        1,  # num_splits
-                        False,  # manual_set_pack_gqa
-                        False,  # pack_gqa_
-                        0,  # sm_margin
-                    )
+                out, softmax_lse = _C_ops.flash_attn_v3(
+                    query,
+                    key,
+                    value,
+                    None,  # q_v_
+                    None,  # q_descale_
+                    None,  # k_descale_
+                    None,  # v_descale_
+                    softmax_scale,
+                    causal,
+                    -1,  # window_size_left
+                    -1,  # window_size_right
+                    0.0,  # softcap
+                    1,  # num_splits
+                    False,  # manual_set_pack_gqa
+                    False,  # pack_gqa_
+                    0,  # sm_margin
                 )
                 return out
             else:
