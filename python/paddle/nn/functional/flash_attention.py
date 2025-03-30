@@ -485,7 +485,9 @@ def flash_attention(
     sdp_func_name = _select_sdp(head_dim)
 
     if sdp_func_name == "flash_attn":
-        if paddle.get_flags(["FLAGS_cudnn_deterministic"])[
+        if "xpu" in paddle.get_device():
+            fa_version = 2
+        elif paddle.get_flags(["FLAGS_cudnn_deterministic"])[
             "FLAGS_cudnn_deterministic"
         ]:
             fa_version = 2
