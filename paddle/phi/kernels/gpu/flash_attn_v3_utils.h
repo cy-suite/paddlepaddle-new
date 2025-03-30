@@ -23,15 +23,19 @@
 namespace phi {
 #ifdef PADDLE_WITH_FLASHATTN_V3
 
-#define CHECK_DEVICE(x) \
-  PADDLE_ENFORCE_EQ(    \
-      x.place().GetType(), phi::AllocationType::GPU, #x " must be on CUDA")
+#define CHECK_DEVICE(x)                       \
+  PADDLE_ENFORCE_EQ(x.place().GetType(),      \
+                    phi::AllocationType::GPU, \
+                    common::errors::InvalidArgument(#x " must be on CUDA"))
 #define CHECK_SHAPE(x, ...)                           \
   PADDLE_ENFORCE_EQ(x.dims(),                         \
                     common::make_ddim({__VA_ARGS__}), \
-                    #x " must have shape (" #__VA_ARGS__ ")")
-#define CHECK_CONTIGUOUS(x) \
-  PADDLE_ENFORCE_EQ(x.meta().is_contiguous(), true, #x " must be contiguous")
+                    common::errors::InvalidArgument(  \
+                        #x " must have shape (" #__VA_ARGS__ ")"))
+#define CHECK_CONTIGUOUS(x)                   \
+  PADDLE_ENFORCE_EQ(x.meta().is_contiguous(), \
+                    true,                     \
+                    common::errors::InvalidArgument(#x " must be contiguous"))
 
 Flash_fwd_params *get_flash_fwd_params_handle();
 

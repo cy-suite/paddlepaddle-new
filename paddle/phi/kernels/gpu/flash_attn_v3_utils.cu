@@ -160,11 +160,16 @@ void set_params_fprop(Flash_fwd_params *params_handle,
   dynload::fa3_fwd_params_set_rp_dropout(
       params_handle,
       1.f / dynload::fa3_fwd_params_get_p_dropout(params_handle));
-  PADDLE_ENFORCE_LT(p_dropout, 1.f, "p_dropout must less than 1");
-#ifdef FLASHATTENTION_DISABLE_DROPOUT
+  PADDLE_ENFORCE_LT(
+      p_dropout,
+      1.f,
+      common::errors::InvalidArgument("p_dropout must less than 1"));
+
   PADDLE_ENFORCE_EQ(
-      p_dropout, 0.0f, "This flash attention build does not support dropout.");
-#endif
+      p_dropout,
+      0.0f,
+      common::errors::InvalidArgument(
+          "This flash attention build does not support dropout."));
 
   // Causal is the special case where window_size_right == 0 and
   // window_size_left < 0. Local is the more general case where
@@ -197,7 +202,8 @@ void set_params_fprop(Flash_fwd_params *params_handle,
   PADDLE_ENFORCE_EQ(
       !dynload::fa3_fwd_params_get_is_local(params_handle),
       true,
-      "This flash attention build does not support local attention.");
+      common::errors::InvalidArgument(
+          "This flash attention build does not support local attention."));
 #endif
 }
 
