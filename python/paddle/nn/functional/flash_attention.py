@@ -552,7 +552,7 @@ def flash_attention(
                         -1,  # window_size_left
                         -1,  # window_size_right
                         0.0,  # softcap
-                        0,  # num_splits
+                        1,  # num_splits
                         False,  # manual_set_pack_gqa
                         False,  # pack_gqa_
                         0,  # sm_margin
