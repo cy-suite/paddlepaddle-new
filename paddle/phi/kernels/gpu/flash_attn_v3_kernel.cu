@@ -106,20 +106,27 @@ void FlashAttnV3BaseKernel(
   int device_id = ctx.GetPlace().GetDeviceId();
   auto dprops = paddle::platform::GetDeviceProperties(device_id);
   const bool is_sm90 = dprops.major == 9 && dprops.minor == 0;
-  PADDLE_ENFORCE_EQ(
-      is_sm90, true, "FlashAttention-3 only supports Hopper GPUs.");
+  PADDLE_ENFORCE_EQ(is_sm90,
+                    true,
+                    common::errors::Unavailable(
+                        "FlashAttention-3 only supports Hopper GPUs."));
 
   auto q_type = q.dtype();
   PADDLE_ENFORCE_EQ(
       (q_type == phi::DataType::FLOAT16 || q_type == phi::DataType::BFLOAT16 ||
        q_type == phi::DataType::FLOAT8_E4M3FN),
       true,
-      "FlashAttention-3 only supports fp16, bf16, and fp8_e4m3 data type");
+      common::errors::InvalidArgument(
+          "FlashAttention-3 only supports fp16, bf16, and fp8_e4m3 data type"));
 
-  PADDLE_ENFORCE_EQ(
-      k.dtype(), q_type, "query and key must have the same dtype");
-  PADDLE_ENFORCE_EQ(
-      v.dtype(), q_type, "query and value must have the same dtype");
+  PADDLE_ENFORCE_EQ(k.dtype(),
+                    q_type,
+                    common::errors::InvalidArgument(
+                        "query and key must have the same dtype"));
+  PADDLE_ENFORCE_EQ(v.dtype(),
+                    q_type,
+                    common::errors::InvalidArgument(
+                        "query and value must have the same dtype"));
 
   CHECK_DEVICE(q);
   CHECK_DEVICE(k);
@@ -127,13 +134,16 @@ void FlashAttnV3BaseKernel(
 
   PADDLE_ENFORCE_EQ(q.strides()[q.strides().size() - 1],
                     1,
-                    "Input tensor must have contiguous last dimension");
+                    common::errors::InvalidArgument(
+                        "Input tensor must have contiguous last dimension"));
   PADDLE_ENFORCE_EQ(k.strides()[k.strides().size() - 1],
                     1,
-                    "Input tensor must have contiguous last dimension");
+                    common::errors::InvalidArgument(
+                        "Input tensor must have contiguous last dimension"));
   PADDLE_ENFORCE_EQ(v.strides()[v.strides().size() - 1],
                     1,
-                    "Input tensor must have contiguous last dimension");
+                    common::errors::InvalidArgument(
+                        "Input tensor must have contiguous last dimension"));
 
   DenseTensor page_table;
   // const bool paged_KV = page_table_.has_value();
@@ -144,10 +154,12 @@ void FlashAttnV3BaseKernel(
     CHECK_DEVICE(page_table);
     PADDLE_ENFORCE_EQ(page_table.dtype(),
                       phi::DataType::INT32,
-                      "page_table must have dtype paddle.int32");
+                      common::errors::InvalidArgument(
+                          "page_table must have dtype paddle.int32"));
     PADDLE_ENFORCE_EQ(page_table.strides()[page_table.strides().size() - 1],
                       1,
-                      "page_table must have contiguous last dimension");
+                      common::errors::InvalidArgument(
+                          "page_table must have contiguous last dimension"));
   }
 
   // TODO(umiswing): support cusum
@@ -163,11 +175,13 @@ void FlashAttnV3BaseKernel(
     CHECK_CONTIGUOUS(cu_seqlens_q);
     PADDLE_ENFORCE_EQ(cu_seqlens_q.dtype(),
                       phi::DataType::INT32,
-                      "cu_seqlens_q must have dtype paddle.int32");
+                      common::errors::InvalidArgument(
+                          "cu_seqlens_q must have dtype paddle.int32"));
     PADDLE_ENFORCE_NE(
         max_seqlen_q_,
         0,
-        "max_seqlen_q must be provided if cu_seqlens_q is provided");
+        common::errors::InvalidArgument(
+            "max_seqlen_q must be provided if cu_seqlens_q is provided"));
   }
 
   DenseTensor cu_seqlens_k;
@@ -178,19 +192,23 @@ void FlashAttnV3BaseKernel(
     CHECK_CONTIGUOUS(cu_seqlens_k);
     PADDLE_ENFORCE_EQ(cu_seqlens_k.dtype(),
                       phi::DataType::INT32,
-                      "cu_seqlens_k must have dtype paddle.int32");
+                      common::errors::InvalidArgument(
+                          "cu_seqlens_k must have dtype paddle.int32"));
     PADDLE_ENFORCE_NE(
         max_seqlen_k_,
         0,
-        "max_seqlen_k must be provided if cu_seqlens_k is provided");
+        common::errors::InvalidArgument(
+            "max_seqlen_k must be provided if cu_seqlens_k is provided"));
     PADDLE_ENFORCE_EQ(
         !paged_KV,
         true,
-        "If cu_seqlens_k is passed in, then page table is not supported");
+        common::errors::InvalidArgument(
+            "If cu_seqlens_k is passed in, then page table is not supported"));
     PADDLE_ENFORCE_EQ(
         !kv_batch_idx_,
         true,
-        "If cu_seqlens_k is passed in, then page table is not supported");
+        common::errors::InvalidArgument(
+            "If cu_seqlens_k is passed in, then page table is not supported"));
   }
 
   auto const sizes = q.dims();
@@ -213,8 +231,10 @@ void FlashAttnV3BaseKernel(
       !paged_KV ? (!is_varlen_k ? k.dims()[0] : cu_seqlens_k.dims()[0] - 1)
                 : page_table.dims()[0];
   if (!kv_batch_idx_.is_initialized()) {
-    PADDLE_ENFORCE_EQ(
-        batch_size, batch_size_k, "batch_size must be equal to batch_size_k");
+    PADDLE_ENFORCE_EQ(batch_size,
+                      batch_size_k,
+                      common::errors::InvalidArgument(
+                          "batch_size must be equal to batch_size_k"));
   }
   int const max_headdim = get_max_headdim();
   PADDLE_ENFORCE_LE(
@@ -226,22 +246,28 @@ void FlashAttnV3BaseKernel(
   PADDLE_ENFORCE_EQ(
       num_heads % num_heads_k,
       0,
-      "Number of heads in key/value must divide number of heads in query");
+      common::errors::InvalidArgument(
+          "Number of heads in key/value must divide number of heads in query"));
   if (head_size_v != head_size) {
-    PADDLE_ENFORCE_EQ(((head_size > 128 && head_size <= 192 &&
-                        head_size_v > 96 && head_size_v <= 128) ||
-                       (head_size <= 64 && head_size_v <= 512)),
-                      true,
-                      "If V headdim is different from Q/K dim, we only support "
-                      "Q/K headdim in (128, 192] and V headdim in (96, 128], "
-                      "or (Q/K <= 64 and V <= 512).");
     PADDLE_ENFORCE_EQ(
-        dprops.major, 9, "Only Hopper supports different V headdim");
+        ((head_size > 128 && head_size <= 192 && head_size_v > 96 &&
+          head_size_v <= 128) ||
+         (head_size <= 64 && head_size_v <= 512)),
+        true,
+        common::errors::InvalidArgument(
+            "If V headdim is different from Q/K dim, we only support "
+            "Q/K headdim in (128, 192] and V headdim in (96, 128], "
+            "or (Q/K <= 64 and V <= 512)."));
+    PADDLE_ENFORCE_EQ(dprops.major,
+                      9,
+                      common::errors::InvalidArgument(
+                          "Only Hopper supports different V headdim"));
     if (head_size_v > 256) {
       PADDLE_ENFORCE_EQ((q_type == phi::DataType::FLOAT16 ||
                          q_type == phi::DataType::BFLOAT16),
                         true,
-                        "HeaddimV > 256 requires fp16 and bf16 data type");
+                        common::errors::InvalidArgument(
+                            "HeaddimV > 256 requires fp16 and bf16 data type"));
     }
   }
 
@@ -293,18 +319,20 @@ void FlashAttnV3BaseKernel(
 
   if (seqused_q_.is_initialized()) {
     auto seqused_q = seqused_q_.get();
-    PADDLE_ENFORCE_EQ(seqused_q.dtype(),
-                      phi::DataType::INT32,
-                      "seqused_q must have dtype int32");
+    PADDLE_ENFORCE_EQ(
+        seqused_q.dtype(),
+        phi::DataType::INT32,
+        common::errors::InvalidArgument("seqused_q must have dtype int32"));
     CHECK_DEVICE(seqused_q);
     CHECK_CONTIGUOUS(seqused_q);
     CHECK_SHAPE(seqused_q, batch_size);
   }
   if (seqused_k_.is_initialized()) {
     auto seqused_k = seqused_k_.get();
-    PADDLE_ENFORCE_EQ(seqused_k.dtype(),
-                      phi::DataType::INT32,
-                      "seqused_k must have dtype int32");
+    PADDLE_ENFORCE_EQ(
+        seqused_k.dtype(),
+        phi::DataType::INT32,
+        common::errors::InvalidArgument("seqused_k must have dtype int32"));
     CHECK_DEVICE(seqused_k);
     CHECK_CONTIGUOUS(seqused_k);
     CHECK_SHAPE(seqused_k, batch_size);
@@ -312,9 +340,10 @@ void FlashAttnV3BaseKernel(
 
   if (leftpad_k_.is_initialized()) {
     auto leftpad_k = leftpad_k_.get();
-    PADDLE_ENFORCE_EQ(leftpad_k.dtype(),
-                      phi::DataType::INT32,
-                      "leftpad_k must have dtype int32");
+    PADDLE_ENFORCE_EQ(
+        leftpad_k.dtype(),
+        phi::DataType::INT32,
+        common::errors::InvalidArgument("leftpad_k must have dtype int32"));
     CHECK_DEVICE(leftpad_k);
     CHECK_CONTIGUOUS(leftpad_k);
     CHECK_SHAPE(leftpad_k, batch_size);
@@ -325,8 +354,10 @@ void FlashAttnV3BaseKernel(
       is_varlen_q || is_varlen_k || seqused_q_.is_initialized() ||
       seqused_k_.is_initialized() || leftpad_k_.is_initialized();
 #ifdef FLASHATTENTION_DISABLE_VARLEN
-  PADDLE_ENFORCE_EQ(
-      !is_varlen, true, "This flash attention build does not support varlen.");
+  PADDLE_ENFORCE_EQ(!is_varlen,
+                    true,
+                    common::errors::InvalidArgument(
+                        "This flash attention build does not support varlen."));
 #endif
 
   int const alignment = q_type == phi::DataType::FLOAT8_E4M3FN ? 16 : 8;
@@ -343,14 +374,17 @@ void FlashAttnV3BaseKernel(
       q_type == phi::DataType::FLOAT8_E4M3FN ? phi::DataType::BFLOAT16 : q_type;
   if (out_.is_initialized()) {
     *out = out_.get();
-    PADDLE_ENFORCE_EQ(out->dtype(),
-                      out_type,
-                      "For FP16/BF16 input, output must have the same dtype as "
-                      "inputs. For FP8 input, output must have dtype BF16");
+    PADDLE_ENFORCE_EQ(
+        out->dtype(),
+        out_type,
+        common::errors::InvalidArgument(
+            "For FP16/BF16 input, output must have the same dtype as "
+            "inputs. For FP8 input, output must have dtype BF16"));
     CHECK_DEVICE((*out));
     PADDLE_ENFORCE_EQ(out->strides()[out->strides().size() - 1],
                       1,
-                      "Output tensor must have contiguous last dimension");
+                      common::errors::InvalidArgument(
+                          "Output tensor must have contiguous last dimension"));
     if (!is_varlen_q) {
       CHECK_SHAPE((*out), batch_size, seqlen_q, num_heads, head_size_v);
     } else {
@@ -438,16 +472,22 @@ void FlashAttnV3BaseKernel(
 
   if (k_new_.is_initialized()) {  // This needs to be set before get_pagedkv_tma
     DenseTensor k_new, v_new;
-    PADDLE_ENFORCE_EQ(v_new_.is_initialized(),
-                      true,
-                      "If k_new is supplied, v_new must also be passed in");
-    PADDLE_ENFORCE_EQ(seqused_k_.is_initialized(),
-                      true,
-                      "If k_new is supplied, seqlens_k must also be passed in");
-    PADDLE_ENFORCE_LE(seqlen_q,
-                      seqlen_k,
-                      "If k_new is supplied, it must have seqlen <= the seqlen "
-                      "of the KV cache");
+    PADDLE_ENFORCE_EQ(
+        v_new_.is_initialized(),
+        true,
+        common::errors::InvalidArgument(
+            "If k_new is supplied, v_new must also be passed in"));
+    PADDLE_ENFORCE_EQ(
+        seqused_k_.is_initialized(),
+        true,
+        common::errors::InvalidArgument(
+            "If k_new is supplied, seqlens_k must also be passed in"));
+    PADDLE_ENFORCE_LE(
+        seqlen_q,
+        seqlen_k,
+        common::errors::InvalidArgument(
+            "If k_new is supplied, it must have seqlen <= the seqlen "
+            "of the KV cache"));
     DenseTensor cu_seqlens_k_new;
     bool const is_varlen_k_new = cu_seqlens_k_new_.is_initialized();
     if (is_varlen_k_new) {
@@ -456,22 +496,29 @@ void FlashAttnV3BaseKernel(
       CHECK_CONTIGUOUS(cu_seqlens_k_new);
       PADDLE_ENFORCE_EQ(cu_seqlens_k_new.dtype(),
                         phi::DataType::INT32,
-                        "cu_seqlens_k_new must have dtype paddle.int32");
+                        common::errors::InvalidArgument(
+                            "cu_seqlens_k_new must have dtype paddle.int32"));
     }
     k_new = k_new_.get();
     v_new = v_new_.get();
-    PADDLE_ENFORCE_EQ(
-        k_new.dtype(), q_type, "k_new must have the same dtype as query");
-    PADDLE_ENFORCE_EQ(
-        v_new.dtype(), q_type, "v_new must have the same dtype as query");
+    PADDLE_ENFORCE_EQ(k_new.dtype(),
+                      q_type,
+                      common::errors::InvalidArgument(
+                          "k_new must have the same dtype as query"));
+    PADDLE_ENFORCE_EQ(v_new.dtype(),
+                      q_type,
+                      common::errors::InvalidArgument(
+                          "v_new must have the same dtype as query"));
     CHECK_DEVICE(k_new);
     CHECK_DEVICE(v_new);
     PADDLE_ENFORCE_EQ(k_new.strides()[k_new.strides().size() - 1],
                       1,
-                      "k_new tensor must have contiguous last dimension");
+                      common::errors::InvalidArgument(
+                          "k_new tensor must have contiguous last dimension"));
     PADDLE_ENFORCE_EQ(v_new.strides()[v_new.strides().size() - 1],
                       1,
-                      "v_new tensor must have contiguous last dimension");
+                      common::errors::InvalidArgument(
+                          "v_new tensor must have contiguous last dimension"));
     // We don't need max_seqlen_k_new, so seqlen_k_new can be whatever when
     // is_varlen_k_new
     int seqlen_k_new = !is_varlen_k_new ? k_new.dims()[1] : 0;
@@ -565,7 +612,8 @@ void FlashAttnV3BaseKernel(
       CHECK_CONTIGUOUS(scheduler_metadata);
       PADDLE_ENFORCE_EQ(scheduler_metadata.dtype(),
                         phi::DataType::INT32,
-                        "scheduler_metadata must have dtype int32");
+                        common::errors::InvalidArgument(
+                            "scheduler_metadata must have dtype int32"));
       tile_count_semaphore = scheduler_metadata;
     } else {
       tile_count_semaphore = phi::Empty<int32_t>(ctx, {metadata_size});
@@ -589,20 +637,29 @@ void FlashAttnV3BaseKernel(
   }
 
   if (q_v_.is_initialized()) {
-    PADDLE_ENFORCE_LT(
-        head_size, 64, "q_v is only supported for head_size <= 64");
+    PADDLE_ENFORCE_LT(head_size,
+                      64,
+                      common::errors::InvalidArgument(
+                          "q_v is only supported for head_size <= 64"));
     PADDLE_ENFORCE_EQ(
         (q_type == phi::DataType::FLOAT16 || q_type == phi::DataType::FLOAT16),
         true,
-        "q_v is only supported for fp16 and bf16 data type");
-    PADDLE_ENFORCE_EQ(params_arch, 90, "q_v is only supported for Hopper GPUs");
+        common::errors::InvalidArgument(
+            "q_v is only supported for fp16 and bf16 data type"));
+    PADDLE_ENFORCE_EQ(params_arch,
+                      90,
+                      common::errors::InvalidArgument(
+                          "q_v is only supported for Hopper GPUs"));
     DenseTensor q_v = q_v_.get();
-    PADDLE_ENFORCE_EQ(
-        q_v.dtype(), q_type, "q_v must have the same dtype as query");
+    PADDLE_ENFORCE_EQ(q_v.dtype(),
+                      q_type,
+                      common::errors::InvalidArgument(
+                          "q_v must have the same dtype as query"));
     CHECK_DEVICE(q_v);
     PADDLE_ENFORCE_EQ(q_v.strides()[q_v.strides().size() - 1],
                       1,
-                      "q_v tensor must have contiguous last dimension");
+                      common::errors::InvalidArgument(
+                          "q_v tensor must have contiguous last dimension"));
     if (!is_varlen_q) {
       CHECK_SHAPE(q_v, batch_size, seqlen_q, num_heads, head_size_v);
     } else {
@@ -622,10 +679,12 @@ void FlashAttnV3BaseKernel(
   }
 
   if (rotary_cos_.is_initialized()) {
-    PADDLE_ENFORCE_EQ(k_new_.is_initialized(),
-                      true,
-                      "If rotary cos/sin are provided, new key / value to be "
-                      "appended to KV cache must also be provided");
+    PADDLE_ENFORCE_EQ(
+        k_new_.is_initialized(),
+        true,
+        common::errors::InvalidArgument(
+            "If rotary cos/sin are provided, new key / value to be "
+            "appended to KV cache must also be provided"));
     DenseTensor rotary_cos = rotary_cos_.get();
     CHECK_DEVICE(rotary_cos);
     CHECK_CONTIGUOUS(rotary_cos);
@@ -633,34 +692,41 @@ void FlashAttnV3BaseKernel(
     phi::dynload::fa3_fwd_params_set_rotary_dim(params_handle,
                                                 params_rotary_dim);
     PADDLE_ENFORCE_LE(
-        params_rotary_dim, head_size, "rotary_dim must be <= headdim");
+        params_rotary_dim,
+        head_size,
+        common::errors::InvalidArgument("rotary_dim must be <= headdim"));
     PADDLE_ENFORCE_EQ(
         params_rotary_dim % 16,
         0,
-        "Only rotary dimensions divisible by 16 are currently supported");
+        common::errors::InvalidArgument(
+            "Only rotary dimensions divisible by 16 are currently supported"));
     const int seqlen_ro = rotary_cos.dims()[0];
     if (paged_KV) {
       PADDLE_ENFORCE_GE(
           seqlen_ro,
           seqlen_k,
-          "cos/sin seqlen must be at least the seqlen of KV cache");
+          common::errors::InvalidArgument(
+              "cos/sin seqlen must be at least the seqlen of KV cache"));
     }
     CHECK_SHAPE(rotary_cos, seqlen_ro, params_rotary_dim / 2);
     PADDLE_ENFORCE_EQ(rotary_cos.dtype(),
                       q_type,
-                      "rotary_cos must have the same dtype as query");
+                      common::errors::InvalidArgument(
+                          "rotary_cos must have the same dtype as query"));
 
     PADDLE_ENFORCE_EQ(
         rotary_sin_.is_initialized(),
         true,
-        "If rotary cos is provided, rotary sin must also be provided");
+        common::errors::InvalidArgument(
+            "If rotary cos is provided, rotary sin must also be provided"));
     auto rotary_sin = rotary_sin_.get();
     CHECK_DEVICE(rotary_sin);
     CHECK_CONTIGUOUS(rotary_sin);
     CHECK_SHAPE(rotary_sin, seqlen_ro, params_rotary_dim / 2);
     PADDLE_ENFORCE_EQ(rotary_sin.dtype(),
                       q_type,
-                      "rotary_cos must have the same dtype as query");
+                      common::errors::InvalidArgument(
+                          "rotary_cos must have the same dtype as query"));
 
     phi::dynload::fa3_fwd_params_set_rotary_cos_ptr(
         params_handle, const_cast<void *>(rotary_cos.data()));
@@ -676,9 +742,10 @@ void FlashAttnV3BaseKernel(
     DenseTensor kv_batch_idx = kv_batch_idx_.get();
     CHECK_DEVICE(kv_batch_idx);
     CHECK_CONTIGUOUS(kv_batch_idx);
-    PADDLE_ENFORCE_EQ(kv_batch_idx.dtype(),
-                      phi::DataType::INT32,
-                      "kv_batch_idx must have dtype int32");
+    PADDLE_ENFORCE_EQ(
+        kv_batch_idx.dtype(),
+        phi::DataType::INT32,
+        common::errors::InvalidArgument("kv_batch_idx must have dtype int32"));
     phi::dynload::fa3_fwd_params_set_kv_batch_idx(
         params_handle, reinterpret_cast<int *>(kv_batch_idx.data()));
   }
@@ -687,7 +754,7 @@ void FlashAttnV3BaseKernel(
     PADDLE_ENFORCE_LE(
         phi::dynload::fa3_fwd_params_get_num_splits(params_handle),
         256,
-        "num_splits > 256 not supported");
+        common::errors::InvalidArgument("num_splits > 256 not supported"));
     if (!is_varlen_q) {
       out_accum->Resize(common::make_ddim(
           {phi::dynload::fa3_fwd_params_get_num_splits(params_handle),
@@ -783,18 +850,21 @@ void FlashAttnV3BaseKernel(
   PADDLE_ENFORCE_EQ(
       !phi::dynload::fa3_fwd_params_get_is_local(params_handle),
       true,
-      "This flash attention build does not support local attention.");
+      common::errors::InvalidArgument(
+          "This flash attention build does not support local attention."));
 #endif
 #ifdef FLASHATTENTION_DISABLE_SOFTCAP
   PADDLE_ENFORCE_EQ(
       phi::dynload::fa3_fwd_params_get_softcap(params_handle),
       0.0,
-      "This flash attention build does not support tanh softcapping.");
+      common::errors::InvalidArgument(
+          "This flash attention build does not support tanh softcapping."));
 #endif
 #ifdef FLASHATTENTION_DISABLE_SPLIT
   PADDLE_ENFORCE_EQ(phi::dynload::fa3_fwd_params_get_num_splits(params_handle),
                     1,
-                    "This flash attention build does not support splits.");
+                    common::errors::InvalidArgument(
+                        "This flash attention build does not support splits."));
 #endif
 #ifdef FLASHATTENTION_DISABLE_PACKGQA
   PADDLE_ENFORCE_EQ(
@@ -804,20 +874,23 @@ void FlashAttnV3BaseKernel(
         !phi::dynload::fa3_fwd_params_get_pagedkv_tma(params_handle)) ||
        phi::dynload::fa3_fwd_params_get_num_splits(params_handle) > 1),
       true,
-      "This flash attention build does not support pack_gqa.");
+      common::errors::InvalidArgument(
+          "This flash attention build does not support pack_gqa."));
 #endif
 #ifdef FLASHATTENTION_DISABLE_PAGEDKV
   PADDLE_ENFORCE_EQ(
       (!(phi::dynload::fa3_fwd_params_get_page_table(params_handle) &&
          !phi::dynload::fa3_fwd_params_get_pagedkv_tma(params_handle))),
       true,
-      "This flash attention build does not support paged KV.");
+      common::errors::InvalidArgument(
+          "This flash attention build does not support paged KV."));
 #endif
 #ifdef FLASHATTENTION_DISABLE_APPENDKV
   PADDLE_ENFORCE_EQ(
       !k_new_.is_initialized(),
       true,
-      "This flash attention build does not support appending KV.");
+      common::errors::InvalidArgument(
+          "This flash attention build does not support appending KV."));
 #endif
 
   if (total_q > 0 &&
@@ -903,35 +976,55 @@ void FlashAttnV3Kernel(const Context &ctx,
                        DenseTensor *softmax_lse) {
 #ifdef PADDLE_WITH_FLASHATTN_V3
   // umiswing: the following options have not been fully tested
-  PADDLE_ENFORCE_EQ(q_v_.is_initialized(), false, "q_v_ is not supported");
+  PADDLE_ENFORCE_EQ(q_v_.is_initialized(),
+                    false,
+                    common::errors::InvalidArgument("q_v_ is not supported"));
   PADDLE_ENFORCE_EQ(
-      q_descale_.is_initialized(), false, "q_descale_ is not supported");
+      q_descale_.is_initialized(),
+      false,
+      common::errors::InvalidArgument("q_descale_ is not supported"));
   PADDLE_ENFORCE_EQ(
-      k_descale_.is_initialized(), false, "k_descale_ is not supported");
+      k_descale_.is_initialized(),
+      false,
+      common::errors::InvalidArgument("k_descale_ is not supported"));
   PADDLE_ENFORCE_EQ(
-      v_descale_.is_initialized(), false, "v_descale_ is not supported");
+      v_descale_.is_initialized(),
+      false,
+      common::errors::InvalidArgument("v_descale_ is not supported"));
   PADDLE_ENFORCE_EQ(
       window_size_left,
       -1,
-      "window_size is not supported, please set window_size_left/right to -1");
+      common::errors::InvalidArgument("window_size is not supported, please "
+                                      "set window_size_left/right to -1"));
   PADDLE_ENFORCE_EQ(
       window_size_right,
       -1,
-      "window_size is not supported, please set window_size_left/right to -1");
+      common::errors::InvalidArgument("window_size is not supported, please "
+                                      "set window_size_left/right to -1"));
+  PADDLE_ENFORCE_EQ(softcap,
+                    0,
+                    common::errors::InvalidArgument(
+                        "softcap is not supported, please set softcap to 0"));
   PADDLE_ENFORCE_EQ(
-      softcap, 0, "softcap is not supported, please set softcap to 0");
-  PADDLE_ENFORCE_EQ(
-      num_splits, 1, "num_splits is not supported, please set num_splits to 1");
+      num_splits,
+      1,
+      common::errors::InvalidArgument(
+          "num_splits is not supported, please set num_splits to 1"));
   PADDLE_ENFORCE_EQ(manual_set_pack_gqa,
                     false,
-                    "manual_set_pack_gqa is not supported, please set "
-                    "manual_set_pack_gqa to false");
+                    common::errors::InvalidArgument(
+                        "manual_set_pack_gqa is not supported, please set "
+                        "manual_set_pack_gqa to false"));
   PADDLE_ENFORCE_EQ(
       pack_gqa_,
       false,
-      "pack_gqa_ is not supported, please set pack_gqa_ to false");
+      common::errors::InvalidArgument(
+          "pack_gqa_ is not supported, please set pack_gqa_ to false"));
   PADDLE_ENFORCE_EQ(
-      sm_margin, 0, "sm_margin is not supported, please set sm_margin to 0");
+      sm_margin,
+      0,
+      common::errors::InvalidArgument(
+          "sm_margin is not supported, please set sm_margin to 0"));
 
   DenseTensor out_accum;
   DenseTensor softmax_lse_accum;

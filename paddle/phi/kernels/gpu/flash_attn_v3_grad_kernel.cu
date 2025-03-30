@@ -86,31 +86,38 @@ void FlashAttnV3GradBaseKernel(
     DenseTensor *dk_accum,
     DenseTensor *dv_accum) {
 #ifdef PADDLE_WITH_FLASHATTN_V3
-#ifdef FLASHATTENTION_DISABLE_BACKWARD
-  PADDLE_ENFORCE(false,
-                 "This flash attention build does not support backward.");
-#endif
 
   // TODO(umiswing): support ampere
   int device_id = ctx.GetPlace().GetDeviceId();
   auto dprops = paddle::platform::GetDeviceProperties(device_id);
   const bool is_sm90 = dprops.major == 9 && dprops.minor == 0;
-  PADDLE_ENFORCE_EQ(
-      is_sm90, true, "FlashAttention-3 only supports Hopper GPUs.");
+  PADDLE_ENFORCE_EQ(is_sm90,
+                    true,
+                    common::errors::Unavailable(
+                        "FlashAttention-3 only supports Hopper GPUs."));
 
   auto q_type = q.dtype();
   PADDLE_ENFORCE_EQ(
       (q_type == phi::DataType::FLOAT16 || q_type == phi::DataType::BFLOAT16),
       true,
-      "FlashAttention-3 bwd only support fp16 and bf16 data type");
-  PADDLE_ENFORCE_EQ(
-      k.dtype(), q_type, "query and key must have the same dtype");
-  PADDLE_ENFORCE_EQ(
-      v.dtype(), q_type, "query and value must have the same dtype");
-  PADDLE_ENFORCE_EQ(
-      out.dtype(), q_type, "query and out must have the same dtype");
-  PADDLE_ENFORCE_EQ(
-      dout.dtype(), q_type, "query and dout must have the same dtype");
+      common::errors::InvalidArgument(
+          "FlashAttention-3 bwd only support fp16 and bf16 data type"));
+  PADDLE_ENFORCE_EQ(k.dtype(),
+                    q_type,
+                    common::errors::InvalidArgument(
+                        "query and key must have the same dtype"));
+  PADDLE_ENFORCE_EQ(v.dtype(),
+                    q_type,
+                    common::errors::InvalidArgument(
+                        "query and value must have the same dtype"));
+  PADDLE_ENFORCE_EQ(out.dtype(),
+                    q_type,
+                    common::errors::InvalidArgument(
+                        "query and out must have the same dtype"));
+  PADDLE_ENFORCE_EQ(dout.dtype(),
+                    q_type,
+                    common::errors::InvalidArgument(
+                        "query and dout must have the same dtype"));
 
   CHECK_DEVICE(q);
   CHECK_DEVICE(k);
@@ -121,19 +128,24 @@ void FlashAttnV3GradBaseKernel(
 
   PADDLE_ENFORCE_EQ(q.strides()[q.strides().size() - 1],
                     1,
-                    "Input tensor must have contiguous last dimension");
+                    common::errors::InvalidArgument(
+                        "Input tensor must have contiguous last dimension"));
   PADDLE_ENFORCE_EQ(k.strides()[k.strides().size() - 1],
                     1,
-                    "Input tensor must have contiguous last dimension");
+                    common::errors::InvalidArgument(
+                        "Input tensor must have contiguous last dimension"));
   PADDLE_ENFORCE_EQ(v.strides()[v.strides().size() - 1],
                     1,
-                    "Input tensor must have contiguous last dimension");
+                    common::errors::InvalidArgument(
+                        "Input tensor must have contiguous last dimension"));
   PADDLE_ENFORCE_EQ(out.strides()[out.strides().size() - 1],
                     1,
-                    "out tensor must have contiguous last dimension");
+                    common::errors::InvalidArgument(
+                        "out tensor must have contiguous last dimension"));
   PADDLE_ENFORCE_EQ(dout.strides()[dout.strides().size() - 1],
                     1,
-                    "dout tensor must have contiguous last dimension");
+                    common::errors::InvalidArgument(
+                        "dout tensor must have contiguous last dimension"));
 
   DenseTensor cu_seqlens_q;
   bool const is_varlen_q = cu_seqlens_q_.is_initialized();
@@ -143,11 +155,13 @@ void FlashAttnV3GradBaseKernel(
     CHECK_CONTIGUOUS(cu_seqlens_q);
     PADDLE_ENFORCE_EQ(cu_seqlens_q.dtype(),
                       phi::DataType::INT32,
-                      "cu_seqlens_q must have dtype paddle.int32");
+                      common::errors::InvalidArgument(
+                          "cu_seqlens_q must have dtype paddle.int32"));
     PADDLE_ENFORCE_GT(
         max_seqlen_q_,
         0,
-        "max_seqlen_q must be provided if cu_seqlens_q is provided");
+        common::errors::InvalidArgument(
+            "max_seqlen_q must be provided if cu_seqlens_q is provided"));
   }
   DenseTensor cu_seqlens_k;
   bool const is_varlen_k = cu_seqlens_k_.is_initialized();
@@ -157,11 +171,13 @@ void FlashAttnV3GradBaseKernel(
     CHECK_CONTIGUOUS(cu_seqlens_k);
     PADDLE_ENFORCE_EQ(cu_seqlens_k.dtype(),
                       phi::DataType::INT32,
-                      "cu_seqlens_k must have dtype paddle.int32");
+                      common::errors::InvalidArgument(
+                          "cu_seqlens_k must have dtype paddle.int32"));
     PADDLE_ENFORCE_GT(
         max_seqlen_k_,
         0,
-        "max_seqlen_k must be provided if cu_seqlens_k is provided");
+        common::errors::InvalidArgument(
+            "max_seqlen_k must be provided if cu_seqlens_k is provided"));
   }
   // This is what we will template on
   bool const is_varlen = is_varlen_q || is_varlen_k ||
@@ -181,7 +197,10 @@ void FlashAttnV3GradBaseKernel(
   int const seqlen_k = !is_varlen_k ? k.dims()[1] : max_seqlen_k_;
   int const total_k = !is_varlen_k ? batch_size * k.dims()[1] : k.dims()[0];
   int const num_heads_k = k.dims()[k.dims().size() - 2];
-  PADDLE_ENFORCE_EQ(head_size % 8, 0, "head_size should be a multiple of 8");
+  PADDLE_ENFORCE_EQ(
+      head_size % 8,
+      0,
+      common::errors::InvalidArgument("head_size should be a multiple of 8"));
   int const max_headdim = get_max_headdim();
   PADDLE_ENFORCE_LE(
       head_size,
@@ -192,7 +211,8 @@ void FlashAttnV3GradBaseKernel(
   PADDLE_ENFORCE_EQ(
       num_heads % num_heads_k,
       0,
-      "Number of heads in key/value must divide number of heads in query");
+      common::errors::InvalidArgument(
+          "Number of heads in key/value must divide number of heads in query"));
 
   // This needs to go before kBlockM & kBlockN since we rely on the correct
   // window_size and is_causal to set kBlockM
@@ -273,18 +293,20 @@ void FlashAttnV3GradBaseKernel(
 
   if (seqused_q_.is_initialized()) {
     auto seqused_q = seqused_q_.get();
-    PADDLE_ENFORCE_EQ(seqused_q.dtype(),
-                      phi::DataType::INT32,
-                      "seqused_q must have dtype int32");
+    PADDLE_ENFORCE_EQ(
+        seqused_q.dtype(),
+        phi::DataType::INT32,
+        common::errors::InvalidArgument("seqused_q must have dtype int32"));
     CHECK_DEVICE(seqused_q);
     CHECK_CONTIGUOUS(seqused_q);
     CHECK_SHAPE(seqused_q, batch_size);
   }
   if (seqused_k_.is_initialized()) {
     auto seqused_k = seqused_k_.get();
-    PADDLE_ENFORCE_EQ(seqused_k.dtype(),
-                      phi::DataType::INT32,
-                      "seqused_k must have dtype int32");
+    PADDLE_ENFORCE_EQ(
+        seqused_k.dtype(),
+        phi::DataType::INT32,
+        common::errors::InvalidArgument("seqused_k must have dtype int32"));
     CHECK_DEVICE(seqused_k);
     CHECK_CONTIGUOUS(seqused_k);
     CHECK_SHAPE(seqused_k, batch_size);
@@ -292,11 +314,15 @@ void FlashAttnV3GradBaseKernel(
 
   if (dq_.is_initialized()) {
     *dq = dq_.get();
-    PADDLE_ENFORCE_EQ(dq->dtype(), q_type, "dq must have the same dtype as q");
+    PADDLE_ENFORCE_EQ(
+        dq->dtype(),
+        q_type,
+        common::errors::InvalidArgument("dq must have the same dtype as q"));
     CHECK_DEVICE((*dq));
     PADDLE_ENFORCE_EQ(dq->strides()[dq->strides().size() - 1],
                       1,
-                      "dq must have contiguous last dimension");
+                      common::errors::InvalidArgument(
+                          "dq must have contiguous last dimension"));
     if (!is_varlen_q) {
       CHECK_SHAPE((*dq), batch_size, seqlen_q, num_heads, head_size);
     } else {
@@ -307,11 +333,15 @@ void FlashAttnV3GradBaseKernel(
   }
   if (dk_.is_initialized()) {
     *dk = dk_.get();
-    PADDLE_ENFORCE_EQ(dk->dtype(), q_type, "dk must have the same dtype as q");
+    PADDLE_ENFORCE_EQ(
+        dk->dtype(),
+        q_type,
+        common::errors::InvalidArgument("dk must have the same dtype as q"));
     CHECK_DEVICE((*dk));
     PADDLE_ENFORCE_EQ(dk->strides()[dk->strides().size() - 1],
                       1,
-                      "dk must have contiguous last dimension");
+                      common::errors::InvalidArgument(
+                          "dk must have contiguous last dimension"));
     if (!is_varlen_k) {
       CHECK_SHAPE((*dk), batch_size, seqlen_k, num_heads_k, head_size);
     } else {
@@ -322,11 +352,15 @@ void FlashAttnV3GradBaseKernel(
   }
   if (dv_.is_initialized()) {
     *dv = dv_.get();
-    PADDLE_ENFORCE_EQ(dv->dtype(), q_type, "dv must have the same dtype as q");
+    PADDLE_ENFORCE_EQ(
+        dv->dtype(),
+        q_type,
+        common::errors::InvalidArgument("dv must have the same dtype as q"));
     CHECK_DEVICE((*dv));
     PADDLE_ENFORCE_EQ(dv->strides()[dv->strides().size() - 1],
                       1,
-                      "dv must have contiguous last dimension");
+                      common::errors::InvalidArgument(
+                          "dv must have contiguous last dimension"));
     if (!is_varlen_k) {
       CHECK_SHAPE((*dv), batch_size, seqlen_k, num_heads_k, head_size);
     } else {
@@ -542,19 +576,27 @@ void FlashAttnV3GradKernel(const Context &ctx,
   PADDLE_ENFORCE_EQ(
       window_size_left,
       -1,
-      "window_size is not supported, please set window_size_left/right to -1");
+      common::errors::InvalidArgument("window_size is not supported, please "
+                                      "set window_size_left/right to -1"));
   PADDLE_ENFORCE_EQ(
       window_size_right,
       -1,
-      "window_size is not supported, please set window_size_left/right to -1");
+      common::errors::InvalidArgument("window_size is not supported, please "
+                                      "set window_size_left/right to -1"));
+  PADDLE_ENFORCE_EQ(softcap,
+                    0,
+                    common::errors::InvalidArgument(
+                        "softcap is not supported, please set softcap to 0"));
   PADDLE_ENFORCE_EQ(
-      softcap, 0, "softcap is not supported, please set softcap to 0");
-  PADDLE_ENFORCE_EQ(
-      sm_margin, 0, "sm_margin is not supported, please set sm_margin to 0");
+      sm_margin,
+      0,
+      common::errors::InvalidArgument(
+          "sm_margin is not supported, please set sm_margin to 0"));
   PADDLE_ENFORCE_EQ(FLAGS_cudnn_deterministic,
                     false,
-                    "deterministic is not supported in flash attention 3, "
-                    "please set FLAGS_cudnn_deterministic to false");
+                    common::errors::InvalidArgument(
+                        "deterministic is not supported in flash attention 3, "
+                        "please set FLAGS_cudnn_deterministic to false"));
   // umiswing: fake grad tensor for FlashAttnV3GradBaseKernel
   DenseTensor softmax_d;
   DenseTensor softmax_lse_log2;
@@ -576,13 +618,13 @@ void FlashAttnV3GradKernel(const Context &ctx,
   if (q.dims()[q.dims().size() - 1] > v.dims()[v.dims().size() - 1]) {
     PADDLE_ENFORCE_EQ(v.dims()[v.dims().size() - 1],
                       out.dims()[out.dims().size() - 1],
-                      "dv != do");
+                      common::errors::InvalidArgument("dv != do"));
     PADDLE_ENFORCE_EQ(v.dims()[v.dims().size() - 2],
                       out.dims()[out.dims().size() - 2],
-                      "hv != ho");
+                      common::errors::InvalidArgument("hv != ho"));
     PADDLE_ENFORCE_EQ(v.dims()[v.dims().size() - 3],
                       out.dims()[out.dims().size() - 3],
-                      "sv != so");
+                      common::errors::InvalidArgument("sv != so"));
     DenseTensor padding = Empty<T, Context>(ctx, {b, s_k, h_k, d_q - d_v});
     funcs::SetConstant<Context, T> set_zero;
     set_zero(ctx, &padding, T{0});
