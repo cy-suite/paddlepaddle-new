@@ -184,8 +184,10 @@ void FlashAttnV3GradBaseKernel(
                          seqused_q_.is_initialized() ||
                          seqused_k_.is_initialized();
 #ifdef FLASHATTENTION_DISABLE_VARLEN
-  PADDLE_ENFORCE_EQ(
-      !is_varlen, true, "This flash attention build does not support varlen.");
+  PADDLE_ENFORCE_EQ(!is_varlen,
+                    true,
+                    common::errors::Unavailable(
+                        "This flash attention build does not support varlen."));
 #endif
 
   auto const sizes = q.dims();
@@ -618,13 +620,16 @@ void FlashAttnV3GradKernel(const Context &ctx,
   if (q.dims()[q.dims().size() - 1] > v.dims()[v.dims().size() - 1]) {
     PADDLE_ENFORCE_EQ(v.dims()[v.dims().size() - 1],
                       out.dims()[out.dims().size() - 1],
-                      common::errors::InvalidArgument("dv != do"));
+                      common::errors::InvalidArgument(
+                          "head_dim_v and head_dim_o must be equal"));
     PADDLE_ENFORCE_EQ(v.dims()[v.dims().size() - 2],
                       out.dims()[out.dims().size() - 2],
-                      common::errors::InvalidArgument("hv != ho"));
-    PADDLE_ENFORCE_EQ(v.dims()[v.dims().size() - 3],
-                      out.dims()[out.dims().size() - 3],
-                      common::errors::InvalidArgument("sv != so"));
+                      common::errors::InvalidArgument(
+                          "num_heads_v and num_heads_o must be equal"));
+    PADDLE_ENFORCE_EQ(
+        v.dims()[v.dims().size() - 3],
+        out.dims()[out.dims().size() - 3],
+        common::errors::InvalidArgument("seqlen_v and seqlen_o must be equal"));
     DenseTensor padding = Empty<T, Context>(ctx, {b, s_k, h_k, d_q - d_v});
     funcs::SetConstant<Context, T> set_zero;
     set_zero(ctx, &padding, T{0});

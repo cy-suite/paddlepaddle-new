@@ -356,7 +356,7 @@ void FlashAttnV3BaseKernel(
 #ifdef FLASHATTENTION_DISABLE_VARLEN
   PADDLE_ENFORCE_EQ(!is_varlen,
                     true,
-                    common::errors::InvalidArgument(
+                    common::errors::Unavailable(
                         "This flash attention build does not support varlen."));
 #endif
 
