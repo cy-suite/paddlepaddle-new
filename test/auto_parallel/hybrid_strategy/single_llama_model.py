@@ -268,6 +268,7 @@ class LlamaPretrainingCriterion(paddle.nn.Layer):
                 [[dist.Shard(0), dist.Replicate()]],
                 [[dist.Shard(0), dist.Replicate()], None],
                 masked_lm_loss.process_mesh,
+                True,
             )
             loss = loss_func(masked_lm_loss, masked_lm_loss > 0)
             loss = loss.mean()
