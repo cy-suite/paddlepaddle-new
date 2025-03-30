@@ -20,10 +20,6 @@ from ...utils.log_utils import get_logger
 from ..pass_base import register_pass
 from .pipeline_pass_base import PipelinePassBase
 
-FORWARD = "forward"
-BACKWARD = "backward"
-OPT = "optimizer"
-
 logger = get_logger(logging.INFO)
 
 
@@ -47,31 +43,32 @@ class PipelineEager1F1BPass(PipelinePassBase):
 
         forward_micro_batch_id = 0
         for _ in range(micro_batch_in_warmup):
-            forward_job = core.Job(FORWARD)
+            forward_job = core.Job(self.FORWARD)
             forward_job.set_micro_batch_id(forward_micro_batch_id)
             job_list.append(forward_job)
             forward_micro_batch_id += 1
 
         backward_micro_batch_id = 0
         for _ in range(micro_batch_in_1f1b):
-            backward_job = core.Job(BACKWARD)
+            backward_job = core.Job(self.BACKWARD)
             backward_job.set_micro_batch_id(backward_micro_batch_id)
             job_list.append(backward_job)
             backward_micro_batch_id += 1
-            forward_job = core.Job(FORWARD)
+            forward_job = core.Job(self.FORWARD)
             forward_job.set_micro_batch_id(forward_micro_batch_id)
             job_list.append(forward_job)
             forward_micro_batch_id += 1
 
         for _ in range(micro_batch_in_warmup):
-            backward_job = core.Job(BACKWARD)
+            backward_job = core.Job(self.BACKWARD)
             backward_job.set_micro_batch_id(backward_micro_batch_id)
             job_list.append(backward_job)
             backward_micro_batch_id += 1
 
-        opt_job = core.Job(OPT)
+        opt_job = core.Job(self.OPT)
         job_list.append(opt_job)
         return job_list
 
     def _partial_programs(self, program):
         raise NotImplementedError("Not support old IR for Eager1f1b")
+
