@@ -3469,7 +3469,7 @@ All parameter, weight, gradient are variables in Paddle.
       .def_readwrite("optim_shape_tensor",
                      &paddle::platform::EngineParams::optim_shape_tensor)
       .def_readwrite("engine_serialized_data",
-                     &paddle::platform::EngineParams::engine_serialized_data);
+                     &paddle::platform::EngineParams::engine_serialized_data)
       .def_readwrite("use_cuda_graph",
                      &paddle::platform::EngineParams::use_cuda_graph);
 

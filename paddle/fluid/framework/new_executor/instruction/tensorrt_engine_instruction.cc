@@ -20,11 +20,11 @@
 #include "paddle/phi/common/data_type.h"
 #include "paddle/phi/common/memory_utils.h"
 #include "paddle/phi/core/platform/profiler/event_tracing.h"
-#include "paddle/pir/include/core/program.h"
-#include "paddle/pir/include/core/block.h"
-#include "paddle/pir/include/core/operation.h"
-#include "paddle/pir/include/core/builtin_attribute.h"
 #include "paddle/phi/kernels/funcs/data_type_transform.h"
+#include "paddle/pir/include/core/block.h"
+#include "paddle/pir/include/core/builtin_attribute.h"
+#include "paddle/pir/include/core/operation.h"
+#include "paddle/pir/include/core/program.h"
 
 namespace paddle {
 namespace framework {
@@ -179,16 +179,14 @@ TensorRTEngineInstruction::TensorRTEngineInstruction(
       op_attributes.at("use_cuda_graph").dyn_cast<pir::BoolAttribute>().data();
   // Determine whether all operations are converted to TensorRT
   bool all_nodes_offload_to_trt = true;
-  std::set<std::string> op_names = {
-      "pd_op.fetch",
-      "pd_op.data",
-      "pd_kernel.phi_kernel",
-      "pd_op.tensorrt_engine"
-  };
+  std::set<std::string> op_names = {"pd_op.fetch",
+                                    "pd_op.data",
+                                    "pd_kernel.phi_kernel",
+                                    "pd_op.tensorrt_engine"};
   auto program = op->GetParentProgram();
   if (program) {
     auto block = program->block();
-    for (auto& op : *block) {
+    for (auto &op : *block) {
       std::string op_name = op.name();
       if (op_names.find(op_name) != op_names.end()) continue;
       if (op_name.rfind("builtin.", 0) == 0) continue;
@@ -196,7 +194,8 @@ TensorRTEngineInstruction::TensorRTEngineInstruction(
         all_nodes_offload_to_trt = false;
         break;
       }
-      if (!op.attribute<pir::BoolAttribute>(paddle::dialect::kCanRunTrtAttr).data()) {
+      if (!op.attribute<pir::BoolAttribute>(paddle::dialect::kCanRunTrtAttr)
+               .data()) {
         all_nodes_offload_to_trt = false;
         break;
       }
@@ -207,8 +206,9 @@ TensorRTEngineInstruction::TensorRTEngineInstruction(
     VLOG(6) << "The entire graph is offloaded to TensorRT.";
   }
   if (use_cuda_graph_ && !all_nodes_offload_to_trt) {
-    VLOG(6) << "You have enabled CudaGraph, but not the entire graph offload to "
-               "trt, now return to normal mode.";
+    VLOG(6)
+        << "You have enabled CudaGraph, but not the entire graph offload to "
+           "trt, now return to normal mode.";
     use_cuda_graph_ = false;
   }
   if (use_cuda_graph_ && all_nodes_offload_to_trt) {

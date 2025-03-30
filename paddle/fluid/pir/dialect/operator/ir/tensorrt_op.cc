@@ -76,7 +76,7 @@ OpInfoTuple TensorRTEngineOp::GetOpInfo() {
       paddle::dialect::OpAttributeInfo(
           "converter_debug_info", "pir::StrAttribute", ""),
       paddle::dialect::OpAttributeInfo(
-          "use_cuda_graph", "pir::BoolAttribute", "")}};
+          "use_cuda_graph", "pir::BoolAttribute", "")};
 
   std::vector<paddle::dialect::OpOutputInfo> outputs = {
       OpOutputInfo("out",
