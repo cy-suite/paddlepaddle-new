@@ -556,7 +556,7 @@ def flash_attention(
                     False,  # pack_gqa_
                     0,  # sm_margin
                 )
-                return out
+                return out, None  # return_softmax
             else:
                 raise ValueError(
                     f"Invalid flash attention version: {fa_version}"
