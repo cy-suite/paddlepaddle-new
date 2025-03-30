@@ -506,7 +506,7 @@ def flash_attention(
             fixed_seed_offset is None or fa_version == 2
         ), "flash attention 3 does not support return softmax"
         assert (
-            rng_name is None or fa_version == 2
+            rng_name == "" or fa_version == 2
         ), "flash attention 3 does not support setting rng_name"
         assert (
             training or fa_version == 2
@@ -535,6 +535,9 @@ def flash_attention(
                     result_softmax if return_softmax else None
                 )
             elif fa_version == 3:
+                if softmax_scale is None:
+                    softmax_scale = query.shape[-1] ** (-0.5)
+
                 out, softmax_lse, out_accum, softmax_lse_accum = (
                     _C_ops.flash_attn_v3(
                         query,
