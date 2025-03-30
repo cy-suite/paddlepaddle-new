@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "paddle/fluid/pybind/pir.h"
+
 #include <Python.h>
 #include <algorithm>
 #include <iterator>
@@ -22,11 +24,8 @@
 #include <unordered_set>
 #include <utility>
 
-#include "paddle/common/errors.h"
-#include "paddle/fluid/pybind/pir.h"
-#include "paddle/fluid/pybind/pir_utils.h"
-
 #include "paddle/common/enforce.h"
+#include "paddle/common/errors.h"
 #include "paddle/common/flags.h"
 #include "paddle/fluid/framework/executor.h"
 #include "paddle/fluid/framework/ir/pass.h"
@@ -62,6 +61,7 @@
 #include "paddle/fluid/pir/utils/name_analysis.h"
 #include "paddle/fluid/pybind/control_flow_api.h"
 #include "paddle/fluid/pybind/eager_utils.h"
+#include "paddle/fluid/pybind/pir_utils.h"
 #include "paddle/fluid/pybind/pybind_variant_caster.h"
 #include "paddle/phi/common/data_type.h"
 #include "paddle/phi/common/place.h"
@@ -3289,16 +3289,16 @@ void BindShapeConstraintIRAnalysis(pybind11::module *m) {
            }
            return flag;
          });
-#ifdef PADDLE_WITH_CINN
+  // #ifdef PADDLE_WITH_CINN
   m->def(
       "bind_symbolic_constraints",
       [](pir::Program *program, const py::handle &constraints) -> void {
         // Check input is sequence
-        if (!py::isinstance<py::sequence>(constraints)) {
-          PADDLE_THROW(common::errors::InvalidArgument(
-              "constraints for SOT symbolic variables must be a sequence."));
-          return;
-        }
+        PADDLE_ENFORCE_EQ(
+            py::isinstance<py::sequence>(constraints),
+            true,
+            common::errors::InvalidArgument(
+                "constraints for SOT symbolic variables must be a sequence."));
 
         const py::sequence constraints_seq =
             py::cast<py::sequence>(constraints);
@@ -3316,82 +3316,76 @@ void BindShapeConstraintIRAnalysis(pybind11::module *m) {
           const auto &constraint = constraints_seq[idx];
 
           // Check constraint item is tuple
-          if (!py::isinstance<py::tuple>(constraint)) {
-            PADDLE_THROW(common::errors::InvalidArgument(
-                "Constraint[%zu] must be a tuple of (name, dimension_triplet).",
-                idx));
-            return;
-          }
+          PADDLE_ENFORCE_EQ(
+              py::isinstance<py::tuple>(constraint),
+              true,
+              common::errors::InvalidArgument("Constraint[%zu] must be a tuple "
+                                              "of (name, dimension_triplet).",
+                                              idx));
 
           const py::tuple constraint_tuple = py::cast<py::tuple>(constraint);
 
           // Check tuple has 2 elements
-          if (constraint_tuple.size() != 2) {
-            PADDLE_THROW(common::errors::InvalidArgument(
-                "Constraint[%zu] must have exactly 2 elements (got %zu).",
-                idx,
-                constraint_tuple.size()));
-            return;
-          }
+          PADDLE_ENFORCE_EQ(
+              constraint_tuple.size(),
+              2,
+              common::errors::InvalidArgument(
+                  "Constraint[%zu] must have exactly 2 elements (got %zu).",
+                  idx,
+                  constraint_tuple.size()));
 
           // Check and get input spec name
           const py::handle name_handle = constraint_tuple[0];
-          if (!py::isinstance<py::str>(name_handle)) {
-            std::string type_name =
-                py::str(name_handle.get_type()).cast<std::string>();
-            PADDLE_THROW(common::errors::InvalidArgument(
-                "Constraint[%zu][0] must be a string (got %s)",
-                idx,
-                type_name.c_str()));
-            return;
-          }
+
+          PADDLE_ENFORCE_EQ(
+              py::isinstance<py::str>(name_handle),
+              true,
+              common::errors::InvalidArgument(
+                  "Constraint[%zu][0] must be a string (got %s)",
+                  idx,
+                  py::str(name_handle.get_type()).cast<std::string>().c_str()));
           const std::string input_spec_name =
               py::cast<std::string>(name_handle);
 
           // Check and get dimension triplet
           const py::handle triplet_handle = constraint_tuple[1];
-          if (!py::isinstance<py::tuple>(triplet_handle)) {
-            PADDLE_THROW(common::errors::InvalidArgument(
-                "Constraint[%zu][1] must be a tuple.", idx));
-            return;
-          }
+          PADDLE_ENFORCE_EQ(py::isinstance<py::tuple>(triplet_handle),
+                            true,
+                            common::errors::InvalidArgument(
+                                "Constraint[%zu][1] must be a tuple.", idx));
 
           const py::tuple triplet = py::cast<py::tuple>(triplet_handle);
-          if (triplet.size() != 3) {
-            PADDLE_THROW(common::errors::InvalidArgument(
-                "Constraint[%zu][1] must have 3 elements (got %zu).",
-                idx,
-                triplet.size()));
-            return;
-          }
+          PADDLE_ENFORCE_EQ(
+              triplet.size(),
+              3,
+              common::errors::InvalidArgument(
+                  "Constraint[%zu][1] must have 3 elements (got %zu).",
+                  idx,
+                  triplet.size()));
 
           // Validate and convert elements
           auto convert_optional = [idx](const py::handle &h,
                                         int pos) -> std::optional<int> {
             if (h.is_none()) return std::nullopt;
 
-            if (!py::isinstance<py::int_>(h)) {
-              std::string type_name = py::str(h.get_type()).cast<std::string>();
-              PADDLE_THROW(common::errors::InvalidArgument(
-                  "Constraint[%zu][1][%d] must be int or None (got %s).",
-                  idx,
-                  pos,
-                  type_name.c_str()));
-              return std::nullopt;
-            }
+            PADDLE_ENFORCE_EQ(
+                py::isinstance<py::int_>(h),
+                true,
+                "Constraint[%zu][1][%d] must be int or None (got %s).",
+                idx,
+                pos,
+                py::str(h.get_type()).cast<std::string>().c_str());
             return py::cast<int>(h);
           };
 
           // Check dim_idx
-          if (!py::isinstance<py::int_>(triplet[0])) {
-            std::string type_name =
-                py::str(triplet[0].get_type()).cast<std::string>();
-            PADDLE_THROW(common::errors::InvalidArgument(
-                "Constraint[%zu][1][0] (dim_idx) must be int (got %s).",
-                idx,
-                type_name.c_str()));
-            return;
-          }
+          PADDLE_ENFORCE_EQ(
+              py::isinstance<py::int_>(triplet[0]),
+              true,
+              common::errors::InvalidArgument(
+                  "Constraint[%zu][1][0] (dim_idx) must be int (got %s).",
+                  idx,
+                  py::str(triplet[0].get_type()).cast<std::string>().c_str()));
           const int dim_idx = py::cast<int>(triplet[0]);
 
           // Convert min/max with position info
@@ -3409,7 +3403,7 @@ void BindShapeConstraintIRAnalysis(pybind11::module *m) {
       },
       py::arg("program"),
       py::arg("constraints").noconvert());
-#endif
+  // #endif
 
   py::class_<pir::ShapeConstraintIRAnalysis,
              std::shared_ptr<pir::ShapeConstraintIRAnalysis>>
