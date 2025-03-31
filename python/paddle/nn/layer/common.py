@@ -405,6 +405,12 @@ class Upsample(Layer):
              When it is `"NCHW"`, the data should be stored in the order of:
              `[batch_size, input_channels, input_height, input_width]`. When it is `"NCDHW"`, the
              data should be stored in the order of: `[batch_size, input_channels, input_depth, input_height, input_width]`.
+        recompute_scale_factor (bool, optional):  Whether to recompute the scaling factor for interpolation calculation.
+             When set to `True`, the `scale_factor` parameter must be provided, and the function will use it along with
+             the input tensor shape to calculate the output tensor shape, then recalculate the scaling factor based on
+             the output and input tensor shapes. This parameter is particularly useful when `scale_factor` is a floating-point
+             value. When set to `False`, either `size` or `scale_factor` will be used directly for interpolation without
+             recalculation. Default: None.
         name(str|None, optional): The default value is None.
                              Normally there is no need for user to set this property.
                              For more information, please refer to :ref:`api_guide_Name`
