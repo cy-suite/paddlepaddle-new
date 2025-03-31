@@ -22,8 +22,6 @@ using hlir::framework::pir::trivial_fusion_detail::GetAllForIters;
 using hlir::framework::pir::trivial_fusion_detail::ExprSetFinderUtils::
     ChildScheduleBlockRealizes;
 using hlir::framework::pir::trivial_fusion_detail::ExprSetFinderUtils::
-    ChildTensorLoads;
-using hlir::framework::pir::trivial_fusion_detail::ExprSetFinderUtils::
     ScheduleBlockRealizeIsNotInit;
 
 namespace ir {
@@ -49,6 +47,16 @@ struct VarReplacer : public ir::IRMutator<ir::Expr*> {
     }
   }
 };
+
+std::vector<ir::Expr> GetRValueLoads(ir::Expr expr_block) {
+  ir::Expr store = analyzer::GetStoreOfSBlock(expr_block);
+  auto* store_node = store.As<ir::Store>();
+  return ir::ir_utils::CollectIRNodesInOrder(
+      store_node->value, [&](const ir::Expr* x) {
+        auto* load_node = x->As<ir::Load>();
+        return load_node && load_node->tensor != store_node->tensor;
+      });
+}
 
 std::vector<int64_t> GetVarStrides(ir::Expr load_offset,
                                    const std::vector<ir::Var>& iter_vars) {
@@ -206,7 +214,7 @@ bool CheckTensorIsBroadcastAndContinuous(
   bool is_broadcast = false;
   for (int i = 0; i < indices.size(); ++i) {
     ir::Expr index = indices[i];
-    cinn::optim::Simplify(&index);
+    index = optim::ArithSimplify(index);
     if (index.is_constant() && index.get_constant() == 0) {
       is_broadcast = true;
       continue;
@@ -244,7 +252,7 @@ bool CheckTensorIsContinuous(
     const std::unordered_map<ir::Var, ir::Expr>& iter_var2value) {
   for (int i = 0; i < indices.size(); ++i) {
     ir::Expr index = indices[i];
-    cinn::optim::Simplify(&index);
+    index = optim::ArithSimplify(index);
     if (index.is_constant()) return false;
     if (!index.is_var()) return false;
     ir::Var iter_var = index.as_var_ref();
@@ -364,7 +372,7 @@ std::vector<int64_t> GetLoopStrides(const ir::Expr& body) {
     return std::distance(for_iters.begin(), it);
   };
 
-  const auto& all_loads = ChildTensorLoads(expr_block);
+  std::vector<ir::Expr> all_loads = GetRValueLoads(expr_block);
   std::vector<int64_t> loop_strides(for_iters.size());
   if (all_loads.empty()) {
     return loop_strides;
@@ -386,7 +394,7 @@ bool GetCanApplyGridReduce(const std::vector<ir::Expr>& op_compute_bodies,
   std::unordered_set<std::string> reduce_downstream_tensor_names;
 
   const auto IsReduceDownstream = [&](const ir::Expr& expr_block) {
-    for (auto& expr_load : ChildTensorLoads(expr_block)) {
+    for (auto& expr_load : GetRValueLoads(expr_block)) {
       std::string load_tensor_name = expr_load.As<ir::Load>()->name();
       if (reduce_downstream_tensor_names.count(load_tensor_name) > 0) {
         return true;
@@ -443,10 +451,10 @@ bool GetCanApplyGridReduce(const std::vector<ir::Expr>& op_compute_bodies,
       AddReduceDownstream(expr_block);
     }
 
-    // When a block is downstream of reduce, its output shouldn't contain
-    // reduce axis. Otherwise, it broadcasts the result of reduce. If this
+    // When a block is downstream of reduce, its loop iters shouldn't contain
+    // any reduce axis. Otherwise, it broadcasts the result of reduce. If this
     // is the case, we cannot apply grid reduce.
-    if (is_reduce_downstream && output_has_reduce_axis) {
+    if (is_reduce_downstream && (is_reduce || output_has_reduce_axis)) {
       VLOG(4) << "grid reduce is prohibited by block: " << expr_block;
       return false;
     }
@@ -454,7 +462,7 @@ bool GetCanApplyGridReduce(const std::vector<ir::Expr>& op_compute_bodies,
   return true;
 }
 
-GroupVectorizeInfo GetCanApplyVectorize(
+GroupVectorizeInfo GetGroupVectorizeInfo(
     const std::vector<ir::Expr>& op_compute_bodies,
     const std::unordered_set<std::string>& group_args) {
   bool can_vectorize = true;

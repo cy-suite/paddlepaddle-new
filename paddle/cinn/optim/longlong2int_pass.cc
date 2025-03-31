@@ -13,6 +13,7 @@
 // limitations under the License.
 
 #include "paddle/cinn/optim/longlong2int_pass.h"
+#include "paddle/cinn/common/ir_util.h"
 #include "paddle/cinn/ir/ir_mutator.h"
 #include "paddle/cinn/ir/ir_printer.h"
 #include "paddle/cinn/ir/ir_utils.h"
@@ -20,6 +21,7 @@
 #include "paddle/cinn/ir/stmt.h"
 #include "paddle/cinn/ir/stmt_visitors.h"
 #include "paddle/cinn/ir/utils/ir_copy.h"
+#include "paddle/cinn/optim/simplify_util.h"
 #include "paddle/cinn/pass/pass_manager.h"
 
 namespace cinn {
@@ -36,20 +38,14 @@ void CastVarWithBound(cinn::ir::Var& var) {  // NOLINT
   if (!var.defined()) return;
   if (var->is_symbolic_constant) return;
   var->convert_int64_to_int32();
-  auto lb = var->lower_bound;
-  auto ub = var->upper_bound;
-  if (lb.defined()) ir::TryElevateInt64ToInt32({lb});
-  if (ub.defined()) ir::TryElevateInt64ToInt32({ub});
+  if (var->lower_bound.defined()) ir::ElevateInt64ToInt32_(var->lower_bound);
+  if (var->lower_bound.defined()) ir::ElevateInt64ToInt32_(var->lower_bound);
 }
 void CastBufferMeta(cinn::ir::Buffer& bf) {  // NOLINT
   if (!bf.defined()) return;
-  std::for_each(bf->shape.begin(), bf->shape.end(), [&](cinn::ir::Expr& e) {
-    ir::TryElevateInt64ToInt32({e});
-  });
-  std::for_each(bf->strides.begin(), bf->strides.end(), [&](cinn::ir::Expr& e) {
-    ir::TryElevateInt64ToInt32({e});
-  });
-  ir::TryElevateInt64ToInt32({bf->elem_offset});
+  ir::ElevateInt64ToInt32_(bf->shape);
+  ir::ElevateInt64ToInt32_(bf->strides);
+  ir::ElevateInt64ToInt32_(bf->elem_offset);
 }
 
 class CheckOverflow : public ir::stmt::StmtVisitor<> {
@@ -76,9 +72,10 @@ class CheckOverflow : public ir::stmt::StmtVisitor<> {
 
     if (is_overflow_) return;
 
+    int64_t prev_product = curr_product_;
     curr_product_ *= for_stmt->extent().as_int64();
     VisitBlock(for_stmt->body());
-    curr_product_ /= for_stmt->extent().as_int64();
+    curr_product_ = prev_product;
   }
 
   void VisitStmt(const Schedule& schedule_stmt) override {
@@ -110,34 +107,25 @@ class CastLonglong2IntMutator : public ir::IRMutator<> {
  private:
   void Visit(const ir::_Tensor_* op, Expr* expr) override {
     auto node = expr->As<ir::_Tensor_>();
-    std::for_each(node->shape.begin(),
-                  node->shape.end(),
-                  [&](cinn::ir::Expr& e) { ir::TryElevateInt64ToInt32({e}); });
+    ir::ElevateInt64ToInt32_(node->shape);
     CastBufferMeta(node->buffer);
   }
   void Visit(const ir::Load* op, Expr* expr) override {
     auto node = expr->As<ir::Load>();
-    std::for_each(node->indices.begin(),
-                  node->indices.end(),
-                  [&](cinn::ir::Expr& e) { ir::IRMutator<>::Visit(&e, &e); });
+    ir::ElevateInt64ToInt32_(node->indices);
     ir::IRMutator<>::Visit(&node->tensor, &node->tensor);
   }
   void Visit(const ir::Select* op, Expr* expr) override {
     auto node = expr->As<ir::Select>();
     auto cond = node->condition;
-    if (cond.is_cmp() && cond->operand(0).is_index() &&
-        cond->operand(1).is_index()) {
-      ir::IRMutator<>::Visit(&cond->operands[0], &cond->operands[0]);
-      ir::IRMutator<>::Visit(&cond->operands[1], &cond->operands[1]);
+    if (cond.is_index()) {
+      ir::ElevateInt64ToInt32_(node->condition);
+    } else if (cond.is_cmp() && cond->operand(0).is_index() &&
+               cond->operand(1).is_index()) {
+      ir::ElevateInt64ToInt32_(node->condition->operands);
     }
     ir::IRMutator<>::Visit(&node->true_value, &node->true_value);
     ir::IRMutator<>::Visit(&node->false_value, &node->false_value);
-  }
-  void Visit(const ir::IntImm* op, Expr* expr) override {
-    ir::TryElevateInt64ToInt32({*expr});
-  }
-  void Visit(const ir::_Var_* op, Expr* expr) override {
-    ir::TryElevateInt64ToInt32({*expr});
   }
 };
 
@@ -155,25 +143,20 @@ class LongLong2IntExprPass : public ExprPass {
 }  // namespace
 
 LogicalResult LongLong2IntStmtPass::Run(ir::stmt::StmtRef stmt) {
-  CastLonglong2IntMutator narrow;
-  // store and if_then_else stmt may has recursive load, so we need to use
-  // mutator to change those type.
   auto CastStore = [&](StmtRef stmt) {
     Store store_stmt = stmt.as<Store>();
-    for (Expr index : store_stmt->indices()) {
-      narrow(&index);
-    }
-    ir::Expr value = store_stmt->value();
-    narrow(&value);
+    store_stmt->set_indices(
+        std::move(ir::ElevateInt64ToInt32(store_stmt->indices())));
   };
 
   auto CastIfThenElse = [&](StmtRef stmt) {
     IfThenElse if_stmt = stmt.as<IfThenElse>();
     Expr cond = if_stmt->condition();
-    if (cond.is_cmp() && cond->operand(0).is_index() &&
-        cond->operand(1).is_index()) {
-      narrow(&cond->operands[0]);
-      narrow(&cond->operands[1]);
+    if (cond.is_index()) {
+      if_stmt->set_condition(std::move(ir::ElevateInt64ToInt32(cond)));
+    } else if (cond.is_cmp() && cond->operand(0).is_index() &&
+               cond->operand(1).is_index()) {
+      ir::ElevateInt64ToInt32_(if_stmt->condition()->operands);
     }
   };
 
@@ -181,8 +164,10 @@ LogicalResult LongLong2IntStmtPass::Run(ir::stmt::StmtRef stmt) {
     For for_stmt = stmt.as<For>();
     ir::Var loop_var = for_stmt->loop_var();
     CastVarWithBound(loop_var);
-    ir::TryElevateInt64ToInt32({for_stmt->min()});
-    ir::TryElevateInt64ToInt32({for_stmt->extent()});
+    for_stmt->set_loop_var(std::move(loop_var));
+    for_stmt->set_min(std::move(ir::ElevateInt64ToInt32(for_stmt->min())));
+    for_stmt->set_extent(
+        std::move(ir::ElevateInt64ToInt32(for_stmt->extent())));
   };
 
   auto CastSchedule = [](StmtRef stmt) {
@@ -193,9 +178,7 @@ LogicalResult LongLong2IntStmtPass::Run(ir::stmt::StmtRef stmt) {
     });
 
     std::vector<Expr> iter_values = schedule_stmt->iter_values();
-    std::for_each(iter_values.begin(),
-                  iter_values.end(),
-                  [&](cinn::ir::Expr& e) { ir::TryElevateInt64ToInt32({e}); });
+    ir::ElevateInt64ToInt32_(iter_values);
 
     for (auto& buffer_range : schedule_stmt->read_buffers()) {
       if (auto range = buffer_range.As<ir::_BufferRange_>()) {
@@ -306,8 +289,8 @@ bool TryCastLonglong2Int(ir::LoweredFunc& func,  // NOLINT
         ir::ir_utils::IRCopy(axis_info.grid_dim(1)),
         ir::ir_utils::IRCopy(axis_info.grid_dim(2))};
 
-    ir::TryElevateInt64ToInt32(block_dim);
-    ir::TryElevateInt64ToInt32(grid_dim);
+    ir::ElevateInt64ToInt32_(block_dim);
+    ir::ElevateInt64ToInt32_(grid_dim);
 
     axis_info.set_block_dim(0, block_dim[0]);
     axis_info.set_block_dim(1, block_dim[1]);

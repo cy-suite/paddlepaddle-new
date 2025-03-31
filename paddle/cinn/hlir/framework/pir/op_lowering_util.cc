@@ -1376,10 +1376,10 @@ void LongLong2Int(const std::unordered_set<std::string> symbol_args_set,
       return true;
     }();
 
-    VLOG(10) << "Before CastLonglong2Int In Static Branch: \n" << func;
+    VLOG(10) << "Before CastLonglong2Int In Static Branch: \n" << *func;
     optim::TryCastLonglong2Int(
         *func, symbol_args_set, /*enforce_cast*/ can_cast);
-    VLOG(10) << "After CastLonglong2Int In Static Branch: \n" << func;
+    VLOG(10) << "After CastLonglong2Int In Static Branch: \n" << *func;
   }
 }
 

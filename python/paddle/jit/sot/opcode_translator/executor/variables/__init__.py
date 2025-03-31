@@ -27,10 +27,13 @@ from .basic import (  # noqa: F401
     GlobalVariable,
     ModuleVariable,
     NullVariable,
+    NumpyArrayVariable,
+    NumpyNumberVariable,
     NumpyVariable,
     ObjectVariable,
     ParameterVariable,
     SliceVariable,
+    SuperVariable,
     SymbolicVariable,
     TensorVariable,
 )
@@ -58,6 +61,7 @@ from .container import (  # noqa: F401
 )
 from .iter import (  # noqa: F401
     EnumerateVariable,
+    GeneratorVariable,
     IterVariable,
     MapVariable,
     SequenceIterVariable,

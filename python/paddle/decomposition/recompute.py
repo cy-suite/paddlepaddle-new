@@ -534,7 +534,7 @@ def auto_recompute(
         | required_bw_value_nodes
         | unclaimed_value_nodes
     ):
-        if value_node in outputs or not value_node.initialized():
+        if not value_node.initialized():
             continue
 
         if value_node.get_defining_op().name() == "builtin.combine":
@@ -978,7 +978,10 @@ def get_real_input_nodes(output_value_node):
     else:
         input_value_nodes = define_op.operands_source()
     for input_value_node in input_value_nodes:
-        if input_value_node.get_defining_op().name() == "builtin.combine":
+        if (
+            input_value_node.get_defining_op()
+            and input_value_node.get_defining_op().name() == "builtin.combine"
+        ):
             real_input_nodes |= backward_utils.ValueSet(
                 input_value_node.get_defining_op().operands_source()
             )

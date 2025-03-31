@@ -123,6 +123,7 @@ break_graph_tensor_method = {
     'register_hook',
     'numpy',
     'clear_gradient',
+    'tolist',
     # TODO: Browse all possible functions and make prior judgments.
 }
 
@@ -162,5 +163,6 @@ def is_directly_run_api(api):
         paddle.base.libpaddle.is_compiled_with_distribute,
         paddle.base.libpaddle.is_compiled_with_brpc,
         paddle.base.libpaddle.is_compiled_with_dist,
+        paddle.base.libpaddle.is_compiled_with_flagcx,
     }
     return api in NATIVE_CODE_PURE_FUNCTIONS

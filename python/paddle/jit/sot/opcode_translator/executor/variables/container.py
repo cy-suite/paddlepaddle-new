@@ -20,9 +20,6 @@ from functools import reduce
 from typing import TYPE_CHECKING, Any
 
 import paddle
-from paddle.jit.sot.opcode_translator.executor.variables.base import (
-    VariableBase,
-)
 
 from ....utils import ConstTypes
 from ....utils.exceptions import FallbackError, InnerError
@@ -42,7 +39,10 @@ from ..tracker import (
     GetIterTracker,
     Tracker,
 )
-from .base import VariableFactory
+from .base import (
+    VariableBase,
+    VariableFactory,
+)
 from .basic import ConstantVariable
 from .callable import BuiltinVariable, UserDefinedFunctionVariable
 
@@ -412,38 +412,6 @@ class ListVariable(ContainerVariable):
 
         return ConstantVariable(-1, self.graph, DummyTracker([self, value]))
 
-    def max(self):
-        if len(self) == 0:
-            raise ValueError("max() arg is an empty sequence")
-        res = self[0]
-        getitem = BuiltinVariable(
-            operator.getitem, self.graph, DanglingTracker()
-        )
-        for index in range(len(self)):
-            index_value = getitem(self, index)
-            gt = BuiltinVariable(operator.gt, self.graph, DanglingTracker())(
-                index_value, res
-            )
-            if gt.get_py_value() is True:
-                res = index_value
-        return res
-
-    def min(self):
-        if len(self) == 0:
-            raise ValueError("min() arg is an empty sequence")
-        res = self[0]
-        getitem = BuiltinVariable(
-            operator.getitem, self.graph, DanglingTracker()
-        )
-        for index in range(len(self)):
-            index_value = getitem(self, index)
-            lt = BuiltinVariable(operator.lt, self.graph, DanglingTracker())(
-                index_value, res
-            )
-            if lt.get_py_value() is True:
-                res = index_value
-        return res
-
     def getattr(self, name: str, default=None):
         from .callable import BuiltinVariable
 
@@ -470,7 +438,7 @@ class ListVariable(ContainerVariable):
             builtin_fn = method_name_to_builtin_fn[name]
             return BuiltinVariable(
                 builtin_fn, self.graph, DanglingTracker()
-            ).bind(self, name)
+            ).bind_dangling_fn(self, name)
         else:
             raise FallbackError(f"attribute {name} for list is not implemented")
 
@@ -523,7 +491,7 @@ class TupleVariable(ContainerVariable):
             builtin_fn = method_name_to_builtin_fn[name]
             return BuiltinVariable(
                 builtin_fn, self.graph, DanglingTracker()
-            ).bind(self, name)
+            ).bind_dangling_fn(self, name)
         else:
             raise FallbackError(
                 f"attribute {name} for tuple is not implemented"
@@ -760,8 +728,9 @@ class RangeVariable(ContainerVariable):
     def make_stringified_guard(self) -> list[StringifiedExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
         return [
-            StringifiedExpression(
+            FasterStringifiedExpression(
                 "isinstance({0}, range)",
+                paddle.framework.core.InstanceCheckGuard(range),
                 [frame_value_tracer],
                 frame_value_tracer.free_vars,
             ),
@@ -874,6 +843,15 @@ class DictVariable(ContainerVariable):
         return len(self.proxy.get_all())
 
     def get(self, key, default=None):
+        # `d.get(key, default)` equivalent to `d[key] if key in d else default`
+        # We need guard `key in d`, but now we simply guard `d` and `key` separately
+        # (`key` is guarded in __getitem__ and key is guarded in getitem)
+        # TODO: We should add some tracker to record the key and the dict
+        # in the future, to guard more fine-grained information.
+        # In the other way, we can also dispatch `d.get(key, default)` to
+        # `d[key] if key in d else default`, but we need implement the
+        # new mechanism to allow the dispatcher to dispatch to a polyfill function.
+        self.graph.add_global_guarded_variable(self)
         if isinstance(key, VariableBase):
             raise InnerError(
                 f"[{self.__class__.__name__}]: received {key} to get value."
@@ -1035,7 +1013,7 @@ class DictVariable(ContainerVariable):
             builtin_fn = method_name_to_builtin_fn[name]
             return BuiltinVariable(
                 builtin_fn, self.graph, DanglingTracker()
-            ).bind(self, name)
+            ).bind_dangling_fn(self, name)
         else:
             raise FallbackError(f"attribute {name} for dict is not implemented")
 
