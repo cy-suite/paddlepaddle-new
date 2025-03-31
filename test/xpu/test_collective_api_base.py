@@ -582,7 +582,7 @@ class TestDistBase(unittest.TestCase):
                 tr1_out, need_result2, rtol=1e-05, atol=1e-05
             )
         elif col_type == "alltoall_unequal_split_empty":
-            none_shape = input1.shape
+            none_shape = list(input1.shape)
             none_shape[0] = 0
 
             need_result1 = input2
