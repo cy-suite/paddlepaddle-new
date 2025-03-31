@@ -1390,7 +1390,8 @@ def pad3d_converter(network, paddle_op, inputs):
     input_tensor, paddings = inputs
     value = paddle_op.attrs().get("pad_value", 0.0)
     padding_mode = paddle_op.attrs().get("mode", "constant")
-    if padding_mode == "circular":
+    data_format = paddle_op.attrs().get("data_format")
+    if padding_mode == "circular" or data_format == "NDHWC":
         attrs = paddle_op.attrs()
         padddings_value = paddle_op.operand_source(1)
         full_op = padddings_value.get_defining_op()
