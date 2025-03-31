@@ -122,6 +122,9 @@ void BindGuard(pybind11::module *m) {
       "NumPyArrayValueMatchGuard",
       R"DOC(NumPyArrayValueMatchGuard Class.)DOC")
       .def(py::init<const py::object &>(), py::arg("array"));
+  py::class_<DummyGuard, GuardBase, std::shared_ptr<DummyGuard>>(
+      *m, "DummyGuard", R"DOC(DummyGuard Class.)DOC")
+      .def(py::init<>());
 
   m->def(
       "merge_guard",

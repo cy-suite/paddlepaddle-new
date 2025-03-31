@@ -236,6 +236,11 @@ class NumPyArrayValueMatchGuard : public GuardBase {
   PyObject* expected_;
 };
 
+class DummyGuard : public GuardBase {
+ public:
+  bool check(PyObject* value) override { return true; }
+};
+
 class GuardTreeNode {};
 
 class AttributeExprNode;
