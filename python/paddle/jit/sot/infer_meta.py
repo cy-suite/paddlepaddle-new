@@ -150,7 +150,7 @@ class MetaInfo:
             self.persistable,
             self.type,
             self.place,
-            spec_name="MetaInfo_" + name,
+            spec_name=name,
             dist_info=self.dist_info,
         )
 
