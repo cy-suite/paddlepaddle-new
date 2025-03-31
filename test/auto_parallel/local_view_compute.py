@@ -85,7 +85,7 @@ def masked_lm_loss_func(pred, label, global_local_loss_list_item=None):
     if global_local_loss_list_item is not None:
         np.testing.assert_allclose(
             global_local_loss_list_item,
-            loss,
+            loss.numpy(),
             rtol=1e-8,
         )
     return loss
