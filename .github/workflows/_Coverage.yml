@@ -314,11 +314,11 @@ jobs:
     #     EXIT_CODE=$?
     #     '
 
-    - name: Collect coverage files
-      run: |
-        mkdir -p coverage_files
-        find . -name "*.gcda" -exec cp --parents {} coverage_files/ \;
-        find . -name "*.gcno" -exec cp --parents {} coverage_files/ \;
+    # - name: Collect coverage files
+    #   run: |
+    #     mkdir -p coverage_files
+    #     find . -name "*.gcda" -exec cp --parents {} coverage_files/ \;
+    #     find . -name "*.gcno" -exec cp --parents {} coverage_files/ \;
 
     - name: Upload coverage report
       uses: codecov/codecov-action@v4
