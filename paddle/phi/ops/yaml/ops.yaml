@@ -763,6 +763,8 @@
   kernel:
     func: broadcast_tensors
   backward: broadcast_tensors_grad
+  data_transform:
+    skip_transform: input
   interfaces : paddle::dialect::InferSymbolicShapeInterface
 
 - op : c_allreduce_sum
