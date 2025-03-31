@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "paddle/common/enforce.h"
 #include "paddle/fluid/inference/tensorrt/pir/dynamic_shape_infermeta_factory.h"
 #include "paddle/phi/core/enforce.h"
 #include "paddle/pir/include/core/builtin_attribute.h"

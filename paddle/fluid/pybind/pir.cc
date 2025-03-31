@@ -152,12 +152,12 @@ namespace py = pybind11;
 void BindOpsAPI(pybind11::module *module);
 
 pir::Value FakeValue() {
-  // create a fake value to simplify ForwardBackwardSplit.
+  // create a fake value to simplify `ForwardBackwardSplit`.
   return pir::Value(nullptr);
 }
 
 bool IsFakeValue(const pir::Value &value) {
-  // create a fake value to simplify ForwardBackwardSplit.
+  // create a fake value to simplify `ForwardBackwardSplit`.
   return value.impl() == nullptr || !value.type();
 }
 
@@ -416,7 +416,7 @@ void BindProgram(py::module *m) {
     graphs.
 
     A set of Program usually contains startup program and main program.
-    A startup program is set to contain some initial work, eg. initialize the `Parameter, and the main
+    A startup program is set to contain some initial work, eg. initialize the ``Parameter``, and the main
     program will contain the network structure and vars for train.
 
     A set of Program can be used for test or train, in train program ,
@@ -425,9 +425,10 @@ void BindProgram(py::module *m) {
     backward ops and vars.
 
     **Notes**:
-        **we have** :ref:api_paddle_static_default_startup_program **and** :ref:api_paddle_static_default_main_program
-        **by default, a pair of them will shared the parameters. The** :ref:api_paddle_static_default_startup_program **only run once to initialize parameters,**
-        :ref:api_paddle_static_default_main_program **run in every mini batch and adjust the weights.**
+        **we have** :ref:`api_paddle_static_default_startup_program` **and** :ref:`api_paddle_static_default_main_program`
+        **by default, a pair of them will shared the parameters. The** :ref:`api_paddle_static_default_startup_program` **only run once to initialize parameters,**
+        :ref:`api_paddle_static_default_main_program` **run in every mini batch and adjust the weights.**
+
 
     Returns:
         Program: An empty Program.
@@ -710,7 +711,7 @@ void BindBlock(py::module *m) {
 
     Notes:
         The constructor of Block should not be invoked directly. You can
-        use Program.block() to get a block.
+        use `Program.block()` to get a block.
   )DOC");
   block.def("empty", &Block::empty)
       .def(
@@ -1156,7 +1157,7 @@ void BindOperation(py::module *m) {
                     OpCreationCallstackAttrName());
             PADDLE_ENFORCE(op_callstack.isa<pir::ArrayAttribute>(),
                            common::errors::PreconditionNotMet(
-                               "The callstack of operation %s should be an "
+                               "The callstack of operation `%s` should be an "
                                "array attribute.",
                                self.name()));
             auto op_callstack_array_attr =
@@ -1165,7 +1166,7 @@ void BindOperation(py::module *m) {
               PADDLE_ENFORCE(
                   op_callstack_array_attr.at(i).isa<StrAttribute>(),
                   common::errors::PreconditionNotMet(
-                      "The callstack info of operation %s should be array of "
+                      "The callstack info of operation `%s` should be array of "
                       "string attribute.",
                       self.name()));
               callstack_list.append(op_callstack_array_attr.at(i)
