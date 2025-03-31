@@ -36,9 +36,6 @@ from paddle.base.framework import (
 )
 from paddle.distributed import fleet
 from paddle.distributed.auto_parallel import Engine, strategy as auto_strategy
-from paddle.distributed.auto_parallel.interface import (
-    shard_tensor as shard_tensor_static,
-)
 from paddle.distributed.auto_parallel.process_mesh import ProcessMesh
 from paddle.distributed.auto_parallel.static.utils import (
     fuse_param_func,
@@ -277,19 +274,9 @@ def shard_tensor(
         ), "shard_tensor() input data only supported dense tensor type right."
         tensor = data
     else:
-        if isinstance(data, EagerParamBase) and not data._is_initialized():
-            assert (
-                data._init_func is not None
-            ), "Get an uninitialized param with an unregistered init_func."
-            tensor = data
-        elif isinstance(data, paddle.Tensor) and dtype is None:
-            # if place is not equal, it is handled in paddle.Tensor()
-            tensor = data
-        else:
-            # `paddle.to_tensor` supports both dynamic and static mode
-            tensor = paddle.to_tensor(
-                data, dtype=dtype, place=place, stop_gradient=stop_gradient
-            )
+        raise NotImplementedError(
+            "`shard_tensor()` only supported in dynamic and pir mode."
+        )
 
     if paddle.in_dynamic_mode():
         # here the dist tensor is deep copy constructed
@@ -347,9 +334,9 @@ def shard_tensor(
         dist_tensor.persistable = tensor.persistable
         return dist_tensor
     else:
-        # TODO(zhiqiu): we need to refine the static shard_tensor
-        sharding_specs = get_shard_spec(mesh, placements, tensor.ndim)
-        return shard_tensor_static(tensor, mesh, sharding_specs)
+        raise NotImplementedError(
+            "`shard_tensor()` only supported in dynamic and pir mode."
+        )
 
 
 class _moe_global_mesh_tensor(PyLayer):
@@ -2371,12 +2358,7 @@ class DistModel:
         if (
             not self._in_pir_mode
         ):  # TODO (2024-Q2) remove this when pir mode is fully constructed.
-            if optimizer is not None and loss is not None:
-                self.train()
-            elif loss is not None:
-                self.eval()
-            else:
-                self.predict()
+            raise NotImplementedError("Only supported in dynamic and pir mode.")
 
     def train(self) -> None:
         """
