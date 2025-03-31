@@ -150,4 +150,19 @@ bool NumpyDtypeMatchGuard::check(PyObject* value) {
   return expected_dtype.equal(py::handle(value).get_type());
 }
 
+bool NumpyArrayMatchGuard::check(PyObject* value) {
+  if (value == nullptr) {
+    return false;
+  }
+
+  py::object py_value = py::cast<py::object>(value);
+  py::object result = expected_.attr("__eq__")(py_value);
+
+  if (py::hasattr(result, "all")) {
+    return result.attr("all")().cast<bool>();
+  } else {
+    return result.cast<bool>();
+  }
+}
+
 #endif

@@ -1463,7 +1463,7 @@ class NumpyArrayVariable(NumpyVariable):
             dtype_guard,
             FasterStringifiedExpression(
                 f"({{}} == {obj_free_var_name}).all()",
-                paddle.framework.core.ValueMatchGuard(self.get_py_value()),
+                paddle.framework.core.NumpyArrayMatchGuard(self.get_py_value()),
                 [frame_value_tracer],
                 union_free_vars(
                     frame_value_tracer.free_vars,

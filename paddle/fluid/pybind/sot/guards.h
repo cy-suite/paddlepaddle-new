@@ -18,6 +18,7 @@ limitations under the License. */
 #include "paddle/fluid/pybind/sot/macros.h"
 #include "paddle/phi/core/utils/data_type.h"
 #include "paddle/utils/pybind.h"
+#include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
 
 namespace py = pybind11;
@@ -215,6 +216,16 @@ class NumpyDtypeMatchGuard : public GuardBase {
 
  private:
   PyObject* expected_;
+};
+
+class NumpyArrayMatchGuard : public GuardBase {
+ public:
+  explicit NumpyArrayMatchGuard(const py::array& array) : expected_(array) {}
+
+  bool check(PyObject* value) override;
+
+ private:
+  py::array expected_;
 };
 
 #endif
