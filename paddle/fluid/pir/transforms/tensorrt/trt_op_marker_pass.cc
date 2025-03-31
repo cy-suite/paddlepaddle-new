@@ -2553,6 +2553,7 @@ class Pad3dOpPattern : public pir::OpRewritePattern<paddle::dialect::Pad3dOp> {
       if (data_format == "NDHWC") {
         op->set_attribute("use_generic_plugin", rewriter.bool_attr(true));
       } else if (data_format == "NCDHW") {
+        op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
         return true;
       } else {
         VLOG(3) << "The pad3d layer of TRT only support NCDHW and NDHWC data "
