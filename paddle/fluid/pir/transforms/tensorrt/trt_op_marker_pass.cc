@@ -2538,15 +2538,25 @@ class Pad3dOpPattern : public pir::OpRewritePattern<paddle::dialect::Pad3dOp> {
     }
     if (op->HasAttribute("mode")) {
       auto mode = op->attribute<pir::StrAttribute>("mode").AsString();
-      if (mode != "constant" && mode != "reflect" && mode != "replicate") {
+      if (mode == "circular") {
         op->set_attribute("use_generic_plugin", rewriter.bool_attr(true));
+      } else if (mode != "constant" && mode != "reflect" &&
+                 mode != "replicate") {
+        VLOG(3) << "The pad3d layer of TRT only support "
+                   "constant/reflect/replicate/circular mode.";
+        return false;
       }
     }
     if (op->HasAttribute("data_format")) {
       auto data_format =
           op->attribute<pir::StrAttribute>("data_format").AsString();
-      if (data_format != "NCDHW") {
+      if (data_format == "NDHWC") {
         op->set_attribute("use_generic_plugin", rewriter.bool_attr(true));
+      } else if (data_format == "NCDHW") {
+        return true;
+      } else {
+        VLOG(3) << "The pad3d layer of TRT only support NCDHW and NDHWC data "
+                   "format.";
       }
     }
     op->set_attribute(kCanRunTrtAttr, rewriter.bool_attr(true));
