@@ -181,7 +181,6 @@ message(STATUS "ROCM_HIPRTC_LIB: ${ROCM_HIPRTC_LIB}")
 
 include(thrust)
 
-
 set(DCU_GEMM_LIB "extern_gemm")
 set(DCU_GEMM_LIB_NAME "libgemm_w4a16_awq${CMAKE_SHARED_LIBRARY_SUFFIX}")
 set(DCU_GEMM_URL "https://ai-rank.bj.bcebos.com/DCU/${DCU_GEMM_LIB_NAME}")
@@ -228,3 +227,7 @@ endif()
 
 add_library(dcu_gemm SHARED IMPORTED GLOBAL)
 set_property(TARGET dcu_gemm PROPERTY IMPORTED_LOCATION ${DCU_GEMM_LIBRARIES})
+
+if(WITH_Z100)
+  add_definitions(-DCINN_WITH_Z100)
+endif()
