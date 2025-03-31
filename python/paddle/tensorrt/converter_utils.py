@@ -20,7 +20,6 @@ import sys
 import numpy as np
 import tensorrt as trt
 
-import paddle
 from paddle.tensorrt.util import TensorRTConfigManager, TensorRTConstantManager
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -35,6 +34,11 @@ from paddle.base.log_helper import get_logger
 
 _logger = get_logger(
     __name__, logging.INFO, fmt='%(asctime)s-%(levelname)s: %(message)s'
+)
+from paddle.base.libpaddle.pir import (
+    get_attrs_map_json,
+    get_inputs_type_json,
+    get_outputs_type_json,
 )
 
 version = trt.__version__
@@ -1120,16 +1124,12 @@ def generic_plugin_converter(network, paddle_op, inputs, extra_attrs=None):
     op_name = paddle_op.name()
 
     if extra_attrs is not None:
-        attrs_map_info = paddle.base.libpaddle.pir.get_attrs_map_json(
-            extra_attrs
-        )
+        attrs_map_info = get_attrs_map_json(extra_attrs)
     else:
-        attrs_map_info = paddle.base.libpaddle.pir.get_attrs_map_json(paddle_op)
+        attrs_map_info = get_attrs_map_json(paddle_op)
 
-    input_type_info = paddle.base.libpaddle.pir.get_inputs_type_json(paddle_op)
-    output_type_info = paddle.base.libpaddle.pir.get_outputs_type_json(
-        paddle_op
-    )
+    input_type_info = get_inputs_type_json(paddle_op)
+    output_type_info = get_outputs_type_json(paddle_op)
 
     plugin_fields = [
         trt.PluginField(

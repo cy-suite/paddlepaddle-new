@@ -72,6 +72,7 @@
 #include "paddle/pir/include/core/builtin_op.h"
 #include "paddle/pir/include/core/ir_mapping.h"
 #include "paddle/pir/include/core/ir_printer.h"
+#include "paddle/pir/include/core/operation.h"
 #include "paddle/pir/include/core/program.h"
 #include "paddle/pir/include/core/type.h"
 #include "paddle/pir/include/core/value.h"

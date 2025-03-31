@@ -439,7 +439,6 @@ void GenericPlugin::serialize(void* buffer) const TRT_NOEXCEPT {
   for (auto input_type_info : inputs_type_info_) {
     paddle::platform::SerializeValue(&buffer,
                                      static_cast<int>(input_type_info.size()));
-    // char* start_ptr = reinterpret_cast<char*>(buffer);
     std::memcpy(buffer, input_type_info.c_str(), input_type_info.size());
     reinterpret_cast<char*&>(buffer) += input_type_info.size();
   }
