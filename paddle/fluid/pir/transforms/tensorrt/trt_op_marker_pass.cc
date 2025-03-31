@@ -2539,9 +2539,7 @@ class Pad3dOpPattern : public pir::OpRewritePattern<paddle::dialect::Pad3dOp> {
     if (op->HasAttribute("mode")) {
       auto mode = op->attribute<pir::StrAttribute>("mode").AsString();
       if (mode != "constant" && mode != "reflect" && mode != "replicate") {
-        VLOG(3) << "The pad3d layer of TRT only support "
-                   "constant/reflect/replicate mode.";
-        return false;
+        op->set_attribute("use_generic_plugin", rewriter.bool_attr(true));
       }
     }
     if (op->HasAttribute("data_format")) {

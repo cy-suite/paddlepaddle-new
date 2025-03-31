@@ -1699,14 +1699,12 @@ std::string GetAttrsMapJson(py::dict attrs) {
   return writer.GetAttributesMapJson(attrs_map).dump();
 }
 
-// 实现 ConvertAttrsToAttributeMap
 pir::AttributeMap ConvertAttrsToAttributeMap(py::dict attrs) {
   pir::IrContext *ctx = pir::IrContext::Instance();
   pir::AttributeMap attrs_map;
 
   for (auto item : attrs) {
     std::string key = py::cast<std::string>(item.first);
-    LOG(INFO) << "key " << key;
     py::handle value = item.second;
 
     if (py::isinstance<py::bool_>(value)) {
@@ -1737,12 +1735,14 @@ pir::AttributeMap ConvertAttrsToAttributeMap(py::dict attrs) {
             attr_list.push_back(pir::Int64Attribute::get(ctx, val));
           }
         } else {
-          throw std::invalid_argument("不支持的列表元素类型，键：" + key);
+          PADDLE_THROW(common::errors::InvalidArgument(
+              "Unsupported list element type, key: %s", key));
         }
       }
       attrs_map[key] = pir::ArrayAttribute::get(ctx, attr_list);
     } else {
-      throw std::invalid_argument("不支持的属性类型，键：" + key);
+      PADDLE_THROW(common::errors::InvalidArgument(
+          "Unsupported attribute type, key: %s", key));
     }
   }
   return attrs_map;
@@ -1750,7 +1750,8 @@ pir::AttributeMap ConvertAttrsToAttributeMap(py::dict attrs) {
 
 std::string GetTypeJson(pir::Operation *op, bool is_input) {
   if (!op) {
-    throw std::invalid_argument("Operation pointer cannot be nullptr");
+    PADDLE_THROW(
+        common::errors::InvalidArgument("Operation pointer cannot be nullptr"));
   }
   ::pir::ProgramWriter writer(1, false);
   std::stringstream type_info_ss;

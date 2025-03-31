@@ -190,7 +190,6 @@ nvinfer1::DimsExprs Pad3dInferMeta(
                          .dyn_cast<::pir::StrAttribute>()
                          .AsString();
 
-  // 从 op_attributes 获取 paddings_values
   auto paddings_iter = op_attributes.find("paddings");
   if (paddings_iter != op_attributes.end()) {
     auto paddings_attr =
@@ -261,9 +260,6 @@ nvinfer1::DimsExprs Pad3dInferMeta(
   } else {
     PADDLE_THROW(common::errors::InvalidArgument(
         "paddings_values attribute is missing, required for TensorRT."));
-  }
-  for (int i = 0; i < out_dims.nbDims; ++i) {
-    VLOG(0) << out_dims.d[i];
   }
   return out_dims;
 }

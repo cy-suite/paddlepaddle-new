@@ -147,6 +147,12 @@ class ArgsortOpConfig : public SpecialOpConfig {
                                  bool is_fp16_supported) override {
     // input x
     if (pos == 0) {
+      bool type_ok = (in_out[pos].type == nvinfer1::DataType::kFLOAT ||
+                      (is_fp16_supported &&
+                       in_out[pos].type == nvinfer1::DataType::kHALF));
+      LOG(INFO) << "Input type: " << static_cast<int>(in_out[pos].type)
+                << ", format: " << static_cast<int>(in_out[pos].format)
+                << ", type_ok: " << type_ok;
       return ((in_out[pos].type == nvinfer1::DataType::kFLOAT ||
                (is_fp16_supported &&
                 in_out[pos].type == nvinfer1::DataType::kHALF)) &&
@@ -245,6 +251,32 @@ class SolveOpConfig : public SpecialOpConfig {
   }
 };
 
+class Pad3dOpConfig : public SpecialOpConfig {
+ public:
+  Pad3dOpConfig() : SpecialOpConfig(true, false, false) {}
+  bool supportsFormatCombination(int pos,
+                                 const nvinfer1::PluginTensorDesc* in_out,
+                                 int nb_inputs,
+                                 int nb_outputs,
+                                 bool is_fp16_supported) override {
+    if (pos == 0) {
+      bool type_ok = (in_out[pos].type == nvinfer1::DataType::kFLOAT ||
+                      (is_fp16_supported &&
+                       in_out[pos].type == nvinfer1::DataType::kHALF));
+      return type_ok;
+    }
+    if (pos == 1) {
+      bool type_ok = (in_out[pos].type == nvinfer1::DataType::kINT32);
+      return type_ok;
+    }
+    if (pos == 2) {
+      bool type_match = (in_out[0].type == in_out[pos].type);
+      bool format_match = (in_out[0].format == in_out[pos].format);
+      return type_match && format_match;
+    }
+  }
+};
+
 GenericPlugin::GenericPlugin(const std::string& op_name,
                              const std::string& attrs_map_info,
                              const std::vector<std::string>& inputs_type_info,
@@ -285,6 +317,7 @@ GenericPlugin::GenericPlugin(const std::string& op_name,
   special_op_config_["pd_op.argsort"] = std::make_unique<ArgsortOpConfig>();
   special_op_config_["pd_op.scatter"] = std::make_unique<ScatterOpConfig>();
   special_op_config_["pd_op.solve"] = std::make_unique<SolveOpConfig>();
+  special_op_config_["pd_op.pad3d"] = std::make_unique<Pad3dOpConfig>();
 }
 
 GenericPlugin::GenericPlugin(void const* serial_data, size_t serial_length) {
@@ -412,6 +445,7 @@ void GenericPlugin::serialize(void* buffer) const TRT_NOEXCEPT {
   for (auto input_type_info : inputs_type_info_) {
     paddle::platform::SerializeValue(&buffer,
                                      static_cast<int>(input_type_info.size()));
+    char* start_ptr = reinterpret_cast<char*>(buffer);
     std::memcpy(buffer, input_type_info.c_str(), input_type_info.size());
     reinterpret_cast<char*&>(buffer) += input_type_info.size();
   }
@@ -612,6 +646,7 @@ int GenericPlugin::enqueue(const nvinfer1::PluginTensorDesc* input_desc,
   auto& name2id = op_yaml_info_->InputName2Id();
   auto& vec_kernel_fn_attr_params = op_yaml_info_->AttrParams(true);
   int tensor_attr_count = 0;
+  int input_attr_count = 0;
   for (auto& t : vec_kernel_fn_attr_params) {
     if (name2id.count(t)) {
       // tensor attribute, get information from input
@@ -629,7 +664,12 @@ int GenericPlugin::enqueue(const nvinfer1::PluginTensorDesc* input_desc,
       VLOG(6) << "ctx->EmplaceBack mutable attr: " << t;
       int tensor_index = kernel_input_count + tensor_attr_count - 1;
       if (tensor_attr_type == "paddle::dialect::IntArrayAttribute") {
+        input_attr_count++;
         if (operand_type.isa<paddle::dialect::AllocatedDenseTensorType>()) {
+          phi::Attribute attr =
+              phi::TensorRef(&((*dense_tensor_inputs_)[tensor_index]));
+          phi_kernel_contexts_[data_type]->EmplaceBackAttr(attr);
+        } else if (operand_type.isa<paddle::dialect::DenseTensorType>()) {
           phi::Attribute attr =
               phi::TensorRef(&((*dense_tensor_inputs_)[tensor_index]));
           phi_kernel_contexts_[data_type]->EmplaceBackAttr(attr);
@@ -829,7 +869,9 @@ int GenericPlugin::enqueue(const nvinfer1::PluginTensorDesc* input_desc,
         &((*dense_tensor_outputs_)[i]));
   }
   VLOG(8) << "EmplaceBackBackOutput done";
-  CHECK_EQ(phi_kernel_contexts_[data_type]->InputsSize(), getNbInputs());
+
+  CHECK_EQ(phi_kernel_contexts_[data_type]->InputsSize(),
+           getNbInputs() - input_attr_count);
   CHECK_EQ(phi_kernel_contexts_[data_type]->OutputsSize(), getNbOutputs());
   (*phi_kernels_[data_type])(phi_kernel_contexts_[data_type].get());
 

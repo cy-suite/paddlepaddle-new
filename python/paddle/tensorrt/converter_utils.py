@@ -1117,29 +1117,18 @@ def set_layer_name(layer, second_param):
 
 
 def generic_plugin_converter(network, paddle_op, inputs, attrs=None):
-    # 获取操作名称和属性
     op_name = paddle_op.name()
 
     if attrs is not None:
-        # 过滤掉 'op_callstack'
-        # filtered_attrs = {k: v for k, v in attrs.items() if k != 'op_callstack'}
         attrs_map_info = paddle.base.libpaddle.pir.get_attrs_map_json(attrs)
     else:
         attrs_map_info = paddle.base.libpaddle.pir.get_attrs_map_json(paddle_op)
 
-    # print("过滤后的 attrs:", filtered_attrs)
-
-    # 获取 JSON 格式的属性和输入输出类型信息
-    # attrs_map_info = paddle.base.libpaddle.pir.get_attrs_map_json(filtered_attrs)
     input_type_info = paddle.base.libpaddle.pir.get_inputs_type_json(paddle_op)
     output_type_info = paddle.base.libpaddle.pir.get_outputs_type_json(
         paddle_op
     )
-    print("input_type_info", input_type_info)
-    print("output_type_info", output_type_info)
 
-    # 将字符串转换为 bytes（buffer 类型）
-    # 创建 PluginField 对象
     plugin_fields = [
         trt.PluginField(
             "op_name",
@@ -1163,17 +1152,13 @@ def generic_plugin_converter(network, paddle_op, inputs, attrs=None):
         ),
     ]
 
-    # 创建 PluginFieldCollection
     plugin_field_collection = trt.PluginFieldCollection(plugin_fields)
 
-    # 获取插件
     plugin_name = "pir_generic_plugin"
     plugin_version = "1"
     plugin = get_trt_plugin(
         plugin_name, plugin_field_collection, plugin_version
     )
-    print("plugin", plugin)
 
-    # 添加插件层
     layer = network.add_plugin_v2(inputs, plugin)
     return layer
