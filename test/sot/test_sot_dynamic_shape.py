@@ -39,6 +39,10 @@ def dynamic_int_input_func1(x, n):
     return (x + n) * 2 - 1, (-n + 1) * 2 - 1, type(n) is int
 
 
+def dynamic_shape_with_constraints(x, n):
+    return (x + n) * 2
+
+
 def dynamic_int_input_func2(x, n):
     return x + n[1]
 
@@ -249,6 +253,22 @@ class TestOpcodeExecutorDynamicShapeCache(TestCaseBase):
             self.assertEqual(ctx.translate_count, 3)
             self.assert_results(dynamic_int_input_func1, a, 1)
             self.assertEqual(ctx.translate_count, 4)
+
+    def test_dynamic_shape_with_constraints(self):
+        with allow_dynamic_shape_guard(
+            True
+        ), test_instruction_translator_cache_context() as ctx:
+            self.assert_results(
+                dynamic_shape_with_constraints, paddle.randn([4, 5, 6]), 2
+            )
+            self.assertEqual(ctx.translate_count, 1)
+            for i in range(3, 7):
+                self.assert_results(
+                    dynamic_shape_with_constraints,
+                    paddle.randn([4 + i, 5, 6]),
+                    i,
+                )
+                self.assertEqual(ctx.translate_count, 2)
 
 
 if __name__ == '__main__':

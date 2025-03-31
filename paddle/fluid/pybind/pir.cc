@@ -3307,9 +3307,10 @@ void BindShapeConstraintIRAnalysis(pybind11::module *m) {
         }
 
         // Process constraints
-        std::vector<
-            std::tuple<std::string,
-                       std::tuple<int, std::optional<int>, std::optional<int>>>>
+        std::vector<std::tuple<std::string,
+                               std::tuple<int64_t,
+                                          std::optional<int64_t>,
+                                          std::optional<int64_t>>>>
             raw_constraints;
 
         for (size_t idx = 0; idx < constraints_seq.size(); ++idx) {
@@ -3365,7 +3366,7 @@ void BindShapeConstraintIRAnalysis(pybind11::module *m) {
 
           // Validate and convert elements
           auto convert_optional = [idx](const py::handle &h,
-                                        int pos) -> std::optional<int> {
+                                        int pos) -> std::optional<int64_t> {
             if (h.is_none()) return std::nullopt;
 
             PADDLE_ENFORCE_EQ(
@@ -3375,7 +3376,7 @@ void BindShapeConstraintIRAnalysis(pybind11::module *m) {
                 idx,
                 pos,
                 py::str(h.get_type()).cast<std::string>().c_str());
-            return py::cast<int>(h);
+            return py::cast<int64_t>(h);
           };
 
           // Check dim_idx
@@ -3386,11 +3387,11 @@ void BindShapeConstraintIRAnalysis(pybind11::module *m) {
                   "Constraint[%zu][1][0] (dim_idx) must be int (got %s).",
                   idx,
                   py::str(triplet[0].get_type()).cast<std::string>().c_str()));
-          const int dim_idx = py::cast<int>(triplet[0]);
+          const int64_t dim_idx = py::cast<int64_t>(triplet[0]);
 
           // Convert min/max with position info
-          std::optional<int> min_val = convert_optional(triplet[1], 1);
-          std::optional<int> max_val = convert_optional(triplet[2], 2);
+          std::optional<int64_t> min_val = convert_optional(triplet[1], 1);
+          std::optional<int64_t> max_val = convert_optional(triplet[2], 2);
 
           // Add to constraints
           raw_constraints.emplace_back(

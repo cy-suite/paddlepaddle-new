@@ -22,16 +22,15 @@ namespace dialect {
 namespace ir {
 void SpecifyInputDynamicDim(
     pir::Program* program,
-    const std::vector<pir::InputDynamicDimSpec>& input_dynamic_dim_spec,
-    bool to_append);
+    const std::vector<pir::InputDynamicDimSpec>& input_dynamic_dim_spec);
 void SpecifyInputDynamicDimFromFile(pir::Program* program,
                                     std::string filepath);
 
 void SpecifyInputDynamicDimFromPython(
     pir::Program* program,
-    std::vector<
-        std::tuple<std::string,
-                   std::tuple<int, std::optional<int>, std::optional<int>>>>
+    const std::vector<std::tuple<
+        std::string,
+        std::tuple<int64_t, std::optional<int64_t>, std::optional<int64_t>>>>&
         raw_constraints);
 
 }  // namespace ir

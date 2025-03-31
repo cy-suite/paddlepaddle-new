@@ -925,9 +925,6 @@ class PartialProgramLayer:
                     init_backward_program_shape_analysis(
                         forward_program, backward_program
                     )
-                    paddle.base.libpaddle.pir.bind_symbolic_constraints(
-                        backward_program, self._constraints
-                    )
                     paddle.base.libpaddle.pir.apply_cinn_pass(backward_program)
 
                 else:
