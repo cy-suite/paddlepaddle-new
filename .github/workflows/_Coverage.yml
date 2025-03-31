@@ -295,7 +295,7 @@ jobs:
           -e ON_INFER \
           -e COVERAGE_FILE \
           -e GITHUB_TOKEN \
-          -e GITHUB_API_TOKEN \
+          -e GITHUB_API_TOKEN  \
           -w ${{ github.workspace }} --network host ${docker_image}
 
     # - name: Test
