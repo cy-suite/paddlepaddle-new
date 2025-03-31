@@ -567,5 +567,44 @@ class TestNearestUpsampleOpAPI_RecomputeScaleFactor(unittest.TestCase):
             assert out.shape[4] == expected_out_w
 
 
+class TestInterpRecomputeScaleFactorError(unittest.TestCase):
+    def test_size_and_recompute_scale_factor_error(self):
+        import paddle
+
+        if core.is_compiled_with_cuda():
+            place = core.CUDAPlace(0)
+        else:
+            place = core.CPUPlace()
+
+        with base.dygraph.guard(place):
+            # Create input data
+            input_data = np.random.random((2, 3, 7, 8)).astype("float32")
+            input_x = paddle.to_tensor(input_data)
+
+            def test_invalid_params():
+                out = interpolate(
+                    x=input_x,
+                    size=[14, 16],
+                    scale_factor=2.0,
+                    mode="bilinear",
+                    align_corners=False,
+                    recompute_scale_factor=True,
+                )
+
+            self.assertRaises(ValueError, test_invalid_params)
+
+            def test_invalid_params_upsample():
+                upsample = Upsample(
+                    size=[14, 16],
+                    scale_factor=2.0,
+                    mode="bilinear",
+                    align_corners=False,
+                    recompute_scale_factor=True,
+                )
+                out = upsample(input_x)
+
+            self.assertRaises(ValueError, test_invalid_params_upsample)
+
+
 if __name__ == "__main__":
     unittest.main()
