@@ -24,7 +24,6 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <utility>
-#include "nlohmann/json.hpp"
 #include "paddle/common/enforce.h"
 #include "paddle/common/flags.h"
 #include "paddle/fluid/framework/executor.h"
@@ -73,7 +72,6 @@
 #include "paddle/pir/include/core/builtin_op.h"
 #include "paddle/pir/include/core/ir_mapping.h"
 #include "paddle/pir/include/core/ir_printer.h"
-#include "paddle/pir/include/core/operation.h"
 #include "paddle/pir/include/core/program.h"
 #include "paddle/pir/include/core/type.h"
 #include "paddle/pir/include/core/value.h"
