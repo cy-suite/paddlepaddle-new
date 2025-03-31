@@ -32,6 +32,24 @@ void barrier(int **task_fifo_ptrs, int head, int rank, int num_ranks, cudaStream
 // Internode runtime
 namespace internode {
 
+enum DispatchProbe {
+  // notify_dispatch
+  kNotifyDispatchBefore173 = 0,
+  kNotifyDispatchAfter173,
+  kNotifyDispatchAfter176,
+  kNotifyDispatchAfter219,
+  kNotifyDispatchBefore221,
+  kNotifyDispatchAfter221,
+  kNotifyDispatchBefore224,
+  kNotifyDispatchAfter320,
+  kNotifyDispatchBefore325,
+  kNotifyDispatchAfter325,
+  kNotifyDispatchAfter326,
+  // cached_notify
+  // dispatch
+  kSizeOfDispatchProbe
+};
+
 #ifdef PADDLE_WITH_NVSHMEM
 std::vector<uint8_t> get_unique_id();
 
@@ -107,7 +125,7 @@ void notify_dispatch(const int* num_tokens_per_rank, int* moe_recv_counter_mappe
                      void** buffer_ptrs, int num_max_nvl_chunked_recv_tokens,
                      int** task_fifo_ptrs, int head, int rank,
                      cudaStream_t stream, int64_t num_rdma_bytes, int64_t num_nvl_bytes,
-                     bool low_latency_mode);
+                     bool low_latency_mode, int64_t* profile_timestamp_ptr, int64_t profile_timestamp_size);
 
 void dispatch(void* recv_x, float* recv_x_scales, int64_t* recv_topk_idx, float* recv_topk_weights, void* recv_src_meta,
               const void* x, const float* x_scales, const int64_t* topk_idx, const float* topk_weights,
