@@ -439,7 +439,7 @@ void GenericPlugin::serialize(void* buffer) const TRT_NOEXCEPT {
   for (auto input_type_info : inputs_type_info_) {
     paddle::platform::SerializeValue(&buffer,
                                      static_cast<int>(input_type_info.size()));
-    char* start_ptr = reinterpret_cast<char*>(buffer);
+    // char* start_ptr = reinterpret_cast<char*>(buffer);
     std::memcpy(buffer, input_type_info.c_str(), input_type_info.size());
     reinterpret_cast<char*&>(buffer) += input_type_info.size();
   }
@@ -640,7 +640,6 @@ int GenericPlugin::enqueue(const nvinfer1::PluginTensorDesc* input_desc,
   auto& name2id = op_yaml_info_->InputName2Id();
   auto& vec_kernel_fn_attr_params = op_yaml_info_->AttrParams(true);
   int tensor_attr_count = 0;
-  int input_attr_count = 0;
   for (auto& t : vec_kernel_fn_attr_params) {
     if (name2id.count(t)) {
       // tensor attribute, get information from input
@@ -658,7 +657,6 @@ int GenericPlugin::enqueue(const nvinfer1::PluginTensorDesc* input_desc,
       VLOG(6) << "ctx->EmplaceBack mutable attr: " << t;
       int tensor_index = kernel_input_count + tensor_attr_count - 1;
       if (tensor_attr_type == "paddle::dialect::IntArrayAttribute") {
-        input_attr_count++;
         if (operand_type.isa<paddle::dialect::AllocatedDenseTensorType>()) {
           phi::Attribute attr =
               phi::TensorRef(&((*dense_tensor_inputs_)[tensor_index]));
@@ -865,7 +863,7 @@ int GenericPlugin::enqueue(const nvinfer1::PluginTensorDesc* input_desc,
   VLOG(8) << "EmplaceBackBackOutput done";
 
   CHECK_EQ(phi_kernel_contexts_[data_type]->InputsSize(),
-           getNbInputs() - input_attr_count);
+           getNbInputs() - tensor_attr_count);
   CHECK_EQ(phi_kernel_contexts_[data_type]->OutputsSize(), getNbOutputs());
   (*phi_kernels_[data_type])(phi_kernel_contexts_[data_type].get());
 

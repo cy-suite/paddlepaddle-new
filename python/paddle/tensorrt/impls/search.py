@@ -125,19 +125,18 @@ def argmin_converter(network, paddle_op, inputs):
 
 @converter_registry.register("pd_op.argsort", trt_version="8.x")
 def argsort_converter(network, paddle_op, inputs):
-    use_generic_plugin = paddle_op.attrs().get("use_generic_plugin", False)
-    if use_generic_plugin:
+    input_tensor = inputs[0]
+    input_shape = input_tensor.shape
+    in_type = input_tensor.dtype
+    in_rank = len(input_shape)
+    axis = paddle_op.attrs()["axis"]
+    descending = paddle_op.attrs()["descending"]
+    if input_shape[axis] > 3840:
         layer = generic_plugin_converter(network, paddle_op, inputs)
         out0 = layer.get_output(0)
         out1 = layer.get_output(1)
         return out0, out1
     else:
-        input_tensor = inputs[0]
-        input_shape = input_tensor.shape
-        in_type = input_tensor.dtype
-        in_rank = len(input_shape)
-        axis = paddle_op.attrs()["axis"]
-        descending = paddle_op.attrs()["descending"]
         if axis < 0:
             axis += len(input_shape)
         topk_op = trt.TopKOperation.MAX if descending else trt.TopKOperation.MIN

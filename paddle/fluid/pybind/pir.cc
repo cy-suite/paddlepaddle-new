@@ -1684,18 +1684,13 @@ bool GetValueBoolAttr(Value value, const std::string &attr_name) {
 
 std::string GetAttrsMapJson(pir::Operation *op) {
   if (!op) {
-    throw std::invalid_argument("Operation pointer cannot be nullptr");
+    PADDLE_THROW(common::errors::InvalidArgument(
+        "Operation pointer cannot be nullptr."));
   }
   auto attributes = op->attributes();
   ::pir::ProgramWriter writer(1, false);
   auto attrs_map_info = writer.GetAttributesMapJson(op->attributes()).dump();
   return attrs_map_info;
-}
-
-std::string GetAttrsMapJson(py::dict attrs) {
-  pir::AttributeMap attrs_map = ConvertAttrsToAttributeMap(attrs);
-  ::pir::ProgramWriter writer(1, false);
-  return writer.GetAttributesMapJson(attrs_map).dump();
 }
 
 pir::AttributeMap ConvertAttrsToAttributeMap(py::dict attrs) {
@@ -1745,6 +1740,12 @@ pir::AttributeMap ConvertAttrsToAttributeMap(py::dict attrs) {
     }
   }
   return attrs_map;
+}
+
+std::string GetAttrsMapJson(py::dict attrs) {
+  pir::AttributeMap attrs_map = ConvertAttrsToAttributeMap(attrs);
+  ::pir::ProgramWriter writer(1, false);
+  return writer.GetAttributesMapJson(attrs_map).dump();
 }
 
 std::string GetTypeJson(pir::Operation *op, bool is_input) {

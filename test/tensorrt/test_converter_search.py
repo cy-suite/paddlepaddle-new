@@ -220,8 +220,10 @@ class TestArgsortCase4TRTPattern(TensorRTBaseTest):
         self.max_shape = {"x": [3, 4000]}
 
     def test_trt_result(self):
-        # test axis attr
         self.check_trt_result()
+
+    def test_trt_result_fp16(self):
+        self.check_trt_result(precision_mode="fp16")
 
 
 class TestWhereTRTPatternCase2(TensorRTBaseTest):

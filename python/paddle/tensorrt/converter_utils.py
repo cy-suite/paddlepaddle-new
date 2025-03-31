@@ -1116,11 +1116,13 @@ def set_layer_name(layer, second_param):
             layer.name = formatted_name
 
 
-def generic_plugin_converter(network, paddle_op, inputs, attrs=None):
+def generic_plugin_converter(network, paddle_op, inputs, extra_attrs=None):
     op_name = paddle_op.name()
 
-    if attrs is not None:
-        attrs_map_info = paddle.base.libpaddle.pir.get_attrs_map_json(attrs)
+    if extra_attrs is not None:
+        attrs_map_info = paddle.base.libpaddle.pir.get_attrs_map_json(
+            extra_attrs
+        )
     else:
         attrs_map_info = paddle.base.libpaddle.pir.get_attrs_map_json(paddle_op)
 
