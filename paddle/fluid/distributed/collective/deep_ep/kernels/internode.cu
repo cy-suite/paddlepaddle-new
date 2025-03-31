@@ -25,6 +25,7 @@
 #include <device_host_transport/nvshmem_common_ibgda.h>
 // clang-format on
 
+#include "paddle/fluid/distributed/collective/deep_ep/kernels/api.cuh"
 #include "paddle/fluid/distributed/collective/deep_ep/kernels/buffer.cuh"
 #include "paddle/fluid/distributed/collective/deep_ep/kernels/configs.cuh"
 #include "paddle/fluid/distributed/collective/deep_ep/kernels/exception.cuh"
@@ -152,7 +153,9 @@ __global__ void notify_dispatch(const int* num_tokens_per_rank,
                                 int** task_fifo_ptrs,
                                 int head,
                                 int rank,
-                                const nvshmem_team_t rdma_team) {
+                                const nvshmem_team_t rdma_team,
+                                int64_t* profile_timestamp_ptr,
+                                int64_t profile_timestamp_size) {
   auto sm_id = static_cast<int>(blockIdx.x);
   auto thread_id = static_cast<int>(threadIdx.x), warp_id = thread_id / 32,
        lane_id = get_lane_id();
@@ -169,11 +172,17 @@ __global__ void notify_dispatch(const int* num_tokens_per_rank,
     // internode sync
     EP_DEVICE_ASSERT(num_warps > 1);
     EP_DEVICE_ASSERT(kNumRDMARanks <= num_threads);
-    if (thread_id == 32)
+    if (thread_id == 32) {
+      profile_timestamp_ptr[kNotifyDispatchBefore173] = clock64();
       nvshmem_barrier_with_same_gpu_idx<kLowLatencyMode>(rdma_team);
+      profile_timestamp_ptr[kNotifyDispatchAfter173] = clock64();
+    }
     barrier_device<NUM_MAX_NVL_PEERS>(task_fifo_ptrs, head, nvl_rank);
     move_fifo_slots<NUM_MAX_NVL_PEERS>(head);
     __syncthreads();
+    if (thread_id == 32) {
+      profile_timestamp_ptr[kNotifyDispatchAfter176] = clock64();
+    }
 
     // Send numbers of tokens per rank/expert to RDMA ranks
     auto rdma_buffer_ptr_int = reinterpret_cast<int*>(rdma_buffer_ptr);
@@ -217,10 +226,19 @@ __global__ void notify_dispatch(const int* num_tokens_per_rank,
           translate_dst_rdma_rank<kLowLatencyMode>(thread_id, nvl_rank));
     }
     __syncthreads();
-    if (thread_id == 0)
+    if (thread_id == 32) {
+      profile_timestamp_ptr[kNotifyDispatchAfter219] = clock64();
+    }
+    if (thread_id == 0) {
+      profile_timestamp_ptr[kNotifyDispatchBefore221] = clock64();
       nvshmem_barrier_with_same_gpu_idx<kLowLatencyMode>(rdma_team);
+      profile_timestamp_ptr[kNotifyDispatchAfter221] = clock64();
+    }
     __syncthreads();
 
+    if (thread_id == 32) {
+      profile_timestamp_ptr[kNotifyDispatchBefore224] = clock64();
+    }
     // NVL buffers
     auto nvl_send_buffer =
         thread_id < NUM_MAX_NVL_PEERS ? buffer_ptrs[thread_id] : nullptr;
@@ -318,12 +336,21 @@ __global__ void notify_dispatch(const int* num_tokens_per_rank,
       }
       moe_recv_expert_counter_mapped[thread_id] = sum;
     }
+    if (thread_id == 32) {
+      profile_timestamp_ptr[kNotifyDispatchAfter320] = clock64();
+    }
 
     // Finally barrier
     __syncthreads();
-    if (thread_id == 32)
+    if (thread_id == 32) {
+      profile_timestamp_ptr[kNotifyDispatchBefore325] = clock64();
       nvshmem_barrier_with_same_gpu_idx<kLowLatencyMode>(rdma_team);
+      profile_timestamp_ptr[kNotifyDispatchAfter325] = clock64();
+    }
     barrier_device<NUM_MAX_NVL_PEERS>(task_fifo_ptrs, head, nvl_rank);
+    if (thread_id == 32) {
+      profile_timestamp_ptr[kNotifyDispatchAfter326] = clock64();
+    }
     move_fifo_slots<NUM_MAX_NVL_PEERS>(head);
   } else {
     // Calculate meta data
@@ -417,7 +444,9 @@ void notify_dispatch(const int* num_tokens_per_rank,
                      cudaStream_t stream,
                      int64_t num_rdma_bytes,
                      int64_t num_nvl_bytes,
-                     bool low_latency_mode) {
+                     bool low_latency_mode,
+                     int64_t* profile_timestamp_ptr,
+                     int64_t profile_timestamp_size) {
 #define NOTIFY_DISPATCH_LAUNCH_CASE(num_rdma_ranks)                           \
   {                                                                           \
     auto notify_dispatch_func = low_latency_mode                              \
@@ -450,7 +479,9 @@ void notify_dispatch(const int* num_tokens_per_rank,
                   task_fifo_ptrs,                                             \
                   head,                                                       \
                   rank,                                                       \
-                  cpu_rdma_team);                                             \
+                  cpu_rdma_team,                                              \
+                  profile_timestamp_ptr,                                      \
+                  profile_timestamp_size);                                    \
   }                                                                           \
   break
 
