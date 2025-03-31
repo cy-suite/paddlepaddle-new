@@ -1480,7 +1480,7 @@ class PlaceVariable(ObjectVariable):
                 "default argument for getattr is not implemented"
             )
         if name not in ["get_device_id"]:
-            super().getattr(name, default)
+            return super().getattr(name, default)
         if name == "get_device_id":
             from .callable import BuiltinVariable
 
