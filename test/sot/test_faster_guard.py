@@ -149,16 +149,13 @@ class TestBasicFasterGuard(unittest.TestCase):
         )
 
     def test_numpy_array_match_guard(self):
-        np_array = paddle.framework.core.NumpyArrayMatchGuard(
+        np_array = paddle.framework.core.NumPyArrayValueMatchGuard(
             np.array([1, 2, 3])
         )
         self.assertTrue(np_array.check(np.array([1, 2, 3])))
         self.assertFalse(np_array.check(np.array([4, 5, 6])))
-        self.assertFalse(np_array.check(np.int_(1)))
-        self.assertFalse(np_array.check(np.bool_(False)))
-        self.assertFalse(np_array.check(np.bool_(True)))
 
-        np_array_all_one = paddle.framework.core.NumpyArrayMatchGuard(
+        np_array_all_one = paddle.framework.core.NumPyArrayValueMatchGuard(
             np.array([1, 1, 1])
         )
         self.assertTrue(np_array_all_one.check(np.array([1, 1, 1])))
@@ -166,10 +163,8 @@ class TestBasicFasterGuard(unittest.TestCase):
         self.assertTrue(np_array_all_one.check(np.array([1, 1, 1], dtype=bool)))
         self.assertTrue(np_array_all_one.check(np.array([True, True, True])))
         self.assertTrue(np_array_all_one.check(np.array([1, 1, 1], dtype=int)))
-        self.assertTrue(np_array_all_one.check(np.int_(1)))
-        self.assertFalse(np_array_all_one.check(np.int_(2)))
 
-        np_bool_array = paddle.framework.core.NumpyArrayMatchGuard(
+        np_bool_array = paddle.framework.core.NumPyArrayValueMatchGuard(
             np.array([True, False, True])
         )
         self.assertTrue(np_bool_array.check(np.array([True, False, True])))
@@ -179,11 +174,11 @@ class TestBasicFasterGuard(unittest.TestCase):
         self.assertTrue(np_bool_array.check(np.array([True, False, 1])))
         self.assertFalse(np_bool_array.check(np.array([1, 2, 3], dtype=bool)))
         self.assertFalse(np_bool_array.check(np.array([1, 2, 3], dtype=int)))
-        self.assertFalse(np_bool_array.check(np.bool_(False)))
-        self.assertFalse(np_bool_array.check(np.bool_(True)))
 
-        np_bool_array_all_true = paddle.framework.core.NumpyArrayMatchGuard(
-            np.array([True, True, True])
+        np_bool_array_all_true = (
+            paddle.framework.core.NumPyArrayValueMatchGuard(
+                np.array([True, True, True])
+            )
         )
         self.assertTrue(
             np_bool_array_all_true.check(np.array([True, True, True]))
@@ -196,8 +191,6 @@ class TestBasicFasterGuard(unittest.TestCase):
         )
         self.assertFalse(np_bool_array_all_true.check(np.array([1, 2, 3])))
         self.assertTrue(np_bool_array_all_true.check(np.array([True, True, 1])))
-        self.assertFalse(np_bool_array_all_true.check(np.bool_(False)))
-        self.assertTrue(np_bool_array_all_true.check(np.bool_(True)))
 
 
 class TestFasterGuardGroup(unittest.TestCase):

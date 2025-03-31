@@ -218,9 +218,10 @@ class NumpyDtypeMatchGuard : public GuardBase {
   PyObject* expected_;
 };
 
-class NumpyArrayMatchGuard : public GuardBase {
+class NumPyArrayValueMatchGuard : public GuardBase {
  public:
-  explicit NumpyArrayMatchGuard(const py::array& array) : expected_(array) {}
+  explicit NumPyArrayValueMatchGuard(const py::array& array)
+      : expected_(array) {}
 
   bool check(PyObject* value) override;
 
