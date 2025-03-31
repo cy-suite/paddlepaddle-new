@@ -30,6 +30,7 @@ COMM_OP_TYPE = [
     "broadcast",
     "all_gather",
     "all_reduce",
+    "c_allreduce_sum",
     "c_identity",
 ]
 NON_COMP_TYPE = ["while", *COMM_OP_TYPE]
@@ -793,27 +794,17 @@ class CommOpCost(OpCost):
                 vars = self.op.block.vars
                 # NOTE: The tensor communicated input_name is "X" in default. Otherwise, this function should be overridden
                 try:
-                    if self.op.type != "all_reduce":
-                        var_name = self.op.input("X")[0]
-                    else:
-                        var_name = self.op.input("x")[0]
+                    var_name = self.op.input("X")[0]
                 except:
-                    if self.op.type != "all_reduce":
-                        var_name = self.op.output("Out")[0]
-                    else:
-                        var_name = self.op.output("out")[0]
+                    var_name = self.op.output("Out")[0]
                 var = get_var_with_recursion(
                     var_name, self.op.block, self.op.block.program
                 )
                 dtype = var.dtype
                 shape = var.shape
             elif self.op_desc is not None:
-                if "op" in self.op_desc and self.op_desc["op"] == "all_reduce":
-                    dtype = self.op_desc["inputs"]["x"][0][0]
-                    shape = self.op_desc["inputs"]["x"][0][1]
-                else:
-                    dtype = self.op_desc["inputs"]["X"][0][0]
-                    shape = self.op_desc["inputs"]["X"][0][1]
+                dtype = self.op_desc["inputs"]["X"][0][0]
+                shape = self.op_desc["inputs"]["X"][0][1]
 
             factor = None
             if dtype == paddle.float32 or dtype == paddle.int32:
