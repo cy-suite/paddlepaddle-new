@@ -147,9 +147,6 @@ class ArgsortOpConfig : public SpecialOpConfig {
                                  bool is_fp16_supported) override {
     // input x
     if (pos == 0) {
-      bool type_ok = (in_out[pos].type == nvinfer1::DataType::kFLOAT ||
-                      (is_fp16_supported &&
-                       in_out[pos].type == nvinfer1::DataType::kHALF));
       return ((in_out[pos].type == nvinfer1::DataType::kFLOAT ||
                (is_fp16_supported &&
                 in_out[pos].type == nvinfer1::DataType::kHALF)) &&
