@@ -96,6 +96,14 @@ class TileBroadcastTactic final : public ScheduleTactic {
   std::vector<std::string> TileNHWC(ir::IRSchedule* sch,
                                     const std::string& block_id,
                                     int block_size);
+  std::vector<std::string> TileVectorizeNCHW(ir::IRSchedule* sch,
+                                             const std::string& block_id,
+                                             int block_size,
+                                             int vetorize_factor);
+  std::vector<std::string> TileVectorizeNHWC(ir::IRSchedule* sch,
+                                             const std::string& block_id,
+                                             int block_size,
+                                             int vetorize_factor);
 
  private:
   ScheduleContext* context_;
@@ -507,6 +515,89 @@ std::vector<std::string> TileBroadcastTactic::TileNHWC(
   }
 }
 
+std::vector<std::string> TileBroadcastTactic::TileVectorizeNCHW(
+    ir::IRSchedule* sch,
+    const std::string& block_id,
+    int block_size,
+    int vectorize_factor) {
+  /**
+   * 1. For small size:
+   *        [B, P, B<=256]
+   *     => [(blockY, loop), blockX, threadX].
+   * 2. For medium size:
+   *        [B, P, 256<B<=2048],
+   *     => [blockY, blockX, (loop, threadX)].
+   * 3. For large size:
+   *        [B, P, B>2048]
+   *     => [blockX', blockY, (blockX, loop, threadX)].
+   */
+  VLOG(4) << "TileBroadcastTactic using original NCHW layout\n";
+  if (low_broadcast_size_ <= 256) {
+    sch->Split(block_id, 0, {-1, 4});
+    sch->Split(block_id, 2, {-1, vectorize_factor});
+    return {"blockIdx.y", "", "blockIdx.x", "threadIdx.x", ""};
+  } else if (low_broadcast_size_ <= 2048) {
+    sch->Split(block_id, 2, {-1, block_size, vectorize_factor});
+    return {"blockIdx.y", "blockIdx.x", "", "threadIdx.x", ""};
+  } else {
+    sch->Reorder(block_id, {1, 0});
+    sch->Fuse(block_id, {1, 2});
+    sch->Split(block_id, 1, {-1, block_size, vectorize_factor});
+    return {"blockIdx.y", "blockIdx.x", "threadIdx.x", ""};
+  }
+}
+
+std::vector<std::string> TileBroadcastTactic::TileVectorizeNHWC(
+    ir::IRSchedule* sch,
+    const std::string& block_id,
+    int block_size,
+    int vectorize_factor) {
+  // NHWC layout will have 2 fused loops, so we start with (blockIdx.x,
+  // threadIdx.x)
+  VLOG(4) << "TileBroadcastTactic using NHWC layout, block size: "
+          << block_size;
+  if (broadcast_size_ <= 64) {
+    /**
+     * if the broadcast size is smaller than 64
+     * this means we need more blocks to increase the occupancy
+     * so no thread coarsening anyway
+     */
+    sch->Split(block_id, 1, {-1, block_size, vectorize_factor});
+    sch->Fuse(block_id, {0, 1});
+    return {"blockIdx.x", "threadIdx.x", ""};
+  } else {
+    if (preserved_size_ == block_size) {
+      // block size is enough to cover
+      sch->Split(block_id, 1, {-1, block_size, vectorize_factor});
+      sch->Fuse(block_id, {0, 1});
+      return {"blockIdx.x", "threadIdx.x", ""};
+    } else if (preserved_size_ < block_size) {
+      // block size is larger (deliberately, to have enough threads)
+      // than preserved size
+      sch->Fuse(block_id, {0, 1});  // single fused loop
+      sch->Split(block_id,
+                 0,
+                 {-1,
+                  block_size / preserved_size_,
+                  preserved_size_,
+                  vectorize_factor});
+      return {"blockIdx.x", "threadIdx.y", "threadIdx.x", ""};
+    } else {
+      /**
+       * block size is not enough to cover the preserved size
+       * make the load index invariant to inner loop
+       * (-1, p_size / block_size, block_size, vectorize_factor)
+       */
+      sch->Fuse(block_id, {0, 1});  // single fused loop
+      sch->Split(
+          block_id,
+          0,
+          {-1, preserved_size_ / block_size, block_size, vectorize_factor});
+      return {"blockIdx.x", "threadIdx.x", "blockIdx.y", ""};
+    }
+  }
+}
+
 void TileBroadcastTactic::Apply(ir::IRSchedule* sch,
                                 const std::string& block_id) {
   if (ScheduleBlockEnableVectorize(context_->config, block_id)) {
@@ -598,6 +689,17 @@ void TileBroadcastTactic::ApplyVectorize(ir::IRSchedule* sch,
   const auto vectorize_factor =
       static_cast<int>(context_->config.tile_config.vectorize_factor);
 
+  int block_size = 256;
+  // check the number of warps here, if not a applicable
+  // preserved_size, func will return later
+  if (applied_layout_ == BroadcastLayout::NHWCLayout) {
+    block_size = CalcNumWarps(preserved_size_ >> 5);
+    if (block_size == -1) {
+      applied_layout_ = BroadcastLayout::Invalid;
+    }
+    block_size = std::clamp(block_size << 5, 128, 1024);
+  }
+
   FuseAxisGroups(sch, block_id);
 
   const auto ApplyVectorization = [&](const std::string& block_id, int factor) {
@@ -606,29 +708,13 @@ void TileBroadcastTactic::ApplyVectorize(ir::IRSchedule* sch,
     sch->Vectorize(loops[vectorize_axis], factor);
   };
 
-  // Do tiling with vectorize.
-  // 1. For small size:
-  //        [B, P, B<=256]
-  //     => [(blockY, loop), blockX, threadX, vectorize].
-  // 2. For medium size:
-  //        [B, P, 256<B<=2048],
-  //     => [blockY, blockX, (loop, threadX, vectorize)].
-  // 3. For large size:
-  //        [B, P, B>2048]
-  //     => [blockX', blockY, (blockX, loop, threadX, vectorize)].
   std::vector<std::string> axis_bind;
-  if (low_broadcast_size_ <= 256) {
-    sch->Split(block_id, 0, {-1, 4});
-    sch->Split(block_id, 3, {-1, vectorize_factor});
-    axis_bind = {"blockIdx.y", "", "blockIdx.x", "threadIdx.x", ""};
-  } else if (low_broadcast_size_ <= 2048) {
-    sch->Split(block_id, 2, {-1, 256, vectorize_factor});
-    axis_bind = {"blockIdx.y", "blockIdx.x", "", "threadIdx.x", ""};
+  if (applied_layout_ == BroadcastLayout::NCHWLayout) {
+    // [B, P, B] (for NCHW layout)
+    axis_bind = TileVectorizeNCHW(sch, block_id, block_size, vectorize_factor);
   } else {
-    sch->Reorder(block_id, {1, 0});
-    sch->Fuse(block_id, {1, 2});
-    sch->Split(block_id, 1, {-1, 256, vectorize_factor});
-    axis_bind = {"blockIdx.y", "blockIdx.x", "threadIdx.x", ""};
+    // [B, P] (for NHWC layout)
+    axis_bind = TileVectorizeNHWC(sch, block_id, block_size, vectorize_factor);
   }
 
   // set vectorize schedule primitives
