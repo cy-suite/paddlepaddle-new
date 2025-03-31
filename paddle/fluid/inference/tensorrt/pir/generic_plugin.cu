@@ -150,9 +150,6 @@ class ArgsortOpConfig : public SpecialOpConfig {
       bool type_ok = (in_out[pos].type == nvinfer1::DataType::kFLOAT ||
                       (is_fp16_supported &&
                        in_out[pos].type == nvinfer1::DataType::kHALF));
-      LOG(INFO) << "Input type: " << static_cast<int>(in_out[pos].type)
-                << ", format: " << static_cast<int>(in_out[pos].format)
-                << ", type_ok: " << type_ok;
       return ((in_out[pos].type == nvinfer1::DataType::kFLOAT ||
                (is_fp16_supported &&
                 in_out[pos].type == nvinfer1::DataType::kHALF)) &&

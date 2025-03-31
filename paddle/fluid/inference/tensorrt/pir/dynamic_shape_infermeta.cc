@@ -17,8 +17,6 @@
 #include "paddle/phi/core/enforce.h"
 #include "paddle/pir/include/core/builtin_attribute.h"
 
-#include "glog/logging.h"
-
 namespace paddle::inference::tensorrt::pir {
 
 nvinfer1::DimsExprs UnchangedInferMeta(
