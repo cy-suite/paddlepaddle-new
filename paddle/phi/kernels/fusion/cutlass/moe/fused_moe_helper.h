@@ -16,7 +16,8 @@ limitations under the License. */
 #pragma once
 #include "paddle/phi/kernels/cast_kernel.h"
 #include "paddle/phi/kernels/fusion/cutlass/cutlass_kernels/moe_gemm/fused_moe_gemm_kernels.h"
-#include "paddle/phi/kernels/fusion/cutlass/moe/fused_moe_op.h"
+#include "paddle/phi/kernels/fusion/cutlass/moe/moe_dispatch.h"
+#include "paddle/phi/kernels/fusion/cutlass/moe/moe_reduce.h"
 #include "paddle/phi/kernels/fusion/gpu/fused_multi_transformer_helper.cu.h"
 
 namespace phi {

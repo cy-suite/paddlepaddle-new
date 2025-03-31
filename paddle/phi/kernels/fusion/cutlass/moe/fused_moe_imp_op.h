@@ -17,7 +17,13 @@
 
 #pragma once
 #include <string>
+
+#ifndef PADDLE_WITH_HIP
 #include "cub/cub.cuh"
+#else
+#include <hipcub/hipcub.hpp>
+namespace cub = hipcub;
+#endif
 
 namespace phi {
 
@@ -79,7 +85,7 @@ class CubKeyValueSorter {
            int* values_out,
            const size_t num_key_value_pairs,
            bool descending,
-           cudaStream_t stream) {
+           gpuStream_t stream) {
     size_t expected_ws_size = getWorkspaceSize(num_key_value_pairs);
     size_t actual_ws_size = workspace_size;
 
@@ -123,4 +129,20 @@ class CubKeyValueSorter {
   int num_bits_;
 };
 
+inline backends::gpu::GpuLaunchConfig Get1DBlocksAnd2DGridsMoe(
+    const int64_t cols) {
+  int blocks_x = cols;
+  int blocks_y = 1;
+  int blocks_z = 1;
+  if (blocks_x > 1024) {
+    blocks_y = 256;
+    blocks_x = (blocks_x + blocks_y - 1) / blocks_y;
+  }
+
+  backends::gpu::GpuLaunchConfig config;
+  config.block_per_grid.x = blocks_x;
+  config.block_per_grid.y = blocks_y;
+  config.block_per_grid.z = blocks_z;
+  return config;
+}
 }  // namespace phi

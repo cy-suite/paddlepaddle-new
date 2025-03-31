@@ -18,56 +18,22 @@
 #pragma once
 #ifndef _FUSED_MOE_OP_H_
 #define _FUSED_MOE_OP_H_
-
+#ifndef PADDLE_WITH_HIP
 #include <cuda.h>
 #include <cuda_fp16.h>
-#include "paddle/phi/backends/gpu/gpu_context.h"
-#include "paddle/phi/common/bfloat16.h"
-#include "paddle/phi/core/dense_tensor.h"
-#include "paddle/phi/core/kernel_registry.h"
-#include "paddle/phi/kernels/funcs/elementwise_base.h"
+#else
+#include <hip/hip_fp16.h>
+#endif
+#include "paddle/phi/backends/gpu/gpu_launch_config.h"
 #include "paddle/phi/kernels/fusion/cutlass/moe/fused_moe_imp_op.h"
-#include "paddle/phi/kernels/impl/llm_int8_matmul_kernel_impl.h"
-#include "paddle/phi/kernels/reduce_sum_kernel.h"
 
-#include "cutlass/array.h"
-#include "cutlass/epilogue/thread/linear_combination.h"
-#include "cutlass/epilogue/thread/linear_combination_relu.h"
-#include "cutlass/gemm/device/gemm_grouped.h"
-#include "cutlass/gemm/gemm.h"
-#include "cutlass/gemm/kernel/default_gemm_grouped.h"
-#include "paddle/phi/kernels/fusion/cutlass/cutlass_kernels/moe_gemm/fused_moe_gemm_kernels.h"
-
-#include "cutlass/numeric_conversion.h"
 #include "paddle/phi/common/datatype_traits.h"
 #include "paddle/phi/core/platform/device/gpu/gpu_launch_config.h"
 #include "paddle/phi/kernels/funcs/math_cuda_utils.h"
-#include "paddle/phi/kernels/fusion/cutlass/moe/fused_moe_helper.h"
-// Ignore CUTLASS warnings about type punning
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wstrict-aliasing"
-#pragma GCC diagnostic ignored "-Wunused-function"
-
-#include "paddle/phi/backends/gpu/gpu_info.h"
-#pragma GCC diagnostic pop
 
 namespace phi {
 
-inline GpuLaunchConfig Get1DBlocksAnd2DGridsMoe(const int64_t cols) {
-  int blocks_x = cols;
-  int blocks_y = 1;
-  int blocks_z = 1;
-  if (blocks_x > 1024) {
-    blocks_y = 256;
-    blocks_x = (blocks_x + blocks_y - 1) / blocks_y;
-  }
-
-  GpuLaunchConfig config;
-  config.block_per_grid.x = blocks_x;
-  config.block_per_grid.y = blocks_y;
-  config.block_per_grid.z = blocks_z;
-  return config;
-}
+#if 1
 
 // ====================== Softmax things ===============================
 // We have our own implementation of softmax here so we can support transposing
@@ -151,7 +117,8 @@ __launch_bounds__(TPB) __global__
     output[idx] = output[idx] * static_cast<T>(max_out);
   }
 }
-
+#endif
+#if 1
 template <typename T, int TPB>
 __launch_bounds__(TPB) __global__ void moe_top_k(const T* inputs_after_softmax,
                                                  const bool* finished,
@@ -210,7 +177,8 @@ __launch_bounds__(TPB) __global__ void moe_top_k(const T* inputs_after_softmax,
     __syncthreads();
   }
 }
-
+#endif
+#if 1
 template <typename T, int TPB>
 __launch_bounds__(TPB) __global__ void moe_softmax(const T* input,
                                                    const bool* finished,
@@ -269,7 +237,8 @@ __launch_bounds__(TPB) __global__ void moe_softmax(const T* input,
     output[idx] = T(val);
   }
 }
-
+#endif
+#if 1
 template <typename T, int TPB>
 __launch_bounds__(TPB) __global__ void moe_top_k(const T* inputs_after_softmax,
                                                  const bool* finished,
@@ -326,7 +295,8 @@ __launch_bounds__(TPB) __global__ void moe_top_k(const T* inputs_after_softmax,
     __syncthreads();
   }
 }
-
+#endif
+#if 1
 // ====================== TopK softmax things ===============================
 
 /*
@@ -420,7 +390,7 @@ __launch_bounds__(WARPS_PER_CTA* WARP_SIZE) __global__
   const int thread_group_idx = threadIdx.x % THREADS_PER_ROW;
   const int first_elt_read_by_thread = thread_group_idx * ELTS_PER_LDG;
   const T* thread_read_ptr = thread_row_ptr + first_elt_read_by_thread;
-
+#ifndef PADDLE_WITH_HIP
   // Determine the pointer type to use to read in the data depending on the
   // BYTES_PER_LDG template param. In theory, this can support all powers of 2
   // up to 16.
@@ -442,7 +412,35 @@ __launch_bounds__(WARPS_PER_CTA* WARP_SIZE) __global__
   Converter compute_type_converter;
   cutlass::Array<ComputeType, VPT> row_chunk =
       compute_type_converter(row_chunk_input);
+#else
+  //   // 创建缓存修饰的输入迭代器
+  using CacheLoadIterator = cub::CacheModifiedInputIterator<cub::LOAD_CS, T>;
+  CacheLoadIterator cache_itr(const_cast<T*>(thread_read_ptr));
 
+  // 创建数组用于存储数据
+  T row_chunk_input[VPT];
+
+// 从全局内存加载数据
+#pragma unroll
+  for (int ii = 0; ii < LDG_PER_THREAD; ++ii) {
+#pragma unroll
+    for (int jj = 0; jj < ELTS_PER_LDG; ++jj) {
+      int idx = ii * ELTS_PER_LDG + jj;
+      int src_idx = ii * THREADS_PER_ROW * ELTS_PER_LDG + jj;
+      row_chunk_input[idx] = cache_itr[src_idx];
+    }
+  }
+  // 定义计算类型
+  using ComputeType = float;
+  ComputeType row_chunk[VPT];
+
+// 执行类型转换
+#pragma unroll
+  for (int i = 0; i < VPT; ++i) {
+    row_chunk[i] = static_cast<ComputeType>(row_chunk_input[i]);
+  }
+
+#endif
   // First, we perform a max reduce within the thread. We can do the max in fp16
   // safely (I think) and just convert to float afterwards for the exp + sum
   // reduction.
@@ -457,8 +455,12 @@ __launch_bounds__(WARPS_PER_CTA* WARP_SIZE) __global__
 #pragma unroll
   for (int mask = THREADS_PER_ROW / 2; mask > 0; mask /= 2) {
     thread_max =
+#ifdef PADDLE_WITH_HIP
+        max(thread_max, __shfl_xor(thread_max, mask, THREADS_PER_ROW));
+#else
         max(thread_max,
             __shfl_xor_sync(0xFFFFFFFF, thread_max, mask, THREADS_PER_ROW));
+#endif
   }
 
   // From this point, thread max in all the threads have the max within the row.
@@ -475,7 +477,12 @@ __launch_bounds__(WARPS_PER_CTA* WARP_SIZE) __global__
 // reduce, we use a bufferfly pattern.
 #pragma unroll
   for (int mask = THREADS_PER_ROW / 2; mask > 0; mask /= 2) {
+#ifdef PADDLE_WITH_HIP
+    row_sum += __shfl_xor(row_sum, mask, THREADS_PER_ROW);
+#else
+
     row_sum += __shfl_xor_sync(0xFFFFFFFF, row_sum, mask, THREADS_PER_ROW);
+#endif
   }
 
   // From this point, all threads have the max and the sum for their rows in the
@@ -508,8 +515,8 @@ __launch_bounds__(WARPS_PER_CTA* WARP_SIZE) __global__
       for (int ii = 0; ii < ELTS_PER_LDG; ++ii) {
         float val = row_chunk[ldg * ELTS_PER_LDG + ii];
 
-        // No check on the experts here since columns with the smallest index
-        // are processed first and only updated if > (not >=)
+        // No check on the experts here since columns with the smallest
+        // index are processed first and only updated if > (not >=)
         if (val > max_val) {
           max_val = val;
           expert = col + ii;
@@ -523,13 +530,17 @@ __launch_bounds__(WARPS_PER_CTA* WARP_SIZE) __global__
 // their max with -inf and the warp can run more iterations...
 #pragma unroll
     for (int mask = THREADS_PER_ROW / 2; mask > 0; mask /= 2) {
+#ifdef PADDLE_WITH_HIP
+      float other_max = __shfl_xor(max_val, mask, THREADS_PER_ROW);
+      int other_expert = __shfl_xor(expert, mask, THREADS_PER_ROW);
+#else
       float other_max =
           __shfl_xor_sync(0xFFFFFFFF, max_val, mask, THREADS_PER_ROW);
       int other_expert =
           __shfl_xor_sync(0xFFFFFFFF, expert, mask, THREADS_PER_ROW);
-
-      // We want lower indices to "win" in every thread so we break ties this
-      // way
+#endif
+      // We want lower indices to "win" in every thread so we break ties
+      // this way
       if (other_max > max_val ||
           (other_max == max_val && other_expert < expert)) {
         max_val = other_max;
@@ -539,35 +550,36 @@ __launch_bounds__(WARPS_PER_CTA* WARP_SIZE) __global__
 
     // Write the max for this k iteration to global memory.
     if (thread_group_idx == 0) {
-      // The lead thread from each sub-group will write out the final results to
-      // global memory. (This will be a single) thread per row of the
-      // input/output matrices.
+      // The lead thread from each sub-group will write out the final
+      // results to global memory. (This will be a single) thread per
+      // row of the input/output matrices.
       const int idx = k * thread_row + k_idx;
       output[idx] = T(max_val);
       indices[idx] = should_process_row ? expert : NUM_EXPERTS;
       source_rows[idx] = k_idx * num_rows + thread_row;
     }
 
-    // Finally, we clear the value in the thread with the current max if there
-    // is another iteration to run.
+    // Finally, we clear the value in the thread with the current max if
+    // there is another iteration to run.
     if (k_idx + 1 < k) {
       const int ldg_group_for_expert = expert / COLS_PER_GROUP_LDG;
       const int thread_to_clear_in_group =
           (expert / ELTS_PER_LDG) % THREADS_PER_ROW;
 
-      // Only the thread in the group which produced the max will reset the
-      // "winning" value to -inf.
+      // Only the thread in the group which produced the max will reset
+      // the "winning" value to -inf.
       if (thread_group_idx == thread_to_clear_in_group) {
         const int offset_for_expert = expert % ELTS_PER_LDG;
-        // Safe to set to any negative value since row_chunk values must be
-        // between 0 and 1.
+        // Safe to set to any negative value since row_chunk values must
+        // be between 0 and 1.
         row_chunk[ldg_group_for_expert * ELTS_PER_LDG + offset_for_expert] =
             ComputeType(-10000.f);
       }
     }
   }
 }
-
+#endif
+#if 1
 namespace detail {
 // Constructs some constants needed to partition the work across threads at
 // compile time.
@@ -584,7 +596,8 @@ struct TopkConstants {
   static constexpr int ROWS_PER_WARP = WARP_SIZE / THREADS_PER_ROW;
 };
 }  // namespace detail
-
+#endif
+#if 1
 template <typename T, int EXPERTS, int WARPS_PER_TB>
 void topk_gating_softmax_launcher_helper(const T* input,
                                          const bool* finished,
@@ -594,7 +607,7 @@ void topk_gating_softmax_launcher_helper(const T* input,
                                          const int64_t num_rows,
                                          const int64_t num_experts,
                                          const int64_t k,
-                                         cudaStream_t stream) {
+                                         gpuStream_t stream) {
   static constexpr uint64_t MAX_BYTES_PER_LDG = 16;
   static constexpr int BYTES_PER_LDG =
       std::min(MAX_BYTES_PER_LDG, sizeof(T) * EXPERTS);
@@ -609,7 +622,8 @@ void topk_gating_softmax_launcher_helper(const T* input,
       <<<num_blocks, block_dim, 0, stream>>>(
           input, finished, output, num_rows, indices, source_row, k);
 }
-
+#endif
+#if 1
 template <typename T>
 void topk_gating_softmax_kernelLauncher(const T* input,
                                         const bool* finished,
@@ -622,7 +636,7 @@ void topk_gating_softmax_kernelLauncher(const T* input,
                                         const int64_t num_experts,
                                         const int64_t k,
                                         const bool group_moe,
-                                        cudaStream_t stream,
+                                        gpuStream_t stream,
                                         const bool topk_only_mode = false) {
   if (topk_only_mode) {
     static constexpr int TPB = 256;
@@ -698,7 +712,8 @@ void topk_gating_softmax_kernelLauncher(const T* input,
     }
   }
 }
-
+#endif
+#if 1
 // ========================== Permutation things
 // =======================================
 
@@ -758,7 +773,8 @@ __global__ void initialize_moe_routing_kernel(
     }
   }
 }
-
+#endif
+#if 1
 template <typename T>
 void initialize_moe_routing_kernelLauncher(
     const T* unpermuted_input,
@@ -769,7 +785,7 @@ void initialize_moe_routing_kernelLauncher(
     const int64_t active_rows,
     const int64_t cols,
     const int64_t k,
-    cudaStream_t stream) {
+    gpuStream_t stream) {
   const int threads = std::min(cols, int64_t(1024));
   constexpr int max_pack_size = 16 / sizeof(T);
   const auto config_initialize = Get1DBlocksAnd2DGridsMoe(num_rows * k);
@@ -797,7 +813,8 @@ void initialize_moe_routing_kernelLauncher(
             num_rows * k);
   }
 }
-
+#endif
+#if 1
 // ============================== Infer GEMM sizes
 // =================================
 template <typename T>
@@ -817,7 +834,8 @@ __device__ inline int find_total_elts_leq_target(int* sorted_indices,
   }
   return target_location + 1;
 }
-
+#endif
+#if 1
 template <typename T>
 __global__ void compute_total_rows_before_expert_kernel(
     int* sorted_experts,
@@ -832,243 +850,23 @@ __global__ void compute_total_rows_before_expert_kernel(
   total_rows_before_expert[expert] =
       find_total_elts_leq_target<T>(sorted_experts, sorted_experts_len, expert);
 }
-
+#endif
+#if 1
 template <typename T>
 void compute_total_rows_before_expert(int* sorted_indices,
                                       const T* kkk,
                                       const int64_t total_indices,
                                       const int64_t num_experts,
                                       int64_t* total_rows_before_expert,
-                                      cudaStream_t stream) {
+                                      gpuStream_t stream) {
   const int threads = std::min(int64_t(1024), num_experts);
   const int blocks = (num_experts + threads - 1) / threads;
 
   compute_total_rows_before_expert_kernel<T><<<blocks, threads, 0, stream>>>(
       sorted_indices, total_indices, num_experts, total_rows_before_expert);
 }
-
-// Final kernel to unpermute and scale
-// This kernel unpermutes the original data, does the k-way reduction and
-// performs the final skip connection.
-template <typename T, int RESIDUAL_NUM>
-__global__ void finalize_moe_routing_kernel(
-    const T* expanded_permuted_rows,
-    T* reduced_unpermuted_output,
-    const T* bias,
-    const float* scales,
-    const int* expanded_source_row_to_expanded_dest_row,
-    const int* expert_for_source_row,
-    const int64_t cols,
-    const int64_t k,
-    const int64_t compute_bias,
-    const bool norm_topk_prob,
-    const float routed_scaling_factor,
-    const int64_t num_rows) {
-  const int original_row = blockIdx.x + blockIdx.y * gridDim.x;
-  // const int original_row = blockIdx.x;
-  // const int num_rows = gridDim.x;
-  if (original_row >= num_rows) return;
-  T* reduced_row_ptr = reduced_unpermuted_output + original_row * cols;
-
-  for (int tid = threadIdx.x; tid < cols; tid += blockDim.x) {
-    T thread_output{0.f};
-    float row_rescale{0.f};
-    for (int k_idx = 0; k_idx < k; ++k_idx) {
-      const int expanded_original_row = original_row + k_idx * num_rows;
-      const int expanded_permuted_row =
-          expanded_source_row_to_expanded_dest_row[expanded_original_row];
-
-      const int64_t k_offset = original_row * k + k_idx;
-      const float row_scale = scales[k_offset];
-      row_rescale = row_rescale + row_scale;
-
-      const T* expanded_permuted_rows_row_ptr =
-          expanded_permuted_rows + expanded_permuted_row * cols;
-
-      const int expert_idx = expert_for_source_row[k_offset];
-      const T* bias_ptr = bias ? bias + expert_idx * cols : nullptr;
-      const T bias_value = bias_ptr ? bias_ptr[tid] : T{0.f};
-
-      thread_output =
-          static_cast<float>(thread_output) +
-          row_scale * static_cast<float>(
-                          expanded_permuted_rows_row_ptr[tid] +
-                          bias_value *
-                              static_cast<T>(static_cast<float>(compute_bias)));
-    }
-
-    thread_output = static_cast<float>(thread_output) /
-                    (norm_topk_prob ? row_rescale : 1.0f) *
-                    routed_scaling_factor;
-    reduced_row_ptr[tid] = thread_output;
-  }
-}
-
-template <typename T>
-void finalize_moe_routing_kernelLauncher(
-    const T* expanded_permuted_rows,
-    T* reduced_unpermuted_output,
-    const T* bias,
-    const float* scales,
-    const int* expanded_source_row_to_expanded_dest_row,
-    const int* expert_for_source_row,
-    const int64_t num_rows,
-    const int64_t cols,
-    const int64_t k,
-    const int64_t compute_bias,
-    const bool norm_topk_prob,
-    const float routed_scaling_factor,
-    cudaStream_t stream) {
-  const int threads = std::min(cols, int64_t(1024));
-  const auto config_final = Get1DBlocksAnd2DGridsMoe(num_rows);
-
-  finalize_moe_routing_kernel<T, 1>
-      <<<config_final.block_per_grid, threads, 0, stream>>>(
-          expanded_permuted_rows,
-          reduced_unpermuted_output,
-          bias,
-          scales,
-          expanded_source_row_to_expanded_dest_row,
-          expert_for_source_row,
-          cols,
-          k,
-          compute_bias,
-          norm_topk_prob,
-          routed_scaling_factor,
-          num_rows);
-}
-
-// ========================= TopK Softmax specializations
-// ===========================
-template void topk_gating_softmax_kernelLauncher(const float*,
-                                                 const bool*,
-                                                 float*,
-                                                 float*,
-                                                 int*,
-                                                 int*,
-                                                 float*,
-                                                 const int64_t,
-                                                 const int64_t,
-                                                 const int64_t,
-                                                 const bool,
-                                                 cudaStream_t,
-                                                 const bool);
-template void topk_gating_softmax_kernelLauncher(const half*,
-                                                 const bool*,
-                                                 half*,
-                                                 half*,
-                                                 int*,
-                                                 int*,
-                                                 half*,
-                                                 const int64_t,
-                                                 const int64_t,
-                                                 const int64_t,
-                                                 const bool,
-                                                 cudaStream_t,
-                                                 const bool);
-#ifdef PADDLE_CUDA_BF16
-template void topk_gating_softmax_kernelLauncher(const __nv_bfloat16*,
-                                                 const bool*,
-                                                 __nv_bfloat16*,
-                                                 __nv_bfloat16*,
-                                                 int*,
-                                                 int*,
-                                                 __nv_bfloat16*,
-                                                 const int64_t,
-                                                 const int64_t,
-                                                 const int64_t,
-                                                 const bool,
-                                                 cudaStream_t,
-                                                 const bool);
 #endif
-// ===================== Specializations for init routing
-// =========================
-template void initialize_moe_routing_kernelLauncher(const float*,
-                                                    float*,
-                                                    const int*,
-                                                    int*,
-                                                    const int64_t,
-                                                    const int64_t,
-                                                    const int64_t,
-                                                    const int64_t,
-                                                    cudaStream_t);
-template void initialize_moe_routing_kernelLauncher(const half*,
-                                                    half*,
-                                                    const int*,
-                                                    int*,
-                                                    const int64_t,
-                                                    const int64_t,
-                                                    const int64_t,
-                                                    const int64_t,
-                                                    cudaStream_t);
-#ifdef PADDLE_CUDA_BF16
-template void initialize_moe_routing_kernelLauncher(const __nv_bfloat16*,
-                                                    __nv_bfloat16*,
-                                                    const int*,
-                                                    int*,
-                                                    const int64_t,
-                                                    const int64_t,
-                                                    const int64_t,
-                                                    const int64_t,
-                                                    cudaStream_t);
-#endif
-// ==================== Specializations for final routing
-// ===================================
-template void finalize_moe_routing_kernelLauncher(const float*,
-                                                  float*,
-                                                  const float*,
-                                                  const float*,
-                                                  const int*,
-                                                  const int*,
-                                                  const int64_t,
-                                                  const int64_t,
-                                                  const int64_t,
-                                                  const int64_t,
-                                                  const bool,
-                                                  const float,
-                                                  cudaStream_t);
-template void finalize_moe_routing_kernelLauncher(const half*,
-                                                  half*,
-                                                  const half*,
-                                                  const float*,
-                                                  const int*,
-                                                  const int*,
-                                                  const int64_t,
-                                                  const int64_t,
-                                                  const int64_t,
-                                                  const int64_t,
-                                                  const bool,
-                                                  const float,
-                                                  cudaStream_t);
-#ifdef PADDLE_CUDA_BF16
-template void finalize_moe_routing_kernelLauncher(const __nv_bfloat16*,
-                                                  __nv_bfloat16*,
-                                                  const __nv_bfloat16*,
-                                                  const float*,
-                                                  const int*,
-                                                  const int*,
-                                                  const int64_t,
-                                                  const int64_t,
-                                                  const int64_t,
-                                                  const int64_t,
-                                                  const bool,
-                                                  const float,
-                                                  cudaStream_t);
-#endif
-template void compute_total_rows_before_expert(int*,
-                                               const half*,
-                                               const int64_t,
-                                               const int64_t,
-                                               int64_t*,
-                                               cudaStream_t stream);
-#ifdef PADDLE_CUDA_BF16
-template void compute_total_rows_before_expert(int*,
-                                               const __nv_bfloat16*,
-                                               const int64_t,
-                                               const int64_t,
-                                               int64_t*,
-                                               cudaStream_t stream);
-#endif
+
 }  // namespace phi
 
 #endif

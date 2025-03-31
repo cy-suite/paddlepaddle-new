@@ -196,7 +196,8 @@ PD_REGISTER_KERNEL(rms_norm_grad,
                    ALL_LAYOUT,
                    phi::RmsNormGradKernel,
                    float,
-                   phi::dtype::float16) {}
+                   phi::dtype::float16,
+                   phi::dtype::bfloat16) {}
 
 #elif CUDNN_VERSION_MIN(8, 1, 0)
 

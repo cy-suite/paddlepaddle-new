@@ -26,7 +26,8 @@
 
 #include "paddle/phi/backends/gpu/gpu_info.h"
 
-#include "paddle/phi/kernels/fusion/cutlass/moe/fused_moe_helper.h"
+#include "paddle/phi/kernels/fusion/cutlass/moe/fused_moe_imp_op.h"
+#include "paddle/phi/kernels/fusion/cutlass/moe/moe_dispatch.h"
 
 #pragma GCC diagnostic pop
 
@@ -185,7 +186,7 @@ void MoeDispatchKernel(const Context& ctx,
 }  // namespace fusion
 }  // namespace phi
 
-#ifdef PADDLE_CUDA_BF16
+#if defined(PADDLE_CUDA_BF16) || defined(PADDLE_WITH_HIP)
 PD_REGISTER_KERNEL(moe_dispatch,
                    GPU,
                    ALL_LAYOUT,

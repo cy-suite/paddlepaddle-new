@@ -240,6 +240,14 @@ if(WITH_ROCM)
     "gpu/put_along_axis_kernel.cu"
     "gpu/svd_kernel.cu"
     "gpu/cuda_gemm_kernel.cu")
+
+  file(
+    GLOB cutlass_cu
+    RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}"
+    "fusion/cutlass/moe_dispatch.cu"
+    "fusion/cutlass/moe_reduce.cu")
+
+  list(APPEND kernel_cu ${cutlass_cu})
 endif()
 
 set(cc_search_pattern
