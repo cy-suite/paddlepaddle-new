@@ -225,6 +225,7 @@ def interpolate(
     data_format: (
         DataLayout1DVariant | DataLayout2D | DataLayout3D | None
     ) = None,
+    recompute_scale_factor: bool | None = None,
     name: str | None = None,
 ) -> Tensor:
     """
@@ -493,6 +494,15 @@ def interpolate(
             "align_corners option can only be set with the interpolating modes: linear | bilinear | bicubic | trilinear"
         )
 
+    if (
+        recompute_scale_factor is not None
+        and recompute_scale_factor
+        and size is not None
+    ):
+        raise ValueError(
+            "recompute_scale_factor is not meaningful with an explicit size."
+        )
+
     if resample == 'AREA':
         if isinstance(size, (list, tuple, Variable, paddle.pir.Value)):
             if len(size) == 0:
@@ -645,7 +655,7 @@ def interpolate(
                     attrs['out_h'] = out_shape[1]
                     attrs['out_w'] = out_shape[2]
 
-    else:
+    elif scale is not None and recompute_scale_factor is not True:
         if in_dynamic_mode() and isinstance(scale, Variable):
             if scale.shape == []:
                 scale = float(scale)
@@ -675,6 +685,51 @@ def interpolate(
             raise TypeError(
                 "Attr(scale)'s type should be float, int, list, tuple, or Tensor."
             )
+
+    elif recompute_scale_factor is not None and recompute_scale_factor:
+        assert (
+            scale is not None
+        ), "scale_factor must not be None when recompute_scale_factor=True"
+
+        if in_dynamic_mode() and isinstance(scale, Variable):
+            if scale.shape == []:
+                scale = float(scale)
+            else:
+                scale = list(scale.numpy())
+
+        dim = len(x.shape) - 2
+
+        if isinstance(scale, (float, int, numpy.ndarray)):
+            scale_list = [float(scale)] * dim
+        elif isinstance(scale, (list, tuple)):
+            if len(scale) != dim:
+                raise ValueError(
+                    f"scale_shape length should be {dim} for "
+                    f"input {len(x.shape)}-D tensor."
+                )
+            scale_list = list(map(float, scale))
+        else:
+            raise TypeError(
+                "Attr(scale)'s type should be float, int, list, tuple, or Tensor."
+            )
+
+        out_shape = []
+        for i in range(dim):
+            input_size = x.shape[i + 2]
+            output_size = int(numpy.floor(float(input_size) * scale_list[i]))
+            out_shape.append(output_size)
+
+        if len(x.shape) == 3:
+            attrs['out_w'] = out_shape[0]
+        elif len(x.shape) == 4:
+            attrs['out_h'] = out_shape[0]
+            attrs['out_w'] = out_shape[1]
+        elif len(x.shape) == 5:
+            attrs['out_d'] = out_shape[0]
+            attrs['out_h'] = out_shape[1]
+            attrs['out_w'] = out_shape[2]
+
+        scale = None
 
     if in_dynamic_or_pir_mode():
         attr_list = []

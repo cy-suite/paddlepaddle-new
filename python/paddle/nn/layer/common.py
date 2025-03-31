@@ -431,6 +431,7 @@ class Upsample(Layer):
     align_corners: bool
     align_mode: int
     data_format: DataLayout1DVariant | DataLayout2D | DataLayout3D | None
+    recompute_scale_factor: bool | None
     name: str | None
 
     def __init__(
@@ -443,6 +444,7 @@ class Upsample(Layer):
         data_format: (
             DataLayout1DVariant | DataLayout2D | DataLayout3D | None
         ) = None,
+        recompute_scale_factor: bool | None = None,
         name: str | None = None,
     ) -> None:
         super().__init__()
@@ -452,6 +454,7 @@ class Upsample(Layer):
         self.align_corners = align_corners
         self.align_mode = align_mode
         self.data_format = data_format
+        self.recompute_scale_factor = recompute_scale_factor
         self.name = name
 
     def forward(self, x: Tensor) -> Tensor:
@@ -475,6 +478,7 @@ class Upsample(Layer):
             align_corners=self.align_corners,
             align_mode=self.align_mode,
             data_format=self.data_format,
+            recompute_scale_factor=self.recompute_scale_factor,
             name=self.name,
         )
 
