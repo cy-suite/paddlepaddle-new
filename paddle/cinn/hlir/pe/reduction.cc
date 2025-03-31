@@ -120,6 +120,8 @@ std::string Type2StrForArgReduce(cinn::common::Type type) {
     return "_i64";
   } else if (type.is_uint(8)) {
     return "_u8";
+  } else if (type.is_int(16)) {
+    return "_i16";
   }
   PADDLE_THROW(
       ::common::errors::InvalidArgument("Arg Reduce type not supported: %s", type));
@@ -314,25 +316,25 @@ Tensor ReduceMin(const Tensor& A,
                 output_name);
 }
 
-Tensor ReduceArgMax(const Tensor& A,
+Tensor Argmax(const Tensor& A,
                  const std::vector<int>& axes,
                  const bool keep_dims,
                  const std::string& output_name) {
   return Reduce(A,
                 axes,
-                lang::ReduceArgMax,
+                lang::Argmax,
                 keep_dims,
                 lang::min_value(A->type()),
                 output_name);
 }
 
-Tensor ReduceArgMin(const Tensor& A,
+Tensor Argmin(const Tensor& A,
                  const std::vector<int>& axes,
                  const bool keep_dims,
                  const std::string& output_name) {
   return Reduce(A,
                 axes,
-                lang::ReduceArgMin,
+                lang::Argmin,
                 keep_dims,
                 lang::max_value(A->type()),
                 output_name);

@@ -13,8 +13,8 @@ extern "C" {
 #define CINN_INT64_MIN -CINN_INT64_MAX-1
 #define CINN_FP32_MAX 3.40282347e+38F
 #define CINN_FP64_MAX 1.79769313486231571e+308
-#define CINN_FP16_MIN __ushort_as_half(0xfbff)
-#define CINN_FP16_MAX __ushort_as_half(0x7bff)
+#define CINN_FP16_MIN (float16)__ushort_as_half(0xfbff)
+#define CINN_FP16_MAX (float16)__ushort_as_half(0x7bff)
 
 // *************************************************************** //
 // bool unary and binary operator
@@ -243,7 +243,7 @@ EXPAND_WELFORD_MACRO(fp64, double)
   EXPAND_ARGIDX_DTYPE_MACRO_IMPL(DTYPE, DNAME, DMIN, DMAX, int64_t, i64, 0LL)
 
 #ifdef CINN_CUDA_FP16
-EXPAND_ARGIDX_DTYPE_MACRO(half, fp16, -CINN_FP16_MAX, CINN_FP16_MAX)
+EXPAND_ARGIDX_DTYPE_MACRO(float16, fp16, -CINN_FP16_MAX, CINN_FP16_MAX)
 #endif // CINN_CUDA_FP16
 EXPAND_ARGIDX_DTYPE_MACRO(float,   fp32, -CINN_FP32_MAX, CINN_FP32_MAX)
 EXPAND_ARGIDX_DTYPE_MACRO(double,  fp64, -CINN_FP64_MAX, CINN_FP64_MAX)

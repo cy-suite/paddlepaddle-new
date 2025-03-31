@@ -400,8 +400,8 @@ STRATEGY_FOR_REDUCE(reduce_any,
                     pe::ReduceAny,
                     NORMAL_REDUCE_FLAG);
 STRATEGY_FOR_REDUCE(variance, Variance, nullptr, nullptr, pe::Variance, NORMAL_REDUCE_FLAG);
-STRATEGY_FOR_REDUCE(argmax, Argmax, nullptr, nullptr, pe::ReduceArgMax, ARG_REDUCE_FLAG);
-STRATEGY_FOR_REDUCE(argmin, Argmin, nullptr, nullptr, pe::ReduceArgMin, ARG_REDUCE_FLAG);
+STRATEGY_FOR_REDUCE(argmax, Argmax, nullptr, nullptr, pe::Argmax, ARG_REDUCE_FLAG);
+STRATEGY_FOR_REDUCE(argmin, Argmin, nullptr, nullptr, pe::Argmin, ARG_REDUCE_FLAG);
 
 STRATEGY_FOR_REDUCE_SYMBOLIC(reduce_sum,
                              ReduceSum,
@@ -442,9 +442,9 @@ STRATEGY_FOR_REDUCE_SYMBOLIC(reduce_any,
 STRATEGY_FOR_REDUCE_SYMBOLIC(
     variance, Variance, nullptr, nullptr, pe::Variance, NORMAL_REDUCE_FLAG);
 STRATEGY_FOR_REDUCE_SYMBOLIC(
-    argmax, Argmax, nullptr, nullptr, pe::ReduceArgMax, ARG_REDUCE_FLAG);
+    argmax, Argmax, nullptr, nullptr, pe::Argmax, ARG_REDUCE_FLAG);
 STRATEGY_FOR_REDUCE_SYMBOLIC(
-    argmin, Argmin, nullptr, nullptr, pe::ReduceArgMin, ARG_REDUCE_FLAG);
+    argmin, Argmin, nullptr, nullptr, pe::Argmin, ARG_REDUCE_FLAG);
 
 #undef STRATEGY_FOR_REDUCE
 #undef STRATEGY_FOR_REDUCE_SYMBOLIC

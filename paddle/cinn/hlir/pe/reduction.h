@@ -119,10 +119,10 @@ ir::Tensor ReduceMin(const ir::Tensor& A,
  *
  * @return The result Tensor.
  */
-ir::Tensor ReduceArgMax(const ir::Tensor& A,
+ir::Tensor Argmax(const ir::Tensor& A,
                      const std::vector<int>& axis,
                      const bool keep_dims = false,
-                     const std::string& output_name = "T_Reduce_ArgMax_out");
+                     const std::string& output_name = "T_ArgMax_out");
 
 /**
  * @brief find the index to the minimum of array elements over a given axis
@@ -139,10 +139,10 @@ ir::Tensor ReduceArgMax(const ir::Tensor& A,
  *
  * @return The result Tensor.
  */
-ir::Tensor ReduceArgMin(const ir::Tensor& A,
+ir::Tensor Argmin(const ir::Tensor& A,
                      const std::vector<int>& axis,
                      const bool keep_dims = false,
-                     const std::string& output_name = "T_Reduce_ArgMin_out");
+                     const std::string& output_name = "T_ArgMin_out");
 
 /**
  * @brief find the logic and of array elements over a given axis

@@ -185,7 +185,7 @@ inline Expr Variance(Expr e,
   return ir::Reduce::Make(ir::Reduce::kVariance, initial, e, reduce_axis);
 }
 
-inline Expr ReduceArgMax(Expr e,
+inline Expr Argmax(Expr e,
                      const std::vector<Var>& reduce_axis,
                      Expr initial = Expr()) {
   if (!initial.defined()) {
@@ -194,7 +194,7 @@ inline Expr ReduceArgMax(Expr e,
   return ir::Reduce::Make(ir::Reduce::kArgMax, initial, e, reduce_axis);
 }
 
-inline Expr ReduceArgMin(Expr e,
+inline Expr Argmin(Expr e,
                      const std::vector<Var>& reduce_axis,
                      Expr initial = Expr()) {
   if (!initial.defined()) {

@@ -206,7 +206,8 @@ Type GetCompositeReduceType(
         ::common::errors::InvalidArgument("CompositeTypes for arg reduce "
                                           "must have at least two types"
       ));
-      type_bits = composite_reduce[0].bits() + composite_reduce[1].bits();
+      int max_bits = std::max(composite_reduce[0].bits(), composite_reduce[1].bits());
+      type_bits = max_bits * 2;
       rtype_name = "argidx" + 
                 hlir::pe::Type2StrForArgReduce(composite_reduce[0]) +
                 hlir::pe::Type2StrForArgReduce(composite_reduce[1]);
