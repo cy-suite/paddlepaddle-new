@@ -16,8 +16,6 @@ import logging
 from collections import OrderedDict
 
 import paddle
-import paddle.distributed as dist
-
 from paddle.base import core
 
 from ...auto_parallel.static.utils import OpRole

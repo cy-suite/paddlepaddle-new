@@ -71,4 +71,3 @@ class PipelineEager1F1BPass(PipelinePassBase):
 
     def _partial_programs(self, program):
         raise NotImplementedError("Not support old IR for Eager1f1b")
-

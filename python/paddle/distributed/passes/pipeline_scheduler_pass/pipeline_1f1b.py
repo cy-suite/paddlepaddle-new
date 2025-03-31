@@ -23,7 +23,9 @@ from paddle.framework import (
 from ...utils.log_utils import get_logger
 from ..pass_base import register_pass
 from ..pass_utils import (
+    AutoParallelStreamType,
     forward_complete_op_role,
+    split_program,
 )
 from .pipeline_pass_base import PipelinePassBase
 
@@ -213,7 +215,6 @@ class Pipeline1F1BPass(PipelinePassBase):
             f"jobs_in_stable_phase = {self.jobs_in_stable_phase_in_pir}"
         )
         return job_types, sub_program_list
-
 
     def _split_program_for_overlapping(self, job_type, program, split_points):
         assert job_type in [
