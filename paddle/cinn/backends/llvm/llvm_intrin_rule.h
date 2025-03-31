@@ -121,10 +121,9 @@ void RegisterCpuIntrinRule() {
         Type type = cinn::common::Float(64);
         Expr casted_arg0 = cinn::ir::Cast::Make(type, node->read_args[0]);
         Expr casted_arg1 = cinn::ir::Cast::Make(type, node->read_args[1]);
-        node->set_type(type);
         Expr log_base = lang::Log(casted_arg0);
         Expr product = log_base * casted_arg1;
-        *rv = lang::Exp(product);
+        *rv = cinn::ir::Cast::Make(node->type(), lang::Exp(product));
       });
 
   ir::Registry::Register("lower_cpu_intrinsic_exp", true)
@@ -146,9 +145,9 @@ void RegisterCpuIntrinRule() {
                 "The number of read arguments of 'exp' should be 1."));
         Type type = cinn::common::Float(64);
         Expr casted_arg0 = cinn::ir::Cast::Make(type, node->read_args[0]);
-        node->set_type(type);
-        *rv = ir::intrinsics::BuiltinIntrin::Make(
-            node->name, casted_arg0, llvm::Intrinsic::exp, 1, node->type());
+        Expr exp = ir::intrinsics::BuiltinIntrin::Make(
+            node->name, casted_arg0, ::llvm::Intrinsic::exp, 1, type);
+        *rv = cinn::ir::Cast::Make(node->type(), exp);
       });
 
   ir::Registry::Register("lower_cpu_intrinsic_bitwise_not", true)

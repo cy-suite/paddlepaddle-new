@@ -79,7 +79,6 @@ void LowerIntrinImpl(common::X86Arch, const Target &target, ir::Expr *expr) {
 
     void LowerCpuIntrinsicOp(ir::Call *op, Expr *expr) {
       auto *node = expr->As<ir::Call>();
-      VLOG(4) << "Before Lower cpu intrinsic: " << node->name << " Type: " << node->type();
       if (kIntrinsicCalls.count(node->name)) {
         PADDLE_ENFORCE_EQ(
             !node->name.empty(),
@@ -96,7 +95,6 @@ void LowerIntrinImpl(common::X86Arch, const Target &target, ir::Expr *expr) {
           ir::IRMutator<>::Visit(&ret, &ret);
         }
         *expr = ret;
-        VLOG(4) << "After Lower cpu intrinsic: " << node->name << " Type: " << expr->type ();
         return;
       }
       for (auto &expr : node->read_args) {
