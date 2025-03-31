@@ -158,7 +158,10 @@ bool NumPyArrayValueMatchGuard::check(PyObject* value) {
   }
 
   py::object py_value = py::cast<py::object>(value);
-  return expected_.attr("__eq__")(py_value).attr("all")().cast<bool>();
+  return py::cast<py::object>(expected_)
+      .attr("__eq__")(py_value)
+      .attr("all")()
+      .cast<bool>();
 }
 
 PyObject* ConstantExprNode::eval(FrameProxy* frame) { return value_ptr_; }

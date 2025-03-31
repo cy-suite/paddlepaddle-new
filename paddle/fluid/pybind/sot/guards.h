@@ -223,13 +223,17 @@ class NumpyDtypeMatchGuard : public GuardBase {
 
 class NumPyArrayValueMatchGuard : public GuardBase {
  public:
-  explicit NumPyArrayValueMatchGuard(const py::array& array)
-      : expected_(array) {}
+  explicit NumPyArrayValueMatchGuard(const py::object& array)
+      : expected_(array.ptr()) {
+    Py_INCREF(expected_);
+  }
+
+  ~NumPyArrayValueMatchGuard() override { Py_DECREF(expected_); }
 
   bool check(PyObject* value) override;
 
  private:
-  py::array expected_;
+  PyObject* expected_;
 };
 
 class GuardTreeNode {};

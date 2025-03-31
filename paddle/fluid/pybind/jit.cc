@@ -121,7 +121,7 @@ void BindGuard(pybind11::module *m) {
       *m,
       "NumPyArrayValueMatchGuard",
       R"DOC(NumPyArrayValueMatchGuard Class.)DOC")
-      .def(py::init<const py::array &>(), py::arg("array"));
+      .def(py::init<const py::object &>(), py::arg("array"));
 
   m->def(
       "merge_guard",
