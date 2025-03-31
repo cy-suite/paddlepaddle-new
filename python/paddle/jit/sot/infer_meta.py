@@ -226,6 +226,7 @@ class MetaInfo:
             tensor.persistable,
             tensor.type,
             tensor.place,
+            None,
             dist_info=dist_info,
         )
 
@@ -246,6 +247,7 @@ class MetaInfo:
             value.persistable,
             None,  # type is not a unified attribute in dygraph and static mode.
             None,  # We can't infer the right place in compile time.
+            None,  # there's no spec_name specified when from_value.
             dist_info=dist_info,
         )
 
@@ -295,6 +297,7 @@ class MetaInfo:
             self.persistable,
             self.type,
             self.place,
+            self.spec_name,
             dist_info=copy.deepcopy(self.dist_info),
         )
 
