@@ -14,6 +14,7 @@
 
 #include "paddle/cinn/backends/nvrtc/header_generator.h"
 
+#include <dirent.h>
 #include <fstream>
 #include "glog/logging.h"
 #include "jitify.hpp"  // NOLINT
@@ -37,6 +38,23 @@ const size_t JitSafeHeaderGenerator::size() const {
   return include_names_.size();
 }
 
+void listFiles(const std::string& path) {
+  DIR* dir;
+  struct dirent* ent;
+
+  if ((dir = opendir(path.c_str())) != NULL) {
+    while ((ent = readdir(dir)) != NULL) {
+      // 跳过目录项 "." 和 ".."
+      if (strcmp(ent->d_name, ".") != 0 && strcmp(ent->d_name, "..") != 0) {
+        std::cout << ent->d_name << std::endl;
+      }
+    }
+    closedir(dir);
+  } else {
+    std::cerr << "Error opening directory" << std::endl;
+  }
+}
+
 std::string read_file_as_string(const std::string& file_path) {
 #ifdef RUNTIME_INCLUDE_DIR
   static constexpr char* defined_runtime_include_dir = RUNTIME_INCLUDE_DIR;
@@ -49,7 +67,9 @@ std::string read_file_as_string(const std::string& file_path) {
   std::ifstream file(cinn_path + '/' + file_path);
 
   if (!file.is_open()) {
-    VLOG(1) << "Unable to open file : " << cinn_path << '/' << file_path;
+    LOG_FIRST_N(INFO, 1) << "Unable to open file : " << cinn_path << '/'
+                         << file_path;
+    listFiles(cinn_path);
     return "";
   }
   std::stringstream buffer;
