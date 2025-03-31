@@ -47,6 +47,7 @@ from .dispatch_functions import (
     operator_is_none,
     operator_is_not_none,
     operator_not_in,
+    place_get_device_id,
     tensor_dim,
 )
 from .dispatcher import Dispatcher, optional
@@ -1586,3 +1587,10 @@ for ufunc in binary_ufuncs:
             ufunc,
         ),
     )
+
+# place
+Dispatcher.register(
+    place_get_device_id,
+    ("PlaceVariable",),
+    lambda var: var.get_device_id(),
+)

@@ -59,3 +59,7 @@ def tensor_dim(x):
 
 def generator_send(x):
     pass
+
+
+def place_get_device_id(x):
+    pass

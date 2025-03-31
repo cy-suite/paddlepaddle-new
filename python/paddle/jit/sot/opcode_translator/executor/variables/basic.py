@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 import paddle
+from paddle._typing import unreached
 from paddle.framework import core
 
 from ....infer_meta import (
@@ -54,7 +55,7 @@ from ....utils.exceptions import (
     InnerError,
     UnsupportedPaddleAPIBreak,
 )
-from ..dispatch_functions import tensor_dim
+from ..dispatch_functions import place_get_device_id, tensor_dim
 from ..guard import (
     FasterStringifiedExpression,
     StringifiedExpression,
@@ -1467,6 +1468,38 @@ class NumpyArrayVariable(NumpyVariable):
                 ),
             ),
         ]
+
+
+class PlaceVariable(ObjectVariable):
+    def __init__(self, obj, graph, tracker):
+        super().__init__(obj, graph, tracker)
+
+    def getattr(self, name: str, default=None):
+        if default is not None:
+            raise FallbackError(
+                "default argument for getattr is not implemented"
+            )
+        if name not in ["get_device_id"]:
+            super().getattr(name, default)
+        if name == "get_device_id":
+            from .callable import BuiltinVariable
+
+            return BuiltinVariable(
+                place_get_device_id, self.graph, DanglingTracker()
+            ).bind_dangling_fn(self, name)
+        unreached()
+
+    def get_device_id(self):
+        return VariableFactory.from_value(
+            self.value.get_device_id(), self.graph, DummyTracker([self])
+        )
+
+    @VariableFactory.register_from_value()
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
+        if paddle.is_compiled_with_cuda():
+            if isinstance(value, paddle.CUDAPlace):
+                return PlaceVariable(value, graph, tracker)
+        return None
 
 
 class NullVariable(VariableBase):
