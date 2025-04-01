@@ -139,7 +139,7 @@ NEED_GEN_STATIC_ONLY_APIS = [
     'dequantize_linear_',
     'coalesce_tensor_',
     'p_send',
-    'recv_v2',
+    'p_recv',
     'sequence_expand',
     'sequence_softmax',
     'qkv_unpack_mha',

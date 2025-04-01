@@ -4469,6 +4469,10 @@
   outputs :
     out : Out
 
+- op: p_recv
+  outputs :
+    out : Out
+
 - op: p_send
   inputs :
     x : X
@@ -4518,10 +4522,6 @@
   inputs:
     array : X
     i : I
-  outputs :
-    out : Out
-
-- op: recv_v2
   outputs :
     out : Out
 
