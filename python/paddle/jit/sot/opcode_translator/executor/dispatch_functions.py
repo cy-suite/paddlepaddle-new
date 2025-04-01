@@ -61,5 +61,9 @@ def generator_send(x):
     pass
 
 
-def place_get_device_id(x):
+def place_get_device_id():
+    pass
+
+
+def place_get_device_type():
     pass

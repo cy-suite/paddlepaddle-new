@@ -48,6 +48,7 @@ from .dispatch_functions import (
     operator_is_not_none,
     operator_not_in,
     place_get_device_id,
+    place_get_device_type,
     tensor_dim,
 )
 from .dispatcher import Dispatcher, optional
@@ -1593,4 +1594,9 @@ Dispatcher.register(
     place_get_device_id,
     ("PlaceVariable",),
     lambda var: var.get_device_id(),
+)
+Dispatcher.register(
+    place_get_device_type,
+    ("PlaceVariable",),
+    lambda var: var.get_device_type(),
 )
