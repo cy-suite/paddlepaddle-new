@@ -141,7 +141,7 @@ bool IsCommunicationOp(const OperatorBase* op) {
       "send",
       "recv",
       "send_v2",
-      "recv_v2",
+      "p_recv",
   };
   const std::string communication_op_prefix = "c_";
   if (op_name.find(communication_op_prefix) != std::string::npos ||
