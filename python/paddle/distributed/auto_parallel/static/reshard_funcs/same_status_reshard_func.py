@@ -101,7 +101,6 @@ class SameStatusReshardFunction(ReshardFunction):
                     src_value,
                     comm_group.id,
                     comm_group.ranks.index(dst),
-                    True,
                     False,
                 )
                 point = paddle.base.libpaddle.pir.get_current_insertion_point()
