@@ -38,7 +38,7 @@ namespace dialect {
 
 const std::unordered_set<std::string> LegacyOpList = {
     DistributedPushSparseOp::name(),
-    SendV2Op::name(),
+    PSendOp::name(),
     RecvV2Op::name(),
     CAllreduceSumOp::name(),
     CAllreduceSum_Op::name(),
