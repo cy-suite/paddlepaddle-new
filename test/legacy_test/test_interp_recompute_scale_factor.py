@@ -184,6 +184,61 @@ def nearest_neighbor_interp3d_np(
     return out.astype(X.dtype)
 
 
+def linear_interp_np(
+    input,
+    out_w,
+    scale_w=0,
+    out_size=None,
+    actual_shape=None,
+    align_corners=True,
+    align_mode=0,
+    data_layout='NCHW',
+):
+    if data_layout == "NHWC":
+        input = np.transpose(input, (0, 2, 1))  # NHWC => NCHW
+    if out_size is not None:
+        out_w = out_size[0]
+    if actual_shape is not None:
+        out_w = actual_shape[0]
+    batch_size, channel, in_w = input.shape
+
+    ratio_w = 0.0
+    if out_w > 1:
+        if align_corners:
+            ratio_w = (in_w - 1.0) / (out_w - 1.0)
+        else:
+            if scale_w > 0:
+                ratio_w = 1.0 / scale_w
+            else:
+                ratio_w = 1.0 * in_w / out_w
+
+    out = np.zeros((batch_size, channel, out_w))
+
+    for j in range(out_w):
+        if align_mode == 0 and not align_corners:
+            w = int(ratio_w * (j + 0.5) - 0.5)
+        else:
+            w = int(ratio_w * j)
+        w = max(0, w)
+        wid = 1 if w < in_w - 1 else 0
+
+        if align_mode == 0 and not align_corners:
+            idx_src_w = max(ratio_w * (j + 0.5) - 0.5, 0)
+            w1lambda = idx_src_w - w
+        else:
+            w1lambda = ratio_w * j - w
+        w2lambda = 1.0 - w1lambda
+
+        out[:, :, j] = (
+            w2lambda * input[:, :, w] + w1lambda * input[:, :, w + wid]
+        )
+
+    if data_layout == "NHWC":
+        out = np.transpose(out, (0, 2, 1))  # NCHW => NHWC
+
+    return out.astype(input.dtype)
+
+
 class TestBilinearInterpOpAPI_RecomputeScaleFactor(unittest.TestCase):
     def test_case(self):
 
@@ -309,6 +364,52 @@ class TestBilinearInterpOpAPI_RecomputeScaleFactorDifferentTensors(
                 scale_factor=scale_tensor,
                 mode="bilinear",
                 align_corners=True,
+                recompute_scale_factor=True,
+            )
+
+            # Verify results match
+            np.testing.assert_allclose(out.numpy(), expect_res, rtol=1e-05)
+
+            assert out.shape[2] == expected_out_h
+            assert out.shape[3] == expected_out_w
+
+
+class TestBilinearInterpOpAPI_RecomputeScaleFactorScalarTensor(
+    unittest.TestCase
+):
+    def test_case(self):
+        if core.is_compiled_with_cuda():
+            place = core.CUDAPlace(0)
+        else:
+            place = core.CPUPlace()
+
+        with base.dygraph.guard(place):
+            # Create input data
+            input_data = np.random.random((2, 3, 7, 8)).astype("float32")
+            input_x = paddle.to_tensor(input_data)
+
+            # Create a scalar tensor with empty shape []
+            scale_value = 1.6
+            scale_tensor = paddle.to_tensor(scale_value, dtype="float32")
+
+            in_h, in_w = input_data.shape[2], input_data.shape[3]
+            expected_out_h = math.floor(in_h * scale_value)
+            expected_out_w = math.floor(in_w * scale_value)
+
+            # Calculate expected result
+            expect_res = bilinear_interp_np(
+                input_data,
+                out_h=expected_out_h,
+                out_w=expected_out_w,
+                align_corners=False,
+            )
+
+            # Test with tensor scale_factor and recompute_scale_factor=True
+            out = interpolate(
+                x=input_x,
+                scale_factor=scale_tensor,
+                mode="bilinear",
+                align_corners=False,
                 recompute_scale_factor=True,
             )
 
@@ -567,9 +668,47 @@ class TestNearestUpsampleOpAPI_RecomputeScaleFactor(unittest.TestCase):
             assert out.shape[4] == expected_out_w
 
 
+class TestLinearInterpOpAPI_RecomputeScaleFactor(unittest.TestCase):
+    def test_case(self):
+        if core.is_compiled_with_cuda():
+            place = core.CUDAPlace(0)
+        else:
+            place = core.CPUPlace()
+
+        with base.dygraph.guard(place):
+            # Create 3D input data
+            input_data = np.random.random((2, 3, 8)).astype("float32")
+            input_x = paddle.to_tensor(input_data)
+
+            scale_factor = 1.6
+
+            in_w = input_data.shape[2]
+            expected_out_w = math.floor(in_w * scale_factor)
+
+            # Calculate expected result
+            expect_res = linear_interp_np(
+                input_data,
+                out_w=expected_out_w,
+                align_corners=False,
+            )
+
+            # Test with scalar scale_factor and recompute_scale_factor=True
+            out = interpolate(
+                x=input_x,
+                scale_factor=scale_factor,
+                mode="linear",
+                align_corners=False,
+                recompute_scale_factor=True,
+            )
+
+            # Verify results match
+            np.testing.assert_allclose(out.numpy(), expect_res, rtol=1e-05)
+
+            assert out.shape[2] == expected_out_w
+
+
 class TestInterpRecomputeScaleFactorError(unittest.TestCase):
     def test_size_and_recompute_scale_factor_error(self):
-        import paddle
 
         if core.is_compiled_with_cuda():
             place = core.CUDAPlace(0)
@@ -604,6 +743,53 @@ class TestInterpRecomputeScaleFactorError(unittest.TestCase):
                 out = upsample(input_x)
 
             self.assertRaises(ValueError, test_invalid_params_upsample)
+
+
+class TestInterpRecomputeScaleFactorScaleShapeError(unittest.TestCase):
+    def test_incorrect_scale_shape(self):
+        if core.is_compiled_with_cuda():
+            place = core.CUDAPlace(0)
+        else:
+            place = core.CPUPlace()
+
+        with base.dygraph.guard(place):
+            # Create input data - 4D tensor (N, C, H, W)
+            input_data = np.random.random((2, 3, 7, 8)).astype("float32")
+            input_x = paddle.to_tensor(input_data)
+
+            # For a 4D tensor, dim = len(x.shape) - 2 = 2, so scale_factor should be of length 2
+            # Providing a scale_factor of length 3 should trigger the error
+            scale_list = [1.5, 2.0, 0.5]
+
+            def test_invalid_scale_shape():
+                out = interpolate(
+                    x=input_x,
+                    scale_factor=scale_list,
+                    mode="bilinear",
+                    align_corners=False,
+                    recompute_scale_factor=True,
+                )
+
+            self.assertRaises(ValueError, test_invalid_scale_shape)
+
+            # TTest with a 5D tensor
+            input_data_5d = np.random.random((2, 3, 4, 7, 8)).astype("float32")
+            input_x_5d = paddle.to_tensor(input_data_5d)
+
+            # For a 5D tensor, dim = len(x.shape) - 2 = 3, so scale_factor should be of length 3
+            # Providing a scale_factor of length 2 should trigger the error
+            scale_list_5d = [1.5, 2.0]
+
+            def test_invalid_scale_shape_5d():
+                out = interpolate(
+                    x=input_x_5d,
+                    scale_factor=scale_list_5d,
+                    mode="nearest",
+                    align_corners=False,
+                    recompute_scale_factor=True,
+                )
+
+            self.assertRaises(ValueError, test_invalid_scale_shape_5d)
 
 
 if __name__ == "__main__":
