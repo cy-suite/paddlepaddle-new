@@ -220,7 +220,7 @@ def check_send_recv_result(dist_main_prog, rank_id):
 
     if rank_id == 0:
         for idx, op in enumerate(ops):
-            if op.type == "send_v2" and "gelu_0.tmp_0" in op.input_arg_names:
+            if op.type == "p_send" and "gelu_0.tmp_0" in op.input_arg_names:
                 send_result = True
             if (
                 op.type == "recv_v2"
@@ -230,7 +230,7 @@ def check_send_recv_result(dist_main_prog, rank_id):
     else:
         for idx, op in enumerate(ops):
             if (
-                op.type == "send_v2"
+                op.type == "p_send"
                 and "gelu_0.tmp_0@GRAD" in op.input_arg_names
             ):
                 send_result = True

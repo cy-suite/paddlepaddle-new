@@ -72,12 +72,12 @@ class TestReshardRToSCrossMesh:
         new_ops = [op.name() for op in main_program.global_block().ops]
         assert 'dist_op.reshard' not in new_ops
         if dist.get_rank() in self._in_mesh.process_ids:
-            assert 'pd_op.send_v2' in new_ops
+            assert 'pd_op.p_send' in new_ops
         else:
             assert 'pd_op.recv_v2' in new_ops
             assert 'pd_op.slice' in new_ops
         for op in main_program.global_block().ops:
-            if op.name() == 'pd_op.send_v2':
+            if op.name() == 'pd_op.p_send':
                 assert op.dist_attr.process_mesh == self._in_mesh
                 assert op.operand_source(0).dist_attr() == op.dist_attr.operand(
                     0

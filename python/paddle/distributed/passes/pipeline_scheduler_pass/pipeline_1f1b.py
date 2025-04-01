@@ -251,7 +251,7 @@ class Pipeline1F1BPass(PipelinePassBase):
                 self._erase_op_from_other_programs(
                     op_idx, self.OPT, ops_dict, job_types
                 )
-            elif region == "bwd" and op.name() == "pd_op.send_v2":
+            elif region == "bwd" and op.name() == "pd_op.p_send":
                 self._handle_func(
                     op_idx,
                     self.SEND_BACKWARD,
@@ -263,7 +263,7 @@ class Pipeline1F1BPass(PipelinePassBase):
                 self._erase_op_from_other_programs(
                     op_idx, self.SEND_BACKWARD, ops_dict, job_types
                 )
-            elif region == "bwd" and op.name() != "pd_op.send_v2":
+            elif region == "bwd" and op.name() != "pd_op.p_send":
                 self._handle_func(
                     op_idx,
                     self.BACKWARD,
@@ -413,7 +413,7 @@ class Pipeline1F1BPass(PipelinePassBase):
     def _overlap_send_recv(self, program):
         for block in program.blocks:
             for op in block.ops:
-                if op.name() == "pd_op.send_v2":
+                if op.name() == "pd_op.p_send":
                     op.set_bool_attr("dynamic_shape", False)
                     op.set_bool_attr("use_calc_stream", True)
                     ring_id = op.attrs()["ring_id"]

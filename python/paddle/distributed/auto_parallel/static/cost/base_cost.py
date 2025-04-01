@@ -25,7 +25,7 @@ from ..process_group import get_process_group
 from ..utils import _get_comm_group, _get_idx_in_axis
 
 COMM_OP_TYPE = [
-    "send_v2",
+    "p_send",
     "recv_v2",
     "broadcast",
     "all_gather",

@@ -202,7 +202,7 @@ class RecvOpCost(CommOpCost):
 
 @register_op_cost
 class SendOpCost(CommOpCost):
-    OP_TYPE = "send_v2"
+    OP_TYPE = "p_send"
 
     def __init__(self, op=None, op_desc=None, comm_context=None):
         super().__init__(op=op, op_desc=op_desc, comm_context=comm_context)

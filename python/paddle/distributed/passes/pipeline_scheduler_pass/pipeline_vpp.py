@@ -713,7 +713,7 @@ class PipelineVirtualPipelinePass(PipelinePassBase):
                     )
                 job_type = bwd_pattern_ops_type.pop()
             elif op_role == int(OpRole.Backward) and (not split_bw):
-                if op.name() == "pd_op.send_v2":
+                if op.name() == "pd_op.p_send":
                     job_type = "send_backward"
                 else:
                     job_type = "backward"

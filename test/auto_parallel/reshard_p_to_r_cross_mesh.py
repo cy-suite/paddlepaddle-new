@@ -97,7 +97,7 @@ class TestReshardPToRCrossMesh:
                 'builtin.parameter',
                 'pd_op.data',
                 'dist_op.shard_tensor',
-                'pd_op.send_v2',
+                'pd_op.p_send',
                 'dist_op.reshard',
                 'pd_op.all_reduce',
             ]
@@ -115,7 +115,7 @@ class TestReshardPToRCrossMesh:
             std_ops,
         )
         for op in main_program.global_block().ops:
-            if op.name() == 'pd_op.send_v2':
+            if op.name() == 'pd_op.p_send':
                 assert op.dist_attr.num_operands() == 1
                 assert op.dist_attr.num_results() == 0
                 op_operand_dist_attr = op.dist_attr.operand(

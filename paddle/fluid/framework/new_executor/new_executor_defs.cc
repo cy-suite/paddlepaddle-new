@@ -329,7 +329,7 @@ void Instruction::UpdateRecordStreamForGcInfo() {
 // To support all the operators for communicating in the future.
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
   auto operator_base_ptr = OpBase();
-  if ((operator_base_ptr->Type() == "send_v2") &&
+  if ((operator_base_ptr->Type() == "p_send") &&
       (operator_base_ptr->Attr<bool>("use_calc_stream") == false)) {
     int ring_id = operator_base_ptr->Attr<int>("ring_id");
     const auto& comm_context_manager =

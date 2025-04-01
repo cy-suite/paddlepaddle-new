@@ -800,7 +800,7 @@ class PipelineOptimizer:
                     if self.schedule_mode == 'F-then-B':  # F-then-B
                         block._insert_op_without_sync(
                             index=index + extra_index_info['index'],
-                            type='send_v2',
+                            type='p_send',
                             inputs={'X': var},
                             attrs={
                                 self._op_device_key: prev_dev,
@@ -892,7 +892,7 @@ class PipelineOptimizer:
                         block._insert_op_without_sync(
                             index=index + extra_index_info['index'],
                             type=(
-                                'send_v2'
+                                'p_send'
                                 if not use_mp or is_param
                                 else 'partial_send'
                             ),
@@ -903,7 +903,7 @@ class PipelineOptimizer:
                                 'use_calc_stream': False,
                                 'ring_id': ring_id,
                                 'peer': 1,
-                                # if send_v2, num&id attr is not in op_attrs, will not insert
+                                # if p_send, num&id attr is not in op_attrs, will not insert
                                 'num': self.mp_degree,
                                 'id': self.mp_rank,
                             },
@@ -1607,7 +1607,7 @@ class PipelineOptimizer:
 
                 write_block._insert_op(
                     index=0,
-                    type='send_v2',
+                    type='p_send',
                     inputs={
                         'X': write_block.var(var_name),
                     },

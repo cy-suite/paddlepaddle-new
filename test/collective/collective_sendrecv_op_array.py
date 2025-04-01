@@ -49,7 +49,7 @@ class TestCollectiveSendRecv(TestCollectiveRunnerBase):
             paddle.tensor.array_write(data2, i + 1, tensor_array)
             if self.rank == 0:
                 main_prog.global_block().append_op(
-                    type="send_v2",
+                    type="p_send",
                     inputs={'X': tensor_array},
                     attrs={
                         'ring_id': ring_id,

@@ -140,7 +140,7 @@ bool IsCommunicationOp(const OperatorBase* op) {
   const std::set<std::string> special_comm_op_set = {
       "send",
       "recv",
-      "send_v2",
+      "p_send",
       "recv_v2",
   };
   const std::string communication_op_prefix = "c_";

@@ -50,7 +50,7 @@ def is_collective_comm_op(op):
 
 
 def is_p2p_comm_op(op):
-    comm_list = ["send_v2", "recv_v2"]
+    comm_list = ["p_send", "recv_v2"]
     if op.type in comm_list:
         return True
     else:
@@ -123,7 +123,7 @@ def get_comm_volume(comm_op, src_rank, tgt_rank):
             comm_volume = None
         else:
             comm_volume = tensor_bytes
-    elif "send_v2" in comm_op_type:
+    elif "p_send" in comm_op_type:
         if comm_op.attr("peer") == tgt_rank:
             comm_volume = tensor_bytes
         else:

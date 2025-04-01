@@ -148,7 +148,7 @@ class PipelinePassBase(PassBase):
         '''
         Add the extra event dependency of the two operators.
         This function mainly aims for the cross-programs in pipeline parallelism,
-        especial for the 'send_v2' 'recv_v2' etc.
+        especial for the 'p_send' 'recv_v2' etc.
         '''
         if not recorder_op.has_attr("force_record_event"):
             recorder_op.set_bool_attr("force_record_event", True)

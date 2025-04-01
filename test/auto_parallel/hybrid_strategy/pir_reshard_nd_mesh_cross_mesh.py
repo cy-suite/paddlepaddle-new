@@ -105,7 +105,7 @@ class TestReshardNdMeshCrossMesh:
 
         rank_id = dist.get_rank()
         if rank_id in self._mesh0.process_ids:
-            assert dist_program.global_block().ops[2].name() == "pd_op.send_v2"
+            assert dist_program.global_block().ops[2].name() == "pd_op.p_send"
         else:
             assert dist_program.global_block().ops[2].name() == "pd_op.recv_v2"
             assert (

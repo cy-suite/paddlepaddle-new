@@ -1024,7 +1024,7 @@ class ShardingOptimizer(MetaOptimizerBase):
                 "c_gen_bkcl_id",
                 "c_gen_xccl_id",
                 "c_comm_init",
-                'send_v2',
+                'p_send',
                 'recv_v2',
             ]:
                 pass

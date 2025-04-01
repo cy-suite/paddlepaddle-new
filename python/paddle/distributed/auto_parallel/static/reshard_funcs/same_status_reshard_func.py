@@ -97,7 +97,7 @@ class SameStatusReshardFunction(ReshardFunction):
                         )
 
                 comm_group = new_process_group([src, dst], group_type="p2p")
-                paddle._C_ops.send_v2(
+                paddle._C_ops.p_send(
                     src_value,
                     comm_group.id,
                     comm_group.ranks.index(dst),
@@ -107,7 +107,7 @@ class SameStatusReshardFunction(ReshardFunction):
                 point = paddle.base.libpaddle.pir.get_current_insertion_point()
                 point.prev()
                 new_op = point.get_operation()
-                assert new_op.name() == "pd_op.send_v2"
+                assert new_op.name() == "pd_op.p_send"
                 new_op.dist_attr = (
                     paddle.base.libpaddle.pir.create_op_dist_attribute(
                         src_mesh, [src_dist_attr], [], chunk_id
