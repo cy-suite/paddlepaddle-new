@@ -15,7 +15,7 @@
 import unittest
 
 import numpy as np
-from op_test import paddle_static_guard
+from utils import dygraph_guard, static_guard
 
 import paddle
 
@@ -48,7 +48,7 @@ class TestVarAPI(unittest.TestCase):
         pass
 
     def static(self):
-        with paddle_static_guard():
+        with static_guard():
             with paddle.static.program_guard(paddle.static.Program()):
                 x = paddle.static.data('X', self.shape, self.dtype)
                 out = paddle.var(x, self.axis, self.unbiased, self.keepdim)
@@ -57,12 +57,9 @@ class TestVarAPI(unittest.TestCase):
         return res[0]
 
     def dygraph(self):
-        paddle.disable_static()
-        try:
+        with dygraph_guard():
             x = paddle.to_tensor(self.x)
             out = paddle.var(x, self.axis, self.unbiased, self.keepdim)
-        finally:
-            paddle.enable_static()
         return out.numpy()
 
     def test_api(self):
@@ -109,21 +106,18 @@ class TestVarAPI_unbiased(TestVarAPI):
 
 class TestVarAPI_alias(unittest.TestCase):
     def test_alias(self):
-        paddle.disable_static()
-        try:
+        with dygraph_guard():
             x = paddle.to_tensor(np.array([10, 12], 'float32'))
             out1 = paddle.var(x).numpy()
             out2 = paddle.tensor.var(x).numpy()
             out3 = paddle.tensor.stat.var(x).numpy()
             np.testing.assert_allclose(out1, out2, rtol=1e-05)
             np.testing.assert_allclose(out1, out3, rtol=1e-05)
-        finally:
-            paddle.enable_static()
 
 
 class TestVarError(unittest.TestCase):
     def test_error(self):
-        with paddle_static_guard():
+        with static_guard():
             with paddle.static.program_guard(paddle.static.Program()):
                 x = paddle.static.data('X', [2, 3, 4], 'int32')
                 self.assertRaises(TypeError, paddle.var, x)
@@ -148,17 +142,14 @@ class TestVarAPIZeroSize(unittest.TestCase):
 
     def test_api(self):
         # Dynamic graph test
-        paddle.disable_static()
-        try:
+        with dygraph_guard():
             x_tensor = paddle.to_tensor(self.input)
             out_dy = paddle.var(
                 x_tensor, self.axis, self.unbiased, self.keepdim
             )
-        finally:
-            paddle.enable_static()
 
         # Static graph test
-        with paddle_static_guard():
+        with static_guard():
             with paddle.static.program_guard(paddle.static.Program()):
                 x_static = paddle.static.data('X', self.input.shape, self.dtype)
                 out_static = paddle.var(
