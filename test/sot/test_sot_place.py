@@ -69,7 +69,7 @@ class TestCheckExpectedPlace(TestCaseBase):
 
     @unittest.skipUnless(
         paddle.is_compiled_with_xpu(),
-        "This test case need compiled with xpu",
+        "This test case needs to be compiled with XPU",
     )
     def test_check_xpu(self):
         x = paddle.to_tensor(0.0)
