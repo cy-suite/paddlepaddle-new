@@ -344,9 +344,9 @@ jobs:
     #     '
 
     - name: do
-      working-directory: build
       run: |
         docker exec -t ${{ env.container_name }} /bin/bash -c '
+        cd build
         if [ ! -f "/root/.cache/lcov-1.16.tar.gz" ];then
           wget -P /home https://paddle-ci.cdn.bcebos.com/coverage/lcov-1.16.tar.gz --no-proxy --no-check-certificate || exit 101
           cp /home/lcov-1.16.tar.gz /root/.cache/lcov-1.16.tar.gz
