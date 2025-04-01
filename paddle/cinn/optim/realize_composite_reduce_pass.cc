@@ -55,7 +55,7 @@ struct CompositeTypes : public std::vector<common::Type> {
     this->reserve(2);
   }
 
-  void print() const {
+  void Print() const {
     VLOG(4) << "[CompositeTypes]: ";
     for (auto _t : *this) {
       VLOG(4) << _t;
@@ -467,7 +467,6 @@ LogicalResult RealizeCompositeReducePass::Run(ir::LoweredFunc func) {
   if (composite_type.type == ReduceType::kNone) {
     return LogicalResult::success();
   }
-  composite_type.print();
 
   // Step 2. Collect buffers that are used for reduce computation.
   std::set<ir::Buffer> buffers = CollectReduceBuffers<Store>(body);

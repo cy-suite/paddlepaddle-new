@@ -23,7 +23,7 @@
 
 namespace phi {
 
-enum ArgMinMaxType { kArgmin, kArgmax };
+enum ArgMinMaxType { kArgMin, kArgMax };
 
 template <typename Context,
           typename T,
@@ -62,8 +62,8 @@ struct ArgMinMaxFunctor {};
     }                                                                         \
   }
 
-DECLARE_ARG_MIN_MAX_FUNCTOR(argmin, ArgMinMaxType::kArgmin);
-DECLARE_ARG_MIN_MAX_FUNCTOR(argmax, ArgMinMaxType::kArgmax);
+DECLARE_ARG_MIN_MAX_FUNCTOR(argmin, ArgMinMaxType::kArgMin);
+DECLARE_ARG_MIN_MAX_FUNCTOR(argmax, ArgMinMaxType::kArgMax);
 
 template <typename Context, typename T, ArgMinMaxType EnumArgMinMaxValue>
 struct VisitDataArgMinMaxFunctor {
@@ -138,7 +138,7 @@ struct VisitDataArgMinMaxFunctor {
             common::errors::InvalidArgument(
                 "%s operator doesn't supports tensors whose ranks are greater "
                 "than 6.",
-                (EnumArgMinMaxValue == kArgmin ? "argmin" : "argmax")));
+                (EnumArgMinMaxValue == kArgMin ? "argmin" : "argmax")));
         break;
 #undef CALL_ARG_MINMAX_FUNCTOR
     }
@@ -179,7 +179,7 @@ void ArgMinKernel(const Context& dev_ctx,
                   bool flatten,
                   DataType dtype,
                   DenseTensor* out) {
-  ArgMinMaxKernel<Context, T, ArgMinMaxType::kArgmin>(
+  ArgMinMaxKernel<Context, T, ArgMinMaxType::kArgMin>(
       dev_ctx, x, axis, keepdims, flatten, dtype, out);
 }
 
@@ -191,7 +191,7 @@ void ArgMaxKernel(const Context& dev_ctx,
                   bool flatten,
                   DataType dtype,
                   DenseTensor* out) {
-  ArgMinMaxKernel<Context, T, ArgMinMaxType::kArgmax>(
+  ArgMinMaxKernel<Context, T, ArgMinMaxType::kArgMax>(
       dev_ctx, x, axis, keepdims, flatten, dtype, out);
 }
 

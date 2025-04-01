@@ -488,6 +488,8 @@ std::vector<ir::Tensor> TwoStepBlockReduceAny(
     const std::string& output_name = "T_Reduce_Any_out");
 
 constexpr char* kVarianceFuncName = "cinn_reduce_variance";
+constexpr char* kArgmaxFuncName = "cinn_argmax";
+constexpr char* kArgminFuncName = "cinn_argmin";
 
 std::string CrossThreadReduceExternalFuncName(const ir::Expr& op,
                                               const ir::Expr& tensor);
@@ -499,6 +501,7 @@ std::string GridReduceExternalFuncName(const ir::Expr& op,
                                        const cinn::common::Type type);
 
 std::string Type2StrForReduce(cinn::common::Type type);
+std::string Type2StrForArgReduce(cinn::common::Type type);
 }  // namespace pe
 }  // namespace hlir
 }  // namespace cinn
