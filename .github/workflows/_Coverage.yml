@@ -343,6 +343,10 @@ jobs:
 
         mkdir coverage_files
         cp coverage.info coverage_files
+
+        coverage combine $(ls python-coverage.data.*) || NO_PYTHON_COVERAGE_DATA=1
+        coverage xml -i -o python-coverage.xml || [[ "${NO_PYTHON_COVERAGE_DATA}" == "1" ]]
+        cp python-coverage.xml coverage_files
         '
 
     # - name: do
@@ -397,7 +401,7 @@ jobs:
     - name: Upload coverage report
       uses: codecov/codecov-action@v4
       with:
-        files: build/coverage.info
+        files: build/coverage_files
       # env:
       #   CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
