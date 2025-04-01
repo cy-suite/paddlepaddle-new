@@ -344,14 +344,30 @@ void BlockMultiheadAttentionInferMeta(const MetaTensor& qkv,
                                       const float out_scale,
                                       const std::string& compute_dtype,
                                       const float rope_theta,
+                                      const int head_kv_num,
+                                      const int head_dim,
                                       MetaTensor* fmha_out,
                                       MetaTensor* qkv_out,
                                       MetaTensor* key_cache_out,
                                       MetaTensor* value_cache_out) {
   auto input_dims = qkv.dims();
-  auto key_cache_dims = key_cache.dims();
-  const int kv_num_head = key_cache_dims[1];
-  const int dim_head = key_cache_dims[3];
+
+  int kv_num_head = head_kv_num;
+  int dim_head = head_dim;
+  if (key_cache) {
+    auto key_cache_dims = key_cache.dims();
+    kv_num_head = key_cache_dims[1];
+    dim_head = key_cache_dims[3];
+    PADDLE_ENFORCE_EQ(
+        key_cache_dims.size(),
+        4UL,
+        errors::InvalidArgument("The input(key_cache) must be a 4D Tensor."));
+
+    key_cache_out->set_dims(key_cache_dims);
+    key_cache_out->set_dtype(key_cache.dtype());
+    value_cache_out->set_dims(key_cache_dims);
+    value_cache_out->set_dtype(value_cache.dtype());
+  }
   const int total_num_head = qkv.dims()[qkv.dims().size() - 1] / dim_head;
   const int q_num_head = total_num_head - 2 * kv_num_head;
 
@@ -367,10 +383,6 @@ void BlockMultiheadAttentionInferMeta(const MetaTensor& qkv,
       2UL,
       errors::InvalidArgument("The input(qkv) must be a 2D Tensor."));
   PADDLE_ENFORCE_EQ(
-      key_cache_dims.size(),
-      4UL,
-      errors::InvalidArgument("The input(key_cache) must be a 4D Tensor."));
-  PADDLE_ENFORCE_EQ(
       (2 * kv_num_head + q_num_head) * dim_head,
       input_dims[1],
       errors::InvalidArgument("The input_dims[1] must be equal to (2 * "
@@ -378,10 +390,6 @@ void BlockMultiheadAttentionInferMeta(const MetaTensor& qkv,
 
   fmha_out->set_dims({input_dims[0], q_num_head * dim_head});
   qkv_out->set_dims(qkv.dims());
-  key_cache_out->set_dims(key_cache_dims);
-  key_cache_out->set_dtype(key_cache.dtype());
-  value_cache_out->set_dims(key_cache_dims);
-  value_cache_out->set_dtype(value_cache.dtype());
 
   auto FBADtypeCheck = [](const MetaTensor& check_tensor,
                           const std::string& tensor_name,
@@ -530,6 +538,8 @@ void BlockMultiheadAttentionInferXPUMeta(
                                    out_scale,
                                    compute_dtype,
                                    rope_theta,
+                                   -1,
+                                   -1,
                                    fmha_out,
                                    qkv_out,
                                    key_cache_out,
