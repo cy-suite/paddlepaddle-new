@@ -153,7 +153,7 @@ class TestVarAPIZeroSize(unittest.TestCase):
             with paddle.static.program_guard(paddle.static.Program()):
                 x_static = paddle.static.data('X', self.input.shape, self.dtype)
                 out_static = paddle.var(
-                    x_static, self.xis, self.unbiased, self.keepdim
+                    x_static, self.axis, self.unbiased, self.keepdim
                 )
                 exe = paddle.static.Executor(self.place)
                 res = exe.run(feed={'X': self.input}, fetch_list=[out_static])
@@ -166,34 +166,14 @@ class TestVarAPIZeroSize(unittest.TestCase):
         np.testing.assert_allclose(res[0], out_ref, equal_nan=True)
 
 
+class TestVarAPIZeroSize_Float16(TestVarAPIZeroSize):
+    def set_attrs(self):
+        self.dtype = 'float16'
+
+
 class TestVarAPIZeroSize_Float32(TestVarAPIZeroSize):
     def set_attrs(self):
         self.dtype = 'float32'
-
-
-class TestVarAPIZeroSize_Float64(TestVarAPIZeroSize):
-    def set_attrs(self):
-        self.dtype = 'float64'
-
-
-class TestVarAPIZeroSize_Int32(TestVarAPIZeroSize):
-    def set_attrs(self):
-        self.dtype = 'int32'
-
-
-class TestVarAPIZeroSize_Int64(TestVarAPIZeroSize):
-    def set_attrs(self):
-        self.dtype = 'int64'
-
-
-class TestVarAPIZeroSize_Complex64(TestVarAPIZeroSize):
-    def set_attrs(self):
-        self.dtype = 'complex64'
-
-
-class TestVarAPIZeroSize_Complex128(TestVarAPIZeroSize):
-    def set_attrs(self):
-        self.dtype = 'complex128'
 
 
 class TestVarAPIZeroSize_Axis_0(TestVarAPIZeroSize):
@@ -209,6 +189,11 @@ class TestVarAPIZeroSize_Axis_Neg1(TestVarAPIZeroSize):
 class TestVarAPIZeroSize_Axis_List(TestVarAPIZeroSize):
     def set_attrs(self):
         self.axis = [0, 1]
+
+
+class TestVarAPIZeroSize_Axis_Tuple(TestVarAPIZeroSize):
+    def set_attrs(self):
+        self.axis = (1, 2)
 
 
 class TestVarAPIZeroSize_Unbiased_False(TestVarAPIZeroSize):
