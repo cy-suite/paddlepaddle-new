@@ -1576,22 +1576,6 @@ void pad_grad(const Tensor& input,
 }
 
 template <typename T>
-void max_grad(const Tensor& x,
-              const Tensor& out,
-              const Tensor& out_grad,
-              const IntArray& axis,
-              bool keepdim,
-              bool reduce_all,
-              Tensor* x_grad) {
-  if (x_grad) {
-    Tensor x_grad_tmp;
-    amax_grad<T>(x, out, out_grad, axis, keepdim, reduce_all, &x_grad_tmp);
-
-    set_output<T>(x_grad_tmp, x_grad);
-  }
-}
-
-template <typename T>
 void slice_grad(const Tensor& input,
                 const Tensor& out_grad,
                 const std::vector<int64_t>& axes,
@@ -3405,6 +3389,22 @@ void amin_grad(const Tensor& x,
                bool keepdim,
                bool reduce_all,
                Tensor* x_grad) {
+  if (x_grad) {
+    Tensor x_grad_tmp;
+    amax_grad<T>(x, out, out_grad, axis, keepdim, reduce_all, &x_grad_tmp);
+
+    set_output<T>(x_grad_tmp, x_grad);
+  }
+}
+
+template <typename T>
+void max_grad(const Tensor& x,
+              const Tensor& out,
+              const Tensor& out_grad,
+              const IntArray& axis,
+              bool keepdim,
+              bool reduce_all,
+              Tensor* x_grad) {
   if (x_grad) {
     Tensor x_grad_tmp;
     amax_grad<T>(x, out, out_grad, axis, keepdim, reduce_all, &x_grad_tmp);
