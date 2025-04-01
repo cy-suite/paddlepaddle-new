@@ -16,7 +16,8 @@ import random
 import unittest
 
 import numpy as np
-from op_test import OpTest, convert_float_to_uint16, paddle_static_guard
+from op_test import OpTest, convert_float_to_uint16
+from utils import dygraph_guard, static_guard
 
 import paddle
 from paddle.base import core
@@ -260,7 +261,7 @@ class TestBroadcastTensorsAPI(unittest.TestCase):
     def test_api(self):
 
         def test_static():
-            with paddle_static_guard():
+            with static_guard():
                 with paddle.static.program_guard(paddle.static.Program()):
                     inputs = [
                         paddle.static.data(
@@ -273,8 +274,7 @@ class TestBroadcastTensorsAPI(unittest.TestCase):
                     paddle.broadcast_tensors(inputs)
 
         def test_dynamic():
-            paddle.disable_static()
-            try:
+            with dygraph_guard():
                 inputs = [
                     paddle.to_tensor(
                         np.random.random([4, 1, 4, 1]).astype(self.dtype)
@@ -294,8 +294,6 @@ class TestBroadcastTensorsAPI(unittest.TestCase):
                     ),
                 ]
                 paddle.broadcast_tensors(inputs)
-            finally:
-                paddle.enable_static()
 
         test_static()
         test_dynamic()
@@ -314,7 +312,7 @@ class TestBroadcastTensorsAPI_complex128(TestBroadcastTensorsAPI):
 class TestRaiseBroadcastTensorsError(unittest.TestCase):
     def test_errors(self):
         def test_type():
-            with paddle_static_guard():
+            with static_guard():
                 with paddle.static.program_guard(paddle.static.Program()):
                     inputs = [
                         paddle.static.data(
@@ -327,7 +325,7 @@ class TestRaiseBroadcastTensorsError(unittest.TestCase):
                     paddle.broadcast_tensors(inputs)
 
         def test_dtype():
-            with paddle_static_guard():
+            with static_guard():
                 with paddle.static.program_guard(paddle.static.Program()):
                     inputs = [
                         paddle.static.data(
@@ -340,7 +338,7 @@ class TestRaiseBroadcastTensorsError(unittest.TestCase):
                     paddle.broadcast_tensors(inputs)
 
         def test_bcast_semantics():
-            with paddle_static_guard():
+            with static_guard():
                 with paddle.static.program_guard(paddle.static.Program()):
                     inputs = [
                         paddle.static.data(
@@ -353,7 +351,7 @@ class TestRaiseBroadcastTensorsError(unittest.TestCase):
                     paddle.broadcast_tensors(inputs)
 
         def test_bcast_semantics_complex64():
-            with paddle_static_guard():
+            with static_guard():
                 with paddle.static.program_guard(paddle.static.Program()):
                     inputs = [
                         paddle.static.data(
@@ -382,8 +380,7 @@ class TestRaiseBroadcastTensorsError(unittest.TestCase):
 class TestRaiseBroadcastTensorsErrorDyGraph(unittest.TestCase):
     def test_errors(self):
         def test_type():
-            paddle.disable_static()
-            try:
+            with dygraph_guard():
                 inputs = [
                     paddle.to_tensor(
                         np.ones(shape=[1, 1, 1, 1], dtype='float32', name="x4")
@@ -393,12 +390,9 @@ class TestRaiseBroadcastTensorsErrorDyGraph(unittest.TestCase):
                     ),
                 ]
                 paddle.broadcast_tensors(inputs)
-            finally:
-                paddle.enable_static()
 
         def test_dtype():
-            paddle.disable_static()
-            try:
+            with dygraph_guard():
                 inputs = [
                     paddle.to_tensor(
                         np.ones(shape=[1, 1, 1, 1], dtype='int8', name="x6")
@@ -408,12 +402,9 @@ class TestRaiseBroadcastTensorsErrorDyGraph(unittest.TestCase):
                     ),
                 ]
                 paddle.broadcast_tensors(inputs)
-            finally:
-                paddle.enable_static()
 
         def test_bcast_semantics():
-            paddle.disable_static()
-            try:
+            with dygraph_guard():
                 inputs = [
                     paddle.to_tensor(
                         np.ones(shape=[1, 3, 1, 1], dtype='float32', name="x9")
@@ -423,8 +414,6 @@ class TestRaiseBroadcastTensorsErrorDyGraph(unittest.TestCase):
                     ),
                 ]
                 paddle.broadcast_tensors(inputs)
-            finally:
-                paddle.enable_static()
 
         self.assertRaises(TypeError, test_type)
         self.assertRaises(TypeError, test_dtype)
@@ -440,7 +429,7 @@ class TestBroadcastTensorsAPISingle(unittest.TestCase):
         pass
 
     def test_single_static(self):
-        with paddle_static_guard():
+        with static_guard():
             with paddle.static.program_guard(paddle.static.Program()):
                 inputs = [
                     paddle.static.data(
@@ -451,8 +440,7 @@ class TestBroadcastTensorsAPISingle(unittest.TestCase):
                 self.assertEqual(len(outputs), 1)
 
     def test_single_dynamic(self):
-        paddle.disable_static()
-        try:
+        with dygraph_guard():
             inputs = [
                 paddle.to_tensor(
                     np.random.random([1, 4, 1, 4]).astype(self.dtype)
@@ -460,8 +448,6 @@ class TestBroadcastTensorsAPISingle(unittest.TestCase):
             ]
             outputs = paddle.broadcast_tensors(inputs)
             self.assertEqual(len(outputs), 1)
-        finally:
-            paddle.enable_static()
 
 
 class TestBroadcastTensorsAPIZeroSize(unittest.TestCase):
@@ -476,7 +462,7 @@ class TestBroadcastTensorsAPIZeroSize(unittest.TestCase):
         pass
 
     def test_zero_size_static(self):
-        with paddle_static_guard():
+        with static_guard():
             with paddle.static.program_guard(paddle.static.Program()):
                 inputs = [
                     paddle.static.data(
@@ -491,8 +477,7 @@ class TestBroadcastTensorsAPIZeroSize(unittest.TestCase):
                 self.assertEqual(outputs[1].shape, self.expected_shape)
 
     def test_zero_size_dynamic(self):
-        paddle.disable_static()
-        try:
+        with dygraph_guard():
             data1 = np.zeros(self.shape1, dtype=self.dtype)
             data2 = np.zeros(self.shape2, dtype=self.dtype)
 
@@ -503,8 +488,6 @@ class TestBroadcastTensorsAPIZeroSize(unittest.TestCase):
             outputs = paddle.broadcast_tensors(inputs)
             self.assertEqual(outputs[0].shape, self.expected_shape)
             self.assertEqual(outputs[1].shape, self.expected_shape)
-        finally:
-            paddle.enable_static()
 
 
 class TestBroadcastTensorsAPIZeroSize_bool(TestBroadcastTensorsAPIZeroSize):
