@@ -16,7 +16,7 @@ import random
 import unittest
 
 import numpy as np
-from op_test import OpTest, convert_float_to_uint16
+from op_test import OpTest, convert_float_to_uint16, paddle_static_guard
 
 import paddle
 from paddle.base import core
@@ -39,7 +39,8 @@ def find_output_shape(input_list):
             shape = list(reversed(x.shape))
             if i < len(shape) and shape[i] != 1:
                 output_shape[i] = shape[i]
-
+            if output_shape[i] == 0:
+                break
     return list(reversed(output_shape))
 
 
@@ -407,6 +408,119 @@ class TestRaiseBroadcastTensorsErrorDyGraph(unittest.TestCase):
         self.assertRaises(TypeError, test_dtype)
         self.assertRaises(TypeError, test_bcast_semantics)
         paddle.enable_static()
+
+
+class TestBroadcastTensorsAPISingle(unittest.TestCase):
+    def setUp(self):
+        self.dtype = 'float32'
+        self.inputs = [
+            paddle.to_tensor(np.random.random([1, 4, 1, 4]).astype(self.dtype))
+        ]
+        self.set_dtypes()
+
+    def set_dtypes(self):
+        pass
+
+    def test_api(self):
+
+        def test_static():
+            with paddle_static_guard():
+                with paddle.static.program_guard(paddle.static.Program()):
+                    outputs = paddle.broadcast_tensors(self.inputs)
+                    self.assertEqual(len(outputs), 1)
+
+        def test_dynamic():
+            paddle.disable_static()
+            try:
+                outputs = paddle.broadcast_tensors(self.inputs)
+                self.assertEqual(len(outputs), 1)
+            finally:
+                paddle.enable_static()
+
+        test_static()
+        test_dynamic()
+
+
+class TestBroadcastTensorsAPIZeroSize(unittest.TestCase):
+    def setUp(self):
+        self.dtype = 'float64'
+        self.shape1 = [0, 4, 2]
+        self.shape2 = [1, 4, 1]
+        self.expected_shape = [1, 4, 2]
+        self.set_dtype()
+
+    def set_dtype(self):
+        pass
+
+    def test_zero_size_static(self):
+        with paddle_static_guard():
+            with paddle.static.program_guard(paddle.static.Program()):
+                inputs = [
+                    paddle.static.data(
+                        shape=self.shape1, dtype=self.dtype, name="x0"
+                    ),
+                    paddle.static.data(
+                        shape=self.shape2, dtype=self.dtype, name="x1"
+                    ),
+                ]
+                outputs = paddle.broadcast_tensors(inputs)
+                self.assertEqual(outputs[0].shape, self.expected_shape)
+                self.assertEqual(outputs[1].shape, self.expected_shape)
+
+    def test_zero_size_dynamic(self):
+        paddle.disable_static()
+        try:
+            data1 = np.zeros(self.shape1, dtype=self.dtype)
+            data2 = np.zeros(self.shape2, dtype=self.dtype)
+
+            inputs = [
+                paddle.to_tensor(data1, dtype=self.dtype),
+                paddle.to_tensor(data2, dtype=self.dtype),
+            ]
+            outputs = paddle.broadcast_tensors(inputs)
+            self.assertEqual(outputs[0].shape, self.expected_shape)
+            self.assertEqual(outputs[1].shape, self.expected_shape)
+        finally:
+            paddle.enable_static()
+
+
+class TestBroadcastTensorsAPIZeroSize_bool(TestBroadcastTensorsAPIZeroSize):
+    def set_dtype(self):
+        self.dtype = 'bool'
+
+
+class TestBroadcastTensorsAPIZeroSize_int32(TestBroadcastTensorsAPIZeroSize):
+    def set_dtype(self):
+        self.dtype = 'int32'
+
+
+class TestBroadcastTensorsAPIZeroSize_int64(TestBroadcastTensorsAPIZeroSize):
+    def set_dtype(self):
+        self.dtype = 'int64'
+
+
+class TestBroadcastTensorsAPIZeroSize_float32(TestBroadcastTensorsAPIZeroSize):
+    def set_dtype(self):
+        self.dtype = 'float32'
+
+
+class TestBroadcastTensorsAPIZeroSize_float16(TestBroadcastTensorsAPIZeroSize):
+    def set_dtype(self):
+        self.dtype = 'float16'
+
+
+class TestBroadcastTensorsAPIZeroSize_complex64(
+    TestBroadcastTensorsAPIZeroSize
+):
+    def set_dtype(self):
+        self.dtype = 'complex64'
+
+
+class TestBroadcastTensorsAPIZeroSize_complex128(
+    TestBroadcastTensorsAPIZeroSize
+):
+    def set_dtype(self):
+        self.dtype = 'complex128'
 
 
 if __name__ == '__main__':
