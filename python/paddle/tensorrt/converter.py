@@ -217,7 +217,7 @@ class PaddleToTensorRTConverter:
                     constant_layer.name = constant_value_name
                     value_to_trt_tensor[value.id] = constant_layer.get_output(0)
                     self.refit_manager.set_trt_weight_tensor(
-                        constant_layer.get_output(0).name, weight
+                        constant_layer.get_output(0).name, constant_tensor
                     )
                 else:
                     value_to_trt_tensor[value.id] = constant_tensor
