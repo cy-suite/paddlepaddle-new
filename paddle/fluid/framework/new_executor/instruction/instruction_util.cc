@@ -111,7 +111,8 @@ phi::DeviceContext* ParseDeviceContext(pir::Operation* op,
       phi::is_xpu_place(place)) {
     VLOG(6) << "Parse DeviceContext for " << op_name
             << ", execution stream = " << execution_stream;
-    if (execution_stream != kDefaultStream) {
+    if (op_attributes.count("ring_id") == 0 &&
+        execution_stream != kDefaultStream) {
       dev_ctx = ctx_manager
                     .Get(std::string(kCustomStream) + "-" + execution_stream,
                          place,
