@@ -346,6 +346,18 @@ jobs:
     - name: do
       working-directory: build
       run: |
+        docker exec -t ${{ env.container_name }} /bin/bash -c '
+        if [ ! -f "/root/.cache/lcov-1.16.tar.gz" ];then
+          wget -P /home https://paddle-ci.cdn.bcebos.com/coverage/lcov-1.16.tar.gz --no-proxy --no-check-certificate || exit 101
+          cp /home/lcov-1.16.tar.gz /root/.cache/lcov-1.16.tar.gz
+        else
+          cp /root/.cache/lcov-1.16.tar.gz /home/lcov-1.16.tar.gz
+        fi
+        tar -xf /home/lcov-1.16.tar.gz -C /
+        cd /lcov-1.16
+        echo "::group::Install lcov"
+        make install
+        echo "::endgroup::"
         lcov --extract coverage.info \
         "${PADDLE_ROOT}/paddle/fluid/framework/*" \
         "${PADDLE_ROOT}/paddle/fluid/imperative/*" \
@@ -377,6 +389,7 @@ jobs:
             --rc lcov_branch_coverage=0
 
         mv -f coverage-full.tmp coverage-full.info
+        '
 
 
     - name: Upload coverage report
@@ -387,10 +400,10 @@ jobs:
       # env:
       #   CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
-    # - name: Terminate and delete the container
-    #   if: always()
-    #   run: |
-    #     set +e
-    #     docker exec -t ${{ env.container_name }} /bin/bash -c 'rm -rf * .[^.]*'
-    #     docker stop ${{ env.container_name }}
-    #     docker rm ${{ env.container_name }}
+    - name: Terminate and delete the container
+      if: always()
+      run: |
+        set +e
+        # docker exec -t ${{ env.container_name }} /bin/bash -c 'rm -rf * .[^.]*'
+        docker stop ${{ env.container_name }}
+        docker rm ${{ env.container_name }}
