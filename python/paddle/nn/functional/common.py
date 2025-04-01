@@ -500,11 +500,7 @@ def interpolate(
             "align_corners option can only be set with the interpolating modes: linear | bilinear | bicubic | trilinear"
         )
 
-    if (
-        recompute_scale_factor is not None
-        and recompute_scale_factor
-        and size is not None
-    ):
+    if recompute_scale_factor and size is not None:
         raise ValueError(
             "recompute_scale_factor is not meaningful with an explicit size."
         )
@@ -692,7 +688,7 @@ def interpolate(
                 "Attr(scale)'s type should be float, int, list, tuple, or Tensor."
             )
 
-    elif recompute_scale_factor is not None and recompute_scale_factor:
+    elif recompute_scale_factor:
         assert (
             scale is not None
         ), "scale_factor must not be None when recompute_scale_factor=True"
