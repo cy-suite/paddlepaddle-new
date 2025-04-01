@@ -25,8 +25,9 @@ jobs:
         run: |
           git switch -c test
           git remote add upstream https://github.com/PaddlePaddle/Paddle.git
-          git config pull.rebase false
-          git pull upstream ${{ github.base_ref }}
+          git fetch upstream $BRANCH
+          git checkout $BRANCH
+          git merge test
 
       - name: Check bypass
         id: check-bypass
