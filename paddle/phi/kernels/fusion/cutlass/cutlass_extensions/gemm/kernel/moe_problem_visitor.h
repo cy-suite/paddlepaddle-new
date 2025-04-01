@@ -73,6 +73,9 @@ struct BaseMoeProblemVisitor {
     void const* workspace;
     int32_t tile_count;
 
+  // int32_t* problem_idx_per_tile;
+  // int32_t* start_tile_idx_per_tile;
+
     //
     // Methods
     //
@@ -239,6 +242,13 @@ struct MoeProblemVisitor<ProblemSizeHelper,
 
   CUTLASS_DEVICE
   bool next_tile() {
+    // int32_t col_tile_nums = (this->params.gemm_n + ThreadblockShape::kN - 1) / ThreadblockShape::kN;
+    // const int32_t row_tile_idx = this->tile_idx / col_tile_nums;
+    // this->problem_idx = this->params.problem_idx_per_tile[row_tile_idx];
+    // if (this->problem_idx >= 1000) return false;
+    // this->problem_tile_start = this->params.start_tile_idx_per_tile[row_tile_idx] * col_tile_nums;
+    // return true;
+
     // Check whether the tile to compute is within the range of the current
     // problem.
     int32_t problem_tile_end = __shfl_sync(
