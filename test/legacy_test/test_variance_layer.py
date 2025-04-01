@@ -15,7 +15,7 @@
 import unittest
 
 import numpy as np
-from op_test import paddle_dynamic_guard, paddle_static_guard
+from op_test import paddle_static_guard
 
 import paddle
 
@@ -57,9 +57,12 @@ class TestVarAPI(unittest.TestCase):
         return res[0]
 
     def dygraph(self):
-        with paddle_dynamic_guard():
+        paddle.disable_static()
+        try:
             x = paddle.to_tensor(self.x)
             out = paddle.var(x, self.axis, self.unbiased, self.keepdim)
+        finally:
+            paddle.enable_static()
         return out.numpy()
 
     def test_api(self):
@@ -106,13 +109,16 @@ class TestVarAPI_unbiased(TestVarAPI):
 
 class TestVarAPI_alias(unittest.TestCase):
     def test_alias(self):
-        with paddle_dynamic_guard():
+        paddle.disable_static()
+        try:
             x = paddle.to_tensor(np.array([10, 12], 'float32'))
             out1 = paddle.var(x).numpy()
             out2 = paddle.tensor.var(x).numpy()
             out3 = paddle.tensor.stat.var(x).numpy()
             np.testing.assert_allclose(out1, out2, rtol=1e-05)
             np.testing.assert_allclose(out1, out3, rtol=1e-05)
+        finally:
+            paddle.enable_static()
 
 
 class TestVarError(unittest.TestCase):
@@ -142,11 +148,14 @@ class TestVarAPIZeroSize(unittest.TestCase):
 
     def test_api(self):
         # Dynamic graph test
-        with paddle_dynamic_guard():
+        paddle.disable_static()
+        try:
             x_tensor = paddle.to_tensor(self.input)
             out_dy = paddle.var(
                 x_tensor, self.axis, self.unbiased, self.keepdim
             )
+        finally:
+            paddle.enable_static()
 
         # Static graph test
         with paddle_static_guard():
