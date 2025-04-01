@@ -374,7 +374,6 @@ void ForceLinkIrTools() {
 }
 
 REGISTER_AP_BUILTIN_MODULE("ir_tools", [](auto* m) {
-  LOG(ERROR) << "REGISTER_AP_BUILTIN_MODULE ir_tools";
   using Impl = PirHelperMethodClass;
   m->Def("create_pass_manager", &Impl::CreatePassManager);
   m->Def("create_access_topo_drr_pass", &Impl::CreateAccessTopoDrrPass);
