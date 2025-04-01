@@ -21,6 +21,12 @@ jobs:
         with:
           fetch-depth: 10
 
+      - name: Display Required Approvers
+        run: |
+          git status
+          git branch
+          git log
+
       - name: Check bypass
         id: check-bypass
         uses: ./.github/actions/check-bypass
