@@ -157,9 +157,10 @@ Store GetStoreOfSchedule(const Schedule& stmt) {
     }
   };
   ir::stmt::Visit(stmt->body(), VisitFn, [](auto) {});
-  PADDLE_ENFORCE(found,
-                 ::common::errors::PreconditionNotMet(
-                     "One Schedule should have exactly one Store."));
+  PADDLE_ENFORCE_EQ(found,
+                    true,
+                    ::common::errors::PreconditionNotMet(
+                        "One Schedule should have exactly one Store."));
   return store_stmt;
 }
 
