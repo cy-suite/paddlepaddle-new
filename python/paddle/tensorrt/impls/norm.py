@@ -21,18 +21,14 @@ from paddle.base.log_helper import get_logger
 from paddle.tensorrt.converter_utils import (
     WithFp16,
     add_1D_constant_layer,
-    append_ones,
     get_axes_for_reduce_op,
     get_dynamic_dims,
     get_trt_plugin,
     has_dynamic_shape,
     set_layer_name,
-    trt_concat,
     trt_expand,
-    trt_gather,
     trt_prod,
     trt_reshape,
-    trt_shape,
     trt_sum,
 )
 from paddle.tensorrt.register import converter_registry
@@ -55,65 +51,12 @@ def layernorm_converter(network, paddle_op, inputs):
 
     input_a, scale, bias = inputs
 
-    begin_axis = paddle_op.attrs().get("begin_norm_axis", 0)
-    eps = paddle_op.attrs().get("epsilon", 1e-5)
-    rank = len(input_a.shape)
-    if isinstance(scale, trt.ITensor):
-        axisMask = 0
-        for i in range(begin_axis, rank):
-            axisMask |= 1 << i
+    begin_norm_axis = paddle_op.attrs().get("begin_norm_axis", 0)
+    epsilon = paddle_op.attrs().get("epsilon", 1e-5)
+    assert len(paddle_op.operands()) == 3
+    scale_shape = paddle_op.operands()[1].source().shape
 
-        indice_dim_vec = list(range(rank))
-        indice_dim_vec = [x for x in indice_dim_vec if x >= begin_axis]
-
-        newDims = trt_gather(
-            network,
-            trt_shape(network, input_a),
-            indice_dim_vec,
-            name=[paddle_op.name(), "trt_gather"],
-        )
-        newrank = len(indice_dim_vec)
-
-        prepend_dims = []
-        for i in range(rank - newrank):
-            one_const = network.add_constant(
-                (1,), np.array([1], dtype=np.int32)
-            )
-            set_layer_name(one_const, [paddle_op.name(), f"one_const_{i}"])
-            prepend_dims.append(one_const.get_output(0))
-
-        if prepend_dims:
-            concat_dims = [*prepend_dims, newDims]
-            concat_shape_tensor = trt_concat(
-                network,
-                concat_dims,
-                name=[paddle_op.name(), "concat_shape_tensor"],
-            )
-        else:
-            concat_shape_tensor = newDims
-
-        Bias_reshape = trt_reshape(
-            network,
-            bias,
-            concat_shape_tensor,
-            is_shape_tensor=True,
-            name=[paddle_op.name(), "Bias_reshape"],
-        )
-        Scale_reshape = trt_reshape(
-            network,
-            scale,
-            concat_shape_tensor,
-            is_shape_tensor=True,
-            name=[paddle_op.name(), "Scale_reshape"],
-        )
-        layer = network.add_normalization(
-            input_a, Scale_reshape, Bias_reshape, axisMask
-        )
-        set_layer_name(layer, paddle_op)
-        support_fp32_mix_precision(paddle_op.name(), layer)
-        layer.epsilon = eps
-    else:
-        scale_shape = paddle_op.operands()[1].source().shape
+    if isinstance(scale, trt.Weights):
         scale_tensor = network.add_constant(scale_shape, scale)
         set_layer_name(scale_tensor, paddle_op)
         scale_tensor = scale_tensor.get_output(0)
@@ -121,29 +64,34 @@ def layernorm_converter(network, paddle_op, inputs):
         bias_tensor = network.add_constant(bias_shape, bias)
         set_layer_name(bias_tensor, paddle_op)
         bias_tensor = bias_tensor.get_output(0)
-        dims = list(range(len(input_a.shape)))[begin_axis:]
-        axes = get_axes_for_reduce_op(dims)
-        scale_tensor = append_ones(
-            network,
-            scale_tensor,
-            [paddle_op.name(), "scale_tensor_broadcast"],
-            len(input_a.shape) - len(scale_tensor.shape),
-        )
-        bias_tensor = append_ones(
-            network,
-            bias_tensor,
-            [paddle_op.name(), "bias_tensor_broadcast"],
-            len(input_a.shape) - len(bias_tensor.shape),
-        )
-        layer = network.add_normalization(
-            input_a, scale_tensor, bias_tensor, axes
-        )
-        layer.epsilon = eps
-        layer.compute_precision = trt.float32
-        set_layer_name(layer, paddle_op)
-        support_fp32_mix_precision(paddle_op.name(), layer)
+    else:
+        scale_tensor = scale
+        bias_tensor = bias
 
-    return layer.get_output(0)
+    dims = list(range(len(input_a.shape)))[begin_norm_axis:]
+    axes = get_axes_for_reduce_op(dims)
+
+    broadcast_shape = [1] * begin_norm_axis
+    normalized_shape = list(input_a.shape)[begin_norm_axis:]
+    broadcast_shape.extend(normalized_shape)
+
+    scale_reshape = network.add_shuffle(scale_tensor)
+    scale_reshape.reshape_dims = tuple(broadcast_shape)
+    set_layer_name(scale_reshape, [paddle_op.name(), "scale_reshape"])
+    scale_tensor = scale_reshape.get_output(0)
+
+    bias_reshape = network.add_shuffle(bias_tensor)
+    bias_reshape.reshape_dims = tuple(broadcast_shape)
+    set_layer_name(bias_reshape, [paddle_op.name(), "bias_reshape"])
+    bias_tensor = bias_reshape.get_output(0)
+
+    layer_norm = network.add_normalization(
+        input_a, scale_tensor, bias_tensor, axes
+    )
+    layer_norm.epsilon = epsilon
+    set_layer_name(layer_norm, paddle_op)
+    support_fp32_mix_precision(paddle_op.name(), layer_norm)
+    return layer_norm.get_output(0)
 
 
 @converter_registry.register(

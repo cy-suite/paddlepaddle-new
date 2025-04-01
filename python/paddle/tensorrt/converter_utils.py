@@ -671,7 +671,7 @@ def convert_conv2d(network, paddle_op, inputs):
             num_output_maps=n_output,
             kernel_shape=nv_ksize,
             kernel=weight_filter,
-            bias=None,
+            bias=bias,
         )
     elif (
         paddle_op.name() == "pd_op.conv2d_transpose"

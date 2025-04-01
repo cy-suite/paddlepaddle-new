@@ -197,7 +197,7 @@ class TestConverterResNet50(unittest.TestCase):
             output_trt,
             rtol=1e-2,
             atol=1e-2,
-            err_msg="Outputs are not within the 1e-3 tolerance",
+            err_msg="Outputs are not within the 1e-2 tolerance",
         )
 
     def test_convert_quant_model(self):
