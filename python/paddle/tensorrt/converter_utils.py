@@ -671,13 +671,23 @@ def convert_conv2d(network, paddle_op, inputs):
                 bias=bias,
             )
         else:
+            constant_manager = TensorRTConstantManager()
+            bias_name = (
+                paddle_op.operands()[2]
+                .source()
+                .get_defining_op()
+                .attrs()['parameter_name']
+            )
+            bias_np = constant_manager.get_constant_value(bias_name)
+            bias_weights = trt.Weights(bias_np)
             layer = network.add_convolution_nd(
                 input=input_tensor,
                 num_output_maps=n_output,
                 kernel_shape=nv_ksize,
                 kernel=weight_filter,
-                bias=None,
+                bias=bias_weights,
             )
+
     elif (
         paddle_op.name() == "pd_op.conv2d"
         or paddle_op.name() == "pd_op.depthwise_conv2d"
