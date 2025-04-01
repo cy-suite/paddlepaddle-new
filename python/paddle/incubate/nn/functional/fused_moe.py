@@ -131,6 +131,7 @@ def fused_moe(
 def moe_dispatch(
     x: Tensor,
     gating_output: Tensor,
+    gating_correction_bias: Tensor,
     moe_topk: int,
     group_moe: bool = False,
     topk_only_mode: bool = False,
@@ -190,7 +191,12 @@ def moe_dispatch(
             expert_scales_float,
             top_k_indices,
         ) = _C_ops.moe_dispatch(
-            x, gating_output, moe_topk, group_moe, topk_only_mode
+            x,
+            gating_output,
+            gating_correction_bias,
+            moe_topk,
+            group_moe,
+            topk_only_mode,
         )
         return (
             permute_input,
@@ -224,6 +230,7 @@ def moe_dispatch(
 
     inputs = {"X": x}
     inputs["gating_output"] = gating_output
+    inputs["gating_correction_bias"] = gating_correction_bias
 
     helper.append_op(
         type='moe_dispatch',
