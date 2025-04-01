@@ -31,6 +31,7 @@ jobs:
           git config --global user.name "PaddleCI"
           git config --global user.email "paddle_ci@example.com"
           git merge test
+          git log
 
       - name: Check bypass
         id: check-bypass
