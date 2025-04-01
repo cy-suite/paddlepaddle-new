@@ -343,8 +343,40 @@ jobs:
     #     cp coverage.info coverage_files/
     #     '
 
-    # - name: do
-    #   run: |
+    - name: do
+      working-directory: build
+      run: |
+        lcov --extract coverage.info \
+        "${PADDLE_ROOT}/paddle/fluid/framework/*" \
+        "${PADDLE_ROOT}/paddle/fluid/imperative/*" \
+        "${PADDLE_ROOT}/paddle/fluid/inference/*" \
+        "${PADDLE_ROOT}/paddle/fluid/memory/*" \
+        "${PADDLE_ROOT}/paddle/fluid/operators/*" \
+        "${PADDLE_ROOT}/paddle/fluid/recordio/*" \
+        "${PADDLE_ROOT}/paddle/fluid/string/*" \
+        "${PADDLE_ROOT}/paddle/fluid/eager/*" \
+        "${PADDLE_ROOT}/paddle/fluid/pir/*" \
+        "${PADDLE_ROOT}/paddle/fluid/ir_adaptor/*" \
+        "${PADDLE_ROOT}/paddle/phi/*" \
+        "${PADDLE_ROOT}/paddle/pir/*" \
+        "${PADDLE_ROOT}/paddle/utils/*" \
+        -o coverage-full.tmp \
+        --rc lcov_branch_coverage=0
+
+        mv -f coverage-full.tmp coverage-full.info
+
+        lcov --remove coverage-full.info \
+            "${PADDLE_ROOT}/paddle/fluid/framework/*_test*" \
+            "${PADDLE_ROOT}/paddle/fluid/*/*test*" \
+            "${PADDLE_ROOT}/paddle/fluid/*/*/*test*" \
+            "${PADDLE_ROOT}/paddle/fluid/inference/tests/*" \
+            "${PADDLE_ROOT}/paddle/fluid/inference/api/demo_ci/*" \
+            "${PADDLE_ROOT}/paddle/fluid/eager/tests/*" \
+            "${PADDLE_ROOT}/paddle/phi/tests/*" \
+            -o coverage-full.tmp \
+            --rc lcov_branch_coverage=0
+
+        mv -f coverage-full.tmp coverage-full.info
 
 
     - name: Upload coverage report
