@@ -661,26 +661,26 @@ TEST_F(TestIndexExpr, BoundSimplify) {
   ir::Expr q9 = j % S0;
   ir::Expr q10 = j % (S0 - 1);
   ir::Expr q11 = j % (S0 + 1);
-  EXPECT_EQ(q0.as_index().Normalize(ir::IndexExpr::OptLevel::Level3),
+  EXPECT_EQ(q0.as_index().Normalize(ir::IndexExpr::OptLevel::kLevel3),
             ir::Expr(0));
-  EXPECT_EQ(q1.as_index().Normalize(ir::IndexExpr::OptLevel::Level3),
+  EXPECT_EQ(q1.as_index().Normalize(ir::IndexExpr::OptLevel::kLevel3),
             i / Expr(4));
-  EXPECT_EQ(q2.as_index().Normalize(ir::IndexExpr::OptLevel::Level3),
+  EXPECT_EQ(q2.as_index().Normalize(ir::IndexExpr::OptLevel::kLevel3),
             ir::Expr(0));
-  EXPECT_EQ(q3.as_index().Normalize(ir::IndexExpr::OptLevel::Level3),
+  EXPECT_EQ(q3.as_index().Normalize(ir::IndexExpr::OptLevel::kLevel3),
             ir::Expr(0));
-  EXPECT_EQ(q4.as_index().Normalize(ir::IndexExpr::OptLevel::Level3),
+  EXPECT_EQ(q4.as_index().Normalize(ir::IndexExpr::OptLevel::kLevel3),
             j / (S0 + ir::Expr(-1)));
-  EXPECT_EQ(q5.as_index().Normalize(ir::IndexExpr::OptLevel::Level3),
+  EXPECT_EQ(q5.as_index().Normalize(ir::IndexExpr::OptLevel::kLevel3),
             ir::Expr(0));
-  EXPECT_EQ(q6.as_index().Normalize(ir::IndexExpr::OptLevel::Level3), i);
-  EXPECT_EQ(q7.as_index().Normalize(ir::IndexExpr::OptLevel::Level3),
+  EXPECT_EQ(q6.as_index().Normalize(ir::IndexExpr::OptLevel::kLevel3), i);
+  EXPECT_EQ(q7.as_index().Normalize(ir::IndexExpr::OptLevel::kLevel3),
             i % Expr(4));
-  EXPECT_EQ(q8.as_index().Normalize(ir::IndexExpr::OptLevel::Level3), i);
-  EXPECT_EQ(q9.as_index().Normalize(ir::IndexExpr::OptLevel::Level3), j);
-  EXPECT_EQ(q10.as_index().Normalize(ir::IndexExpr::OptLevel::Level3),
+  EXPECT_EQ(q8.as_index().Normalize(ir::IndexExpr::OptLevel::kLevel3), i);
+  EXPECT_EQ(q9.as_index().Normalize(ir::IndexExpr::OptLevel::kLevel3), j);
+  EXPECT_EQ(q10.as_index().Normalize(ir::IndexExpr::OptLevel::kLevel3),
             j % (S0 + ir::Expr(-1)));
-  EXPECT_EQ(q11.as_index().Normalize(ir::IndexExpr::OptLevel::Level3), j);
+  EXPECT_EQ(q11.as_index().Normalize(ir::IndexExpr::OptLevel::kLevel3), j);
 }
 }  // namespace common
 }  // namespace cinn
