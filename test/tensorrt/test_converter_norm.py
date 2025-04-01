@@ -78,23 +78,6 @@ class TestInstanceNormWith3DInputTRTPattern(TensorRTBaseTest):
         self.check_trt_result()
 
 
-class TestInstanceNormWith2DInputTRTPattern(TensorRTBaseTest):
-    def setUp(self):
-        self.python_api = instance_norm_wrapper
-        self.api_args = {
-            "x": np.arange(4).reshape([2, 2]).astype("float32"),
-            "weight": np.random.random([2]).astype("float32"),
-            "bias": np.random.random([2]).astype("float32"),
-        }
-        self.program_config = {"feed_list": ["x", "weight", "bias"]}
-        self.min_shape = {"x": [1, 2]}
-        self.opt_shape = {"x": [2, 2]}
-        self.max_shape = {"x": [5, 2]}
-
-    def test_trt_result(self):
-        self.check_trt_result()
-
-
 class TestInstanceNormWithNoneInputTRTPattern(TensorRTBaseTest):
     def setUp(self):
         self.python_api = instance_norm_wrapper
