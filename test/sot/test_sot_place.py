@@ -82,7 +82,7 @@ class TestCheckExpectedPlace(TestCaseBase):
 class TestExpectedPlaceGuard(TestCaseBase):
     @unittest.skipUnless(
         paddle.is_compiled_with_cuda(),
-        "This test case need compiled with cuda",
+        "This test case needs to be compiled with cuda",
     )
     def test_expected_place_guard(self):
         x = paddle.to_tensor(0.0)
