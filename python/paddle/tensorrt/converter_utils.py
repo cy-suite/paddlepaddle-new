@@ -666,13 +666,22 @@ def convert_conv2d(network, paddle_op, inputs):
         or paddle_op.name() == "pd_op.depthwise_conv2d"
         or paddle_op.name() == "pd_op.fused_conv2d_add_act"
     ):
-        layer = network.add_convolution_nd(
-            input=input_tensor,
-            num_output_maps=n_output,
-            kernel_shape=nv_ksize,
-            kernel=weight_filter,
-            bias=bias,
-        )
+        if isinstance(bias, trt.Weights):
+            layer = network.add_convolution_nd(
+                input=input_tensor,
+                num_output_maps=n_output,
+                kernel_shape=nv_ksize,
+                kernel=weight_filter,
+                bias=bias,
+            )
+        else:
+            layer = network.add_convolution_nd(
+                input=input_tensor,
+                num_output_maps=n_output,
+                kernel_shape=nv_ksize,
+                kernel=weight_filter,
+                bias=None,
+            )
     elif (
         paddle_op.name() == "pd_op.conv2d_transpose"
         or paddle_op.name() == "pd_op.depthwise_conv2d_transpose"
