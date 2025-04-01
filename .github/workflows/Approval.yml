@@ -24,7 +24,9 @@ jobs:
       - name: Display Required Approvers
         run: |
           git status
+          echo ===========================
           git branch
+          echo ===========================
           git log
 
       - name: Check bypass
