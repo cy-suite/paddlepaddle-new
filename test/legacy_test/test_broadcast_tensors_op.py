@@ -413,32 +413,34 @@ class TestRaiseBroadcastTensorsErrorDyGraph(unittest.TestCase):
 class TestBroadcastTensorsAPISingle(unittest.TestCase):
     def setUp(self):
         self.dtype = 'float32'
-        self.inputs = [
-            paddle.to_tensor(np.random.random([1, 4, 1, 4]).astype(self.dtype))
-        ]
         self.set_dtypes()
 
     def set_dtypes(self):
         pass
 
-    def test_api(self):
+    def test_single_static(self):
+        paddle.enable_static()
+        with paddle.static.program_guard(paddle.static.Program()):
+            inputs = [
+                paddle.static.data(
+                    shape=[1, 4, 1, 4], dtype=self.dtype, name="x0"
+                ),
+            ]
+            outputs = paddle.broadcast_tensors(inputs)
+            self.assertEqual(len(outputs), 1)
 
-        def test_static():
-            with paddle_static_guard():
-                with paddle.static.program_guard(paddle.static.Program()):
-                    outputs = paddle.broadcast_tensors(self.inputs)
-                    self.assertEqual(len(outputs), 1)
-
-        def test_dynamic():
-            paddle.disable_static()
-            try:
-                outputs = paddle.broadcast_tensors(self.inputs)
-                self.assertEqual(len(outputs), 1)
-            finally:
-                paddle.enable_static()
-
-        test_static()
-        test_dynamic()
+    def test_single_dynamic(self):
+        paddle.disable_static()
+        try:
+            inputs = [
+                paddle.to_tensor(
+                    np.random.random([1, 4, 1, 4]).astype(self.dtype)
+                ),
+            ]
+            outputs = paddle.broadcast_tensors(inputs)
+            self.assertEqual(len(outputs), 1)
+        finally:
+            paddle.enable_static()
 
 
 class TestBroadcastTensorsAPIZeroSize(unittest.TestCase):
@@ -446,7 +448,7 @@ class TestBroadcastTensorsAPIZeroSize(unittest.TestCase):
         self.dtype = 'float64'
         self.shape1 = [0, 4, 2]
         self.shape2 = [1, 4, 1]
-        self.expected_shape = [1, 4, 2]
+        self.expected_shape = [0, 4, 2]
         self.set_dtype()
 
     def set_dtype(self):
