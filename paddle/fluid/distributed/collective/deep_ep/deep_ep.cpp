@@ -1787,7 +1787,6 @@ Buffer::low_latency_combine(
     const deep_ep::detail::Tensor& topk_weights,
     const deep_ep::detail::Tensor& src_info,
     const deep_ep::detail::Tensor& layout_range,
-    const deep_ep::detail::Tensor& token_nums_per_expert,
     int num_max_dispatch_tokens_per_rank,
     int num_experts,
     bool async,
@@ -1856,7 +1855,6 @@ Buffer::low_latency_combine(
                           topk_weights.data_ptr<float>(),
                           src_info.data_ptr<int>(),
                           layout_range.data_ptr<int64_t>(),
-                          token_nums_per_expert.data_ptr<int64_t>(),
                           next_clean_meta.first,
                           next_clean_meta.second,
                           num_combined_tokens,
@@ -2168,7 +2166,6 @@ Buffer::low_latency_combine_api(const paddle::Tensor& x,
                                 const paddle::Tensor& topk_weights,
                                 const paddle::Tensor& src_info,
                                 const paddle::Tensor& layout_range,
-                                const paddle::Tensor& token_nums_per_expert,
                                 int num_max_dispatch_tokens_per_rank,
                                 int num_experts,
                                 bool async,
@@ -2179,15 +2176,12 @@ Buffer::low_latency_combine_api(const paddle::Tensor& x,
   const auto& topk_weights_ = ConvertPaddleTensorToDetailTensor(topk_weights);
   const auto& src_info_ = ConvertPaddleTensorToDetailTensor(src_info);
   const auto& layout_range_ = ConvertPaddleTensorToDetailTensor(layout_range);
-  const auto& token_nums_per_expert_ =
-      ConvertPaddleTensorToDetailTensor(token_nums_per_expert);
 
   auto res = low_latency_combine(x_,
                                  topk_idx_,
                                  topk_weights_,
                                  src_info_,
                                  layout_range_,
-                                 token_nums_per_expert_,
                                  num_max_dispatch_tokens_per_rank,
                                  num_experts,
                                  async,

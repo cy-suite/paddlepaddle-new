@@ -852,7 +852,6 @@ class Buffer:
         x: paddle.Tensor,
         topk_idx: paddle.Tensor,
         topk_weights: paddle.Tensor,
-        token_nums_per_expert: paddle.Tensor,  # Need cumsum
         handle: tuple,
         async_finish: bool = False,
         return_recv_hook: bool = False,
@@ -896,7 +895,6 @@ class Buffer:
             topk_weights,
             src_info,
             layout_range,
-            token_nums_per_expert,
             num_max_dispatch_tokens_per_rank,
             num_experts,
             async_finish,
