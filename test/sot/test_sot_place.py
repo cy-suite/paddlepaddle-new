@@ -58,7 +58,7 @@ class TestCheckExpectedPlace(TestCaseBase):
 
     @unittest.skipUnless(
         paddle.is_compiled_with_cuda(),
-        "This test case need compiled with cuda",
+        "This test case needs to be compiled with CUDA",
     )
     def test_check_gpu(self):
         x = paddle.to_tensor(0.0)
