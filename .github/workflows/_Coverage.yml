@@ -357,7 +357,7 @@ jobs:
         echo "::group::Install lcov"
         make install
         echo "::endgroup::"
-        cd build
+        cd ${PADDLE_ROOT}/build
         lcov --extract coverage.info \
         "${PADDLE_ROOT}/paddle/fluid/framework/*" \
         "${PADDLE_ROOT}/paddle/fluid/imperative/*" \
