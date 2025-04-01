@@ -167,7 +167,7 @@ python ${PADDLE_ROOT}/ci/coverage_diff.py coverage-diff.info git-diff.out > cove
 
 mv -f coverage-diff.tmp coverage-diff.info
 
-genhtml -o coverage/coverage-diff -t 'Diff Coverage' --no-function-coverage --no-branch-coverage coverage-diff.info
+# genhtml -o coverage/coverage-diff -t 'Diff Coverage' --no-function-coverage --no-branch-coverage coverage-diff.info
 
 
 
@@ -216,12 +216,12 @@ python ${PADDLE_ROOT}/ci/coverage_diff.py python-coverage-diff.info python-git-d
 
 mv -f python-coverage-diff.tmp python-coverage-diff.info
 
-genhtml -o coverage/python-coverage-diff \
-        -t 'Python Diff Coverage' \
-        --no-function-coverage \
-        --no-branch-coverage \
-        --ignore-errors source \
-        python-coverage-diff.info
+# genhtml -o coverage/python-coverage-diff \
+#         -t 'Python Diff Coverage' \
+#         --no-function-coverage \
+#         --no-branch-coverage \
+#         --ignore-errors source \
+#         python-coverage-diff.info
 
 # assert coverage lines
 
