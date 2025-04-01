@@ -91,6 +91,7 @@ def layernorm_converter(network, paddle_op, inputs):
     layer_norm.epsilon = epsilon
     set_layer_name(layer_norm, paddle_op)
     support_fp32_mix_precision(paddle_op.name(), layer_norm)
+    layer_norm.compute_precision = trt.float32
     return layer_norm.get_output(0)
 
 
