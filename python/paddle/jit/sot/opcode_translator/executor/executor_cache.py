@@ -344,7 +344,7 @@ def start_translate(
                 # TODO(zrr1999): GuardNode should support zero-expr constructor
                 paddle.framework.core.GuardNode(
                     paddle.framework.core.DummyGuard(),
-                    paddle.framework.core.ConstantExprNode(True),
+                    [paddle.framework.core.ConstantExprNode(True)],
                 )
             ]
             if e.disable_eval_frame is False
