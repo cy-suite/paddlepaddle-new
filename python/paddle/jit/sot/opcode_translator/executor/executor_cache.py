@@ -181,8 +181,8 @@ class OpcodeExecutorCache(metaclass=Singleton):
                             f"[Cache] Cache hit, Guard is \n{getattr(guard_fn, 'expr', 'None')}\n",
                         )
                         assert (
-                            index == cache_index
-                        ), "cache_index is not equal to index"
+                            cache_index is None or index == cache_index
+                        ), f"cache_index({cache_index}) is not equal to index({index})"
                         return custom_code
                     else:
                         log_do(
