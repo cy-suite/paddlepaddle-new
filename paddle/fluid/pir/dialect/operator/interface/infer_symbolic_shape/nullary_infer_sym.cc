@@ -513,8 +513,8 @@ bool ReadFileOpInferSymbolicShape(
   return true;
 }
 
-bool RecvV2OpInferSymbolicShape(pir::Operation *op,
-                                pir::InferSymbolicShapeContext *infer_context) {
+bool PRecvOpInferSymbolicShape(pir::Operation *op,
+                               pir::InferSymbolicShapeContext *infer_context) {
   const int ring_id = op->attribute<pir::Int32Attribute>("ring_id").data();
   const bool dynamic_shape =
       op->attribute<pir::BoolAttribute>("dynamic_shape").data();
