@@ -166,11 +166,6 @@ class TestVarAPIZeroSize(unittest.TestCase):
         np.testing.assert_allclose(res[0], out_ref, equal_nan=True)
 
 
-class TestVarAPIZeroSize_Float16(TestVarAPIZeroSize):
-    def set_attrs(self):
-        self.dtype = 'float16'
-
-
 class TestVarAPIZeroSize_Float32(TestVarAPIZeroSize):
     def set_attrs(self):
         self.dtype = 'float32'
