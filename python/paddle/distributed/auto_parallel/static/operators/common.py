@@ -686,11 +686,7 @@ def is_data_parallel_reduce_op(op):
 
 
 def is_amp_flag_sync_op(op):
-    return (
-        op.type == "c_allreduce_max"
-        and op.desc.has_attr("op_namescope")
-        and SyncMode.AmpFlagSync in op.desc.attr("op_namescope")
-    )
+    return False
 
 
 def is_global_norm_sync_op(op):
