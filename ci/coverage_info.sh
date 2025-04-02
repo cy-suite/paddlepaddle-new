@@ -151,7 +151,7 @@ else
     gen_full_report || true
 fi
 
-mkdir coverage
+# mkdir coverage
 
 if [ "${PR_ID}" != "" ]; then
 
