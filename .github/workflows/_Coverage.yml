@@ -304,6 +304,8 @@ jobs:
     #     nvidia-smi
     #     . ../../../proxy
     #     bash $ci_scripts/coverage_test.sh ${{ github.env }}
+    #     TEST_EXIT_CODE=$?
+    #     echo "TEST_EXIT_CODE=${TEST_EXIT_CODE}" >> ${{ github.env }}
     #     '
 
     - name: Check coverage data
@@ -311,13 +313,21 @@ jobs:
         docker exec -t ${{ env.container_name }} /bin/bash -c '
         . ../../../proxy
         source ${ci_scripts}/utils.sh; check_coverage
-        EXIT_CODE=$?
+        COVERAGE_EXIT_CODE=$?
+        echo "COVERAGE_EXIT_CODE=${COVERAGE_EXIT_CODE}" >> ${{ github.env }}
         '
 
     - name: Upload coverage report
       uses: codecov/codecov-action@v4
       with:
         directory: build/coverage_files
+
+    - name: Judge coverage passed or not
+      run: |
+        if [ "${{ env.COVERAGE_EXIT_CODE }}" -ne 0 ]; then
+          echo "Coverage failed"
+          exit ${{ env.COVERAGE_EXIT_CODE }}
+        fi
 
     - name: Terminate and delete the container
       if: always()
