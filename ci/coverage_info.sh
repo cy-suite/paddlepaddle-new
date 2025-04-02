@@ -181,7 +181,7 @@ cp coverage-diff.info coverage_files
 
 # coverage xml -i -o python-coverage.xml || [[ "${NO_PYTHON_COVERAGE_DATA}" == "1" ]]
 
-sed -i "s#/mnt\/paddle#${PADDLE_ROOT//\//\\/}#g" python-coverage.xml
+# sed -i "s#/mnt\/paddle#${PADDLE_ROOT//\//\\/}#g" python-coverage.xml
 
 `$(python ${PADDLE_ROOT}/tools/coverage/python_coverage.py > python-coverage.info)` || [[ "${NO_PYTHON_COVERAGE_DATA}" == "1" ]]
 
