@@ -306,6 +306,9 @@ jobs:
         bash $ci_scripts/coverage_test.sh ${{ github.env }}
         TEST_EXIT_CODE=$?
         echo "TEST_EXIT_CODE=${TEST_EXIT_CODE}" >> ${{ github.env }}
+        if [[ "$TEST_EXIT_CODE" -ne 0 && "$TEST_EXIT_CODE" -ne 9 ]]; then
+            exit $TEST_EXIT_CODE
+        fi
         '
 
     - name: Check coverage data
