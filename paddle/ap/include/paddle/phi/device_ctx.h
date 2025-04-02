@@ -22,7 +22,7 @@ template <typename PhiDeviceCtx>
 class DeviceCtx : public kernel_dispatch::DeviceCtxImpl {
  private:
   const PhiDeviceCtx* phi_device_ctx_;
-  using StreamT = decltype(std::declval<PhiDeviceCtx>().stream());
+  using StreamT = void*;
   std::optional<StreamT> stream_;
 
  public:
@@ -31,7 +31,7 @@ class DeviceCtx : public kernel_dispatch::DeviceCtxImpl {
 
   adt::Result<axpr::PointerValue> GetStreamAddrAsVoidPtr() override {
     if (!stream_.has_value()) {
-      stream_ = phi_device_ctx_->stream();
+      stream_ = reinterpret_cast<StreamT>(phi_device_ctx_->stream());
     }
     void* stream_ptr = &stream_.value();
     return axpr::PointerValue{stream_ptr};

@@ -199,7 +199,7 @@ struct MatchedResultPatternHelper {
         SrcPtnIrValue4ResPtnIrValue(res_ptn_ir_value);
     if (!opt_src_ptn_ir_value.has_value()) {
       // internal ir value in result pattern.
-      return 1;
+      return 1U;
     }
     return match_ctx_->GetNumBigGraphIrValueNodes(
         opt_src_ptn_ir_value.value().node());
