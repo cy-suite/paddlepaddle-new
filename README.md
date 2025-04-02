@@ -16,6 +16,7 @@ Welcome to the PaddlePaddle GitHub.
 
 PaddlePaddle, as the first independent R&D deep learning platform in China, has been officially open-sourced to professional communities since 2016. It is an industrial platform with advanced technologies and rich features that cover core deep learning frameworks, basic model libraries, end-to-end development kits, tools & components as well as service platforms.
 PaddlePaddle originates from industrial practices with dedication and commitments to industrialization. It has been widely adopted by a wide range of sectors including manufacturing, agriculture, enterprise service, and so on while serving more than 18.08 million developers, 430,000 companies and generating 1,010,000 models. With such advantages, PaddlePaddle has helped an increasing number of partners commercialize AI.
+
 ## Installation
 
 ### Latest PaddlePaddle Release: [3.0](https://github.com/PaddlePaddle/Paddle/tree/release/3.0)
@@ -60,28 +61,28 @@ For more information about installation, please view [Quick Install](https://www
 We provide [English](https://www.paddlepaddle.org.cn/documentation/docs/en/guides/index_en.html) and
 [Chinese](https://www.paddlepaddle.org.cn/documentation/docs/zh/guide/index_cn.html) documentation.
 
-- [Guides](https://www.paddlepaddle.org.cn/documentation/docs/en/guides/index_en.html)
+* [Guides](https://www.paddlepaddle.org.cn/documentation/docs/en/guides/index_en.html)
 
   You might want to start from how to implement deep learning basics with PaddlePaddle.
 
-- [Practice](https://www.paddlepaddle.org.cn/documentation/docs/zh/tutorial/index_cn.html)
+* [Practice](https://www.paddlepaddle.org.cn/documentation/docs/zh/tutorial/index_cn.html)
 
   So far you have already been familiar with Fluid. And the next step should be building a more efficient model or inventing your original Operator.
 
-- [API Reference](https://www.paddlepaddle.org.cn/documentation/docs/en/api/index_en.html)
+* [API Reference](https://www.paddlepaddle.org.cn/documentation/docs/en/api/index_en.html)
 
    Our new API enables much shorter programs.
 
-- [How to Contribute](https://www.paddlepaddle.org.cn/documentation/docs/en/guides/08_contribution/index_en.html)
+* [How to Contribute](https://www.paddlepaddle.org.cn/documentation/docs/en/guides/08_contribution/index_en.html)
 
    We appreciate your contributions!
 
 ## Open Source Community
 
-- [Github Issues](https://github.com/PaddlePaddle/Paddle/issues): bug reports, feature requests, install issues, usage issues, etc.
-- Many of our contribution events offer varying levels of mentorship from experienced community members, please check the events in the pinned issues, and consider attending.
-- Community Blog: <https://pfcc.blog/>
-- See more details about PaddlePaddle community at [community](https://github.com/PaddlePaddle/community).
+* [Github Issues](https://github.com/PaddlePaddle/Paddle/issues): bug reports, feature requests, install issues, usage issues, etc.
+* Many of our contribution events offer varying levels of mentorship from experienced community members, please check the events in the pinned issues, and consider attending.
+* Community Blog: <https://pfcc.blog/>
+* See more details about PaddlePaddle community at [community](https://github.com/PaddlePaddle/community).
 
 ## Copyright and License
 

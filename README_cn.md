@@ -31,7 +31,7 @@ pip install paddlepaddle
 pip install paddlepaddle-gpu
 ```
 
-更多安装信息详见官网 [安装说明](https://www.paddlepaddle.org.cn/install/quick)
+更多安装信息详见官网 [安装说明](https://www.paddlepaddle.org.cn/install/quick)。
 
 ## 飞桨新一代框架 3.0
 
@@ -73,6 +73,7 @@ pip install paddlepaddle-gpu
 - 我们的许多贡献活动都提供来自经验丰富的社区成员的不同程度的指导，请查看置顶的 issues 中的活动，并考虑参加。
 - 社区博客：[https://pfcc.blog/](https://pfcc.blog/)。
 - 了解更多详情：[Community](https://github.com/PaddlePaddle/community)。
+
 ## 版权和许可证
 
 PaddlePaddle 由[Apache-2.0 license](LICENSE)提供
