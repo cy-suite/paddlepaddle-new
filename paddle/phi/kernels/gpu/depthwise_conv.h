@@ -63,7 +63,7 @@ struct DWConvParams {
     return false;
   }
 
-  // Use cudnn for NHWC and NCHW FP16.
+  // Check if use cudnn for NHWC and NCHW FP16.
   template <typename Context>
   bool UseCudnnDepthwise(const Context& dev_ctx,
                          const DenseTensor& input,
