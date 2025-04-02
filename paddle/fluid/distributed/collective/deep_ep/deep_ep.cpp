@@ -1714,7 +1714,7 @@ Buffer::low_latency_dispatch(const deep_ep::detail::Tensor& x,
     packed_recv_x_scales =
         ConvertPaddleTensorToDetailTensor(paddle::experimental::transpose(
             ConvertDetailTensorToPaddleTensor(packed_recv_x_scales.value()),
-            std::vector<int>{0, 1, 2}));
+            std::vector<int>{0, 2, 1}));
     packed_recv_x_scales_ptr = packed_recv_x_scales.value().data_ptr<float>();
   }
 
