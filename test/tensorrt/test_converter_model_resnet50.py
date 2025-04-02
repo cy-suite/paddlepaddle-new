@@ -209,6 +209,11 @@ class TestConverterResNet50(unittest.TestCase):
         program_with_trt = convert_to_trt(program, trt_config, scope)
         output_var = program_with_trt.list_vars()[-1]
 
+        # warm up
+        predict_program(
+            program_with_trt, {"input": input_optim_data}, [output_var]
+        )
+
         output_converted = predict_program(
             program_with_trt, {"input": input_optim_data}, [output_var]
         )
