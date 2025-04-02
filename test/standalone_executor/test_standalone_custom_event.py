@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import unittest
 
 import paddle
@@ -22,6 +23,8 @@ from paddle.distributed.passes.pass_utils import (
     set_skip_gc_vars,
     split_program,
 )
+
+os.environ['FLAGS_enable_pir_api'] = '1'
 
 paddle.enable_static()
 

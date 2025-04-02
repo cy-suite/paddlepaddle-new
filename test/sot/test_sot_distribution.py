@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import os
 import unittest
 
 from test_case_base import (
@@ -27,6 +28,9 @@ from paddle.jit.sot.psdb import check_no_breakgraph
 @check_no_breakgraph
 def fn(x, y):
     return x + y
+
+
+os.environ['FLAGS_enable_pir_api'] = '1'
 
 
 @unittest.skipIf(
