@@ -47,6 +47,8 @@ from .dispatch_functions import (
     operator_is_none,
     operator_is_not_none,
     operator_not_in,
+    place_get_device_id,
+    place_get_device_type,
     tensor_dim,
 )
 from .dispatcher import Dispatcher, optional
@@ -65,6 +67,7 @@ from .variables import (
     NumpyVariable,
     RangeVariable,
     SliceVariable,
+    SuperVariable,
     SymbolicVariable,
     TupleVariable,
     VariableBase,
@@ -233,6 +236,19 @@ Dispatcher.register(
     dict,
     ("DictVariable",),
     lambda var: var.copy(),
+)
+
+
+# super
+Dispatcher.register(
+    super,
+    ("ClassVariable", "VariableBase"),
+    lambda cls, obj: SuperVariable(
+        cls=cls,
+        obj=obj,
+        graph=Dispatcher.graph,
+        tracker=DummyTracker([cls, obj]),
+    ),
 )
 
 
@@ -1461,7 +1477,7 @@ for unary_fn in UNARY_OPS:
 
         @Dispatcher.register_decorator(unary_fn)
         def numpy_unary_dispatcher(var: NumpyArrayVariable):
-            raise FallbackError('Numpy operator need fallback to dygraph')
+            raise FallbackError("Numpy operator need fallback to dygraph")
 
 
 Dispatcher.register(
@@ -1476,7 +1492,7 @@ for binary_fn in BINARY_OPS:
 
         @Dispatcher.register_decorator(binary_fn)
         def numpy_binary_dispatcher(var: NumpyVariable, other: NumpyVariable):
-            raise FallbackError('Numpy operator need fallback to dygraph')
+            raise FallbackError("Numpy operator need fallback to dygraph")
 
 
 Dispatcher.register(
@@ -1572,3 +1588,15 @@ for ufunc in binary_ufuncs:
             ufunc,
         ),
     )
+
+# place
+Dispatcher.register(
+    place_get_device_id,
+    ("PlaceVariable",),
+    lambda var: var.get_device_id(),
+)
+Dispatcher.register(
+    place_get_device_type,
+    ("PlaceVariable",),
+    lambda var: var.get_device_type(),
+)
