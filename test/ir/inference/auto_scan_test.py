@@ -834,10 +834,6 @@ class TrtLayerAutoScanTest(AutoScanTest):
                 main_program_desc, util_program = create_fake_model(
                     prog_config, run_pir=True
                 )
-                with paddle.pir_utils.OldIrGuard():
-                    program = paddle.static.Program()
-                    mg = program.parse_from_string(main_program_desc)
-                    print(mg)
                 # transform program from old ir to new ir
                 startup_program = pir.translate_to_pir(util_program.desc)
                 pir_main_program = pir.translate_to_pir(main_program_desc)
@@ -935,12 +931,6 @@ class TrtLayerAutoScanTest(AutoScanTest):
                                 run_pir=True,
                                 dynamic_shape=dynamic_shape,
                             )
-                            with paddle.pir_utils.OldIrGuard():
-                                program = paddle.static.Program()
-                                mg = program.parse_from_string(
-                                    main_program_desc
-                                )
-                                print(mg)
                             # transform program from old ir to new ir
                             startup_program = pir.translate_to_pir(
                                 util_program.desc
@@ -1015,13 +1005,7 @@ class TrtLayerAutoScanTest(AutoScanTest):
                     main_program_desc, util_program = create_fake_model(
                         prog_config
                     )
-                    program = paddle.static.Program()
-                    mg = program.parse_from_string(main_program_desc)
-                    print(mg)
                     model = main_program_desc.serialize_to_string()
-                    program = paddle.static.Program()
-                    mg = program.parse_from_string(main_program_desc)
-                    print(mg)
                     place = paddle.base.CPUPlace()
                     executor = paddle.base.Executor(place)
                     scope = paddle.base.Scope()
