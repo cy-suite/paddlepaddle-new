@@ -1403,6 +1403,13 @@ class PipelineParallelWithInterleave(PipelineParallel):
         self.overlap_schedule_mode = hasattr(
             type(self._layers), "overlapped_forward_backward"
         )
+        if self.overlap_schedule_mode:
+            assert (
+                not self._overlap_p2p_comm
+            ), "Overlap p2p comm is not incompatible with overlap_schedule_mode."
+            assert (
+                not self._profiling
+            ), "Profiling is not compatible with overlap_schedule_mode."
         logger.info(
             f"Using PipelineParallelWithInterleave with overlapping forward backward={self.overlap_schedule_mode}"
         )
@@ -1591,12 +1598,7 @@ class PipelineParallelWithInterleave(PipelineParallel):
 
         return virtual_pp_stage
 
-    def _forward_step_helper(
-        self, micro_dataset, micro_step, overlap_schedule_mode=False
-    ):
-        virtual_pp_rank = self._get_virtual_pp_rank(micro_step, forward=True)
-        self.set_virtual_pipeline_rank(virtual_pp_rank)
-
+    def _get_forward_input(self, virtual_pp_rank):
         # some checkers
         assert hasattr(self, 'input_tensors')
         assert hasattr(self, 'output_tensors')
@@ -1606,14 +1608,15 @@ class PipelineParallelWithInterleave(PipelineParallel):
             len(self.output_tensors[virtual_pp_rank]) + 1
         )
         input_tensor = self.input_tensors[virtual_pp_rank][-1]
-        output_tensor, schedule_chunk, loss_fn_node = self._forward_step(
-            input_tensor,
-            micro_dataset,
-            virtual_pp_rank,
-            step_id=micro_step,
-            overlap_schedule_mode=overlap_schedule_mode,
-        )
+        return input_tensor
 
+    def _store_forward_outputs(
+        self,
+        virtual_pp_rank,
+        output_tensor,
+        schedule_chunk=None,
+        loss_fn_node=None,
+    ):
         self.output_tensors[virtual_pp_rank].append(output_tensor)
         # If overlap_schedule_mode eq False, the schedule chunk is a None
         self.schedule_chunks[virtual_pp_rank].append(schedule_chunk)
@@ -1624,6 +1627,26 @@ class PipelineParallelWithInterleave(PipelineParallel):
             # no need to store tensor for backward
             self.input_tensors[virtual_pp_rank].pop()
             self.output_tensors[virtual_pp_rank].pop()
+
+    def _forward_step_helper(
+        self, micro_dataset, micro_step, overlap_schedule_mode=False
+    ):
+        virtual_pp_rank = self._get_virtual_pp_rank(micro_step, forward=True)
+        self.set_virtual_pipeline_rank(virtual_pp_rank)
+
+        input_tensor = self._get_forward_input(virtual_pp_rank)
+
+        output_tensor, schedule_chunk, loss_fn_node = self._forward_step(
+            input_tensor,
+            micro_dataset,
+            virtual_pp_rank,
+            step_id=micro_step,
+            overlap_schedule_mode=overlap_schedule_mode,
+        )
+
+        self._store_forward_outputs(
+            virtual_pp_rank, output_tensor, schedule_chunk, loss_fn_node
+        )
         return output_tensor
 
     def _overlap_comm_grads(self):
@@ -1659,10 +1682,7 @@ class PipelineParallelWithInterleave(PipelineParallel):
                 for buffer in buffers:
                     buffer.scale_grads()
 
-    def _backward_step_helper(self, micro_step, overlap_schedule_mode=False):
-        virtual_pp_rank = self._get_virtual_pp_rank(micro_step, forward=False)
-        self.set_virtual_pipeline_rank(virtual_pp_rank)
-
+    def _get_backward_input(self, virtual_pp_rank):
         # some checkers
         assert hasattr(self, 'input_tensors')
         assert hasattr(self, 'output_tensors')
@@ -1684,6 +1704,26 @@ class PipelineParallelWithInterleave(PipelineParallel):
         else:
             loss_fn_node = None
 
+        return (
+            input_tensor,
+            output_tensor,
+            output_tensor_grad,
+            schedule_chunk,
+            loss_fn_node,
+        )
+
+    def _backward_step_helper(self, micro_step, overlap_schedule_mode=False):
+        virtual_pp_rank = self._get_virtual_pp_rank(micro_step, forward=False)
+        self.set_virtual_pipeline_rank(virtual_pp_rank)
+
+        (
+            input_tensor,
+            output_tensor,
+            output_tensor_grad,
+            schedule_chunk,
+            loss_fn_node,
+        ) = self._get_backward_input(virtual_pp_rank)
+
         input_tensor_grad = self._backward_step(
             input_tensor,
             output_tensor,
@@ -1697,6 +1737,133 @@ class PipelineParallelWithInterleave(PipelineParallel):
         self._overlap_comm_grads()
 
         return input_tensor_grad
+
+    def _forward_backward_helper(
+        self, micro_dataset, forward_micro_step_id, backward_micro_step_id
+    ):
+        if not self.overlap_schedule_mode:
+            self._record_stamp("F", forward_micro_step_id, '"B"', forward=True)
+            output_tensor = self._forward_step_helper(
+                micro_dataset,
+                forward_micro_step_id,
+            )
+            self._record_stamp("F", forward_micro_step_id, '"E"', forward=True)
+
+            # backward
+            self._record_stamp(
+                "B", backward_micro_step_id, '"B"', forward=False
+            )
+            input_tensor_grad = self._backward_step_helper(
+                backward_micro_step_id,
+            )
+            self._record_stamp(
+                "B", backward_micro_step_id, '"E"', forward=False
+            )
+            return output_tensor, input_tensor_grad
+        else:
+            # 1. prepare forward inputs
+            forward_virtual_pp_rank = self._get_virtual_pp_rank(
+                forward_micro_step_id, forward=True
+            )
+            self.set_virtual_pipeline_rank(forward_virtual_pp_rank)
+
+            if self.user_hooks_enabled:
+                self.forward_hooks.run_hook()
+
+            forward_inputs = self._get_forward_input(forward_virtual_pp_rank)
+            if self.is_pipeline_first_stage():
+                forward_inputs = next(micro_dataset)[0]
+                self._check_micro_batch_data_valid(forward_inputs)
+            if self.is_pipeline_last_stage():
+                labels = next(micro_dataset)[1]
+
+            # 2. get forward chunks
+            forward_chunk = self._layers.get_schedule_chunk(
+                chunk_id=forward_virtual_pp_rank
+            )
+
+            if self.is_pipeline_last_stage():
+                assert len(self._layers._loss_fn) == 1
+                forward_loss_fn_node = self._layers._loss_fn[
+                    0
+                ].build_schedule_node()
+                forward_loss_fn_node.labels = labels
+                if self.accumulate_steps > 1 and not self._delay_scale_loss:
+                    forward_loss_fn_node.scale_loss_factor = (
+                        self.accumulate_steps
+                    )
+            else:
+                forward_loss_fn_node = None
+
+            # 3. prepare backward inputs & get backward chunks
+            backward_virtual_pp_rank = self._get_virtual_pp_rank(
+                backward_micro_step_id, forward=False
+            )
+            self.set_virtual_pipeline_rank(backward_virtual_pp_rank)
+
+            if self.user_hooks_enabled:
+                self.backward_hooks.run_hook()
+
+            (
+                _,
+                _,
+                backward_grads,
+                backward_chunk,
+                backward_loss_fn_node,
+            ) = self._get_backward_input(backward_virtual_pp_rank)
+
+            # 4. forward & backward
+            if self.processed_steps < g_profile_pipeline_details_steps:
+                get_sync_logger().info("Before forward_backward_step")
+            if self._enable_timer:
+                self.timers("forward_backward_step").start()
+            output_tensor, forward_loss, input_tensor_grad = (
+                self._layers.overlapped_forward_backward(
+                    forward_chunk,
+                    forward_inputs,
+                    forward_loss_fn_node,
+                    backward_chunk,
+                    backward_loss_fn_node,
+                    backward_grads,
+                    self.scaler,
+                )
+            )
+            if self.processed_steps < g_profile_pipeline_details_steps:
+                get_sync_logger().info("After forward_backward_step")
+            if self._enable_timer:
+                self.timers("forward_backward_step").stop()
+
+            # 5. process forward outputs
+            forward_virtual_pp_rank = self._get_virtual_pp_rank(
+                forward_micro_step_id, forward=True
+            )
+            self.set_virtual_pipeline_rank(forward_virtual_pp_rank)
+            self._store_forward_outputs(
+                forward_virtual_pp_rank,
+                output_tensor,
+                forward_chunk,
+                forward_loss_fn_node,
+            )
+
+            if self.is_pipeline_first_stage() or self.is_pipeline_last_stage():
+                # Only increase micro batch id at virtual first/last pp stage.
+                # The micro batch id is used to load data, therefore, only increase it when load data.
+                self.micro_batch_id += 1
+
+            if self.is_pipeline_last_stage():
+                # In overlap mode, only one loss_fn is supported.
+                if self.total_loss is None:
+                    self.total_loss = [[]]
+                self.total_loss[0].append(forward_loss.detach())
+
+            # 6. process backward outputs
+            backward_virtual_pp_rank = self._get_virtual_pp_rank(
+                backward_micro_step_id, forward=False
+            )
+            self.set_virtual_pipeline_rank(backward_virtual_pp_rank)
+            self._overlap_comm_grads()
+
+        return output_tensor, input_tensor_grad
 
     def bw_hook_func(self, buffer, param):
         # For pipeline with interleave, we need to add grad to buffer without communication.
@@ -1752,6 +1919,12 @@ class PipelineParallelWithInterleave(PipelineParallel):
         assert (
             self._using_cache
         ), "cache should be enabled for pipeline with interleave"
+
+        self.overlap_schedule_mode = hasattr(
+            type(self._layers), "overlapped_forward_backward"
+        )
+        if forward_only:
+            self.overlap_schedule_mode = False
 
         # init some attributes for this batch run
         self.scaler = scaler
@@ -1859,6 +2032,7 @@ class PipelineParallelWithInterleave(PipelineParallel):
             startup_steps += (self.num_model_chunks - 1) * first_chunk_acc
             startup_steps = min(startup_steps, num_steps)
 
+        # An additional micro step is needed for overplapping schedule
         if self.overlap_schedule_mode:
             startup_steps += 1
         steady_steps = num_steps - startup_steps
@@ -2169,30 +2343,15 @@ class PipelineParallelWithInterleave(PipelineParallel):
                     overlap_p2p_comm=True,
                 )
             else:
-                self._record_stamp(
-                    "F", forward_micro_step_id, '"B"', forward=True
-                )
-                output_tensor = self._forward_step_helper(
-                    micro_dataset,
-                    forward_micro_step_id,
-                    overlap_schedule_mode=self.overlap_schedule_mode,
-                )
-                self._record_stamp(
-                    "F", forward_micro_step_id, '"E"', forward=True
+                backward_micro_step_id = micro_step
+                output_tensor, input_tensor_grad = (
+                    self._forward_backward_helper(
+                        micro_dataset,
+                        forward_micro_step_id,
+                        backward_micro_step_id,
+                    )
                 )
 
-                # backward
-                backward_micro_step_id = micro_step
-                self._record_stamp(
-                    "B", backward_micro_step_id, '"B"', forward=False
-                )
-                input_tensor_grad = self._backward_step_helper(
-                    backward_micro_step_id,
-                    overlap_schedule_mode=self.overlap_schedule_mode,
-                )
-                self._record_stamp(
-                    "B", backward_micro_step_id, '"E"', forward=False
-                )
                 if (
                     self._best_unbalanced_scheduler
                     and self.is_pipeline_last_stage(ignore_virtual=True)
