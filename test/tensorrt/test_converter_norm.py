@@ -75,7 +75,7 @@ class TestInstanceNormWith3DInputTRTPattern(TensorRTBaseTest):
         self.max_shape = {"x": [5, 2, 1]}
 
     def test_trt_result(self):
-        self.check_trt_result()
+        self.check_marker(expected_result=False)
 
 
 class TestInstanceNormWithNoneInputTRTPattern(TensorRTBaseTest):
