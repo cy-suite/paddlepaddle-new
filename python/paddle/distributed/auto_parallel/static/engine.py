@@ -1914,10 +1914,11 @@ class Engine:
         fetch_list: list[Tensor | str | Operator | Value] | None = None,
         mode: _Mode | None = None,
     ) -> dict[str, Any]:
+        if not self._in_pir_mode:
+            raise NotImplementedError("run() only support PIR now.")
         if mode is not None:
             self.to_mode(mode)
         feed_dict = self._prepare_feed(data, feed, self._mode)
-        fetch_names, fetch_indices = self._prepare_fetch(fetch_list, self._mode)
         if (
             self._outside_dataloader
             and not self._has_prepared_reader[self._mode]
@@ -1929,34 +1930,34 @@ class Engine:
         )
 
         # TODO(2024-Q2)
-        use_cache = self._strategy.use_cache
-        if self._in_pir_mode:
-            use_cache = False
-            no_fetch = False  # not last rank should not fetch loss in pipeline parallel
-            if self._job_plan is None:
-                program_for_executor = self.main_program
-            else:
-                # NOTE: If pipeline scheduling is enabled, The program_for_executor
-                # is used to tell the executor where to feed data and add fetch op,
-                # not the program to be executed. The ``plan`` object is already
-                # constructed, and the programs to be executed are  stored in the
-                # ``plan`` object.
-                loss_job_type = "forward"
-                if self._strategy.pipeline.schedule_mode == "VPP":
-                    vpp_degree = self._strategy.pipeline.vpp_degree
-                    loss_job_type = f"forward{vpp_degree - 1}"
+        use_cache = False
+        no_fetch = (
+            False  # not last rank should not fetch loss in pipeline parallel
+        )
+        if self._job_plan is None:
+            program_for_executor = self.main_program
+        else:
+            # NOTE: If pipeline scheduling is enabled, The program_for_executor
+            # is used to tell the executor where to feed data and add fetch op,
+            # not the program to be executed. The ``plan`` object is already
+            # constructed, and the programs to be executed are  stored in the
+            # ``plan`` object.
+            loss_job_type = "forward"
+            if self._strategy.pipeline.schedule_mode == "VPP":
+                vpp_degree = self._strategy.pipeline.vpp_degree
+                loss_job_type = f"forward{vpp_degree - 1}"
 
-                program_for_executor = self._job_plan.ir_program(loss_job_type)
+            program_for_executor = self._job_plan.ir_program(loss_job_type)
 
-            loss_value = program_for_executor.get_output_value_by_name(
-                self._loss_names[0]
-            )
-            if pir.is_fake_value(loss_value):
-                no_fetch = True
-                fetch_names = []
-            else:
-                fetch_names = [loss_value]
-            fetch_names += self._pir_fetch_values
+        loss_value = program_for_executor.get_output_value_by_name(
+            self._loss_names[0]
+        )
+        if pir.is_fake_value(loss_value):
+            no_fetch = True
+            fetch_names = []
+        else:
+            fetch_names = [loss_value]
+        fetch_names += self._pir_fetch_values
 
         outs = self._executor.run(
             self.main_program,
@@ -1966,20 +1967,14 @@ class Engine:
             return_numpy=self._strategy.return_numpy,
         )
 
-        if self._in_pir_mode:
-            if no_fetch:
-                logs = {"outputs": None, "loss": None}
-                start_idx = 0
-            else:
-                logs = {"outputs": outs[0], "loss": outs[0]}
-                start_idx = 1
-            for i, name in enumerate(self._pir_user_defined_fetch_names):
-                logs[name] = outs[start_idx + i]
-            return logs
-
-        logs = self._prepare_logger(
-            outs, None, None, None, fetch_names, fetch_indices, self._mode
-        )
+        if no_fetch:
+            logs = {"outputs": None, "loss": None}
+            start_idx = 0
+        else:
+            logs = {"outputs": outs[0], "loss": outs[0]}
+            start_idx = 1
+        for i, name in enumerate(self._pir_user_defined_fetch_names):
+            logs[name] = outs[start_idx + i]
         return logs
 
     def get_feed_list(self) -> list[Tensor]:
