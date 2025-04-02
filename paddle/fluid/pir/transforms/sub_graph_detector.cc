@@ -185,7 +185,7 @@ std::set<pir::Value> GetInplaceInputValues(pir::Operation* op) {
     inplace_input_names.insert(in);
   }
   std::set<pir::Value> inplace_inputs;
-  for (int i = 0; i < input_info_list.size(); ++i) {
+  for (size_t i = 0; i < input_info_list.size(); ++i) {
     if (inplace_input_names.count(input_info_list[i].name)) {
       inplace_inputs.insert(op->operand_source(i));
     }
@@ -641,7 +641,7 @@ SubgraphDetector::SubgraphDetector(pir::Block* block,
   }
   for (const auto& shared_value : shared_inplace_values) {
     inplace_ops_order_.emplace_back();
-    for (int i = 0; i < inplace_values_sets.size(); ++i) {
+    for (size_t i = 0; i < inplace_values_sets.size(); ++i) {
       if (inplace_values_sets[i].count(shared_value)) {
         inplace_ops_order_.back().push_back(inplace_ops[i]);
       }
