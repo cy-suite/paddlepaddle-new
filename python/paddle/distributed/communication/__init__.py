@@ -11,6 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+from . import deep_ep  # noqa: F401
 from .all_gather import all_gather, all_gather_object  # noqa: F401
 from .all_reduce import all_reduce  # noqa: F401
 from .all_to_all import alltoall, alltoall_single  # noqa: F401
