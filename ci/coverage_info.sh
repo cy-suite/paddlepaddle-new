@@ -36,6 +36,8 @@ echo "::group::Run lcov"
 lcov --ignore-errors gcov --capture -d ./ -o coverage.info --rc lcov_branch_coverage=0
 echo "::endgroup::"
 
+mkdir coverage_files
+
 function gen_full_report_cinn(){
     lcov --extract coverage.info \
         "${PADDLE_ROOT}/paddle/cinn/adt/*" \
@@ -167,15 +169,17 @@ python ${PADDLE_ROOT}/ci/coverage_diff.py coverage-diff.info git-diff.out > cove
 
 mv -f coverage-diff.tmp coverage-diff.info
 
+cp coverage-diff.info coverage_files
+
 # genhtml -o coverage/coverage-diff -t 'Diff Coverage' --no-function-coverage --no-branch-coverage coverage-diff.info
 
 
 
 # python coverage
 
-coverage combine $(ls python-coverage.data.*) || NO_PYTHON_COVERAGE_DATA=1
+# coverage combine $(ls python-coverage.data.*) || NO_PYTHON_COVERAGE_DATA=1
 
-coverage xml -i -o python-coverage.xml || [[ "${NO_PYTHON_COVERAGE_DATA}" == "1" ]]
+# coverage xml -i -o python-coverage.xml || [[ "${NO_PYTHON_COVERAGE_DATA}" == "1" ]]
 
 sed -i "s#/mnt\/paddle#${PADDLE_ROOT//\//\\/}#g" python-coverage.xml
 
@@ -215,6 +219,8 @@ lcov --extract python-coverage-full.info \
 python ${PADDLE_ROOT}/ci/coverage_diff.py python-coverage-diff.info python-git-diff.out > python-coverage-diff.tmp
 
 mv -f python-coverage-diff.tmp python-coverage-diff.info
+
+cp python-coverage-diff.info coverage_files
 
 # genhtml -o coverage/python-coverage-diff \
 #         -t 'Python Diff Coverage' \

@@ -4,8 +4,6 @@ codecov:
   # token: 408f337c-9393-4a0f-8e9c-525968e93d83
 
 coverage:
-  ignore:
-    - "**/*.lst"
   status:
     project:
       default:
