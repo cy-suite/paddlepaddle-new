@@ -33,6 +33,8 @@ pip install paddlepaddle
 pip install paddlepaddle-gpu
 ```
 
+For more information about installation, please view [Quick Install](https://www.paddlepaddle.org.cn/install/quick)
+
 ## **PaddlePaddle New Generation Framework 3.0**
 
 * **Unified Dynamic/Static Graphs and Automatic Parallelism**
