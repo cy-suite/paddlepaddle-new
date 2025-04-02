@@ -48,16 +48,16 @@ class TrtConvertActivationTest(TrtLayerAutoScanTest):
                 "elu",
                 "selu",
                 "silu",
-                # "softsign",
+                "softsign",
                 "stanh",
                 "thresholded_relu",
                 "celu",
                 "logsigmoid",
                 "tanh_shrink",
                 "softplus",
-                # "hard_swish",
-                # "hard_sigmoid",
-                # "leaky_relu",
+                "hard_swish",
+                "hard_sigmoid",
+                "leaky_relu",
             ]:
                 # few samples to reduce time
                 # for beta in [-0.2, 0.5, 0.67, 3]:

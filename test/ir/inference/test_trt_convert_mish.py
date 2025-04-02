@@ -80,7 +80,7 @@ class TrtConvertMishTest(TrtLayerAutoScanTest):
 
                             yield program_config
 
-    def generate_dynamic_shape(self):
+    def generate_dynamic_shape(self, attrs):
         if self.dim1 == 0:
             self.dynamic_shape.min_input_shape = {
                 "input_data": [1],
@@ -151,7 +151,7 @@ class TrtConvertMishTest(TrtLayerAutoScanTest):
             ), (1e-3, 1e-3)
 
         # for dynamic_shape
-        self.generate_dynamic_shape()
+        self.generate_dynamic_shape(attrs)
         self.trt_param.precision = paddle_infer.PrecisionType.Float32
         program_config.set_input_type(np.float32)
         yield self.create_inference_config(), generate_trt_nodes_num(

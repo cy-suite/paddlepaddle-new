@@ -152,7 +152,7 @@ class TrtConvertFillConstantTest(TrtLayerAutoScanTest):
                         )
                     yield program_config
 
-    def generate_dynamic_shape(self):
+    def generate_dynamic_shape(self, attrs):
         if self.mode == "ValueTensor":
             self.input_shape = [1, 1]
             max_shape = list(self.input_shape)
@@ -200,7 +200,7 @@ class TrtConvertFillConstantTest(TrtLayerAutoScanTest):
         # Don't test static shape
 
         # for dynamic_shape
-        self.generate_dynamic_shape()
+        self.generate_dynamic_shape(attrs)
         self.trt_param.precision = paddle_infer.PrecisionType.Float32
         yield self.create_inference_config(), generate_trt_nodes_num(
             attrs, True

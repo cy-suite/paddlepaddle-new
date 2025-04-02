@@ -65,7 +65,7 @@ class TrtConvertBmmTest_dynamic(TrtLayerAutoScanTest):
 
                     yield program_config
 
-    def generate_dynamic_shape(self):
+    def generate_dynamic_shape(self, attrs):
         self.dynamic_shape.min_input_shape = {
             "input1_data": [10, 350, 75],
             "input2_data": [10, 75, 25],
@@ -119,7 +119,7 @@ class TrtConvertBmmTest_dynamic(TrtLayerAutoScanTest):
             tol_fp32 = 1e-2
             tol_half = 1e-2
         # for dynamic_shape
-        self.generate_dynamic_shape()
+        self.generate_dynamic_shape(attrs)
         self.trt_param.precision = paddle_infer.PrecisionType.Float32
         program_config.set_input_type(np.float32)
         yield self.create_inference_config(), generate_trt_nodes_num(

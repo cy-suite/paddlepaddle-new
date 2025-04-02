@@ -49,7 +49,6 @@ class TrtConvertRoiAlignTest(TrtLayerAutoScanTest):
                 return np.array([1, 1, 0, 1]).astype(np.int32)
 
         def generate_lod(batch):
-            print("batch:", batch)
             if batch == 1:
                 return [[0, 3]]
             if batch == 2:
@@ -139,7 +138,7 @@ class TrtConvertRoiAlignTest(TrtLayerAutoScanTest):
 
             yield program_config
 
-    def generate_dynamic_shape(self):
+    def generate_dynamic_shape(self, attrs):
         if self.num_input == 0:
             self.dynamic_shape.min_input_shape = {
                 "roi_align_input": [1, 256, 32, 32],
@@ -209,7 +208,7 @@ class TrtConvertRoiAlignTest(TrtLayerAutoScanTest):
             ), 1e-3
 
         # for dynamic_shape
-        self.generate_dynamic_shape()
+        self.generate_dynamic_shape(attrs)
         self.trt_param.precision = paddle_infer.PrecisionType.Float32
         yield self.create_inference_config(), generate_trt_nodes_num(
             attrs, True
