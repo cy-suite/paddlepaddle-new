@@ -1393,11 +1393,8 @@ def pad3d_converter(network, paddle_op, inputs):
     data_format = paddle_op.attrs().get("data_format")
     if padding_mode == "circular" or data_format == "NDHWC":
         attrs = paddle_op.attrs()
-        padddings_value = paddle_op.operand_source(1)
-        full_op = padddings_value.get_defining_op()
-        if full_op.name() == "pd_op.full_int_array":
-            value_attr = full_op.attrs()["value"]
-            attrs["paddings"] = value_attr
+        value_attr = get_input_constant_value(paddle_op, inputs, 1)
+        attrs["paddings"] = value_attr
         layer = generic_plugin_converter(network, paddle_op, inputs, attrs)
         return layer.get_output(0)
     else:
