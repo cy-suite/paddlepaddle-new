@@ -265,20 +265,21 @@ def shard_tensor(
     if stop_gradient is None:
         stop_gradient = getattr(data, "stop_gradient", True)
 
-    if paddle.framework.in_pir_mode():
-        assert isinstance(
-            data, (type(None), pir.Value)
-        ), "input tensor is not pir value."
-        assert (
-            data.is_dense_tensor_type()
-        ), "shard_tensor() input data only supported dense tensor type right."
-        tensor = data
-    else:
-        raise NotImplementedError(
-            "`shard_tensor()` only supported in dynamic and pir mode."
-        )
-
     if paddle.in_dynamic_mode():
+        if isinstance(data, EagerParamBase) and not data._is_initialized():
+            assert (
+                data._init_func is not None
+            ), "Get an uninitialized param with an unregistered init_func."
+            tensor = data
+        elif isinstance(data, paddle.Tensor) and dtype is None:
+            # if place is not equal, it is handled in paddle.Tensor()
+            tensor = data
+        else:
+            # `paddle.to_tensor` supports both dynamic and static mode
+            tensor = paddle.to_tensor(
+                data, dtype=dtype, place=place, stop_gradient=stop_gradient
+            )
+
         # here the dist tensor is deep copy constructed
         if isinstance(data, EagerParamBase):
 
@@ -329,9 +330,16 @@ def shard_tensor(
             dist_tensor.stop_gradient = tensor.stop_gradient
             return dist_tensor
     elif paddle.framework.in_pir_mode():
-        dist_tensor = paddle._C_ops.shard_tensor(tensor, mesh, placements)
-        dist_tensor.stop_gradient = tensor.stop_gradient
-        dist_tensor.persistable = tensor.persistable
+        assert isinstance(
+            data, (type(None), pir.Value)
+        ), "input tensor is not pir value."
+        assert (
+            data.is_dense_tensor_type()
+        ), "shard_tensor() input data only supported dense tensor type right."
+
+        dist_tensor = paddle._C_ops.shard_tensor(data, mesh, placements)
+        dist_tensor.stop_gradient = data.stop_gradient
+        dist_tensor.persistable = data.persistable
         return dist_tensor
     else:
         raise NotImplementedError(
