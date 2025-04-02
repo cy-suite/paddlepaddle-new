@@ -604,8 +604,8 @@
     func : PRecvInferMeta
     param : [peer, dtype, out_shape, dynamic_shape]
   kernel :
-    func : p_recv
-    param : [peer, dtype, out_shape, dynamic_shape]
+    func : p_recv2
+    param : [ring_id, peer, dtype, out_shape, dynamic_shape]
     data_type : dtype
   interfaces : paddle::dialect::InferSymbolicShapeInterface
   traits : paddle::dialect::ForwardOnlyTrait
@@ -617,8 +617,8 @@
     func : PSendInferMeta
     param : [x, peer]
   kernel :
-    func : p_send
-    param : [x, peer, dynamic_shape]
+    func : p_send2
+    param : [x, ring_id, peer, dynamic_shape]
     data_type : x
   traits : pir::SideEffectTrait, paddle::dialect::ForwardOnlyTrait
 
