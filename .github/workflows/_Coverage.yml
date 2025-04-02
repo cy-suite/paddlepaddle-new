@@ -395,6 +395,12 @@ jobs:
         # cp coverage-full.info coverage_files
         # '
 
+    - name: do
+      run: |
+        docker exec -t ${{ env.container_name }} /bin/bash -c '
+        find . -name "*.lst" -type f -delete
+        '
+
 
     - name: Upload coverage report
       uses: codecov/codecov-action@v4
