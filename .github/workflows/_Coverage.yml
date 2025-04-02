@@ -395,7 +395,7 @@ jobs:
     - name: Upload coverage report
       uses: codecov/codecov-action@v4
       with:
-        files: build/coverage_files
+        directory: build/coverage_files
       # env:
       #   CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
