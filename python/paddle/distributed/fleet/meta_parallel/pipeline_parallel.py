@@ -1400,9 +1400,13 @@ class PipelineParallelWithInterleave(PipelineParallel):
 
     def __init__(self, layers, hcg, strategy):
         super().__init__(layers=layers, hcg=hcg, strategy=strategy)
-        self.overlap_schedule_mode = hasattr(
-            type(self._layers), "overlapped_forward_backward"
+        self.overlap_schedule_mode = (
+            hasattr(type(self._layers), "overlapped_forward_backward")
+            and self._strategy.hybrid_configs[
+                "pp_configs"
+            ].forward_backward_overlap_scheduler
         )
+
         if self.overlap_schedule_mode:
             assert (
                 not self._overlap_p2p_comm
@@ -1410,9 +1414,7 @@ class PipelineParallelWithInterleave(PipelineParallel):
             assert (
                 not self._profiling
             ), "Profiling is not compatible with overlap_schedule_mode."
-        logger.info(
-            f"Using PipelineParallelWithInterleave with overlapping forward backward={self.overlap_schedule_mode}"
-        )
+        logger.info(f"Using {self._get_scheduler_name()}")
 
         self._record_format = (
             '"name": "{}{}_VP{}", "cat": "virtual pipeline timeline", "ph": {}, "pid": 0, "tid": '
@@ -1456,6 +1458,9 @@ class PipelineParallelWithInterleave(PipelineParallel):
 
         # reinit user hook since now we have virtual stages
         self._init_user_hooks()
+
+    def _get_scheduler_name(self):
+        return f"PipelineParallelWithInterleave with overlapping forward backward={self.overlap_schedule_mode}"
 
     def _init_user_bubble_hooks(self):
         # initialize bubble hooks
@@ -1880,6 +1885,14 @@ class PipelineParallelWithInterleave(PipelineParallel):
             model, comm_group, acc_steps, dp, group_size=sys.maxsize
         )
 
+    def _init_buffers(self):
+        # init some data buffers for interleave scheduler
+        self.input_tensors = [[] for _ in range(self.num_model_chunks)]
+        self.output_tensors = [[] for _ in range(self.num_model_chunks)]
+        self.output_tensor_grads = [[] for _ in range(self.num_model_chunks)]
+        self.schedule_chunks = [[] for _ in range(self.num_model_chunks)]
+        self.loss_fn_chunks = []
+
     def forward_backward_pipeline(
         self,
         data,
@@ -2010,12 +2023,7 @@ class PipelineParallelWithInterleave(PipelineParallel):
             * self.num_model_chunks
         )
 
-        # init some data buffers for interleave scheduler
-        self.input_tensors = [[] for _ in range(self.num_model_chunks)]
-        self.output_tensors = [[] for _ in range(self.num_model_chunks)]
-        self.output_tensor_grads = [[] for _ in range(self.num_model_chunks)]
-        self.schedule_chunks = [[] for _ in range(self.num_model_chunks)]
-        self.loss_fn_chunks = []
+        self._init_buffers()
 
         micro_dataset = self._wrap_data(data)
 
@@ -2700,6 +2708,10 @@ class PipelineParallelWithInterleave(PipelineParallel):
 class PipelineParallelWithInterleaveFthenB(PipelineParallelWithInterleave):
     def __init__(self, layers, hcg, strategy):
         super().__init__(layers=layers, hcg=hcg, strategy=strategy)
+        self.overlap_schedule_mode = False
+
+    def _get_scheduler_name(self):
+        return "PipelineParallelWithInterleaveFthenB"
 
     def _init_user_bubble_hooks(self):
         # (TODO:gexiao) support bubble hooks if needed
@@ -2800,10 +2812,7 @@ class PipelineParallelWithInterleaveFthenB(PipelineParallelWithInterleave):
         skip_steps = self.accumulate_steps - self.num_stages
         send_recv_buffer_queue = queue.Queue()
 
-        # init some data buffers for interleave scheduler
-        self.input_tensors = [[] for _ in range(self.num_model_chunks)]
-        self.output_tensors = [[] for _ in range(self.num_model_chunks)]
-        self.output_tensor_grads = [[] for _ in range(self.num_model_chunks)]
+        self._init_buffers()
 
         micro_dataset = self._wrap_data(data)
         num_steps = self.accumulate_steps * self.num_model_chunks
@@ -2987,7 +2996,10 @@ class OffloadQueue(queue.Queue):
 class VPPFhenBInBalancedMemory(PipelineParallelWithInterleaveFthenB):
     def __init__(self, layers, hcg, strategy):
         super().__init__(layers=layers, hcg=hcg, strategy=strategy)
-        logger.info("Using VPPFhenBInBalancedMemory")
+        self.overlap_schedule_mode = False
+
+    def _get_scheduler_name(self):
+        return "VPPFhenBInBalancedMemory"
 
     def _init_user_bubble_hooks(self):
         # (TODO:gexiao) support bubble hooks if needed
@@ -3030,10 +3042,8 @@ class VPPFhenBInBalancedMemory(PipelineParallelWithInterleaveFthenB):
         self.micro_batch_id = 0
         self._forward_only = forward_only
 
-        # init some data buffers for interleave scheduler
-        self.input_tensors = [[] for _ in range(self.num_model_chunks)]
-        self.output_tensors = [[] for _ in range(self.num_model_chunks)]
-        self.output_tensor_grads = [[] for _ in range(self.num_model_chunks)]
+        self._init_buffers()
+
         backward_send_recv_buffer_queue = OffloadQueue(
             offload=self._enable_offload_queue
         )
