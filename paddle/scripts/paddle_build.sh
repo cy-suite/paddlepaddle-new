@@ -2449,7 +2449,6 @@ EOF
 }
 
 function parallel_test_base_xpu() {
-    unset FLAGS_use_stride_kernel
     mkdir -p ${PADDLE_ROOT}/build
     cd ${PADDLE_ROOT}/build
     if [ ${WITH_TESTING:-ON} == "ON" ] ; then
