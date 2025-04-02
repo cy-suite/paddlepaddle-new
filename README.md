@@ -33,27 +33,26 @@ pip install paddlepaddle
 pip install paddlepaddle-gpu
 ```
 
-For more information about installation, please view [Quick Install](https://www.paddlepaddle.org.cn/install/quick)
+## **PaddlePaddle New Generation Framework 3.0**
 
-## FOUR LEADING TECHNOLOGIES
+* **Unified Dynamic/Static Graphs and Automatic Parallelism**
 
-- **Agile Framework for Industrial Development of Deep Neural Networks**
+    By requiring only minimal tensor partitioning annotations based on a single-card configuration, PaddlePaddle automatically discovers the most efficient distributed parallel strategy. This significantly reduces the costs of industrial development and training, enabling developers to focus more intently on model and algorithm innovation.
 
-    The PaddlePaddle deep learning framework facilitates the development while lowering the technical burden, through leveraging a programmable scheme to architect the neural networks. It supports both declarative programming and imperative programming with both development flexibility and high runtime performance preserved.  The neural architectures could be automatically designed by algorithms with better performance than the ones designed by human experts.
+* **Integrated Training and Inference for Large Models**
 
-- **Support Ultra-Large-Scale Training of Deep Neural Networks**
+    The same framework supports both training and inference, achieving code reuse and seamless integration between these stages. This provides a unified development experience and maximum training efficiency for the entire large model workflow, offering the industry a superior development experience.
 
-    PaddlePaddle has made breakthroughs in ultra-large-scale deep neural networks training. It launched the world's first large-scale open-source training platform that supports the training of deep networks with 100 billion features and trillions of parameters using data sources distributed over hundreds of nodes. PaddlePaddle overcomes the online deep learning challenges for ultra-large-scale deep learning models, and further achieved real-time model updating with more than 1 trillion parameters.
-     [Click here to learn more](https://github.com/PaddlePaddle/Fleet)
+* **High-Order Differentiation for Scientific Computing**
 
-- **High-Performance Inference Engines for Comprehensive Deployment Environments**
+    Provides capabilities such as high-order automatic differentiation, complex number operations, Fourier transforms, compilation optimization, and distributed training support. It facilitates scientific exploration in fields including mathematics, mechanics, materials science, meteorology, and biology, substantially improving the speed of solving differential equations.
 
-   PaddlePaddle is not only compatible with models trained in 3rd party open-source frameworks , but also offers complete inference products for various production scenarios. Our inference product line includes [Paddle Inference](https://www.paddlepaddle.org.cn/inference/master/guides/introduction/index_intro.html): Native inference library for high-performance server and cloud inference; [FastDeploy](https://github.com/PaddlePaddle/FastDeploy): Easy-to-use and High Performance AI model deployment toolkit for Cloud, Mobile and Edge without-of-the-box and unified experience; [Paddle Lite](https://github.com/PaddlePaddle/Paddle-Lite): Ultra-Lightweight inference engine for mobile and IoT environments; [Paddle.js](https://www.paddlepaddle.org.cn/paddle/paddlejs): A frontend inference engine for browser and mini-apps. Furthermore, by great amounts of optimization with leading hardware in each scenario, Paddle inference engines outperform most of the other mainstream frameworks.
+* **Neural Network Compiler**
 
-- **Industry-Oriented Models and Libraries with Open Source Repositories**
+    Adopting an integrated framework design, it supports efficient training and flexible inference for diverse models, including generative and scientific computing models. It achieves an effective balance between computational flexibility and high performance, significantly lowering performance optimization costs.
 
-     PaddlePaddle includes and maintains more than 100 mainstream models that have been practiced and polished for a long time in the industry. Some of these models have won major prizes from key international competitions. In the meanwhile, PaddlePaddle has further more than 200 pre-training models (some of them with source codes) to facilitate the rapid development of industrial applications.
-     [Click here to learn more](https://github.com/PaddlePaddle/models)
+* **Heterogeneous Multi-Chip Adaptation**
+    Features a mature and complete unified adaptation solution for multiple hardware types. Through standardized interfaces, it abstracts the variations in development interfaces across different chip software stacks, realizing a pluggable architecture.
 
 ## Documentation
 
