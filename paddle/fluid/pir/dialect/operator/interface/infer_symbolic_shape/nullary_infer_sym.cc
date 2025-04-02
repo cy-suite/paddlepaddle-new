@@ -550,7 +550,7 @@ bool PRecvOpInferSymbolicShape(pir::Operation *op,
                             "The shape attribute for p_recv must be set "
                             "explicitly, but the %dth element is %d which "
                             "is less than 1. Or dynamic_shape should be set to "
-                            "True for both send_v2 and p_recv.",
+                            "True for both p_send and p_recv.",
                             i,
                             out_shape[i]));
       output_shape.push_back(symbol::DimExpr(out_shape[i]));

@@ -325,7 +325,7 @@ void Instruction::UpdateRecordStreamForGcInfo() {
   need_record_stream_for_gc_ = true;
 
   stream_ = reinterpret_cast<const phi::GPUContext&>(DeviceContext()).stream();
-// TODO(lizhiyu): Only analyse the 'send_v2' for GPT pp strategy right now.
+// TODO(lizhiyu): Only analyse the 'p_send' for GPT pp strategy right now.
 // To support all the operators for communicating in the future.
 #if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
   auto operator_base_ptr = OpBase();

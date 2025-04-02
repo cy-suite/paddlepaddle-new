@@ -4539,10 +4539,6 @@
   extra:
     outputs: [noise]
 
-- op: send_v2
-  inputs :
-    x : X
-
 - op: sequence_conv
   backward: sequence_conv_grad
   inputs:

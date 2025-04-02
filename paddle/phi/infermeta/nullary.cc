@@ -274,7 +274,7 @@ void PRecvArrayInferMeta(int peer,
         errors::InvalidArgument("The shape attribute for recv must be set "
                                 "explicitly, but the %dth element is %d which "
                                 "is less than 1. Or dynamic_shape should be "
-                                "set to True for both send_v2 and p_recv.",
+                                "set to True for both p_send and p_recv.",
                                 i,
                                 out_shape[i]));
   }
@@ -313,7 +313,7 @@ void RecvV2InferMeta(const int ring_id,
                             "The shape attribute for p_recv must be set "
                             "explicitly, but the %dth element is %d which "
                             "is less than 1. Or dynamic_shape should be "
-                            "set to True for both send_v2 and p_recv.",
+                            "set to True for both p_send and p_recv.",
                             i,
                             out_shape[i]));
     }
