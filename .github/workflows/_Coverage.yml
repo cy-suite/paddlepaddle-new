@@ -346,18 +346,18 @@ jobs:
     - name: do
       run: |
         docker exec -t ${{ env.container_name }} /bin/bash -c '
-        # if [ ! -f "/root/.cache/lcov-1.16.tar.gz" ];then
-        #   wget -P /home https://paddle-ci.cdn.bcebos.com/coverage/lcov-1.16.tar.gz --no-proxy --no-check-certificate || exit 101
-        #   cp /home/lcov-1.16.tar.gz /root/.cache/lcov-1.16.tar.gz
-        # else
-        #   cp /root/.cache/lcov-1.16.tar.gz /home/lcov-1.16.tar.gz
-        # fi
-        # tar -xf /home/lcov-1.16.tar.gz -C /
-        # cd /lcov-1.16
-        # echo "::group::Install lcov"
-        # make install
-        # echo "::endgroup::"
-        cd ${PADDLE_ROOT}/build
+        if [ ! -f "/root/.cache/lcov-1.16.tar.gz" ];then
+          wget -P /home https://paddle-ci.cdn.bcebos.com/coverage/lcov-1.16.tar.gz --no-proxy --no-check-certificate || exit 101
+          cp /home/lcov-1.16.tar.gz /root/.cache/lcov-1.16.tar.gz
+        else
+          cp /root/.cache/lcov-1.16.tar.gz /home/lcov-1.16.tar.gz
+        fi
+        tar -xf /home/lcov-1.16.tar.gz -C /
+        cd /lcov-1.16
+        echo "::group::Install lcov"
+        make install
+        echo "::endgroup::"
+        cd ${PADDLE_ROOT}/build/coverage_files
         lcov --extract coverage.info \
         "${PADDLE_ROOT}/paddle/fluid/framework/*" \
         "${PADDLE_ROOT}/paddle/fluid/imperative/*" \
