@@ -29,9 +29,6 @@ from typing import (
 )
 
 import paddle
-from paddle.jit.sot.opcode_translator.executor.variables.base import (
-    VariableBase,
-)
 
 from .... import psdb
 from ....profiler import EventGuard
@@ -84,7 +81,10 @@ from ..tracker import (
     Tracker,
 )
 from ..virtual_frame import VirtualFrame
-from .base import VariableFactory
+from .base import (
+    VariableBase,
+    VariableFactory,
+)
 from .basic import (
     ConstantVariable,
     ObjectVariable,
@@ -156,13 +156,8 @@ class FunctionVariable(CallableVariable):
         )
         return code_obj_var
 
-    def bind(self, instance: VariableBase, name: str):
-        method_var = MethodVariable(
-            instance,
-            self,
-            graph=self.graph,
-            tracker=GetAttrTracker(instance, name),
-        )
+    def bind_dangling_fn(self, instance: VariableBase, name: str):
+        method_var = self.bind(instance, name)
         class_var = VariableFactory.from_value(
             instance.get_py_type(),
             graph=self.graph,
@@ -171,6 +166,14 @@ class FunctionVariable(CallableVariable):
         assert class_var is not None
         self.tracker = GetAttrTracker(class_var, name)
         return method_var
+
+    def bind(self, instance: VariableBase, name: str, class_var=None):
+        return MethodVariable(
+            instance,
+            self,
+            graph=self.graph,
+            tracker=GetAttrTracker(instance, name),
+        )
 
     make_stringified_guard = object_equal_stringified_guard
 
@@ -369,17 +372,14 @@ class TensorFunctionVariable(FunctionVariable):
     def call_function(self, /, *args, **kwargs):
         if is_break_graph_tensor_methods(self.method_name):
             raise BreakGraphError(
-                DataDependencyOperationBreak("call break_graph_tensor_method.")
+                DataDependencyOperationBreak(
+                    f"Calling `Tensor.{self.method_name}` causes breakgraph."
+                )
             )
         return self.graph.call_tensor_method(self.method_name, *args, **kwargs)
 
-    def bind(self, instance: VariableBase, name: str):
-        method_var = MethodVariable(
-            instance,
-            self,
-            graph=self.graph,
-            tracker=GetAttrTracker(instance, name),
-        )
+    def bind_dangling_fn(self, instance: VariableBase, name: str):
+        method_var = self.bind(instance, name)
         class_var = VariableFactory.from_value(
             instance.get_py_type(),
             graph=self.graph,
@@ -889,7 +889,12 @@ class UserDefinedGeneratorFunctionVariable(FunctionVariable):
             inline_gen_executor = OpcodeInlineGeneratorExecutor(
                 vframe, code_var, self.graph
             )
-            return inline_gen_executor.inline_call()
+            gen = inline_gen_executor.inline_call()
+            assert isinstance(
+                gen, GeneratorVariable
+            ), f"GeneratorFunction calling result should be GeneratorVariable, but got {type(gen)}"
+            gen.tracker = DummyTracker([self, *args, *kwargs.values()])
+            return gen
         return GeneratorVariable(
             code_var,
             vframe,

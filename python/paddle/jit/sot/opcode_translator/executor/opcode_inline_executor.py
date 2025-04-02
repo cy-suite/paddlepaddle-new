@@ -18,6 +18,8 @@ import inspect
 import sys
 from typing import TYPE_CHECKING
 
+import paddle
+
 from ...utils import (
     BreakGraphError,
     DataDependencyControlFlowBreak,
@@ -28,7 +30,7 @@ from ..instruction_utils import Instruction
 from .dispatch_functions import generator_send
 from .guard import StringifiedExpression, union_free_vars
 from .opcode_executor import OpcodeExecutorBase, Stop
-from .tracker import DanglingTracker, DummyTracker, Tracker
+from .tracker import DanglingTracker, Tracker
 from .variables import (
     BuiltinVariable,
     ConstantVariable,
@@ -73,6 +75,16 @@ class FunctionGlobalTracker(Tracker):
         codegen.gen_load_attr("__globals__")
         codegen.gen_load_const(self.name)
         codegen.gen_subscribe()
+
+    def guard_tree_expr_node(self) -> paddle.framework.core.ExprNode:
+        fn_tracer = self.fn.tracker.guard_tree_expr_node()
+        return paddle.framework.core.ItemExprNode(
+            paddle.framework.core.AttributeExprNode(
+                fn_tracer,
+                "__globals__",
+            ),
+            paddle.framework.core.ConstantExprNode(self.name),
+        )
 
     def trace_value_from_frame(self) -> StringifiedExpression:
         """
@@ -121,6 +133,10 @@ class FunctionClosureTracker(Tracker):
         codegen.gen_load_const(self.idx)
         codegen.gen_subscribe()
         codegen.gen_load_attr("cell_contents")
+
+    def guard_tree_expr_node(self) -> paddle.framework.core.ExprNode:
+        # TODO(zrr1999): implement FunctionClosureExprNode
+        raise NotImplementedError("FunctionClosureExprNode is not implemented")
 
     def trace_value_from_frame(self):
         """
@@ -245,8 +261,9 @@ class OpcodeInlineGeneratorExecutor(OpcodeExecutorBase):
     def RETURN_GENERATOR(self, instr: Instruction):
         vframe = self.vframe
         code_var = self._code_var
+        # NOTE: we set the real tracker in calling function
         self.return_value = GeneratorVariable(
-            code_var, vframe, self._graph, DummyTracker([])  # TODO: Add tracker
+            code_var, vframe, self._graph, DanglingTracker()
         )
         return Stop(state="Return")
 
