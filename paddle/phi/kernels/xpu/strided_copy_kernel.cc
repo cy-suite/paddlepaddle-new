@@ -1,20 +1,21 @@
-/* Copyright (c) 2023 PaddlePaddle Authors. All Rights Reserved.
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-    http://www.apache.org/licenses/LICENSE-2.0
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License. */
+// Copyright (c) 2025 PaddlePaddle Authors. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 #include "paddle/phi/kernels/strided_copy_kernel.h"
-#include "paddle/phi/backends/gpu/gpu_launch_config.h"
 #include "paddle/phi/backends/xpu/enforce_xpu.h"
+#include "paddle/phi/common/memory_utils.h"
 #include "paddle/phi/core/kernel_registry.h"
-#include "paddle/phi/kernels/xpu/xpu_api_wrapper.h"
-
 namespace phi {
 
 template <typename T, typename Context>
@@ -53,7 +54,10 @@ void StridedCopyKernel(const Context& dev_ctx,
                               "StridedCopyKernel's out tensor must complete "
                               "mutable data before call kernel."));
 
-  // 下述XPU算子有性能问题，因此暂时禁用掉，改成“先拷贝到CPU，按照CPU算子逻辑计算，再拷贝回XPU”的临时方案
+  // The following XPU operators have performance issues and are temporarily
+  // disabled. A temporary workaround has been implemented: "First copy data to
+  // CPU, perform computation using CPU operator logic, then copy results back
+  // to XPU".
   /*
   // use XPUCopyTypeTrait to deal with double and int16_t copy instead of
   // XPUTypeTrait
@@ -81,6 +85,9 @@ void StridedCopyKernel(const Context& dev_ctx,
   }
   */
 
+  // wait before copy
+  dev_ctx.Wait();
+
   // CPU buffer for input
   char* input_on_cpu = new char[input.Holder()->size()];
   memory_utils::Copy(CPUPlace(),
@@ -96,6 +103,9 @@ void StridedCopyKernel(const Context& dev_ctx,
                      dev_ctx.GetPlace(),
                      static_cast<const void*>(out->Holder()->ptr()),
                      out->Holder()->size());
+
+  // wait after copy
+  dev_ctx.Wait();
 
   // follow paddle/phi/kernels/cpu/strided_copy_kernel.cc
   const T* input_data =
@@ -133,6 +143,8 @@ void StridedCopyKernel(const Context& dev_ctx,
                      CPUPlace(),
                      static_cast<const void*>(output_on_cpu),
                      out->Holder()->size());
+  // wait after copy
+  dev_ctx.Wait();
 
   delete[] input_on_cpu;
   delete[] output_on_cpu;
