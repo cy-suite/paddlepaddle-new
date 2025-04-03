@@ -562,8 +562,6 @@ def interpolate(
 
     out_shape = size
     scale = scale_factor
-    if out_shape is not None and scale is not None:
-        raise ValueError("Only one of size or scale_factor should be defined.")
     if out_shape is not None:
         if (
             isinstance(out_shape, (Variable, paddle.pir.Value))
@@ -657,81 +655,83 @@ def interpolate(
                     attrs['out_h'] = out_shape[1]
                     attrs['out_w'] = out_shape[2]
 
-    elif scale is not None and recompute_scale_factor is not True:
-        if in_dynamic_mode() and isinstance(scale, Variable):
-            if scale.shape == []:
-                scale = float(scale)
+    elif scale is not None:
+        if recompute_scale_factor:
+            if in_dynamic_mode() and isinstance(scale, Variable):
+                if scale.shape == []:
+                    scale = float(scale)
+                else:
+                    scale = list(scale.numpy())
+
+            dim = len(x.shape) - 2
+
+            if isinstance(scale, (float, int, numpy.ndarray)):
+                scale_list = [float(scale)] * dim
+            elif isinstance(scale, (list, tuple)):
+                if len(scale) != dim:
+                    raise ValueError(
+                        f"scale_shape length should be {dim} for "
+                        f"input {len(x.shape)}-D tensor."
+                    )
+                scale_list = list(map(float, scale))
             else:
-                scale = list(scale.numpy())
-        if isinstance(scale, (Variable, paddle.pir.Value)):
-            scale.stop_gradient = True
-            inputs["Scale"] = scale
-        elif isinstance(scale, (float, int, numpy.ndarray)):
-            if scale <= 0:
-                raise ValueError("Attr(scale) should be greater than zero.")
-            scale_list = []
-            for i in range(len(x.shape) - 2):
-                scale_list.append(scale)
-            attrs['scale'] = list(map(float, scale_list))
-        elif isinstance(scale, (list, tuple)):
-            if len(scale) != len(x.shape) - 2:
-                raise ValueError(
-                    f"scale_shape length should be {len(x.shape) - 2} for "
-                    f"input {len(x.shape)}-D tensor."
+                raise TypeError(
+                    "Attr(scale)'s type should be float, int, list, tuple, or Tensor."
                 )
-            for value in scale:
-                if value <= 0:
+
+            out_shape = []
+            for i in range(dim):
+                input_size = x.shape[i + 2]
+                output_size = int(
+                    numpy.floor(float(input_size) * scale_list[i])
+                )
+                out_shape.append(output_size)
+
+            if len(x.shape) == 3:
+                attrs['out_w'] = out_shape[0]
+            elif len(x.shape) == 4:
+                attrs['out_h'] = out_shape[0]
+                attrs['out_w'] = out_shape[1]
+            elif len(x.shape) == 5:
+                attrs['out_d'] = out_shape[0]
+                attrs['out_h'] = out_shape[1]
+                attrs['out_w'] = out_shape[2]
+
+            scale = None
+        else:
+            if in_dynamic_mode() and isinstance(scale, Variable):
+                if scale.shape == []:
+                    scale = float(scale)
+                else:
+                    scale = list(scale.numpy())
+            if isinstance(scale, (Variable, paddle.pir.Value)):
+                scale.stop_gradient = True
+                inputs["Scale"] = scale
+            elif isinstance(scale, (float, int, numpy.ndarray)):
+                if scale <= 0:
                     raise ValueError("Attr(scale) should be greater than zero.")
-            attrs['scale'] = list(map(float, scale))
-        else:
-            raise TypeError(
-                "Attr(scale)'s type should be float, int, list, tuple, or Tensor."
-            )
-
-    elif recompute_scale_factor:
-        assert (
-            scale is not None
-        ), "scale_factor must not be None when recompute_scale_factor=True"
-
-        if in_dynamic_mode() and isinstance(scale, Variable):
-            if scale.shape == []:
-                scale = float(scale)
+                scale_list = []
+                for i in range(len(x.shape) - 2):
+                    scale_list.append(scale)
+                attrs['scale'] = list(map(float, scale_list))
+            elif isinstance(scale, (list, tuple)):
+                if len(scale) != len(x.shape) - 2:
+                    raise ValueError(
+                        f"scale_shape length should be {len(x.shape) - 2} for "
+                        f"input {len(x.shape)}-D tensor."
+                    )
+                for value in scale:
+                    if value <= 0:
+                        raise ValueError(
+                            "Attr(scale) should be greater than zero."
+                        )
+                attrs['scale'] = list(map(float, scale))
             else:
-                scale = list(scale.numpy())
-
-        dim = len(x.shape) - 2
-
-        if isinstance(scale, (float, int, numpy.ndarray)):
-            scale_list = [float(scale)] * dim
-        elif isinstance(scale, (list, tuple)):
-            if len(scale) != dim:
-                raise ValueError(
-                    f"scale_shape length should be {dim} for "
-                    f"input {len(x.shape)}-D tensor."
+                raise TypeError(
+                    "Attr(scale)'s type should be float, int, list, tuple, or Tensor."
                 )
-            scale_list = list(map(float, scale))
-        else:
-            raise TypeError(
-                "Attr(scale)'s type should be float, int, list, tuple, or Tensor."
-            )
-
-        out_shape = []
-        for i in range(dim):
-            input_size = x.shape[i + 2]
-            output_size = int(numpy.floor(float(input_size) * scale_list[i]))
-            out_shape.append(output_size)
-
-        if len(x.shape) == 3:
-            attrs['out_w'] = out_shape[0]
-        elif len(x.shape) == 4:
-            attrs['out_h'] = out_shape[0]
-            attrs['out_w'] = out_shape[1]
-        elif len(x.shape) == 5:
-            attrs['out_d'] = out_shape[0]
-            attrs['out_h'] = out_shape[1]
-            attrs['out_w'] = out_shape[2]
-
-        scale = None
+    else:
+        raise ValueError("Only one of size or scale_factor should be defined.")
 
     if in_dynamic_or_pir_mode():
         attr_list = []
