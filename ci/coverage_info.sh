@@ -178,9 +178,9 @@ mv -f coverage-diff.tmp coverage-diff.info
 
 # python coverage
 
-# coverage combine $(ls python-coverage.data.*) || NO_PYTHON_COVERAGE_DATA=1
+coverage combine $(ls python-coverage.data.*) || NO_PYTHON_COVERAGE_DATA=1
 
-# coverage xml -i -o python-coverage.xml || [[ "${NO_PYTHON_COVERAGE_DATA}" == "1" ]]
+coverage xml -i -o python-coverage.xml || [[ "${NO_PYTHON_COVERAGE_DATA}" == "1" ]]
 
 # sed -i "s#/mnt\/paddle#${PADDLE_ROOT//\//\\/}#g" python-coverage.xml
 
