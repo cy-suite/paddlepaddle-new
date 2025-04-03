@@ -32,13 +32,13 @@ class TestAddOp(OpTest):
         self.outputs = {'Out': x + y}
 
     def test_check_output(self):
-        self.check_output()
+        self.check_output(check_pir=True)
 
     def test_check_grad(self):
-        self.check_grad(['X', 'Y'], 'Out', max_relative_error=1e-6)
+        self.check_grad(['X', 'Y'], 'Out')
 
     def test_check_grad_fp64(self):
-        self.check_grad(['X', 'Y'], 'Out', numeric_grad_delta=1e-5, max_relative_error=1e-6)
+        self.check_grad(['X', 'Y'], 'Out')
 
 class TestElementwiseAddWithAxis0(OpTest):
     def setUp(self):
@@ -55,18 +55,13 @@ class TestElementwiseAddWithAxis0(OpTest):
         self.outputs = {'Out': self.inputs['X'] + self.inputs['Y']}
 
     def test_check_output(self):
-        self.check_output()
+        self.check_output(check_pir=True)
 
     def test_check_grad(self):
-        self.check_grad(['X', 'Y'], 'Out', max_relative_error=1e-6)
+        self.check_grad(['X', 'Y'], 'Out')
 
     def test_check_grad_fp64(self):
-        self.check_grad(
-            ['X', 'Y'],
-            'Out',
-            numeric_grad_delta=1e-5,
-            max_relative_error=1e-6
-        )
+        self.check_grad(['X', 'Y'], 'Out')
 
 class TestElementwiseAddBroadcast(OpTest):
     def setUp(self):
@@ -83,18 +78,33 @@ class TestElementwiseAddBroadcast(OpTest):
         self.outputs = {'Out': self.inputs['X'] + self.inputs['Y']}
 
     def test_check_output(self):
-        self.check_output()
+        self.check_output(check_pir=True)
 
     def test_check_grad(self):
-        self.check_grad(['X', 'Y'], 'Out', max_relative_error=1e-6)
+        self.check_grad(['X', 'Y'], 'Out')
 
     def test_check_grad_fp64(self):
-        self.check_grad(
-            ['X', 'Y'],
-            'Out',
-            numeric_grad_delta=1e-5,
-            max_relative_error=1e-6
-        )
+        self.check_grad(['X', 'Y'], 'Out')
+
+class TestElementwiseAdd0D(OpTest):
+    def setUp(self):
+        self.op_type = "elementwise_add"
+        self.python_api = paddle.add
+        self.init_config()
+
+    def init_config(self):
+        self.inputs = {
+            'X': np.array(0.5).astype("float64"),  
+            'Y': np.array(1.5).astype("float64")
+        }
+        self.attrs = {}
+        self.outputs = {'Out': self.inputs['X'] + self.inputs['Y']}
+
+    def test_check_output(self):
+        self.check_output(check_pir=True)
+
+    def test_check_grad(self):
+        self.check_grad(['X', 'Y'], 'Out')
 
 class TestAddnOp(unittest.TestCase):
     def setUp(self):
