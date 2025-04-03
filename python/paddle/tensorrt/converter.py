@@ -46,6 +46,7 @@ from .impls.stat import *  # noqa: F403
 from .impls.vision import *  # noqa: F403
 from .register import converter_registry
 from .util import (
+    all_ops_into_trt,
     TensorRTConfigManager,
     TensorRTConstantManager,
     get_cache_path,
@@ -492,6 +493,13 @@ class PaddleToTensorRTConverter:
         trt_params.max_shape_tensor = max_value_map
         trt_params.optim_shape_tensor = opt_value_map
         trt_params.use_cuda_graph = self.trt_config.use_cuda_graph
+        all_nodes_offload_to_trt = all_ops_into_trt(self.program)
+        if self.trt_config.use_cuda_graph and not all_nodes_offload_to_trt:
+            _logger.info(
+                "You have enabled CudaGraph, but not the entire graph offload to "
+                "trt, now return to normal mode."
+            )
+            trt_params.use_cuda_graph = False
         group_str = str(group_op)
         engine_name = (
             int(hashlib.sha256(group_str.encode('utf-8')).hexdigest(), 16)

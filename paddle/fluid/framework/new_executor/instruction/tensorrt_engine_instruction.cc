@@ -177,41 +177,8 @@ TensorRTEngineInstruction::TensorRTEngineInstruction(
 
   use_cuda_graph_ =
       op_attributes.at("use_cuda_graph").dyn_cast<pir::BoolAttribute>().data();
-  // Determine whether all operations are converted to TensorRT
-  bool all_nodes_offload_to_trt = true;
-  std::set<std::string> op_names = {"pd_op.fetch",
-                                    "pd_op.data",
-                                    "pd_kernel.phi_kernel",
-                                    "pd_op.tensorrt_engine"};
-  auto program = op->GetParentProgram();
-  if (program) {
-    auto block = program->block();
-    for (auto &op : *block) {
-      std::string op_name = op.name();
-      if (op_names.find(op_name) != op_names.end()) continue;
-      if (op_name.rfind("builtin.", 0) == 0) continue;
-      if (!op.HasAttribute(paddle::dialect::kCanRunTrtAttr)) {
-        all_nodes_offload_to_trt = false;
-        break;
-      }
-      if (!op.attribute<pir::BoolAttribute>(paddle::dialect::kCanRunTrtAttr)
-               .data()) {
-        all_nodes_offload_to_trt = false;
-        break;
-      }
-    }
-  }
-
-  if (all_nodes_offload_to_trt) {
-    VLOG(6) << "The entire graph is offloaded to TensorRT.";
-  }
-  if (use_cuda_graph_ && !all_nodes_offload_to_trt) {
-    VLOG(6)
-        << "You have enabled CudaGraph, but not the entire graph offload to "
-           "trt, now return to normal mode.";
-    use_cuda_graph_ = false;
-  }
-  if (use_cuda_graph_ && all_nodes_offload_to_trt) {
+  if (use_cuda_graph_) {
+    VLOG(6) << "Enabled CudaGraph.";
     trt_engine_->SetAllNodesLowerToTrt(true);
   }
 

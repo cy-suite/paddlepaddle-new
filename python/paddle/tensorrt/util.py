@@ -57,6 +57,8 @@ def all_ops_into_trt(program):
         if (
             op.name() == "pd_op.fetch"
             or op.name() == "pd_op.data"
+            or op.name() == "pd_op.tensorrt_engine"
+            or op.name() == "cinn_op.group"
             or op.name().split('.')[0] == "builtin"
         ):
             continue
