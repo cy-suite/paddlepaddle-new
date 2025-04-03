@@ -445,7 +445,7 @@ def _right_operand_parameter_matmul_backward(ctx, *args, **kwargs):
             outputs={'out': kwargs['X@GRAD']},
             attrs={
                 'ring_id': group.id,
-                'op_type': dist.ReduceOp.SUM,
+                'reduce_type': dist.ReduceOp.SUM,
                 OP_ROLE_KEY: OpRole.Backward,
             },
         )
@@ -1098,7 +1098,7 @@ class DistributedMatmulImpl1(DistributedOperatorImpl):
             outputs={'out': Out_var},
             attrs={
                 'ring_id': group.id,
-                'op_type': dist.ReduceOp.SUM,
+                'reduce_type': dist.ReduceOp.SUM,
                 OP_ROLE_KEY: src_op.attr('op_role'),
             },
         )
@@ -1785,7 +1785,7 @@ class DistributedMatmulV2Impl1(DistributedOperatorImpl):
             outputs={'out': Out_var},
             attrs={
                 'ring_id': group.id,
-                'op_type': dist.ReduceOp.SUM,
+                'reduce_type': dist.ReduceOp.SUM,
                 OP_ROLE_KEY: src_op.attr('op_role'),
             },
         )
@@ -2450,7 +2450,7 @@ class DistributedMulImpl1(DistributedOperatorImpl):
             outputs={'out': Out_var},
             attrs={
                 'ring_id': group.id,
-                'op_type': dist.ReduceOp.SUM,
+                'reduce_type': dist.ReduceOp.SUM,
                 OP_ROLE_KEY: src_op.attr('op_role'),
             },
         )

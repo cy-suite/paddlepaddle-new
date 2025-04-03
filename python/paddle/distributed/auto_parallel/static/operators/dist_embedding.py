@@ -517,7 +517,7 @@ class DistributedEmbeddingImpl(DistributedOperatorImpl):
             outputs={'out': [Out_var]},
             attrs={
                 'ring_id': group.id,
-                'op_type': dist.ReduceOp.SUM,
+                'reduce_type': dist.ReduceOp.SUM,
                 OP_ROLE_KEY: src_op.attr('op_role'),
             },
         )

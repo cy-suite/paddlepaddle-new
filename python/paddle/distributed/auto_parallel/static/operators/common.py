@@ -536,7 +536,7 @@ def sync_and_scale_gradients(dist_ctx, op, groups, allreduce_var_names):
                 outputs={'out': [grad_var]},
                 attrs={
                     'ring_id': group.id,
-                    'op_type': op_type,
+                    'reduce_type': op_type,
                     OP_ROLE_KEY: OpRole.Backward,
                 },
             )
