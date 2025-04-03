@@ -123,7 +123,7 @@ jobs:
         work_dir: ${{ github.workspace }}
         PADDLE_ROOT: ${{ github.workspace }}
       run: |
-        docker exec -t ${container_name} /bin/bash -c -x '
+        docker exec -t ${{ env.container_name }} /bin/bash -c -x '
         apt install ninja-build -y
         ulimit -n 102400
         . ../../../proxy
@@ -194,8 +194,8 @@ jobs:
         WITH_TESTING: "ON"
         WITH_DISTRIBUTE: "ON"
         PY_VERSION: 3.10
-        XPU_VISIBLE_DEVICES: ${{ CUDA_VISIBLE_DEVICES }}
-        CUDA_VISIBLE_DEVICES: ${{ CUDA_VISIBLE_DEVICES }}
+        XPU_VISIBLE_DEVICES: ${{ env.CUDA_VISIBLE_DEVICES }}
+        CUDA_VISIBLE_DEVICES: ${{ env.CUDA_VISIBLE_DEVICES }}
         CUDA_VERSION:
         CUDNN_VERSION:
         WITH_XPU_BKCL: "ON"
@@ -260,3 +260,11 @@ jobs:
 
     - name: Run test
       run: |
+        docker exec -t ${{ env.container_name }} /bin/bash -c -x 'bash ${ci_scripts}/kunlun_test.sh'
+
+    # - name: Terminate and delete the container
+    #   if: always()
+    #   run: |
+    #     docker exec -t ${container_name} /bin/bash -c 'rm -rf * .[^.]*'
+    #     docker stop ${container_name}
+    #     docker rm ${container_name}
