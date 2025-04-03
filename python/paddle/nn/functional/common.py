@@ -500,11 +500,6 @@ def interpolate(
             "align_corners option can only be set with the interpolating modes: linear | bilinear | bicubic | trilinear"
         )
 
-    if recompute_scale_factor and size is not None:
-        raise ValueError(
-            "recompute_scale_factor is not meaningful with an explicit size."
-        )
-
     if resample == 'AREA':
         if isinstance(size, (list, tuple, Variable, paddle.pir.Value)):
             if len(size) == 0:
@@ -562,7 +557,14 @@ def interpolate(
 
     out_shape = size
     scale = scale_factor
+    if out_shape is not None and scale is not None:
+        raise ValueError("Only one of size or scale_factor should be defined.")
     if out_shape is not None:
+        if recompute_scale_factor:
+            raise ValueError(
+                "recompute_scale_factor is not meaningful with an explicit size."
+            )
+
         if (
             isinstance(out_shape, (Variable, paddle.pir.Value))
             and not in_dynamic_mode()
@@ -730,8 +732,6 @@ def interpolate(
                 raise TypeError(
                     "Attr(scale)'s type should be float, int, list, tuple, or Tensor."
                 )
-    else:
-        raise ValueError("Only one of size or scale_factor should be defined.")
 
     if in_dynamic_or_pir_mode():
         attr_list = []
