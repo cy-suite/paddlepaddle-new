@@ -207,6 +207,7 @@ jobs:
         docker stop ${{ env.container_name }}
         docker rm ${{ env.container_name }}
 
+
   test:
     name: Coverage test
     needs: build
@@ -253,7 +254,7 @@ jobs:
         CCACHE_LIMIT_MULTIPLE: 0.8
         FLAGS_PIR_OPTEST: "TRUE"
         ON_INFER: "ON"
-        COVERAGE_FILE: ${PADDLE_ROOT}/build/python-coverage.data
+        COVERAGE_FILE: ${{ github.workspace }}/build/python-coverage.data
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
