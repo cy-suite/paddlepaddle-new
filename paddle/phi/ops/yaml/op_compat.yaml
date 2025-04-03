@@ -4469,6 +4469,14 @@
   outputs :
     out : Out
 
+- op: p_recv
+  outputs :
+    out : Out
+
+- op: p_send
+  inputs :
+    x : X
+
 - op: partial_send
   inputs :
     x : X
