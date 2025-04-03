@@ -446,8 +446,8 @@ def _pir_overlap_send_recv(program):
     This function is used to replace the function '_insert_sync_for_fthenb_1f1b'.
     The finally target of this function is as follows:
         1. no need to insert the 'c_sync_calc' and 'c_sync_calc' operators
-        2. 'send_v2' operator uses 'dist_attr.execution_stream' to set stream of its own.
-        3. 'recv_v2' operator uses 'dist_attr.execution_stream' to set stream of its own.
+        2. 'p_send' operator uses 'dist_attr.execution_stream' to set stream of its own.
+        3. 'p_recv' operator uses 'dist_attr.execution_stream' to set stream of its own.
     """
     for block in program.blocks:
         for op in block.ops:
@@ -468,7 +468,7 @@ def _insert_sync_for_fthenb_1f1b(program, dist_context=None):
     """
     This implementation refers to lots of Paddle/python/paddle/base/optimizer.py.
     The difference between this function with 'PipelineOptimizer' is that
-    'send_v2' op and 'recv_v2' op have been inserted in program by 'reshard'.
+    'p_send' op and 'p_recv' op have been inserted in program by 'reshard'.
     """
 
     for block in program.blocks:
@@ -917,7 +917,7 @@ def _add_event_dependency(recorder_op, waiter_op):
     '''
     Add the extra event dependency of the two operators.
     This function mainly aims for the cross-programs in pipeline parallelism,
-    especial for the 'send_v2' 'recv_v2' etc.
+    especial for the 'p_send' 'p_recv' etc.
     '''
     if not recorder_op.dist_attr.force_record_event:
         recorder_op.dist_attr.force_record_event = True
