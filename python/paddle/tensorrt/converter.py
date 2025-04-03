@@ -46,9 +46,9 @@ from .impls.stat import *  # noqa: F403
 from .impls.vision import *  # noqa: F403
 from .register import converter_registry
 from .util import (
-    all_ops_into_trt,
     TensorRTConfigManager,
     TensorRTConstantManager,
+    all_ops_into_trt,
     get_cache_path,
     get_trt_version,
     get_trt_version_list,
