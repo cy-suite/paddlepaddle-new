@@ -511,7 +511,7 @@ def sync_and_scale_gradients(dist_ctx, op, groups, allreduce_var_names):
     dist_op_context = dist_ctx.dist_op_context
     main_block = dist_op_context.work_block
 
-    op_type = dist.ReduceOp.SUM
+    reduce_type = dist.ReduceOp.SUM
     need_scale = dist_ctx.gradient_scale
     scale_using_allreduce_avg = dist_ctx.gradient_scale_using_allreduce_avg
 
@@ -521,7 +521,7 @@ def sync_and_scale_gradients(dist_ctx, op, groups, allreduce_var_names):
         and scale_using_allreduce_avg
         and int(paddle.version.nccl()) > 21000
     ):
-        op_type = dist.ReduceOp.AVG
+        reduce_type = dist.ReduceOp.AVG
         need_scale = False
 
     for group in groups:
@@ -536,7 +536,7 @@ def sync_and_scale_gradients(dist_ctx, op, groups, allreduce_var_names):
                 outputs={'out': [grad_var]},
                 attrs={
                     'ring_id': group.id,
-                    'reduce_type': op_type,
+                    'reduce_type': reduce_type,
                     OP_ROLE_KEY: OpRole.Backward,
                 },
             )
