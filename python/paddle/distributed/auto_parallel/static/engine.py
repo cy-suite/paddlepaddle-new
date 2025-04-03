@@ -1278,102 +1278,101 @@ class Engine:
                 paddle.distributed.ParallelEnv().dev_id
             )
 
-        if self._in_pir_mode:
-            # FIXME(ljz) avoid shared same tensor more than once in different mode
-            if mode != "train":
-                return
-            # TODO(2024-Q2)
-            # 1. unify random control
-            # 2. initialization of non-parameter buffer
-            # 3. run startup program for pir
-            # 4. lazy init adaption
-            # 5. amp init adaption
-            # 6. vpp init adaption
-
-            # self._init_lr(self._pir_dense_main_progs[mode])
-            self.program_helper.init_pir(
-                self._pir_dist_main_progs[mode], self._place
-            )
-            changed_output_op_list = []
-            if self._executor is None:
-                self._executor = paddle.static.Executor(self._place)
-                startup_prog = self._startup_progs[mode].clone()
-                dist_main_prog = self._pir_dist_main_progs[mode]
-                name_map_value = {}
-                for op in dist_main_prog.global_block().ops:
-                    if op.name() == "pd_op.data":
-                        var_name = op.str_attr("name")
-                        assert (
-                            var_name not in name_map_value
-                        ), f"The value {var_name} in {op} is already exist"
-                        name_map_value[var_name] = op.result(0)
-                del_ops = []
-                block = startup_prog.global_block()
-                for op in block.ops:
-                    if op.name() == "builtin.set_parameter":
-                        var_name = op.str_attr("parameter_name")
-                    elif op.name() == "builtin.shadow_output":
-                        var_name = op.str_attr("output_name")
-                    else:
-                        continue
-                    scope_var = global_scope().find_var(var_name)
-                    if scope_var and scope_var.get_tensor()._is_initialized():
-                        param = op.operand_source(0)
-                        initial_op = param.get_defining_op()
-                        new_param = block.add_kwarg(var_name, param.type())
-                        new_param.persistable = True
-                        new_param.place_attr = scope_var.get_tensor()._place()
-                        param.replace_all_uses_with(new_param)
-                        del_ops.append(op)
-                        del_ops.append(initial_op)
-                    elif var_name in name_map_value:
-                        local_shape = name_map_value[var_name]._local_shape
-                        global_shape = name_map_value[var_name].shape
-                        if local_shape != global_shape:
-                            src_value = op.operand_source(0)
-                            assert src_value.shape == global_shape
-                            dst_dist_attr = name_map_value[var_name].dist_attr()
-                            if not src_value.is_dist():
-                                src_dist_attr = paddle.base.libpaddle.pir.create_tensor_dist_attribute(
-                                    dst_dist_attr.process_mesh,
-                                    [-1] * len(src_value.shape),
-                                    {},
-                                )
-                                src_value.set_type(
-                                    paddle.base.libpaddle.pir.cvt_to_dist_type(
-                                        src_value.type(), src_dist_attr
-                                    )
-                                )
-                            pir.set_insertion_point_after(
-                                src_value.get_defining_op()
-                            )
-                            reshard_var = paddle._C_ops.reshard_v2(
-                                src_value, dst_dist_attr
-                            )
-                            if src_value.persistable:
-                                src_value.persistable = False
-                                changed_output_op_list.append(op)
-                            op.operand(0).set_source(reshard_var)
-                for del_op in del_ops:
-                    del_op.erase()
-
-                set_all_ops_op_role(startup_prog.global_block(), OpRole.Forward)
-                ReshardPasses.apply_reshard_pass(startup_prog)
-                paddle.base.libpaddle.pir.apply_dist2dense_pass(startup_prog)
-                remove_unuseful_comm_op_pass(startup_prog)
-
-                for op in changed_output_op_list:
-                    op.operand_source(0).persistable = True
-                self._executor.run(startup_prog)
-                if self._job_plan is not None:
-                    # pipeline scheduling should be enabled after running
-                    # startup program, otherwise the startup program cannot
-                    # run correctly.
-                    self._executor._set_plan(self._job_plan)
-            return
-
-        else:
+        if not self._in_pir_mode:
             raise NotImplementedError("_initialize() only support PIR now.")
+
+        # FIXME(ljz) avoid shared same tensor more than once in different mode
+        if mode != "train":
+            return
+        # TODO(2024-Q2)
+        # 1. unify random control
+        # 2. initialization of non-parameter buffer
+        # 3. run startup program for pir
+        # 4. lazy init adaption
+        # 5. amp init adaption
+        # 6. vpp init adaption
+
+        # self._init_lr(self._pir_dense_main_progs[mode])
+        self.program_helper.init_pir(
+            self._pir_dist_main_progs[mode], self._place
+        )
+        changed_output_op_list = []
+        if self._executor is None:
+            self._executor = paddle.static.Executor(self._place)
+            startup_prog = self._startup_progs[mode].clone()
+            dist_main_prog = self._pir_dist_main_progs[mode]
+            name_map_value = {}
+            for op in dist_main_prog.global_block().ops:
+                if op.name() == "pd_op.data":
+                    var_name = op.str_attr("name")
+                    assert (
+                        var_name not in name_map_value
+                    ), f"The value {var_name} in {op} is already exist"
+                    name_map_value[var_name] = op.result(0)
+            del_ops = []
+            block = startup_prog.global_block()
+            for op in block.ops:
+                if op.name() == "builtin.set_parameter":
+                    var_name = op.str_attr("parameter_name")
+                elif op.name() == "builtin.shadow_output":
+                    var_name = op.str_attr("output_name")
+                else:
+                    continue
+                scope_var = global_scope().find_var(var_name)
+                if scope_var and scope_var.get_tensor()._is_initialized():
+                    param = op.operand_source(0)
+                    initial_op = param.get_defining_op()
+                    new_param = block.add_kwarg(var_name, param.type())
+                    new_param.persistable = True
+                    new_param.place_attr = scope_var.get_tensor()._place()
+                    param.replace_all_uses_with(new_param)
+                    del_ops.append(op)
+                    del_ops.append(initial_op)
+                elif var_name in name_map_value:
+                    local_shape = name_map_value[var_name]._local_shape
+                    global_shape = name_map_value[var_name].shape
+                    if local_shape != global_shape:
+                        src_value = op.operand_source(0)
+                        assert src_value.shape == global_shape
+                        dst_dist_attr = name_map_value[var_name].dist_attr()
+                        if not src_value.is_dist():
+                            src_dist_attr = paddle.base.libpaddle.pir.create_tensor_dist_attribute(
+                                dst_dist_attr.process_mesh,
+                                [-1] * len(src_value.shape),
+                                {},
+                            )
+                            src_value.set_type(
+                                paddle.base.libpaddle.pir.cvt_to_dist_type(
+                                    src_value.type(), src_dist_attr
+                                )
+                            )
+                        pir.set_insertion_point_after(
+                            src_value.get_defining_op()
+                        )
+                        reshard_var = paddle._C_ops.reshard_v2(
+                            src_value, dst_dist_attr
+                        )
+                        if src_value.persistable:
+                            src_value.persistable = False
+                            changed_output_op_list.append(op)
+                        op.operand(0).set_source(reshard_var)
+            for del_op in del_ops:
+                del_op.erase()
+
+            set_all_ops_op_role(startup_prog.global_block(), OpRole.Forward)
+            ReshardPasses.apply_reshard_pass(startup_prog)
+            paddle.base.libpaddle.pir.apply_dist2dense_pass(startup_prog)
+            remove_unuseful_comm_op_pass(startup_prog)
+
+            for op in changed_output_op_list:
+                op.operand_source(0).persistable = True
+            self._executor.run(startup_prog)
+            if self._job_plan is not None:
+                # pipeline scheduling should be enabled after running
+                # startup program, otherwise the startup program cannot
+                # run correctly.
+                self._executor._set_plan(self._job_plan)
+        return
 
     # distributed training combined with prim mechanism (prim is behind of distributed)
     # for local main subprogram after distributed partition,
