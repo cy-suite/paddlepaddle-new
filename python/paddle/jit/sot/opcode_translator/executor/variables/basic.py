@@ -1086,7 +1086,6 @@ class SymbolicVariable(VariableBase):
         if not ENV_SOT_ALLOW_DYNAMIC_SHAPE.get():
             return None
         if isinstance(value, SymbolicInt):
-            # return SymbolicVariable(value, graph, tracker)
             tensor_shape_source_result = (
                 SymbolicVariable.find_tensor_shape_source(tracker)
             )
@@ -1104,7 +1103,6 @@ class SymbolicVariable(VariableBase):
                 tracker
                 if tensor_var.tracker.is_traceable()
                 else DummyTracker([tensor_dim_var])
-                # else tensor_dim_var.tracker
             )
             sym_var = SymbolicVariable(value, graph, sym_var_tracker)
             graph.add_alias(tensor_dim_var, sym_var)
