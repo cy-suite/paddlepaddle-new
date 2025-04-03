@@ -33,6 +33,18 @@ if [ "$4" == "py3" ]; then
     echo "::endgroup::"
 fi
 
+if [ "$4" == "kunlun" ]; then
+    PATH=/usr/local/bin:${PATH}
+    ln -sf $(which python3.10) /usr/local/bin/python
+    ln -sf $(which pip3.10) /usr/local/bin/pip
+    pip3.10 install --upgrade pip
+
+    echo "::group::Installing python dependencies"
+    pip3.10 install -r "${work_dir}/python/requirements.txt"
+    pip3.10 install -r "${work_dir}/python/unittest_py/requirements.txt"
+    echo "::endgroup::"
+fi
+
 function run_setup(){
     startTime_s=`date +%s`
     mkdir -p ${PADDLE_ROOT}/build
