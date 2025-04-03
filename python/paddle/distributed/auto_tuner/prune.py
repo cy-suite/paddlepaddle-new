@@ -946,11 +946,11 @@ def prune_by_acc_steps(tuner_cfg, cur_cfg, pruned_cfgs=[]):
             continue
         candidates_acc_steps.append(local_batch_size // micro_batch_size)
 
-    # Handld the case of 1F1B
+    # Handle the case of 1F1B mode
     if vpp_degree == 1:
         if acc_steps < max(candidates_acc_steps):
             return True
-    # Handld the case of interleave mode
+    # Handle the case of interleave mode
     else:
         max_divisible = max(
             (astp for astp in candidates_acc_steps if astp % pp_degree == 0),
