@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 
 import paddle
+from paddle._typing import unreached
 from paddle.framework import core
 
 from ....infer_meta import (
@@ -54,10 +55,15 @@ from ....utils.exceptions import (
     InnerError,
     UnsupportedPaddleAPIBreak,
 )
-from ..dispatch_functions import tensor_dim
+from ..dispatch_functions import (
+    place_get_device_id,
+    place_get_device_type,
+    tensor_dim,
+)
 from ..guard import (
     FasterStringifiedExpression,
     StringifiedExpression,
+    check_faster_guard,
     check_guard,
     object_equal_stringified_guard,
     stringify_pyobject,
@@ -380,10 +386,10 @@ class TensorVariable(VariableBase):
         dynamic_axes: list[int] = []
         if ENV_SOT_ALLOW_DYNAMIC_SHAPE.get() and self.tracker.is_traceable():
             dynamic_axes = self.analyse_dynamic_axes(tracker)
-        self.meta = self.meta.with_dynamic_axes(dynamic_axes)
-        self.origin_meta = self.meta
         self.var_name = TensorVariable.var_name_generator.next()
         self.graph.side_effects.record_mutable_variable(self)
+        self.meta = self.meta.with_dynamic_axes(self.var_name, dynamic_axes)
+        self.origin_meta = self.meta
 
     def analyse_dynamic_axes(self, tracker: Tracker):
         from ..executor_cache import OpcodeExecutorCache
@@ -460,6 +466,32 @@ class TensorVariable(VariableBase):
     def _reconstruct(self, codegen: PyCodeGen):
         codegen.gen_load_fast(self.out_var_name)
 
+    @check_faster_guard
+    def make_faster_guard(self) -> list[paddle.framework.core.GuardNode]:
+        assert paddle.framework.use_pir_api(), "Only support PIR"
+        expr_node = self.tracker.guard_tree_expr_node()
+        meta = self.origin_meta
+        return [
+            # Check shape
+            paddle.framework.core.GuardNode(
+                paddle.framework.core.ShapeMatchGuard(meta.shape),
+                expr_node,
+            ),
+            # Check dtype
+            paddle.framework.core.GuardNode(
+                paddle.framework.core.DtypeMatchGuard(meta.dtype),
+                expr_node,
+            ),
+            # Check stop_gradient
+            paddle.framework.core.GuardNode(
+                paddle.framework.core.ValueMatchGuard(meta.stop_gradient),
+                paddle.framework.core.AttributeExprNode(
+                    expr_node, "stop_gradient"
+                ),
+            ),
+            # TODO(zrr1999): add dist_info check
+        ]
+
     @check_guard
     def make_stringified_guard(self) -> list[StringifiedExpression]:
         frame_value_tracer = self.tracker.trace_value_from_frame()
@@ -493,13 +525,20 @@ class TensorVariable(VariableBase):
             ),
             # Check each dim except dynamic dim
             *[
-                StringifiedExpression(
-                    f"{{}}.shape[{i}] == {meta.shape[i]}",
-                    [frame_value_tracer],
-                    union_free_vars(frame_value_tracer.free_vars),
+                (
+                    StringifiedExpression(
+                        f"{{}}.shape[{i}] == {meta.shape[i]}",
+                        [frame_value_tracer],
+                        union_free_vars(frame_value_tracer.free_vars),
+                    )
+                    if not isinstance(meta.shape[i], SymbolicInt)
+                    else StringifiedExpression(
+                        f"{{}}.shape[{i}] >= 2",
+                        [frame_value_tracer],
+                        union_free_vars(frame_value_tracer.free_vars),
+                    )
                 )
                 for i in range(len(meta.shape))
-                if not isinstance(meta.shape[i], SymbolicInt)
             ],
             # Check dtype
             StringifiedExpression(
@@ -995,14 +1034,21 @@ class SymbolicVariable(VariableBase):
 
         if self.need_guard_value:
             return super().make_stringified_guard()
-        return [
+        guards = [
             FasterStringifiedExpression(
                 f"id(type({{}})) == {id(self.get_py_type())}",
                 paddle.core.TypeMatchGuard(self.get_py_type()),
                 [frame_value_tracer],
                 union_free_vars(frame_value_tracer.free_vars),
             ),
+            # TODO: replace it with FasterStringifiedExpression
+            StringifiedExpression(
+                "{} >= 2",
+                [frame_value_tracer],
+                union_free_vars(frame_value_tracer.free_vars),
+            ),
         ]
+        return guards
 
     @staticmethod
     def should_create_symbolic_variable(
@@ -1010,6 +1056,9 @@ class SymbolicVariable(VariableBase):
         tracker: Tracker,
         symbolic_inputs: dict[str, dict[int, int] | None],
     ):
+        # The behavior specializes for 0 and 1, so we just ignore them here.
+        if value < 2:
+            return False
         tracker_expr = tracker.trace_value_from_frame().inlined_expr
         symbolic_inputs.setdefault(tracker_expr, {})
         if tracker_expr in symbolic_inputs:
@@ -1384,7 +1433,7 @@ class NumpyVariable(VariableBase):
 
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if isinstance(value, (np.ndarray)):
+        if isinstance(value, np.ndarray):
             return NumpyArrayVariable(value, graph, tracker)
         return None
 
@@ -1439,7 +1488,7 @@ class NumpyNumberVariable(NumpyVariable):
 class NumpyBoolVariable(NumpyNumberVariable):
     @VariableFactory.register_from_value()
     def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
-        if isinstance(value, (np.bool_)):
+        if isinstance(value, np.bool_):
             return NumpyBoolVariable(value, graph, tracker)
         return None
 
@@ -1450,16 +1499,22 @@ class NumpyArrayVariable(NumpyVariable):
         frame_value_tracer = self.tracker.trace_value_from_frame()
         obj_free_var_name = f"__{self.id}"
 
-        dtype_guard = StringifiedExpression(
+        dtype_guard = FasterStringifiedExpression(
             f"{{}}.dtype == {NumpyVariable.format_dtype(self.get_py_value().dtype)}",
+            paddle.framework.core.NumpyDtypeMatchGuard(
+                self.get_py_value().dtype
+            ),
             [frame_value_tracer],
             union_free_vars(frame_value_tracer.free_vars, {"np": np}),
         )
 
         return [
             dtype_guard,
-            StringifiedExpression(
+            FasterStringifiedExpression(
                 f"({{}} == {obj_free_var_name}).all()",
+                paddle.framework.core.NumPyArrayValueMatchGuard(
+                    self.get_py_value()
+                ),
                 [frame_value_tracer],
                 union_free_vars(
                     frame_value_tracer.free_vars,
@@ -1467,6 +1522,54 @@ class NumpyArrayVariable(NumpyVariable):
                 ),
             ),
         ]
+
+
+class PlaceVariable(ObjectVariable):
+    def __init__(self, obj, graph, tracker):
+        super().__init__(obj, graph, tracker)
+
+    def getattr(self, name: str, default=None):
+        if default is not None:
+            raise FallbackError(
+                "default argument for getattr is not implemented"
+            )
+        if name not in ["get_device_id", "get_device_type"]:
+            return super().getattr(name, default)
+        from .callable import BuiltinVariable
+
+        if name == "get_device_id":
+            return BuiltinVariable(
+                place_get_device_id, self.graph, DanglingTracker()
+            ).bind_dangling_fn(self, name)
+        elif name == "get_device_type":
+            return BuiltinVariable(
+                place_get_device_type, self.graph, DanglingTracker()
+            ).bind_dangling_fn(self, name)
+        unreached()
+
+    def get_device_id(self):
+        return VariableFactory.from_value(
+            self.value.get_device_id(), self.graph, DummyTracker([self])
+        )
+
+    def get_device_type(self):
+        return VariableFactory.from_value(
+            self.value.get_device_type(), self.graph, DummyTracker([self])
+        )
+
+    @VariableFactory.register_from_value()
+    def from_value(value: Any, graph: FunctionGraph, tracker: Tracker):
+        if paddle.is_compiled_with_cuda() and isinstance(
+            value, (paddle.CUDAPlace, paddle.CUDAPinnedPlace)
+        ):
+            return PlaceVariable(value, graph, tracker)
+        if paddle.is_compiled_with_xpu() and isinstance(
+            value, (paddle.XPUPlace, paddle.XPUPinnedPlace)
+        ):
+            return PlaceVariable(value, graph, tracker)
+        if isinstance(value, paddle.CustomPlace):
+            return PlaceVariable(value, graph, tracker)
+        return None
 
 
 class NullVariable(VariableBase):
