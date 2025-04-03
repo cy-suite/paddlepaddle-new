@@ -733,4 +733,10 @@ PD_REGISTER_SPMD_RULE(nonzero,
 
 // add_n
 PD_REGISTER_SPMD_RULE(add_n, PD_INFER_SPMD(phi::distributed::AddNInferSpmd));
+
+// take_along_axis
+PD_REGISTER_SPMD_RULE(
+    take_along_axis,
+    PD_INFER_SPMD(phi::distributed::TakeAlongAxisInferSpmd),
+    PD_INFER_SPMD(phi::distributed::TakeAlongAxisGradInferSpmd));
 }  // namespace phi::distributed
