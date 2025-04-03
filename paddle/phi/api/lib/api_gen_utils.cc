@@ -18,6 +18,7 @@ limitations under the License. */
 #include "paddle/phi/kernels/strided_copy_kernel.h"
 
 PHI_DECLARE_bool(use_stride_kernel);
+COMMON_DECLARE_bool(disable_dp_batch_spmd);
 
 #include "glog/logging.h"
 
@@ -815,6 +816,13 @@ void SetReplicatedDistAttrForOutput(
     auto dist_attr =
         phi::distributed::TensorDistAttr(common::vectorize(out->dims()));
     dist_attr.set_process_mesh(process_mesh);
+    if (FLAGS_disable_dp_batch_spmd) {
+      if (dist_attr.dims_mapping().size() > 0) {
+        std::vector<int64_t> dims_mapping = dist_attr.dims_mapping();
+        dims_mapping[0] = 0;
+        dist_attr.set_dims_mapping(dims_mapping);
+      }
+    }
     out->unsafe_set_dist_attr(dist_attr);
   }
 }
