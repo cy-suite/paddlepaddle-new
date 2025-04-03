@@ -81,6 +81,12 @@ PHI_DEFINE_EXPORTED_bool(
     "Checking whether operator produce NAN/INF or not. It will be "
     "extremely slow so please use this flag wisely.");
 
+PHI_DEFINE_EXPORTED_bool(
+    disable_dp_batch_spmd,
+    false,
+    "Checking whether operator produce NAN/INF or not. It will be "
+    "extremely slow so please use this flag wisely.");
+
 /**
  * Operator related FLAG
  * Name: FLAGS_check_nan_inf_level

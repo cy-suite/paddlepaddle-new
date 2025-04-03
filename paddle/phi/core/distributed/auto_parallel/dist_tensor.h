@@ -98,6 +98,14 @@ class DistTensor final
   /// \return void
   void unsafe_set_dims(const DDim& dims);
 
+  /// \brief Returns the batch size dim
+  /// \return The batch size dim of the tensor.
+  int64_t batch_dim() const { return batch_dim_; }
+
+  /// \brief Set the batch dim of the dist tensor.
+  /// \return void
+  void set_batch_dim(int64_t batch_dim);
+
   /// \brief Returns the dist attr of current dist tensor.
   /// \return The TensorDistAttr's const reference
   const TensorDistAttr& dist_attr() const { return dist_attr_; }
@@ -143,8 +151,8 @@ class DistTensor final
   /// \return The mutable pointer of DenseTensor value
   DenseTensor* unsafe_mutable_value() { return value_.get(); }
 
-  /// \brief Returns the global dims of the dist tensor.
-  /// \return The global dims of the dist tensor.
+  /// \brief Returns the local dims of the dist tensor.
+  /// \return The local dims of the dist tensor.
   const DDim& local_dims() const;
 
   /// \brief Test whether the holder is created.
@@ -206,6 +214,8 @@ class DistTensor final
   TensorDistAttr dist_attr_;
   // The local DenseTensor value
   std::shared_ptr<DenseTensor> value_;
+  // The batch size dim
+  int64_t batch_dim_{0};
 
   ProcessMesh process_mesh_;
 

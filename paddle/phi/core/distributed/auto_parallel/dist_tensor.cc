@@ -129,6 +129,7 @@ DistTensor::DistTensor(const std::shared_ptr<phi::DenseTensor>& global_value,
     : global_dims_(global_value->dims()), dist_attr_(dist_attr) {
   process_mesh_ = dist_attr_.process_mesh();
   placements_ = ToPlacements(dist_attr);
+  batch_dim_ = global_value->batch_dim();
 
   // If the current rank doesn't in process_mesh, we should create an
   // uninitialized tensor only with tensor_meta.
@@ -166,6 +167,8 @@ DistTensor::DistTensor(const std::shared_ptr<phi::DenseTensor>& local_value,
       process_mesh_(process_mesh),
       placements_(placements) {
   dist_attr_ = ToTensorDistAttr(process_mesh_, placements_, global_dims_);
+  batch_dim_ = local_value->batch_dim();
+
   if (IsCurRankInMesh(process_mesh)) {
     value_ = local_value;
   } else {
@@ -181,6 +184,8 @@ DistTensor::DistTensor(const std::shared_ptr<phi::DenseTensor>& local_value,
     : global_dims_(global_dims), dist_attr_(dist_attr) {
   process_mesh_ = dist_attr_.process_mesh();
   placements_ = ToPlacements(dist_attr);
+  batch_dim_ = local_value->batch_dim();
+
   if (IsCurRankInMesh(process_mesh_)) {
     value_ = local_value;
   } else {
@@ -202,6 +207,7 @@ DistTensor::DistTensor(const std::shared_ptr<phi::DenseTensor>& global_value,
     global_dims_ = phi::make_ddim({});
   }
   dist_attr_ = ToTensorDistAttr(process_mesh_, placements_, global_dims_);
+  batch_dim_ = global_value->batch_dim();
 
   // If the current rank doesn't in process_mesh, we should create an
   // uninitialized tensor only with dist_tensor_meta_.
@@ -254,6 +260,11 @@ void DistTensor::unsafe_set_dims(const DDim& dims) {
                "Make sure you are aware of where you change its dims.";
   }
   global_dims_ = dims;
+}
+
+void DistTensor::set_batch_dim(int64_t batch_dim) {
+  // dist_attr_.set_batch_dim(batch_dim);
+  batch_dim_ = batch_dim;
 }
 
 void DistTensor::unsafe_set_dist_attr(const TensorDistAttr& dist_attr) {

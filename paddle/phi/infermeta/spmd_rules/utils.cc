@@ -552,6 +552,90 @@ void DebugInfoForInferSpmd(const std::string& rule_name,
   }
 }
 
+void DisableDpSpmd(SpmdInfo* infer_result,
+                   const std::vector<int64_t>& inputs_batch_dim) {
+  auto& dist_attr_for_inputs = infer_result->first;
+  auto& dist_attr_for_outputs = infer_result->second;
+  VLOG(6) << "For non-parameter tensors, the first dimension in their SPMD "
+             "results is always sharded.";
+
+  if (dist_attr_for_inputs.size() != inputs_batch_dim.size()) {
+    PADDLE_THROW(common::errors::InvalidArgument(
+        "The size of dist_attr_for_inputs [%d] is not equal to the size of "
+        "inputs_batch_dim [%d]",
+        dist_attr_for_inputs.size(),
+        inputs_batch_dim.size()));
+  }
+
+  for (size_t i = 0; i < dist_attr_for_inputs.size(); ++i) {
+    auto& dist_attr = dist_attr_for_inputs[i];
+    int64_t batch_dim_index = inputs_batch_dim[i];
+
+    if (batch_dim_index == -1) {
+      VLOG(6) << "Skip for parameter tensor";
+      continue;
+    }
+
+    if (paddle::holds_alternative<TensorDistAttr>(dist_attr)) {
+      auto& tensor_dist_attr = paddle::get<TensorDistAttr>(dist_attr);
+      if (tensor_dist_attr.dims_mapping().size() > 0) {
+        std::vector<int64_t> dims_mapping = tensor_dist_attr.dims_mapping();
+        dims_mapping[0] = 0;
+        tensor_dist_attr.set_dims_mapping(dims_mapping);
+      }
+      auto partial_dims = tensor_dist_attr.partial_dims();
+      if (partial_dims.find(0) != partial_dims.end()) {
+        tensor_dist_attr.clean_partial_dims({0});
+      }
+    } else if (paddle::holds_alternative<std::vector<TensorDistAttr>>(
+                   dist_attr)) {
+      auto& tensor_dist_attr_vec =
+          paddle::get<std::vector<TensorDistAttr>>(dist_attr);
+      for (auto& tensor_dist_attr : tensor_dist_attr_vec) {
+        if (tensor_dist_attr.dims_mapping().size() > 0) {
+          std::vector<int64_t> dims_mapping = tensor_dist_attr.dims_mapping();
+          dims_mapping[0] = 0;
+          tensor_dist_attr.set_dims_mapping(dims_mapping);
+        }
+        auto partial_dims = tensor_dist_attr.partial_dims();
+        if (partial_dims.find(0) != partial_dims.end()) {
+          tensor_dist_attr.clean_partial_dims({0});
+        }
+      }
+    }
+  }
+
+  for (auto& dist_attr : dist_attr_for_outputs) {
+    if (paddle::holds_alternative<TensorDistAttr>(dist_attr)) {
+      auto& tensor_dist_attr = paddle::get<TensorDistAttr>(dist_attr);
+      if (tensor_dist_attr.dims_mapping().size() > 0) {
+        std::vector<int64_t> dims_mapping = tensor_dist_attr.dims_mapping();
+        dims_mapping[0] = 0;
+        tensor_dist_attr.set_dims_mapping(dims_mapping);
+        auto partial_dims = tensor_dist_attr.partial_dims();
+        if (partial_dims.find(0) != partial_dims.end()) {
+          tensor_dist_attr.clean_partial_dims({0});
+        }
+      }
+    } else if (paddle::holds_alternative<std::vector<TensorDistAttr>>(
+                   dist_attr)) {
+      auto& tensor_dist_attr_vec =
+          paddle::get<std::vector<TensorDistAttr>>(dist_attr);
+      for (auto& tensor_dist_attr : tensor_dist_attr_vec) {
+        if (tensor_dist_attr.dims_mapping().size() > 0) {
+          std::vector<int64_t> dims_mapping = tensor_dist_attr.dims_mapping();
+          dims_mapping[0] = 0;
+          tensor_dist_attr.set_dims_mapping(dims_mapping);
+          auto partial_dims = tensor_dist_attr.partial_dims();
+          if (partial_dims.find(0) != partial_dims.end()) {
+            tensor_dist_attr.clean_partial_dims({0});
+          }
+        }
+      }
+    }
+  }
+}
+
 TensorDistAttr ReduceGradBroadCastDims(const TensorDistAttr& input,
                                        const ArgDistAttr& grad) {
   const auto& grad_in = PADDLE_GET_CONST(TensorDistAttr, grad);

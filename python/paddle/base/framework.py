@@ -7782,6 +7782,7 @@ class EagerParamBase(core.eager.Tensor):
         # hook functions for lazy initialization
         self._init_func = None
         self._init_op_creator = None
+        self.batch_dim = -1
 
     @classmethod
     def from_tensor(cls, tensor, **kwargs):
@@ -7801,6 +7802,7 @@ class EagerParamBase(core.eager.Tensor):
 
         # 3. set param data
         param._set_impl(src_tensor)
+        param.batch_dim = -1
 
         return param
 
