@@ -21,10 +21,6 @@
 #include "paddle/phi/common/memory_utils.h"
 #include "paddle/phi/core/platform/profiler/event_tracing.h"
 #include "paddle/phi/kernels/funcs/data_type_transform.h"
-#include "paddle/pir/include/core/block.h"
-#include "paddle/pir/include/core/builtin_attribute.h"
-#include "paddle/pir/include/core/operation.h"
-#include "paddle/pir/include/core/program.h"
 
 namespace paddle {
 namespace framework {
