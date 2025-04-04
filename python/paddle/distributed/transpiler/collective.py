@@ -362,6 +362,7 @@ class GradAllReduce(Collective):
                         outputs={'Out': grad},
                         attrs={
                             'ring_id': ring_id,
+                            'reduce_type': paddle.distributed.ReduceOp.SUM,
                             self.op_role_key: OpRole.Backward,
                         },
                     )
@@ -459,6 +460,7 @@ class LocalSGD(Collective):
                     outputs={'Out': [param]},
                     attrs={
                         'ring_id': ring_id,
+                        'reduce_type': paddle.distributed.ReduceOp.SUM,
                         self.op_role_key: OpRole.Optimize,
                     },
                 )

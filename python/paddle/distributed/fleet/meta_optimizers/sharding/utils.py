@@ -164,6 +164,9 @@ def check_allreduce_sum(block, shard, sharding_ring_id, dp_ring_id=-1):
                     dp_grads_status[var_name] = 1
         # check sharding allreduce and  reduce but skip megatron allreduce
         elif (
+            op.type == "all_reduce"
+            and op.desc.attr("reduce_type") == dist.ReduceOp.SUM
+        ) or (
             op.type == "reduce"
             and op.desc.attr("reduce_type") == dist.ReduceOp.SUM
         ):

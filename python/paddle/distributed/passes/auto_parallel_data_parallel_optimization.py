@@ -747,7 +747,11 @@ class GradientsGroup:
         if len(self.gradients) == 1:
             # TODO Remove this is a temporary hack for Tensor Parallel. the logic
             # for find grad_op should be more general.
-            if self.ops[grad_op_idx].type == "all_reduce":
+            if (
+                self.ops[grad_op_idx].type == "all_reduce"
+                and self.ops[grad_op_idx].attr("reduce_type")
+                == paddle.distributed.ReduceOp.SUM
+            ):
                 grad_op_idx -= 1
 
             grad_op = self.ops[grad_op_idx]
