@@ -24,6 +24,11 @@ jobs:
     uses: ./.github/workflows/_SOT.yml
     needs: clone
 
+  kunlun:
+    name: PR-CI-Kunlun
+    uses: ./.github/workflows/_Kunlun-bxcheck.yml
+    needs: clone
+
   # Py3:
   #   uses: ./.github/workflows/_Py3.yml
   #   needs: Clone
