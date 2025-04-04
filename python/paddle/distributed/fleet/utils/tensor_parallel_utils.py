@@ -145,9 +145,9 @@ def insert_sync_op(
         )
         block._insert_op_without_sync(
             idx,
-            type='c_allreduce_sum',
-            inputs={'X': varname},
-            outputs={'Out': varname},
+            type='all_reduce',
+            inputs={'x': varname},
+            outputs={'out': varname},
             attrs={
                 'ring_id': sync_ring_id,
                 'use_calc_stream': True,

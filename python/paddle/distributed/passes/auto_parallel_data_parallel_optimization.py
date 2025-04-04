@@ -280,7 +280,6 @@ class DataParallelOptimizationPass(PassBase):
         # comm wait calc to finish
         for idx, op in reversed(list(enumerate(block.ops))):
             if is_data_parallel_reduce_op(op):
-                assert op.has_attr('use_calc_stream')
                 assert op.has_attr('ring_id')
 
                 op._set_attr('use_calc_stream', False)
@@ -439,6 +438,7 @@ class DataParallelOptimizationPass(PassBase):
             'c_allreduce_avg',
             'c_allreduce_sum',
             'c_wait_compute',
+            'all_reduce',
         ]
 
         for i, group in enumerate(grad_groups[::-1]):
@@ -492,6 +492,7 @@ class DataParallelOptimizationPass(PassBase):
 
             allreduce_op = block.ops[group.allreduce_op_idx]
             assert allreduce_op.type in [
+                'all_reduce',
                 'c_allreduce_avg',
                 'c_allreduce_sum',
             ], f"should found c_allreduce_avg or c_allreduce_sum op but found {allreduce_op}"
