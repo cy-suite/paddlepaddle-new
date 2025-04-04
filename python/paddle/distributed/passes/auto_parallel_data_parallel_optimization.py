@@ -438,6 +438,7 @@ class DataParallelOptimizationPass(PassBase):
             'c_allreduce_avg',
             'c_allreduce_sum',
             'c_wait_compute',
+            'all_reduce',
         ]
 
         for i, group in enumerate(grad_groups[::-1]):
