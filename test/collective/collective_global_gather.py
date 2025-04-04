@@ -62,10 +62,8 @@ class TestCollectiveGlobalGatherAPI(TestCollectiveAPIRunnerBase):
         endpoints = args["endpoints"].split(",")
         rank = args["trainerid"]
         current_endpoint = args["currentendpoint"]
-        if args["dynamic_static_unified_comm"]:
-            paddle.distributed.collective._init_parallel_env(args["backend"])
-        else:
-            paddle.distributed.init_parallel_env()
+
+        paddle.distributed.collective._init_parallel_env(args["backend"])
         nranks = 2
         if args['backend'] == 'nccl':
             device_id = int(os.getenv("FLAGS_selected_gpus", "0"))
@@ -90,7 +88,7 @@ class TestCollectiveGlobalGatherAPI(TestCollectiveAPIRunnerBase):
             )
             global_expert_count = []
             paddle.distributed.alltoall(
-                paddle.split(local_expert_count, 2, axis=0), global_expert_count
+                global_expert_count, paddle.split(local_expert_count, 2, axis=0)
             )
             global_expert_count = paddle.concat(global_expert_count, axis=0)
         exe = base.Executor(place)
@@ -112,11 +110,8 @@ class TestCollectiveGlobalGatherAPI(TestCollectiveAPIRunnerBase):
         )
 
         if args['static_mode']:
-            result = (
-                self.get_model(train_prog, startup_prog, rank)
-                if args["dynamic_static_unified_comm"]
-                else self.get_model(train_prog, startup_prog, rank)
-            )
+            result = self.get_model(train_prog, startup_prog, rank)
+
             fetch_list = []
             for elem in result:
                 fetch_list.append(elem.name)

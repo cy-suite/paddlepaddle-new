@@ -196,7 +196,7 @@ struct npy_format_descriptor<phi::dtype::complex<float>> {
     //     print '{0:14s} : {1:40s}'.format(str(k), v)
     return "F";
   }
-  static constexpr auto name = _("complext64");
+  static constexpr auto name = _("complex64");
 };
 
 template <>
@@ -214,7 +214,7 @@ struct npy_format_descriptor<phi::dtype::complex<double>> {
     //     print '{0:14s} : {1:40s}'.format(str(k), v)
     return "D";
   }
-  static constexpr auto name = _("complext128");
+  static constexpr auto name = _("complex128");
 };
 
 template <>
@@ -351,7 +351,8 @@ T TensorGetElement(const phi::DenseTensor &self, size_t offset) {
   if (phi::is_cpu_place(self.place()) ||
       phi::is_cuda_pinned_place(self.place())) {
     b = self.data<T>()[offset];
-  } else if (phi::is_xpu_place(self.place())) {
+  } else if (phi::is_xpu_place(self.place()) ||
+             phi::is_xpu_pinned_place(self.place())) {
 #ifdef PADDLE_WITH_XPU
     const T *a = self.data<T>();
     auto p = self.place();
@@ -388,7 +389,8 @@ void TensorSetElement(phi::DenseTensor *self, size_t offset, T elem) {
            << ", offset: " << offset << ", element: " << elem;
   if (phi::is_cpu_place(self->place())) {
     self->mutable_data<T>(self->place())[offset] = elem;
-  } else if (phi::is_xpu_place(self->place())) {
+  } else if (phi::is_xpu_place(self->place()) ||
+             phi::is_xpu_pinned_place(self->place())) {
 #ifdef PADDLE_WITH_XPU
     auto p = self->place();
     T *a = self->mutable_data<T>(p);
@@ -429,7 +431,7 @@ void SetTensorFromPyArrayT(
     if (zero_copy) {
       auto holder = std::make_shared<details::NumpyAllocation<T>>(array);
       auto type = framework::ToDataType(std::type_index(typeid(T)));
-      self->ResetHolderWithType(holder, framework::TransToPhiDataType(type));
+      self->ResetHolderWithType(holder, phi::TransToPhiDataType(type));
     } else {
       auto dst = self->mutable_data<T>(place);
       std::memcpy(dst, array.data(), array.nbytes());
@@ -451,12 +453,15 @@ void SetTensorFromPyArrayT(
         "Cannot use XPUPlace in CPU/GPU version, "
         "Please recompile or reinstall Paddle with XPU support."));
 #endif
+  } else if (phi::is_xpu_pinned_place(place)) {
+    auto dst = self->mutable_data<T>(place);
+    std::memcpy(dst, array.data(), array.nbytes());
   } else if (phi::is_ipu_place(place)) {
 #ifdef PADDLE_WITH_IPU
     if (zero_copy) {
       auto holder = std::make_shared<details::NumpyAllocation<T>>(array);
       auto type = framework::ToDataType(std::type_index(typeid(T)));
-      self->ResetHolderWithType(holder, framework::TransToPhiDataType(type));
+      self->ResetHolderWithType(holder, phi::TransToPhiDataType(type));
     } else {
       // IPU does not store Tensor data, Tensor will be created on CPU
       if (!self->initialized()) {
@@ -511,7 +516,7 @@ void SetTensorFromPyArrayT(
     } else {
       PADDLE_THROW(common::errors::InvalidArgument(
           "Incompatible place type: Tensor.set() supports "
-          "CPUPlace, CUDAPlace "
+          "CPUPlace, CUDAPlace"
           "and CUDAPinnedPlace, but got %s!",
           place));
     }
@@ -658,8 +663,7 @@ void SetUVATensorFromPyArrayImpl(
   std::shared_ptr<memory::allocation::Allocation> holder =
       std::make_shared<memory::allocation::Allocation>(
           cuda_device_pointer, need_allocate_size, phi::GPUPlace(device_id));
-  self_tensor->ResetHolderWithType(holder,
-                                   framework::TransToPhiDataType(data_type));
+  self_tensor->ResetHolderWithType(holder, phi::TransToPhiDataType(data_type));
 #endif
 }
 
@@ -818,6 +822,8 @@ inline phi::DenseTensor *_getTensor(const phi::DenseTensor &self,
 #ifdef PADDLE_WITH_XPU
     output->mutable_data(place, self.dtype());
 #endif
+  } else if ((phi::is_xpu_pinned_place(place))) {
+    output->mutable_data(place, self.dtype());
   } else {
 #if defined(PADDLE_WITH_CUDA) || defined(PADDLE_WITH_HIP)
     if (phi::is_cuda_pinned_place(place)) {
@@ -986,7 +992,7 @@ inline phi::DenseTensor *PySliceTensor(const phi::DenseTensor &self,
 
 inline py::array TensorToPyArray(const phi::DenseTensor &tensor,
                                  py::object copy = py::none()) {
-  if (!tensor.IsInitialized()) {
+  if (!tensor.has_allocation()) {
     return py::array();
   }
   bool is_gpu_tensor = phi::is_gpu_place(tensor.place());

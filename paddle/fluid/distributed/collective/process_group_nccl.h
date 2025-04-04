@@ -117,6 +117,12 @@ class ProcessGroupNCCL final : public ProcessGroupWithStream {
       bool sync_op,
       bool use_calc_stream) override;
 
+  std::shared_ptr<ProcessGroup::Task> AllToAll(
+      std::vector<phi::DenseTensor>* out_tensors,
+      const std::vector<phi::DenseTensor>& in_tensors,
+      bool sync_op,
+      bool use_calc_stream) override;
+
   std::shared_ptr<ProcessGroup::Task> Barrier(
       const BarrierOptions& = BarrierOptions()) override;
 
@@ -181,6 +187,9 @@ class ProcessGroupNCCL final : public ProcessGroupWithStream {
 
   const bool GetNCCLCommInitOption() { return nccl_comm_init_option_; }
 
+  phi::distributed::NCCLCommContext* GetOrCreateCommContext(
+      const Place& place, CommType comm_type = CommType::UNKNOWN);
+
  private:
   std::shared_ptr<ProcessGroupNCCL::NCCLTask> CreateTask(const Place& place,
                                                          int rank,
@@ -200,6 +209,13 @@ class ProcessGroupNCCL final : public ProcessGroupWithStream {
                           int p2p_rank = 0);
 
   void SyncCalcStream(const Place& place, const std::string& place_key);
+
+  std::shared_ptr<ProcessGroup::Task> Collective(
+      std::function<void(phi::distributed::NCCLCommContext*, gpuStream_t)> fn,
+      const std::vector<phi::DenseTensor>& tensors,
+      CommType comm_type,
+      bool sync_op,
+      bool use_calc_stream);
 
   std::shared_ptr<ProcessGroup::Task> Collective(
       std::function<void(phi::distributed::NCCLCommContext*, gpuStream_t)> fn,
@@ -227,7 +243,7 @@ class ProcessGroupNCCL final : public ProcessGroupWithStream {
         memory::EraseStream(holder_ptr, allocation_stream.second);
       }
     }
-    VLOG(5) << "After task wait/synchronize, totoal "
+    VLOG(5) << "After task wait/synchronize, total "
             << allocation_stream_pairs_.size()
             << " tensor(s) allocation stream have been removed.";
     allocation_stream_pairs_.clear();
@@ -267,10 +283,10 @@ class ProcessGroupNCCL final : public ProcessGroupWithStream {
   std::vector<std::pair<std::weak_ptr<phi::Allocation>, gpuStream_t>>
       allocation_stream_pairs_;
 
-  // For colaescing tensors processing (eg. batch_isend_irecv)
+  // For coalescing tensors processing (eg. batch_isend_irecv)
   bool is_coalescing_{false};
-  std::vector<std::shared_ptr<phi::DenseTensor>> colaescing_tensors_;
-  std::vector<std::string> colaescing_place_keys_;
+  std::vector<std::shared_ptr<phi::DenseTensor>> coalescing_tensors_;
+  std::vector<std::string> coalescing_place_keys_;
 };
 
 }  //  namespace distributed

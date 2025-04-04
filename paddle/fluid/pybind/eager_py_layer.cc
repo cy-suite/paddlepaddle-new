@@ -40,8 +40,9 @@ limitations under the License. */
 #pragma GCC diagnostic ignored "-Wwrite-strings"
 #pragma GCC diagnostic ignored "-Wmissing-field-initializers"
 
-namespace paddle {
-namespace pybind {
+using egr::ConvertToDistTensor;
+
+namespace paddle::pybind {
 
 PyTypeObject* p_pylayer_type;
 extern PyTypeObject* p_tensor_type;
@@ -133,6 +134,7 @@ PyObject* pylayer_method_apply(PyObject* cls,
                                PyObject* args,
                                PyObject* kwargs) {
   EAGER_TRY
+  SetPythonStack();
   VLOG(6) << "Begin run PyLayer apply...";
   PyObject* backward_function =
       PyObject_GetAttrString(cls, "_backward_function");
@@ -816,5 +818,4 @@ void BindEagerPyLayer(PyObject* module) {
   }
 }
 
-}  // namespace pybind
-}  // namespace paddle
+}  // namespace paddle::pybind

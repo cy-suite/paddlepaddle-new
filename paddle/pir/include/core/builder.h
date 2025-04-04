@@ -118,6 +118,17 @@ class Builder {
   /// Set/Get the op_role
   void set_op_role(int op_role) { op_role_ = op_role; }
   int op_role() const { return op_role_; }
+
+  /// Set/Get the chunk_id
+  void set_chunk_id(int chunk_id) { chunk_id_ = chunk_id; }
+  int chunk_id() const { return chunk_id_; }
+
+  /// Set/Get the comp_op_name
+  void set_comp_op_name(std::string comp_op_name) {
+    comp_op_name_ = comp_op_name;
+  }
+  std::string comp_op_name() const { return comp_op_name_; }
+
   IrContext *ir_context() const { return context_; }
 
   Block *block() const { return insertion_point_.first; }
@@ -133,7 +144,7 @@ class Builder {
                           const std::vector<Type> &output_types,
                           pir::OpInfo op_info);
 
-  Operation *Insert(Operation *op);
+  IR_API Operation *Insert(Operation *op);
 
   /// Create an operation of specific op type at the current insertion point.
   template <typename OpTy, typename... Args>
@@ -178,6 +189,10 @@ class Builder {
   // by now the op_role is used by autoparallel for distinguish the op in fw,
   // bw, opt region.
   int op_role_ = -1;
+  int chunk_id_ = -1;
+
+  // comp_op_name is used to specify the composite op name after decomposition
+  std::string comp_op_name_ = "";
 };
 
 template <typename OpTy, typename... Args>
@@ -187,5 +202,25 @@ OpTy Builder::Build(Args &&...args) {
   Operation *op = Build(std::move(argument));
   return OpTy(op);
 }
+
+class BuilderAttrGuard {
+ public:
+  BuilderAttrGuard(std::shared_ptr<Builder> builder,
+                   int op_role,
+                   int chunk_id,
+                   std::string comp_op_name);
+
+  ~BuilderAttrGuard();
+
+  // forbid copy and operator=
+  BuilderAttrGuard(const BuilderAttrGuard &guard) = delete;
+  BuilderAttrGuard &operator=(const BuilderAttrGuard &guard) = delete;
+
+ private:
+  std::shared_ptr<Builder> builder_;
+  int pre_op_role_ = -1;
+  int pre_chunk_id_ = -1;
+  std::string pre_comp_op_name_ = "";
+};
 
 }  // namespace pir

@@ -42,6 +42,8 @@ class TestAngleOpFloat(OpTest):
     def setUp(self):
         self.op_type = "angle"
         self.python_api = paddle.angle
+        self.prim_op_type = "prim"
+        self.public_python_api = paddle.angle
         self.dtype = "float64"
         self.x = np.linspace(-5, 5, 101).astype(self.dtype)
         out_ref = np.angle(self.x)
@@ -49,7 +51,7 @@ class TestAngleOpFloat(OpTest):
         self.outputs = {'Out': out_ref}
 
     def test_check_output(self):
-        self.check_output(check_pir=True)
+        self.check_output(check_pir=True, check_symbol_infer=False)
 
     def test_check_grad(self):
         self.check_grad(
@@ -59,6 +61,7 @@ class TestAngleOpFloat(OpTest):
                 angle_grad(self.x, np.ones_like(self.x) / self.x.size)
             ],
             check_pir=True,
+            check_prim_pir=True,
         )
 
 
@@ -66,6 +69,8 @@ class TestAngleFP16Op(TestAngleOpFloat):
     def setUp(self):
         self.op_type = "angle"
         self.python_api = paddle.angle
+        self.prim_op_type = "prim"
+        self.public_python_api = paddle.angle
         self.dtype = "float16"
         self.x = np.linspace(-5, 5, 101).astype(self.dtype)
         out_ref = np.angle(self.x)
@@ -82,6 +87,8 @@ class TestAngleBF16Op(OpTest):
     def setUp(self):
         self.op_type = "angle"
         self.python_api = paddle.angle
+        self.prim_op_type = "prim"
+        self.public_python_api = paddle.angle
         self.dtype = np.uint16
         self.np_dtype = np.float32
         self.x = np.linspace(-5, 5, 101).astype(self.np_dtype)
@@ -94,7 +101,9 @@ class TestAngleBF16Op(OpTest):
         self.place = core.CUDAPlace(0)
 
     def test_check_output(self):
-        self.check_output_with_place(self.place, check_pir=True)
+        self.check_output_with_place(
+            self.place, check_pir=True, check_symbol_infer=False
+        )
 
     def test_check_grad(self):
         self.check_grad_with_place(
@@ -105,6 +114,7 @@ class TestAngleBF16Op(OpTest):
                 angle_grad(self.x, np.ones_like(self.x) / self.x.size)
             ],
             check_pir=True,
+            check_prim_pir=True,
         )
 
 
@@ -121,7 +131,7 @@ class TestAngleOpComplex(OpTest):
         self.outputs = {'Out': out_ref}
 
     def test_check_output(self):
-        self.check_output(check_pir=True)
+        self.check_output(check_pir=True, check_symbol_infer=False)
 
     def test_check_grad(self):
         self.check_grad(

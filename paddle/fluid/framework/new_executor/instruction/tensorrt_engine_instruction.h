@@ -18,7 +18,6 @@
 #include "paddle/fluid/framework/new_executor/pir_adaptor/pir_adaptor_util.h"
 #include "paddle/fluid/platform/tensorrt/engine.h"
 #include "paddle/phi/core/platform/device_context.h"
-
 namespace pir {
 class Operation;
 }  // namespace pir
@@ -43,7 +42,7 @@ class TensorRTEngineInstruction : public InstructionBase {
 
  private:
   std::string ReadBinaryFileToString(const std::string& filePath);
-  void PrepareDynamicShape();
+  void InputsCheck();
   void RunTrt();
   void BindInputTensor(const std::string& input_name,
                        const phi::DenseTensor& input_tensor,

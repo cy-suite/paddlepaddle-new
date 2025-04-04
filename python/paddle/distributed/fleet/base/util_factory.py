@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     import numpy.typing as npt
 
     from paddle import Tensor
-    from paddle._typing import NestedNumbericSequence
+    from paddle._typing import NestedNumericSequence
     from paddle.base.framework import Block
     from paddle.distributed.fleet.base.distributed_strategy import (
         DistributedStrategy,
@@ -80,7 +80,7 @@ class UtilBase:
 
     def all_reduce(
         self,
-        input: NestedNumbericSequence | npt.NDArray[Any],
+        input: NestedNumericSequence | npt.NDArray[Any],
         mode: Literal["sum", "min", "max"] = "sum",
         comm_world: Literal["worker", "server", "all"] = "worker",
     ) -> npt.NDArray[Any] | None:
@@ -738,28 +738,30 @@ def draw_block_graphviz(
         # TODO(gongwb): format the var.type
         # create var
         if var.persistable:
-            varn = graph.add_param(
+            var_name = graph.add_param(
                 var.name,
                 str(var.type).replace("\n", "<br />", 1),
                 highlight=need_highlight(var.name),
             )
         else:
-            varn = graph.add_arg(var.name, highlight=need_highlight(var.name))
-        vars[var.name] = varn
+            var_name = graph.add_arg(
+                var.name, highlight=need_highlight(var.name)
+            )
+        vars[var.name] = var_name
 
     def add_op_link_var(op, var, op2var=False):
         for arg in var.arguments:
             if arg not in vars:
                 # add missing variables as argument
                 vars[arg] = graph.add_arg(arg, highlight=need_highlight(arg))
-            varn = vars[arg]
+            var_name = vars[arg]
             highlight = need_highlight(op.description) or need_highlight(
-                varn.description
+                var_name.description
             )
             if op2var:
-                graph.add_edge(op, varn, highlight=highlight)
+                graph.add_edge(op, var_name, highlight=highlight)
             else:
-                graph.add_edge(varn, op, highlight=highlight)
+                graph.add_edge(var_name, op, highlight=highlight)
 
     for op in desc.ops:
         opn = graph.add_op(op.type, highlight=need_highlight(op.type))

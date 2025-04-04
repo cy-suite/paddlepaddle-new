@@ -23,6 +23,7 @@
 #include "paddle/phi/common/float16.h"
 #include "paddle/phi/core/kernel_registry.h"
 #include "paddle/phi/core/tensor_utils.h"
+#include "paddle/phi/kernels/full_kernel.h"
 #include "paddle/phi/kernels/funcs/elementwise_functor.h"
 #include "paddle/phi/kernels/gpu/elementwise_grad.h"
 #include "paddle/phi/kernels/impl/elementwise_grad_kernel_impl.h"
@@ -157,6 +158,25 @@ void MaximumGradKernel(const Context& dev_ctx,
                        const DenseTensor& dout,
                        DenseTensor* dx,
                        DenseTensor* dy) {
+  if (dout.numel() == 0) {
+    if (dx) {
+      if (dx->numel() == 0) {
+        dev_ctx.template Alloc<T>(dx);
+      } else {
+        phi::Full<T, Context>(
+            dev_ctx, phi::IntArray(common::vectorize(dx->dims())), 0, dx);
+      }
+    }
+    if (dy) {
+      if (dy->numel() == 0) {
+        dev_ctx.template Alloc<T>(dy);
+      } else {
+        phi::Full<T, Context>(
+            dev_ctx, phi::IntArray(common::vectorize(dy->dims())), 0, dy);
+      }
+    }
+    return;
+  }
   const auto place = dev_ctx.GetPlace();
   int axis = -1;
   if (dx != nullptr && dy != nullptr) {
@@ -187,6 +207,26 @@ void MinimumGradKernel(const Context& dev_ctx,
                        const DenseTensor& dout,
                        DenseTensor* dx,
                        DenseTensor* dy) {
+  if (dout.numel() == 0) {
+    if (dx) {
+      if (dx->numel() == 0) {
+        dev_ctx.template Alloc<T>(dx);
+      } else {
+        phi::Full<T, Context>(
+            dev_ctx, phi::IntArray(common::vectorize(dx->dims())), 0, dx);
+      }
+    }
+    if (dy) {
+      if (dy->numel() == 0) {
+        dev_ctx.template Alloc<T>(dy);
+      } else {
+        phi::Full<T, Context>(
+            dev_ctx, phi::IntArray(common::vectorize(dy->dims())), 0, dy);
+      }
+    }
+    return;
+  }
+
   const auto place = dev_ctx.GetPlace();
   int axis = -1;
   if (dx != nullptr && dy != nullptr) {
@@ -207,6 +247,36 @@ void MinimumGradKernel(const Context& dev_ctx,
     std::vector<const DenseTensor*> ins = {&x, &y, &dout};
     GetGradXOrYOut<T>(
         dev_ctx, place, axis, ins, dout, dy, funcs::MinGradYFunctor<T>());
+  }
+}
+
+template <typename T, typename Context>
+void RemainderGradKernel(const Context& dev_ctx,
+                         const DenseTensor& x,
+                         const DenseTensor& y,
+                         const DenseTensor& dout,
+                         DenseTensor* dx,
+                         DenseTensor* dy) {
+  const auto place = dev_ctx.GetPlace();
+  int axis = -1;
+  if (dx != nullptr && dy != nullptr) {
+    std::vector<const DenseTensor*> ins = {&x, &y, &dout};
+    GetGradXAndYOut<T>(dev_ctx,
+                       place,
+                       axis,
+                       ins,
+                       dout,
+                       dx,
+                       dy,
+                       funcs::RemainderGradXYFunctor<T, T>());
+  } else if (dx != nullptr && dy == nullptr) {
+    std::vector<const DenseTensor*> ins = {&x, &y, &dout};
+    GetGradXOrYOut<T>(
+        dev_ctx, place, axis, ins, dout, dx, funcs::RemainderGradXFunctor<T>());
+  } else if (dy != nullptr && dx == nullptr) {
+    std::vector<const DenseTensor*> ins = {&x, &y, &dout};
+    GetGradXOrYOut<T>(
+        dev_ctx, place, axis, ins, dout, dy, funcs::RemainderGradYFunctor<T>());
   }
 }
 
@@ -288,6 +358,17 @@ PD_REGISTER_KERNEL(minimum_grad,
                    GPU,
                    ALL_LAYOUT,
                    phi::MinimumGradKernel,
+                   float,
+                   double,
+                   int,
+                   int64_t,
+                   phi::dtype::float16,
+                   phi::dtype::bfloat16) {}
+
+PD_REGISTER_KERNEL(remainder_grad,
+                   GPU,
+                   ALL_LAYOUT,
+                   phi::RemainderGradKernel,
                    float,
                    double,
                    int,

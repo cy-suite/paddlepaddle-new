@@ -477,14 +477,16 @@ struct MaximumFunctor {
 template <typename T>
 struct MaxGradXFunctor {
   inline HOSTDEVICE T operator()(const T x, const T y, const T dout) const {
-    return dout * static_cast<T>(x > y);
+    return dout * static_cast<T>(x > y) +
+           (dout / static_cast<T>(2)) * static_cast<T>(x == y);
   }
 };
 
 template <typename T>
 struct MaxGradYFunctor {
   inline HOSTDEVICE T operator()(const T x, const T y, const T dout) const {
-    return dout * static_cast<T>(x <= y);
+    return dout * static_cast<T>(x < y) +
+           (dout / static_cast<T>(2)) * static_cast<T>(x == y);
   }
 };
 
@@ -494,10 +496,14 @@ struct MaxGradXYFunctor {
                                                    const InT y,
                                                    const InT dout) {
     phi::Array<OutT, 2> outs;
-    // dx = dout * (x > y)
-    outs[0] = static_cast<OutT>(dout * static_cast<InT>(x > y));
-    // dy = dout * (x <= y)
-    outs[1] = static_cast<OutT>(dout * static_cast<InT>(x <= y));
+    // dx = dout * (x > y) + dout / 2 * (x == y)
+    outs[0] = static_cast<OutT>(dout * static_cast<InT>(x > y) +
+                                (dout / static_cast<InT>(2)) *
+                                    static_cast<InT>(x == y));
+    // dy = dout * (x < y) + dout / 2 * (x == y)
+    outs[1] = static_cast<OutT>(dout * static_cast<InT>(x < y) +
+                                (dout / static_cast<InT>(2)) *
+                                    static_cast<InT>(x == y));
     return outs;
   }
 };
@@ -512,13 +518,15 @@ struct MinimumFunctor {
 template <typename T>
 struct MinGradXFunctor {
   inline HOSTDEVICE T operator()(const T x, const T y, const T dout) const {
-    return dout * static_cast<T>(x < y);
+    return dout * static_cast<T>(x < y) +
+           (dout / static_cast<T>(2)) * static_cast<T>(x == y);
   }
 };
 template <typename T>
 struct MinGradYFunctor {
   inline HOSTDEVICE T operator()(const T x, const T y, const T dout) const {
-    return dout * static_cast<T>(x >= y);
+    return dout * static_cast<T>(x > y) +
+           (dout / static_cast<T>(2)) * static_cast<T>(x == y);
   }
 };
 
@@ -528,10 +536,14 @@ struct MinGradXYFunctor {
                                                    const InT y,
                                                    const InT dout) {
     phi::Array<OutT, 2> outs;
-    // dx = dout * (x < y)
-    outs[0] = static_cast<OutT>(dout * static_cast<InT>(x < y));
-    // dy = dout * (x >= y)
-    outs[1] = static_cast<OutT>(dout * static_cast<InT>(x >= y));
+    // dx = dout * (x < y) + dout / 2 * (x == y)
+    outs[0] = static_cast<OutT>(dout * static_cast<InT>(x < y) +
+                                (dout / static_cast<InT>(2)) *
+                                    static_cast<InT>(x == y));
+    // dy = dout * (x > y) + dout / 2 * (x == y)
+    outs[1] = static_cast<OutT>(dout * static_cast<InT>(x > y) +
+                                (dout / static_cast<InT>(2)) *
+                                    static_cast<InT>(x == y));
     return outs;
   }
 };
@@ -588,6 +600,114 @@ struct RemainderFunctor<dtype::bfloat16> {
     // remainder shall have the same sign as divsor.
     if ((res != 0.0f) && ((res < 0.0f) != (b_float < 0.0f))) res += b_float;
     return static_cast<dtype::bfloat16>(res);
+  }
+};
+
+// RemainderGradXFunctor
+template <typename T>
+struct RemainderGradXFunctor {
+  inline HOSTDEVICE T operator()(const T x, const T y, const T dout) const {
+    // dx = dout
+    return dout;
+  }
+};
+
+// RemainderGradYFunctor
+template <typename T, typename Enable = void>
+struct RemainderGradYFunctor {
+  inline HOSTDEVICE T operator()(const T x, const T y, const T dout) const {
+    // dy = -dout * (floor_div(x, y))
+    return -dout * static_cast<T>((std::floor(x / y)));
+  }
+};
+template <typename T>
+struct RemainderGradYFunctor<
+    T,
+    typename std::enable_if<std::is_floating_point<T>::value>::type> {
+  inline HOSTDEVICE T operator()(const T x, const T y, const T dout) const {
+    using MPType = typename phi::dtype::MPTypeTrait<T>::Type;
+    // dy = -dout * (floor_div(x, y))
+    auto x_ = static_cast<MPType>(x);
+    auto y_ = static_cast<MPType>(y);
+    return static_cast<T>(-static_cast<MPType>(dout) * (std::floor((x_ / y_))));
+  }
+};
+template <typename T>
+struct RemainderGradYFunctor<
+    T,
+    typename std::enable_if<std::is_integral<T>::value>::type> {
+  inline HOSTDEVICE T operator()(const T x, const T y, const T dout) const {
+    // dy = -dout * (floor_div(x, y))
+    if (phi::is_negative(x) != phi::is_negative(y)) {
+      // Subtracts one from the results of truncation division if the
+      // divisor and dividend have different sign(bit)s and the remainder of
+      // the division is nonzero
+      const auto quot = x / y;
+      const auto rem = x % y;
+      auto ret = rem ? quot - 1 : quot;
+      return -dout * static_cast<T>(ret);
+    }
+    return -dout * static_cast<T>(x / y);
+  }
+};
+
+// RemainderGradXYFunctor
+template <typename InT, typename OutT, typename Enable = void>
+struct RemainderGradXYFunctor {
+  inline HOSTDEVICE phi::Array<OutT, 2> operator()(const InT x,
+                                                   const InT y,
+                                                   const InT dout) {
+    phi::Array<OutT, 2> outs;
+    // dx = dout
+    outs[0] = static_cast<OutT>(dout);
+    // dy = -dout * (floor_div(x, y))
+    outs[1] = static_cast<OutT>(dout * static_cast<InT>(std::floor(x / y)));
+    return outs;
+  }
+};
+template <typename InT, typename OutT>
+struct RemainderGradXYFunctor<
+    InT,
+    OutT,
+    typename std::enable_if<std::is_floating_point<InT>::value>::type> {
+  inline HOSTDEVICE Array<OutT, 2> operator()(const InT x,
+                                              const InT y,
+                                              const InT dout) {
+    Array<OutT, 2> outs;
+    // dx = dout
+    outs[0] = static_cast<OutT>(dout);
+    // dy = -dout * (x / y)
+    using MPType = typename phi::dtype::MPTypeTrait<InT>::Type;
+    auto x_ = static_cast<MPType>(x);
+    auto y_ = static_cast<MPType>(y);
+    outs[1] =
+        static_cast<OutT>(static_cast<MPType>(-dout) * std::floor(x_ / y_));
+    return outs;
+  }
+};
+template <typename InT, typename OutT>
+struct RemainderGradXYFunctor<
+    InT,
+    OutT,
+    typename std::enable_if<std::is_integral<InT>::value>::type> {
+  inline HOSTDEVICE Array<OutT, 2> operator()(const InT x,
+                                              const InT y,
+                                              const InT dout) {
+    Array<OutT, 2> outs;
+    // dx = dout
+    outs[0] = static_cast<OutT>(dout);
+    // dy = -dout * (x / y)
+    if (phi::is_negative(x) != phi::is_negative(y)) {
+      // Subtracts one from the results of truncation division if the
+      // divisor and dividend have different sign(bit)s and the remainder of
+      // the division is nonzero
+      const auto quot = x / y;
+      const auto rem = x % y;
+      auto ret = rem ? quot - 1 : quot;
+      outs[1] = -static_cast<OutT>(dout) * static_cast<OutT>(ret);
+    }
+    outs[1] = -static_cast<OutT>(dout) * static_cast<OutT>(x / y);
+    return outs;
   }
 };
 
@@ -851,21 +971,18 @@ inline HOSTDEVICE typename std::enable_if<std::is_integral<T>::value, T>::type
 compute_pow(const T a, const T b) {
   // TODO(wujionghao): A potential speed improvement is supporting different
   // types in C++.
-  // On CUDAPlace, std::pow(3, 1) calls pow(float, float), and
+  // On CUDAPlace, pow(3, 1) calls pow(float, float), and
   // it will return a float number like 2.99... , which floor to 2
   // when cast to int by default and it is wrong.
   // Use llrint to cast it to the nearest integer, which is 3.
-  return std::llrint(std::pow(static_cast<double>(a), static_cast<double>(b)));
+  return llrint(pow(static_cast<double>(a), static_cast<double>(b)));
 }
 template <typename T, typename MPType>
 inline HOSTDEVICE typename std::enable_if<!std::is_integral<T>::value, T>::type
 compute_pow(const T a, const T b) {
   MPType a_val = static_cast<MPType>(a);
   MPType b_val = static_cast<MPType>(b);
-#ifdef PADDLE_WITH_XPU_KP
   return static_cast<T>(pow(a_val, b_val));
-#endif
-  return static_cast<T>(std::pow(a_val, b_val));
 }
 #else
 template <typename T, typename MPType>

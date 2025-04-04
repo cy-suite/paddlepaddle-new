@@ -64,9 +64,16 @@ class ProxyLayer(Layer):
 
         # Consider ProxyLayer as not Paddle inner function because it contains
         # user-defined layer.
-        as_not_paddle_func(
-            inspect.getmodule(ProxyLayer).__name__ + ".ProxyLayer"
-        )
+        for fn_name in [
+            "_train",
+            "_eval",
+            "_predict",
+            "call_loss",
+            "call_metrics",
+        ]:
+            as_not_paddle_func(
+                f"{inspect.getmodule(ProxyLayer).__name__}.ProxyLayer.{fn_name}"
+            )
 
     @paddle.jit.not_to_static
     def append_loss_to_shadow_output(self, mode):
@@ -403,7 +410,7 @@ class ProgramHelper:
             if param is None:
                 continue
             if param.name not in dy_param_name_to_pir_param_name:
-                # Release the reduntant params
+                # Release the redundant params
                 param.get_tensor()._clear()
                 continue
             if not param._is_initialized():
@@ -437,6 +444,7 @@ class ProgramHelper:
                 pir_scope_param._share_data_with(
                     param.get_tensor().get_tensor()
                 )
+                param.get_tensor()._clear()
 
         world_group = get_world_process_group()
         if (
@@ -446,18 +454,20 @@ class ProgramHelper:
         ):
             paddle.disable_static()
             barrier_tensor = paddle.full([1], 1, dtype="int32")
-            paddle._legacy_C_ops.barrier(
-                barrier_tensor, barrier_tensor, 'ring_id', 0
-            )
+            # barrier is not available in xpu for now
+            if not paddle.framework.core.is_compiled_with_xpu():
+                paddle._legacy_C_ops.barrier(
+                    barrier_tensor, barrier_tensor, 'ring_id', 0
+                )
             paddle.enable_static()
 
     def init(self, main_program, place, dist_context):
         if self.lazy_init:
             return
 
-        amp_stragety = dist_context.strategy.amp
-        amp_config = copy.deepcopy(amp_stragety.to_dict())
-        need_cast_paramter = amp_stragety.enable and amp_config["level"] in [
+        amp_strategy = dist_context.strategy.amp
+        amp_config = copy.deepcopy(amp_strategy.to_dict())
+        need_cast_parameter = amp_strategy.enable and amp_config["level"] in [
             "o2",
             "o3",
         ]
@@ -485,7 +495,7 @@ class ProgramHelper:
             if param is None:
                 continue
             if param.name not in main_program.global_block().vars:
-                # Release the reduntant params
+                # Release the redundant params
                 param.get_tensor()._clear()
                 continue
             if not param._is_initialized():
@@ -508,14 +518,14 @@ class ProgramHelper:
                     param.numpy(), dist_attr
                 )
                 param_tensor.set(sliced_param, place)
-                if not need_cast_paramter:
+                if not need_cast_parameter:
                     param.get_tensor()._clear()
             elif param.is_dist():
                 dense_tensor = global_scope().var(param.name).get_tensor()
                 dense_tensor._share_data_with(param.get_tensor().get_tensor())
 
         # transform the parameter in eager mode for amp.
-        if need_cast_paramter:
+        if need_cast_parameter:
             for param in self.concrete_program.parameters:
                 amp_dtype = amp_config["dtype"]
                 scope_var = global_scope().find_var(param.name)
@@ -588,9 +598,11 @@ class ProgramHelper:
         ):
             paddle.disable_static()
             barrier_tensor = paddle.full([1], 1, dtype="int32")
-            paddle._legacy_C_ops.barrier(
-                barrier_tensor, barrier_tensor, 'ring_id', 0
-            )
+            # barrier is not available in xpu for now
+            if not paddle.framework.core.is_compiled_with_xpu():
+                paddle._legacy_C_ops.barrier(
+                    barrier_tensor, barrier_tensor, 'ring_id', 0
+                )
             paddle.enable_static()
 
     def cache_whole_graph_dist_attr(self, all_params):

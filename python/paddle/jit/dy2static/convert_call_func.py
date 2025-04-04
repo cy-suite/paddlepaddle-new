@@ -42,7 +42,7 @@ from .program_translator import (
     convert_to_static,
     unwrap_decorators,
 )
-from .utils import is_builtin, is_paddle_func
+from .utils import is_builtin, is_paddle_func, patch_method_guard
 
 if TYPE_CHECKING:
     from types import ModuleType
@@ -192,15 +192,6 @@ def is_unsupported(func):
             )
             return True
 
-    # NOTE: should be placed before `is_paddle_func`
-    # The api(s) should be considered as plain function and convert
-    # them into static layer code.
-    from paddle.nn import Sequential
-
-    PADDLE_NEED_CONVERT_APIS = [Sequential]
-    if type(func) in PADDLE_NEED_CONVERT_APIS:
-        return False
-
     if is_paddle_func(func):
         translator_logger.log(
             2,
@@ -210,6 +201,17 @@ def is_unsupported(func):
         return True
 
     return False
+
+
+class StaticLayerWrapper:
+    def __init__(self, layer):
+        self.layer = layer
+
+    def __call__(self, *args, **kwargs):
+        with patch_method_guard(
+            self.layer, "forward", convert_call(self.layer.forward)
+        ):
+            return self.layer(*args, **kwargs)
 
 
 def convert_call(func):
@@ -364,18 +366,7 @@ def convert_call(func):
 
     elif hasattr(func, '__class__') and callable(func.__class__):
         if hasattr(func, 'forward') and isinstance(func, Layer):
-            try:
-                _, forward_func = unwrap_decorators(func.forward)
-                func._original_funcs['forward'] = forward_func.__func__
-                forward_func = convert_to_static(forward_func)
-                # Bound method will be convert into plain function after `convert_to_static`.
-                # So descriptor mechanism is used to bound `self` instance on function to
-                # keep it as bound method.
-                func.forward = forward_func.__get__(func)
-            except (OSError, TypeError):
-                # NOTE: func.forward may have been decorated.
-                func_self = None if func_self else func_self
-            converted_call = func
+            return StaticLayerWrapper(func)
         else:
             try:
                 call_func = func.__class__.__call__

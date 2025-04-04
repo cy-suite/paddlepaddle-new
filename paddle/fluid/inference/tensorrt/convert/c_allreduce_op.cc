@@ -20,7 +20,6 @@ namespace paddle::inference::tensorrt {
 using ReduceType = paddle::inference::tensorrt::plugin::ReduceType;
 std::map<std::string, ReduceType> op_to_reduce_type = {
     {"c_allreduce_sum", paddle::inference::tensorrt::plugin::kRedSum},
-    {"c_allreduce_max", paddle::inference::tensorrt::plugin::kRedMax},
     {"c_allreduce_min", paddle::inference::tensorrt::plugin::kRedMin},
     {"c_allreduce_prod", paddle::inference::tensorrt::plugin::kRedProd}};
 
@@ -29,7 +28,7 @@ class CAllReduceOpConverter : public OpConverter {
   void operator()(const framework::proto::OpDesc& op,
                   const framework::Scope& scope,
                   bool test_mode) override {
-    VLOG(4) << "convert callreduce op to tensorrt layer";
+    VLOG(4) << "convert c_allreduce op to tensorrt layer";
     if (!engine_->with_dynamic_shape()) {
       PADDLE_THROW(
           common::errors::Fatal("Unsupported static graph mode. Please set "
@@ -89,6 +88,5 @@ class CAllReduceOpConverter : public OpConverter {
 }  // namespace paddle::inference::tensorrt
 
 REGISTER_TRT_OP_CONVERTER(c_allreduce_sum, CAllReduceOpConverter);
-REGISTER_TRT_OP_CONVERTER(c_allreduce_max, CAllReduceOpConverter);
 REGISTER_TRT_OP_CONVERTER(c_allreduce_min, CAllReduceOpConverter);
 REGISTER_TRT_OP_CONVERTER(c_allreduce_prod, CAllReduceOpConverter);

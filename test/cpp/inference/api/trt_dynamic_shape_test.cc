@@ -33,6 +33,7 @@ void TestDynamic(bool with_dynamic = true,
   }
 
   AnalysisConfig config;
+  config.EnableNewIR(false);
   config.EnableUseGpu(100, 0);
   std::string buffer_prog, buffer_param;
   ReadBinaryFile(model_dir + "/model", &buffer_prog);
@@ -292,9 +293,9 @@ void TestDynamicClone(bool with_dynamic = true,
 
 TEST(AnalysisPredictor, trt_dynamic) { TestDynamic(true); }
 TEST(AnalysisPredictor, trt_memory_serialize) {
-  // serailize
+  // serialize
   TestDynamic(true, true, true);
-  // deserailize
+  // deserialize
   TestDynamic(true, false, true);
 }
 TEST(AnalysisPredictor, trt_dynamic2) { TestDynamic2(); }

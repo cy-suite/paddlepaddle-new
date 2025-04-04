@@ -24,18 +24,12 @@
 #include "paddle/fluid/inference/analysis/pass_result_info.h"
 #include "paddle/fluid/platform/enforce.h"
 
-namespace paddle {
-namespace framework {
-namespace ir {
+namespace paddle::framework::ir {
 class Graph;
 class Node;
-}  // namespace ir
-}  // namespace framework
-}  // namespace paddle
+}  // namespace paddle::framework::ir
 
-namespace paddle {
-namespace inference {
-namespace analysis {
+namespace paddle::inference::analysis {
 
 using framework::ir::Graph;
 using framework::ir::Node;
@@ -66,9 +60,8 @@ void MemoryOptimizePass::CollectLifeCycle(
     auto reads = op_node->inputs;
     auto writes = op_node->outputs;
 
-    std::vector<Node*>
-    requires(reads.begin(), reads.end());
-    requires.insert(requires.end(), writes.begin(), writes.end());
+    std::vector<Node*> req(reads.begin(), reads.end());
+    req.insert(req.end(), writes.begin(), writes.end());
 
     // Disable reuse of feed variables.
     if (op_node->Name() == "feed") {
@@ -79,7 +72,7 @@ void MemoryOptimizePass::CollectLifeCycle(
       }
     } else {
       // Normal operators.
-      for (const Node* node : requires) {
+      for (const Node* node : req) {
         if (!node->Var()) continue;
         if (node->Var()->Persistable()) {
           // "Getting 'tensor_desc' is not supported by the fetch type
@@ -174,7 +167,7 @@ void MemoryOptimizePass::CollectVarMemorySize(
   for (auto* node : graph->Nodes()) {
     if (node->IsVar() && node->Var() &&
         node->Var()->GetType() ==
-            framework::proto::VarType::Type::VarType_Type_LOD_TENSOR) {
+            framework::proto::VarType::Type::VarType_Type_DENSE_TENSOR) {
       if (!valid_var(node)) {
         black_list.emplace(node->Var()->Name());
       }
@@ -185,7 +178,7 @@ void MemoryOptimizePass::CollectVarMemorySize(
   for (auto* node : graph->Nodes()) {
     if (node->IsVar() && node->Var() &&
         node->Var()->GetType() ==
-            framework::proto::VarType::Type::VarType_Type_LOD_TENSOR &&
+            framework::proto::VarType::Type::VarType_Type_DENSE_TENSOR &&
         !black_list.count(node->Var()->Name())) {
       // Parameters will not be reused.
       if (node->Var()->Persistable()) continue;
@@ -295,6 +288,4 @@ void MemoryOptimizePass::RunImpl(Argument* argument) {
   return;
 }
 
-}  // namespace analysis
-}  // namespace inference
-}  // namespace paddle
+}  // namespace paddle::inference::analysis

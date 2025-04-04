@@ -31,7 +31,9 @@ namespace cinn {
 namespace dialect {
 
 class IR_API GroupOp
-    : public pir::Op<GroupOp, paddle::dialect::InferSymbolicShapeInterface> {
+    : public pir::Op<GroupOp,
+                     paddle::dialect::InferSymbolicShapeInterface,
+                     pir::SideEffectTrait> {
  public:
   using Op::Op;
   static const char *name() { return "cinn_op.group"; }
@@ -91,7 +93,7 @@ class IR_API FusionOp
 };
 
 // YieldStoreOp represents a store operation for
-// seperate local variable and ouptut
+// separate local variable and output
 class IR_API YieldStoreOp
     : public pir::Op<YieldStoreOp,
                      paddle::dialect::InferSymbolicShapeInterface> {
@@ -131,7 +133,8 @@ class IR_API ConcatOp
   bool InferSymbolicShape(pir::InferSymbolicShapeContext *infer_context);
 };
 
-class IR_API SplitOp : public pir::Op<SplitOp> {
+class IR_API SplitOp
+    : public pir::Op<SplitOp, paddle::dialect::InferSymbolicShapeInterface> {
  public:
   using Op::Op;
 
@@ -148,6 +151,8 @@ class IR_API SplitOp : public pir::Op<SplitOp> {
                     int axis);
 
   void VerifySig() const {}
+
+  bool InferSymbolicShape(pir::InferSymbolicShapeContext *infer_context);
 };
 
 class IR_API GenerateShapeOp

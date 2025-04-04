@@ -111,6 +111,12 @@ class ProcessGroupBKCL : public ProcessGroupWithStream {
       bool sync_op,
       bool use_calc_stream) override;
 
+  std::shared_ptr<ProcessGroup::Task> AllToAll(
+      std::vector<phi::DenseTensor>* out_tensors,
+      const std::vector<phi::DenseTensor>& in_tensors,
+      bool sync_op,
+      bool use_calc_stream) override;
+
   std::shared_ptr<ProcessGroup::Task> Broadcast(
       phi::DenseTensor* out_tensor,
       const phi::DenseTensor& in_tensor,
@@ -154,6 +160,9 @@ class ProcessGroupBKCL : public ProcessGroupWithStream {
 
   BKCLContext_t BKCLComm(const Place& place) const;
 
+  phi::distributed::BKCLCommContext* GetOrCreateCommContext(
+      const Place& place, CommType comm_type = CommType::UNKNOWN);
+
  private:
   std::shared_ptr<ProcessGroupBKCL::BKCLTask> CreateTask(const Place& place,
                                                          int rank,
@@ -164,6 +173,13 @@ class ProcessGroupBKCL : public ProcessGroupWithStream {
   void BroadcastUniqueBKCLID(BKCLUniqueId* bkcl_id);
 
   void CreateBKCLEnvCache(const Place& place, const std::string& place_key);
+
+  std::shared_ptr<ProcessGroup::Task> Collective(
+      std::function<void(phi::distributed::BKCLCommContext*, XPUStream)> fn,
+      const std::vector<phi::DenseTensor>& tensors,
+      CommType comm_type,
+      bool sync_op,
+      bool use_calc_stream);
 
   std::shared_ptr<ProcessGroup::Task> Collective(
       std::function<void(phi::distributed::BKCLCommContext*, XPUStream)> fn,
@@ -198,9 +214,9 @@ class ProcessGroupBKCL : public ProcessGroupWithStream {
   std::unordered_map<std::string, std::unique_ptr<phi::XPUContext>>
       place_to_comm_ctx_;
 
-  // For colaescing tensors processing (eg. batch_isend_irecv)
+  // For coalescing tensors processing (eg. batch_isend_irecv)
   bool is_coalescing_{false};
-  std::vector<std::string> colaescing_place_keys_;
+  std::vector<std::string> coalescing_place_keys_;
 };
 
 }  //  namespace distributed

@@ -149,7 +149,7 @@ std::vector<ir::Argument> LowerImpl::GenerateFunctionArgumentList(
 
   return args;
 }
-// Generate Function Arguments for splitted kernel.
+// Generate Function Arguments for split kernel.
 std::vector<ir::Argument> LowerImpl::GenFuncArgForSplitKernel(
     Expr func_iterator, std::vector<ir::Tensor> temp_tensors) {
   CheckArgsUnique();
@@ -384,9 +384,9 @@ std::vector<ir::LoweredFunc> LowerImpl::operator()() {
 
     if (support_ir_schedule_) {
       optim::TransformPolyForToFor(&func->body);
-      optim::SimplifyBlocks(&func->body);
+      optim::SimplifyUnitBlock(&func->body);
       func->body = ir::Block::Make({func->body});
-      result.push_back(ir::LoweredFunc(func.get()));
+      result.push_back(func);
       num_func++;
     } else {
       auto res = optim::Optimize(func,
@@ -396,10 +396,9 @@ std::vector<ir::LoweredFunc> LowerImpl::operator()() {
 
       if (cuda_axis_info_.size() > num_func &&
           cuda_axis_info_[num_func].valid()) {
-        auto* res_func = res.as_lowered_func();
-        res_func->cuda_axis_info = cuda_axis_info_[num_func];
+        res->cuda_axis_info = cuda_axis_info_[num_func];
       }
-      result.push_back(ir::LoweredFunc(res.get()));
+      result.push_back(res);
       num_func++;
     }
   }

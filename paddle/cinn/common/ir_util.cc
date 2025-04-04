@@ -15,12 +15,17 @@
 #include "paddle/cinn/common/ir_util.h"
 
 #include <algorithm>
+#include <stack>
 #include <unordered_set>
 
-#include "paddle/cinn/common/cas.h"
+#include "paddle/cinn/common/const_fold.h"
+#include "paddle/cinn/common/simplify_special_pattern.h"
 #include "paddle/cinn/ir/ir_mutator.h"
 #include "paddle/cinn/ir/ir_printer.h"
 #include "paddle/cinn/ir/op/ir_operators.h"
+#include "paddle/cinn/ir/utils/ir_compare.h"
+#include "paddle/cinn/ir/utils/ir_copy.h"
+#include "paddle/cinn/optim/ir_simplify.h"
 #include "paddle/common/enforce.h"
 namespace cinn {
 namespace common {
@@ -97,8 +102,8 @@ Expr RampRelatedAdd(ir::Ramp *ramp, ir::Ramp *other) {
                           ::common::errors::InvalidArgument(
                               "Other ramp pointer should not be null."));
   if (ramp->lanes == other->lanes) {
-    Expr base_add = cinn::common::AutoSimplify(ramp->base + other->base);
-    Expr stride_add = cinn::common::AutoSimplify(ramp->stride + other->stride);
+    Expr base_add = optim::ArithSimplify(ramp->base + other->base);
+    Expr stride_add = optim::ArithSimplify(ramp->stride + other->stride);
     VLOG(2) << base_add;
     VLOG(2) << stride_add;
     return ir::Ramp::Make(base_add, stride_add, ramp->lanes);
@@ -182,9 +187,9 @@ Expr IndiceToAbsOffset(const std::vector<Expr> &shape,
                     ::common::errors::InvalidArgument(
                         "The size of shape should be less than or "
                         "equal to the size of indices."));
-  Expr res;
-  ir::TryElevateInt32ToInt64(shape);
-  for (int i = 0; i < shape.size(); i++) {
+  Expr res(0);
+
+  for (int32_t i = 0; i < shape.size(); i++) {
     PADDLE_ENFORCE_EQ(
         shape[i].type() == Int(64) || shape[i].type() == Int(32),
         true,
@@ -193,18 +198,17 @@ Expr IndiceToAbsOffset(const std::vector<Expr> &shape,
             "the current data type of shape[{}] is {}",
             i,
             shape[i].type()));
+
     Expr indice_cast = indices[i];
     optim::SimplifyCast(&indice_cast);
-    if (res.defined()) {
-      res = RampRelatedAdd(RampRelatedMul(res, shape[i]), indice_cast);
+    res = RampRelatedAdd(RampRelatedMul(res, shape[i]), indice_cast);
+    if (res.is_index()) {
+      res = res.as_index().Normalize(ir::IndexExpr::OptLevel::kLevel2);
     } else {
-      res = indice_cast;
-    }
-
-    if (i > 0) {
-      res = cinn::common::AutoSimplify(res);
+      VLOG(8) << "**** expr is not index ****: " << res;
     }
   }
+  VLOG(3) << "End IndiceToAbsOffset";
 
   return res;
 }
@@ -256,7 +260,7 @@ void Substitute(Expr *expr, const std::map<const ir::_Var_ *, Expr> &var_map) {
 }
 
 bool is_zero(Expr v) {
-  v = AutoSimplify(v);
+  v = optim::ArithSimplify(v);
   auto *int_n = v.As<ir::IntImm>();
   auto *float_n = v.As<ir::FloatImm>();
 
@@ -272,7 +276,7 @@ Expr CastIfNeeded(Expr body, Type type) {
 
 bool MathEqual(const Expr &a, const Expr &b) {
   auto c = a - b;
-  c = AutoSimplify(c);
+  c = optim::ArithSimplify(c);
   return is_zero(c);
 }
 
@@ -318,44 +322,6 @@ void CheckTensorUniqueInExpr(Expr expr) {
           tp,
           ::common::errors::InvalidArgument(
               "Found tensor not unique, The original express is %d .", expr));
-    }
-  }
-}
-
-void CheckBufferUniqueInExpr(Expr expr) {
-  // the buffers exists in tensor and lowered functions.
-  CheckTensorUniqueInExpr(expr);
-
-  auto tensors = ir::ir_utils::CollectIRNodes(
-      expr, [](const Expr *x) { return x->as_tensor(); });
-  auto funcs = ir::ir_utils::CollectIRNodes(
-      expr, [](const Expr *x) { return x->as_lowered_func(); });
-
-  absl::flat_hash_map<std::string, const ir::_Buffer_ *> buffer_name;
-  auto check_buffer_uniq = [&](const ir::_Buffer_ *b) {
-    if (buffer_name.count(b->name)) {
-      PADDLE_ENFORCE_EQ(
-          buffer_name[b->name],
-          b,
-          ::common::errors::InvalidArgument(
-              "Found buffer not unique, The original express is %d .", expr));
-    } else {
-      buffer_name[b->name] = b->const_self();
-    }
-  };
-  for (auto &e : tensors) {
-    auto *t = e.as_tensor();
-    if (t->buffer.defined()) {
-      check_buffer_uniq(t->buffer->const_self());
-    }
-  }
-
-  for (auto &e : funcs) {
-    auto *f = e.as_lowered_func();
-    for (auto &b : f->temp_bufs) {
-      if (b.defined()) {
-        check_buffer_uniq(b->const_self());
-      }
     }
   }
 }
@@ -501,5 +467,83 @@ Expr min(Expr a, Expr b) {
   return ir::Min::Make(a, b);
 }
 
+void OpDataTypePromote(Expr *expr) {
+  struct TypePromote : public ir::IRMutator<> {
+    void operator()(Expr *expr) { ir::IRMutator<>::Visit(expr, expr); }
+    // type promote for operand of binary op
+#define __(op__)                                            \
+  void Visit(const ir::op__ *op, ir::Expr *expr) override { \
+    ir::TryElevateInt32ToInt64_((*expr)->operands);         \
+    IRMutator::Visit(op, expr);                             \
+  };
+    __(Sum)
+    __(Product)
+    NODETY_BINARY_OP_FOR_EACH(__)
+#undef __
+
+    void Visit(const ir::Select *op, ir::Expr *expr) override {
+      auto node = expr->As<ir::Select>();
+
+      auto promote_args = std::move(
+          ir::TryElevateInt32ToInt64({node->true_value, node->false_value}));
+      node->true_value = promote_args.at(0);
+      node->false_value = promote_args.at(1);
+
+      IRMutator::Visit(op, expr);
+    }
+
+    void Visit(const ir::Load *op, ir::Expr *expr) {
+      auto node = expr->As<ir::Load>();
+      ir::TryElevateInt32ToInt64_(node->indices);
+      IRMutator::Visit(op, expr);
+    }
+
+    void Visit(const ir::Store *op, ir::Expr *expr) {
+      auto node = expr->As<ir::Store>();
+      ir::TryElevateInt32ToInt64_(node->indices);
+      IRMutator::Visit(op, expr);
+    }
+
+    void Visit(const ir::Let *op, ir::Expr *expr) {
+      auto node = expr->As<ir::Let>();
+      auto promote_args =
+          std::move(ir::TryElevateInt32ToInt64({node->symbol, node->body}));
+      node->symbol = promote_args.at(0);
+      node->body = promote_args.at(1);
+      IRMutator::Visit(op, expr);
+    }
+
+    void Visit(const ir::For *op, ir::Expr *expr) {
+      auto node = expr->As<ir::For>();
+      auto promote_args = std::move(ir::TryElevateInt32ToInt64(
+          {node->loop_var, node->min, node->extent}));
+      node->loop_var = promote_args.at(0);
+      node->min = promote_args.at(1);
+      node->extent = promote_args.at(2);
+      IRMutator::Visit(op, expr);
+    }
+  };
+
+  TypePromote visitor;
+  visitor(expr);
+}
+
+void OpDataTypePromote(ir::Module *module) {
+  auto node = module->As<ir::_Module_>();
+  for (auto &func : node->functions) {
+    OpDataTypePromote(&func->body);
+  }
+  for (auto &buffer : node->buffers) {
+    OpDataTypePromote(&buffer);
+  }
+  for (auto &submodule : node->submodules) {
+    OpDataTypePromote(&submodule);
+  }
+}
+
+void OpDataTypePromote(ir::LoweredFunc *func) {
+  auto node = func->As<ir::_LoweredFunc_>();
+  OpDataTypePromote(&node->body);
+}
 }  // namespace common
 }  // namespace cinn

@@ -15,7 +15,9 @@
 
 import paddle
 import paddle.distributed as dist
+from paddle.distributed.auto_parallel.static.utils import split_mesh
 
+from ..process_group import new_process_group
 from .base_reshard_func import (
     ReshardFunction,
     copy_dist_attr_with_new_member,
@@ -133,7 +135,9 @@ class NdMeshReshardFunction(ReshardFunction):
             tmp_dst_type = paddle.base.libpaddle.pir.cvt_to_dist_type(
                 src_value.type(), tmp_dst_dist_attr
             )
-
+            sub_mesh_list = split_mesh(process_mesh, in_mesh_axis)
+            for sub_mesh in sub_mesh_list:
+                new_process_group(sorted(sub_mesh.process_ids))
             # get the process_mesh on specific axis
             sub_mesh = get_1D_sub_process_mesh(process_mesh, in_mesh_axis)
 
@@ -173,7 +177,7 @@ class NdMeshReshardFunction(ReshardFunction):
                 if partial_dim in out_partial_status:
                     if out_partial_status[partial_dim] != partial_type:
                         raise NotImplementedError(
-                            f"Reshard tensor from one partial type {partial_type} to another parital type {out_partial_status[partial_dim]} is not supported yet."
+                            f"Reshard tensor from one partial type {partial_type} to another partial type {out_partial_status[partial_dim]} is not supported yet."
                         )
                     continue
 
@@ -197,7 +201,9 @@ class NdMeshReshardFunction(ReshardFunction):
                 tmp_dst_type = paddle.base.libpaddle.pir.cvt_to_dist_type(
                     src_value.type(), tmp_dst_dist_attr
                 )
-
+                sub_mesh_list = split_mesh(process_mesh, partial_dim)
+                for sub_mesh in sub_mesh_list:
+                    new_process_group(sorted(sub_mesh.process_ids))
                 # get the process_mesh on specific axis
                 sub_mesh = get_1D_sub_process_mesh(process_mesh, partial_dim)
 

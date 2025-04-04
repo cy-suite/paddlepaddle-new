@@ -89,7 +89,7 @@ class MapExprToIrTranslator {
         1,
         ::common::errors::InvalidArgument("Only support one LoweredFunc now!"));
     std::optional<ir::Expr> ret{std::nullopt};
-    VisitEachStoreExpr(lowered_funcs.at(0), [&](const ir::Expr& expr) {
+    VisitEachStoreExpr(lowered_funcs.at(0)->body, [&](const ir::Expr& expr) {
       PADDLE_ENFORCE_EQ(
           ret.has_value(),
           false,
@@ -121,7 +121,7 @@ class MapExprToIrTranslator {
         1,
         ::common::errors::InvalidArgument("Only support one LoweredFunc now!"));
     std::vector<ir::Expr> stores{};
-    VisitEachStoreExpr(lowered_funcs.at(0), [&](const ir::Expr& expr) {
+    VisitEachStoreExpr(lowered_funcs.at(0)->body, [&](const ir::Expr& expr) {
       stores.emplace_back(expr);
     });
     PADDLE_ENFORCE_EQ(stores.size(),
@@ -146,7 +146,7 @@ class MapExprToIrTranslator {
         1,
         ::common::errors::InvalidArgument("Only support one LoweredFunc now!"));
     std::vector<ir::Expr> stores{};
-    VisitEachStoreExpr(lowered_funcs.at(0), [&](const ir::Expr& expr) {
+    VisitEachStoreExpr(lowered_funcs.at(0)->body, [&](const ir::Expr& expr) {
       stores.emplace_back(expr);
     });
     PADDLE_ENFORCE_EQ(stores.size(),
@@ -176,9 +176,6 @@ class MapExprToIrTranslator {
   template <typename DoEachT>
   void VisitEachStoreExpr(const ir::Expr& expr, const DoEachT& DoEach) const {
     switch (expr.node_type()) {
-      case ir::IrNodeTy::_LoweredFunc_:
-        VisitEachStoreExpr(expr.as_lowered_func()->body, DoEach);
-        break;
       case ir::IrNodeTy::Block:
         for (const auto& stmt : expr.As<ir::Block>()->stmts) {
           VisitEachStoreExpr(stmt, DoEach);
@@ -875,6 +872,15 @@ class MapExprToIrTranslator {
     PADDLE_THROW(::common::errors::Fatal("Dead code"));
   }
 
+  ir::Expr Divide(const std::vector<ir::Expr>& ir_exprs) const {
+    if (ir_exprs.size() < 2) {
+      PADDLE_THROW(::common::errors::Fatal(
+          "The size of Divide must be greater than 2."));
+    } else {
+      return ir::Div::Make(ir_exprs.at(0), ir_exprs.at(1));
+    }
+  }
+
   ir::Expr GetStride(const List<DimExpr>& dims, int start) const {
     PADDLE_ENFORCE_GE(start,
                       -1,
@@ -947,13 +953,6 @@ class MapExprToIrTranslator {
     return ir::Sub::Make(ir::Expr(0), inner_expr);
   }
 
-  ir::Expr TranslateDimExprImpl(
-      const ::symbol::Reciprocal<DimExpr>& dim_expr) const {
-    const auto& [inner_dim_expr] = *dim_expr;
-    ir::Expr inner_expr = TranslateDimExpr(inner_dim_expr);
-    return ir::Div::Make(ir::Expr(1), inner_expr);
-  }
-
   ir::Expr TranslateDimExprImpl(const ::symbol::Add<DimExpr>& dim_expr) const {
     std::vector<ir::Expr> ir_exprs{};
     const auto& [exprs] = dim_expr;
@@ -970,6 +969,15 @@ class MapExprToIrTranslator {
       ir_exprs.emplace_back(TranslateDimExpr(expr));
     }
     return Multiply(ir_exprs);
+  }
+
+  ir::Expr TranslateDimExprImpl(const ::symbol::Div<DimExpr>& dim_expr) const {
+    std::vector<ir::Expr> ir_exprs{};
+    const auto& lhs = dim_expr->lhs;
+    const auto& rhs = dim_expr->rhs;
+    ir_exprs.emplace_back(TranslateDimExpr(lhs));
+    ir_exprs.emplace_back(TranslateDimExpr(rhs));
+    return Divide(ir_exprs);
   }
 
   ir::Expr TranslateDimExprImpl(const ::symbol::Max<DimExpr>& dim_expr) const {

@@ -31,7 +31,7 @@ namespace optim {
  *    `grid_reduce` template function.
  * 3. Adds a condition check `is_last_block_done` to the grid reduce and all
  *    subsequent schedule blocks.
- * 4. Pushes global buffers (`rf` and `semaphore`) to the function’s argument
+ * 4. Pushes global buffers (`rf` and `semaphore`) to the function's argument
  *    list.
  *
  * Example:
@@ -54,7 +54,7 @@ namespace optim {
  *         var_1[i] = grid_reduce_sum(var_1_rf)
  * }
  */
-void ReplaceCrossBlockReduction(Expr* e);
+void ReplaceCrossBlockReduction(ir::LoweredFunc fn);
 
 }  // namespace optim
 }  // namespace cinn

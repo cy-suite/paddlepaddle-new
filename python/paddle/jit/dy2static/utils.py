@@ -20,13 +20,17 @@ import functools
 import importlib.util
 import inspect
 import os
+import platform
 import shutil
 import sys
 import tempfile
 import textwrap
 import types
+import warnings
+from contextlib import contextmanager
+from enum import Enum, auto
 from importlib.machinery import SourceFileLoader
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
@@ -38,8 +42,14 @@ from paddle.base.wrapped_decorator import signature_safe_contextmanager
 from paddle.framework import CUDAPinnedPlace
 from paddle.jit.utils import OrderedSet
 from paddle.utils import flatten, gast
+from paddle.utils.environments import (
+    BooleanEnvironmentVariable,
+)
 
 from .ast_utils import ast_to_source_code
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 __all__ = []
 
@@ -69,8 +79,36 @@ NO_SHAPE_VAR_TYPE = [
     core.VarDesc.VarType.FETCH_LIST,
 ]
 
+ENV_ENABLE_SOT = BooleanEnvironmentVariable("ENABLE_FALL_BACK", True)
+ENV_ENABLE_CINN_IN_DY2ST = BooleanEnvironmentVariable(
+    "ENABLE_CINN_IN_DY2ST", True
+)
 
-def data_layer_not_check(name, shape, dtype='float32', lod_level=0):
+
+class Backend(Enum):
+    CINN = auto()
+    PHI = auto()
+
+    @staticmethod
+    def from_arg(arg: str | Backend | None):
+        if isinstance(arg, Backend):
+            return arg
+        if arg is None:
+            return Backend.PHI
+        if arg.upper() == "CINN":
+            return Backend.CINN
+        raise ValueError(
+            f"Unknown backend {arg}. Only support 'CINN' or None for PHI."
+        )
+
+    def is_cinn(self):
+        return self == Backend.CINN
+
+    def is_phi(self):
+        return self == Backend.PHI
+
+
+def data_layer_not_check(name, shape, dtype='float32'):
     """
     This function creates a Tensor on the global block. The created Tensor
     doesn't check the dtype and the shape of feed data because dygraph input
@@ -92,8 +130,6 @@ def data_layer_not_check(name, shape, dtype='float32', lod_level=0):
        dtype (np.dtype|VarType|str, optional): The type of the data. Supported
            dtype: bool, float16, float32, float64, int8, int16, int32, int64,
            uint8. Default: float32
-       lod_level (int, optional): The LoD level of the LoDTensor. Usually users
-           don't have to set this value. Default: 0
 
     Returns:
         Tensor: The global Tensor that gives access to the data.
@@ -108,9 +144,8 @@ def data_layer_not_check(name, shape, dtype='float32', lod_level=0):
         name=name,
         shape=shape,
         dtype=dtype,
-        type=core.VarDesc.VarType.LOD_TENSOR,
+        type=core.VarDesc.VarType.DENSE_TENSOR,
         stop_gradient=True,
-        lod_level=lod_level,
         is_data=True,
         need_check_feed=False,
     )
@@ -213,7 +248,7 @@ def make_hashable(x, error_msg=None):
 # NOTE(Aurelius84): Consider the following paddle inner API as common case to
 # apply @to_static code transformation as usual. Because they contains
 # user-defined layer, like paddle.distributed.auto_parallel.helper.ProxyLayer.
-AS_NOT_INNER_FUNC_LIST = {"paddle.nn.layer.container.Sequential"}
+AS_NOT_INNER_FUNC_LIST = {"paddle.nn.layer.container.Sequential.forward"}
 
 
 def as_not_paddle_func(path):
@@ -221,7 +256,7 @@ def as_not_paddle_func(path):
     Append API or class as ignored case for is_paddle_func, and they
     will be returned False while calling is_paddle_func(func).
     """
-    global INNER_FUNC_WHITE_LIST
+    global AS_NOT_INNER_FUNC_LIST
     AS_NOT_INNER_FUNC_LIST.add(path)
 
 
@@ -237,15 +272,19 @@ def is_paddle_func(func, ignore_white_list=True):
         return (module.__name__ + '.' + func_name) in AS_NOT_INNER_FUNC_LIST
 
     try:
+        if isinstance(func, paddle.nn.Layer):
+            func = func.forward
+        if isinstance(
+            func, paddle.jit.dy2static.program_translator.StaticFunction
+        ):
+            func = func.dygraph_function
         if isinstance(func, functools.partial):
             func = func.func
-
-        func_name = getattr(func, '__name__', None)
         if inspect.ismethod(func):
-            func_name = func.__self__.__class__.__name__
             func = func.__func__
-        elif hasattr(func, '__class__'):  # for nn.Sequential
-            func_name = func.__class__.__name__
+        func_name = getattr(func, '__name__', None)
+        if inspect.ismethod(func) or inspect.isfunction(func):
+            func_name = func.__qualname__
 
         m = inspect.getmodule(func)
         flag = m is not None and m.__name__.startswith(PADDLE_MODULE_PREFIX)
@@ -303,6 +342,7 @@ def wrap_as_closure(tree: gast.AST, closure_vars: list[str]) -> gast.AST:
                 )
             ],
             value=value,
+            type_comment=None,
         )
 
     def create_wrppper_fn_def_node(name, body) -> gast.FunctionDef:
@@ -321,6 +361,7 @@ def wrap_as_closure(tree: gast.AST, closure_vars: list[str]) -> gast.AST:
             decorator_list=[],
             returns=None,
             type_comment=None,
+            type_params=[],
         )
 
     if not isinstance(tree, gast.Module):
@@ -651,15 +692,42 @@ def prim_or_cinn_is_enabled(build_strategy, backend):
 
 
 def cinn_is_enabled(build_strategy, backend):
-    if backend == 'CINN':
+    if backend.is_cinn():
         return True
-    if build_strategy is not None and build_strategy.build_cinn_pass:
+    if build_strategy.build_cinn_pass:
+        warnings.warn(
+            "Use `build_strategy.build_cinn_pass = True` to enable CINN is deprecated, please use `backend = 'CINN'` instead."
+        )
         return True
-
-    value = os.getenv('FLAGS_use_cinn')
-    if value is not None and value.lower() in ['true', '1']:
+    if paddle.base.framework.in_cinn_mode():
         return True
     return False
+
+
+def infer_use_cinn_backend(backend, build_strategy):
+    if not cinn_is_available():
+        return False
+    if not ENV_ENABLE_CINN_IN_DY2ST.get():
+        return False
+    if not cinn_is_enabled(build_strategy, backend):
+        return False
+    return True
+
+
+def cinn_is_available():
+    if not paddle.is_compiled_with_cinn():
+        return False
+    if not paddle.is_compiled_with_cuda():
+        return False
+    if not isinstance(
+        paddle.framework._current_expected_place_(), paddle.base.core.CUDAPlace
+    ):
+        return False
+    if platform.system() != "Linux":
+        return False
+    if not paddle.framework.use_pir_api():
+        return False
+    return True
 
 
 def cse_is_enabled():
@@ -669,7 +737,6 @@ def cse_is_enabled():
 
 
 def prim_is_enabled():
-    core.check_and_set_prim_all_enabled()
     return core._is_bwd_prim_enabled() or core._is_fwd_prim_enabled()
 
 
@@ -700,19 +767,47 @@ def is_builtin(func, name=None):
         return False
 
 
-@signature_safe_contextmanager
-def backend_guard(backend):
-    core.check_and_set_prim_all_enabled()
+def compose_guards(*guard_creators):
+    @contextmanager
+    def composed_guard():
+        if not guard_creators:
+            yield
+            return
+        with guard_creators[0]():
+            with compose_guards(*guard_creators[1:])():
+                yield
+
+    return composed_guard
+
+
+@contextmanager
+def prim_guard():
     origin_fwd = core._is_fwd_prim_enabled()
     origin_bwd = core._is_bwd_prim_enabled()
-
-    if backend == 'CINN':
-        core._set_prim_all_enabled(True)
+    core._set_prim_all_enabled(True)
     try:
         yield
     finally:
         core._set_prim_forward_enabled(origin_fwd)
         core._set_prim_backward_enabled(origin_bwd)
+
+
+@contextmanager
+def backend_guard(backend):
+    guard_creators = []
+    if backend.is_cinn():
+        guard_creators.append(lambda: prim_guard())
+        guard_creators.append(
+            lambda: paddle.base.framework.flag_guard(
+                "FLAGS_prim_enable_dynamic", True
+            )
+        )
+        guard_creators.append(
+            lambda: paddle.base.framework.flag_guard("FLAGS_use_cinn", True)
+        )
+
+    with compose_guards(*guard_creators)():
+        yield
 
 
 def construct_grad_names(grad_info_map, x_vars, param_vars, out_vars):
@@ -758,3 +853,53 @@ def cuda_pinned_tensors_move_to_excepted_place(inputs):
                 var = value._copy_to(expected_place, True)
                 var.stop_gradient = True
                 var._share_buffer_to(value)
+
+
+def patch_method(instance: object, name: str, new_method: Callable[..., Any]):
+    def get_original_method(instance: object, name: str):
+        """
+        There are two case we don't need to restore the method:
+        1. If the attribute is not existed
+        2. If the obj.attr.__func__ is obj.__class__.attr
+        If the method need restore, return the original method.
+        Otherwise, return None, indicating that the method can be simply deleted.
+        """
+        if not hasattr(instance, name):
+            return None
+
+        original_method = getattr(instance, name)
+        if not inspect.ismethod(original_method):
+            # obj.attr is a function or other object (not a bound method)
+            return original_method
+
+        if not hasattr(instance.__class__, name):
+            # obj.__class__ has not the same unbound method
+            return original_method
+
+        if original_method.__func__ is not getattr(instance.__class__, name):
+            # obj.attr is a bound method, but it's unbound method is
+            # different from obj.__class__.attr
+            return original_method
+        return None
+
+    original_method = get_original_method(instance, name)
+    object.__setattr__(instance, name, new_method)
+
+    def restorer(instance):
+        if original_method is None:
+            object.__delattr__(instance, name)
+        else:
+            object.__setattr__(instance, name, original_method)
+
+    return restorer
+
+
+@contextmanager
+def patch_method_guard(
+    instance: object, name: str, new_method: Callable[..., Any]
+):
+    restorer = patch_method(instance, name, new_method)
+    try:
+        yield
+    finally:
+        restorer(instance)

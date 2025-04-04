@@ -28,6 +28,14 @@
 #ifdef PADDLE_WITH_DNNL
 #include "paddle/phi/core/platform/onednn_op_list.h"
 #endif
+#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
+#include "paddle/fluid/distributed/collective/process_group.h"
+#include "paddle/fluid/distributed/collective/process_group_nccl.h"
+#include "paddle/phi/core/distributed/comm_context_manager.h"
+#elif defined(PADDLE_WITH_XPU_BKCL)
+#include "paddle/fluid/distributed/collective/process_group.h"
+#include "paddle/fluid/distributed/collective/process_group_bkcl.h"
+#endif
 #include "paddle/common/flags.h"
 #include "paddle/fluid/framework/library_type.h"
 #include "paddle/fluid/platform/profiler/supplement_tracing.h"
@@ -211,9 +219,10 @@ PreparedOp PrepareImpl(
 #endif
 
 #if defined(PADDLE_WITH_XPU)
-  bool is_xpu_unsupport = expected_kernel_key.backend() == phi::Backend::XPU &&
-                          !paddle::platform::is_xpu_support_op(
-                              op.Type(), expected_kernel_key.dtype());
+  bool is_xpu_unsupported =
+      expected_kernel_key.backend() == phi::Backend::XPU &&
+      !paddle::platform::is_xpu_support_op(op.Type(),
+                                           expected_kernel_key.dtype());
 #endif
 
   bool has_phi_kernel = false;
@@ -263,7 +272,7 @@ PreparedOp PrepareImpl(
       if (is_xpu_kp_support) {
         auto expected_kernel_key_backend = expected_kernel_key.backend();
         expected_kernel_key.set_backend(phi::Backend::KPS);
-        VLOG(3) << "modifing XPU KP kernel: " << phi_kernel_name
+        VLOG(3) << "modifying XPU KP kernel: " << phi_kernel_name
                 << ", using_kernel_key:" << expected_kernel_key;
 
         if (!phi_kernel_factory.HasKernel(phi_kernel_name,
@@ -284,7 +293,7 @@ PreparedOp PrepareImpl(
 
     if (phi_kernel.IsValid()
 #if defined(PADDLE_WITH_XPU) && !defined(PADDLE_WITH_XPU_KP)
-        && !is_xpu_unsupport
+        && !is_xpu_unsupported
 #endif
     ) {
       VLOG(6) << "Dynamic mode PrepareImpl - kernel name: " << phi_kernel_name
@@ -296,6 +305,88 @@ PreparedOp PrepareImpl(
               phi::TransToPhiBackend(dev_ctx->GetPlace()))) {
         dev_ctx = pool.Get(phi::TransToPhiPlace(expected_kernel_key.backend()));
       }
+#if defined(PADDLE_WITH_NCCL) || defined(PADDLE_WITH_RCCL)
+      if (attrs.find("ring_id") != attrs.end()) {
+        auto ring_id_attr = attrs.at("ring_id");
+        int ring_id = PADDLE_GET(int, ring_id_attr);
+        const auto& comm_context_manager =
+            phi::distributed::CommContextManager::GetInstance();
+        auto map = distributed::ProcessGroupMapFromGid::getInstance();
+        phi::distributed::CommContext* comm_context = nullptr;
+        if (comm_context_manager.Has(std::to_string(ring_id))) {
+          comm_context = comm_context_manager.Get(std::to_string(ring_id));
+        } else if (map->has(ring_id)) {
+          distributed::ProcessGroup* pg = map->get(ring_id);
+          comm_context = static_cast<paddle::distributed::ProcessGroupNCCL*>(pg)
+                             ->GetOrCreateCommContext(place);
+        }
+        if (comm_context) {
+          auto original_stream =
+              static_cast<phi::GPUContext*>(dev_ctx)->cuda_stream();
+          dev_ctx =
+              static_cast<phi::distributed::NCCLCommContext*>(comm_context)
+                  ->GetDevContext();
+          dev_ctx->SetCommContext(comm_context);
+          // Note(lizhenxing): In dynamic mode, c_softmax_with_cross_entropy
+          // need use global calculate stream (original_stream). Using the
+          // comm_ctx's stream will lead to synchronization issues, causing
+          // accuracy diff in test_parallel_dygraph_mp_layers.
+          if (phi::is_gpu_place(place) &&
+              ((attrs.find("use_calc_stream") != attrs.end() &&
+                PADDLE_GET_CONST(bool, attrs.at("use_calc_stream"))) ||
+               phi_kernel_name == "c_softmax_with_cross_entropy" ||
+               phi_kernel_name == "c_softmax_with_multi_label_cross_entropy")) {
+            static_cast<phi::GPUContext*>(dev_ctx)->SetCUDAStream(
+                original_stream, false);
+            auto& instance =
+                paddle::memory::allocation::AllocatorFacade::Instance();
+            dev_ctx->SetAllocator(
+                instance
+                    .GetAllocator(
+                        place, static_cast<phi::GPUContext*>(dev_ctx)->stream())
+                    .get());
+          }
+        }
+      }
+#endif
+#if defined(PADDLE_WITH_XPU_BKCL)
+      if (attrs.find("ring_id") != attrs.end()) {
+        auto ring_id_attr = attrs.at("ring_id");
+        int ring_id = PADDLE_GET(int, ring_id_attr);
+        auto map = distributed::ProcessGroupMapFromGid::getInstance();
+        if (map->has(ring_id)) {
+          distributed::ProcessGroup* pg = map->get(ring_id);
+          auto comm_context =
+              static_cast<paddle::distributed::ProcessGroupBKCL*>(pg)
+                  ->GetOrCreateCommContext(place);
+          auto original_stream =
+              static_cast<phi::XPUContext*>(dev_ctx)->stream();
+          dev_ctx =
+              static_cast<phi::distributed::BKCLCommContext*>(comm_context)
+                  ->GetDevContext();
+          dev_ctx->SetCommContext(comm_context);
+          // Note(lizhenxing): In dynamic mode, c_softmax_with_cross_entropy
+          // need use global calculate stream (original_stream). Using the
+          // comm_ctx's stream will lead to synchronization issues, causing
+          // accuracy diff in test_parallel_dygraph_mp_layers.
+          if (phi::is_xpu_place(place) &&
+              ((attrs.find("use_calc_stream") != attrs.end() &&
+                PADDLE_GET_CONST(bool, attrs.at("use_calc_stream"))) ||
+               phi_kernel_name == "c_softmax_with_cross_entropy" ||
+               phi_kernel_name == "c_softmax_with_multi_label_cross_entropy")) {
+            static_cast<phi::XPUContext*>(dev_ctx)->SetStream(original_stream,
+                                                              false);
+            auto& instance =
+                paddle::memory::allocation::AllocatorFacade::Instance();
+            dev_ctx->SetAllocator(
+                instance
+                    .GetAllocator(
+                        place, static_cast<phi::XPUContext*>(dev_ctx)->stream())
+                    .get());
+          }
+        }
+      }
+#endif
       return PreparedOp(op,
                         empty_ctx,
                         expected_kernel_key,
@@ -338,10 +429,10 @@ PreparedOp PrepareImpl(
        kernels_iter->second.find(fluid_kernel_type) ==
            kernels_iter->second.end())
 #if defined(PADDLE_WITH_XPU) && !defined(PADDLE_WITH_XPU_KP)
-      || is_xpu_unsupport
+      || is_xpu_unsupported
 #endif
 #if defined(PADDLE_WITH_XPU_KP)
-      || (is_xpu_unsupport && !is_xpu_kp_support)
+      || (is_xpu_unsupported && !is_xpu_kp_support)
 #endif
   ) {
     if (has_phi_kernel) {
@@ -377,7 +468,7 @@ PreparedOp PrepareImpl(
 
 #if defined(PADDLE_WITH_XPU) && !defined(PADDLE_WITH_XPU_KP)
   if (phi::is_xpu_place(fluid_kernel_type.place_) &&
-      (kernel_iter == kernels.end() || is_xpu_unsupport)) {
+      (kernel_iter == kernels.end() || is_xpu_unsupported)) {
     VLOG(3) << "fluid missing XPU kernel: " << op.Type()
             << ", expected_kernel_key:" << fluid_kernel_type
             << ", fallbacking to CPU one!";
@@ -401,7 +492,7 @@ PreparedOp PrepareImpl(
               << ", using_kernel_key:" << fluid_kernel_type;
     }
     if (!is_xpu_kp_support &&
-        (kernel_iter == kernels.end() || is_xpu_unsupport)) {
+        (kernel_iter == kernels.end() || is_xpu_unsupported)) {
       VLOG(3) << "fluid missing XPU kernel: " << op.Type()
               << ", expected_kernel_key:" << fluid_kernel_type
               << ", fallbacking to CPU one!";

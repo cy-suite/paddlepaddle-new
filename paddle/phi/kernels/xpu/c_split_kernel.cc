@@ -24,8 +24,6 @@ void CSplitKernel(const Context& dev_ctx,
                   const DenseTensor& x,
                   int rank,
                   int nranks,
-                  int ring_id,
-                  bool use_calc_stream,
                   bool use_model_parallel,
                   DenseTensor* out) {
   using XPUType = typename XPUTypeTrait<T>::Type;
@@ -61,7 +59,7 @@ void CSplitKernel(const Context& dev_ctx,
 
   dims[dims_size - 1] /= nranks;
   out->Resize(dims);
-  dev_ctx.template Alloc(out, x.dtype());
+  dev_ctx.Alloc(out, x.dtype());
 
   std::vector<XPUType*> output_list(nranks, nullptr);
   output_list.at(rank) = reinterpret_cast<XPUType*>(out->data<T>());

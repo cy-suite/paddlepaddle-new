@@ -39,7 +39,7 @@ class CodeGenInvokeModule : public CodeGenLLVM {
       : CodeGenLLVM(m, b, vars) {}
 
   using CodeGenLLVM::Visit;
-  llvm::Value *Visit(const ir::_LoweredFunc_ *func) override {
+  llvm::Value *Visit(const ir::_LoweredFunc_ *func) {
     return LowerInvokeFunc(func);
   }
 
@@ -68,11 +68,27 @@ class CodeGenSwitchHost : public CodeGenInvokeModule {
       : CodeGenInvokeModule(m, b, vars) {}
   // only support call of args get function and inner case host function call
   llvm::Value *Visit(const ir::Call *op) override {
-    if (op->name == runtime::intrinsic::get_value_in_cuda_kernel_args) {
-      return CodeGenLLVM::Visit(op);
-    } else {
-      return LowerInnerCaseCall(op);
-    }
+    return common::DefaultDeviceTarget().arch.Match(
+        [&](common::NVGPUArch) -> llvm::Value * {
+          if (op->name == runtime::intrinsic::get_value_in_cuda_kernel_args) {
+            return CodeGenLLVM::Visit(op);
+          } else {
+            return LowerInnerCaseCall(op);
+          }
+        },
+        [&](common::HygonDCUArchHIP) -> llvm::Value * {
+          if (op->name == runtime::intrinsic::get_value_in_hip_kernel_args) {
+            return CodeGenLLVM::Visit(op);
+          } else {
+            return LowerInnerCaseCall(op);
+          }
+        },
+        [&](std::variant<common::UnknownArch,
+                         common::X86Arch,
+                         common::ARMArch,
+                         common::HygonDCUArchSYCL>) -> llvm::Value * {
+          CINN_NOT_IMPLEMENTED;
+        });
   }
 
  private:
