@@ -36,7 +36,7 @@ void PSendKernel(const Context& dev_ctx,
 #if defined(PADDLE_WITH_XPU_BKCL)
   auto comm_ctx =
       GetCommContext<Context, distributed::BKCLCommContext>(dev_ctx, peer);
-  XPUStream stream = dev_ctx.stream();
+  XPUStream stream = comm_ctx->GetStream();
   if (dynamic_shape) {
     send_shape_info<Context, distributed::BKCLCommContext, XPUStream>(
         dev_ctx, x, comm_ctx, peer, stream);
