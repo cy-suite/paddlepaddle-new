@@ -26,10 +26,10 @@ logger = get_logger(logging.INFO)
 
 # For allreduce pattern in the backward phase of column parallel linear:
 #   dX, dY = matmul_grad(X, Y, dOut)
-#   dX = c_allreduce_sum(dX)
+#   dX = all_reduce_sum(dX)
 # Split matmul_grad to 2 matmul:
 #   dX = matmul(dOut, Y^T)
-#   dX = c_allreduce_sum(dX)
+#   dX = all_reduce_sum(dX)
 #   dY = matmul(X^T, dOut)
 #
 # Then the all_reduce sum can overlap with the compute of dY.
@@ -76,10 +76,7 @@ class AllreduceMatmulGradOverlappingPass(PassBase):
                 x_grad = op_i.output("X@GRAD")
                 for j in range(i + 1, op_num):
                     op_j = ops[j]
-                    if (
-                        op_j.type == 'c_allreduce_sum'
-                        and op_j.input("X") == x_grad
-                    ):
+                    if op_j.type == 'all_reduce' and op_j.input("X") == x_grad:
                         matmul_grad_id_to_allreduce_id[i] = j
         return matmul_grad_id_to_allreduce_id
 

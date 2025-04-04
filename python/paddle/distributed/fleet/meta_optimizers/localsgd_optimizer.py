@@ -407,7 +407,7 @@ class AdaptiveLocalSGDOptimizer(MetaOptimizerBase):
                     )
                     ring_id = (ring_id + 1) % self.nrings
                     sub_block.append_op(
-                        type='c_allreduce_sum',
+                        type='all_reduce',
                         inputs={'X': [param]},
                         outputs={'Out': [param]},
                         attrs={
