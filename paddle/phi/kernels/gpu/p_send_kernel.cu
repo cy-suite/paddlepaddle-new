@@ -38,6 +38,8 @@ void PSendKernel(const Context& dev_ctx,
     defined(PADDLE_WITH_RCCL) && NCCL_VERSION_CODE >= 2703
   auto comm_ctx =
       GetCommContext<Context, distributed::NCCLCommContext>(dev_ctx, peer);
+  PADDLE_ENFORCE_NOT_NULL(
+      comm_ctx, common::errors::InvalidArgument("comm_ctx not found."));
   gpuStream_t stream = comm_ctx->GetStream();
   if (dynamic_shape) {
     send_shape_info<Context, distributed::NCCLCommContext, gpuStream_t>(
