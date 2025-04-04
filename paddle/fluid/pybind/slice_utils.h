@@ -390,21 +390,21 @@ static void ParseIndex(const paddle::Tensor& tensor,
                                 slice_tensor.shape()[0],
                                 dim_len,
                                 current_dim));
-        } else if (slice_tensor.dtype() == phi::DataType::INT64 ||
-                   slice_tensor.dtype() == phi::DataType::INT32) {
-          // check if current slice_tensor is valid
-          PADDLE_ENFORCE_EQ(
-              current_dim + 1 <= rank,
-              true,
-              common::errors::InvalidArgument(
-                  "Too many indices (%d) for tensor of dimension %d.",
-                  current_dim + 1,
-                  rank));
-          if (slice_tensor.dtype() == phi::DataType::INT32) {
-            CheckTensorIndexValue<int32_t>(slice_tensor, dim_len);
-          } else if (slice_tensor.dtype() == phi::DataType::INT64) {
-            CheckTensorIndexValue<int64_t>(slice_tensor, dim_len);
-          }
+          // } else if (slice_tensor.dtype() == phi::DataType::INT64 ||
+          //            slice_tensor.dtype() == phi::DataType::INT32) {
+          //   // check if current slice_tensor is valid
+          //   PADDLE_ENFORCE_EQ(
+          //       current_dim + 1 <= rank,
+          //       true,
+          //       common::errors::InvalidArgument(
+          //           "Too many indices (%d) for tensor of dimension %d.",
+          //           current_dim + 1,
+          //           rank));
+          //   if (slice_tensor.dtype() == phi::DataType::INT32) {
+          //     CheckTensorIndexValue<int32_t>(slice_tensor, dim_len);
+          //   } else if (slice_tensor.dtype() == phi::DataType::INT64) {
+          //     CheckTensorIndexValue<int64_t>(slice_tensor, dim_len);
+          //   }
         }
         *has_advanced_index = true;
         advanced_index->push_back(std::move(slice_tensor));
