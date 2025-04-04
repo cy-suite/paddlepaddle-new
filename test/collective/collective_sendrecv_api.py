@@ -47,7 +47,7 @@ def send_new(tensor, dst, group=None, sync_op=True):
     helper = framework.LayerHelper(op_type, **locals())
     helper.append_op(
         type=op_type,
-        inputs={'x': [tensor]},
+        inputs={'X': [tensor]},
         attrs={
             'ring_id': ring_id,
             'peer': dst,
@@ -78,7 +78,7 @@ def recv_new(tensor, src, group=None, sync_op=True, dtype='float32'):
     helper = framework.LayerHelper(op_type, **locals())
     helper.append_op(
         type=op_type,
-        outputs={'out': [tensor]},
+        outputs={'Out': [tensor]},
         attrs={
             'ring_id': ring_id,
             'peer': src,

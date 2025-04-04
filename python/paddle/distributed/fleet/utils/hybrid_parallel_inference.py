@@ -615,7 +615,7 @@ class HybridParallelInferenceHelper:
 
                     block._insert_op_without_sync(
                         index=index + extra_index_info['index'],
-                        type='send_v2',
+                        type='p_send',
                         inputs={'X': var},
                         attrs={
                             self._op_device_key: prev_dev,
@@ -637,7 +637,7 @@ class HybridParallelInferenceHelper:
 
                     block._insert_op_without_sync(
                         index=index + extra_index_info['index'],
-                        type='recv_v2',
+                        type='p_recv',
                         outputs={'Out': [var]},
                         attrs={
                             'out_shape': var_shape,
@@ -714,7 +714,7 @@ class HybridParallelInferenceHelper:
                 if stage == cur_id:
                     block._insert_op_without_sync(
                         index=index,
-                        type='send_v2',
+                        type='p_send',
                         inputs={'X': var},
                         attrs={
                             self._op_device_key: self._device
@@ -737,7 +737,7 @@ class HybridParallelInferenceHelper:
                         )
                     block._insert_op_without_sync(
                         index=index,
-                        type='recv_v2',
+                        type='p_recv',
                         outputs={'Out': [var]},
                         attrs={
                             'out_shape': var_shape,
