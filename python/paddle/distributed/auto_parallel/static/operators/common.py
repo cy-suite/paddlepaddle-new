@@ -511,7 +511,7 @@ def sync_and_scale_gradients(dist_ctx, op, groups, allreduce_var_names):
     dist_op_context = dist_ctx.dist_op_context
     main_block = dist_op_context.work_block
 
-    allreduce_type = "c_allreduce_sum"
+    reduce_type = paddle.distributed.ReduceOp.SUM
     need_scale = dist_ctx.gradient_scale
     scale_using_allreduce_avg = dist_ctx.gradient_scale_using_allreduce_avg
 
@@ -521,7 +521,7 @@ def sync_and_scale_gradients(dist_ctx, op, groups, allreduce_var_names):
         and scale_using_allreduce_avg
         and int(paddle.version.nccl()) > 21000
     ):
-        allreduce_type = "c_allreduce_avg"
+        reduce_type = paddle.distributed.ReduceOp.AVG
         need_scale = False
 
     for group in groups:
@@ -531,12 +531,12 @@ def sync_and_scale_gradients(dist_ctx, op, groups, allreduce_var_names):
             added_ops = []
             grad_var = main_block.var(var_name)
             allreduce_op = main_block.append_op(
-                type=allreduce_type,
-                inputs={'X': [grad_var]},
-                outputs={'Out': [grad_var]},
+                type='all_reduce',
+                inputs={'x': [grad_var]},
+                outputs={'out': [grad_var]},
                 attrs={
                     'ring_id': group.id,
-                    'use_calc_stream': True,
+                    'reduce_type': reduce_type,
                     OP_ROLE_KEY: OpRole.Backward,
                 },
             )
@@ -673,7 +673,14 @@ def is_data_parallel_reduce_op(op):
     is_allreduce_op = op.type in [
         "c_allreduce_sum",
         "c_allreduce_avg",
-    ]
+    ] or (
+        op.type == "all_reduce"
+        and op.desc.attr("reduce_type")
+        in [
+            dist.ReduceOp.SUM,
+            dist.ReduceOp.AVG,
+        ]
+    )
     is_reduce_op = op.type == "reduce" and op.desc.attr("reduce_type") in [
         dist.ReduceOp.SUM,
         dist.ReduceOp.AVG,
@@ -696,7 +703,14 @@ def is_amp_flag_sync_op(op):
 
 def is_global_norm_sync_op(op):
     return (
-        op.type == "c_allreduce_sum"
+        (
+            op.type == "c_allreduce_sum"
+            or (
+                op.type == "all_reduce"
+                and op.desc.attr("reduce_type")
+                == paddle.distributed.ReduceOp.SUM
+            )
+        )
         and op.desc.has_attr("op_namescope")
         and SyncMode.GlobalNormSync in op.desc.attr("op_namescope")
     )
