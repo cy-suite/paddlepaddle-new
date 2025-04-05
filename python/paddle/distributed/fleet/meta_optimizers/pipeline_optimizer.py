@@ -308,12 +308,12 @@ class PipelineOptimizer(MetaOptimizerBase):
 
                     block._insert_op(
                         first_optimize_op_idx + offset,
-                        type='c_allreduce_sum',
+                        type='all_reduce',
                         inputs={'X': grad},
                         outputs={'Out': grad},
                         attrs={
                             'ring_id': ring_id,
-                            'use_calc_stream': True,
+                            'reduce_type': paddle.distributed.ReduceOp.SUM,
                             OP_ROLE_KEY: OpRole.Optimize,
                         },
                     )

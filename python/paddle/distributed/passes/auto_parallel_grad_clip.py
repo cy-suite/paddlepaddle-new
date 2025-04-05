@@ -482,7 +482,7 @@ class ClipGradByGlobalNormPass(PassBase):
 
                     allreduce_op = block._insert_op(
                         idx + offset,
-                        type='c_allreduce_sum',
+                        type='all_reduce',
                         inputs={'X': [input_var]},
                         outputs={'Out': [input_var]},
                         attrs={

@@ -244,7 +244,7 @@ class TensorParallelOptimizer(MetaOptimizerBase):
 
                     block._insert_op(
                         offset,
-                        type='c_allreduce_sum',
+                        type='all_reduce',
                         inputs={'X': grad},
                         outputs={'Out': grad},
                         attrs={
