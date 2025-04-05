@@ -423,7 +423,7 @@ def build_dp_costs(
     if not has_found:
         return
 
-    c_allreduce_sum_descs = build_comm_desc_from_dist_op(
+    all_reduce_sum_descs = build_comm_desc_from_dist_op(
         "all_reduce",
         dist_op,
         ctx,
@@ -435,7 +435,7 @@ def build_dp_costs(
         _g_op_cost_factory["all_reduce"],
         ctx,
         processes,
-        c_allreduce_sum_descs,
+        all_reduce_sum_descs,
         cluster,
         is_dp=True,
     )
