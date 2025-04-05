@@ -1295,7 +1295,7 @@ class TestDecoderLayerPartitioner(unittest.TestCase):
         dist_ops = [op.type for op in dist_ops]
         ref_ops = [
             'c_embedding',
-            'all_reduce',
+            'c_allreduce_sum',
             'lookup_table_v2',
             'elementwise_add',
             'dropout',
