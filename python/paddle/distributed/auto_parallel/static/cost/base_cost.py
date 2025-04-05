@@ -31,6 +31,7 @@ COMM_OP_TYPE = [
     "all_gather",
     "all_reduce",
     "c_allreduce_sum",
+    "all_reduce",
     "c_identity",
 ]
 NON_COMP_TYPE = ["while", *COMM_OP_TYPE]
