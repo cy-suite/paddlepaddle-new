@@ -136,7 +136,7 @@ bool InstanceCheckGuard::check(PyObject* value) {
   return PyObject_IsInstance(value, expected_);
 }
 
-bool NumpyDtypeMatchGuard::check(PyObject* value) {
+bool NumPyDtypeMatchGuard::check(PyObject* value) {
   if (value == nullptr) {
     return false;
   }
@@ -162,6 +162,14 @@ bool NumPyArrayValueMatchGuard::check(PyObject* value) {
       .attr("__eq__")(py_value)
       .attr("all")()
       .cast<bool>();
+}
+
+bool PyObjMatchGuard::check(PyObject* value) {
+  if (value == nullptr || expected_ == nullptr || Py_IsNone(expected_)) {
+    return false;
+  }
+
+  return PyObject_Equal(expected_, value);
 }
 
 PyObject* ConstantExprNode::eval(FrameProxy* frame) { return value_ptr_; }
