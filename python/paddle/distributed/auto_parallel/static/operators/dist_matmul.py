@@ -14,6 +14,7 @@
 
 import copy
 
+import paddle
 from paddle.distributed.auto_parallel.static.cost.comm_op_cost import (
     AllreduceSumOpCost,
     IdentityOpCost,
@@ -1781,13 +1782,12 @@ class DistributedMatmulV2Impl1(DistributedOperatorImpl):
         )
 
         c_allreduce_sum_op = main_block.append_op(
-            type='c_allreduce_sum',
-            inputs={'X': Out_var},
-            outputs={'Out': Out_var},
+            type='all_reduce',
+            inputs={'x': Out_var},
+            outputs={'out': Out_var},
             attrs={
                 'ring_id': group.id,
-                'use_calc_stream': True,
-                'use_model_parallel': True,
+                'reduce_type': paddle.distributed.ReduceOp.SUM,
                 OP_ROLE_KEY: src_op.attr('op_role'),
             },
         )
