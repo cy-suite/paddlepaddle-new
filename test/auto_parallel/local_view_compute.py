@@ -21,8 +21,8 @@ import paddle.distributed as dist
 from paddle.distributed import ProcessMesh, fleet, get_rank, shard_dataloader
 from paddle.io import BatchSampler, DataLoader, DistributedBatchSampler
 
-base_lr = 0.01  # Learning rate
-l2_decay = 1e-4  # Weight decay
+base_lr = 0.001  # Learning rate
+l2_decay = 1e-5  # Weight decay
 
 epoch = 5  # Number of training epochs
 batch_num = 100  # Number of batches per epoch
@@ -68,9 +68,9 @@ def masked_lm_loss_func(pred, label, global_local_loss_list_item=None):
     """自定义损失函数，基于rank进行掩码"""
     lossmask = paddle.zeros_like(label).astype('float32')
     if dist.get_rank() == 0:
-        lossmask[:3] = 1
+        lossmask[:8] = 1
     else:
-        lossmask[4:9] = 1
+        lossmask[8:16] = 1
 
     pred_sub = pred[:, 0:1]  # shape [B,1]
     label_float = paddle.cast(label, 'float32')  # shape [B,1]
@@ -111,10 +111,9 @@ class TestLocalViewCompute:
         return datasets
 
     def run_test_cases(self):
+        # run_dy_hand_get_local_loss
         self.set_random_seed()
         dataset = self.create_dataset()
-
-        # run_dy_hand_get_local_loss
         dist_strategy = fleet.DistributedStrategy()
         dist_strategy.hybrid_configs = {
             "dp_degree": 2,
@@ -126,10 +125,12 @@ class TestLocalViewCompute:
         model = SimpleNet(
             input_size=256, inner_size=102400, output_size=class_dim
         )
+        clip = paddle.nn.ClipGradByGlobalNorm(clip_norm=1.0)
         optimizer = paddle.optimizer.AdamW(
             learning_rate=base_lr,
             weight_decay=l2_decay,
             parameters=model.parameters(),
+            grad_clip=clip,
         )
 
         model = fleet.distributed_model(model)
@@ -147,7 +148,6 @@ class TestLocalViewCompute:
         )
 
         model.train()
-        loss_list = []
         for batch_id, data in enumerate(train_loader()):
             if batch_id > 10:
                 break
@@ -163,6 +163,8 @@ class TestLocalViewCompute:
             global_local_loss_list.append(avg_loss.numpy())
 
         # run_dy_semi_auto
+        self.set_random_seed()
+        dataset = self.create_dataset()
         world_process_mesh = ProcessMesh([0, 1], dim_names=["dp"])
         model = SimpleNet(
             input_size=256, inner_size=102400, output_size=class_dim
@@ -171,6 +173,7 @@ class TestLocalViewCompute:
             learning_rate=base_lr,
             weight_decay=l2_decay,
             parameters=model.parameters(),
+            grad_clip=clip,
         )
 
         sampler = BatchSampler(
