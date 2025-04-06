@@ -142,6 +142,10 @@ SET_NCCL_COMMCONTEXT = """
 # 1. InferSPMD
 SINGLE_DIST_META_IN_TEMPLATE = """
     auto meta_dist_input_{name} = MakeDistMetaTensor(*{name}.impl());"""
+SINGLE_DIST_BATCH_DIM_TEMPLATE = """
+        int64_t dist_input_batch_dim_{name} = static_cast<phi::distributed::DistTensor*>({name}.impl().get())->batch_dim();"""
+DEFAULT_DIST_BATCH_DIM_TEMPLATE = """
+        int64_t dist_input_batch_dim_{name} = 0;"""
 VECTOR_DIST_META_IN_TEMPLATE = """
     std::vector<phi::distributed::DistMetaTensor> meta_dist_input_{name};
     for(auto& e : {name}) {{
@@ -156,12 +160,23 @@ OPTIONAL_VECTOR_DIST_META_IN_TEMPLATE = """
             meta_dist_input_{name}.push_back(MakeDistMetaTensor(*e.impl()));
         }}
     }}"""
+
 INFER_SPMD_TEMPLATE = """
     auto spmd_info = phi::distributed::{}({});
+    if (FLAGS_disable_dp_batch_spmd) {{
+        {}
+        std::vector<int64_t> input_batch_dim = {{ {} }};
+        phi::distributed::DisableDpSpmd(&spmd_info, input_batch_dim);
+    }}
     DebugInfoForInferSpmd("{}", spmd_info);
 """
 GENERAL_INFER_SPMD_TEMPLATE = """
     auto spmd_info = phi::distributed::VariadicReplicatedInferSpmdDynamic({});
+    if (FLAGS_disable_dp_batch_spmd) {{
+        {}
+        std::vector<int64_t> input_batch_dim = {{ {} }};
+        phi::distributed::DisableDpSpmd(&spmd_info, input_batch_dim);
+    }}
     DebugInfoForInferSpmd("{}", spmd_info);
 """
 UNSUPPORTED_INFER_SPMD_COMMENT_TEMPLATE = """
@@ -950,6 +965,8 @@ class DistForwardAPI(ForwardAPI):
 
         input_decl_code = ""
         input_args_code = ""
+        input_dims_code = ""
+        input_dims_args_code = ""
         for param in kernel_params:
             if param in input_names:
                 if self.inputs['input_info'][param] == "const Tensor&":
@@ -957,6 +974,12 @@ class DistForwardAPI(ForwardAPI):
                         name=param
                     )
                     input_args_code += "meta_dist_input_" + param + ", "
+                    input_dims_code += SINGLE_DIST_BATCH_DIM_TEMPLATE.format(
+                        name=param
+                    )
+                    input_dims_args_code += (
+                        "dist_input_batch_dim_" + param + ", "
+                    )
                 elif (
                     self.inputs['input_info'][param]
                     == "const paddle::optional<Tensor>&"
@@ -965,6 +988,12 @@ class DistForwardAPI(ForwardAPI):
                         OPTIONAL_SINGLE_DIST_META_IN_TEMPLATE.format(name=param)
                     )
                     input_args_code += "meta_dist_input_" + param + ", "
+                    input_dims_code += DEFAULT_DIST_BATCH_DIM_TEMPLATE.format(
+                        name=param
+                    )
+                    input_dims_args_code += (
+                        "dist_input_batch_dim_" + param + ", "
+                    )
                 elif (
                     self.inputs['input_info'][param]
                     == "const std::vector<Tensor>&"
@@ -973,6 +1002,12 @@ class DistForwardAPI(ForwardAPI):
                         name=param
                     )
                     input_args_code += "meta_dist_input_" + param + ", "
+                    input_dims_code += DEFAULT_DIST_BATCH_DIM_TEMPLATE.format(
+                        name=param
+                    )
+                    input_dims_args_code += (
+                        "dist_input_batch_dim_" + param + ", "
+                    )
                 elif (
                     self.inputs['input_info'][param]
                     == "const paddle::optional<Tensor>&"
@@ -981,7 +1016,12 @@ class DistForwardAPI(ForwardAPI):
                         OPTIONAL_SINGLE_DIST_META_IN_TEMPLATE.format(name=param)
                     )
                     input_args_code += "meta_dist_input_" + param + ", "
-
+                    input_dims_code += DEFAULT_DIST_BATCH_DIM_TEMPLATE.format(
+                        name=param
+                    )
+                    input_dims_args_code += (
+                        "dist_input_batch_dim_" + param + ", "
+                    )
                 else:
                     raise ValueError(
                         f"{self.api} : Param of infer_spmd error : {self.inputs['input_info'][param]} type is not supported."
@@ -1003,6 +1043,8 @@ class DistForwardAPI(ForwardAPI):
         infer_spmd_code = INFER_SPMD_TEMPLATE.format(
             infer_spmd_func_code,
             input_args_code[:-2],
+            input_dims_code,
+            input_dims_args_code[:-2],
             self.api,
         )
         self.generate_infer_spmd = True
@@ -1021,6 +1063,8 @@ class DistForwardAPI(ForwardAPI):
 
         input_decl_code = ""
         input_args_code = ""
+        input_dims_code = ""
+        input_dims_args_code = ""
         for param in kernel_params:
             if param in input_names:
                 if self.inputs['input_info'][param] == "const Tensor&":
@@ -1028,6 +1072,12 @@ class DistForwardAPI(ForwardAPI):
                         name=param
                     )
                     input_args_code += "meta_dist_input_" + param + ", "
+                    input_dims_code += SINGLE_DIST_BATCH_DIM_TEMPLATE.format(
+                        name=param
+                    )
+                    input_dims_args_code += (
+                        "dist_input_batch_dim_" + param + ", "
+                    )
                 elif (
                     self.inputs['input_info'][param]
                     == "const paddle::optional<Tensor>&"
@@ -1036,6 +1086,12 @@ class DistForwardAPI(ForwardAPI):
                         OPTIONAL_SINGLE_DIST_META_IN_TEMPLATE.format(name=param)
                     )
                     input_args_code += "meta_dist_input_" + param + ", "
+                    input_dims_code += DEFAULT_DIST_BATCH_DIM_TEMPLATE.format(
+                        name=param
+                    )
+                    input_dims_args_code += (
+                        "dist_input_batch_dim_" + param + ", "
+                    )
                 elif (
                     self.inputs['input_info'][param]
                     == "const std::vector<Tensor>&"
@@ -1044,6 +1100,12 @@ class DistForwardAPI(ForwardAPI):
                         name=param
                     )
                     input_args_code += "meta_dist_input_" + param + ", "
+                    input_dims_code += DEFAULT_DIST_BATCH_DIM_TEMPLATE.format(
+                        name=param
+                    )
+                    input_dims_args_code += (
+                        "dist_input_batch_dim_" + param + ", "
+                    )
                 elif (
                     self.inputs['input_info'][param]
                     == "const paddle::optional<std::vector<Tensor>>&"
@@ -1052,6 +1114,12 @@ class DistForwardAPI(ForwardAPI):
                         OPTIONAL_VECTOR_DIST_META_IN_TEMPLATE.format(name=param)
                     )
                     input_args_code += "meta_dist_input_" + param + ", "
+                    input_dims_code += DEFAULT_DIST_BATCH_DIM_TEMPLATE.format(
+                        name=param
+                    )
+                    input_dims_args_code += (
+                        "dist_input_batch_dim_" + param + ", "
+                    )
                 else:
                     raise ValueError(
                         f"{self.api} : Param of infer_spmd error : {self.inputs['input_info'][param]} type is not supported."
@@ -1065,6 +1133,8 @@ class DistForwardAPI(ForwardAPI):
 
         infer_spmd_code = GENERAL_INFER_SPMD_TEMPLATE.format(
             input_args_code[:-2],
+            input_dims_code,
+            input_dims_args_code[:-2],
             self.api,
         )
         self.generate_infer_spmd = True

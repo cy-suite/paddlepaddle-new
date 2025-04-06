@@ -84,6 +84,7 @@ struct TEST_API DenseTensorMeta {
   LegacyLoD legacy_lod;
   size_t offset{0};
   DDim strides;
+  int64_t batch_dim{0};
 };
 
 inline bool operator==(const DenseTensorMeta& lhs, const DenseTensorMeta& rhs) {

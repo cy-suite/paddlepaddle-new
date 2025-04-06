@@ -445,6 +445,62 @@ PyObject* tensor_properties_get_process_mesh(TensorObject* self,
   EAGER_CATCH_AND_THROW_RETURN_NULL
 }
 
+int tensor_properties_set_batch_dim(TensorObject* self,
+                                    PyObject* value,
+                                    void* closure) {
+  EAGER_TRY
+  int64_t batch_dim = CastPyArg2AttrInt(value, 0);
+
+  if (self->tensor.is_dist_tensor()) {
+#ifdef PADDLE_WITH_DISTRIBUTE
+    phi::distributed::DistTensor* dist_tensor =
+        static_cast<phi::distributed::DistTensor*>(self->tensor.impl().get());
+    dist_tensor->set_batch_dim(batch_dim);
+    return 0;
+#else
+    PADDLE_THROW(common::errors::Unavailable(
+        "The `batch_dim` property of (Dist)Tensor is not supported in the "
+        "current PaddlePaddle, please recompile and install PaddlePaddle with "
+        "the "
+        "option of `WITH_DISTRIBUTE=ON`."));
+#endif
+  } else {
+    auto dense_tensor =
+        std::dynamic_pointer_cast<phi::DenseTensor>(self->tensor.impl());
+
+    dense_tensor->set_batch_dim(batch_dim);
+    return 0;
+  }
+  return -1;
+
+  EAGER_CATCH_AND_THROW_RETURN_NEG
+}
+
+PyObject* tensor_properties_get_batch_dim(TensorObject* self, void* closure) {
+  EAGER_TRY
+
+  if (self->tensor.is_dist_tensor()) {
+#ifdef PADDLE_WITH_DISTRIBUTE
+    phi::distributed::DistTensor* dist_tensor =
+        static_cast<phi::distributed::DistTensor*>(self->tensor.impl().get());
+    return ToPyObject(dist_tensor->batch_dim());
+#else
+    PADDLE_THROW(common::errors::Unavailable(
+        "The `batch_dim` property of (Dist)Tensor is not supported in the "
+        "current PaddlePaddle, please recompile and install PaddlePaddle with "
+        "the "
+        "option of `WITH_DISTRIBUTE=ON`."));
+#endif
+  } else {
+    auto dense_tensor =
+        std::dynamic_pointer_cast<phi::DenseTensor>(self->tensor.impl());
+    return ToPyObject(dense_tensor->batch_dim());
+  }
+
+  RETURN_PY_NONE
+  EAGER_CATCH_AND_THROW_RETURN_NULL
+}
+
 PyDoc_STRVAR(tensor_placements__doc__,  // NOLINT
              R"DOC(placements
 
@@ -941,6 +997,11 @@ PyObject* tensor_properties___dict__(TensorObject* self, void*) {
 }
 
 struct PyGetSetDef variable_properties[] = {  // NOLINT
+    {"batch_dim",
+     (getter)tensor_properties_get_batch_dim,
+     (setter)tensor_properties_set_batch_dim,
+     nullptr,
+     nullptr},
     {"data",
      (getter)tensor_properties_get_data,
      (setter)tensor_properties_set_data,

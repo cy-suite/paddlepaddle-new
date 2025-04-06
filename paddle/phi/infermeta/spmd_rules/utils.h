@@ -214,6 +214,9 @@ TensorDistAttr ReduceGradBroadCastDims(const TensorDistAttr& input,
 TensorDistAttr ReduceGradBroadCastDims(int64_t input_dims,
                                        const TensorDistAttr& grad);
 
+void DisableDpSpmd(SpmdInfo* infer_result,
+                   const std::vector<int64_t>& inputs_batch_dim);
+
 #define LogInputDistAttr(name, shape, src_dist_attr, dst_dist_attr)          \
   VLOG(4) << name << " shape: [" << str_join(shape) << "] "                  \
           << "src_dims_mapping: [" << str_join(src_dist_attr.dims_mapping()) \

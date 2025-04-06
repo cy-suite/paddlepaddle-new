@@ -85,6 +85,14 @@ class TEST_API DenseTensor : public TensorBase,
   /// \return The dims of the tensor.
   const DDim& dims() const noexcept override { return meta_.dims; }
 
+  /// \brief Returns the batch size dim
+  /// \return The batch size dim of the tensor.
+  int64_t batch_dim() const { return meta_.batch_dim; }
+
+  /// \brief Set the batch dim of the dist tensor.
+  /// \return void
+  void set_batch_dim(int64_t batch_dim) { meta_.batch_dim = batch_dim; }
+
   /// \brief Returns the stride of the tensor.
   /// \return The stride of the tensor.
   const DDim& strides() const noexcept { return meta_.strides; }

@@ -540,6 +540,7 @@ def source_include(header_file_path):
 PD_DECLARE_bool(conv2d_disable_cudnn);
 COMMON_DECLARE_int32(low_precision_op_list);
 COMMON_DECLARE_bool(benchmark);
+COMMON_DECLARE_bool(disable_dp_batch_spmd);
 """
 
 

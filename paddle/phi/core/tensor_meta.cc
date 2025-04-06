@@ -167,6 +167,7 @@ DenseTensorMeta::DenseTensorMeta(const DenseTensorMeta& other) {
   layout = other.layout;
   legacy_lod = other.legacy_lod;
   offset = other.offset;
+  batch_dim = other.batch_dim;
   if (other.strides.size() == -1) {
     strides = calc_strides(dims);
   } else {
@@ -182,6 +183,7 @@ DenseTensorMeta& DenseTensorMeta::operator=(const DenseTensorMeta& other) {
   layout = other.layout;
   legacy_lod = other.legacy_lod;
   offset = other.offset;
+  batch_dim = other.batch_dim;
   if (other.strides.size() == -1) {
     strides = calc_strides(dims);
   } else {
