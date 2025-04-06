@@ -29,6 +29,10 @@ static inline PyObject* PyObject_CallOneArg(PyObject* func, PyObject* arg) {
 }
 #endif
 
+#if !PY_3_10_PLUS
+#define Py_IsNone(x) ((x) == Py_None)
+#endif
+
 static inline bool PyObject_Equal(PyObject* a, PyObject* b) {
   if (a == b) {
     return true;
